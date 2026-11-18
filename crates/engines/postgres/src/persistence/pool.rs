@@ -8,20 +8,18 @@ use std::{
     time::Duration,
 };
 
+use kernel::{Error, Result};
 use prometheus::{
     IntGaugeVec, Opts,
     core::{Collector, Desc},
     proto::MetricFamily,
 };
+use settings::MetaDatabaseSettings;
+use signals::metrics::global_registry;
 use sqlx::{
     ConnectOptions, PgPool, SqlSafeStr,
     migrate::{Migration, MigrationType, Migrator},
     postgres::{PgConnectOptions, PgPoolOptions},
-};
-
-use crate::{
-    config::MetaDatabaseSettings,
-    shared::{Error, Result, metrics::global_registry},
 };
 
 static META_POOL: OnceLock<RwLock<Option<PgPool>>> = OnceLock::new();
@@ -214,6 +212,13 @@ mod tests {
     const IAM_ROUTE_CATALOG_SQL: &str =
         include_str!("../migrations/20260101000003_iam_route_catalog.sql");
 
+    /// Whether the initial baseline holds `fragment`, whatever the spacing between its words.
+    fn has(fragment: &str) -> bool {
+        let words = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+        words(INITIAL_SQL).contains(&words(fragment))
+    }
+
     #[test]
     fn pool_options_prewarms_the_configured_minimum() {
         let cfg = MetaDatabaseSettings {
@@ -280,12 +285,14 @@ mod tests {
         assert!(INITIAL_SQL.contains("trg_status_page_incidents_components"));
         assert!(INITIAL_SQL.contains("trg_status_page_components_named"));
         assert!(!INITIAL_SQL.contains("CREATE TABLE status_page_automation_settings"));
-        assert!(INITIAL_SQL.contains("ADD COLUMN automation_paused BOOLEAN"));
+        assert!(has("automation_paused BOOLEAN NOT NULL DEFAULT FALSE"));
         assert!(INITIAL_SQL.contains("fk_status_page_incidents_source"));
         assert!(!INITIAL_SQL.contains("'alert.status.pages'"));
-        assert!(INITIAL_SQL.contains("ADD COLUMN languages TEXT[]"));
+        assert!(has(
+            "languages TEXT[] NOT NULL DEFAULT ARRAY['en-us']::TEXT[]"
+        ));
         assert!(INITIAL_SQL.contains("chk_status_pages_languages"));
-        assert!(INITIAL_SQL.contains("ADD COLUMN history_days INTEGER"));
+        assert!(has("history_days INTEGER NOT NULL DEFAULT 90"));
         assert!(INITIAL_SQL.contains("chk_status_pages_history_days"));
         assert!(INITIAL_SQL.contains("CREATE TABLE status_page_component_status_events"));
         assert!(INITIAL_SQL.contains("uq_status_page_component_status_events_open"));
@@ -335,9 +342,9 @@ mod tests {
 
     #[test]
     fn planned_maintenance_options_default_to_off_in_the_schema() {
-        assert!(INITIAL_SQL.contains("ADD COLUMN auto_start BOOLEAN NOT NULL DEFAULT FALSE"));
-        assert!(INITIAL_SQL.contains("ADD COLUMN reminder_minutes INTEGER NOT NULL DEFAULT 0"));
-        assert!(INITIAL_SQL.contains("ADD COLUMN reminded_start TIMESTAMPTZ"));
+        assert!(has("auto_start BOOLEAN NOT NULL DEFAULT FALSE"));
+        assert!(has("reminder_minutes INTEGER NOT NULL DEFAULT 0"));
+        assert!(has("reminded_start TIMESTAMPTZ"));
         assert!(INITIAL_SQL.contains("chk_status_page_incident_planned_kind"));
         assert!(INITIAL_SQL.contains("idx_status_page_incidents_planned"));
     }
@@ -413,8 +420,8 @@ mod tests {
 
     #[test]
     fn components_keep_their_dependencies_and_the_health_worked_out_from_them() {
-        assert!(INITIAL_SQL.contains("ADD COLUMN dependencies JSONB NOT NULL DEFAULT '[]'::JSONB"));
-        assert!(INITIAL_SQL.contains("ADD COLUMN dependency_status VARCHAR(32)"));
+        assert!(has("dependencies JSONB NOT NULL DEFAULT '[]'::JSONB"));
+        assert!(has("dependency_status VARCHAR(32)"));
         assert!(INITIAL_SQL.contains("chk_status_page_components_group_dependencies"));
         assert!(INITIAL_SQL.contains("'synthetic_monitor', 'component_dependencies'"));
         assert!(!INITIAL_SQL.contains("business_service"));
@@ -423,26 +430,23 @@ mod tests {
 
     #[test]
     fn iam_lists_and_counters_live_with_their_owners() {
-        let (_, consolidation) = INITIAL_SQL
-            .rsplit_once("-- IAM catalog consolidation")
-            .expect("IAM consolidation section");
-
         for merged in [
             "iam_role_permissions",
+            "iam_permission_bundles",
             "iam_permission_bundle_items",
             "iam_policy_versions",
             "iam_permission_catalog_versions",
         ] {
             assert!(
-                consolidation.contains(&format!("DROP TABLE {merged};")),
-                "{merged} must be folded into its owner"
+                !INITIAL_SQL.contains(merged),
+                "{merged} is an array or a column of its owner"
             );
         }
 
-        assert!(consolidation.contains("CREATE TABLE iam_catalog_versions"));
-        assert!(consolidation.contains("ADD COLUMN iam_policy_version BIGINT"));
-        assert!(consolidation.contains("FUNCTION check_iam_permission_keys()"));
-        assert!(consolidation.contains("FUNCTION release_iam_permission()"));
+        assert!(INITIAL_SQL.contains("CREATE TABLE iam_catalog_versions"));
+        assert!(has("iam_policy_version BIGINT NOT NULL DEFAULT 1"));
+        assert!(INITIAL_SQL.contains("FUNCTION check_iam_permission_keys()"));
+        assert!(INITIAL_SQL.contains("FUNCTION release_iam_permission()"));
         assert!(!IAM_ROUTE_CATALOG_SQL.contains("iam_route_catalog_versions"));
     }
 
@@ -450,7 +454,6 @@ mod tests {
     fn builtin_roles_are_rows_of_iam_roles() {
         assert!(!INITIAL_SQL.contains("iam_builtin_role"));
 
-        assert!(INITIAL_SQL.contains("ALTER COLUMN org_id DROP NOT NULL"));
         assert!(INITIAL_SQL.contains("CONSTRAINT chk_iam_roles_builtin_row"));
         assert!(INITIAL_SQL.contains("uq_iam_roles_builtin_key"));
         assert!(INITIAL_SQL.contains("uq_iam_roles_builtin_purpose"));
@@ -465,13 +468,13 @@ mod tests {
         assert!(release.contains("WHERE org_id IS NULL"));
     }
 
-    /// The last definition of a trigger function in the baseline is the one that runs.
+    /// The definition of a trigger function in the baseline.
     fn effective_function(name: &str) -> &'static str {
-        let header = format!("CREATE OR REPLACE FUNCTION {name}()");
+        let header = format!("CREATE FUNCTION {name}()");
 
         let start = INITIAL_SQL
-            .rfind(&header)
-            .expect("the baseline redefines the function");
+            .find(&header)
+            .expect("the baseline defines the function");
 
         let definition = &INITIAL_SQL[start..];
 

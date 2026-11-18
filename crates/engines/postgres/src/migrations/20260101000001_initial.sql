@@ -1,8 +1,9 @@
 -- MoleSignal 初始 schema。
 --
 -- 首次发布前只维护这一份 schema 文件；开发环境在结构变化后重建数据库。
--- 各段按依赖顺序执行，保留少量同一事务内的 ALTER / RENAME，以避免复制复杂
--- 表定义并确保最终 schema 与开发期验证过的执行序列一致。
+-- Sections run in dependency order. A table is written whole in its CREATE TABLE;
+-- ALTER TABLE adds only the keys that reference a table or a unique key created
+-- later, once both exist.
 --
 -- 列类型约定：
 --   - 主键 / 外键引用 → VARCHAR(64)（KSUID 或 UUID 字符串）
@@ -23,9 +24,26 @@ AS $$ SELECT (EXTRACT(EPOCH FROM ts) * 1000000)::BIGINT $$;
 CREATE TABLE IF NOT EXISTS organizations (
     id                  VARCHAR(64) PRIMARY KEY,
     name                VARCHAR(255) NOT NULL,
-    slug                VARCHAR(64)  NOT NULL UNIQUE,
+    slug                VARCHAR(64)  NOT NULL,
     disabled            BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at          TIMESTAMPTZ  NOT NULL
+    created_at          TIMESTAMPTZ  NOT NULL,
+    -- When the organization was deleted. A deleted organization is disabled and
+    -- hidden; a background purge removes its data, then the row.
+    deleted_at          TIMESTAMPTZ,
+    -- The email domains an organization admits, in order; an empty list admits
+    -- every domain.
+    email_domains       TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
+    system              BOOLEAN      NOT NULL DEFAULT FALSE,
+    CONSTRAINT chk_organizations_email_domains
+        CHECK (array_position(email_domains, NULL) IS NULL),
+    -- Bumped whenever the organization's IAM changes, so cached access is read again.
+    iam_policy_version  BIGINT       NOT NULL DEFAULT 1,
+    CONSTRAINT chk_organizations_system_identity
+        CHECK (NOT system OR (name = '_sys' AND slug = '_sys' AND NOT disabled)),
+    CONSTRAINT chk_organizations_iam_policy_version
+        CHECK (iam_policy_version > 0),
+    CONSTRAINT chk_organizations_deleted_disabled
+        CHECK (deleted_at IS NULL OR disabled)
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -38,7 +56,8 @@ CREATE TABLE IF NOT EXISTS users (
     status              VARCHAR(16)  NOT NULL DEFAULT 'active',
     created_at          TIMESTAMPTZ  NOT NULL,
     -- 早于这个时间开始的登录作废：开关多因素认证、重置密码、被管理员重置、退出其他设备时写入。
-    sessions_valid_after        TIMESTAMPTZ NOT NULL DEFAULT 'epoch'
+    sessions_valid_after        TIMESTAMPTZ NOT NULL DEFAULT 'epoch',
+    bio                 TEXT         NOT NULL DEFAULT ''
 );
 
 -- 实例级（全局，非 per-org）设置：单行单例，承载控制面与数据入口策略。
@@ -160,14 +179,13 @@ CREATE TABLE IF NOT EXISTS user_ui_preference (
     PRIMARY KEY (user_id, org_id, scope, preference_key)
 );
 
-CREATE TABLE IF NOT EXISTS memberships (
+CREATE TABLE IF NOT EXISTS iam_memberships (
     user_id             VARCHAR(64) NOT NULL,
     org_id              VARCHAR(64) NOT NULL,
-    role                VARCHAR(16) NOT NULL,
     joined_at           TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (user_id, org_id)
 );
-CREATE INDEX IF NOT EXISTS idx_memberships_org ON memberships(org_id);
+CREATE INDEX IF NOT EXISTS idx_iam_memberships_org ON iam_memberships(org_id);
 
 CREATE TABLE IF NOT EXISTS teams (
     id          VARCHAR(64) PRIMARY KEY,
@@ -179,38 +197,62 @@ CREATE INDEX IF NOT EXISTS idx_teams_org ON teams(org_id);
 -- 「我在哪些团队」「是否成员」：member_ids @> '["<user>"]'。
 CREATE INDEX IF NOT EXISTS idx_teams_member_ids ON teams USING GIN (member_ids);
 
+-- Built-in roles are rows of iam_roles without an organization. Every
+-- organization gets a copy of the organization roles, and `_sys` of the
+-- platform roles: a binding, token, invitation or relationship names a role
+-- together with its organization, so it always names a copy, never the
+-- built-in row. `display_priority` orders the built-in roles in lists, and
+-- `purpose` is the stable business use a built-in role serves; both belong to
+-- the built-in row only.
 CREATE TABLE IF NOT EXISTS iam_roles (
     id                  VARCHAR(64)  PRIMARY KEY,
-    org_id              VARCHAR(64)  NOT NULL,
+    org_id              VARCHAR(64),
     role_key            VARCHAR(64)  NOT NULL,
     name                VARCHAR(128) NOT NULL,
     description         TEXT         NOT NULL DEFAULT '',
     builtin             BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ  NOT NULL,
     updated_at          TIMESTAMPTZ  NOT NULL,
+    role_type           VARCHAR(16)  NOT NULL DEFAULT 'organization',
+    scope               VARCHAR(16)  NOT NULL DEFAULT 'organization',
+    display_priority    INTEGER,
+    purpose             VARCHAR(64),
+    -- What the role grants of its own, sorted; with the policies it attaches,
+    -- read through iam_role_grants.
+    permissions         TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
+    -- Policies of its own organization or built-in ones.
+    policy_ids          TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
     CONSTRAINT chk_iam_roles_role_key
-        CHECK (role_key ~ '^[a-z][a-z0-9_]{1,63}$')
+        CHECK (role_key ~ '^[a-z][a-z0-9_]{1,63}$'),
+    CONSTRAINT chk_iam_roles_role_type
+        CHECK (role_type IN ('platform', 'organization', 'resource')),
+    CONSTRAINT chk_iam_roles_scope
+        CHECK (scope IN ('platform', 'organization', 'resource')),
+    CONSTRAINT chk_iam_roles_builtin_row
+        CHECK (
+            (org_id IS NULL AND builtin AND display_priority IS NOT NULL)
+            OR (org_id IS NOT NULL AND display_priority IS NULL AND purpose IS NULL)
+        ),
+    CONSTRAINT chk_iam_roles_permissions
+        CHECK (array_position(permissions, NULL) IS NULL),
+    CONSTRAINT chk_iam_roles_policy_ids
+        CHECK (array_position(policy_ids, NULL) IS NULL)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_iam_roles_org_key ON iam_roles(org_id, role_key);
 CREATE INDEX IF NOT EXISTS idx_iam_roles_org ON iam_roles(org_id);
-
-CREATE TABLE IF NOT EXISTS iam_role_permissions (
-    role_id         VARCHAR(64) NOT NULL,
-    permission_key  VARCHAR(64) NOT NULL,
-    PRIMARY KEY (role_id, permission_key)
-);
-CREATE INDEX IF NOT EXISTS idx_iam_role_permissions_role ON iam_role_permissions(role_id);
 
 CREATE TABLE IF NOT EXISTS invitations (
     id                  VARCHAR(64)  PRIMARY KEY,
     org_id              VARCHAR(64)  NOT NULL,
     email               VARCHAR(255) NOT NULL,
-    role                VARCHAR(32)  NOT NULL,
     inviter_id          VARCHAR(64)  NOT NULL,
     status              VARCHAR(32)  NOT NULL,
     sent_at             TIMESTAMPTZ  NOT NULL,
-    updated_at          TIMESTAMPTZ  NOT NULL
+    updated_at          TIMESTAMPTZ  NOT NULL,
+    role_id             VARCHAR(64)  NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_invitations_role_id
+    ON invitations (org_id, role_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_org_status
     ON invitations(org_id, status);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_invitations_org_email_pending
@@ -270,6 +312,8 @@ CREATE TABLE IF NOT EXISTS sso_link_requests (
     created_at           TIMESTAMPTZ  NOT NULL,
     expires_at           TIMESTAMPTZ  NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_sso_link_requests_provider_id
+    ON sso_link_requests (provider_id);
 CREATE INDEX IF NOT EXISTS idx_sso_link_requests_user
     ON sso_link_requests(user_id, expires_at);
 
@@ -287,6 +331,8 @@ CREATE TABLE IF NOT EXISTS sso_signin_tests (
     started_at           TIMESTAMPTZ  NOT NULL,
     finished_at          TIMESTAMPTZ
 );
+CREATE INDEX IF NOT EXISTS idx_sso_signin_tests_started_by
+    ON sso_signin_tests (started_by);
 CREATE INDEX IF NOT EXISTS idx_sso_signin_tests_provider
     ON sso_signin_tests(provider_id, started_at DESC);
 
@@ -321,7 +367,7 @@ CREATE TABLE IF NOT EXISTS one_time_tokens (
     used_at             TIMESTAMPTZ,
     CONSTRAINT chk_one_time_tokens_kind
         CHECK (kind IN ('sso_login', 'sso_handoff', 'signup', 'password_reset', 'file_download',
-                        'mfa_challenge', 'im_link'))
+                        'mfa_challenge', 'im_link', 'notify_action'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_one_time_tokens_id
     ON one_time_tokens(kind, id) WHERE id IS NOT NULL;
@@ -375,7 +421,6 @@ CREATE TABLE IF NOT EXISTS signin_attempts (
 );
 CREATE INDEX IF NOT EXISTS idx_signin_attempts_expires ON signin_attempts(expires_at);
 
-
 -- 账号的 Passkey（WebAuthn 凭据）。passkey 是 webauthn-rs 存下的凭据：公钥、签名计数、备份状态，都不是
 -- 密文。aaguid 是浏览器报告的验证器型号，只用来显示来源（iCloud 钥匙串、Google 密码管理器等）。
 CREATE TABLE IF NOT EXISTS user_passkeys (
@@ -390,7 +435,6 @@ CREATE TABLE IF NOT EXISTS user_passkeys (
 );
 CREATE INDEX IF NOT EXISTS idx_user_passkeys_user
     ON user_passkeys(user_id, created_at);
-
 
 -- ============================================================
 -- Service accounts / API tokens / audit / signing secrets
@@ -408,6 +452,8 @@ CREATE TABLE IF NOT EXISTS service_accounts (
     updated_at          TIMESTAMPTZ  NOT NULL,
     deleted_at          TIMESTAMPTZ
 );
+CREATE INDEX IF NOT EXISTS idx_service_accounts_role_id
+    ON service_accounts (org_id, role_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_service_accounts_org_id
     ON service_accounts(org_id, id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_service_accounts_org_name_active
@@ -476,6 +522,10 @@ CREATE TABLE IF NOT EXISTS api_tokens (
                 AND plaintext_sealed IS NOT NULL AND plaintext_nonce IS NOT NULL)
         )
 );
+CREATE INDEX IF NOT EXISTS idx_api_tokens_service_account_id
+    ON api_tokens (org_id, service_account_id);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_policy_id
+    ON api_tokens (policy_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_api_tokens_prefix ON api_tokens(prefix);
 CREATE INDEX IF NOT EXISTS idx_api_token_org
     ON api_tokens(org_id, created_at DESC);
@@ -524,23 +574,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_signing_primary
     ON signing_secrets(kind) WHERE is_primary;
 CREATE INDEX IF NOT EXISTS idx_signing_active
     ON signing_secrets(kind, retired_at);
-
-CREATE TABLE IF NOT EXISTS rbac_policies (
-    id                VARCHAR(64)  PRIMARY KEY,
-    org_id            VARCHAR(64)  NOT NULL,
-    subject_kind      VARCHAR(16)  NOT NULL,    -- user | team | role
-    subject_id        VARCHAR(64)  NOT NULL,
-    action            VARCHAR(32)  NOT NULL,
-    resource_kind     VARCHAR(32)  NOT NULL,
-    resource_id       VARCHAR(255),
-    effect            VARCHAR(8)   NOT NULL,    -- allow | deny
-    created_by        VARCHAR(64)  NOT NULL,
-    created_at        TIMESTAMPTZ  NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_rbac_org_subject
-    ON rbac_policies(org_id, subject_kind, subject_id);
-CREATE INDEX IF NOT EXISTS idx_rbac_resource
-    ON rbac_policies(org_id, resource_kind, resource_id);
 
 -- ============================================================
 -- Logical streams & unified file catalog
@@ -611,10 +644,6 @@ CREATE TABLE IF NOT EXISTS physical_datasets (
     created_at           TIMESTAMPTZ NOT NULL,
     updated_at           TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (org_id, id),
-    CONSTRAINT fk_physical_datasets_stream
-        FOREIGN KEY (org_id, logical_stream_id)
-        REFERENCES logical_streams (org_id, id)
-        ON DELETE CASCADE,
     CONSTRAINT uniq_physical_datasets_dataset_type
         UNIQUE (org_id, logical_stream_id, dataset_type)
 );
@@ -645,7 +674,6 @@ CREATE TABLE IF NOT EXISTS catalog_segments (
     CONSTRAINT fk_catalog_segments_dataset
         FOREIGN KEY (org_id, dataset_id)
         REFERENCES physical_datasets (org_id, id)
-        ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_catalog_segments_scan
     ON catalog_segments(org_id, dataset_id, state, partition_start);
@@ -679,8 +707,9 @@ CREATE TABLE IF NOT EXISTS catalog_artifacts (
     CONSTRAINT fk_catalog_artifacts_segment
         FOREIGN KEY (org_id, segment_id)
         REFERENCES catalog_segments (org_id, id)
-        ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_catalog_artifacts_segment_id
+    ON catalog_artifacts (org_id, segment_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_catalog_artifacts_object_key
     ON catalog_artifacts(org_id, object_key);
 -- 同一槽位只允许一个存活 Artifact；tombstoned 行等待延迟 GC 期间不占槽位，
@@ -711,7 +740,6 @@ CREATE TABLE IF NOT EXISTS storage_flush_commits (
     CONSTRAINT fk_storage_flush_commits_dataset
         FOREIGN KEY (org_id, dataset_id)
         REFERENCES physical_datasets (org_id, id)
-        ON DELETE CASCADE
 );
 
 -- 每个 (dataset, node, epoch) 已提交进 Catalog 的最高 WAL 序号。
@@ -727,7 +755,6 @@ CREATE TABLE IF NOT EXISTS wal_checkpoints (
     CONSTRAINT fk_wal_checkpoints_dataset
         FOREIGN KEY (org_id, dataset_id)
         REFERENCES physical_datasets (org_id, id)
-        ON DELETE CASCADE
 );
 
 -- 封存冷分区的不可变 Manifest 指针（Manifest 本体在 object store）。分区由起止与 shard 一起
@@ -751,7 +778,6 @@ CREATE TABLE IF NOT EXISTS partition_manifests (
     CONSTRAINT fk_partition_manifests_dataset
         FOREIGN KEY (org_id, dataset_id)
         REFERENCES physical_datasets (org_id, id)
-        ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_partition_manifests_object_key
     ON partition_manifests(org_id, object_key);
@@ -779,7 +805,6 @@ CREATE INDEX IF NOT EXISTS idx_object_gc_queue_due
 CREATE INDEX IF NOT EXISTS idx_catalog_artifacts_rebuild
     ON catalog_artifacts(org_id, state, updated_at)
     WHERE role = 'index' AND state IN ('pending', 'failed');
-
 
 -- ============================================================
 -- Dashboards / saved views / annotations / debug artifacts / short URLs
@@ -986,6 +1011,10 @@ CREATE TABLE IF NOT EXISTS rum_issues (
     CHECK (status <> 'resolved' OR resolved_at IS NOT NULL),
     CHECK (last_seen_at >= first_seen_at)
 );
+CREATE INDEX IF NOT EXISTS idx_rum_issues_team_id
+    ON rum_issues (team_id);
+CREATE INDEX IF NOT EXISTS idx_rum_issues_assignee_id
+    ON rum_issues (assignee_id);
 CREATE INDEX IF NOT EXISTS idx_rum_issues_application
     ON rum_issues (org_id, application_id, last_seen_at DESC);
 -- 告警按「窗口内第一次出现 / 回归」数问题。
@@ -1065,6 +1094,8 @@ CREATE TABLE IF NOT EXISTS rum_replay_comments (
         REFERENCES rum_applications (org_id, id) ON DELETE CASCADE,
     CHECK (btrim(body) <> '')
 );
+CREATE INDEX IF NOT EXISTS idx_rum_replay_comments_application_id
+    ON rum_replay_comments (org_id, application_id);
 CREATE INDEX IF NOT EXISTS idx_rum_replay_comments_session
     ON rum_replay_comments (org_id, session_id, at);
 CREATE INDEX IF NOT EXISTS idx_rum_replay_comments_age
@@ -1088,15 +1119,16 @@ CREATE TABLE IF NOT EXISTS rum_session_summaries (
     FOREIGN KEY (org_id, application_id)
         REFERENCES rum_applications (org_id, id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_rum_session_summaries_application_id
+    ON rum_session_summaries (org_id, application_id);
 CREATE INDEX IF NOT EXISTS idx_rum_session_summaries_age
     ON rum_session_summaries (generated_at);
 
 CREATE TABLE IF NOT EXISTS investigation_blobs (
     id                 VARCHAR(64)  PRIMARY KEY,
     org_id             VARCHAR(64)  NOT NULL,
-    -- 内容外置到对象存储：新行只留 object_key 指针，payload 可空以读旧行（双读迁移）。
-    payload            JSONB,
-    object_key         TEXT,
+    -- The content lives in the object store; the row only points at it.
+    object_key         TEXT         NOT NULL,
     created_at         TIMESTAMPTZ  NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_investigation_blobs_created
@@ -1105,7 +1137,7 @@ CREATE INDEX IF NOT EXISTS idx_investigation_blobs_org_id
     ON investigation_blobs(org_id, id);
 
 -- ============================================================
--- Alerting (rules / incidents / schedules / escalation / channels / deliveries)
+-- Alerting (rules / incidents / schedules / escalation / templates)
 -- ============================================================
 
 -- Alert rule 同时支持定时与异常检测，并可冻结通知模板内容。
@@ -1124,15 +1156,16 @@ CREATE TABLE IF NOT EXISTS alert_rules (
     last_state              JSONB        NOT NULL,
     kind                    VARCHAR(16)  NOT NULL DEFAULT 'scheduled',
     anomaly_params_json     JSONB,
-    body_template           TEXT,
     -- 多档严重度阈值：[{severity, operator, threshold, for_periods}]，空数组 = 走单档 trigger（历史行为）。
     thresholds              JSONB        NOT NULL DEFAULT '[]'::jsonb,
     -- 单档规则的显式兜底严重度（critical|error|warning|info）；NULL = 由评估器推导。
     severity                VARCHAR(16),
-    -- 关联的通知模板（alert_templates.id）；NULL = 用渠道默认格式。
-    template_id             VARCHAR(64),
+    -- The investigation guide: steps (Markdown), queries to run and dashboards to open when an
+    -- incident of the rule is looked into; an empty object when the rule has none.
+    guide                   JSONB        NOT NULL DEFAULT '{}'::jsonb,
     created_at              TIMESTAMPTZ  NOT NULL,
-    updated_at              TIMESTAMPTZ  NOT NULL
+    updated_at              TIMESTAMPTZ  NOT NULL,
+    CHECK (jsonb_typeof(guide) = 'object')
 );
 CREATE INDEX IF NOT EXISTS idx_alert_rules_org_enabled
     ON alert_rules(org_id, enabled);
@@ -1200,8 +1233,6 @@ CREATE TABLE IF NOT EXISTS incidents (
     acknowledged_by                 VARCHAR(64),
     resolved_at                     TIMESTAMPTZ,
     resolved_by                     VARCHAR(64),
-    -- 触发时 freeze 的通知模板正文（来自规则关联模板）；NULL = 用渠道默认格式。
-    body_template                   TEXT,
     -- 开事件时由路由定下的团队与分派经过（命中的规则、服务归属、团队标签或默认策略）。
     team_id                         VARCHAR(64),
     routing                         JSONB,
@@ -1383,6 +1414,8 @@ CREATE TABLE IF NOT EXISTS postmortem_action_items (
     created_at          TIMESTAMPTZ  NOT NULL,
     updated_at          TIMESTAMPTZ  NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_postmortem_action_items_postmortem_id
+    ON postmortem_action_items (postmortem_id);
 CREATE INDEX IF NOT EXISTS idx_postmortem_action_items_postmortem
     ON postmortem_action_items(org_id, postmortem_id);
 CREATE INDEX IF NOT EXISTS idx_incident_timeline_incident
@@ -1529,7 +1562,14 @@ CREATE TABLE IF NOT EXISTS schedules (
     rotations           JSONB        NOT NULL,
     overrides           JSONB        NOT NULL,
     created_at          TIMESTAMPTZ  NOT NULL,
-    updated_at          TIMESTAMPTZ  NOT NULL
+    updated_at          TIMESTAMPTZ  NOT NULL,
+    description         TEXT         NOT NULL DEFAULT '',
+    team_id             VARCHAR(64),
+    enabled             BOOLEAN      NOT NULL DEFAULT TRUE,
+    -- 换班申请对方接受后，还要有排班管理权限的人批准。
+    swap_needs_approval BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_by          VARCHAR(64),
+    updated_by          VARCHAR(64)
 );
 
 CREATE TABLE IF NOT EXISTS escalation_policies (
@@ -1551,42 +1591,45 @@ CREATE TABLE IF NOT EXISTS escalation_policies (
         CHECK (ack_retrigger_secs IS NULL OR ack_retrigger_secs BETWEEN 300 AND 86400)
 );
 
--- Alert channel 可覆盖规则级通知模板。
-CREATE TABLE IF NOT EXISTS notify_channels (
-    id              VARCHAR(64) PRIMARY KEY,
-    org_id          VARCHAR(64)  NOT NULL,
-    name            VARCHAR(255) NOT NULL,
-    kind            JSONB        NOT NULL,
-    enabled         BOOLEAN      NOT NULL,
-    body_template   TEXT,
-    -- 渠道级通知模板（alert_templates.id）；优先于规则级，NULL = 用规则级或默认格式。
-    template_id     VARCHAR(64)
+-- A template is for one channel, or for every channel when channel is NULL.
+-- SMS and phone templates may carry the templates a provider approved
+-- (Alibaba Cloud sends nothing else), keyed by provider:
+-- {"aliyun": {"code": "SMS_1", "params": {"name": "{{rule.name}}"}}}.
+-- An instant messaging template may carry the card IM apps send:
+-- {"title": "...", "color": "severity", "fields": [...], "links": [...], "note": "..."}.
+-- A policy may choose a template of its own for each channel.
+CREATE TABLE IF NOT EXISTS notify_templates (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    name                VARCHAR(255) NOT NULL,
+    body                TEXT         NOT NULL,
+    format              VARCHAR(16)  NOT NULL DEFAULT 'text',
+    created_at          TIMESTAMPTZ  NOT NULL,
+    updated_at          TIMESTAMPTZ  NOT NULL,
+    category            VARCHAR(32)  NOT NULL DEFAULT 'alert',
+    channel             VARCHAR(16),
+    provider_templates  JSONB        NOT NULL DEFAULT '{}'::JSONB,
+    card                JSONB,
+    CONSTRAINT chk_notify_template_category
+        CHECK (category IN (
+            'alert',
+            'oncall',
+            'escalation',
+            'report',
+            'security',
+            'system'
+        )),
+    CONSTRAINT chk_notify_template_channel
+        CHECK (channel IS NULL OR channel IN ('im', 'phone', 'sms', 'email', 'webhook')),
+    CONSTRAINT chk_notify_template_provider_templates
+        CHECK (jsonb_typeof(provider_templates) = 'object'),
+    CONSTRAINT chk_notify_template_card
+        CHECK (card IS NULL OR (channel = 'im' AND jsonb_typeof(card) = 'object'))
 );
-
-CREATE TABLE IF NOT EXISTS deliveries (
-    id                  VARCHAR(64) PRIMARY KEY,
-    incident_id         VARCHAR(64) NOT NULL,
-    channel_id          VARCHAR(64) NOT NULL,
-    target_user_id      VARCHAR(64),
-    status              VARCHAR(16) NOT NULL,
-    attempted_at        TIMESTAMPTZ NOT NULL,
-    finished_at         TIMESTAMPTZ,
-    error               TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_deliveries_incident
-    ON deliveries(incident_id);
-
-CREATE TABLE IF NOT EXISTS alert_templates (
-    id                VARCHAR(64)  PRIMARY KEY,
-    org_id            VARCHAR(64)  NOT NULL,
-    name              VARCHAR(255) NOT NULL,
-    body              TEXT         NOT NULL,
-    format            VARCHAR(16)  NOT NULL DEFAULT 'text',
-    created_at        TIMESTAMPTZ  NOT NULL,
-    updated_at        TIMESTAMPTZ  NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_alert_template_org_name
-    ON alert_templates(org_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_template_org_name
+    ON notify_templates(org_id, name);
+CREATE INDEX IF NOT EXISTS idx_notify_templates_org_category
+    ON notify_templates(org_id, category, name);
 
 CREATE TABLE IF NOT EXISTS regex_patterns (
     id                VARCHAR(64)  PRIMARY KEY,
@@ -1608,7 +1651,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_regex_pattern_org_name
 -- query execution uses raw data; masking is applied at the response boundary.
 CREATE TABLE IF NOT EXISTS field_masking_rules (
     id                VARCHAR(64)  PRIMARY KEY,
-    org_id            VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id            VARCHAR(64)  NOT NULL,
     name              VARCHAR(255) NOT NULL,
     priority          INTEGER      NOT NULL,
     enabled           BOOLEAN      NOT NULL DEFAULT true,
@@ -1732,7 +1775,10 @@ CREATE TABLE IF NOT EXISTS search_jobs (
     submitted_at        TIMESTAMPTZ  NOT NULL,
     started_at          TIMESTAMPTZ,
     finished_at         TIMESTAMPTZ,
-    expires_at          TIMESTAMPTZ  NOT NULL
+    expires_at          TIMESTAMPTZ  NOT NULL,
+    -- Bounded W3C correlation for delayed search/backfill execution. It is diagnostic linkage
+    -- and MUST NOT be used as an authorization source.
+    trace_link          JSONB
 );
 CREATE INDEX IF NOT EXISTS idx_search_job_state
     ON search_jobs(state, submitted_at);
@@ -2015,39 +2061,10 @@ CREATE TABLE IF NOT EXISTS remote_clusters (
 );
 
 -- ============================================================
--- : actions / copilot / marketplace / domains / AI toolsets
+-- Copilot / marketplace / domains / AI toolsets
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS actions (
-    id                 VARCHAR(64)  PRIMARY KEY,
-    org_id             VARCHAR(64)  NOT NULL,
-    name               VARCHAR(255) NOT NULL,
-    kind               JSONB        NOT NULL,    -- ActionKind 序列化（webhook | script）
-    enabled            BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at         TIMESTAMPTZ  NOT NULL,
-    updated_at         TIMESTAMPTZ  NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_actions_org_name
-    ON actions(org_id, name);
-
-CREATE TABLE IF NOT EXISTS action_executions (
-    id                  VARCHAR(64)  PRIMARY KEY,
-    action_id           VARCHAR(64)  NOT NULL,
-    org_id              VARCHAR(64)  NOT NULL,
-    incident_id         VARCHAR(64),
-    status              VARCHAR(16)  NOT NULL,    -- success | failed | timeout | skipped
-    status_code         INTEGER,
-    response_body       TEXT,
-    error               TEXT,
-    duration_ms         BIGINT       NOT NULL,
-    executed_at         TIMESTAMPTZ  NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_action_exec_action
-    ON action_executions(action_id, executed_at DESC);
-CREATE INDEX IF NOT EXISTS idx_action_exec_org
-    ON action_executions(org_id, executed_at DESC);
-
-CREATE TABLE IF NOT EXISTS chat_sessions (
+CREATE TABLE IF NOT EXISTS agent_chats (
     id                 VARCHAR(64)  PRIMARY KEY,
     org_id             VARCHAR(64)  NOT NULL,
     user_id            VARCHAR(64)  NOT NULL,
@@ -2093,19 +2110,19 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
         OR (scope = 'org' AND team_id IS NULL AND automation_id IS NOT NULL)
     )
 );
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_org_user
-    ON chat_sessions(org_id, user_id, updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_org_team
-    ON chat_sessions(org_id, team_id, updated_at DESC)
+CREATE INDEX IF NOT EXISTS idx_agent_chats_org_user
+    ON agent_chats(org_id, user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_chats_org_team
+    ON agent_chats(org_id, team_id, updated_at DESC)
     WHERE team_id IS NOT NULL AND deleted_at IS NULL;
 -- 软删过滤索引：正常 history 列表只看 deleted_at IS NULL 的会话。
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_org_user_active
-    ON chat_sessions(org_id, user_id, updated_at DESC)
+CREATE INDEX IF NOT EXISTS idx_agent_chats_org_user_active
+    ON agent_chats(org_id, user_id, updated_at DESC)
     WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS chat_messages (
+CREATE TABLE IF NOT EXISTS agent_messages (
     id                 VARCHAR(64)  PRIMARY KEY,
-    session_id         VARCHAR(64)  NOT NULL,
+    chat_id            VARCHAR(64)  NOT NULL,
     org_id             VARCHAR(64)  NOT NULL,
     role               VARCHAR(16)  NOT NULL,    -- system | user | assistant | tool
     content            TEXT         NOT NULL,
@@ -2134,8 +2151,8 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     -- 用户消息里用 @ 插入的引用：[{kind, id, label}]
     references_json      JSONB
 );
-CREATE INDEX IF NOT EXISTS idx_chat_messages_session
-    ON chat_messages(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_messages_chat
+    ON agent_messages(chat_id, created_at);
 
 CREATE TABLE IF NOT EXISTS domains (
     id                    VARCHAR(64)  PRIMARY KEY,
@@ -2162,7 +2179,7 @@ CREATE TABLE IF NOT EXISTS acme_challenges (
 CREATE INDEX IF NOT EXISTS idx_acme_challenges_domain
     ON acme_challenges(domain_id);
 
-CREATE TABLE IF NOT EXISTS ai_toolsets (
+CREATE TABLE IF NOT EXISTS agent_toolsets (
     id                VARCHAR(64)  PRIMARY KEY,
     org_id            VARCHAR(64)  NOT NULL,
     name              VARCHAR(255) NOT NULL,
@@ -2171,10 +2188,10 @@ CREATE TABLE IF NOT EXISTS ai_toolsets (
     created_at        TIMESTAMPTZ  NOT NULL,
     updated_at        TIMESTAMPTZ  NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_toolsets_org_name
-    ON ai_toolsets(org_id, name);
-CREATE INDEX IF NOT EXISTS idx_ai_toolsets_org_updated
-    ON ai_toolsets(org_id, updated_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_toolsets_org_name
+    ON agent_toolsets(org_id, name);
+CREATE INDEX IF NOT EXISTS idx_agent_toolsets_org_updated
+    ON agent_toolsets(org_id, updated_at DESC);
 
 -- ============================================================
 -- pg_trgm GIN indexes（⌘K 远端聚合搜索）
@@ -2384,7 +2401,7 @@ CREATE INDEX IF NOT EXISTS idx_alert_intake_requests_source
 -- 去向不加外键：联邦同步时规则可能比策略、团队先到；指向已删除对象的规则在分派时跳过。
 CREATE TABLE IF NOT EXISTS alert_routing_rules (
     id                  VARCHAR(64)  PRIMARY KEY,
-    org_id              VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id              VARCHAR(64)  NOT NULL,
     name                VARCHAR(255) NOT NULL,
     enabled             BOOLEAN      NOT NULL DEFAULT TRUE,
     position            INTEGER      NOT NULL,
@@ -2407,41 +2424,13 @@ CREATE INDEX IF NOT EXISTS idx_alert_routing_rules_org
 
 -- 团队的值班策略：交给这个团队的事件默认走的升级策略。
 CREATE TABLE IF NOT EXISTS alert_team_policies (
-    org_id                  VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                  VARCHAR(64)  NOT NULL,
     team_id                 VARCHAR(64)  NOT NULL,
     escalation_policy_id    VARCHAR(64)  NOT NULL,
     updated_by              VARCHAR(64),
     updated_at              TIMESTAMPTZ  NOT NULL,
     PRIMARY KEY (org_id, team_id)
 );
-
--- 告警订阅：matchers + min_severity 命中时，在升级目标之外追加通知。
-CREATE TABLE IF NOT EXISTS alert_subscriptions (
-    id                  VARCHAR(64)  PRIMARY KEY,
-    org_id              VARCHAR(64)  NOT NULL,
-    name                VARCHAR(255) NOT NULL,
-    enabled             BOOLEAN      NOT NULL DEFAULT TRUE,
-    matchers            JSONB        NOT NULL DEFAULT '[]'::jsonb,
-    min_severity        VARCHAR(16),
-    channel_ids         JSONB        NOT NULL DEFAULT '[]'::jsonb,
-    user_ids            JSONB        NOT NULL DEFAULT '[]'::jsonb,
-    created_at          TIMESTAMPTZ  NOT NULL,
-    updated_at          TIMESTAMPTZ  NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_alert_subscriptions_org_enabled
-    ON alert_subscriptions(org_id, enabled);
-
--- ============================================================
--- Org config: email domains
--- ============================================================
-
--- The email domains an organization admits, in order; an empty list admits
--- every domain.
-ALTER TABLE organizations
-    ADD COLUMN email_domains TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
-ALTER TABLE organizations
-    ADD CONSTRAINT chk_organizations_email_domains
-    CHECK (array_position(email_domains, NULL) IS NULL);
 
 -- ============================================================
 -- Slow queries / search admission load
@@ -2477,10 +2466,10 @@ CREATE INDEX IF NOT EXISTS idx_search_admission_load_group
     ON search_admission_load(work_group, updated_at DESC);
 
 -- ============================================================
--- AI model providers / prompt templates / chat archives
+-- Mole Agent model providers / prompt templates / chat archives
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS ai_model_providers (
+CREATE TABLE IF NOT EXISTS agent_model_providers (
     id                 VARCHAR(64)  PRIMARY KEY,
     org_id             VARCHAR(64)  NOT NULL,
     provider           VARCHAR(32)  NOT NULL,
@@ -2503,10 +2492,10 @@ CREATE TABLE IF NOT EXISTS ai_model_providers (
     created_at         TIMESTAMPTZ  NOT NULL,
     updated_at         TIMESTAMPTZ  NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_ai_providers_org
-    ON ai_model_providers(org_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_providers_org
+    ON agent_model_providers(org_id, updated_at DESC);
 
-CREATE TABLE IF NOT EXISTS ai_prompt_templates (
+CREATE TABLE IF NOT EXISTS agent_prompt_templates (
     id                 VARCHAR(64)  PRIMARY KEY,
     org_id             VARCHAR(64),
     user_id            VARCHAR(64),
@@ -2525,16 +2514,16 @@ CREATE TABLE IF NOT EXISTS ai_prompt_templates (
     created_at         TIMESTAMPTZ  NOT NULL,
     updated_at         TIMESTAMPTZ  NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_ai_prompts_org_purpose
-    ON ai_prompt_templates(org_id, purpose, enabled);
-CREATE INDEX IF NOT EXISTS idx_ai_prompts_builtin_key
-    ON ai_prompt_templates(builtin_key);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_ai_prompts_builtin
-    ON ai_prompt_templates(builtin_key) WHERE scope = 'builtin';
+CREATE INDEX IF NOT EXISTS idx_agent_prompts_org_purpose
+    ON agent_prompt_templates(org_id, purpose, enabled);
+CREATE INDEX IF NOT EXISTS idx_agent_prompts_builtin_key
+    ON agent_prompt_templates(builtin_key);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_agent_prompts_builtin
+    ON agent_prompt_templates(builtin_key) WHERE scope = 'builtin';
 
-CREATE TABLE IF NOT EXISTS ai_chat_archives (
+CREATE TABLE IF NOT EXISTS agent_chat_archives (
     id                 VARCHAR(64)  PRIMARY KEY,
-    session_id         VARCHAR(64)  NOT NULL,
+    chat_id            VARCHAR(64)  NOT NULL,
     org_id             VARCHAR(64)  NOT NULL,
     object_key         TEXT,
     sha256             VARCHAR(64),
@@ -2544,10 +2533,10 @@ CREATE TABLE IF NOT EXISTS ai_chat_archives (
     created_by         VARCHAR(64),
     created_at         TIMESTAMPTZ  NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_ai_archives_session
-    ON ai_chat_archives(session_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_ai_archives_org
-    ON ai_chat_archives(org_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_chat_archives_chat
+    ON agent_chat_archives(chat_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_chat_archives_org
+    ON agent_chat_archives(org_id, created_at DESC);
 
 -- ============================================================
 -- Cross-cluster event bus（outbox / delivery cursor / org link / version / dedup）
@@ -2604,14 +2593,14 @@ CREATE INDEX IF NOT EXISTS idx_domains_state ON domains(state);
 -- ============================================================
 
 -- AI builtin prompt templates（稳定 builtin_key；scope = builtin，不可变）。
-INSERT INTO ai_prompt_templates
+INSERT INTO agent_prompt_templates
     (id, org_id, user_id, scope, builtin_key, purpose, name, body, variables_schema,
      is_default, enabled, version, parent_id, created_by, updated_by,
      created_at, updated_at)
 VALUES
     ('78d508e3-303f-47c7-8d6f-9879ac2f10eb', NULL, NULL, 'builtin', 'system.default', 'system',
      'System Default',
-     'You are MoleSignal AI, an observability investigation copilot. You help engineers analyze logs, metrics, traces, and alerts within the organization "{{org_name}}". You may only access tenant data through the provided backend tools; never assume or fabricate data. Always cite the evidence (stream, time range, row counts) behind each claim. When you are uncertain, say so. The current time is {{current_time}}.',
+     'You are Mole Agent, MoleSignal''s operations agent. You help engineers query observability data, analyze alerts, locate root causes, generate queries, inspect current on-call ownership, and propose remediation within the organization "{{org_name}}". Use only registered backend tools and authorized tenant data. Never fabricate evidence, access the public internet, invoke arbitrary HTTP, shell, browser, or open MCP tools, or execute a write without an approved operation. Cite the evidence and time range behind each claim. Distinguish verified facts, inferences, and suggestions; when evidence is insufficient, say so. The current time is {{current_time}}.',
      '{"type":"object","properties":{"org_name":{"type":"string"},"current_time":{"type":"string"}}}'::JSONB,
      TRUE, TRUE, 1, NULL, 'system', 'system', 'epoch', 'epoch'),
 
@@ -2779,7 +2768,6 @@ CREATE TABLE IF NOT EXISTS report_templates (
     target_type         VARCHAR(16)  NOT NULL,
     format              VARCHAR(16)  NOT NULL,
     time_range_preset   VARCHAR(64)  NOT NULL,
-    cron                VARCHAR(64)  NOT NULL DEFAULT 'every:7d',
     created_at          TIMESTAMPTZ  NOT NULL,
     updated_at          TIMESTAMPTZ  NOT NULL
 );
@@ -2791,47 +2779,8 @@ CREATE INDEX IF NOT EXISTS idx_report_template_org_updated
     ON report_templates(org_id, updated_at DESC);
 
 -- ============================================================
--- Report template content defaults
--- ============================================================
-
-UPDATE report_templates
-SET time_range_preset = CASE time_range_preset
-    WHEN 'previous-1-hour' THEN 'previous-24-hours'
-    WHEN 'previous-30-days' THEN 'previous-calendar-month'
-    ELSE time_range_preset
-END;
-
-ALTER TABLE report_templates
-    DROP COLUMN IF EXISTS cron;
-
--- ============================================================
--- Notify channel test status
--- ============================================================
-
-ALTER TABLE notify_channels
-    ADD COLUMN IF NOT EXISTS last_test_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS last_test_status VARCHAR(16),
-    ADD COLUMN IF NOT EXISTS last_test_error TEXT;
-
-ALTER TABLE notify_channels
-    DROP CONSTRAINT IF EXISTS notify_channels_last_test_status_check;
-
-ALTER TABLE notify_channels
-    ADD CONSTRAINT notify_channels_last_test_status_check
-    CHECK (last_test_status IS NULL OR last_test_status IN ('sent', 'failed'));
-
--- ============================================================
 -- On-call schedule center
 -- ============================================================
-
-ALTER TABLE schedules
-    ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '',
-    ADD COLUMN IF NOT EXISTS team_id VARCHAR(64),
-    ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    -- 换班申请对方接受后，还要有排班管理权限的人批准。
-    ADD COLUMN IF NOT EXISTS swap_needs_approval BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS created_by VARCHAR(64),
-    ADD COLUMN IF NOT EXISTS updated_by VARCHAR(64);
 
 CREATE INDEX IF NOT EXISTS idx_schedules_org_team
     ON schedules(org_id, team_id);
@@ -2884,53 +2833,6 @@ CREATE INDEX IF NOT EXISTS idx_schedule_swaps_target
 -- ============================================================
 -- Mole Agent schema
 -- ============================================================
-
--- Canonicalize Agent table names before creating the remaining schema.
-
-ALTER TABLE chat_sessions RENAME TO agent_chats;
-ALTER INDEX IF EXISTS idx_chat_sessions_org_user
-    RENAME TO idx_agent_chats_org_user;
-ALTER INDEX IF EXISTS idx_chat_sessions_org_user_active
-    RENAME TO idx_agent_chats_org_user_active;
-ALTER INDEX IF EXISTS idx_chat_sessions_org_team
-    RENAME TO idx_agent_chats_org_team;
-
-ALTER TABLE chat_messages RENAME TO agent_messages;
-ALTER TABLE agent_messages RENAME COLUMN session_id TO chat_id;
-ALTER INDEX IF EXISTS idx_chat_messages_session
-    RENAME TO idx_agent_messages_chat;
-
-ALTER TABLE ai_toolsets RENAME TO agent_toolsets;
-ALTER INDEX IF EXISTS uq_ai_toolsets_org_name
-    RENAME TO uq_agent_toolsets_org_name;
-ALTER INDEX IF EXISTS idx_ai_toolsets_org_updated
-    RENAME TO idx_agent_toolsets_org_updated;
-
-ALTER TABLE ai_model_providers RENAME TO agent_model_providers;
-ALTER INDEX IF EXISTS idx_ai_providers_org
-    RENAME TO idx_agent_providers_org;
-
-ALTER TABLE ai_prompt_templates RENAME TO agent_prompt_templates;
-ALTER INDEX IF EXISTS idx_ai_prompts_org_purpose
-    RENAME TO idx_agent_prompts_org_purpose;
-ALTER INDEX IF EXISTS idx_ai_prompts_builtin_key
-    RENAME TO idx_agent_prompts_builtin_key;
-ALTER INDEX IF EXISTS uniq_ai_prompts_builtin
-    RENAME TO uniq_agent_prompts_builtin;
-
-ALTER TABLE ai_chat_archives RENAME TO agent_chat_archives;
-ALTER TABLE agent_chat_archives RENAME COLUMN session_id TO chat_id;
-ALTER INDEX IF EXISTS idx_ai_archives_session
-    RENAME TO idx_agent_chat_archives_chat;
-ALTER INDEX IF EXISTS idx_ai_archives_org
-    RENAME TO idx_agent_chat_archives_org;
-
-UPDATE agent_prompt_templates
-SET body = 'You are Mole Agent, MoleSignal''s operations agent. You help engineers query observability data, analyze alerts, locate root causes, generate queries, inspect current on-call ownership, and propose remediation within the organization "{{org_name}}". Use only registered backend tools and authorized tenant data. Never fabricate evidence, access the public internet, invoke arbitrary HTTP, shell, browser, or open MCP tools, or execute a write without an approved operation. Cite the evidence and time range behind each claim. Distinguish verified facts, inferences, and suggestions; when evidence is insufficient, say so. The current time is {{current_time}}.',
-    updated_by = 'system',
-    updated_at = GREATEST(updated_at, TIMESTAMPTZ 'epoch' + INTERVAL '1 microsecond')
-WHERE scope = 'builtin'
-  AND builtin_key = 'system.default';
 
 CREATE TABLE IF NOT EXISTS agent_investigations (
     id                    VARCHAR(64) PRIMARY KEY,
@@ -3111,7 +3013,12 @@ CREATE TABLE IF NOT EXISTS agent_tool_calls (
     error                 TEXT,
     duration_ms           BIGINT NOT NULL,
     called_by             VARCHAR(64) NOT NULL,
-    created_at            TIMESTAMPTZ NOT NULL
+    created_at            TIMESTAMPTZ NOT NULL,
+    call_source           VARCHAR(32) NOT NULL DEFAULT 'chat',
+    profile_id            VARCHAR(64),
+    approval_id           VARCHAR(64),
+    policy_decision       JSONB NOT NULL DEFAULT '{}'::JSONB,
+    audit_id              VARCHAR(64)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_org_created
     ON agent_tool_calls(org_id, created_at DESC);
@@ -3177,6 +3084,12 @@ CREATE TABLE IF NOT EXISTS agent_capability_contract_bindings (
         )
         REFERENCES agent_contract_versions (contract_key, version, schema_hash)
 );
+CREATE INDEX IF NOT EXISTS idx_agent_capability_bindings_authoring
+    ON agent_capability_contract_bindings (authoring_contract_key, authoring_contract_version, authoring_schema_hash);
+CREATE INDEX IF NOT EXISTS idx_agent_capability_bindings_model
+    ON agent_capability_contract_bindings (model_contract_key, model_contract_version, model_schema_hash);
+CREATE INDEX IF NOT EXISTS idx_agent_capability_bindings_visualization
+    ON agent_capability_contract_bindings (visualization_contract_key, visualization_contract_version, visualization_schema_hash);
 
 CREATE TABLE IF NOT EXISTS agent_dashboard_drafts (
     id                       VARCHAR(64) PRIMARY KEY,
@@ -3247,8 +3160,8 @@ CREATE TABLE IF NOT EXISTS agent_profiles (
     created_by                 VARCHAR(64) NOT NULL,
     created_at                 TIMESTAMPTZ NOT NULL,
     updated_at                 TIMESTAMPTZ NOT NULL,
-    CONSTRAINT agent_profile_network_blocked
-        CHECK (network_access = 'blocked'),
+    CONSTRAINT agent_profile_network_access_check
+        CHECK (network_access IN ('blocked', 'allowed')),
     CONSTRAINT agent_profile_temperature_range
         CHECK (temperature IS NULL OR (temperature >= 0 AND temperature <= 2))
 );
@@ -3257,17 +3170,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_profiles_org_name
 CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_profiles_org_default
     ON agent_profiles(org_id)
     WHERE is_default = TRUE;
-
--- ============================================================
--- Mole Agent network policy
--- ============================================================
-
-ALTER TABLE agent_profiles
-    DROP CONSTRAINT IF EXISTS agent_profile_network_blocked;
-
-ALTER TABLE agent_profiles
-    ADD CONSTRAINT agent_profile_network_access_check
-    CHECK (network_access IN ('blocked', 'allowed'));
 
 -- ============================================================
 -- Mole Agent tool control
@@ -3382,13 +3284,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_agent_mcp_tools_org_name
 CREATE INDEX IF NOT EXISTS idx_agent_mcp_tools_org_server
     ON agent_mcp_tools(org_id, server_id, updated_at DESC);
 
-ALTER TABLE agent_tool_calls
-    ADD COLUMN IF NOT EXISTS call_source VARCHAR(32) NOT NULL DEFAULT 'chat',
-    ADD COLUMN IF NOT EXISTS profile_id VARCHAR(64),
-    ADD COLUMN IF NOT EXISTS approval_id VARCHAR(64),
-    ADD COLUMN IF NOT EXISTS policy_decision JSONB NOT NULL DEFAULT '{}'::JSONB,
-    ADD COLUMN IF NOT EXISTS audit_id VARCHAR(64);
-
 -- ============================================================
 -- Mole Agent usage, budgets and feedback
 -- ============================================================
@@ -3442,7 +3337,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_feedback_org_updated
 -- 打分，不进评审、待审与回归集。
 CREATE TABLE IF NOT EXISTS agent_evaluators (
     id                 VARCHAR(64)  PRIMARY KEY,
-    org_id             VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id             VARCHAR(64)  NOT NULL,
     name               VARCHAR(80)  NOT NULL,
     -- 交给评审的评分标准，填进 evaluation Prompt 的 {{rubric}}
     rubric             TEXT         NOT NULL,
@@ -3526,6 +3421,10 @@ CREATE TABLE IF NOT EXISTS agent_score_subjects (
     skill_version       VARCHAR(64),
     -- 对象产生的时间
     target_at           TIMESTAMPTZ NOT NULL,
+    -- What the answer's tool calls said about its data (agent::scoring::trajectory): queries per
+    -- stream, structure lookups, raw pulls and the gaps found. NULL for an incident RCA or an
+    -- answer that called no tool.
+    trajectory          JSONB,
     updated_at          TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (org_id, target_kind, target_id)
 );
@@ -3643,6 +3542,8 @@ CREATE TABLE IF NOT EXISTS agent_im_bots (
     CONSTRAINT chk_agent_im_bots_status
         CHECK (status IN ('idle', 'connecting', 'connected', 'error'))
 );
+CREATE INDEX IF NOT EXISTS idx_agent_im_bots_connector_id
+    ON agent_im_bots (org_id, connector_id);
 CREATE INDEX IF NOT EXISTS idx_agent_im_bots_org ON agent_im_bots(org_id);
 
 -- IM 里的一个话题（群里的话题、钉钉群里一个人的提问、私聊）对应的会话
@@ -3692,7 +3593,6 @@ CREATE INDEX IF NOT EXISTS idx_agent_im_messages_answering
     ON agent_im_messages(created_at) WHERE status = 'answering';
 CREATE INDEX IF NOT EXISTS idx_agent_im_messages_created
     ON agent_im_messages(created_at);
-
 
 -- 等连着机器人的节点发出去的回复：企业微信的回复只能走机器人的长连接，别的节点把回复记在这里
 CREATE TABLE IF NOT EXISTS agent_im_outbox (
@@ -3849,7 +3749,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     id                       VARCHAR(64) PRIMARY KEY,
     org_id                   VARCHAR(64) NOT NULL,
     chat_id                  VARCHAR(64) NOT NULL,
-    -- chat | automation | incident | api | im
+    -- chat | automation | incident | api | im | drill
     source                   VARCHAR(16) NOT NULL,
     -- queued | running | waiting_input | waiting_approval | succeeded | failed | cancelled | interrupted
     status                   VARCHAR(24) NOT NULL,
@@ -3933,7 +3833,7 @@ CREATE TABLE IF NOT EXISTS inbound_mcp_oauth_clients (
 CREATE TABLE IF NOT EXISTS inbound_mcp_oauth_codes (
     code_hash              VARCHAR(64) PRIMARY KEY,
     client_id              TEXT NOT NULL,
-    org_id                 VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                 VARCHAR(64) NOT NULL,
     user_id                VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     redirect_uri           TEXT NOT NULL,
     scope                  TEXT NOT NULL,
@@ -3944,6 +3844,8 @@ CREATE TABLE IF NOT EXISTS inbound_mcp_oauth_codes (
     consumed_at            TIMESTAMPTZ,
     created_at             TIMESTAMPTZ NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_codes_user_id
+    ON inbound_mcp_oauth_codes (user_id);
 CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_codes_expiry
     ON inbound_mcp_oauth_codes(expires_at)
     WHERE consumed_at IS NULL;
@@ -3954,7 +3856,7 @@ CREATE TABLE IF NOT EXISTS inbound_mcp_oauth_tokens (
     token_kind             VARCHAR(16) NOT NULL,
     family_id              VARCHAR(64) NOT NULL,
     client_id              TEXT NOT NULL,
-    org_id                 VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                 VARCHAR(64) NOT NULL,
     user_id                VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     scope                  TEXT NOT NULL,
     resource               TEXT NOT NULL,
@@ -3965,6 +3867,8 @@ CREATE TABLE IF NOT EXISTS inbound_mcp_oauth_tokens (
     CONSTRAINT inbound_mcp_oauth_token_kind
         CHECK (token_kind IN ('access', 'refresh'))
 );
+CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_tokens_user_id
+    ON inbound_mcp_oauth_tokens (user_id);
 CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_tokens_org_created
     ON inbound_mcp_oauth_tokens(org_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_tokens_family
@@ -3973,7 +3877,7 @@ CREATE INDEX IF NOT EXISTS idx_inbound_mcp_oauth_tokens_client
     ON inbound_mcp_oauth_tokens(client_id, revoked_at);
 
 CREATE TABLE IF NOT EXISTS inbound_mcp_idempotency (
-    org_id                 VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                 VARCHAR(64) NOT NULL,
     principal_type         VARCHAR(32) NOT NULL,
     principal_id           VARCHAR(64) NOT NULL,
     idempotency_key        VARCHAR(128) NOT NULL,
@@ -3995,7 +3899,7 @@ CREATE INDEX IF NOT EXISTS idx_inbound_mcp_idempotency_expiry
 
 CREATE TABLE IF NOT EXISTS inbound_mcp_tasks (
     id                     VARCHAR(64) PRIMARY KEY,
-    org_id                 VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                 VARCHAR(64) NOT NULL,
     principal_type         VARCHAR(32) NOT NULL,
     principal_id           VARCHAR(64) NOT NULL,
     tool_name              VARCHAR(192) NOT NULL,
@@ -4019,81 +3923,18 @@ CREATE INDEX IF NOT EXISTS idx_inbound_mcp_tasks_expiry
     ON inbound_mcp_tasks(expires_at);
 
 -- ============================================================
--- User profile and startup preferences
--- ============================================================
-
-ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS bio TEXT NOT NULL DEFAULT '';
-
--- ============================================================
--- Retired Actions cleanup
--- ============================================================
-
--- Remove the retired Actions capability.
---
--- Remove retired action targets before the canonical runtime reads the JSONB
--- policy with the reduced target enum.
-UPDATE escalation_policies AS policy
-SET steps = (
-    SELECT COALESCE(
-        jsonb_agg(
-            jsonb_set(
-                step_item.step,
-                '{targets}',
-                COALESCE(
-                    (
-                        SELECT jsonb_agg(target_item.target ORDER BY target_item.ordinality)
-                        FROM jsonb_array_elements(
-                            COALESCE(step_item.step->'targets', '[]'::jsonb)
-                        ) WITH ORDINALITY AS target_item(target, ordinality)
-                        WHERE target_item.target->>'kind' IS DISTINCT FROM 'action'
-                    ),
-                    '[]'::jsonb
-                )
-            )
-            ORDER BY step_item.ordinality
-        ),
-        '[]'::jsonb
-    )
-    FROM jsonb_array_elements(policy.steps)
-        WITH ORDINALITY AS step_item(step, ordinality)
-)
-WHERE EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(policy.steps) AS step_item(step)
-    CROSS JOIN LATERAL jsonb_array_elements(
-        COALESCE(step_item.step->'targets', '[]'::jsonb)
-    ) AS target_item(target)
-    WHERE target_item.target->>'kind' = 'action'
-);
-
-DROP TABLE IF EXISTS action_executions;
-DROP TABLE IF EXISTS actions;
-
--- ============================================================
 -- Distributed tracing system scope
 -- ============================================================
 
 -- System scope, immutable system resources, platform administrators,
 -- and dynamic Trace policy.
 
-ALTER TABLE organizations
-    ADD COLUMN IF NOT EXISTS system BOOLEAN NOT NULL DEFAULT FALSE;
-
 CREATE UNIQUE INDEX IF NOT EXISTS uq_organizations_single_system
     ON organizations (system) WHERE system;
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_organizations_system_identity'
-    ) THEN
-        ALTER TABLE organizations
-            ADD CONSTRAINT chk_organizations_system_identity
-            CHECK (NOT system OR (name = '_sys' AND slug = '_sys' AND NOT disabled));
-    END IF;
-END
-$$;
+-- A deleted organization gives its slug up at once.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_organizations_slug
+    ON organizations (slug) WHERE deleted_at IS NULL;
 
 CREATE OR REPLACE FUNCTION protect_last_enabled_tenant_organization()
 RETURNS trigger LANGUAGE plpgsql AS $$
@@ -4125,7 +3966,7 @@ CREATE TRIGGER trg_protect_last_enabled_tenant_organization
 BEFORE UPDATE OF disabled OR DELETE ON organizations
 FOR EACH ROW EXECUTE FUNCTION protect_last_enabled_tenant_organization();
 
-CREATE TABLE IF NOT EXISTS platform_administrators (
+CREATE TABLE IF NOT EXISTS iam_platform_administrators (
     user_id             VARCHAR(64) PRIMARY KEY,
     active              BOOLEAN NOT NULL DEFAULT TRUE,
     granted_by          VARCHAR(64),
@@ -4133,8 +3974,8 @@ CREATE TABLE IF NOT EXISTS platform_administrators (
     revoked_by          VARCHAR(64),
     revoked_at          TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS idx_platform_administrators_active
-    ON platform_administrators (active) WHERE active;
+CREATE INDEX IF NOT EXISTS idx_iam_platform_administrators_active
+    ON iam_platform_administrators (active) WHERE active;
 
 CREATE TABLE IF NOT EXISTS trace_runtime_policies (
     id                  VARCHAR(64) PRIMARY KEY,
@@ -4193,9 +4034,9 @@ BEGIN
 END
 $$;
 
-DROP TRIGGER IF EXISTS trg_reject_system_membership ON memberships;
+DROP TRIGGER IF EXISTS trg_reject_system_membership ON iam_memberships;
 CREATE TRIGGER trg_reject_system_membership
-BEFORE INSERT OR UPDATE ON memberships
+BEFORE INSERT OR UPDATE ON iam_memberships
 FOR EACH ROW EXECUTE FUNCTION reject_system_organization_membership();
 
 DROP TRIGGER IF EXISTS trg_reject_system_team ON teams;
@@ -4257,105 +4098,6 @@ BEGIN
     IF (TG_OP = 'DELETE' AND OLD.active)
         OR (TG_OP = 'UPDATE' AND OLD.active AND NOT NEW.active) THEN
         SELECT COUNT(*) INTO remaining
-        FROM platform_administrators
-        WHERE active AND user_id <> OLD.user_id;
-        IF remaining = 0 THEN
-            RAISE EXCEPTION 'cannot remove the last active platform administrator';
-        END IF;
-    END IF;
-    IF TG_OP = 'DELETE' THEN
-        RETURN OLD;
-    END IF;
-    RETURN NEW;
-END
-$$;
-
-DROP TRIGGER IF EXISTS trg_protect_last_platform_administrator ON platform_administrators;
-CREATE TRIGGER trg_protect_last_platform_administrator
-BEFORE UPDATE OR DELETE ON platform_administrators
-FOR EACH ROW EXECUTE FUNCTION protect_last_platform_administrator();
-
-CREATE OR REPLACE FUNCTION protect_platform_administrator_user()
-RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE
-    is_platform_admin BOOLEAN;
-    remaining BIGINT;
-BEGIN
-    SELECT active INTO is_platform_admin
-    FROM platform_administrators
-    WHERE user_id = OLD.id;
-    IF COALESCE(is_platform_admin, FALSE)
-        AND (TG_OP = 'DELETE' OR (TG_OP = 'UPDATE' AND NEW.disabled)) THEN
-        SELECT COUNT(*) INTO remaining
-        FROM platform_administrators pa
-        JOIN users u ON u.id = pa.user_id
-        WHERE pa.active AND NOT u.disabled AND pa.user_id <> OLD.id;
-        IF remaining = 0 THEN
-            RAISE EXCEPTION 'cannot make the last platform administrator unusable';
-        END IF;
-    END IF;
-    IF TG_OP = 'DELETE' THEN
-        RETURN OLD;
-    END IF;
-    RETURN NEW;
-END
-$$;
-
-DROP TRIGGER IF EXISTS trg_protect_platform_administrator_user ON users;
-CREATE TRIGGER trg_protect_platform_administrator_user
-BEFORE UPDATE OR DELETE ON users
-FOR EACH ROW EXECUTE FUNCTION protect_platform_administrator_user();
-
--- ============================================================
--- Search job Trace links
--- ============================================================
-
--- Persist only bounded W3C correlation for delayed search/backfill execution.
--- This value is diagnostic linkage and MUST NOT be used as an authorization source.
-ALTER TABLE search_jobs
-    ADD COLUMN IF NOT EXISTS trace_link JSONB,
-    ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 0;
-
--- ============================================================
--- Unified IAM access
--- ============================================================
-
--- Unified IAM access: role bindings, relationships, explicit cross-org grants,
--- and version-based invalidation. Canonicalize the IAM table names before
--- creating the remaining tables and constraints.
-DO $$
-BEGIN
-    IF to_regclass('iam_memberships') IS NULL
-        AND to_regclass('memberships') IS NOT NULL THEN
-        EXECUTE 'ALTER TABLE memberships RENAME TO iam_memberships';
-    END IF;
-    IF to_regclass('iam_platform_administrators') IS NULL
-        AND to_regclass('platform_administrators') IS NOT NULL THEN
-        EXECUTE 'ALTER TABLE platform_administrators RENAME TO iam_platform_administrators';
-    END IF;
-    IF to_regclass('idx_iam_memberships_org') IS NULL
-        AND to_regclass('idx_memberships_org') IS NOT NULL THEN
-        EXECUTE 'ALTER INDEX idx_memberships_org RENAME TO idx_iam_memberships_org';
-    END IF;
-    IF to_regclass('idx_iam_platform_administrators_active') IS NULL
-        AND to_regclass('idx_platform_administrators_active') IS NOT NULL THEN
-        EXECUTE
-            'ALTER INDEX idx_platform_administrators_active '
-            'RENAME TO idx_iam_platform_administrators_active';
-    END IF;
-END
-$$;
-
--- Refresh the protection functions after canonicalizing the platform
--- administrator table name.
-CREATE OR REPLACE FUNCTION protect_last_platform_administrator()
-RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE
-    remaining BIGINT;
-BEGIN
-    IF (TG_OP = 'DELETE' AND OLD.active)
-        OR (TG_OP = 'UPDATE' AND OLD.active AND NOT NEW.active) THEN
-        SELECT COUNT(*) INTO remaining
         FROM iam_platform_administrators
         WHERE active AND user_id <> OLD.user_id;
         IF remaining = 0 THEN
@@ -4368,6 +4110,11 @@ BEGIN
     RETURN NEW;
 END
 $$;
+
+DROP TRIGGER IF EXISTS trg_protect_last_platform_administrator ON iam_platform_administrators;
+CREATE TRIGGER trg_protect_last_platform_administrator
+BEFORE UPDATE OR DELETE ON iam_platform_administrators
+FOR EACH ROW EXECUTE FUNCTION protect_last_platform_administrator();
 
 CREATE OR REPLACE FUNCTION protect_platform_administrator_user()
 RETURNS trigger LANGUAGE plpgsql AS $$
@@ -4395,53 +4142,14 @@ BEGIN
 END
 $$;
 
-ALTER TABLE iam_roles
-    ADD COLUMN IF NOT EXISTS role_type VARCHAR(16) NOT NULL DEFAULT 'organization',
-    ADD COLUMN IF NOT EXISTS scope VARCHAR(16) NOT NULL DEFAULT 'organization';
+DROP TRIGGER IF EXISTS trg_protect_platform_administrator_user ON users;
+CREATE TRIGGER trg_protect_platform_administrator_user
+BEFORE UPDATE OR DELETE ON users
+FOR EACH ROW EXECUTE FUNCTION protect_platform_administrator_user();
 
-ALTER TABLE iam_role_permissions
-    ALTER COLUMN permission_key TYPE VARCHAR(128);
-
--- Keep role keys until the built-in role rows are materialized, then resolve
--- them into the stable role_id columns.
-ALTER TABLE invitations
-    ADD COLUMN IF NOT EXISTS role_id VARCHAR(64);
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_iam_roles_role_type'
-    ) THEN
-        ALTER TABLE iam_roles
-            ADD CONSTRAINT chk_iam_roles_role_type
-            CHECK (role_type IN ('platform', 'organization', 'resource'));
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_iam_roles_scope'
-    ) THEN
-        ALTER TABLE iam_roles
-            ADD CONSTRAINT chk_iam_roles_scope
-            CHECK (scope IN ('platform', 'organization', 'resource'));
-    END IF;
-END
-$$;
-
--- Built-in roles are rows of iam_roles without an organization. Every
--- organization gets a copy of the organization roles, and `_sys` of the
--- platform roles: a binding, token, invitation or relationship names a role
--- together with its organization, so it always names a copy, never the
--- built-in row. `display_priority` orders the built-in roles in lists, and
--- `purpose` is the stable business use a built-in role serves; both belong to
--- the built-in row only.
-ALTER TABLE iam_roles
-    ALTER COLUMN org_id DROP NOT NULL,
-    ADD COLUMN IF NOT EXISTS display_priority INTEGER,
-    ADD COLUMN IF NOT EXISTS purpose VARCHAR(64),
-    ADD CONSTRAINT chk_iam_roles_builtin_row
-        CHECK (
-            (org_id IS NULL AND builtin AND display_priority IS NOT NULL)
-            OR (org_id IS NOT NULL AND display_priority IS NULL AND purpose IS NULL)
-        );
+-- ============================================================
+-- Unified IAM access
+-- ============================================================
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_iam_roles_builtin_key
     ON iam_roles(role_key)
@@ -4450,54 +4158,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_iam_roles_builtin_purpose
     ON iam_roles(purpose)
     WHERE org_id IS NULL
       AND purpose IS NOT NULL;
-
-INSERT INTO iam_roles (
-    id,
-    org_id,
-    role_key,
-    name,
-    description,
-    builtin,
-    role_type,
-    scope,
-    display_priority,
-    purpose,
-    created_at,
-    updated_at
-)
-SELECT
-    gen_random_uuid()::TEXT,
-    NULL,
-    builtin.role_key,
-    builtin.name,
-    builtin.description,
-    TRUE,
-    builtin.role_type,
-    builtin.scope,
-    builtin.display_priority,
-    builtin.purpose,
-    clock_timestamp(),
-    clock_timestamp()
-FROM (
-    VALUES
-        ('platform_admin', 'Platform administrator', 'All platform permissions.', 'platform', 'platform', 5, NULL),
-        ('platform_viewer', 'Platform viewer', 'Reads everything on the platform and changes nothing.', 'platform', 'platform', 6, NULL),
-        ('owner', 'Owner', 'Full administrative access.', 'organization', 'organization', 10, 'organization_bootstrap'),
-        ('admin', 'Admin', 'Administrative access for day-to-day operations.', 'organization', 'organization', 20, NULL),
-        ('editor', 'Editor', 'Can operate and change product resources.', 'organization', 'organization', 30, NULL),
-        ('viewer', 'Viewer', 'Read-only product access.', 'organization', 'organization', 40, 'self_service_signup')
-) AS builtin(role_key, name, description, role_type, scope, display_priority, purpose);
-
-CREATE TABLE IF NOT EXISTS iam_policy_versions (
-    organization_id     VARCHAR(64) PRIMARY KEY,
-    version             BIGINT      NOT NULL DEFAULT 1 CHECK (version > 0),
-    updated_at          TIMESTAMPTZ NOT NULL
-);
-
-INSERT INTO iam_policy_versions (organization_id, version, updated_at)
-SELECT id, 1, clock_timestamp()
-FROM organizations
-ON CONFLICT (organization_id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS iam_role_bindings (
     id                  VARCHAR(64) PRIMARY KEY,
@@ -4537,46 +4197,26 @@ CREATE INDEX IF NOT EXISTS idx_iam_role_bindings_resource
 CREATE UNIQUE INDEX IF NOT EXISTS uq_iam_roles_org_id
     ON iam_roles (org_id, id);
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_iam_role_bindings_role'
-    ) THEN
-        ALTER TABLE iam_role_bindings
-            ADD CONSTRAINT fk_iam_role_bindings_role
-            FOREIGN KEY (organization_id, role_id)
-            REFERENCES iam_roles(org_id, id)
-            ON DELETE CASCADE;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_service_accounts_iam_role'
-    ) THEN
-        ALTER TABLE service_accounts
-            ADD CONSTRAINT fk_service_accounts_iam_role
-            FOREIGN KEY (org_id, role_id)
-            REFERENCES iam_roles(org_id, id)
-            ON DELETE CASCADE;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_api_tokens_service_account'
-    ) THEN
-        ALTER TABLE api_tokens
-            ADD CONSTRAINT fk_api_tokens_service_account
-            FOREIGN KEY (org_id, service_account_id)
-            REFERENCES service_accounts(org_id, id)
-            ON DELETE CASCADE;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_invitations_iam_role'
-    ) THEN
-        ALTER TABLE invitations
-            ADD CONSTRAINT fk_invitations_iam_role
-            FOREIGN KEY (org_id, role_id)
-            REFERENCES iam_roles(org_id, id)
-            ON DELETE RESTRICT;
-    END IF;
-END
-$$;
+ALTER TABLE iam_role_bindings
+    ADD CONSTRAINT fk_iam_role_bindings_role
+    FOREIGN KEY (organization_id, role_id)
+    REFERENCES iam_roles(org_id, id)
+    ON DELETE CASCADE;
+ALTER TABLE service_accounts
+    ADD CONSTRAINT fk_service_accounts_iam_role
+    FOREIGN KEY (org_id, role_id)
+    REFERENCES iam_roles(org_id, id)
+    ON DELETE CASCADE;
+ALTER TABLE api_tokens
+    ADD CONSTRAINT fk_api_tokens_service_account
+    FOREIGN KEY (org_id, service_account_id)
+    REFERENCES service_accounts(org_id, id)
+    ON DELETE CASCADE;
+ALTER TABLE invitations
+    ADD CONSTRAINT fk_invitations_iam_role
+    FOREIGN KEY (org_id, role_id)
+    REFERENCES iam_roles(org_id, id)
+    ON DELETE RESTRICT;
 
 CREATE TABLE IF NOT EXISTS iam_relationships (
     id                  VARCHAR(64) PRIMARY KEY,
@@ -4602,6 +4242,8 @@ CREATE TABLE IF NOT EXISTS iam_relationships (
             OR (container_type IS NOT NULL AND container_id IS NOT NULL)
         )
 );
+CREATE INDEX IF NOT EXISTS idx_iam_relationships_role_id
+    ON iam_relationships (organization_id, role_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_iam_relationship
     ON iam_relationships (
         organization_id,
@@ -4653,175 +4295,18 @@ CREATE INDEX IF NOT EXISTS idx_iam_cross_org_grants_source
 CREATE INDEX IF NOT EXISTS idx_iam_cross_org_grants_target
     ON iam_cross_org_grants (target_organization_id, grantee_type, grantee_id, status);
 
--- An organization's copies of the built-in roles are needed before membership
--- bindings can be materialized. Their permissions are reconciled from the
--- built-in rows by PgIamRoleRepository::ensure_builtin_roles.
-INSERT INTO iam_roles (
-    id,
-    org_id,
-    role_key,
-    name,
-    description,
-    builtin,
-    role_type,
-    scope,
-    created_at,
-    updated_at
-)
-SELECT
-    gen_random_uuid()::TEXT,
-    org.id,
-    role.role_key,
-    role.name,
-    role.description,
-    TRUE,
-    role.role_type,
-    role.scope,
-    clock_timestamp(),
-    clock_timestamp()
-FROM organizations org
-CROSS JOIN iam_roles role
-WHERE role.org_id IS NULL
-  AND (
-        (
-            role.role_type = 'organization'
-            AND role.scope = 'organization'
-        )
-     OR (
-            org.system
-            AND role.role_type = 'platform'
-            AND role.scope = 'platform'
-        )
-  )
-ON CONFLICT (org_id, role_key) DO NOTHING;
-
--- Convert role keys into stable IAM role IDs. Unknown keys abort schema
--- initialization instead of silently weakening access.
-DO $$
-DECLARE
-    unmapped BIGINT;
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = 'iam_memberships'
-          AND column_name = 'role'
-    ) THEN
-        INSERT INTO iam_role_bindings (
-            id,
-            organization_id,
-            role_id,
-            principal_type,
-            principal_id,
-            resource_type,
-            resource_id,
-            conditions,
-            starts_at,
-            expires_at,
-            created_by,
-            created_at
-        )
-        SELECT
-            'migrated_' || substr(
-                md5(
-                    membership.org_id || ':' ||
-                    membership.user_id || ':' ||
-                    lower(membership.role)
-                ),
-                1,
-                32
-            ),
-            membership.org_id,
-            role.id,
-            'user',
-            membership.user_id,
-            NULL,
-            NULL,
-            '{}'::JSONB,
-            NULL,
-            NULL,
-            membership.user_id,
-            membership.joined_at
-        FROM iam_memberships membership
-        JOIN iam_roles role
-          ON role.org_id = membership.org_id
-         AND role.role_key = lower(membership.role)
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM iam_role_bindings binding
-            WHERE binding.organization_id = membership.org_id
-              AND binding.principal_type = 'user'
-              AND binding.principal_id = membership.user_id
-              AND binding.role_id = role.id
-              AND binding.resource_type IS NULL
-              AND binding.resource_id IS NULL
-        )
-        ON CONFLICT (id) DO NOTHING;
-
-        SELECT COUNT(*) INTO unmapped
-        FROM iam_memberships membership
-        LEFT JOIN iam_roles role
-          ON role.org_id = membership.org_id
-         AND role.role_key = lower(membership.role)
-        WHERE role.id IS NULL;
-        IF unmapped > 0 THEN
-            RAISE EXCEPTION
-                'cannot migrate % IAM membership role value(s)', unmapped;
-        END IF;
-
-        ALTER TABLE iam_memberships DROP COLUMN role;
-    END IF;
-
-    IF EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = 'invitations'
-          AND column_name = 'role'
-    ) THEN
-        UPDATE invitations invitation
-        SET role_id = role.id
-        FROM iam_roles role
-        WHERE invitation.role_id IS NULL
-          AND role.org_id = invitation.org_id
-          AND role.role_key = lower(invitation.role);
-
-        SELECT COUNT(*) INTO unmapped
-        FROM invitations
-        WHERE role_id IS NULL;
-        IF unmapped > 0 THEN
-            RAISE EXCEPTION
-                'cannot migrate % invitation role value(s)', unmapped;
-        END IF;
-
-        ALTER TABLE invitations DROP COLUMN role;
-    END IF;
-    ALTER TABLE invitations ALTER COLUMN role_id SET NOT NULL;
-END
-$$;
-
-CREATE OR REPLACE FUNCTION bump_iam_policy_version(p_organization_id VARCHAR)
+CREATE FUNCTION bump_iam_policy_version(p_organization_id VARCHAR)
 RETURNS BIGINT LANGUAGE plpgsql AS $$
 DECLARE
     next_version BIGINT;
 BEGIN
-    INSERT INTO iam_policy_versions (organization_id, version, updated_at)
-    VALUES (
-        p_organization_id,
-        1,
-        clock_timestamp()
-    )
-    ON CONFLICT (organization_id) DO UPDATE
-       SET version = iam_policy_versions.version + 1,
-           updated_at =
-               clock_timestamp()
-    RETURNING version INTO next_version;
-    RETURN next_version;
+    UPDATE organizations
+       SET iam_policy_version = iam_policy_version + 1
+     WHERE id = p_organization_id
+    RETURNING iam_policy_version INTO next_version;
+    RETURN COALESCE(next_version, 1);
 END
 $$;
-
-DROP TABLE IF EXISTS rbac_policies;
 
 -- ============================================================
 -- IAM permission catalog
@@ -4832,12 +4317,6 @@ DROP TABLE IF EXISTS rbac_policies;
 -- Runtime IAM evaluation, role editing, and frontend capability metadata all
 -- read these normalized tables. These rows are the bootstrap seed; there is no
 -- file-based runtime registry.
-
-CREATE TABLE IF NOT EXISTS iam_permission_catalog_versions (
-    catalog_key         VARCHAR(64) PRIMARY KEY,
-    version             BIGINT      NOT NULL CHECK (version > 0),
-    updated_at          TIMESTAMPTZ NOT NULL
-);
 
 CREATE TABLE IF NOT EXISTS iam_permissions (
     permission_key      VARCHAR(128) PRIMARY KEY,
@@ -4852,254 +4331,640 @@ CREATE TABLE IF NOT EXISTS iam_permissions (
 CREATE INDEX IF NOT EXISTS idx_iam_permissions_scope_domain
     ON iam_permissions (scope, domain, permission_key);
 
-CREATE TABLE IF NOT EXISTS iam_permission_bundles (
-    bundle_key          VARCHAR(64)  PRIMARY KEY,
-    label_key           VARCHAR(160) NOT NULL,
-    description_key     VARCHAR(160) NOT NULL,
-    catalog_version     BIGINT       NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS iam_permission_bundle_items (
-    bundle_key          VARCHAR(64)  NOT NULL
-        REFERENCES iam_permission_bundles(bundle_key) ON DELETE CASCADE,
-    permission_key      VARCHAR(128) NOT NULL
-        REFERENCES iam_permissions(permission_key) ON DELETE CASCADE,
-    position            INTEGER      NOT NULL CHECK (position >= 0),
-    PRIMARY KEY (bundle_key, permission_key)
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_iam_permission_bundle_position
-    ON iam_permission_bundle_items (bundle_key, position);
-
-INSERT INTO iam_permission_catalog_versions (catalog_key, version, updated_at)
-VALUES (
-    'permissions',
-    5,
-    clock_timestamp()
-)
-ON CONFLICT (catalog_key) DO UPDATE
-SET version = EXCLUDED.version,
-    updated_at = EXCLUDED.updated_at;
-
-CREATE TEMP TABLE iam_permission_seed (
-    permission_key      VARCHAR(128) NOT NULL,
-    scope               VARCHAR(16)  NOT NULL,
-    domain              VARCHAR(64)  NOT NULL,
-    label_key           VARCHAR(160) NOT NULL,
-    description_key     VARCHAR(160) NOT NULL,
-    builtin_roles       TEXT[]       NOT NULL
-) ON COMMIT DROP;
-
-INSERT INTO iam_permission_seed (
-    permission_key,
-    scope,
-    domain,
-    label_key,
-    description_key,
-    builtin_roles
-)
-VALUES
-    ('sys.organizations.read', 'platform', 'platform', 'permissions.sys_organizations_read', 'permissions_hint.sys_organizations_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.organizations.create', 'platform', 'platform', 'permissions.sys_organizations_create', 'permissions_hint.sys_organizations_create', ARRAY['platform_admin']::TEXT[]),
-    ('sys.organizations.update', 'platform', 'platform', 'permissions.sys_organizations_update', 'permissions_hint.sys_organizations_update', ARRAY['platform_admin']::TEXT[]),
-    ('sys.organizations.disable', 'platform', 'platform', 'permissions.sys_organizations_disable', 'permissions_hint.sys_organizations_disable', ARRAY['platform_admin']::TEXT[]),
-    ('sys.organizations.delete', 'platform', 'platform', 'permissions.sys_organizations_delete', 'permissions_hint.sys_organizations_delete', ARRAY['platform_admin']::TEXT[]),
-    ('sys.settings.retention.read', 'platform', 'platform', 'permissions.sys_settings_retention_read', 'permissions_hint.sys_settings_retention_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.settings.retention.manage', 'platform', 'platform', 'permissions.sys_settings_retention_manage', 'permissions_hint.sys_settings_retention_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.settings.limits.read', 'platform', 'platform', 'permissions.sys_settings_limits_read', 'permissions_hint.sys_settings_limits_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.settings.limits.manage', 'platform', 'platform', 'permissions.sys_settings_limits_manage', 'permissions_hint.sys_settings_limits_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.settings.signin.read', 'platform', 'platform', 'permissions.sys_settings_signin_read', 'permissions_hint.sys_settings_signin_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.settings.signin.manage', 'platform', 'platform', 'permissions.sys_settings_signin_manage', 'permissions_hint.sys_settings_signin_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.settings.alerting.read', 'platform', 'platform', 'permissions.sys_settings_alerting_read', 'permissions_hint.sys_settings_alerting_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.settings.alerting.manage', 'platform', 'platform', 'permissions.sys_settings_alerting_manage', 'permissions_hint.sys_settings_alerting_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.settings.topology.read', 'platform', 'platform', 'permissions.sys_settings_topology_read', 'permissions_hint.sys_settings_topology_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.settings.topology.manage', 'platform', 'platform', 'permissions.sys_settings_topology_manage', 'permissions_hint.sys_settings_topology_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.signing_keys.read', 'platform', 'platform', 'permissions.sys_signing_keys_read', 'permissions_hint.sys_signing_keys_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.signing_keys.rotate', 'platform', 'platform', 'permissions.sys_signing_keys_rotate', 'permissions_hint.sys_signing_keys_rotate', ARRAY['platform_admin']::TEXT[]),
-    ('sys.clusters.read', 'platform', 'platform', 'permissions.sys_clusters_read', 'permissions_hint.sys_clusters_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.clusters.manage', 'platform', 'platform', 'permissions.sys_clusters_manage', 'permissions_hint.sys_clusters_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.nodes.read', 'platform', 'platform', 'permissions.sys_nodes_read', 'permissions_hint.sys_nodes_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.nodes.drain', 'platform', 'platform', 'permissions.sys_nodes_drain', 'permissions_hint.sys_nodes_drain', ARRAY['platform_admin']::TEXT[]),
-    ('sys.query.admission.read', 'platform', 'platform', 'permissions.sys_query_admission_read', 'permissions_hint.sys_query_admission_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.query.admission.manage', 'platform', 'platform', 'permissions.sys_query_admission_manage', 'permissions_hint.sys_query_admission_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.administrators.read', 'platform', 'platform', 'permissions.sys_administrators_read', 'permissions_hint.sys_administrators_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.administrators.manage', 'platform', 'platform', 'permissions.sys_administrators_manage', 'permissions_hint.sys_administrators_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.telemetry.read', 'platform', 'platform', 'permissions.sys_telemetry_read', 'permissions_hint.sys_telemetry_read', ARRAY['platform_admin', 'platform_viewer']::TEXT[]),
-    ('sys.telemetry.manage', 'platform', 'platform', 'permissions.sys_telemetry_manage', 'permissions_hint.sys_telemetry_manage', ARRAY['platform_admin']::TEXT[]),
-    ('sys.trace_debug.manage', 'platform', 'platform', 'permissions.sys_trace_debug_manage', 'permissions_hint.sys_trace_debug_manage', ARRAY['platform_admin']::TEXT[]),
-    ('org.settings.read', 'organization', 'organization', 'permissions.org_settings_read', 'permissions_hint.org_settings_read', ARRAY['owner', 'admin']::TEXT[]),
-    ('org.settings.manage', 'organization', 'organization', 'permissions.org_settings_manage', 'permissions_hint.org_settings_manage', ARRAY['owner', 'admin']::TEXT[]),
-    ('org.delete', 'organization', 'organization', 'permissions.org_delete', 'permissions_hint.org_delete', ARRAY['owner']::TEXT[]),
-    ('org.members.read', 'organization', 'iam', 'permissions.org_members_read', 'permissions_hint.org_members_read', ARRAY['owner', 'admin']::TEXT[]),
-    ('org.members.manage', 'organization', 'iam', 'permissions.org_members_manage', 'permissions_hint.org_members_manage', ARRAY['owner', 'admin']::TEXT[]),
-    ('iam.roles.read', 'organization', 'iam', 'permissions.iam_roles_read', 'permissions_hint.iam_roles_read', ARRAY['owner', 'admin']::TEXT[]),
-    ('iam.roles.manage', 'organization', 'iam', 'permissions.iam_roles_manage', 'permissions_hint.iam_roles_manage', ARRAY['owner', 'admin']::TEXT[]),
-    ('iam.policies.read', 'organization', 'iam', 'permissions.iam_policies_read', 'permissions_hint.iam_policies_read', ARRAY['owner', 'admin']::TEXT[]),
-    ('iam.policies.manage', 'organization', 'iam', 'permissions.iam_policies_manage', 'permissions_hint.iam_policies_manage', ARRAY['owner', 'admin']::TEXT[]),
-    ('api_tokens.read', 'organization', 'iam', 'permissions.api_tokens_read', 'permissions_hint.api_tokens_read', ARRAY['owner', 'admin']::TEXT[]),
-    ('api_tokens.manage', 'organization', 'iam', 'permissions.api_tokens_manage', 'permissions_hint.api_tokens_manage', ARRAY['owner', 'admin']::TEXT[]),
-    ('personal_tokens.manage', 'organization', 'iam', 'permissions.personal_tokens_manage', 'permissions_hint.personal_tokens_manage', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('service_accounts.read', 'organization', 'iam', 'permissions.service_accounts_read', 'permissions_hint.service_accounts_read', ARRAY['owner', 'admin']::TEXT[]),
-    ('service_accounts.manage', 'organization', 'iam', 'permissions.service_accounts_manage', 'permissions_hint.service_accounts_manage', ARRAY['owner', 'admin']::TEXT[]),
-    ('streams.read', 'organization', 'observability', 'permissions.streams_read', 'permissions_hint.streams_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('streams.query', 'organization', 'observability', 'permissions.streams_query', 'permissions_hint.streams_query', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('streams.write', 'organization', 'observability', 'permissions.streams_write', 'permissions_hint.streams_write', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('rum.write', 'organization', 'observability', 'permissions.rum_write', 'permissions_hint.rum_write', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('streams.create', 'organization', 'observability', 'permissions.streams_create', 'permissions_hint.streams_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('streams.configure', 'organization', 'observability', 'permissions.streams_configure', 'permissions_hint.streams_configure', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('streams.delete', 'organization', 'observability', 'permissions.streams_delete', 'permissions_hint.streams_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('dashboards.read', 'organization', 'dashboards', 'permissions.dashboards_read', 'permissions_hint.dashboards_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('dashboards.edit', 'organization', 'dashboards', 'permissions.dashboards_edit', 'permissions_hint.dashboards_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('dashboards.create', 'organization', 'dashboards', 'permissions.dashboards_create', 'permissions_hint.dashboards_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('dashboards.delete', 'organization', 'dashboards', 'permissions.dashboards_delete', 'permissions_hint.dashboards_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('dashboards.share', 'organization', 'dashboards', 'permissions.dashboards_share', 'permissions_hint.dashboards_share', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('alerts.read', 'organization', 'alerts', 'permissions.alerts_read', 'permissions_hint.alerts_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('alerts.manage', 'organization', 'alerts', 'permissions.alerts_manage', 'permissions_hint.alerts_manage', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('alerts.acknowledge', 'organization', 'alerts', 'permissions.alerts_acknowledge', 'permissions_hint.alerts_acknowledge', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('alerts.silence', 'organization', 'alerts', 'permissions.alerts_silence', 'permissions_hint.alerts_silence', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('schedules.read', 'organization', 'alerts', 'permissions.schedules_read', 'permissions_hint.schedules_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('schedules.manage', 'organization', 'alerts', 'permissions.schedules_manage', 'permissions_hint.schedules_manage', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('saved_views.read', 'organization', 'observability', 'permissions.saved_views_read', 'permissions_hint.saved_views_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('saved_views.create', 'organization', 'observability', 'permissions.saved_views_create', 'permissions_hint.saved_views_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('saved_views.edit', 'organization', 'observability', 'permissions.saved_views_edit', 'permissions_hint.saved_views_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('saved_views.delete', 'organization', 'observability', 'permissions.saved_views_delete', 'permissions_hint.saved_views_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.read', 'organization', 'pipelines', 'permissions.pipelines_read', 'permissions_hint.pipelines_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('pipelines.create', 'organization', 'pipelines', 'permissions.pipelines_create', 'permissions_hint.pipelines_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.edit', 'organization', 'pipelines', 'permissions.pipelines_edit', 'permissions_hint.pipelines_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.run', 'organization', 'pipelines', 'permissions.pipelines_run', 'permissions_hint.pipelines_run', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.pause', 'organization', 'pipelines', 'permissions.pipelines_pause', 'permissions_hint.pipelines_pause', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('pipelines.delete', 'organization', 'pipelines', 'permissions.pipelines_delete', 'permissions_hint.pipelines_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('functions.read', 'organization', 'pipelines', 'permissions.functions_read', 'permissions_hint.functions_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('functions.create', 'organization', 'pipelines', 'permissions.functions_create', 'permissions_hint.functions_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('functions.edit', 'organization', 'pipelines', 'permissions.functions_edit', 'permissions_hint.functions_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('functions.run', 'organization', 'pipelines', 'permissions.functions_run', 'permissions_hint.functions_run', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('functions.delete', 'organization', 'pipelines', 'permissions.functions_delete', 'permissions_hint.functions_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('reports.read', 'organization', 'reports', 'permissions.reports_read', 'permissions_hint.reports_read', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('reports.create', 'organization', 'reports', 'permissions.reports_create', 'permissions_hint.reports_create', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('reports.edit', 'organization', 'reports', 'permissions.reports_edit', 'permissions_hint.reports_edit', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('reports.schedule', 'organization', 'reports', 'permissions.reports_schedule', 'permissions_hint.reports_schedule', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('reports.delete', 'organization', 'reports', 'permissions.reports_delete', 'permissions_hint.reports_delete', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('audit.read', 'organization', 'iam', 'permissions.audit_read', 'permissions_hint.audit_read', ARRAY['owner', 'admin']::TEXT[]),
-    ('agent.use', 'organization', 'agent', 'permissions.agent_use', 'permissions_hint.agent_use', ARRAY['owner', 'admin', 'editor', 'viewer']::TEXT[]),
-    ('agent.manage', 'organization', 'agent', 'permissions.agent_manage', 'permissions_hint.agent_manage', ARRAY['owner', 'admin']::TEXT[]),
-    ('inspections.manage', 'organization', 'agent', 'permissions.inspections_manage', 'permissions_hint.inspections_manage', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('agent.automations.manage', 'organization', 'agent', 'permissions.agent_automations_manage', 'permissions_hint.agent_automations_manage', ARRAY['owner', 'admin', 'editor']::TEXT[]),
-    ('agent.approve', 'organization', 'agent', 'permissions.agent_approve', 'permissions_hint.agent_approve', ARRAY['owner', 'admin']::TEXT[]);
-
+-- The catalog version a permission arrived in stays with it; the catalog's own version is in
+-- iam_catalog_versions.
 INSERT INTO iam_permissions (
-    permission_key,
-    scope,
-    domain,
-    label_key,
-    description_key,
-    catalog_version
-)
-SELECT
-    permission_key,
-    scope,
-    domain,
-    label_key,
-    description_key,
-    CASE WHEN permission_key = 'rum.write' THEN 7 ELSE 5 END
-FROM iam_permission_seed
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
--- Replace provisional built-in permission assignments before enforcing the
--- canonical catalog foreign key. Built-in roles are populated from
--- iam_permission_seed below; custom assignments must use catalog keys rather
--- than being silently broadened.
-DELETE FROM iam_role_permissions role_permission
-USING iam_roles role
-WHERE role.id = role_permission.role_id
-  AND role.builtin;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-          FROM pg_constraint
-         WHERE conname = 'fk_iam_role_permissions_catalog'
-    ) THEN
-        ALTER TABLE iam_role_permissions
-            ADD CONSTRAINT fk_iam_role_permissions_catalog
-            FOREIGN KEY (permission_key)
-            REFERENCES iam_permissions(permission_key)
-            ON DELETE RESTRICT;
-    END IF;
-END
-$$;
-
--- Built-in roles receive their permissions on their own rows, named by key: a
--- key without a built-in role leaves role_id NULL and fails the insert.
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT
-    (SELECT role.id
-       FROM iam_roles role
-      WHERE role.org_id IS NULL
-        AND role.role_key = granted.role_key),
-    seed.permission_key
-FROM iam_permission_seed seed
-CROSS JOIN LATERAL unnest(seed.builtin_roles) AS granted(role_key)
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-CREATE TEMP TABLE iam_permission_bundle_seed (
-    bundle_key          VARCHAR(64)  NOT NULL,
-    label_key           VARCHAR(160) NOT NULL,
-    description_key     VARCHAR(160) NOT NULL,
-    permissions         TEXT[]       NOT NULL
-) ON COMMIT DROP;
-
-INSERT INTO iam_permission_bundle_seed (
-    bundle_key,
-    label_key,
-    description_key,
-    permissions
+    permission_key, scope, domain, label_key, description_key, catalog_version
 )
 VALUES
-    ('readonly_observer', 'roles.bundles.readonly_observer', 'roles.bundles_hint.readonly_observer', ARRAY['streams.read', 'streams.query', 'dashboards.read', 'alerts.read', 'schedules.read', 'saved_views.read', 'pipelines.read', 'functions.read', 'reports.read']::TEXT[]),
-    ('data_analyst', 'roles.bundles.data_analyst', 'roles.bundles_hint.data_analyst', ARRAY['streams.read', 'streams.query', 'dashboards.read', 'dashboards.create', 'dashboards.edit', 'saved_views.read', 'saved_views.create', 'saved_views.edit', 'reports.read']::TEXT[]),
-    ('pipeline_developer', 'roles.bundles.pipeline_developer', 'roles.bundles_hint.pipeline_developer', ARRAY['streams.read', 'streams.query', 'streams.write', 'streams.create', 'streams.configure', 'pipelines.read', 'pipelines.create', 'pipelines.edit', 'pipelines.run', 'pipelines.pause', 'pipelines.delete', 'functions.read', 'functions.create', 'functions.edit', 'functions.run', 'functions.delete']::TEXT[]),
-    ('alert_administrator', 'roles.bundles.alert_administrator', 'roles.bundles_hint.alert_administrator', ARRAY['streams.read', 'streams.query', 'alerts.read', 'alerts.manage', 'alerts.acknowledge', 'alerts.silence', 'schedules.read', 'schedules.manage']::TEXT[]),
-    ('organization_administrator', 'roles.bundles.organization_administrator', 'roles.bundles_hint.organization_administrator', ARRAY['org.settings.read', 'org.settings.manage', 'org.members.read', 'org.members.manage', 'iam.roles.read', 'iam.roles.manage', 'iam.policies.read', 'iam.policies.manage', 'api_tokens.read', 'api_tokens.manage', 'service_accounts.read', 'service_accounts.manage', 'audit.read']::TEXT[]);
+    ('agent.approvals.read', 'organization', 'agent', 'permissions.agent_approvals_read', 'permissions_hint.agent_approvals_read', 30),
+    ('agent.approvals.request', 'organization', 'agent', 'permissions.agent_approvals_request', 'permissions_hint.agent_approvals_request', 30),
+    ('agent.approve', 'organization', 'agent', 'permissions.agent_approve', 'permissions_hint.agent_approve', 5),
+    ('agent.automations.manage', 'organization', 'agent', 'permissions.agent_automations_manage', 'permissions_hint.agent_automations_manage', 5),
+    ('agent.automations.read', 'organization', 'agent', 'permissions.agent_automations_read', 'permissions_hint.agent_automations_read', 30),
+    ('agent.automations.run', 'organization', 'agent', 'permissions.agent_automations_run', 'permissions_hint.agent_automations_run', 30),
+    ('agent.automations.tokens', 'organization', 'agent', 'permissions.agent_automations_tokens', 'permissions_hint.agent_automations_tokens', 30),
+    ('agent.im.manage', 'organization', 'agent', 'permissions.agent_im_manage', 'permissions_hint.agent_im_manage', 30),
+    ('agent.im.read', 'organization', 'agent', 'permissions.agent_im_read', 'permissions_hint.agent_im_read', 30),
+    ('agent.inbound_mcp.manage', 'organization', 'agent', 'permissions.agent_inbound_mcp_manage', 'permissions_hint.agent_inbound_mcp_manage', 30),
+    ('agent.inbound_mcp.read', 'organization', 'agent', 'permissions.agent_inbound_mcp_read', 'permissions_hint.agent_inbound_mcp_read', 30),
+    ('agent.investigations.manage', 'organization', 'agent', 'permissions.agent_investigations_manage', 'permissions_hint.agent_investigations_manage', 30),
+    ('agent.investigations.read', 'organization', 'agent', 'permissions.agent_investigations_read', 'permissions_hint.agent_investigations_read', 30),
+    ('agent.knowledge.manage', 'organization', 'agent', 'permissions.agent_knowledge_manage', 'permissions_hint.agent_knowledge_manage', 30),
+    ('agent.knowledge.read', 'organization', 'agent', 'permissions.agent_knowledge_read', 'permissions_hint.agent_knowledge_read', 30),
+    ('agent.manage', 'organization', 'agent', 'permissions.agent_manage', 'permissions_hint.agent_manage', 5),
+    ('agent.mcp_servers.manage', 'organization', 'agent', 'permissions.agent_mcp_servers_manage', 'permissions_hint.agent_mcp_servers_manage', 30),
+    ('agent.mcp_servers.read', 'organization', 'agent', 'permissions.agent_mcp_servers_read', 'permissions_hint.agent_mcp_servers_read', 30),
+    ('agent.memories.manage', 'organization', 'agent', 'permissions.agent_memories_manage', 'permissions_hint.agent_memories_manage', 30),
+    ('agent.memories.read', 'organization', 'agent', 'permissions.agent_memories_read', 'permissions_hint.agent_memories_read', 30),
+    ('agent.memories.settings', 'organization', 'agent', 'permissions.agent_memories_settings', 'permissions_hint.agent_memories_settings', 30),
+    ('agent.models.manage', 'organization', 'agent', 'permissions.agent_models_manage', 'permissions_hint.agent_models_manage', 30),
+    ('agent.models.read', 'organization', 'agent', 'permissions.agent_models_read', 'permissions_hint.agent_models_read', 30),
+    ('agent.models.rotate', 'organization', 'agent', 'permissions.agent_models_rotate', 'permissions_hint.agent_models_rotate', 30),
+    ('agent.network_policy.manage', 'organization', 'agent', 'permissions.agent_network_policy_manage', 'permissions_hint.agent_network_policy_manage', 30),
+    ('agent.network_policy.read', 'organization', 'agent', 'permissions.agent_network_policy_read', 'permissions_hint.agent_network_policy_read', 30),
+    ('agent.profiles.manage', 'organization', 'agent', 'permissions.agent_profiles_manage', 'permissions_hint.agent_profiles_manage', 30),
+    ('agent.profiles.read', 'organization', 'agent', 'permissions.agent_profiles_read', 'permissions_hint.agent_profiles_read', 30),
+    ('agent.prompts.manage', 'organization', 'agent', 'permissions.agent_prompts_manage', 'permissions_hint.agent_prompts_manage', 30),
+    ('agent.prompts.read', 'organization', 'agent', 'permissions.agent_prompts_read', 'permissions_hint.agent_prompts_read', 30),
+    ('agent.quality.manage', 'organization', 'agent', 'permissions.agent_quality_manage', 'permissions_hint.agent_quality_manage', 30),
+    ('agent.quality.read', 'organization', 'agent', 'permissions.agent_quality_read', 'permissions_hint.agent_quality_read', 30),
+    ('agent.skill_repositories.manage', 'organization', 'agent', 'permissions.agent_skill_repositories_manage', 'permissions_hint.agent_skill_repositories_manage', 30),
+    ('agent.skill_repositories.read', 'organization', 'agent', 'permissions.agent_skill_repositories_read', 'permissions_hint.agent_skill_repositories_read', 30),
+    ('agent.skills.manage', 'organization', 'agent', 'permissions.agent_skills_manage', 'permissions_hint.agent_skills_manage', 30),
+    ('agent.skills.read', 'organization', 'agent', 'permissions.agent_skills_read', 'permissions_hint.agent_skills_read', 30),
+    ('agent.skills.rescan', 'organization', 'agent', 'permissions.agent_skills_rescan', 'permissions_hint.agent_skills_rescan', 30),
+    ('agent.toolsets.manage', 'organization', 'agent', 'permissions.agent_toolsets_manage', 'permissions_hint.agent_toolsets_manage', 30),
+    ('agent.toolsets.read', 'organization', 'agent', 'permissions.agent_toolsets_read', 'permissions_hint.agent_toolsets_read', 30),
+    ('agent.tools.manage', 'organization', 'agent', 'permissions.agent_tools_manage', 'permissions_hint.agent_tools_manage', 30),
+    ('agent.tools.read', 'organization', 'agent', 'permissions.agent_tools_read', 'permissions_hint.agent_tools_read', 30),
+    ('agent.usage.manage', 'organization', 'agent', 'permissions.agent_usage_manage', 'permissions_hint.agent_usage_manage', 30),
+    ('agent.usage.read', 'organization', 'agent', 'permissions.agent_usage_read', 'permissions_hint.agent_usage_read', 30),
+    ('agent.use', 'organization', 'agent', 'permissions.agent_use', 'permissions_hint.agent_use', 5),
+    ('inspections.manage', 'organization', 'agent', 'permissions.inspections_manage', 'permissions_hint.inspections_manage', 5),
 
-INSERT INTO iam_permission_bundles (
-    bundle_key,
-    label_key,
-    description_key,
-    catalog_version
+    ('alerts.calendars.manage', 'organization', 'alerts', 'permissions.alerts_calendars_manage', 'permissions_hint.alerts_calendars_manage', 30),
+    ('alerts.calendars.read', 'organization', 'alerts', 'permissions.alerts_calendars_read', 'permissions_hint.alerts_calendars_read', 30),
+    ('alerts.discovery.read', 'organization', 'alerts', 'permissions.alerts_discovery_read', 'permissions_hint.alerts_discovery_read', 30),
+    ('alerts.escalations.delete', 'organization', 'alerts', 'permissions.alerts_escalations_delete', 'permissions_hint.alerts_escalations_delete', 30),
+    ('alerts.escalations.manage', 'organization', 'alerts', 'permissions.alerts_escalations_manage', 'permissions_hint.alerts_escalations_manage', 30),
+    ('alerts.escalations.read', 'organization', 'alerts', 'permissions.alerts_escalations_read', 'permissions_hint.alerts_escalations_read', 30),
+    ('alerts.importance.manage', 'organization', 'alerts', 'permissions.alerts_importance_manage', 'permissions_hint.alerts_importance_manage', 30),
+    ('alerts.importance.read', 'organization', 'alerts', 'permissions.alerts_importance_read', 'permissions_hint.alerts_importance_read', 30),
+    ('alerts.incidents.acknowledge', 'organization', 'alerts', 'permissions.alerts_incidents_acknowledge', 'permissions_hint.alerts_incidents_acknowledge', 30),
+    ('alerts.incidents.create', 'organization', 'alerts', 'permissions.alerts_incidents_create', 'permissions_hint.alerts_incidents_create', 30),
+    ('alerts.incidents.escalate', 'organization', 'alerts', 'permissions.alerts_incidents_escalate', 'permissions_hint.alerts_incidents_escalate', 30),
+    ('alerts.incidents.rca', 'organization', 'alerts', 'permissions.alerts_incidents_rca', 'permissions_hint.alerts_incidents_rca', 30),
+    ('alerts.incidents.read', 'organization', 'alerts', 'permissions.alerts_incidents_read', 'permissions_hint.alerts_incidents_read', 30),
+    ('alerts.incidents.remediate', 'organization', 'alerts', 'permissions.alerts_incidents_remediate', 'permissions_hint.alerts_incidents_remediate', 30),
+    ('alerts.incidents.silence', 'organization', 'alerts', 'permissions.alerts_incidents_silence', 'permissions_hint.alerts_incidents_silence', 30),
+    ('alerts.incidents.tickets', 'organization', 'alerts', 'permissions.alerts_incidents_tickets', 'permissions_hint.alerts_incidents_tickets', 30),
+    ('alerts.incidents.update', 'organization', 'alerts', 'permissions.alerts_incidents_update', 'permissions_hint.alerts_incidents_update', 30),
+    ('alerts.inhibitions.manage', 'organization', 'alerts', 'permissions.alerts_inhibitions_manage', 'permissions_hint.alerts_inhibitions_manage', 30),
+    ('alerts.inhibitions.read', 'organization', 'alerts', 'permissions.alerts_inhibitions_read', 'permissions_hint.alerts_inhibitions_read', 30),
+    ('alerts.mutes.manage', 'organization', 'alerts', 'permissions.alerts_mutes_manage', 'permissions_hint.alerts_mutes_manage', 30),
+    ('alerts.mutes.read', 'organization', 'alerts', 'permissions.alerts_mutes_read', 'permissions_hint.alerts_mutes_read', 30),
+    ('alerts.remediation.manage', 'organization', 'alerts', 'permissions.alerts_remediation_manage', 'permissions_hint.alerts_remediation_manage', 30),
+    ('alerts.remediation.preapprove', 'organization', 'alerts', 'permissions.alerts_remediation_preapprove', 'permissions_hint.alerts_remediation_preapprove', 30),
+    ('alerts.remediation.read', 'organization', 'alerts', 'permissions.alerts_remediation_read', 'permissions_hint.alerts_remediation_read', 30),
+    ('alerts.response.manage', 'organization', 'alerts', 'permissions.alerts_response_manage', 'permissions_hint.alerts_response_manage', 30),
+    ('alerts.response.read', 'organization', 'alerts', 'permissions.alerts_response_read', 'permissions_hint.alerts_response_read', 30),
+    ('alerts.routing.manage', 'organization', 'alerts', 'permissions.alerts_routing_manage', 'permissions_hint.alerts_routing_manage', 30),
+    ('alerts.routing.read', 'organization', 'alerts', 'permissions.alerts_routing_read', 'permissions_hint.alerts_routing_read', 30),
+    ('alerts.rules.delete', 'organization', 'alerts', 'permissions.alerts_rules_delete', 'permissions_hint.alerts_rules_delete', 30),
+    ('alerts.rules.manage', 'organization', 'alerts', 'permissions.alerts_rules_manage', 'permissions_hint.alerts_rules_manage', 30),
+    ('alerts.rules.read', 'organization', 'alerts', 'permissions.alerts_rules_read', 'permissions_hint.alerts_rules_read', 30),
+    ('alerts.semantic_groups.manage', 'organization', 'alerts', 'permissions.alerts_semantic_groups_manage', 'permissions_hint.alerts_semantic_groups_manage', 30),
+    ('alerts.semantic_groups.read', 'organization', 'alerts', 'permissions.alerts_semantic_groups_read', 'permissions_hint.alerts_semantic_groups_read', 30),
+    ('alerts.sources.manage', 'organization', 'alerts', 'permissions.alerts_sources_manage', 'permissions_hint.alerts_sources_manage', 30),
+    ('alerts.sources.read', 'organization', 'alerts', 'permissions.alerts_sources_read', 'permissions_hint.alerts_sources_read', 30),
+    ('alerts.tickets.manage', 'organization', 'alerts', 'permissions.alerts_tickets_manage', 'permissions_hint.alerts_tickets_manage', 30),
+    ('alerts.tickets.read', 'organization', 'alerts', 'permissions.alerts_tickets_read', 'permissions_hint.alerts_tickets_read', 30),
+    ('notify.connectors.delete', 'organization', 'alerts', 'permissions.notify_connectors_delete', 'permissions_hint.notify_connectors_delete', 30),
+    ('notify.connectors.manage', 'organization', 'alerts', 'permissions.notify_connectors_manage', 'permissions_hint.notify_connectors_manage', 30),
+    ('notify.connectors.read', 'organization', 'alerts', 'permissions.notify_connectors_read', 'permissions_hint.notify_connectors_read', 30),
+    ('notify.defaults.manage', 'organization', 'alerts', 'permissions.notify_defaults_manage', 'permissions_hint.notify_defaults_manage', 30),
+    ('notify.defaults.read', 'organization', 'alerts', 'permissions.notify_defaults_read', 'permissions_hint.notify_defaults_read', 30),
+    ('notify.deliveries.acknowledge', 'organization', 'alerts', 'permissions.notify_deliveries_acknowledge', 'permissions_hint.notify_deliveries_acknowledge', 30),
+    ('notify.deliveries.read', 'organization', 'alerts', 'permissions.notify_deliveries_read', 'permissions_hint.notify_deliveries_read', 30),
+    ('notify.deliveries.retry', 'organization', 'alerts', 'permissions.notify_deliveries_retry', 'permissions_hint.notify_deliveries_retry', 30),
+    ('notify.policies.delete', 'organization', 'alerts', 'permissions.notify_policies_delete', 'permissions_hint.notify_policies_delete', 30),
+    ('notify.policies.manage', 'organization', 'alerts', 'permissions.notify_policies_manage', 'permissions_hint.notify_policies_manage', 30),
+    ('notify.policies.read', 'organization', 'alerts', 'permissions.notify_policies_read', 'permissions_hint.notify_policies_read', 30),
+    ('notify.templates.manage', 'organization', 'alerts', 'permissions.notify_templates_manage', 'permissions_hint.notify_templates_manage', 30),
+    ('notify.templates.read', 'organization', 'alerts', 'permissions.notify_templates_read', 'permissions_hint.notify_templates_read', 30),
+    ('schedules.calendar_feeds.manage', 'organization', 'alerts', 'permissions.schedules_calendar_feeds_manage', 'permissions_hint.schedules_calendar_feeds_manage', 30),
+    ('schedules.create', 'organization', 'alerts', 'permissions.schedules_create', 'permissions_hint.schedules_create', 30),
+    ('schedules.delete', 'organization', 'alerts', 'permissions.schedules_delete', 'permissions_hint.schedules_delete', 30),
+    ('schedules.overrides.manage', 'organization', 'alerts', 'permissions.schedules_overrides_manage', 'permissions_hint.schedules_overrides_manage', 30),
+    ('schedules.read', 'organization', 'alerts', 'permissions.schedules_read', 'permissions_hint.schedules_read', 5),
+    ('schedules.swaps.approve', 'organization', 'alerts', 'permissions.schedules_swaps_approve', 'permissions_hint.schedules_swaps_approve', 30),
+    ('schedules.swaps.request', 'organization', 'alerts', 'permissions.schedules_swaps_request', 'permissions_hint.schedules_swaps_request', 30),
+    ('schedules.update', 'organization', 'alerts', 'permissions.schedules_update', 'permissions_hint.schedules_update', 30),
+
+    ('dashboards.annotations.manage', 'organization', 'dashboards', 'permissions.dashboards_annotations_manage', 'permissions_hint.dashboards_annotations_manage', 30),
+    ('dashboards.annotations.read', 'organization', 'dashboards', 'permissions.dashboards_annotations_read', 'permissions_hint.dashboards_annotations_read', 30),
+    ('dashboards.create', 'organization', 'dashboards', 'permissions.dashboards_create', 'permissions_hint.dashboards_create', 5),
+    ('dashboards.delete', 'organization', 'dashboards', 'permissions.dashboards_delete', 'permissions_hint.dashboards_delete', 5),
+    ('dashboards.edit', 'organization', 'dashboards', 'permissions.dashboards_edit', 'permissions_hint.dashboards_edit', 5),
+    ('dashboards.folders.delete', 'organization', 'dashboards', 'permissions.dashboards_folders_delete', 'permissions_hint.dashboards_folders_delete', 30),
+    ('dashboards.folders.manage', 'organization', 'dashboards', 'permissions.dashboards_folders_manage', 'permissions_hint.dashboards_folders_manage', 30),
+    ('dashboards.folders.read', 'organization', 'dashboards', 'permissions.dashboards_folders_read', 'permissions_hint.dashboards_folders_read', 30),
+    ('dashboards.read', 'organization', 'dashboards', 'permissions.dashboards_read', 'permissions_hint.dashboards_read', 5),
+    ('dashboards.share', 'organization', 'dashboards', 'permissions.dashboards_share', 'permissions_hint.dashboards_share', 5),
+
+    ('api_tokens.issue', 'organization', 'iam', 'permissions.api_tokens_issue', 'permissions_hint.api_tokens_issue', 30),
+    ('api_tokens.read', 'organization', 'iam', 'permissions.api_tokens_read', 'permissions_hint.api_tokens_read', 5),
+    ('api_tokens.revoke', 'organization', 'iam', 'permissions.api_tokens_revoke', 'permissions_hint.api_tokens_revoke', 30),
+    ('audit.read', 'organization', 'iam', 'permissions.audit_read', 'permissions_hint.audit_read', 5),
+    ('iam.cross_org.manage', 'organization', 'iam', 'permissions.iam_cross_org_manage', 'permissions_hint.iam_cross_org_manage', 30),
+    ('iam.cross_org.read', 'organization', 'iam', 'permissions.iam_cross_org_read', 'permissions_hint.iam_cross_org_read', 30),
+    ('iam.grants.manage', 'organization', 'iam', 'permissions.iam_grants_manage', 'permissions_hint.iam_grants_manage', 30),
+    ('iam.grants.read', 'organization', 'iam', 'permissions.iam_grants_read', 'permissions_hint.iam_grants_read', 30),
+    ('iam.policies.delete', 'organization', 'iam', 'permissions.iam_policies_delete', 'permissions_hint.iam_policies_delete', 30),
+    ('iam.policies.manage', 'organization', 'iam', 'permissions.iam_policies_manage', 'permissions_hint.iam_policies_manage', 30),
+    ('iam.policies.read', 'organization', 'iam', 'permissions.iam_policies_read', 'permissions_hint.iam_policies_read', 30),
+    ('iam.roles.delete', 'organization', 'iam', 'permissions.iam_roles_delete', 'permissions_hint.iam_roles_delete', 30),
+    ('iam.roles.manage', 'organization', 'iam', 'permissions.iam_roles_manage', 'permissions_hint.iam_roles_manage', 5),
+    ('iam.roles.read', 'organization', 'iam', 'permissions.iam_roles_read', 'permissions_hint.iam_roles_read', 5),
+    ('org.members.approve', 'organization', 'iam', 'permissions.org_members_approve', 'permissions_hint.org_members_approve', 30),
+    ('org.members.invite', 'organization', 'iam', 'permissions.org_members_invite', 'permissions_hint.org_members_invite', 30),
+    ('org.members.mfa_reset', 'organization', 'iam', 'permissions.org_members_mfa_reset', 'permissions_hint.org_members_mfa_reset', 30),
+    ('org.members.read', 'organization', 'iam', 'permissions.org_members_read', 'permissions_hint.org_members_read', 5),
+    ('org.members.remove', 'organization', 'iam', 'permissions.org_members_remove', 'permissions_hint.org_members_remove', 30),
+    ('org.members.update', 'organization', 'iam', 'permissions.org_members_update', 'permissions_hint.org_members_update', 30),
+    ('org.teams.manage', 'organization', 'iam', 'permissions.org_teams_manage', 'permissions_hint.org_teams_manage', 30),
+    ('personal_tokens.manage', 'organization', 'iam', 'permissions.personal_tokens_manage', 'permissions_hint.personal_tokens_manage', 5),
+    ('service_accounts.delete', 'organization', 'iam', 'permissions.service_accounts_delete', 'permissions_hint.service_accounts_delete', 30),
+    ('service_accounts.manage', 'organization', 'iam', 'permissions.service_accounts_manage', 'permissions_hint.service_accounts_manage', 5),
+    ('service_accounts.read', 'organization', 'iam', 'permissions.service_accounts_read', 'permissions_hint.service_accounts_read', 5),
+
+    ('apm.definitions.manage', 'organization', 'observability', 'permissions.apm_definitions_manage', 'permissions_hint.apm_definitions_manage', 30),
+    ('apm.definitions.read', 'organization', 'observability', 'permissions.apm_definitions_read', 'permissions_hint.apm_definitions_read', 30),
+    ('apm.deploy', 'organization', 'observability', 'permissions.apm_deploy', 'permissions_hint.apm_deploy', 10),
+    ('apm.deployments.read', 'organization', 'observability', 'permissions.apm_deployments_read', 'permissions_hint.apm_deployments_read', 30),
+    ('apm.error_rules.manage', 'organization', 'observability', 'permissions.apm_error_rules_manage', 'permissions_hint.apm_error_rules_manage', 30),
+    ('apm.error_rules.read', 'organization', 'observability', 'permissions.apm_error_rules_read', 'permissions_hint.apm_error_rules_read', 30),
+    ('apm.errors.manage', 'organization', 'observability', 'permissions.apm_errors_manage', 'permissions_hint.apm_errors_manage', 30),
+    ('apm.errors.read', 'organization', 'observability', 'permissions.apm_errors_read', 'permissions_hint.apm_errors_read', 30),
+    ('apm.services.read', 'organization', 'observability', 'permissions.apm_services_read', 'permissions_hint.apm_services_read', 30),
+    ('apm.settings.manage', 'organization', 'observability', 'permissions.apm_settings_manage', 'permissions_hint.apm_settings_manage', 30),
+    ('apm.settings.read', 'organization', 'observability', 'permissions.apm_settings_read', 'permissions_hint.apm_settings_read', 30),
+    ('apm.slos.delete', 'organization', 'observability', 'permissions.apm_slos_delete', 'permissions_hint.apm_slos_delete', 30),
+    ('apm.slos.manage', 'organization', 'observability', 'permissions.apm_slos_manage', 'permissions_hint.apm_slos_manage', 30),
+    ('apm.slos.read', 'organization', 'observability', 'permissions.apm_slos_read', 'permissions_hint.apm_slos_read', 30),
+    ('debug_artifacts.manage', 'organization', 'observability', 'permissions.debug_artifacts_manage', 'permissions_hint.debug_artifacts_manage', 30),
+    ('debug_artifacts.read', 'organization', 'observability', 'permissions.debug_artifacts_read', 'permissions_hint.debug_artifacts_read', 30),
+    ('inspections.read', 'organization', 'observability', 'permissions.inspections_read', 'permissions_hint.inspections_read', 30),
+    ('inspections.run', 'organization', 'observability', 'permissions.inspections_run', 'permissions_hint.inspections_run', 30),
+    ('intake_budgets.manage', 'organization', 'observability', 'permissions.intake_budgets_manage', 'permissions_hint.intake_budgets_manage', 12),
+    ('intake_usage.read', 'organization', 'observability', 'permissions.intake_usage_read', 'permissions_hint.intake_usage_read', 12),
+    ('log_patterns.manage', 'organization', 'observability', 'permissions.log_patterns_manage', 'permissions_hint.log_patterns_manage', 30),
+    ('log_patterns.read', 'organization', 'observability', 'permissions.log_patterns_read', 'permissions_hint.log_patterns_read', 30),
+    ('logs.read', 'organization', 'observability', 'permissions.logs_read', 'permissions_hint.logs_read', 30),
+    ('logs.write', 'organization', 'observability', 'permissions.logs_write', 'permissions_hint.logs_write', 30),
+    ('metrics.read', 'organization', 'observability', 'permissions.metrics_read', 'permissions_hint.metrics_read', 30),
+    ('metrics.write', 'organization', 'observability', 'permissions.metrics_write', 'permissions_hint.metrics_write', 30),
+    ('profiles.read', 'organization', 'observability', 'permissions.profiles_read', 'permissions_hint.profiles_read', 30),
+    ('profiles.write', 'organization', 'observability', 'permissions.profiles_write', 'permissions_hint.profiles_write', 30),
+    ('query.jobs.read', 'organization', 'observability', 'permissions.query_jobs_read', 'permissions_hint.query_jobs_read', 30),
+    ('query.jobs.run', 'organization', 'observability', 'permissions.query_jobs_run', 'permissions_hint.query_jobs_run', 30),
+    ('query.slow.read', 'organization', 'observability', 'permissions.query_slow_read', 'permissions_hint.query_slow_read', 30),
+    ('rum.analytics.read', 'organization', 'observability', 'permissions.rum_analytics_read', 'permissions_hint.rum_analytics_read', 30),
+    ('rum.applications.manage', 'organization', 'observability', 'permissions.rum_applications_manage', 'permissions_hint.rum_applications_manage', 30),
+    ('rum.applications.read', 'organization', 'observability', 'permissions.rum_applications_read', 'permissions_hint.rum_applications_read', 30),
+    ('rum.events.read', 'organization', 'observability', 'permissions.rum_events_read', 'permissions_hint.rum_events_read', 30),
+    ('rum.issues.manage', 'organization', 'observability', 'permissions.rum_issues_manage', 'permissions_hint.rum_issues_manage', 30),
+    ('rum.issues.read', 'organization', 'observability', 'permissions.rum_issues_read', 'permissions_hint.rum_issues_read', 30),
+    ('rum.playlists.manage', 'organization', 'observability', 'permissions.rum_playlists_manage', 'permissions_hint.rum_playlists_manage', 30),
+    ('rum.playlists.read', 'organization', 'observability', 'permissions.rum_playlists_read', 'permissions_hint.rum_playlists_read', 30),
+    ('rum.replay.comments.manage', 'organization', 'observability', 'permissions.rum_replay_comments_manage', 'permissions_hint.rum_replay_comments_manage', 30),
+    ('rum.replay.comments.write', 'organization', 'observability', 'permissions.rum_replay_comments_write', 'permissions_hint.rum_replay_comments_write', 30),
+    ('rum.replay.read', 'organization', 'observability', 'permissions.rum_replay_read', 'permissions_hint.rum_replay_read', 30),
+    ('rum.replay.summaries.generate', 'organization', 'observability', 'permissions.rum_replay_summaries_generate', 'permissions_hint.rum_replay_summaries_generate', 30),
+    ('rum.sessions.read', 'organization', 'observability', 'permissions.rum_sessions_read', 'permissions_hint.rum_sessions_read', 30),
+    ('rum.write', 'organization', 'observability', 'permissions.rum_write', 'permissions_hint.rum_write', 7),
+    ('saved_views.create', 'organization', 'observability', 'permissions.saved_views_create', 'permissions_hint.saved_views_create', 5),
+    ('saved_views.delete', 'organization', 'observability', 'permissions.saved_views_delete', 'permissions_hint.saved_views_delete', 5),
+    ('saved_views.edit', 'organization', 'observability', 'permissions.saved_views_edit', 'permissions_hint.saved_views_edit', 5),
+    ('saved_views.read', 'organization', 'observability', 'permissions.saved_views_read', 'permissions_hint.saved_views_read', 5),
+    ('streams.configure', 'organization', 'observability', 'permissions.streams_configure', 'permissions_hint.streams_configure', 5),
+    ('streams.create', 'organization', 'observability', 'permissions.streams_create', 'permissions_hint.streams_create', 5),
+    ('streams.delete', 'organization', 'observability', 'permissions.streams_delete', 'permissions_hint.streams_delete', 5),
+    ('streams.query', 'organization', 'observability', 'permissions.streams_query', 'permissions_hint.streams_query', 5),
+    ('streams.read', 'organization', 'observability', 'permissions.streams_read', 'permissions_hint.streams_read', 5),
+    ('traces.read', 'organization', 'observability', 'permissions.traces_read', 'permissions_hint.traces_read', 30),
+    ('traces.write', 'organization', 'observability', 'permissions.traces_write', 'permissions_hint.traces_write', 30),
+
+    ('org.cipher_keys.manage', 'organization', 'organization', 'permissions.org_cipher_keys_manage', 'permissions_hint.org_cipher_keys_manage', 30),
+    ('org.cipher_keys.read', 'organization', 'organization', 'permissions.org_cipher_keys_read', 'permissions_hint.org_cipher_keys_read', 30),
+    ('org.cipher_keys.rotate', 'organization', 'organization', 'permissions.org_cipher_keys_rotate', 'permissions_hint.org_cipher_keys_rotate', 30),
+    ('org.delete', 'organization', 'organization', 'permissions.org_delete', 'permissions_hint.org_delete', 5),
+    ('org.domains.manage', 'organization', 'organization', 'permissions.org_domains_manage', 'permissions_hint.org_domains_manage', 30),
+    ('org.domains.read', 'organization', 'organization', 'permissions.org_domains_read', 'permissions_hint.org_domains_read', 30),
+    ('org.email_domains.manage', 'organization', 'organization', 'permissions.org_email_domains_manage', 'permissions_hint.org_email_domains_manage', 30),
+    ('org.email_domains.read', 'organization', 'organization', 'permissions.org_email_domains_read', 'permissions_hint.org_email_domains_read', 30),
+    ('org.field_masking.manage', 'organization', 'organization', 'permissions.org_field_masking_manage', 'permissions_hint.org_field_masking_manage', 30),
+    ('org.field_masking.read', 'organization', 'organization', 'permissions.org_field_masking_read', 'permissions_hint.org_field_masking_read', 30),
+    ('org.preferences.manage', 'organization', 'organization', 'permissions.org_preferences_manage', 'permissions_hint.org_preferences_manage', 30),
+    ('org.preferences.read', 'organization', 'organization', 'permissions.org_preferences_read', 'permissions_hint.org_preferences_read', 30),
+    ('org.regex_patterns.manage', 'organization', 'organization', 'permissions.org_regex_patterns_manage', 'permissions_hint.org_regex_patterns_manage', 30),
+    ('org.regex_patterns.read', 'organization', 'organization', 'permissions.org_regex_patterns_read', 'permissions_hint.org_regex_patterns_read', 30),
+    ('org.running_queries.cancel', 'organization', 'organization', 'permissions.org_running_queries_cancel', 'permissions_hint.org_running_queries_cancel', 30),
+    ('org.running_queries.read', 'organization', 'organization', 'permissions.org_running_queries_read', 'permissions_hint.org_running_queries_read', 30),
+    ('org.sharing.manage', 'organization', 'organization', 'permissions.org_sharing_manage', 'permissions_hint.org_sharing_manage', 30),
+    ('org.sharing.read', 'organization', 'organization', 'permissions.org_sharing_read', 'permissions_hint.org_sharing_read', 30),
+    ('org.signin.manage', 'organization', 'organization', 'permissions.org_signin_manage', 'permissions_hint.org_signin_manage', 30),
+    ('org.signin.read', 'organization', 'organization', 'permissions.org_signin_read', 'permissions_hint.org_signin_read', 30),
+    ('org.sso.manage', 'organization', 'organization', 'permissions.org_sso_manage', 'permissions_hint.org_sso_manage', 30),
+    ('org.sso.read', 'organization', 'organization', 'permissions.org_sso_read', 'permissions_hint.org_sso_read', 30),
+
+    ('connectors.manage', 'organization', 'pipelines', 'permissions.connectors_manage', 'permissions_hint.connectors_manage', 30),
+    ('connectors.read', 'organization', 'pipelines', 'permissions.connectors_read', 'permissions_hint.connectors_read', 30),
+    ('functions.create', 'organization', 'pipelines', 'permissions.functions_create', 'permissions_hint.functions_create', 5),
+    ('functions.delete', 'organization', 'pipelines', 'permissions.functions_delete', 'permissions_hint.functions_delete', 5),
+    ('functions.edit', 'organization', 'pipelines', 'permissions.functions_edit', 'permissions_hint.functions_edit', 5),
+    ('functions.read', 'organization', 'pipelines', 'permissions.functions_read', 'permissions_hint.functions_read', 5),
+    ('functions.run', 'organization', 'pipelines', 'permissions.functions_run', 'permissions_hint.functions_run', 5),
+    ('pipelines.create', 'organization', 'pipelines', 'permissions.pipelines_create', 'permissions_hint.pipelines_create', 5),
+    ('pipelines.delete', 'organization', 'pipelines', 'permissions.pipelines_delete', 'permissions_hint.pipelines_delete', 5),
+    ('pipelines.edit', 'organization', 'pipelines', 'permissions.pipelines_edit', 'permissions_hint.pipelines_edit', 5),
+    ('pipelines.pause', 'organization', 'pipelines', 'permissions.pipelines_pause', 'permissions_hint.pipelines_pause', 5),
+    ('pipelines.read', 'organization', 'pipelines', 'permissions.pipelines_read', 'permissions_hint.pipelines_read', 5),
+    ('pipelines.run', 'organization', 'pipelines', 'permissions.pipelines_run', 'permissions_hint.pipelines_run', 5),
+    ('tables.create', 'organization', 'pipelines', 'permissions.tables_create', 'permissions_hint.tables_create', 30),
+    ('tables.delete', 'organization', 'pipelines', 'permissions.tables_delete', 'permissions_hint.tables_delete', 30),
+    ('tables.edit', 'organization', 'pipelines', 'permissions.tables_edit', 'permissions_hint.tables_edit', 30),
+    ('tables.read', 'organization', 'pipelines', 'permissions.tables_read', 'permissions_hint.tables_read', 30),
+
+    ('sys.administrators.manage', 'platform', 'platform', 'permissions.sys_administrators_manage', 'permissions_hint.sys_administrators_manage', 5),
+    ('sys.administrators.read', 'platform', 'platform', 'permissions.sys_administrators_read', 'permissions_hint.sys_administrators_read', 5),
+    ('sys.clusters.manage', 'platform', 'platform', 'permissions.sys_clusters_manage', 'permissions_hint.sys_clusters_manage', 5),
+    ('sys.clusters.read', 'platform', 'platform', 'permissions.sys_clusters_read', 'permissions_hint.sys_clusters_read', 5),
+    ('sys.dashboards.read', 'platform', 'platform', 'permissions.sys_dashboards_read', 'permissions_hint.sys_dashboards_read', 6),
+    ('sys.nodes.drain', 'platform', 'platform', 'permissions.sys_nodes_drain', 'permissions_hint.sys_nodes_drain', 5),
+    ('sys.nodes.read', 'platform', 'platform', 'permissions.sys_nodes_read', 'permissions_hint.sys_nodes_read', 5),
+    ('sys.organizations.create', 'platform', 'platform', 'permissions.sys_organizations_create', 'permissions_hint.sys_organizations_create', 5),
+    ('sys.organizations.delete', 'platform', 'platform', 'permissions.sys_organizations_delete', 'permissions_hint.sys_organizations_delete', 5),
+    ('sys.organizations.disable', 'platform', 'platform', 'permissions.sys_organizations_disable', 'permissions_hint.sys_organizations_disable', 5),
+    ('sys.organizations.read', 'platform', 'platform', 'permissions.sys_organizations_read', 'permissions_hint.sys_organizations_read', 5),
+    ('sys.organizations.update', 'platform', 'platform', 'permissions.sys_organizations_update', 'permissions_hint.sys_organizations_update', 5),
+    ('sys.query.admission.manage', 'platform', 'platform', 'permissions.sys_query_admission_manage', 'permissions_hint.sys_query_admission_manage', 5),
+    ('sys.query.admission.read', 'platform', 'platform', 'permissions.sys_query_admission_read', 'permissions_hint.sys_query_admission_read', 5),
+    ('sys.settings.alerting.manage', 'platform', 'platform', 'permissions.sys_settings_alerting_manage', 'permissions_hint.sys_settings_alerting_manage', 5),
+    ('sys.settings.alerting.read', 'platform', 'platform', 'permissions.sys_settings_alerting_read', 'permissions_hint.sys_settings_alerting_read', 5),
+    ('sys.settings.limits.manage', 'platform', 'platform', 'permissions.sys_settings_limits_manage', 'permissions_hint.sys_settings_limits_manage', 5),
+    ('sys.settings.limits.read', 'platform', 'platform', 'permissions.sys_settings_limits_read', 'permissions_hint.sys_settings_limits_read', 5),
+    ('sys.settings.retention.manage', 'platform', 'platform', 'permissions.sys_settings_retention_manage', 'permissions_hint.sys_settings_retention_manage', 5),
+    ('sys.settings.retention.read', 'platform', 'platform', 'permissions.sys_settings_retention_read', 'permissions_hint.sys_settings_retention_read', 5),
+    ('sys.settings.signin.manage', 'platform', 'platform', 'permissions.sys_settings_signin_manage', 'permissions_hint.sys_settings_signin_manage', 5),
+    ('sys.settings.signin.read', 'platform', 'platform', 'permissions.sys_settings_signin_read', 'permissions_hint.sys_settings_signin_read', 5),
+    ('sys.settings.topology.manage', 'platform', 'platform', 'permissions.sys_settings_topology_manage', 'permissions_hint.sys_settings_topology_manage', 5),
+    ('sys.settings.topology.read', 'platform', 'platform', 'permissions.sys_settings_topology_read', 'permissions_hint.sys_settings_topology_read', 5),
+    ('sys.signing_keys.read', 'platform', 'platform', 'permissions.sys_signing_keys_read', 'permissions_hint.sys_signing_keys_read', 5),
+    ('sys.signing_keys.rotate', 'platform', 'platform', 'permissions.sys_signing_keys_rotate', 'permissions_hint.sys_signing_keys_rotate', 5),
+    ('sys.telemetry.manage', 'platform', 'platform', 'permissions.sys_telemetry_manage', 'permissions_hint.sys_telemetry_manage', 5),
+    ('sys.telemetry.read', 'platform', 'platform', 'permissions.sys_telemetry_read', 'permissions_hint.sys_telemetry_read', 5),
+    ('sys.trace_debug.manage', 'platform', 'platform', 'permissions.sys_trace_debug_manage', 'permissions_hint.sys_trace_debug_manage', 5),
+
+    ('postmortems.manage', 'organization', 'postmortems', 'permissions.postmortems_manage', 'permissions_hint.postmortems_manage', 9),
+    ('postmortems.read', 'organization', 'postmortems', 'permissions.postmortems_read', 'permissions_hint.postmortems_read', 9),
+
+    ('reports.create', 'organization', 'reports', 'permissions.reports_create', 'permissions_hint.reports_create', 5),
+    ('reports.delete', 'organization', 'reports', 'permissions.reports_delete', 'permissions_hint.reports_delete', 5),
+    ('reports.edit', 'organization', 'reports', 'permissions.reports_edit', 'permissions_hint.reports_edit', 5),
+    ('reports.read', 'organization', 'reports', 'permissions.reports_read', 'permissions_hint.reports_read', 5),
+    ('reports.schedule', 'organization', 'reports', 'permissions.reports_schedule', 'permissions_hint.reports_schedule', 5),
+    ('reports.share', 'organization', 'reports', 'permissions.reports_share', 'permissions_hint.reports_share', 5),
+
+    ('service_levels.manage', 'organization', 'service_levels', 'permissions.service_levels_manage', 'permissions_hint.service_levels_manage', 9),
+    ('service_levels.read', 'organization', 'service_levels', 'permissions.service_levels_read', 'permissions_hint.service_levels_read', 9),
+
+    ('status_pages.access.manage', 'organization', 'status_pages', 'permissions.status_pages_access_manage', 'permissions_hint.status_pages_access_manage', 30),
+    ('status_pages.archive', 'organization', 'status_pages', 'permissions.status_pages_archive', 'permissions_hint.status_pages_archive', 30),
+    ('status_pages.automation.approve', 'organization', 'status_pages', 'permissions.status_pages_automation_approve', 'permissions_hint.status_pages_automation_approve', 30),
+    ('status_pages.automation.manage', 'organization', 'status_pages', 'permissions.status_pages_automation_manage', 'permissions_hint.status_pages_automation_manage', 30),
+    ('status_pages.automation.read', 'organization', 'status_pages', 'permissions.status_pages_automation_read', 'permissions_hint.status_pages_automation_read', 30),
+    ('status_pages.create', 'organization', 'status_pages', 'permissions.status_pages_create', 'permissions_hint.status_pages_create', 30),
+    ('status_pages.delete', 'organization', 'status_pages', 'permissions.status_pages_delete', 'permissions_hint.status_pages_delete', 30),
+    ('status_pages.domain.manage', 'organization', 'status_pages', 'permissions.status_pages_domain_manage', 'permissions_hint.status_pages_domain_manage', 30),
+    ('status_pages.events.manage', 'organization', 'status_pages', 'permissions.status_pages_events_manage', 'permissions_hint.status_pages_events_manage', 30),
+    ('status_pages.events.publish', 'organization', 'status_pages', 'permissions.status_pages_events_publish', 'permissions_hint.status_pages_events_publish', 30),
+    ('status_pages.read', 'organization', 'status_pages', 'permissions.status_pages_read', 'permissions_hint.status_pages_read', 8),
+    ('status_pages.slack.manage', 'organization', 'status_pages', 'permissions.status_pages_slack_manage', 'permissions_hint.status_pages_slack_manage', 30),
+    ('status_pages.subscribers.manage', 'organization', 'status_pages', 'permissions.status_pages_subscribers_manage', 'permissions_hint.status_pages_subscribers_manage', 30),
+    ('status_pages.update', 'organization', 'status_pages', 'permissions.status_pages_update', 'permissions_hint.status_pages_update', 30),
+
+    ('synthetics.locations.manage', 'organization', 'synthetics', 'permissions.synthetics_locations_manage', 'permissions_hint.synthetics_locations_manage', 9),
+    ('synthetics.locations.read', 'organization', 'synthetics', 'permissions.synthetics_locations_read', 'permissions_hint.synthetics_locations_read', 30),
+    ('synthetics.monitors.archive', 'organization', 'synthetics', 'permissions.synthetics_monitors_archive', 'permissions_hint.synthetics_monitors_archive', 30),
+    ('synthetics.monitors.manage', 'organization', 'synthetics', 'permissions.synthetics_monitors_manage', 'permissions_hint.synthetics_monitors_manage', 30),
+    ('synthetics.monitors.read', 'organization', 'synthetics', 'permissions.synthetics_monitors_read', 'permissions_hint.synthetics_monitors_read', 30),
+    ('synthetics.monitors.run', 'organization', 'synthetics', 'permissions.synthetics_monitors_run', 'permissions_hint.synthetics_monitors_run', 30),
+    ('synthetics.results.read', 'organization', 'synthetics', 'permissions.synthetics_results_read', 'permissions_hint.synthetics_results_read', 30),
+    ('synthetics.secrets.manage', 'organization', 'synthetics', 'permissions.synthetics_secrets_manage', 'permissions_hint.synthetics_secrets_manage', 9),
+    ('synthetics.secrets.read', 'organization', 'synthetics', 'permissions.synthetics_secrets_read', 'permissions_hint.synthetics_secrets_read', 30);
+
+CREATE TABLE iam_catalog_versions (
+    catalog_key         VARCHAR(32) PRIMARY KEY,
+    version             BIGINT      NOT NULL CHECK (version > 0),
+    updated_at          TIMESTAMPTZ NOT NULL,
+    CONSTRAINT chk_iam_catalog_versions_key
+        CHECK (catalog_key IN ('permissions', 'routes'))
+);
+
+INSERT INTO iam_catalog_versions (catalog_key, version, updated_at)
+VALUES ('permissions', 30, clock_timestamp());
+
+-- The built-in roles with what they grant. Every organization gets a copy of the
+-- organization roles, and `_sys` of the platform roles.
+INSERT INTO iam_roles (
+    id,
+    org_id,
+    role_key,
+    name,
+    description,
+    builtin,
+    role_type,
+    scope,
+    display_priority,
+    purpose,
+    permissions,
+    created_at,
+    updated_at
 )
-SELECT bundle_key, label_key, description_key, 5
-FROM iam_permission_bundle_seed
-ON CONFLICT (bundle_key) DO UPDATE
-SET label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-DELETE FROM iam_permission_bundle_items;
-INSERT INTO iam_permission_bundle_items (bundle_key, permission_key, position)
 SELECT
-    seed.bundle_key,
-    item.permission_key,
-    item.position - 1
-FROM iam_permission_bundle_seed seed
-CROSS JOIN LATERAL unnest(seed.permissions)
-    WITH ORDINALITY AS item(permission_key, position);
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT role.id, granted.permission_key
-FROM iam_roles role
-JOIN iam_roles builtin
-  ON builtin.org_id IS NULL
- AND builtin.role_key = role.role_key
-JOIN iam_role_permissions granted
-  ON granted.role_id = builtin.id
-WHERE role.builtin
-  AND role.org_id IS NOT NULL
-ON CONFLICT (role_id, permission_key) DO NOTHING;
+    gen_random_uuid()::TEXT,
+    NULL,
+    builtin.role_key,
+    builtin.name,
+    builtin.description,
+    TRUE,
+    builtin.role_type,
+    builtin.scope,
+    builtin.display_priority,
+    builtin.purpose,
+    builtin.permissions,
+    clock_timestamp(),
+    clock_timestamp()
+FROM (
+    VALUES
+        ('platform_admin', 'Platform administrator', 'All platform permissions.', 'platform', 'platform', 5, NULL,
+         ARRAY[
+             'sys.administrators.manage', 'sys.administrators.read', 'sys.clusters.manage',
+             'sys.clusters.read', 'sys.dashboards.read', 'sys.nodes.drain', 'sys.nodes.read',
+             'sys.organizations.create', 'sys.organizations.delete', 'sys.organizations.disable',
+             'sys.organizations.read', 'sys.organizations.update', 'sys.query.admission.manage',
+             'sys.query.admission.read', 'sys.settings.alerting.manage',
+             'sys.settings.alerting.read', 'sys.settings.limits.manage',
+             'sys.settings.limits.read', 'sys.settings.retention.manage',
+             'sys.settings.retention.read', 'sys.settings.signin.manage',
+             'sys.settings.signin.read', 'sys.settings.topology.manage',
+             'sys.settings.topology.read', 'sys.signing_keys.read', 'sys.signing_keys.rotate',
+             'sys.telemetry.manage', 'sys.telemetry.read', 'sys.trace_debug.manage'
+         ]::TEXT[]),
+        ('platform_viewer', 'Platform viewer', 'Reads everything on the platform and changes nothing.', 'platform', 'platform', 6, NULL,
+         ARRAY[
+             'sys.administrators.read', 'sys.clusters.read', 'sys.dashboards.read',
+             'sys.nodes.read', 'sys.organizations.read', 'sys.query.admission.read',
+             'sys.settings.alerting.read', 'sys.settings.limits.read',
+             'sys.settings.retention.read', 'sys.settings.signin.read',
+             'sys.settings.topology.read', 'sys.signing_keys.read', 'sys.telemetry.read'
+         ]::TEXT[]),
+        ('owner', 'Owner', 'Full administrative access.', 'organization', 'organization', 10, 'organization_bootstrap',
+         ARRAY[
+             'agent.approvals.read', 'agent.approvals.request', 'agent.approve',
+             'agent.automations.manage', 'agent.automations.read', 'agent.automations.run',
+             'agent.automations.tokens', 'agent.im.manage', 'agent.im.read',
+             'agent.inbound_mcp.manage', 'agent.inbound_mcp.read', 'agent.investigations.manage',
+             'agent.investigations.read', 'agent.knowledge.manage', 'agent.knowledge.read',
+             'agent.manage', 'agent.mcp_servers.manage', 'agent.mcp_servers.read',
+             'agent.memories.manage', 'agent.memories.read', 'agent.memories.settings',
+             'agent.models.manage', 'agent.models.read', 'agent.models.rotate',
+             'agent.network_policy.manage', 'agent.network_policy.read', 'agent.profiles.manage',
+             'agent.profiles.read', 'agent.prompts.manage', 'agent.prompts.read',
+             'agent.quality.manage', 'agent.quality.read', 'agent.skill_repositories.manage',
+             'agent.skill_repositories.read', 'agent.skills.manage', 'agent.skills.read',
+             'agent.skills.rescan', 'agent.toolsets.manage', 'agent.toolsets.read',
+             'agent.tools.manage', 'agent.tools.read', 'agent.usage.manage', 'agent.usage.read',
+             'agent.use', 'alerts.calendars.manage', 'alerts.calendars.read',
+             'alerts.discovery.read', 'alerts.escalations.delete', 'alerts.escalations.manage',
+             'alerts.escalations.read', 'alerts.importance.manage', 'alerts.importance.read',
+             'alerts.incidents.acknowledge', 'alerts.incidents.create',
+             'alerts.incidents.escalate', 'alerts.incidents.rca', 'alerts.incidents.read',
+             'alerts.incidents.remediate', 'alerts.incidents.silence', 'alerts.incidents.tickets',
+             'alerts.incidents.update', 'alerts.inhibitions.manage', 'alerts.inhibitions.read',
+             'alerts.mutes.manage', 'alerts.mutes.read', 'alerts.remediation.manage',
+             'alerts.remediation.preapprove', 'alerts.remediation.read',
+             'alerts.response.manage', 'alerts.response.read',
+             'alerts.routing.manage', 'alerts.routing.read', 'alerts.rules.delete',
+             'alerts.rules.manage', 'alerts.rules.read', 'alerts.semantic_groups.manage',
+             'alerts.semantic_groups.read', 'alerts.sources.manage', 'alerts.sources.read',
+             'alerts.tickets.manage', 'alerts.tickets.read', 'api_tokens.issue', 'api_tokens.read',
+             'api_tokens.revoke', 'apm.definitions.manage', 'apm.definitions.read', 'apm.deploy',
+             'apm.deployments.read', 'apm.error_rules.manage', 'apm.error_rules.read',
+             'apm.errors.manage', 'apm.errors.read', 'apm.services.read', 'apm.settings.manage',
+             'apm.settings.read', 'apm.slos.delete', 'apm.slos.manage', 'apm.slos.read',
+             'audit.read', 'connectors.manage', 'connectors.read', 'dashboards.annotations.manage',
+             'dashboards.annotations.read', 'dashboards.create', 'dashboards.delete',
+             'dashboards.edit', 'dashboards.folders.delete', 'dashboards.folders.manage',
+             'dashboards.folders.read', 'dashboards.read', 'dashboards.share',
+             'debug_artifacts.manage', 'debug_artifacts.read', 'functions.create',
+             'functions.delete', 'functions.edit', 'functions.read', 'functions.run',
+             'iam.cross_org.manage', 'iam.cross_org.read', 'iam.grants.manage', 'iam.grants.read',
+             'iam.policies.delete', 'iam.policies.manage', 'iam.policies.read', 'iam.roles.delete',
+             'iam.roles.manage', 'iam.roles.read', 'inspections.manage', 'inspections.read',
+             'inspections.run', 'intake_budgets.manage', 'intake_usage.read',
+             'log_patterns.manage', 'log_patterns.read', 'logs.read', 'logs.write', 'metrics.read',
+             'metrics.write', 'notify.connectors.delete', 'notify.connectors.manage',
+             'notify.connectors.read', 'notify.defaults.manage', 'notify.defaults.read',
+             'notify.deliveries.acknowledge', 'notify.deliveries.read', 'notify.deliveries.retry',
+             'notify.policies.delete', 'notify.policies.manage', 'notify.policies.read',
+             'notify.templates.manage', 'notify.templates.read', 'org.cipher_keys.manage',
+             'org.cipher_keys.read', 'org.cipher_keys.rotate', 'org.delete', 'org.domains.manage',
+             'org.domains.read', 'org.email_domains.manage', 'org.email_domains.read',
+             'org.field_masking.manage', 'org.field_masking.read', 'org.members.approve',
+             'org.members.invite', 'org.members.mfa_reset', 'org.members.read',
+             'org.members.remove', 'org.members.update', 'org.preferences.manage',
+             'org.preferences.read', 'org.regex_patterns.manage', 'org.regex_patterns.read',
+             'org.running_queries.cancel', 'org.running_queries.read', 'org.sharing.manage',
+             'org.sharing.read', 'org.signin.manage', 'org.signin.read', 'org.sso.manage',
+             'org.sso.read', 'org.teams.manage', 'personal_tokens.manage', 'pipelines.create',
+             'pipelines.delete', 'pipelines.edit', 'pipelines.pause', 'pipelines.read',
+             'pipelines.run', 'postmortems.manage', 'postmortems.read', 'profiles.read',
+             'profiles.write', 'query.jobs.read', 'query.jobs.run', 'query.slow.read',
+             'reports.create', 'reports.delete', 'reports.edit', 'reports.read',
+             'reports.schedule', 'reports.share', 'rum.analytics.read', 'rum.applications.manage',
+             'rum.applications.read', 'rum.events.read', 'rum.issues.manage', 'rum.issues.read',
+             'rum.playlists.manage', 'rum.playlists.read', 'rum.replay.comments.manage',
+             'rum.replay.comments.write', 'rum.replay.read', 'rum.replay.summaries.generate',
+             'rum.sessions.read', 'rum.write', 'saved_views.create', 'saved_views.delete',
+             'saved_views.edit', 'saved_views.read', 'schedules.calendar_feeds.manage',
+             'schedules.create', 'schedules.delete', 'schedules.overrides.manage',
+             'schedules.read', 'schedules.swaps.approve', 'schedules.swaps.request',
+             'schedules.update', 'service_accounts.delete', 'service_accounts.manage',
+             'service_accounts.read', 'service_levels.manage', 'service_levels.read',
+             'status_pages.access.manage', 'status_pages.archive',
+             'status_pages.automation.approve', 'status_pages.automation.manage',
+             'status_pages.automation.read', 'status_pages.create', 'status_pages.delete',
+             'status_pages.domain.manage', 'status_pages.events.manage',
+             'status_pages.events.publish', 'status_pages.read', 'status_pages.slack.manage',
+             'status_pages.subscribers.manage', 'status_pages.update', 'streams.configure',
+             'streams.create', 'streams.delete', 'streams.query', 'streams.read',
+             'synthetics.locations.manage', 'synthetics.locations.read',
+             'synthetics.monitors.archive', 'synthetics.monitors.manage',
+             'synthetics.monitors.read', 'synthetics.monitors.run', 'synthetics.results.read',
+             'synthetics.secrets.manage', 'synthetics.secrets.read', 'tables.create',
+             'tables.delete', 'tables.edit', 'tables.read', 'traces.read', 'traces.write'
+         ]::TEXT[]),
+        ('admin', 'Admin', 'Administrative access for day-to-day operations.', 'organization', 'organization', 20, NULL,
+         ARRAY[
+             'agent.approvals.read', 'agent.approvals.request', 'agent.approve',
+             'agent.automations.manage', 'agent.automations.read', 'agent.automations.run',
+             'agent.automations.tokens', 'agent.im.manage', 'agent.im.read',
+             'agent.inbound_mcp.manage', 'agent.inbound_mcp.read', 'agent.investigations.manage',
+             'agent.investigations.read', 'agent.knowledge.manage', 'agent.knowledge.read',
+             'agent.manage', 'agent.mcp_servers.manage', 'agent.mcp_servers.read',
+             'agent.memories.manage', 'agent.memories.read', 'agent.memories.settings',
+             'agent.models.manage', 'agent.models.read', 'agent.models.rotate',
+             'agent.network_policy.manage', 'agent.network_policy.read', 'agent.profiles.manage',
+             'agent.profiles.read', 'agent.prompts.manage', 'agent.prompts.read',
+             'agent.quality.manage', 'agent.quality.read', 'agent.skill_repositories.manage',
+             'agent.skill_repositories.read', 'agent.skills.manage', 'agent.skills.read',
+             'agent.skills.rescan', 'agent.toolsets.manage', 'agent.toolsets.read',
+             'agent.tools.manage', 'agent.tools.read', 'agent.usage.manage', 'agent.usage.read',
+             'agent.use', 'alerts.calendars.manage', 'alerts.calendars.read',
+             'alerts.discovery.read', 'alerts.escalations.delete', 'alerts.escalations.manage',
+             'alerts.escalations.read', 'alerts.importance.manage', 'alerts.importance.read',
+             'alerts.incidents.acknowledge', 'alerts.incidents.create',
+             'alerts.incidents.escalate', 'alerts.incidents.rca', 'alerts.incidents.read',
+             'alerts.incidents.remediate', 'alerts.incidents.silence', 'alerts.incidents.tickets',
+             'alerts.incidents.update', 'alerts.inhibitions.manage', 'alerts.inhibitions.read',
+             'alerts.mutes.manage', 'alerts.mutes.read', 'alerts.remediation.manage',
+             'alerts.remediation.preapprove', 'alerts.remediation.read',
+             'alerts.response.manage', 'alerts.response.read',
+             'alerts.routing.manage', 'alerts.routing.read', 'alerts.rules.delete',
+             'alerts.rules.manage', 'alerts.rules.read', 'alerts.semantic_groups.manage',
+             'alerts.semantic_groups.read', 'alerts.sources.manage', 'alerts.sources.read',
+             'alerts.tickets.manage', 'alerts.tickets.read', 'api_tokens.issue', 'api_tokens.read',
+             'api_tokens.revoke', 'apm.definitions.manage', 'apm.definitions.read', 'apm.deploy',
+             'apm.deployments.read', 'apm.error_rules.manage', 'apm.error_rules.read',
+             'apm.errors.manage', 'apm.errors.read', 'apm.services.read', 'apm.settings.manage',
+             'apm.settings.read', 'apm.slos.delete', 'apm.slos.manage', 'apm.slos.read',
+             'audit.read', 'connectors.manage', 'connectors.read', 'dashboards.annotations.manage',
+             'dashboards.annotations.read', 'dashboards.create', 'dashboards.delete',
+             'dashboards.edit', 'dashboards.folders.delete', 'dashboards.folders.manage',
+             'dashboards.folders.read', 'dashboards.read', 'dashboards.share',
+             'debug_artifacts.manage', 'debug_artifacts.read', 'functions.create',
+             'functions.delete', 'functions.edit', 'functions.read', 'functions.run',
+             'iam.cross_org.manage', 'iam.cross_org.read', 'iam.grants.manage', 'iam.grants.read',
+             'iam.policies.delete', 'iam.policies.manage', 'iam.policies.read', 'iam.roles.delete',
+             'iam.roles.manage', 'iam.roles.read', 'inspections.manage', 'inspections.read',
+             'inspections.run', 'intake_budgets.manage', 'intake_usage.read',
+             'log_patterns.manage', 'log_patterns.read', 'logs.read', 'logs.write', 'metrics.read',
+             'metrics.write', 'notify.connectors.delete', 'notify.connectors.manage',
+             'notify.connectors.read', 'notify.defaults.manage', 'notify.defaults.read',
+             'notify.deliveries.acknowledge', 'notify.deliveries.read', 'notify.deliveries.retry',
+             'notify.policies.delete', 'notify.policies.manage', 'notify.policies.read',
+             'notify.templates.manage', 'notify.templates.read', 'org.cipher_keys.manage',
+             'org.cipher_keys.read', 'org.cipher_keys.rotate', 'org.domains.manage',
+             'org.domains.read', 'org.email_domains.manage', 'org.email_domains.read',
+             'org.field_masking.manage', 'org.field_masking.read', 'org.members.approve',
+             'org.members.invite', 'org.members.mfa_reset', 'org.members.read',
+             'org.members.remove', 'org.members.update', 'org.preferences.manage',
+             'org.preferences.read', 'org.regex_patterns.manage', 'org.regex_patterns.read',
+             'org.running_queries.cancel', 'org.running_queries.read', 'org.sharing.manage',
+             'org.sharing.read', 'org.signin.manage', 'org.signin.read', 'org.sso.manage',
+             'org.sso.read', 'org.teams.manage', 'personal_tokens.manage', 'pipelines.create',
+             'pipelines.delete', 'pipelines.edit', 'pipelines.pause', 'pipelines.read',
+             'pipelines.run', 'postmortems.manage', 'postmortems.read', 'profiles.read',
+             'profiles.write', 'query.jobs.read', 'query.jobs.run', 'query.slow.read',
+             'reports.create', 'reports.delete', 'reports.edit', 'reports.read',
+             'reports.schedule', 'reports.share', 'rum.analytics.read', 'rum.applications.manage',
+             'rum.applications.read', 'rum.events.read', 'rum.issues.manage', 'rum.issues.read',
+             'rum.playlists.manage', 'rum.playlists.read', 'rum.replay.comments.manage',
+             'rum.replay.comments.write', 'rum.replay.read', 'rum.replay.summaries.generate',
+             'rum.sessions.read', 'rum.write', 'saved_views.create', 'saved_views.delete',
+             'saved_views.edit', 'saved_views.read', 'schedules.calendar_feeds.manage',
+             'schedules.create', 'schedules.delete', 'schedules.overrides.manage',
+             'schedules.read', 'schedules.swaps.approve', 'schedules.swaps.request',
+             'schedules.update', 'service_accounts.delete', 'service_accounts.manage',
+             'service_accounts.read', 'service_levels.manage', 'service_levels.read',
+             'status_pages.access.manage', 'status_pages.archive',
+             'status_pages.automation.approve', 'status_pages.automation.manage',
+             'status_pages.automation.read', 'status_pages.create', 'status_pages.delete',
+             'status_pages.domain.manage', 'status_pages.events.manage',
+             'status_pages.events.publish', 'status_pages.read', 'status_pages.slack.manage',
+             'status_pages.subscribers.manage', 'status_pages.update', 'streams.configure',
+             'streams.create', 'streams.delete', 'streams.query', 'streams.read',
+             'synthetics.locations.manage', 'synthetics.locations.read',
+             'synthetics.monitors.archive', 'synthetics.monitors.manage',
+             'synthetics.monitors.read', 'synthetics.monitors.run', 'synthetics.results.read',
+             'synthetics.secrets.manage', 'synthetics.secrets.read', 'tables.create',
+             'tables.delete', 'tables.edit', 'tables.read', 'traces.read', 'traces.write'
+         ]::TEXT[]),
+        ('editor', 'Editor', 'Can operate and change product resources.', 'organization', 'organization', 30, NULL,
+         ARRAY[
+             'agent.approvals.read', 'agent.approvals.request', 'agent.automations.manage',
+             'agent.automations.read', 'agent.automations.run', 'agent.automations.tokens',
+             'agent.investigations.manage', 'agent.investigations.read', 'agent.knowledge.manage',
+             'agent.knowledge.read', 'agent.mcp_servers.manage', 'agent.mcp_servers.read',
+             'agent.memories.manage', 'agent.memories.read', 'agent.models.read',
+             'agent.profiles.read', 'agent.prompts.read', 'agent.skill_repositories.manage',
+             'agent.skill_repositories.read', 'agent.skills.manage', 'agent.skills.read',
+             'agent.toolsets.read', 'agent.tools.read', 'agent.usage.read', 'agent.use',
+             'alerts.calendars.manage', 'alerts.calendars.read', 'alerts.discovery.read',
+             'alerts.escalations.delete', 'alerts.escalations.manage', 'alerts.escalations.read',
+             'alerts.importance.manage', 'alerts.importance.read', 'alerts.incidents.acknowledge',
+             'alerts.incidents.create', 'alerts.incidents.escalate', 'alerts.incidents.rca',
+             'alerts.incidents.read', 'alerts.incidents.remediate', 'alerts.incidents.silence',
+             'alerts.incidents.tickets', 'alerts.incidents.update', 'alerts.inhibitions.manage',
+             'alerts.inhibitions.read', 'alerts.mutes.manage', 'alerts.mutes.read',
+             'alerts.remediation.manage', 'alerts.remediation.read', 'alerts.response.manage',
+             'alerts.response.read', 'alerts.routing.manage', 'alerts.routing.read',
+             'alerts.rules.delete', 'alerts.rules.manage', 'alerts.rules.read',
+             'alerts.semantic_groups.manage', 'alerts.semantic_groups.read',
+             'alerts.sources.manage', 'alerts.sources.read', 'alerts.tickets.manage',
+             'alerts.tickets.read', 'apm.definitions.manage', 'apm.definitions.read', 'apm.deploy',
+             'apm.deployments.read', 'apm.error_rules.manage', 'apm.error_rules.read',
+             'apm.errors.manage', 'apm.errors.read', 'apm.services.read', 'apm.settings.manage',
+             'apm.settings.read', 'apm.slos.delete', 'apm.slos.manage', 'apm.slos.read',
+             'connectors.manage', 'connectors.read', 'dashboards.annotations.manage',
+             'dashboards.annotations.read', 'dashboards.create', 'dashboards.delete',
+             'dashboards.edit', 'dashboards.folders.delete', 'dashboards.folders.manage',
+             'dashboards.folders.read', 'dashboards.read', 'dashboards.share',
+             'debug_artifacts.manage', 'debug_artifacts.read', 'functions.create',
+             'functions.delete', 'functions.edit', 'functions.read', 'functions.run',
+             'inspections.manage', 'inspections.read', 'inspections.run', 'log_patterns.manage',
+             'log_patterns.read', 'logs.read', 'logs.write', 'metrics.read', 'metrics.write',
+             'notify.connectors.delete', 'notify.connectors.manage', 'notify.connectors.read',
+             'notify.defaults.manage', 'notify.defaults.read', 'notify.deliveries.acknowledge',
+             'notify.deliveries.read', 'notify.deliveries.retry', 'notify.policies.delete',
+             'notify.policies.manage', 'notify.policies.read', 'notify.templates.manage',
+             'notify.templates.read', 'personal_tokens.manage', 'pipelines.create',
+             'pipelines.delete', 'pipelines.edit', 'pipelines.pause', 'pipelines.read',
+             'pipelines.run', 'profiles.read', 'profiles.write', 'query.jobs.read',
+             'query.jobs.run', 'query.slow.read', 'reports.create', 'reports.delete',
+             'reports.edit', 'reports.read', 'reports.schedule', 'reports.share',
+             'rum.analytics.read', 'rum.applications.read', 'rum.events.read', 'rum.issues.manage',
+             'rum.issues.read', 'rum.playlists.manage', 'rum.playlists.read',
+             'rum.replay.comments.write', 'rum.replay.read', 'rum.replay.summaries.generate',
+             'rum.sessions.read', 'rum.write', 'saved_views.create', 'saved_views.delete',
+             'saved_views.edit', 'saved_views.read', 'schedules.calendar_feeds.manage',
+             'schedules.create', 'schedules.delete', 'schedules.overrides.manage',
+             'schedules.read', 'schedules.swaps.approve', 'schedules.swaps.request',
+             'schedules.update', 'streams.configure', 'streams.create', 'streams.delete',
+             'streams.query', 'streams.read', 'tables.create', 'tables.delete', 'tables.edit',
+             'tables.read', 'traces.read', 'traces.write'
+         ]::TEXT[]),
+        ('viewer', 'Viewer', 'Read-only product access.', 'organization', 'organization', 40, 'self_service_signup',
+         ARRAY[
+             'agent.approvals.read', 'agent.approvals.request', 'agent.automations.read',
+             'agent.investigations.manage', 'agent.investigations.read', 'agent.knowledge.manage',
+             'agent.knowledge.read', 'agent.mcp_servers.manage', 'agent.mcp_servers.read',
+             'agent.memories.manage', 'agent.memories.read', 'agent.models.read',
+             'agent.profiles.read', 'agent.prompts.read', 'agent.skill_repositories.manage',
+             'agent.skill_repositories.read', 'agent.skills.manage', 'agent.skills.read',
+             'agent.toolsets.read', 'agent.tools.read', 'agent.usage.read', 'agent.use',
+             'alerts.calendars.read', 'alerts.discovery.read', 'alerts.escalations.read',
+             'alerts.importance.read', 'alerts.incidents.read', 'alerts.inhibitions.read',
+             'alerts.mutes.read', 'alerts.remediation.read', 'alerts.response.read',
+             'alerts.routing.read', 'alerts.rules.read', 'alerts.semantic_groups.read',
+             'alerts.sources.read', 'alerts.tickets.read', 'apm.definitions.read',
+             'apm.deployments.read', 'apm.error_rules.read', 'apm.errors.read',
+             'apm.services.read', 'apm.settings.read', 'apm.slos.read', 'connectors.read',
+             'dashboards.annotations.read', 'dashboards.folders.read', 'dashboards.read',
+             'debug_artifacts.read', 'functions.read', 'inspections.read', 'log_patterns.read',
+             'logs.read', 'metrics.read', 'notify.connectors.read', 'notify.defaults.read',
+             'notify.deliveries.read', 'notify.policies.read', 'notify.templates.read',
+             'personal_tokens.manage', 'pipelines.read', 'profiles.read', 'query.jobs.read',
+             'query.jobs.run', 'query.slow.read', 'reports.read', 'rum.analytics.read',
+             'rum.applications.read', 'rum.events.read', 'rum.issues.read', 'rum.playlists.read',
+             'rum.replay.read', 'rum.sessions.read', 'saved_views.read',
+             'schedules.calendar_feeds.manage', 'schedules.read', 'schedules.swaps.request',
+             'streams.query', 'streams.read', 'tables.read', 'traces.read'
+         ]::TEXT[])
+) AS builtin(role_key, name, description, role_type, scope, display_priority, purpose, permissions);
 
 -- ============================================================
 -- Resource-scoped shares
@@ -5134,6 +4999,11 @@ CREATE TABLE IF NOT EXISTS resource_shares (
     created_at                 TIMESTAMPTZ NOT NULL,
     last_accessed_at           TIMESTAMPTZ,
     revoked_at                 TIMESTAMPTZ,
+    -- The lookup digest stays the authorization index. The reversible token is kept only as
+    -- an AES-GCM envelope under MS_CIPHER_KEY, so authorized users can copy a link again
+    -- without plaintext credentials being stored.
+    token_ciphertext           BYTEA,
+    token_nonce                BYTEA,
     CONSTRAINT chk_resource_share_type
         CHECK (resource_type IN ('dashboard', 'report', 'report_file')),
     CONSTRAINT chk_resource_share_mode
@@ -5141,10 +5011,19 @@ CREATE TABLE IF NOT EXISTS resource_shares (
     CONSTRAINT chk_resource_share_max_views
         CHECK (max_views IS NULL OR max_views > 0),
     CONSTRAINT chk_resource_share_view_count
-        CHECK (view_count >= 0)
+        CHECK (view_count >= 0),
+    CONSTRAINT chk_resource_share_token_envelope
+        CHECK (
+            (token_ciphertext IS NULL AND token_nonce IS NULL)
+            OR (token_ciphertext IS NOT NULL AND token_nonce IS NOT NULL)
+        )
 );
 CREATE INDEX IF NOT EXISTS idx_resource_shares_org_resource
     ON resource_shares (organization_id, resource_type, resource_id, created_at DESC);
+COMMENT ON COLUMN resource_shares.token_ciphertext IS
+    'AES-GCM encrypted share token; never returned without share-management authorization';
+COMMENT ON COLUMN resource_shares.token_nonce IS
+    'AES-GCM nonce paired with token_ciphertext';
 CREATE INDEX IF NOT EXISTS idx_resource_shares_expiry
     ON resource_shares (expires_at)
     WHERE enabled;
@@ -5161,68 +5040,10 @@ CREATE TABLE IF NOT EXISTS resource_share_sessions (
     ip                         VARCHAR(128),
     user_agent                 TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_resource_share_sessions_share_id
+    ON resource_share_sessions (share_id);
 CREATE INDEX IF NOT EXISTS idx_resource_share_sessions_expiry
     ON resource_share_sessions (expires_at);
-
--- Report sharing is a distinct capability from reading reports.
-INSERT INTO iam_permissions (
-    permission_key,
-    scope,
-    domain,
-    label_key,
-    description_key,
-    catalog_version
-)
-VALUES (
-    'reports.share',
-    'organization',
-    'reports',
-    'permissions.reports_share',
-    'permissions_hint.reports_share',
-    5
-)
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT
-    (SELECT role.id
-       FROM iam_roles role
-      WHERE role.org_id IS NULL
-        AND role.role_key = granted.role_key),
-    granted.permission_key
-FROM (
-    VALUES
-        ('owner', 'reports.share'),
-        ('admin', 'reports.share'),
-        ('editor', 'reports.share')
-) AS granted(role_key, permission_key)
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT role.id, 'reports.share'
-FROM iam_roles role
-WHERE role.builtin
-  AND role.role_key IN ('owner', 'admin', 'editor')
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-INSERT INTO iam_permission_catalog_versions (
-    catalog_key,
-    version,
-    updated_at
-)
-VALUES (
-    'permissions',
-    5,
-    clock_timestamp()
-)
-ON CONFLICT (catalog_key) DO UPDATE
-SET version = GREATEST(iam_permission_catalog_versions.version, EXCLUDED.version),
-    updated_at = EXCLUDED.updated_at;
 
 -- `_sys`, its platform role, and its bundled dashboards are database-owned
 -- seed data. Keep the stable organization identifier and role materialization
@@ -5241,7 +5062,7 @@ VALUES (
     clock_timestamp(),
     TRUE
 )
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT (slug) WHERE deleted_at IS NULL DO NOTHING;
 
 DO $$
 BEGIN
@@ -5257,16 +5078,6 @@ BEGIN
 END
 $$;
 
-INSERT INTO iam_policy_versions (organization_id, version, updated_at)
-SELECT
-    organization.id,
-    1,
-    clock_timestamp()
-FROM organizations organization
-WHERE organization.slug = '_sys'
-  AND organization.system
-ON CONFLICT (organization_id) DO NOTHING;
-
 INSERT INTO iam_roles (
     id,
     org_id,
@@ -5276,6 +5087,7 @@ INSERT INTO iam_roles (
     builtin,
     role_type,
     scope,
+    permissions,
     created_at,
     updated_at
 )
@@ -5288,6 +5100,7 @@ SELECT
     TRUE,
     role.role_type,
     role.scope,
+    role.permissions,
     clock_timestamp(),
     clock_timestamp()
 FROM organizations organization
@@ -5310,103 +5123,8 @@ WHERE iam_roles.name IS DISTINCT FROM EXCLUDED.name
    OR iam_roles.role_type IS DISTINCT FROM EXCLUDED.role_type
    OR iam_roles.scope IS DISTINCT FROM EXCLUDED.scope;
 
--- The system organization owns read-only built-in dashboards. Keep this
--- capability platform-scoped so `_sys` never needs an organization membership
--- or an organization-scoped dashboard role.
-INSERT INTO iam_permissions (
-    permission_key,
-    scope,
-    domain,
-    label_key,
-    description_key,
-    catalog_version
-)
-VALUES (
-    'sys.dashboards.read',
-    'platform',
-    'platform',
-    'permissions.sys_dashboards_read',
-    'permissions_hint.sys_dashboards_read',
-    6
-)
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT
-    (SELECT role.id
-       FROM iam_roles role
-      WHERE role.org_id IS NULL
-        AND role.role_key = granted.role_key),
-    granted.permission_key
-FROM (
-    VALUES
-        ('platform_admin', 'sys.dashboards.read'),
-        ('platform_viewer', 'sys.dashboards.read')
-) AS granted(role_key, permission_key)
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT role.id, granted.permission_key
-FROM iam_roles role
-JOIN organizations organization
-  ON organization.id = role.org_id
- AND organization.system
-JOIN iam_roles builtin
-  ON builtin.org_id IS NULL
- AND builtin.role_key = role.role_key
-JOIN iam_role_permissions granted
-  ON granted.role_id = builtin.id
-WHERE role.builtin
-  AND role.role_type = 'platform'
-  AND role.scope = 'platform'
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-INSERT INTO iam_permission_catalog_versions (
-    catalog_key,
-    version,
-    updated_at
-)
-VALUES (
-    'permissions',
-    7,
-    clock_timestamp()
-)
-ON CONFLICT (catalog_key) DO UPDATE
-SET version = GREATEST(iam_permission_catalog_versions.version, EXCLUDED.version),
-    updated_at = EXCLUDED.updated_at;
-
 -- Built-in _sys dashboards are maintained by
 -- 20260101000002_builtin_dashboards.sql.
-
--- ============================================================
--- Resource share token envelopes
--- ============================================================
-
--- Repeatable resource-share link display.
---
--- The lookup digest remains the authorization index. The reversible token is
--- stored only as an AES-GCM envelope under MS_CIPHER_KEY so authorized users
--- can copy an existing link again without persisting plaintext credentials.
-ALTER TABLE resource_shares
-    ADD COLUMN IF NOT EXISTS token_ciphertext BYTEA,
-    ADD COLUMN IF NOT EXISTS token_nonce BYTEA;
-
-ALTER TABLE resource_shares
-    ADD CONSTRAINT chk_resource_share_token_envelope
-    CHECK (
-        (token_ciphertext IS NULL AND token_nonce IS NULL)
-        OR (token_ciphertext IS NOT NULL AND token_nonce IS NOT NULL)
-    );
-
-COMMENT ON COLUMN resource_shares.token_ciphertext IS
-    'AES-GCM encrypted share token; never returned without share-management authorization';
-COMMENT ON COLUMN resource_shares.token_nonce IS
-    'AES-GCM nonce paired with token_ciphertext';
 
 -- ============================================================
 -- Notify management
@@ -5425,7 +5143,6 @@ CREATE TABLE IF NOT EXISTS notify_connectors (
     last_tested_at          TIMESTAMPTZ,
     last_test_status        VARCHAR(16),
     last_test_error         TEXT,
-    legacy_channel_id       VARCHAR(64),
     created_at              TIMESTAMPTZ  NOT NULL,
     updated_at              TIMESTAMPTZ  NOT NULL,
     CONSTRAINT chk_notify_connectors_status
@@ -5438,15 +5155,10 @@ CREATE TABLE IF NOT EXISTS notify_connectors (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_connectors_org_name
     ON notify_connectors(organization_id, name);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_connectors_legacy_channel
-    ON notify_connectors(organization_id, legacy_channel_id)
-    WHERE legacy_channel_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_notify_connectors_org_type
     ON notify_connectors(organization_id, connector_type, enabled);
 
 -- Mole Agent 的 IM 机器人（agent_im_bots，建在前面的 Mole Agent 一节）挂在应用连接器上。
-ALTER TABLE agent_im_bots
-    DROP CONSTRAINT IF EXISTS fk_agent_im_bots_connector;
 ALTER TABLE agent_im_bots
     ADD CONSTRAINT fk_agent_im_bots_connector
         FOREIGN KEY (org_id, connector_id)
@@ -5536,13 +5248,16 @@ CREATE TABLE IF NOT EXISTS notify_deliveries (
     acknowledged_at             TIMESTAMPTZ,
     idempotency_key             VARCHAR(255) NOT NULL,
     created_at                  TIMESTAMPTZ  NOT NULL,
+    escalated_at                TIMESTAMPTZ,
     CONSTRAINT chk_notify_delivery_stage
         CHECK (stage IN (
             'user_primary',
             'user_fallback',
             'team_fallback',
             'organization_fallback',
-            'escalation'
+            'escalation',
+            'test',
+            'direct'
         )),
     CONSTRAINT chk_notify_delivery_status
         CHECK (status IN (
@@ -5579,7 +5294,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_org_id
 -- organization's when it is not.
 CREATE TABLE IF NOT EXISTS notify_defaults (
     id                  VARCHAR(64) PRIMARY KEY,
-    organization_id     VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    organization_id     VARCHAR(64) NOT NULL,
     team_id             VARCHAR(64),
     category            VARCHAR(32) NOT NULL,
     routes              JSONB       NOT NULL DEFAULT '[]'::JSONB,
@@ -5602,6 +5317,8 @@ CREATE TABLE IF NOT EXISTS notify_defaults (
     CONSTRAINT chk_notify_defaults_routes
         CHECK (jsonb_typeof(routes) = 'array')
 );
+CREATE INDEX IF NOT EXISTS idx_notify_defaults_team_id
+    ON notify_defaults (organization_id, team_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_defaults_organization_category
     ON notify_defaults(organization_id, category)
     WHERE team_id IS NULL;
@@ -5611,7 +5328,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_defaults_team_category
 
 CREATE TABLE IF NOT EXISTS notify_policies (
     id                      VARCHAR(64)  PRIMARY KEY,
-    organization_id         VARCHAR(64)  NOT NULL,
+    -- NULL for a built-in policy: every organization but `_sys` gets a copy of it.
+    organization_id         VARCHAR(64),
     name                    VARCHAR(255) NOT NULL,
     event_type              VARCHAR(128) NOT NULL,
     category                VARCHAR(32)  NOT NULL,
@@ -5633,6 +5351,9 @@ CREATE TABLE IF NOT EXISTS notify_policies (
     priority                INTEGER      NOT NULL DEFAULT 100,
     created_at              TIMESTAMPTZ  NOT NULL,
     updated_at              TIMESTAMPTZ  NOT NULL,
+    delivery_config         JSONB        NOT NULL DEFAULT '{}'::JSONB,
+    channel_templates       JSONB        NOT NULL DEFAULT '{}'::JSONB,
+    builtin_key             VARCHAR(64),
     CONSTRAINT chk_notify_policy_event_type
         CHECK (length(btrim(event_type)) > 0),
     CONSTRAINT chk_notify_policy_category
@@ -5667,9 +5388,31 @@ CREATE TABLE IF NOT EXISTS notify_policies (
         CHECK (merge_window_secs IS NULL OR merge_window_secs BETWEEN 10 AND 600),
     CONSTRAINT chk_notify_policy_priority
         CHECK (priority BETWEEN 0 AND 10000),
+    CONSTRAINT chk_notify_policy_delivery_config
+        CHECK (jsonb_typeof(delivery_config) = 'object'),
+    CONSTRAINT chk_notify_policy_channel_templates
+        CHECK (jsonb_typeof(channel_templates) = 'object'),
+    CONSTRAINT chk_notify_policy_builtin_key
+        CHECK (builtin_key IS NULL OR builtin_key ~ '^[a-z][a-z0-9_]{1,63}$'),
+    CONSTRAINT chk_notify_policy_builtin_row
+        CHECK (
+            organization_id IS NOT NULL
+            OR (
+                builtin_key IS NOT NULL
+                AND template_id IS NULL
+                AND channel_templates = '{}'::JSONB
+                AND delivery_config = '{}'::JSONB
+            )
+        ),
     CONSTRAINT uq_notify_policies_org_id
-        UNIQUE (organization_id, id)
+        UNIQUE (organization_id, id),
+    CONSTRAINT fk_notify_policy_template
+        FOREIGN KEY (template_id)
+        REFERENCES notify_templates(id)
+        ON DELETE RESTRICT
 );
+CREATE INDEX IF NOT EXISTS idx_notify_policies_template_id
+    ON notify_policies (template_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_policies_org_name
     ON notify_policies(organization_id, name);
 CREATE INDEX IF NOT EXISTS idx_notify_policies_match
@@ -5678,18 +5421,6 @@ CREATE INDEX IF NOT EXISTS idx_notify_policies_match
 -- ============================================================
 -- Notify event delivery
 -- ============================================================
-
-ALTER TABLE notify_policies
-    ADD COLUMN IF NOT EXISTS delivery_config JSONB NOT NULL DEFAULT '{}'::JSONB;
-
-ALTER TABLE notify_policies
-    DROP CONSTRAINT IF EXISTS chk_notify_policy_delivery_config;
-ALTER TABLE notify_policies
-    ADD CONSTRAINT chk_notify_policy_delivery_config
-        CHECK (jsonb_typeof(delivery_config) = 'object');
-
-ALTER TABLE notify_deliveries
-    ADD COLUMN IF NOT EXISTS escalated_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_notify_deliveries_ack_timeout
     ON notify_deliveries(
@@ -5804,128 +5535,6 @@ CREATE INDEX IF NOT EXISTS idx_notify_reply_refs_call
     ON notify_reply_refs(connector_id, call_id) WHERE call_id IS NOT NULL;
 
 -- ============================================================
--- Canonical Notify storage
--- ============================================================
-
--- Alert delivery uses notify_connectors, notify_policies, notify_events and
--- notify_deliveries as its canonical storage.
-
-DROP TABLE IF EXISTS deliveries;
-DROP TABLE IF EXISTS notify_channels;
-DROP TABLE IF EXISTS alert_subscriptions;
-
-ALTER TABLE notify_connectors
-    DROP COLUMN IF EXISTS legacy_channel_id;
-
-ALTER TABLE alert_rules
-    DROP COLUMN IF EXISTS template_id,
-    DROP COLUMN IF EXISTS body_template;
-
-ALTER TABLE incidents
-    DROP COLUMN IF EXISTS body_template;
-
-ALTER TABLE IF EXISTS alert_templates
-    RENAME TO notify_templates;
-
-ALTER INDEX IF EXISTS uq_alert_template_org_name
-    RENAME TO uq_notify_template_org_name;
-
--- ============================================================
--- Final Notify schema
--- ============================================================
-
--- Finalize the Notify schema defined in the preceding sections.
-
-ALTER TABLE notify_deliveries
-    DROP CONSTRAINT IF EXISTS chk_notify_delivery_stage;
-ALTER TABLE notify_deliveries
-    ADD CONSTRAINT chk_notify_delivery_stage
-        CHECK (stage IN (
-            'user_primary',
-            'user_fallback',
-            'team_fallback',
-            'organization_fallback',
-            'escalation',
-            'test',
-            'direct'
-        ));
-
-ALTER TABLE notify_policies
-    DROP CONSTRAINT IF EXISTS fk_notify_policy_template;
-ALTER TABLE notify_policies
-    ADD CONSTRAINT fk_notify_policy_template
-        FOREIGN KEY (template_id)
-        REFERENCES notify_templates(id)
-        ON DELETE RESTRICT;
-
--- ============================================================
--- Notify template categories
--- ============================================================
-
-ALTER TABLE notify_templates
-    ADD COLUMN IF NOT EXISTS category VARCHAR(32) NOT NULL DEFAULT 'alert';
-
-ALTER TABLE notify_templates
-    DROP CONSTRAINT IF EXISTS chk_notify_template_category;
-ALTER TABLE notify_templates
-    ADD CONSTRAINT chk_notify_template_category
-        CHECK (category IN (
-            'alert',
-            'oncall',
-            'escalation',
-            'report',
-            'security',
-            'system'
-        ));
-
-CREATE INDEX IF NOT EXISTS idx_notify_templates_org_category
-    ON notify_templates(org_id, category, name);
-
--- ============================================================
--- Notify template channels
--- ============================================================
-
--- A template is for one channel, or for every channel when channel is NULL.
--- SMS and phone templates may carry the templates a provider approved
--- (Alibaba Cloud sends nothing else), keyed by provider:
--- {"aliyun": {"code": "SMS_1", "params": {"name": "{{rule.name}}"}}}.
--- An instant messaging template may carry the card IM apps send:
--- {"title": "...", "color": "severity", "fields": [...], "links": [...], "note": "..."}.
--- A policy may choose a template of its own for each channel.
-
-ALTER TABLE notify_templates
-    ADD COLUMN IF NOT EXISTS channel VARCHAR(16),
-    ADD COLUMN IF NOT EXISTS provider_templates JSONB NOT NULL DEFAULT '{}'::JSONB,
-    ADD COLUMN IF NOT EXISTS card JSONB;
-
-ALTER TABLE notify_templates
-    DROP CONSTRAINT IF EXISTS chk_notify_template_channel;
-ALTER TABLE notify_templates
-    ADD CONSTRAINT chk_notify_template_channel
-        CHECK (channel IS NULL OR channel IN ('im', 'phone', 'sms', 'email', 'webhook'));
-
-ALTER TABLE notify_templates
-    DROP CONSTRAINT IF EXISTS chk_notify_template_provider_templates;
-ALTER TABLE notify_templates
-    ADD CONSTRAINT chk_notify_template_provider_templates
-        CHECK (jsonb_typeof(provider_templates) = 'object');
-
-ALTER TABLE notify_templates
-    DROP CONSTRAINT IF EXISTS chk_notify_template_card;
-ALTER TABLE notify_templates
-    ADD CONSTRAINT chk_notify_template_card
-        CHECK (card IS NULL OR (channel = 'im' AND jsonb_typeof(card) = 'object'));
-
-ALTER TABLE notify_policies
-    ADD COLUMN IF NOT EXISTS channel_templates JSONB NOT NULL DEFAULT '{}'::JSONB;
-
-ALTER TABLE notify_policies
-    DROP CONSTRAINT IF EXISTS chk_notify_policy_channel_templates;
-ALTER TABLE notify_policies
-    ADD CONSTRAINT chk_notify_policy_channel_templates
-        CHECK (jsonb_typeof(channel_templates) = 'object');
-
--- ============================================================
 -- Built-in notify policies
 -- ============================================================
 
@@ -5935,22 +5544,6 @@ ALTER TABLE notify_policies
 -- and restored to the built-in row, not deleted. The ones that start turned
 -- off are there to be turned on. A built-in row names no template and no
 -- connector, since those belong to an organization.
-ALTER TABLE notify_policies
-    ALTER COLUMN organization_id DROP NOT NULL,
-    ADD COLUMN IF NOT EXISTS builtin_key VARCHAR(64),
-    ADD CONSTRAINT chk_notify_policy_builtin_key
-        CHECK (builtin_key IS NULL OR builtin_key ~ '^[a-z][a-z0-9_]{1,63}$'),
-    ADD CONSTRAINT chk_notify_policy_builtin_row
-        CHECK (
-            organization_id IS NOT NULL
-            OR (
-                builtin_key IS NOT NULL
-                AND template_id IS NULL
-                AND channel_templates = '{}'::JSONB
-                AND delivery_config = '{}'::JSONB
-            )
-        );
-
 CREATE UNIQUE INDEX IF NOT EXISTS uq_notify_policies_builtin_key
     ON notify_policies(builtin_key)
     WHERE organization_id IS NULL;
@@ -6018,7 +5611,9 @@ FROM (
         ('intake_budget_warning', 'Intake budget nearly used: notify the people it names',
          'intake.budget.warning', 'system', '{}', 'event_users', NULL, TRUE),
         ('intake_budget_exceeded', 'Intake budget exceeded: notify the people it names',
-         'intake.budget.exceeded', 'system', '{}', 'event_users', NULL, TRUE)
+         'intake.budget.exceeded', 'system', '{}', 'event_users', NULL, TRUE),
+        ('agent_approval_requested', 'Approval needed: notify the people who can approve',
+         'agent.approval.requested', 'system', '{}', 'event_users', NULL, TRUE)
 ) AS builtin(
     builtin_key, name, event_type, category, matchers, recipient_resolver, merge_window_secs, enabled
 );
@@ -6090,7 +5685,7 @@ EXECUTE FUNCTION copy_builtin_notify_policies();
 -- Application Performance Monitoring: bounded owner snapshots and hourly rollups.
 
 CREATE TABLE IF NOT EXISTS apm_services (
-    org_id                 VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                 VARCHAR(64)  NOT NULL,
     service_namespace      VARCHAR(128) NOT NULL,
     service_name           VARCHAR(255) NOT NULL,
     environment            VARCHAR(128) NOT NULL,
@@ -6199,7 +5794,7 @@ CREATE INDEX IF NOT EXISTS idx_apm_error_samples_org_time
 -- APM 的每分钟聚合：服务、事务、依赖、错误、实例五类共用一张表，按 bucket_kind 区分。
 -- 每个写入节点按 owner_id 各写一行，snapshot_seq 只进不退。
 CREATE TABLE IF NOT EXISTS apm_buckets (
-    org_id                     VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                     VARCHAR(64)  NOT NULL,
     bucket_kind                VARCHAR(16)  NOT NULL,
     service_namespace          VARCHAR(128) NOT NULL,
     service_name               VARCHAR(255) NOT NULL,
@@ -6233,7 +5828,7 @@ CREATE INDEX IF NOT EXISTS idx_apm_buckets_retention_brin
 
 -- 每小时的汇总，由每分钟的聚合按小时合并而来。
 CREATE TABLE IF NOT EXISTS apm_buckets_hourly (
-    org_id                     VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                     VARCHAR(64)  NOT NULL,
     bucket_kind                VARCHAR(16)  NOT NULL,
     service_namespace          VARCHAR(128) NOT NULL,
     service_name               VARCHAR(255) NOT NULL,
@@ -6263,7 +5858,7 @@ CREATE INDEX IF NOT EXISTS idx_apm_buckets_hourly_retention_brin
 
 CREATE TABLE IF NOT EXISTS apm_projection_gaps (
     id                    VARCHAR(64) NOT NULL,
-    org_id                VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                VARCHAR(64) NOT NULL,
     range_start           TIMESTAMPTZ NOT NULL,
     range_end             TIMESTAMPTZ NOT NULL,
     reason                VARCHAR(64) NOT NULL,
@@ -6277,7 +5872,7 @@ CREATE INDEX IF NOT EXISTS idx_apm_projection_gaps_org_range
 
 CREATE TABLE IF NOT EXISTS apm_projection_state (
     org_id                         VARCHAR(64) PRIMARY KEY
-        REFERENCES organizations(id) ON DELETE CASCADE,
+       ,
     projection_started_at          TIMESTAMPTZ NOT NULL,
     last_complete_bucket_at        TIMESTAMPTZ,
     last_rollup_bucket_at          TIMESTAMPTZ
@@ -6289,7 +5884,7 @@ CREATE TABLE IF NOT EXISTS apm_projection_state (
 -- archived. Keyed without the environment, so one definition holds wherever
 -- the service runs, and before it first reports.
 CREATE TABLE IF NOT EXISTS apm_service_definitions (
-    org_id                  VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                  VARCHAR(64)  NOT NULL,
     service_namespace       VARCHAR(128) NOT NULL,
     service_name            VARCHAR(255) NOT NULL,
     description             TEXT         NOT NULL DEFAULT '',
@@ -6312,6 +5907,10 @@ CREATE TABLE IF NOT EXISTS apm_service_definitions (
     CHECK (jsonb_typeof(key_transactions) = 'array'),
     CHECK (apdex_threshold IS NULL OR apdex_threshold > INTERVAL '0')
 );
+CREATE INDEX IF NOT EXISTS idx_apm_service_definitions_team_id
+    ON apm_service_definitions (team_id);
+CREATE INDEX IF NOT EXISTS idx_apm_service_definitions_owner_id
+    ON apm_service_definitions (owner_id);
 
 -- What is being done about an error group: open, resolved or ignored, and who
 -- has it. An occurrence after `resolved_at` reads as a regression. The
@@ -6331,11 +5930,15 @@ CREATE TABLE IF NOT EXISTS apm_error_issues (
     CHECK (status IN ('open', 'investigating', 'resolved', 'ignored')),
     CHECK (status <> 'resolved' OR resolved_at IS NOT NULL)
 );
+CREATE INDEX IF NOT EXISTS idx_apm_error_issues_team_id
+    ON apm_error_issues (team_id);
+CREATE INDEX IF NOT EXISTS idx_apm_error_issues_assignee_id
+    ON apm_error_issues (assignee_id);
 
 -- Service level objectives set on APM services; what they met is read from the buckets.
 CREATE TABLE IF NOT EXISTS apm_slos (
     id                        VARCHAR(64)      PRIMARY KEY,
-    org_id                    VARCHAR(64)      NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id                    VARCHAR(64)      NOT NULL,
     name                      VARCHAR(255)     NOT NULL,
     description               TEXT             NOT NULL DEFAULT '',
     service_namespace         VARCHAR(128)     NOT NULL,
@@ -6363,7 +5966,7 @@ CREATE INDEX IF NOT EXISTS idx_apm_slos_org_service
 -- when an error is fingerprinted: matched errors merge into one group per service, or form none.
 CREATE TABLE IF NOT EXISTS apm_error_rules (
     id                  VARCHAR(64)  PRIMARY KEY,
-    org_id              VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id              VARCHAR(64)  NOT NULL,
     name                VARCHAR(128) NOT NULL,
     service_namespace   VARCHAR(128) NOT NULL DEFAULT '',
     service_name        VARCHAR(255) NOT NULL DEFAULT '',
@@ -6389,7 +5992,7 @@ CREATE INDEX IF NOT EXISTS idx_apm_error_rules_org
 -- report them (POST /apm/deployments, apm.deploy).
 CREATE TABLE IF NOT EXISTS apm_deployment_events (
     id                  VARCHAR(64)  PRIMARY KEY,
-    org_id              VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id              VARCHAR(64)  NOT NULL,
     kind                VARCHAR(24)  NOT NULL DEFAULT 'deployment',
     service_namespace   VARCHAR(128) NOT NULL DEFAULT '',
     service_name        VARCHAR(255) NOT NULL,
@@ -6412,109 +6015,9 @@ CREATE TABLE IF NOT EXISTS apm_deployment_events (
 CREATE INDEX IF NOT EXISTS idx_apm_deployment_events_service
     ON apm_deployment_events (org_id, service_name, environment, deployed_at DESC);
 
--- Writing what people keep about services: definitions and error states.
-INSERT INTO iam_permissions (
-    permission_key, scope, domain, label_key, description_key, catalog_version
-)
-VALUES
-    ('apm.manage', 'organization', 'observability',
-     'permissions.apm_manage', 'permissions_hint.apm_manage', 10),
-    ('apm.deploy', 'organization', 'observability',
-     'permissions.apm_deploy', 'permissions_hint.apm_deploy', 10)
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-UPDATE iam_permission_catalog_versions
-SET version = GREATEST(version, 10),
-    updated_at = clock_timestamp()
-WHERE catalog_key = 'permissions';
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT
-    (SELECT role.id
-       FROM iam_roles role
-      WHERE role.org_id IS NULL
-        AND role.role_key = granted.role_key),
-    granted.permission_key
-FROM (
-    VALUES
-        ('owner', 'apm.manage'),
-        ('admin', 'apm.manage'),
-        ('editor', 'apm.manage'),
-        ('owner', 'apm.deploy'),
-        ('admin', 'apm.deploy'),
-        ('editor', 'apm.deploy')
-) AS granted(role_key, permission_key)
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT role.id, permission.permission_key
-FROM iam_roles role
-CROSS JOIN (VALUES
-    ('owner', 'apm.manage'),
-    ('admin', 'apm.manage'),
-    ('editor', 'apm.manage'),
-    ('owner', 'apm.deploy'),
-    ('admin', 'apm.deploy'),
-    ('editor', 'apm.deploy')
-) AS permission(role_key, permission_key)
-WHERE role.builtin AND role.role_key = permission.role_key
-ON CONFLICT DO NOTHING;
-
--- Writing what people keep about RUM errors: the state and the owner of an issue.
-INSERT INTO iam_permissions (
-    permission_key, scope, domain, label_key, description_key, catalog_version
-)
-VALUES
-    ('rum.manage', 'organization', 'observability',
-     'permissions.rum_manage', 'permissions_hint.rum_manage', 11)
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-UPDATE iam_permission_catalog_versions
-SET version = GREATEST(version, 11),
-    updated_at = clock_timestamp()
-WHERE catalog_key = 'permissions';
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT
-    (SELECT role.id
-       FROM iam_roles role
-      WHERE role.org_id IS NULL
-        AND role.role_key = granted.role_key),
-    granted.permission_key
-FROM (
-    VALUES
-        ('owner', 'rum.manage'),
-        ('admin', 'rum.manage'),
-        ('editor', 'rum.manage')
-) AS granted(role_key, permission_key)
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT role.id, permission.permission_key
-FROM iam_roles role
-CROSS JOIN (VALUES
-    ('owner', 'rum.manage'),
-    ('admin', 'rum.manage'),
-    ('editor', 'rum.manage')
-) AS permission(role_key, permission_key)
-WHERE role.builtin AND role.role_key = permission.role_key
-ON CONFLICT DO NOTHING;
 -- ============================================================
 -- Status page publication schema
 -- ============================================================
-
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
 
 -- Customer-facing status pages are an organization-scoped publication layer
 -- over internal incidents. The composite key keeps source-incident references
@@ -6525,7 +6028,7 @@ ALTER TABLE incidents
 
 CREATE TABLE status_pages (
     id                  VARCHAR(64)  PRIMARY KEY,
-    org_id              VARCHAR(64)  NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id              VARCHAR(64)  NOT NULL,
     name                VARCHAR(120) NOT NULL,
     slug                VARCHAR(64)  NOT NULL UNIQUE,
     logo_url            TEXT,
@@ -6536,6 +6039,26 @@ CREATE TABLE status_pages (
     visibility          VARCHAR(16)  NOT NULL DEFAULT 'public',
     created_at          TIMESTAMPTZ  NOT NULL,
     updated_at          TIMESTAMPTZ  NOT NULL,
+    languages           TEXT[]       NOT NULL DEFAULT ARRAY['en-us']::TEXT[],
+    -- The configured window controls customer-visible resolved incident history.
+    -- Uptime calculations may still read at least 90 days of incident data.
+    history_days        INTEGER      NOT NULL DEFAULT 90,
+    -- Page lifecycle is recoverable for 30 days. Public history configuration is
+    -- intentionally independent from notification-delivery retention.
+    lifecycle           VARCHAR(16)  NOT NULL DEFAULT 'active',
+    archived_at         TIMESTAMPTZ,
+    purge_after         TIMESTAMPTZ,
+    delivery_retention_days INTEGER  NOT NULL DEFAULT 90,
+    private_session_days INTEGER     NOT NULL DEFAULT 7,
+    -- Whether automation of a page is paused is a setting of the page itself; who
+    -- set it last and when stay empty until someone does.
+    automation_paused   BOOLEAN      NOT NULL DEFAULT FALSE,
+    automation_updated_by VARCHAR(64),
+    automation_updated_at TIMESTAMPTZ,
+    -- The Slack App message connector visitors add the page to Slack with. Its
+    -- client ID and secret are kept encrypted with the connector; a connector a
+    -- page uses cannot be deleted.
+    slack_connector_id  VARCHAR(64),
     CONSTRAINT uq_status_pages_org_id_id UNIQUE (org_id, id),
     CONSTRAINT chk_status_pages_slug
         CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND length(slug) BETWEEN 3 AND 64),
@@ -6544,8 +6067,43 @@ CREATE TABLE status_pages (
     CONSTRAINT chk_status_pages_language
         CHECK (language IN ('en-us', 'zh-cn')),
     CONSTRAINT chk_status_pages_visibility
-        CHECK (visibility IN ('public', 'private'))
+        CHECK (visibility IN ('public', 'private')),
+    CONSTRAINT chk_status_pages_languages
+        CHECK (
+            cardinality(languages) BETWEEN 1 AND 2
+            AND array_lower(languages, 1) = 1
+            AND array_position(languages, NULL) IS NULL
+            AND languages <@ ARRAY['en-us', 'zh-cn']::TEXT[]
+            AND language = languages[1]
+            AND (cardinality(languages) = 1 OR languages[1] <> languages[2])
+        ),
+    CONSTRAINT chk_status_pages_history_days
+        CHECK (history_days BETWEEN 1 AND 365),
+    CONSTRAINT chk_status_pages_lifecycle
+        CHECK (lifecycle IN ('active', 'archived')),
+    CONSTRAINT chk_status_pages_archive_window
+        CHECK (
+            (lifecycle = 'active' AND archived_at IS NULL AND purge_after IS NULL)
+            OR
+            (lifecycle = 'archived' AND archived_at IS NOT NULL
+             AND purge_after IS NOT NULL
+             AND purge_after >= archived_at)
+        ),
+    CONSTRAINT chk_status_pages_delivery_retention
+        CHECK (delivery_retention_days IN (30, 60, 90, 180, 365)),
+    CONSTRAINT chk_status_pages_private_session_days
+        CHECK (private_session_days IN (1, 7, 30)),
+    CONSTRAINT chk_status_pages_automation_setting
+        CHECK (
+            (automation_updated_by IS NULL) = (automation_updated_at IS NULL)
+            AND (automation_updated_by IS NOT NULL OR NOT automation_paused)
+        ),
+    CONSTRAINT fk_status_pages_slack_connector
+        FOREIGN KEY (org_id, slack_connector_id)
+        REFERENCES notify_connectors(organization_id, id)
 );
+CREATE INDEX idx_status_pages_slack_connector_id
+    ON status_pages (org_id, slack_connector_id);
 CREATE INDEX idx_status_pages_org
     ON status_pages(org_id, updated_at DESC);
 CREATE UNIQUE INDEX uq_status_pages_custom_domain
@@ -6561,6 +6119,38 @@ CREATE TABLE status_page_components (
     position            INTEGER      NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ  NOT NULL,
     updated_at          TIMESTAMPTZ  NOT NULL,
+    -- Visibility determines public inclusion; lifecycle determines whether the
+    -- component can still be edited or selected for new events.
+    visibility          VARCHAR(16)  NOT NULL DEFAULT 'enabled',
+    lifecycle           VARCHAR(16)  NOT NULL DEFAULT 'active',
+    archived_at         TIMESTAMPTZ,
+    -- What a component depends on, and how that reaches it. dependencies lists the
+    -- technical services (the service names that traces and alerts carry), the
+    -- synthetic monitors and the alert rules it depends on, in order: each entry
+    -- has a kind (technical_service, synthetic_monitor, alert_rule), a target (the
+    -- service name, or the id of the monitor or alert rule) and an impact (outage,
+    -- or degraded for a dependency that passes on at most degraded performance).
+    -- Its health is the worst health its dependencies pass on. In follow mode the
+    -- component's status follows that health; in automation mode the health
+    -- reaches the page through its automation rules. The dependency_ columns hold
+    -- the health last worked out, with the dependencies that caused it; a status
+    -- changes only through a compare-and-set on the dependencies, dependency_status
+    -- and dependency_changed_at, so two nodes that evaluate at once record
+    -- one change, and changed dependencies drop the health worked out from the old
+    -- ones.
+    dependencies        JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    dependency_mode     VARCHAR(16)  NOT NULL DEFAULT 'follow',
+    dependency_notify   BOOLEAN      NOT NULL DEFAULT TRUE,
+    dependency_status   VARCHAR(32),
+    dependency_causes   JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    dependency_changed_at TIMESTAMPTZ,
+    dependency_evaluated_at TIMESTAMPTZ,
+    -- Components can be grouped the way folders hold files. A group is a row of
+    -- its own kind with no status of its own: the page shows it with the worst
+    -- status among its components. A group holds components, not other groups,
+    -- and only a group of the same page can hold a component.
+    kind                VARCHAR(16)  NOT NULL DEFAULT 'component',
+    group_id            VARCHAR(64),
     CONSTRAINT uq_status_page_components_scope UNIQUE (org_id, status_page_id, id),
     CONSTRAINT fk_status_page_components_page
         FOREIGN KEY (org_id, status_page_id)
@@ -6569,8 +6159,40 @@ CREATE TABLE status_page_components (
         CHECK (status IN (
             'operational', 'degraded_performance', 'partial_outage',
             'major_outage', 'maintenance'
-        ))
+        )),
+    CONSTRAINT chk_status_page_component_visibility
+        CHECK (visibility IN ('enabled', 'hidden')),
+    CONSTRAINT chk_status_page_component_lifecycle
+        CHECK (lifecycle IN ('active', 'archived')),
+    CONSTRAINT chk_status_page_component_archive
+        CHECK ((lifecycle = 'archived') = (archived_at IS NOT NULL)),
+    CONSTRAINT chk_status_page_component_dependencies
+        CHECK (
+            jsonb_typeof(dependencies) = 'array'
+            AND jsonb_array_length(dependencies) <= 100
+            AND jsonb_typeof(dependency_causes) = 'array'
+        ),
+    CONSTRAINT chk_status_page_component_dependency_mode
+        CHECK (dependency_mode IN ('follow', 'automation')),
+    CONSTRAINT chk_status_page_component_dependency_status
+        CHECK (
+            dependency_status IS NULL
+            OR dependency_status IN (
+                'operational', 'degraded_performance', 'partial_outage', 'major_outage'
+            )
+        ),
+    CONSTRAINT chk_status_page_components_kind
+        CHECK (kind IN ('component', 'group')),
+    CONSTRAINT chk_status_page_components_group
+        CHECK (group_id IS NULL OR (kind = 'component' AND group_id <> id)),
+    CONSTRAINT chk_status_page_components_group_dependencies
+        CHECK (kind = 'component' OR dependencies = '[]'::JSONB),
+    CONSTRAINT fk_status_page_components_group
+        FOREIGN KEY (org_id, status_page_id, group_id)
+        REFERENCES status_page_components(org_id, status_page_id, id)
 );
+CREATE INDEX idx_status_page_components_status_page_id_group_id
+    ON status_page_components (org_id, status_page_id, group_id);
 CREATE UNIQUE INDEX uq_status_page_components_name
     ON status_page_components(org_id, status_page_id, lower(name));
 CREATE INDEX idx_status_page_components_order
@@ -6587,10 +6209,34 @@ CREATE TABLE status_page_incidents (
     status                  VARCHAR(32)  NOT NULL,
     -- The components the event names, by id; each one is a component of the page.
     component_ids           TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
+    -- The planned start of maintenance and the actual start of an incident;
+    -- ended_at stays null until the event is over.
     started_at              TIMESTAMPTZ  NOT NULL,
-    resolved_at             TIMESTAMPTZ,
+    ended_at                TIMESTAMPTZ,
     created_at              TIMESTAMPTZ  NOT NULL,
     updated_at              TIMESTAMPTZ  NOT NULL,
+    -- Drafts can be incomplete and gain their first timeline update atomically
+    -- when published.
+    publication_state       VARCHAR(16)  NOT NULL,
+    published_at            TIMESTAMPTZ,
+    draft_message           VARCHAR(4000),
+    -- Planned maintenance can start by itself at its planned start and remind
+    -- subscribers some time before it. reminder_minutes is that lead time, 0 for
+    -- no reminder. reminded_start is the planned start a reminder was
+    -- already sent for, so rescheduled maintenance is reminded of again.
+    auto_start              BOOLEAN      NOT NULL DEFAULT FALSE,
+    reminder_minutes        INTEGER      NOT NULL DEFAULT 0,
+    reminded_start          TIMESTAMPTZ,
+    -- A resolved incident can carry one public postmortem, written in Markdown.
+    -- It is drafted, then published; a published postmortem can be revised in
+    -- place or taken back to a draft. Subscribers are told when it is published,
+    -- and of a revision only when the publisher asks for it.
+    postmortem_body         TEXT,
+    postmortem_state        VARCHAR(16),
+    postmortem_published_at TIMESTAMPTZ,
+    postmortem_revised_at   TIMESTAMPTZ,
+    postmortem_updated_at   TIMESTAMPTZ,
+    postmortem_updated_by   VARCHAR(64) ,
     CONSTRAINT uq_status_page_incidents_scope UNIQUE (org_id, status_page_id, id),
     CONSTRAINT chk_status_page_incident_component_ids
         CHECK (array_position(component_ids, NULL) IS NULL),
@@ -6605,26 +6251,63 @@ CREATE TABLE status_page_incidents (
     CONSTRAINT chk_status_page_incident_impact
         CHECK (impact IN ('minor', 'major', 'critical', 'maintenance')),
     CONSTRAINT chk_status_page_incident_status
-        CHECK (status IN ('investigating', 'identified', 'in_progress', 'monitoring', 'resolved')),
-    CONSTRAINT chk_status_page_incident_resolution
-        CHECK ((status = 'resolved') = (resolved_at IS NOT NULL)),
+        CHECK (status IN (
+            'investigating', 'identified', 'in_progress', 'monitoring', 'resolved',
+            'scheduled', 'completed', 'cancelled'
+        )),
+    CONSTRAINT chk_status_page_incident_publication
+        CHECK (
+            (publication_state = 'draft' AND published_at IS NULL)
+            OR (publication_state = 'published' AND published_at IS NOT NULL
+                AND draft_message IS NULL)
+        ),
+    CONSTRAINT chk_status_page_incident_draft_message
+        CHECK (draft_message IS NULL OR length(btrim(draft_message)) BETWEEN 1 AND 4000),
+    CONSTRAINT chk_status_page_incident_terminal
+        CHECK (
+            (kind = 'incident'
+             AND status IN ('investigating', 'identified', 'in_progress', 'monitoring', 'resolved')
+             AND ((status = 'resolved') = (ended_at IS NOT NULL)))
+            OR
+            (kind = 'maintenance'
+             AND status IN ('scheduled', 'in_progress', 'completed', 'cancelled')
+             AND ((status IN ('completed', 'cancelled')) = (ended_at IS NOT NULL)))
+        ),
     CONSTRAINT chk_status_page_incident_kind_impact
         CHECK (
-            (kind = 'incident' AND impact <> 'maintenance' AND source_incident_id IS NOT NULL)
+            (kind = 'incident' AND impact <> 'maintenance')
             OR (kind = 'maintenance' AND impact = 'maintenance' AND source_incident_id IS NULL)
+        ),
+    CONSTRAINT chk_status_page_incident_reminder_minutes
+        CHECK (reminder_minutes BETWEEN 0 AND 10080),
+    CONSTRAINT chk_status_page_incident_planned_kind
+        CHECK (kind = 'maintenance' OR (NOT auto_start AND reminder_minutes = 0)),
+    CONSTRAINT chk_status_page_incident_postmortem
+        CHECK (
+            (postmortem_state IS NULL AND postmortem_body IS NULL
+             AND postmortem_published_at IS NULL AND postmortem_revised_at IS NULL
+             AND postmortem_updated_at IS NULL)
+            OR (kind = 'incident'
+                AND length(btrim(postmortem_body)) BETWEEN 1 AND 20000
+                AND postmortem_updated_at IS NOT NULL
+                AND (
+                    (postmortem_state = 'draft'
+                     AND postmortem_published_at IS NULL
+                     AND postmortem_revised_at IS NULL)
+                    OR (postmortem_state = 'published'
+                        AND postmortem_published_at IS NOT NULL
+                        AND (postmortem_revised_at IS NULL
+                             OR postmortem_revised_at >= postmortem_published_at))
+                ))
         )
 );
+CREATE INDEX idx_status_page_incidents_source_incident_id
+    ON status_page_incidents (org_id, source_incident_id);
 CREATE UNIQUE INDEX uq_status_page_incident_source
     ON status_page_incidents(org_id, status_page_id, source_incident_id)
     WHERE source_incident_id IS NOT NULL;
 CREATE INDEX idx_status_page_incidents_timeline
     ON status_page_incidents(org_id, status_page_id, started_at DESC);
-CREATE INDEX idx_status_page_incidents_active
-    ON status_page_incidents(org_id, status_page_id, status, started_at)
-    WHERE status <> 'resolved';
-CREATE INDEX idx_status_page_incidents_resolved
-    ON status_page_incidents(org_id, status_page_id, resolved_at DESC)
-    WHERE status = 'resolved';
 
 -- The components an event names are components of its page, each named once.
 CREATE FUNCTION check_status_page_incident_components() RETURNS trigger AS $$
@@ -6663,8 +6346,12 @@ FOR EACH ROW EXECUTE FUNCTION check_status_page_incident_components();
 -- takes its components and its events with it.
 CREATE FUNCTION restrict_named_status_page_component() RETURNS trigger AS $$
 BEGIN
+    -- Deleting the page, or purging a deleted organization, takes its events too.
     IF EXISTS (
         SELECT 1 FROM status_pages page
+          JOIN organizations organization
+            ON organization.id = page.org_id
+           AND organization.deleted_at IS NULL
          WHERE page.org_id = OLD.org_id AND page.id = OLD.status_page_id
     ) AND EXISTS (
         SELECT 1 FROM status_page_incidents incident
@@ -6692,60 +6379,34 @@ CREATE TABLE status_page_incident_updates (
     status              VARCHAR(32)   NOT NULL,
     message             VARCHAR(4000) NOT NULL,
     created_at          TIMESTAMPTZ   NOT NULL,
+    -- An update can say by when the next one will come, and can be published
+    -- without telling subscribers, for example to correct the wording of the last
+    -- one.
+    next_update_at      TIMESTAMPTZ,
+    notify_subscribers  BOOLEAN       NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_status_page_incident_updates_incident
         FOREIGN KEY (org_id, status_page_id, incident_id)
         REFERENCES status_page_incidents(org_id, status_page_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_status_page_incident_update_status
-        CHECK (status IN ('investigating', 'identified', 'in_progress', 'monitoring', 'resolved')),
+        CHECK (status IN (
+            'investigating', 'identified', 'in_progress', 'monitoring', 'resolved',
+            'scheduled', 'completed', 'cancelled'
+        )),
     CONSTRAINT chk_status_page_incident_update_message
-        CHECK (length(btrim(message)) BETWEEN 1 AND 4000)
+        CHECK (length(btrim(message)) BETWEEN 1 AND 4000),
+    CONSTRAINT chk_status_page_incident_update_next_update
+        CHECK (
+            next_update_at IS NULL
+            OR (next_update_at > created_at
+                AND status NOT IN ('resolved', 'completed', 'cancelled', 'scheduled'))
+        )
 );
 CREATE INDEX idx_status_page_incident_updates_timeline
     ON status_page_incident_updates(org_id, status_page_id, incident_id, created_at DESC);
 
 -- ============================================================
--- Status page languages
--- ============================================================
-
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
-
-ALTER TABLE status_pages
-    ADD COLUMN languages TEXT[] NOT NULL DEFAULT ARRAY['en-us']::TEXT[];
-
-ALTER TABLE status_pages
-    ADD CONSTRAINT chk_status_pages_languages
-    CHECK (
-        cardinality(languages) BETWEEN 1 AND 2
-        AND array_lower(languages, 1) = 1
-        AND array_position(languages, NULL) IS NULL
-        AND languages <@ ARRAY['en-us', 'zh-cn']::TEXT[]
-        AND language = languages[1]
-        AND (cardinality(languages) = 1 OR languages[1] <> languages[2])
-    );
-
--- ============================================================
--- Status page public history window
--- ============================================================
-
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
-
--- The configured window controls customer-visible resolved incident history.
--- Uptime calculations may still read at least 90 days of incident data.
-ALTER TABLE status_pages
-    ADD COLUMN history_days INTEGER NOT NULL DEFAULT 90;
-
-ALTER TABLE status_pages
-    ADD CONSTRAINT chk_status_pages_history_days
-    CHECK (history_days BETWEEN 1 AND 365);
-
--- ============================================================
 -- Status page component history
 -- ============================================================
-
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
 
 -- Persist the component's manually managed status timeline. Published
 -- incidents remain a separate overlay, so an incident can temporarily worsen
@@ -6759,6 +6420,8 @@ CREATE TABLE status_page_component_status_events (
     started_at          TIMESTAMPTZ NOT NULL,
     ended_at            TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL,
+    -- A status set by hand can be changed without telling subscribers.
+    notify_subscribers  BOOLEAN     NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_status_page_component_status_events_component
         FOREIGN KEY (org_id, status_page_id, component_id)
         REFERENCES status_page_components(org_id, status_page_id, id) ON DELETE CASCADE,
@@ -6783,9 +6446,6 @@ CREATE INDEX idx_status_page_component_status_events_timeline
 -- Status page subscriptions and delivery
 -- ============================================================
 
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
-
 CREATE TABLE status_page_subscribers (
     id                          VARCHAR(64)  PRIMARY KEY,
     org_id                      VARCHAR(64)  NOT NULL,
@@ -6801,19 +6461,49 @@ CREATE TABLE status_page_subscribers (
     unsubscribed_at             TIMESTAMPTZ,
     created_at                  TIMESTAMPTZ  NOT NULL,
     updated_at                  TIMESTAMPTZ  NOT NULL,
+    -- A subscriber hears about every component of the page, or only about the
+    -- components it chose; a chosen component that is later hidden or archived
+    -- stops reaching it, as it stops showing on the page. The raw token is kept
+    -- sealed beside its hash, so that every message can carry the links that
+    -- manage or end the subscription. origin says how the subscriber came: the
+    -- page's own form, an import, or the Slack app. target_label names the Slack
+    -- channel the Slack app was added to. While "Add to Slack" waits for the
+    -- visitor to come back from Slack, its subscriber is pending with a
+    -- placeholder target and the OAuth state as its token; a request that never
+    -- comes back is removed after an hour.
+    component_scope             VARCHAR(16)  NOT NULL DEFAULT 'all',
+    component_ids               TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
+    token_ciphertext            BYTEA        NOT NULL,
+    token_nonce                 BYTEA        NOT NULL,
+    target_label                VARCHAR(255),
+    origin                      VARCHAR(16)  NOT NULL DEFAULT 'page',
     CONSTRAINT uq_status_page_subscribers_scope UNIQUE (org_id, status_page_id, id),
     CONSTRAINT fk_status_page_subscribers_page
         FOREIGN KEY (org_id, status_page_id)
         REFERENCES status_pages(org_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_status_page_subscriber_channel
-        CHECK (channel IN ('email', 'webhook')),
+        CHECK (channel IN ('email', 'webhook', 'slack')),
     CONSTRAINT chk_status_page_subscriber_status
         CHECK (status IN ('pending', 'active', 'unsubscribed')),
     CONSTRAINT chk_status_page_subscriber_target_cipher
         CHECK (
             octet_length(target_nonce) = 12
             AND octet_length(target_ciphertext) BETWEEN 19 AND 8208
-        )
+        ),
+    CONSTRAINT chk_status_page_subscriber_components
+        CHECK (
+            (component_scope = 'all' AND cardinality(component_ids) = 0)
+            OR (component_scope = 'selected'
+                AND cardinality(component_ids) BETWEEN 1 AND 500
+                AND array_position(component_ids, NULL) IS NULL)
+        ),
+    CONSTRAINT chk_status_page_subscriber_token_cipher
+        CHECK (
+            octet_length(token_nonce) = 12
+            AND octet_length(token_ciphertext) BETWEEN 17 AND 512
+        ),
+    CONSTRAINT chk_status_page_subscriber_origin
+        CHECK (origin IN ('page', 'import', 'slack_app'))
 );
 CREATE UNIQUE INDEX uq_status_page_subscribers_target
     ON status_page_subscribers(org_id, status_page_id, channel, target_hash);
@@ -6853,278 +6543,19 @@ CREATE INDEX idx_status_page_notification_deliveries_audit
         org_id, status_page_id, subscriber_id, created_at DESC
     );
 
-CREATE FUNCTION enqueue_status_page_component_notification()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO status_page_notification_deliveries (
-        id, org_id, status_page_id, subscriber_id, event_key, payload,
-        next_attempt_at, created_at, updated_at
-    )
-    SELECT
-        md5(subscriber.id || ':component_status:' || NEW.id),
-        NEW.org_id,
-        NEW.status_page_id,
-        subscriber.id,
-        'component_status:' || NEW.id,
-        jsonb_build_object(
-            'type', 'component_status_changed',
-            'pageName', page.name,
-            'pageSlug', page.slug,
-            'componentId', component.id,
-            'componentName', component.name,
-            'status', NEW.status,
-            'occurredAt', epoch_micros(NEW.started_at)
-        ),
-        NEW.started_at,
-        NEW.created_at,
-        NEW.created_at
-    FROM status_page_subscribers subscriber
-    JOIN status_pages page
-      ON page.org_id = NEW.org_id AND page.id = NEW.status_page_id
-    JOIN status_page_components component
-      ON component.org_id = NEW.org_id
-     AND component.status_page_id = NEW.status_page_id
-     AND component.id = NEW.component_id
-    WHERE subscriber.org_id = NEW.org_id
-      AND subscriber.status_page_id = NEW.status_page_id
-      AND subscriber.status = 'active'
-      AND page.visibility = 'public'
-    ON CONFLICT (subscriber_id, event_key) DO NOTHING;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_status_page_component_notification
-AFTER INSERT ON status_page_component_status_events
-FOR EACH ROW EXECUTE FUNCTION enqueue_status_page_component_notification();
-
-CREATE FUNCTION enqueue_status_page_incident_notification()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO status_page_notification_deliveries (
-        id, org_id, status_page_id, subscriber_id, event_key, payload,
-        next_attempt_at, created_at, updated_at
-    )
-    SELECT
-        md5(subscriber.id || ':incident_update:' || NEW.id),
-        NEW.org_id,
-        NEW.status_page_id,
-        subscriber.id,
-        'incident_update:' || NEW.id,
-        jsonb_build_object(
-            'type', 'incident_update',
-            'pageName', page.name,
-            'pageSlug', page.slug,
-            'incidentId', incident.id,
-            'incidentKind', incident.kind,
-            'title', incident.title,
-            'impact', incident.impact,
-            'status', NEW.status,
-            'message', NEW.message,
-            'occurredAt', epoch_micros(NEW.created_at),
-            'componentNames', COALESCE((
-                SELECT jsonb_agg(component.name ORDER BY component.position, component.name)
-                FROM status_page_components component
-                WHERE component.org_id = incident.org_id
-                  AND component.status_page_id = incident.status_page_id
-                  AND component.id = ANY(incident.component_ids)
-            ), '[]'::JSONB)
-        ),
-        NEW.created_at,
-        NEW.created_at,
-        NEW.created_at
-    FROM status_page_subscribers subscriber
-    JOIN status_pages page
-      ON page.org_id = NEW.org_id AND page.id = NEW.status_page_id
-    JOIN status_page_incidents incident
-      ON incident.org_id = NEW.org_id
-     AND incident.status_page_id = NEW.status_page_id
-     AND incident.id = NEW.incident_id
-    WHERE subscriber.org_id = NEW.org_id
-      AND subscriber.status_page_id = NEW.status_page_id
-      AND subscriber.status = 'active'
-      AND page.visibility = 'public'
-    ON CONFLICT (subscriber_id, event_key) DO NOTHING;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_status_page_incident_notification
-AFTER INSERT ON status_page_incident_updates
-FOR EACH ROW EXECUTE FUNCTION enqueue_status_page_incident_notification();
-
 -- ============================================================
 -- Status page management, access, domains, and automation
 -- ============================================================
 
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
-
-INSERT INTO iam_permissions (
-    permission_key, scope, domain, label_key, description_key, catalog_version
-)
-VALUES
-    ('status_pages.read', 'organization', 'status_pages',
-     'permissions.status_pages_read', 'permissions_hint.status_pages_read', 8),
-    ('status_pages.manage', 'organization', 'status_pages',
-     'permissions.status_pages_manage', 'permissions_hint.status_pages_manage', 8)
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-UPDATE iam_permission_catalog_versions
-SET version = GREATEST(version, 8),
-    updated_at = clock_timestamp()
-WHERE catalog_key = 'permissions';
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT
-    (SELECT role.id
-       FROM iam_roles role
-      WHERE role.org_id IS NULL
-        AND role.role_key = granted.role_key),
-    granted.permission_key
-FROM (
-    VALUES
-        ('owner', 'status_pages.read'),
-        ('owner', 'status_pages.manage'),
-        ('admin', 'status_pages.read'),
-        ('admin', 'status_pages.manage')
-) AS granted(role_key, permission_key)
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT role.id, permission.permission_key
-FROM iam_roles role
-CROSS JOIN (VALUES
-    ('owner', 'status_pages.read'),
-    ('owner', 'status_pages.manage'),
-    ('admin', 'status_pages.read'),
-    ('admin', 'status_pages.manage')
-) AS permission(role_key, permission_key)
-WHERE role.builtin AND role.role_key = permission.role_key
-ON CONFLICT DO NOTHING;
-
-WITH requested(bundle_key, permission_key, offset_position) AS (
-    VALUES
-        ('readonly_observer', 'status_pages.read', 1),
-        ('alert_administrator', 'status_pages.read', 1),
-        ('alert_administrator', 'status_pages.manage', 2),
-        ('organization_administrator', 'status_pages.read', 1),
-        ('organization_administrator', 'status_pages.manage', 2)
-), base AS (
-    SELECT bundle_key, COALESCE(MAX(position), -1) AS max_position
-    FROM iam_permission_bundle_items
-    GROUP BY bundle_key
-)
-INSERT INTO iam_permission_bundle_items (bundle_key, permission_key, position)
-SELECT requested.bundle_key,
-       requested.permission_key,
-       base.max_position + requested.offset_position
-FROM requested
-JOIN base USING (bundle_key)
-ON CONFLICT (bundle_key, permission_key) DO NOTHING;
-
--- Page lifecycle is recoverable for 30 days. Public history configuration is
--- intentionally independent from notification-delivery retention.
-ALTER TABLE status_pages
-    ADD COLUMN lifecycle VARCHAR(16) NOT NULL DEFAULT 'active',
-    ADD COLUMN archived_at TIMESTAMPTZ,
-    ADD COLUMN purge_after TIMESTAMPTZ,
-    ADD COLUMN delivery_retention_days INTEGER NOT NULL DEFAULT 90,
-    ADD COLUMN private_session_days INTEGER NOT NULL DEFAULT 7;
-ALTER TABLE status_pages
-    ADD CONSTRAINT chk_status_pages_lifecycle
-        CHECK (lifecycle IN ('active', 'archived')),
-    ADD CONSTRAINT chk_status_pages_archive_window
-        CHECK (
-            (lifecycle = 'active' AND archived_at IS NULL AND purge_after IS NULL)
-            OR
-            (lifecycle = 'archived' AND archived_at IS NOT NULL
-             AND purge_after IS NOT NULL
-             AND purge_after >= archived_at)
-        ),
-    ADD CONSTRAINT chk_status_pages_delivery_retention
-        CHECK (delivery_retention_days IN (30, 60, 90, 180, 365)),
-    ADD CONSTRAINT chk_status_pages_private_session_days
-        CHECK (private_session_days IN (1, 7, 30));
 CREATE INDEX idx_status_pages_lifecycle
     ON status_pages(org_id, lifecycle, updated_at DESC);
 CREATE INDEX idx_status_pages_purge_due
     ON status_pages(purge_after)
     WHERE lifecycle = 'archived';
 
--- Visibility determines public inclusion; lifecycle determines whether the
--- component can still be edited or selected for new events.
-ALTER TABLE status_page_components
-    ADD COLUMN visibility VARCHAR(16) NOT NULL DEFAULT 'enabled',
-    ADD COLUMN lifecycle VARCHAR(16) NOT NULL DEFAULT 'active',
-    ADD COLUMN archived_at TIMESTAMPTZ;
-ALTER TABLE status_page_components
-    ADD CONSTRAINT chk_status_page_component_visibility
-        CHECK (visibility IN ('enabled', 'hidden')),
-    ADD CONSTRAINT chk_status_page_component_lifecycle
-        CHECK (lifecycle IN ('active', 'archived')),
-    ADD CONSTRAINT chk_status_page_component_archive
-        CHECK ((lifecycle = 'archived') = (archived_at IS NOT NULL));
 CREATE INDEX idx_status_page_components_management
     ON status_page_components(org_id, status_page_id, lifecycle, visibility, position, name);
 
--- Drafts can be incomplete and gain their first timeline update atomically
--- when published.
-ALTER TABLE status_page_incidents
-    RENAME COLUMN resolved_at TO ended_at;
-ALTER TABLE status_page_incidents
-    ADD COLUMN publication_state VARCHAR(16) NOT NULL,
-    ADD COLUMN published_at TIMESTAMPTZ,
-    ADD COLUMN draft_message VARCHAR(4000);
-ALTER TABLE status_page_incidents
-    DROP CONSTRAINT chk_status_page_incident_status,
-    DROP CONSTRAINT chk_status_page_incident_resolution,
-    DROP CONSTRAINT chk_status_page_incident_kind_impact;
-ALTER TABLE status_page_incident_updates
-    DROP CONSTRAINT chk_status_page_incident_update_status;
-
-ALTER TABLE status_page_incidents
-    ADD CONSTRAINT chk_status_page_incident_status
-        CHECK (status IN (
-            'investigating', 'identified', 'in_progress', 'monitoring', 'resolved',
-            'scheduled', 'completed', 'cancelled'
-        )),
-    ADD CONSTRAINT chk_status_page_incident_publication
-        CHECK (
-            (publication_state = 'draft' AND published_at IS NULL)
-            OR (publication_state = 'published' AND published_at IS NOT NULL
-                AND draft_message IS NULL)
-        ),
-    ADD CONSTRAINT chk_status_page_incident_draft_message
-        CHECK (draft_message IS NULL OR length(btrim(draft_message)) BETWEEN 1 AND 4000),
-    ADD CONSTRAINT chk_status_page_incident_terminal
-        CHECK (
-            (kind = 'incident'
-             AND status IN ('investigating', 'identified', 'in_progress', 'monitoring', 'resolved')
-             AND ((status = 'resolved') = (ended_at IS NOT NULL)))
-            OR
-            (kind = 'maintenance'
-             AND status IN ('scheduled', 'in_progress', 'completed', 'cancelled')
-             AND ((status IN ('completed', 'cancelled')) = (ended_at IS NOT NULL)))
-        ),
-    ADD CONSTRAINT chk_status_page_incident_kind_impact
-        CHECK (
-            (kind = 'incident' AND impact <> 'maintenance')
-            OR (kind = 'maintenance' AND impact = 'maintenance' AND source_incident_id IS NULL)
-        );
-ALTER TABLE status_page_incident_updates
-    ADD CONSTRAINT chk_status_page_incident_update_status
-        CHECK (status IN (
-            'investigating', 'identified', 'in_progress', 'monitoring', 'resolved',
-            'scheduled', 'completed', 'cancelled'
-        ));
-DROP INDEX idx_status_page_incidents_active;
-DROP INDEX idx_status_page_incidents_resolved;
 CREATE INDEX idx_status_page_incidents_working_set
     ON status_page_incidents(
         org_id, status_page_id, kind, publication_state, status, started_at DESC
@@ -7135,19 +6566,6 @@ CREATE INDEX idx_status_page_incidents_history
 CREATE INDEX idx_status_page_incident_updates_search
     ON status_page_incident_updates(org_id, status_page_id, incident_id, lower(message));
 
--- Planned maintenance can start by itself at its planned start and remind
--- subscribers some time before it. reminder_minutes is that lead time, 0 for
--- no reminder. reminded_start is the planned start a reminder was
--- already sent for, so rescheduled maintenance is reminded of again.
-ALTER TABLE status_page_incidents
-    ADD COLUMN auto_start BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN reminder_minutes INTEGER NOT NULL DEFAULT 0,
-    ADD COLUMN reminded_start TIMESTAMPTZ;
-ALTER TABLE status_page_incidents
-    ADD CONSTRAINT chk_status_page_incident_reminder_minutes
-        CHECK (reminder_minutes BETWEEN 0 AND 10080),
-    ADD CONSTRAINT chk_status_page_incident_planned_kind
-        CHECK (kind = 'maintenance' OR (NOT auto_start AND reminder_minutes = 0));
 CREATE INDEX idx_status_page_incidents_planned
     ON status_page_incidents(started_at)
     WHERE kind = 'maintenance' AND publication_state = 'published' AND status = 'scheduled';
@@ -7187,6 +6605,8 @@ CREATE TABLE status_page_domain_configs (
     CONSTRAINT chk_status_page_domain_alert_state
         CHECK (last_alerted_state IS NULL OR last_alerted_state IN ('failed', 'degraded'))
 );
+CREATE INDEX idx_status_page_domain_configs_domain_id
+    ON status_page_domain_configs (org_id, domain_id);
 CREATE INDEX idx_status_page_domains_due
     ON status_page_domain_configs(last_checked_at, updated_at);
 
@@ -7234,6 +6654,8 @@ CREATE TABLE status_page_magic_links (
     CONSTRAINT chk_status_page_magic_link_expiry
         CHECK (expires_at > created_at)
 );
+CREATE INDEX idx_status_page_magic_links_status_page_id_access_rule_id
+    ON status_page_magic_links (org_id, status_page_id, access_rule_id);
 CREATE INDEX idx_status_page_magic_links_expiry
     ON status_page_magic_links(expires_at)
     WHERE consumed_at IS NULL;
@@ -7265,6 +6687,8 @@ CREATE TABLE status_page_access_sessions (
     CONSTRAINT chk_status_page_access_session_expiry
         CHECK (expires_at > created_at)
 );
+CREATE INDEX idx_status_page_access_sessions_status_page_id_access_rule_id
+    ON status_page_access_sessions (org_id, status_page_id, access_rule_id);
 CREATE INDEX idx_status_page_access_sessions_management
     ON status_page_access_sessions(org_id, status_page_id, revoked_at, expires_at DESC);
 CREATE INDEX idx_status_page_access_sessions_expiry
@@ -7278,61 +6702,6 @@ CREATE INDEX idx_status_page_deliveries_management
 CREATE INDEX idx_status_page_deliveries_retention
     ON status_page_notification_deliveries(status, updated_at)
     WHERE status IN ('delivered', 'failed');
-
--- Rebuild outbox triggers so drafts, initial component baselines, hidden
--- components and archived pages stay silent. Private pages may notify their
--- verified email subscribers.
-CREATE OR REPLACE FUNCTION enqueue_status_page_component_notification()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO status_page_notification_deliveries (
-        id, org_id, status_page_id, subscriber_id, event_key, payload,
-        next_attempt_at, created_at, updated_at
-    )
-    SELECT
-        md5(subscriber.id || ':component_status:' || NEW.id),
-        NEW.org_id,
-        NEW.status_page_id,
-        subscriber.id,
-        'component_status:' || NEW.id,
-        jsonb_build_object(
-            'type', 'component_status_changed',
-            'pageName', page.name,
-            'pageSlug', page.slug,
-            'componentId', component.id,
-            'componentName', component.name,
-            'status', NEW.status,
-            'occurredAt', epoch_micros(NEW.started_at)
-        ),
-        NEW.started_at,
-        NEW.created_at,
-        NEW.created_at
-    FROM status_page_subscribers subscriber
-    JOIN status_pages page
-      ON page.org_id = NEW.org_id AND page.id = NEW.status_page_id
-    JOIN status_page_components component
-      ON component.org_id = NEW.org_id
-     AND component.status_page_id = NEW.status_page_id
-     AND component.id = NEW.component_id
-    WHERE subscriber.org_id = NEW.org_id
-      AND subscriber.status_page_id = NEW.status_page_id
-      AND subscriber.status = 'active'
-      AND page.lifecycle = 'active'
-      AND (page.visibility = 'public' OR subscriber.channel = 'email')
-      AND component.lifecycle = 'active'
-      AND component.visibility = 'enabled'
-      AND EXISTS (
-          SELECT 1
-          FROM status_page_component_status_events previous
-          WHERE previous.org_id = NEW.org_id
-            AND previous.status_page_id = NEW.status_page_id
-            AND previous.component_id = NEW.component_id
-            AND previous.id <> NEW.id
-      )
-    ON CONFLICT (subscriber_id, event_key) DO NOTHING;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 -- The components of an event that the customer-facing page shows: enabled and
 -- not archived. Everything sent to subscribers names components through this
@@ -7358,237 +6727,13 @@ CREATE FUNCTION status_page_event_component_names(
       AND component.lifecycle = 'active'
 $$ LANGUAGE sql STABLE;
 
--- started_at is the planned start of maintenance and the actual start of an
--- incident; ended_at stays null until the event is over.
-CREATE OR REPLACE FUNCTION enqueue_status_page_incident_notification()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO status_page_notification_deliveries (
-        id, org_id, status_page_id, subscriber_id, event_key, payload,
-        next_attempt_at, created_at, updated_at
-    )
-    SELECT
-        md5(subscriber.id || ':incident_update:' || NEW.id),
-        NEW.org_id,
-        NEW.status_page_id,
-        subscriber.id,
-        'incident_update:' || NEW.id,
-        jsonb_build_object(
-            'type', 'incident_update',
-            'pageName', page.name,
-            'pageSlug', page.slug,
-            'incidentId', incident.id,
-            'incidentKind', incident.kind,
-            'title', incident.title,
-            'impact', incident.impact,
-            'status', NEW.status,
-            'message', NEW.message,
-            'occurredAt', epoch_micros(NEW.created_at),
-            'startedAt', epoch_micros(incident.started_at),
-            'endedAt', epoch_micros(incident.ended_at),
-            'componentNames', status_page_event_component_names(
-                NEW.org_id, NEW.status_page_id, NEW.incident_id
-            )
-        ),
-        NEW.created_at,
-        NEW.created_at,
-        NEW.created_at
-    FROM status_page_subscribers subscriber
-    JOIN status_pages page
-      ON page.org_id = NEW.org_id AND page.id = NEW.status_page_id
-    JOIN status_page_incidents incident
-      ON incident.org_id = NEW.org_id
-     AND incident.status_page_id = NEW.status_page_id
-     AND incident.id = NEW.incident_id
-    WHERE subscriber.org_id = NEW.org_id
-      AND subscriber.status_page_id = NEW.status_page_id
-      AND subscriber.status = 'active'
-      AND page.lifecycle = 'active'
-      AND (page.visibility = 'public' OR subscriber.channel = 'email')
-      AND incident.publication_state = 'published'
-    ON CONFLICT (subscriber_id, event_key) DO NOTHING;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 -- ============================================================
 -- Synthetic monitoring
 -- ============================================================
 
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
-
--- User-facing synthetic monitoring is OSS. Permissions are deliberately split
--- between ordinary monitor management, private execution infrastructure, and
--- write-only authentication material.
-INSERT INTO iam_permissions (
-    permission_key, scope, domain, label_key, description_key, catalog_version
-)
-VALUES
-    ('synthetics.read', 'organization', 'synthetics',
-     'permissions.synthetics_read', 'permissions_hint.synthetics_read', 9),
-    ('synthetics.manage', 'organization', 'synthetics',
-     'permissions.synthetics_manage', 'permissions_hint.synthetics_manage', 9),
-    ('synthetics.locations.manage', 'organization', 'synthetics',
-     'permissions.synthetics_locations_manage',
-     'permissions_hint.synthetics_locations_manage', 9),
-    ('synthetics.secrets.manage', 'organization', 'synthetics',
-     'permissions.synthetics_secrets_manage',
-     'permissions_hint.synthetics_secrets_manage', 9),
-    ('status_pages.publish', 'organization', 'status_pages',
-     'permissions.status_pages_publish', 'permissions_hint.status_pages_publish', 9),
-    ('service_levels.read', 'organization', 'service_levels',
-     'permissions.service_levels_read', 'permissions_hint.service_levels_read', 9),
-    ('service_levels.manage', 'organization', 'service_levels',
-     'permissions.service_levels_manage', 'permissions_hint.service_levels_manage', 9),
-    ('postmortems.read', 'organization', 'postmortems',
-     'permissions.postmortems_read', 'permissions_hint.postmortems_read', 9),
-    ('postmortems.manage', 'organization', 'postmortems',
-     'permissions.postmortems_manage', 'permissions_hint.postmortems_manage', 9)
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-UPDATE iam_permission_catalog_versions
-SET version = GREATEST(version, 9),
-    updated_at = clock_timestamp()
-WHERE catalog_key = 'permissions';
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT
-    (SELECT role.id
-       FROM iam_roles role
-      WHERE role.org_id IS NULL
-        AND role.role_key = granted.role_key),
-    permissions.permission_key
-FROM (VALUES ('owner'), ('admin')) AS granted(role_key)
-CROSS JOIN (VALUES
-    ('synthetics.read'),
-    ('synthetics.manage'),
-    ('synthetics.locations.manage'),
-    ('synthetics.secrets.manage'),
-    ('status_pages.publish'),
-    ('service_levels.read'),
-    ('service_levels.manage'),
-    ('postmortems.read'),
-    ('postmortems.manage')
-) AS permissions(permission_key)
-ON CONFLICT (role_id, permission_key) DO NOTHING;
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT role.id, permission.permission_key
-FROM iam_roles role
-CROSS JOIN (VALUES
-    ('owner', 'synthetics.read'),
-    ('owner', 'synthetics.manage'),
-    ('owner', 'synthetics.locations.manage'),
-    ('owner', 'synthetics.secrets.manage'),
-    ('owner', 'status_pages.publish'),
-    ('owner', 'service_levels.read'),
-    ('owner', 'service_levels.manage'),
-    ('owner', 'postmortems.read'),
-    ('owner', 'postmortems.manage'),
-    ('admin', 'synthetics.read'),
-    ('admin', 'synthetics.manage'),
-    ('admin', 'synthetics.locations.manage'),
-    ('admin', 'synthetics.secrets.manage'),
-    ('admin', 'status_pages.publish'),
-    ('admin', 'service_levels.read'),
-    ('admin', 'service_levels.manage'),
-    ('admin', 'postmortems.read'),
-    ('admin', 'postmortems.manage')
-) AS permission(role_key, permission_key)
-WHERE role.builtin AND role.role_key = permission.role_key
-ON CONFLICT DO NOTHING;
-
-WITH requested(bundle_key, permission_key, offset_position) AS (
-    VALUES
-        ('readonly_observer', 'synthetics.read', 1),
-        ('readonly_observer', 'service_levels.read', 2),
-        ('readonly_observer', 'postmortems.read', 3),
-        ('alert_administrator', 'synthetics.read', 1),
-        ('alert_administrator', 'synthetics.manage', 2),
-        ('alert_administrator', 'status_pages.publish', 3),
-        ('alert_administrator', 'postmortems.read', 4),
-        ('alert_administrator', 'postmortems.manage', 5),
-        ('organization_administrator', 'synthetics.read', 1),
-        ('organization_administrator', 'synthetics.manage', 2),
-        ('organization_administrator', 'synthetics.locations.manage', 3),
-        ('organization_administrator', 'synthetics.secrets.manage', 4),
-        ('organization_administrator', 'status_pages.publish', 5),
-        ('organization_administrator', 'service_levels.read', 6),
-        ('organization_administrator', 'service_levels.manage', 7),
-        ('organization_administrator', 'postmortems.read', 8),
-        ('organization_administrator', 'postmortems.manage', 9)
-), base AS (
-    SELECT bundle_key, COALESCE(MAX(position), -1) AS max_position
-    FROM iam_permission_bundle_items
-    GROUP BY bundle_key
-)
-INSERT INTO iam_permission_bundle_items (bundle_key, permission_key, position)
-SELECT requested.bundle_key,
-       requested.permission_key,
-       base.max_position + requested.offset_position
-FROM requested
-JOIN base USING (bundle_key)
-ON CONFLICT (bundle_key, permission_key) DO NOTHING;
-
--- Reading how much each source takes in, and setting its budget.
-INSERT INTO iam_permissions (
-    permission_key, scope, domain, label_key, description_key, catalog_version
-)
-VALUES
-    ('intake_usage.read', 'organization', 'observability',
-     'permissions.intake_usage_read', 'permissions_hint.intake_usage_read', 12),
-    ('intake_budgets.manage', 'organization', 'observability',
-     'permissions.intake_budgets_manage', 'permissions_hint.intake_budgets_manage', 12)
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-UPDATE iam_permission_catalog_versions
-SET version = GREATEST(version, 12),
-    updated_at = clock_timestamp()
-WHERE catalog_key = 'permissions';
-
-INSERT INTO iam_role_permissions (role_id, permission_key)
-SELECT role.id, permission.permission_key
-FROM iam_roles role
-CROSS JOIN (VALUES
-    ('owner', 'intake_usage.read'),
-    ('owner', 'intake_budgets.manage'),
-    ('admin', 'intake_usage.read'),
-    ('admin', 'intake_budgets.manage')
-) AS permission(role_key, permission_key)
-WHERE role.builtin AND role.role_key = permission.role_key
-ON CONFLICT DO NOTHING;
-
-WITH requested(bundle_key, permission_key, offset_position) AS (
-    VALUES
-        ('organization_administrator', 'intake_usage.read', 1),
-        ('organization_administrator', 'intake_budgets.manage', 2)
-), base AS (
-    SELECT bundle_key, COALESCE(MAX(position), -1) AS max_position
-    FROM iam_permission_bundle_items
-    GROUP BY bundle_key
-)
-INSERT INTO iam_permission_bundle_items (bundle_key, permission_key, position)
-SELECT requested.bundle_key,
-       requested.permission_key,
-       base.max_position + requested.offset_position
-FROM requested
-JOIN base USING (bundle_key)
-ON CONFLICT (bundle_key, permission_key) DO NOTHING;
-
 CREATE TABLE synthetic_probe_locations (
     id                      VARCHAR(64) PRIMARY KEY,
-    organization_id         VARCHAR(64) REFERENCES organizations(id) ON DELETE CASCADE,
+    organization_id         VARCHAR(64),
     name                    VARCHAR(255) NOT NULL,
     code                    VARCHAR(64) NOT NULL,
     description             TEXT NOT NULL DEFAULT '',
@@ -7695,7 +6840,7 @@ CREATE TABLE synthetic_probe_register_tokens (
     expires_at              TIMESTAMPTZ NOT NULL,
     used_at                 TIMESTAMPTZ,
     used_by_agent_id        VARCHAR(64) REFERENCES synthetic_probe_agents(id),
-    created_by              VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_by              VARCHAR(64) NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL,
     CONSTRAINT chk_synthetic_probe_register_token_use
         CHECK (
@@ -7703,13 +6848,17 @@ CREATE TABLE synthetic_probe_register_tokens (
             OR (used_at IS NOT NULL AND used_by_agent_id IS NOT NULL)
         )
 );
+CREATE INDEX idx_synthetic_probe_register_tokens_used_by_agent_id
+    ON synthetic_probe_register_tokens (used_by_agent_id);
+CREATE INDEX idx_synthetic_probe_register_tokens_location_id
+    ON synthetic_probe_register_tokens (location_id);
 CREATE INDEX ix_synthetic_probe_register_tokens_location_expiry
     ON synthetic_probe_register_tokens (location_id, expires_at)
     WHERE used_at IS NULL;
 
 CREATE TABLE synthetic_probe_agent_tokens (
     id                      VARCHAR(64) PRIMARY KEY,
-    organization_id         VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    organization_id         VARCHAR(64) NOT NULL,
     location_id             VARCHAR(64) NOT NULL,
     name                    VARCHAR(128) NOT NULL,
     token_hash              BYTEA NOT NULL UNIQUE,
@@ -7717,7 +6866,7 @@ CREATE TABLE synthetic_probe_agent_tokens (
     status                  VARCHAR(16) NOT NULL DEFAULT 'active',
     expires_at              TIMESTAMPTZ,
     last_used_at            TIMESTAMPTZ,
-    created_by              VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_by              VARCHAR(64) NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL,
     rotated_at              TIMESTAMPTZ,
     disabled_at             TIMESTAMPTZ,
@@ -7746,16 +6895,18 @@ CREATE TABLE synthetic_probe_agent_tokens (
             AND (disabled_at IS NULL OR disabled_at >= created_at)
         )
 );
+CREATE INDEX idx_synthetic_probe_agent_tokens_location_id
+    ON synthetic_probe_agent_tokens (organization_id, location_id);
 CREATE INDEX ix_synthetic_probe_agent_tokens_org_status
     ON synthetic_probe_agent_tokens (organization_id, status, name, id);
 
 CREATE TABLE synthetic_secrets (
     id                      VARCHAR(64) PRIMARY KEY,
-    organization_id         VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    organization_id         VARCHAR(64) NOT NULL,
     name                    VARCHAR(255) NOT NULL,
     description             TEXT NOT NULL DEFAULT '',
     current_version         INTEGER NOT NULL DEFAULT 1,
-    created_by              VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_by              VARCHAR(64) NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL,
     updated_at              TIMESTAMPTZ NOT NULL,
     archived_at             TIMESTAMPTZ,
@@ -7770,7 +6921,7 @@ CREATE TABLE synthetic_secret_versions (
     version                 INTEGER NOT NULL,
     nonce                   BYTEA NOT NULL,
     ciphertext              BYTEA NOT NULL,
-    created_by              VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_by              VARCHAR(64) NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (secret_id, version),
     CONSTRAINT fk_synthetic_secret_versions_secret
@@ -7780,10 +6931,12 @@ CREATE TABLE synthetic_secret_versions (
     CONSTRAINT chk_synthetic_secret_versions_nonce CHECK (OCTET_LENGTH(nonce) = 12),
     CONSTRAINT chk_synthetic_secret_versions_ciphertext CHECK (OCTET_LENGTH(ciphertext) > 16)
 );
+CREATE INDEX idx_synthetic_secret_versions_secret_id
+    ON synthetic_secret_versions (organization_id, secret_id);
 
 CREATE TABLE synthetic_monitors (
     id                      VARCHAR(64) PRIMARY KEY,
-    organization_id         VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    organization_id         VARCHAR(64) NOT NULL,
     name                    VARCHAR(255) NOT NULL,
     description             TEXT NOT NULL DEFAULT '',
     kind                    VARCHAR(16) NOT NULL,
@@ -7794,7 +6947,7 @@ CREATE TABLE synthetic_monitors (
     active_revision_id      VARCHAR(64),
     draft_revision_id       VARCHAR(64),
     next_due_at             TIMESTAMPTZ,
-    created_by              VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_by              VARCHAR(64) NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL,
     updated_at              TIMESTAMPTZ NOT NULL,
     archived_at             TIMESTAMPTZ,
@@ -7808,6 +6961,10 @@ CREATE TABLE synthetic_monitors (
     CONSTRAINT chk_synthetic_monitors_archive
         CHECK ((lifecycle = 'archived') = (archived_at IS NOT NULL))
 );
+CREATE INDEX idx_synthetic_monitors_active_revision_id
+    ON synthetic_monitors (organization_id, active_revision_id);
+CREATE INDEX idx_synthetic_monitors_draft_revision_id
+    ON synthetic_monitors (organization_id, draft_revision_id);
 CREATE UNIQUE INDEX uq_synthetic_monitors_org_name_active
     ON synthetic_monitors (organization_id, LOWER(name))
     WHERE lifecycle <> 'archived';
@@ -7845,7 +7002,7 @@ CREATE TABLE synthetic_monitor_revisions (
     -- spec says only which revision holds it.
     client_key_nonce             BYTEA,
     client_key_ciphertext        BYTEA,
-    created_by                  VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_by                  VARCHAR(64) NOT NULL,
     created_at                  TIMESTAMPTZ NOT NULL,
     content_hash                VARCHAR(64) NOT NULL,
     CONSTRAINT fk_synthetic_monitor_revisions_monitor
@@ -7867,6 +7024,12 @@ CREATE TABLE synthetic_monitor_revisions (
     CONSTRAINT chk_synthetic_monitor_revisions_client_key
         CHECK ((client_key_nonce IS NULL) = (client_key_ciphertext IS NULL))
 );
+CREATE INDEX idx_synthetic_monitor_revisions_monitor_id
+    ON synthetic_monitor_revisions (organization_id, monitor_id);
+CREATE INDEX idx_synthetic_monitor_revisions_escalation_policy_id
+    ON synthetic_monitor_revisions (escalation_policy_id);
+CREATE INDEX idx_synthetic_monitor_revisions_last_test_result_id
+    ON synthetic_monitor_revisions (last_test_result_id);
 
 ALTER TABLE synthetic_monitors
     ADD CONSTRAINT fk_synthetic_monitors_active_revision
@@ -7898,14 +7061,16 @@ CREATE TRIGGER trg_synthetic_monitor_revisions_locations
 BEFORE INSERT OR UPDATE OF location_ids ON synthetic_monitor_revisions
 FOR EACH ROW EXECUTE FUNCTION check_synthetic_revision_locations();
 
--- A location a revision lists stays. Deleting an organization takes its
--- locations and its monitors with it.
+-- A location a revision lists stays, unless the revision's organization is
+-- deleted: its purge removes the locations and the monitors in either order.
 CREATE FUNCTION restrict_listed_synthetic_location() RETURNS trigger AS $$
 BEGIN
     IF EXISTS (
         SELECT 1
           FROM synthetic_monitor_revisions revision
-          JOIN organizations organization ON organization.id = revision.organization_id
+          JOIN organizations organization
+            ON organization.id = revision.organization_id
+           AND organization.deleted_at IS NULL
          WHERE OLD.id = ANY(revision.location_ids)
     ) THEN
         RAISE EXCEPTION 'probe location % is listed by a monitor revision', OLD.id
@@ -7965,6 +7130,14 @@ CREATE TABLE synthetic_probe_tasks (
              AND leased_until IS NOT NULL)
         )
 );
+CREATE INDEX idx_synthetic_probe_tasks_monitor_revision_id
+    ON synthetic_probe_tasks (organization_id, monitor_revision_id);
+CREATE INDEX idx_synthetic_probe_tasks_monitor_id
+    ON synthetic_probe_tasks (organization_id, monitor_id);
+CREATE INDEX idx_synthetic_probe_tasks_lease_agent_id
+    ON synthetic_probe_tasks (lease_agent_id);
+CREATE INDEX idx_synthetic_probe_tasks_location_id
+    ON synthetic_probe_tasks (location_id);
 CREATE INDEX ix_synthetic_probe_tasks_dispatch
     ON synthetic_probe_tasks (location_id, state, scheduled_at)
     WHERE state = 'pending';
@@ -8016,6 +7189,12 @@ CREATE TABLE synthetic_results (
     CONSTRAINT chk_synthetic_results_sequence
         CHECK (result_sequence IS NULL OR result_sequence >= 0)
 );
+CREATE INDEX idx_synthetic_results_monitor_revision_id
+    ON synthetic_results (organization_id, monitor_revision_id);
+CREATE INDEX idx_synthetic_results_agent_id
+    ON synthetic_results (agent_id);
+CREATE INDEX idx_synthetic_results_location_id
+    ON synthetic_results (location_id);
 CREATE UNIQUE INDEX uq_synthetic_results_agent_sequence
     ON synthetic_results (agent_id, result_sequence)
     WHERE agent_id IS NOT NULL AND result_sequence IS NOT NULL;
@@ -8063,6 +7242,12 @@ CREATE TABLE synthetic_monitor_location_states (
     CONSTRAINT chk_synthetic_monitor_location_states_count CHECK (candidate_count >= 0),
     CONSTRAINT chk_synthetic_monitor_location_states_missing CHECK (consecutive_missing >= 0)
 );
+CREATE INDEX idx_synthetic_monitor_location_states_monitor_revision_id
+    ON synthetic_monitor_location_states (organization_id, monitor_revision_id);
+CREATE INDEX idx_synthetic_monitor_location_states_location_id
+    ON synthetic_monitor_location_states (location_id);
+CREATE INDEX idx_synthetic_monitor_location_states_last_result_id
+    ON synthetic_monitor_location_states (last_result_id);
 CREATE INDEX ix_synthetic_monitor_location_states_monitor
     ON synthetic_monitor_location_states
        (organization_id, monitor_id, monitor_revision_id, current_state);
@@ -8094,6 +7279,12 @@ CREATE TABLE synthetic_state_transitions (
     CONSTRAINT chk_synthetic_state_transitions_window
         CHECK (ended_at IS NULL OR ended_at >= started_at)
 );
+CREATE INDEX idx_synthetic_state_transitions_monitor_revision_id
+    ON synthetic_state_transitions (organization_id, monitor_revision_id);
+CREATE INDEX idx_synthetic_state_transitions_location_id
+    ON synthetic_state_transitions (location_id);
+CREATE INDEX idx_synthetic_state_transitions_result_id
+    ON synthetic_state_transitions (result_id);
 CREATE UNIQUE INDEX uq_synthetic_state_transitions_open
     ON synthetic_state_transitions (organization_id, monitor_id, COALESCE(location_id, ''))
     WHERE ended_at IS NULL;
@@ -8121,6 +7312,8 @@ CREATE TABLE synthetic_result_artifacts (
     CONSTRAINT chk_synthetic_result_artifacts_sha CHECK (OCTET_LENGTH(sha256) = 32),
     CONSTRAINT uq_synthetic_result_artifacts_object UNIQUE (object_key)
 );
+CREATE INDEX idx_synthetic_result_artifacts_result_id
+    ON synthetic_result_artifacts (organization_id, result_id);
 CREATE INDEX ix_synthetic_result_artifacts_retention
     ON synthetic_result_artifacts (expires_at);
 
@@ -8134,7 +7327,7 @@ CREATE TABLE status_page_automation_rules (
     lifecycle               VARCHAR(16) NOT NULL DEFAULT 'draft',
     active_revision_id      VARCHAR(64),
     draft_revision_id       VARCHAR(64),
-    created_by              VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_by              VARCHAR(64) NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL,
     updated_at              TIMESTAMPTZ NOT NULL,
     CONSTRAINT uq_status_page_automation_rules_org_id UNIQUE (organization_id, id),
@@ -8145,6 +7338,12 @@ CREATE TABLE status_page_automation_rules (
     CONSTRAINT chk_status_page_automation_rules_lifecycle
         CHECK (lifecycle IN ('draft', 'active', 'paused', 'archived'))
 );
+CREATE INDEX idx_status_page_automation_rules_active_revision_id
+    ON status_page_automation_rules (organization_id, active_revision_id);
+CREATE INDEX idx_status_page_automation_rules_draft_revision_id
+    ON status_page_automation_rules (organization_id, draft_revision_id);
+CREATE INDEX idx_status_page_automation_rules_status_page_id
+    ON status_page_automation_rules (organization_id, status_page_id);
 CREATE INDEX ix_status_page_automation_rules_order
     ON status_page_automation_rules (organization_id, status_page_id, position, id)
     WHERE lifecycle <> 'archived';
@@ -8158,7 +7357,7 @@ CREATE TABLE status_page_automation_revisions (
     matchers                JSONB NOT NULL,
     action                  JSONB NOT NULL,
     content_hash            VARCHAR(64) NOT NULL,
-    created_by              VARCHAR(64) NOT NULL REFERENCES users(id),
+    created_by              VARCHAR(64) NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL,
     CONSTRAINT uq_status_page_automation_revisions_org_id UNIQUE (organization_id, id),
     CONSTRAINT uq_status_page_automation_revisions_number UNIQUE (rule_id, number),
@@ -8170,6 +7369,10 @@ CREATE TABLE status_page_automation_revisions (
         REFERENCES status_pages(org_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_status_page_automation_revisions_number CHECK (number > 0)
 );
+CREATE INDEX idx_status_page_automation_revisions_rule_id
+    ON status_page_automation_revisions (organization_id, rule_id);
+CREATE INDEX idx_status_page_automation_revisions_status_page_id
+    ON status_page_automation_revisions (organization_id, status_page_id);
 ALTER TABLE status_page_automation_rules
     ADD CONSTRAINT fk_status_page_automation_rules_active_revision
         FOREIGN KEY (organization_id, active_revision_id)
@@ -8216,6 +7419,10 @@ CREATE TABLE status_page_automation_candidates (
     CONSTRAINT chk_status_page_automation_candidates_components
         CHECK (CARDINALITY(component_ids) BETWEEN 1 AND 500)
 );
+CREATE INDEX idx_status_page_automation_candidates_status_incident_id
+    ON status_page_automation_candidates (organization_id, status_page_id, status_incident_id);
+CREATE INDEX idx_status_page_automation_candidates_rule_revision_id
+    ON status_page_automation_candidates (organization_id, rule_revision_id);
 CREATE UNIQUE INDEX uq_status_page_automation_candidates_open
     ON status_page_automation_candidates
        (organization_id, status_page_id, correlation_key)
@@ -8241,7 +7448,7 @@ CREATE TABLE status_page_automation_candidate_sources (
         FOREIGN KEY (organization_id, candidate_id)
         REFERENCES status_page_automation_candidates(organization_id, id) ON DELETE CASCADE,
     CONSTRAINT chk_status_page_automation_candidate_sources_kind
-        CHECK (source_kind IN ('alert_incident', 'synthetic_monitor')),
+        CHECK (source_kind IN ('alert_incident', 'synthetic_monitor', 'component_dependencies')),
     CONSTRAINT chk_status_page_automation_candidate_sources_severity
         CHECK (severity IN ('info', 'warning', 'error', 'critical'))
 );
@@ -8251,7 +7458,7 @@ CREATE TABLE status_page_automation_actions (
     organization_id         VARCHAR(64) NOT NULL,
     candidate_id            VARCHAR(64) NOT NULL,
     action                  VARCHAR(32) NOT NULL,
-    actor_id                VARCHAR(64) REFERENCES users(id),
+    actor_id                VARCHAR(64),
     note                    TEXT,
     created_at              TIMESTAMPTZ NOT NULL,
     CONSTRAINT fk_status_page_automation_actions_candidate
@@ -8261,6 +7468,8 @@ CREATE TABLE status_page_automation_actions (
         CHECK (action IN ('created', 'pending_approval', 'approved', 'published', 'rejected',
                           'cancelled', 'resolved', 'failed', 'retried'))
 );
+CREATE INDEX idx_status_page_automation_actions_candidate_id
+    ON status_page_automation_actions (organization_id, candidate_id);
 
 CREATE TABLE status_page_automation_outbox (
     id                      VARCHAR(64) PRIMARY KEY,
@@ -8286,181 +7495,20 @@ CREATE TABLE status_page_automation_outbox (
         CHECK (status IN ('pending', 'processing', 'completed', 'dead_letter')),
     CONSTRAINT chk_status_page_automation_outbox_attempts CHECK (attempts >= 0)
 );
+CREATE INDEX idx_status_page_automation_outbox_candidate_id
+    ON status_page_automation_outbox (organization_id, candidate_id);
 CREATE INDEX ix_status_page_automation_outbox_claim
     ON status_page_automation_outbox (available_at, created_at)
     WHERE status IN ('pending', 'processing');
-
--- Whether automation of a page is paused is a setting of the page itself; who
--- set it last and when stay empty until someone does.
-ALTER TABLE status_pages
-    ADD COLUMN automation_paused BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN automation_updated_by VARCHAR(64) REFERENCES users(id),
-    ADD COLUMN automation_updated_at TIMESTAMPTZ;
--- The Slack App message connector visitors add the page to Slack with. Its
--- client ID and secret are kept encrypted with the connector; a connector a
--- page uses cannot be deleted.
-ALTER TABLE status_pages
-    ADD COLUMN slack_connector_id VARCHAR(64),
-    ADD CONSTRAINT fk_status_pages_slack_connector
-        FOREIGN KEY (org_id, slack_connector_id)
-        REFERENCES notify_connectors(organization_id, id);
-
-ALTER TABLE status_pages
-    ADD CONSTRAINT chk_status_pages_automation_setting
-    CHECK (
-        (automation_updated_by IS NULL) = (automation_updated_at IS NULL)
-        AND (automation_updated_by IS NOT NULL OR NOT automation_paused)
-    );
 
 -- ============================================================
 -- Status page subscriptions by component, update commitments and postmortems
 -- ============================================================
 
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
-
--- A subscriber hears about every component of the page, or only about the
--- components it chose; a chosen component that is later hidden or archived
--- stops reaching it, as it stops showing on the page. The raw token is kept
--- sealed beside its hash, so that every message can carry the links that
--- manage or end the subscription. origin says how the subscriber came: the
--- page's own form, an import, or the Slack app. target_label names the Slack
--- channel the Slack app was added to. While "Add to Slack" waits for the
--- visitor to come back from Slack, its subscriber is pending with a
--- placeholder target and the OAuth state as its token; a request that never
--- comes back is removed after an hour.
-ALTER TABLE status_page_subscribers
-    ADD COLUMN component_scope VARCHAR(16) NOT NULL DEFAULT 'all',
-    ADD COLUMN component_ids TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-    ADD COLUMN token_ciphertext BYTEA NOT NULL,
-    ADD COLUMN token_nonce BYTEA NOT NULL,
-    ADD COLUMN target_label VARCHAR(255),
-    ADD COLUMN origin VARCHAR(16) NOT NULL DEFAULT 'page';
-ALTER TABLE status_page_subscribers
-    DROP CONSTRAINT chk_status_page_subscriber_channel,
-    ADD CONSTRAINT chk_status_page_subscriber_channel
-        CHECK (channel IN ('email', 'webhook', 'slack')),
-    ADD CONSTRAINT chk_status_page_subscriber_components
-        CHECK (
-            (component_scope = 'all' AND cardinality(component_ids) = 0)
-            OR (component_scope = 'selected'
-                AND cardinality(component_ids) BETWEEN 1 AND 500
-                AND array_position(component_ids, NULL) IS NULL)
-        ),
-    ADD CONSTRAINT chk_status_page_subscriber_token_cipher
-        CHECK (
-            octet_length(token_nonce) = 12
-            AND octet_length(token_ciphertext) BETWEEN 17 AND 512
-        ),
-    ADD CONSTRAINT chk_status_page_subscriber_origin
-        CHECK (origin IN ('page', 'import', 'slack_app'));
-
--- An update can say by when the next one will come, and can be published
--- without telling subscribers, for example to correct the wording of the last
--- one. A component status set by hand can be changed without telling them too.
-ALTER TABLE status_page_incident_updates
-    ADD COLUMN next_update_at TIMESTAMPTZ,
-    ADD COLUMN notify_subscribers BOOLEAN NOT NULL DEFAULT TRUE;
-ALTER TABLE status_page_incident_updates
-    ADD CONSTRAINT chk_status_page_incident_update_next_update
-        CHECK (
-            next_update_at IS NULL
-            OR (next_update_at > created_at
-                AND status NOT IN ('resolved', 'completed', 'cancelled', 'scheduled'))
-        );
-ALTER TABLE status_page_component_status_events
-    ADD COLUMN notify_subscribers BOOLEAN NOT NULL DEFAULT TRUE;
-
--- A resolved incident can carry one public postmortem, written in Markdown.
--- It is drafted, then published; a published postmortem can be revised in
--- place or taken back to a draft. Subscribers are told when it is published,
--- and of a revision only when the publisher asks for it.
-ALTER TABLE status_page_incidents
-    ADD COLUMN postmortem_body TEXT,
-    ADD COLUMN postmortem_state VARCHAR(16),
-    ADD COLUMN postmortem_published_at TIMESTAMPTZ,
-    ADD COLUMN postmortem_revised_at TIMESTAMPTZ,
-    ADD COLUMN postmortem_updated_at TIMESTAMPTZ,
-    ADD COLUMN postmortem_updated_by VARCHAR(64) REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE status_page_incidents
-    ADD CONSTRAINT chk_status_page_incident_postmortem
-        CHECK (
-            (postmortem_state IS NULL AND postmortem_body IS NULL
-             AND postmortem_published_at IS NULL AND postmortem_revised_at IS NULL
-             AND postmortem_updated_at IS NULL)
-            OR (kind = 'incident'
-                AND length(btrim(postmortem_body)) BETWEEN 1 AND 20000
-                AND postmortem_updated_at IS NOT NULL
-                AND (
-                    (postmortem_state = 'draft'
-                     AND postmortem_published_at IS NULL
-                     AND postmortem_revised_at IS NULL)
-                    OR (postmortem_state = 'published'
-                        AND postmortem_published_at IS NOT NULL
-                        AND (postmortem_revised_at IS NULL
-                             OR postmortem_revised_at >= postmortem_published_at))
-                ))
-        );
-
--- What a component depends on, and how that reaches it. dependencies lists the
--- technical services (the service names that traces and alerts carry), the
--- synthetic monitors and the alert rules it depends on, in order: each entry
--- has a kind (technical_service, synthetic_monitor, alert_rule), a target (the
--- service name, or the id of the monitor or alert rule) and an impact (outage,
--- or degraded for a dependency that passes on at most degraded performance).
--- Its health is the worst health its dependencies pass on. In follow mode the
--- component's status follows that health; in automation mode the health
--- reaches the page through its automation rules. The dependency_ columns hold
--- the health last worked out, with the dependencies that caused it; a status
--- changes only through a compare-and-set on the dependencies, dependency_status
--- and dependency_changed_at, so two nodes that evaluate at once record
--- one change, and changed dependencies drop the health worked out from the old
--- ones.
-ALTER TABLE status_page_components
-    ADD COLUMN dependencies JSONB NOT NULL DEFAULT '[]'::JSONB,
-    ADD COLUMN dependency_mode VARCHAR(16) NOT NULL DEFAULT 'follow',
-    ADD COLUMN dependency_notify BOOLEAN NOT NULL DEFAULT TRUE,
-    ADD COLUMN dependency_status VARCHAR(32),
-    ADD COLUMN dependency_causes JSONB NOT NULL DEFAULT '[]'::JSONB,
-    ADD COLUMN dependency_changed_at TIMESTAMPTZ,
-    ADD COLUMN dependency_evaluated_at TIMESTAMPTZ;
-ALTER TABLE status_page_components
-    ADD CONSTRAINT chk_status_page_component_dependencies
-        CHECK (
-            jsonb_typeof(dependencies) = 'array'
-            AND jsonb_array_length(dependencies) <= 100
-            AND jsonb_typeof(dependency_causes) = 'array'
-        ),
-    ADD CONSTRAINT chk_status_page_component_dependency_mode
-        CHECK (dependency_mode IN ('follow', 'automation')),
-    ADD CONSTRAINT chk_status_page_component_dependency_status
-        CHECK (
-            dependency_status IS NULL
-            OR dependency_status IN (
-                'operational', 'degraded_performance', 'partial_outage', 'major_outage'
-            )
-        );
 CREATE INDEX idx_status_page_components_dependent
     ON status_page_components(org_id)
     WHERE dependencies <> '[]'::JSONB;
 
--- Components can be grouped the way folders hold files. A group is a row of
--- its own kind with no status of its own: the page shows it with the worst
--- status among its components. A group holds components, not other groups,
--- and only a group of the same page can hold a component.
-ALTER TABLE status_page_components
-    ADD COLUMN kind VARCHAR(16) NOT NULL DEFAULT 'component',
-    ADD COLUMN group_id VARCHAR(64);
-ALTER TABLE status_page_components
-    ADD CONSTRAINT chk_status_page_components_kind
-        CHECK (kind IN ('component', 'group')),
-    ADD CONSTRAINT chk_status_page_components_group
-        CHECK (group_id IS NULL OR (kind = 'component' AND group_id <> id)),
-    ADD CONSTRAINT chk_status_page_components_group_dependencies
-        CHECK (kind = 'component' OR dependencies = '[]'::JSONB),
-    ADD CONSTRAINT fk_status_page_components_group
-        FOREIGN KEY (org_id, status_page_id, group_id)
-        REFERENCES status_page_components(org_id, status_page_id, id);
 CREATE INDEX idx_status_page_components_group
     ON status_page_components(org_id, status_page_id, group_id)
     WHERE group_id IS NOT NULL;
@@ -8490,11 +7538,6 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_status_page_components_group
 BEFORE INSERT OR UPDATE OF kind, group_id ON status_page_components
 FOR EACH ROW EXECUTE FUNCTION check_status_page_component_group();
-
-ALTER TABLE status_page_automation_candidate_sources
-    DROP CONSTRAINT chk_status_page_automation_candidate_sources_kind,
-    ADD CONSTRAINT chk_status_page_automation_candidate_sources_kind
-        CHECK (source_kind IN ('alert_incident', 'synthetic_monitor', 'component_dependencies'));
 
 -- The components of an event that a subscriber can hear about: the ones the
 -- page shows. Every path that picks subscribers for an event goes through it,
@@ -8531,9 +7574,11 @@ CREATE FUNCTION status_page_subscriber_hears(
         OR subscriber_component_ids && named_component_ids
 $$ LANGUAGE sql IMMUTABLE;
 
--- Rebuild the outbox triggers: a change made without notifying stays silent,
--- and a subscriber hears only about the components it chose.
-CREATE OR REPLACE FUNCTION enqueue_status_page_component_notification()
+-- The outbox triggers. Drafts, initial component baselines, hidden components,
+-- archived pages and changes made without notifying stay silent; private pages
+-- notify only their verified email subscribers, and a subscriber hears only
+-- about the components it chose.
+CREATE FUNCTION enqueue_status_page_component_notification()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NOT NEW.notify_subscribers THEN
@@ -8592,7 +7637,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION enqueue_status_page_incident_notification()
+CREATE TRIGGER trg_status_page_component_notification
+AFTER INSERT ON status_page_component_status_events
+FOR EACH ROW EXECUTE FUNCTION enqueue_status_page_component_notification();
+
+CREATE FUNCTION enqueue_status_page_incident_notification()
 RETURNS TRIGGER AS $$
 DECLARE
     named_component_ids TEXT[];
@@ -8657,24 +7706,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE TRIGGER trg_status_page_incident_notification
+AFTER INSERT ON status_page_incident_updates
+FOR EACH ROW EXECUTE FUNCTION enqueue_status_page_incident_notification();
+
 -- ============================================================
 -- Synthetic Probe Agent organization configuration
 -- ============================================================
-
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
 
 -- Agent heartbeats own runtime state. Organizations own only stable display
 -- metadata, including an organization-specific view of shared platform Agents.
 CREATE TABLE synthetic_probe_agent_configurations (
     organization_id         VARCHAR(64) NOT NULL
-                                REFERENCES organizations(id) ON DELETE CASCADE,
+                               ,
     agent_id                VARCHAR(64) NOT NULL
                                 REFERENCES synthetic_probe_agents(id) ON DELETE CASCADE,
     name                    VARCHAR(255) NOT NULL,
     labels                  JSONB NOT NULL DEFAULT '{}'::JSONB,
-    created_by              VARCHAR(64) REFERENCES users(id) ON DELETE SET NULL,
-    updated_by              VARCHAR(64) REFERENCES users(id) ON DELETE SET NULL,
+    created_by              VARCHAR(64),
+    updated_by              VARCHAR(64),
     created_at              TIMESTAMPTZ NOT NULL,
     updated_at              TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (organization_id, agent_id),
@@ -8683,6 +7733,8 @@ CREATE TABLE synthetic_probe_agent_configurations (
     CONSTRAINT chk_synthetic_probe_agent_configurations_labels
         CHECK (JSONB_TYPEOF(labels) = 'object')
 );
+CREATE INDEX idx_synthetic_probe_agent_configurations_agent_id
+    ON synthetic_probe_agent_configurations (agent_id);
 
 -- ============================================================
 -- Synthetic result pagination
@@ -8695,9 +7747,6 @@ CREATE INDEX ix_synthetic_results_org_time
 -- ============================================================
 -- Backend-written text
 -- ============================================================
-
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
 
 -- Text the backend writes itself, such as email subjects and bodies, is data
 -- in this table and not in the source. The web interface keeps its own
@@ -9004,6 +8053,12 @@ FROM (VALUES
     ('agent.skill.bundled.rum_triage.description', 'zh-cn', '排查真实用户遇到的问题：从 RUM 应用的概览，到它的问题、遇到问题的会话，再到会话请求的链路。'),
     ('agent.skill.bundled.rum_triage.argument_hint', 'en-us', '<application> [environment] [time range]'),
     ('agent.skill.bundled.rum_triage.argument_hint', 'zh-cn', '<应用> [环境] [时间范围]'),
+    ('agent.skill.bundled.data_readiness.title', 'en-us', 'Data readiness'),
+    ('agent.skill.bundled.data_readiness.title', 'zh-cn', '数据就绪度检查'),
+    ('agent.skill.bundled.data_readiness.description', 'en-us', 'Check whether the telemetry is ready for investigations: one name per service across logs, metrics and traces, trace IDs in logs, one spelling per environment, metric units. Then the fixes, most important first.'),
+    ('agent.skill.bundled.data_readiness.description', 'zh-cn', '检查遥测数据是否便于排查：同一服务在日志、指标、链路里是否同名，日志是否带 trace ID，环境写法是否统一，指标是否带单位，再按优先级列出修复办法。'),
+    ('agent.skill.bundled.data_readiness.argument_hint', 'en-us', '[streams or services to check]'),
+    ('agent.skill.bundled.data_readiness.argument_hint', 'zh-cn', '[要检查的数据流或服务]'),
     -- What each built-in function does, in the interface language of whoever
     -- lists them. The key carries the function's name, with _ for -.
     ('function.preset.normalize_logs.description', 'en-us', 'Parses the JSON message, adds environment and cluster fields, and normalizes level to lowercase.'),
@@ -9268,6 +8323,75 @@ FROM (VALUES
     ('agent.im.alert.not_found', 'zh-cn', 'MoleSignal 里已经没有这个告警了。'),
     ('agent.im.alert.failed', 'en-us', 'That did not work ({reason}). Try again in MoleSignal.'),
     ('agent.im.alert.failed', 'zh-cn', '没有做成（{reason}），请在 MoleSignal 里再试一次。'),
+    -- The approve and reject buttons on an approval request in IM, and what a press is answered with.
+    ('agent.im.approval.approve', 'en-us', 'Approve'),
+    ('agent.im.approval.approve', 'zh-cn', '批准'),
+    ('agent.im.approval.reject', 'en-us', 'Reject'),
+    ('agent.im.approval.reject', 'zh-cn', '驳回'),
+    ('agent.im.approval.no_access', 'en-us', 'Your MoleSignal account cannot approve Mole Agent operations.'),
+    ('agent.im.approval.no_access', 'zh-cn', '你的 MoleSignal 账号不能审批 Mole Agent 的操作。'),
+    ('agent.im.approval.not_found', 'en-us', 'This approval request is no longer in MoleSignal.'),
+    ('agent.im.approval.not_found', 'zh-cn', 'MoleSignal 里已经没有这个审批请求了。'),
+    ('agent.im.approval.own', 'en-us', 'The person who asked for an operation cannot approve it.'),
+    ('agent.im.approval.own', 'zh-cn', '发起人不能审批自己发起的操作。'),
+    ('agent.im.approval.done_waiting', 'en-us', 'Approved. It runs after {count} more approval.'),
+    ('agent.im.approval.done_waiting', 'zh-cn', '已批准，还要 {count} 人批准才会执行。'),
+    ('agent.im.approval.waiting_by', 'en-us', '{user} approved; it waits for {count} more approval.'),
+    ('agent.im.approval.waiting_by', 'zh-cn', '{user} 批准了，还要 {count} 人批准。'),
+    ('agent.im.approval.done_ran', 'en-us', 'Approved, and it ran.'),
+    ('agent.im.approval.done_ran', 'zh-cn', '已批准并执行。'),
+    ('agent.im.approval.ran_by', 'en-us', '{user} approved, and it ran.'),
+    ('agent.im.approval.ran_by', 'zh-cn', '{user} 批准了，已执行。'),
+    ('agent.im.approval.done_run_failed', 'en-us', 'Approved, but it failed: {reason}'),
+    ('agent.im.approval.done_run_failed', 'zh-cn', '已批准，但执行失败：{reason}'),
+    ('agent.im.approval.run_failed_by', 'en-us', '{user} approved, but it failed: {reason}'),
+    ('agent.im.approval.run_failed_by', 'zh-cn', '{user} 批准了，但执行失败：{reason}'),
+    ('agent.im.approval.done_not_started', 'en-us', 'Approved, but it could not start: {reason}'),
+    ('agent.im.approval.done_not_started', 'zh-cn', '已批准，但没能开始执行：{reason}'),
+    ('agent.im.approval.not_started_by', 'en-us', '{user} approved, but it could not start: {reason}'),
+    ('agent.im.approval.not_started_by', 'zh-cn', '{user} 批准了，但没能开始执行：{reason}'),
+    ('agent.im.approval.done_rejected', 'en-us', 'Rejected.'),
+    ('agent.im.approval.done_rejected', 'zh-cn', '已驳回。'),
+    ('agent.im.approval.rejected_by', 'en-us', '{user} rejected this request.'),
+    ('agent.im.approval.rejected_by', 'zh-cn', '{user} 驳回了这个请求。'),
+    ('agent.im.approval.expired', 'en-us', 'This request has expired.'),
+    ('agent.im.approval.expired', 'zh-cn', '这个请求已经过期了。'),
+    ('agent.im.approval.note_expired', 'en-us', 'This request expired.'),
+    ('agent.im.approval.note_expired', 'zh-cn', '这个请求已过期。'),
+    ('agent.im.approval.already_approved', 'en-us', 'This request is already approved.'),
+    ('agent.im.approval.already_approved', 'zh-cn', '这个请求已经批准了。'),
+    ('agent.im.approval.note_approved', 'en-us', 'This request is approved.'),
+    ('agent.im.approval.note_approved', 'zh-cn', '这个请求已批准。'),
+    ('agent.im.approval.already_executed', 'en-us', 'This request already ran.'),
+    ('agent.im.approval.already_executed', 'zh-cn', '这个请求已经执行过了。'),
+    ('agent.im.approval.note_executed', 'en-us', 'This request ran.'),
+    ('agent.im.approval.note_executed', 'zh-cn', '这个请求已执行。'),
+    ('agent.im.approval.already_rejected', 'en-us', 'This request is already rejected.'),
+    ('agent.im.approval.already_rejected', 'zh-cn', '这个请求已经驳回了。'),
+    ('agent.im.approval.note_rejected', 'en-us', 'This request was rejected.'),
+    ('agent.im.approval.note_rejected', 'zh-cn', '这个请求已驳回。'),
+    ('agent.im.approval.cancelled', 'en-us', 'This request was withdrawn.'),
+    ('agent.im.approval.cancelled', 'zh-cn', '这个请求已经撤销了。'),
+    ('agent.im.approval.note_cancelled', 'en-us', 'This request was withdrawn.'),
+    ('agent.im.approval.note_cancelled', 'zh-cn', '这个请求已撤销。'),
+    ('agent.im.approval.already_reviewed', 'en-us', 'You have already reviewed this request.'),
+    ('agent.im.approval.already_reviewed', 'zh-cn', '你已经审批过这个请求了。'),
+    -- The notification that asks for a review of a Mole Agent or remediation operation, in the workspace's default language.
+    ('agent_approval.requested.title', 'en-us', 'Approval needed: {action}'),
+    ('agent_approval.requested.title', 'zh-cn', '待审批：{action}'),
+    ('agent_approval.requested.text', 'en-us', E'{requester} asks to run {action} on {target}. Risk {risk}; {count} approval(s) needed before {expires}.\nReason: {reason}\nImpact: {impact}'),
+    ('agent_approval.requested.text', 'zh-cn', E'{requester} 请求对 {target} 执行 {action}，风险 {risk}，需要 {count} 人在 {expires} 前批准。\n原因：{reason}\n影响：{impact}'),
+    ('agent_approval.requested.open', 'en-us', 'Review it in MoleSignal: {url}'),
+    ('agent_approval.requested.open', 'zh-cn', '在 MoleSignal 中审批：{url}'),
+    -- Told on a pre-approval's channels after a remediation action ran under it, in the workspace's default language.
+    ('remediation.preapproval.executed.succeeded_title', 'en-us', 'Pre-approved remediation ran: {action}'),
+    ('remediation.preapproval.executed.succeeded_title', 'zh-cn', '预批准的修复动作已执行：{action}'),
+    ('remediation.preapproval.executed.failed_title', 'en-us', 'Pre-approved remediation failed: {action}'),
+    ('remediation.preapproval.executed.failed_title', 'zh-cn', '预批准的修复动作执行失败：{action}'),
+    ('remediation.preapproval.executed.text', 'en-us', '{action} ran on the incident "{incident}" without waiting for approval, under the pre-approval of {approvers}. Started by {requester}. Result: {result}'),
+    ('remediation.preapproval.executed.text', 'zh-cn', '修复动作「{action}」按 {approvers} 的预批准，没有等审批就在事件「{incident}」上执行了，发起人 {requester}。结果：{result}'),
+    ('remediation.preapproval.executed.open', 'en-us', 'Open the incident: {url}'),
+    ('remediation.preapproval.executed.open', 'zh-cn', '查看事件：{url}'),
     -- Why a policy did not send, in the delivery record: an alert pipeline dropped the notification.
     ('alerting.pipeline.dropped', 'en-us', 'dropped by alert pipeline "{pipeline}", step "{step}"'),
     ('alerting.pipeline.dropped', 'zh-cn', '告警流水线「{pipeline}」的步骤「{step}」丢弃了这条通知'),
@@ -9405,85 +8529,13 @@ FROM (VALUES
 ) AS seed(language_key, language_code, language_value);
 
 -- ============================================================
--- IAM catalog consolidation
+-- IAM permission checks
 -- ============================================================
 
--- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2026 MoleSignal Authors
-
--- A list that is only ever read or written whole with its owner is an array
--- on the owner, and a counter lives with what it counts:
--- - the permissions of a role, built-in rows included, and of a permission
---   bundle are arrays on iam_roles and iam_permission_bundles, bundles in
---   their display order, roles sorted;
--- - the permission and route catalog versions are rows of iam_catalog_versions;
--- - an organization's IAM policy version is a column of organizations.
--- Every listed permission must be in the catalog; a permission an
--- organization's role or a route still lists cannot leave it, and leaving it
--- takes it out of the built-in roles and bundles.
-CREATE TABLE iam_catalog_versions (
-    catalog_key         VARCHAR(32) PRIMARY KEY,
-    version             BIGINT      NOT NULL CHECK (version > 0),
-    updated_at          TIMESTAMPTZ NOT NULL,
-    CONSTRAINT chk_iam_catalog_versions_key
-        CHECK (catalog_key IN ('permissions', 'routes'))
-);
-
-INSERT INTO iam_catalog_versions (catalog_key, version, updated_at)
-SELECT catalog_key, version, updated_at
-FROM iam_permission_catalog_versions;
-
-ALTER TABLE iam_roles
-    ADD COLUMN permissions TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-    ADD CONSTRAINT chk_iam_roles_permissions
-        CHECK (array_position(permissions, NULL) IS NULL);
-
-UPDATE iam_roles role
-SET permissions = listed.permissions
-FROM (
-    SELECT role_id, array_agg(permission_key ORDER BY permission_key) AS permissions
-    FROM iam_role_permissions
-    GROUP BY role_id
-) listed
-WHERE listed.role_id = role.id;
-
-ALTER TABLE iam_permission_bundles
-    ADD COLUMN permissions TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-    ADD CONSTRAINT chk_iam_permission_bundles_permissions
-        CHECK (array_position(permissions, NULL) IS NULL);
-
-UPDATE iam_permission_bundles bundle
-SET permissions = listed.permissions
-FROM (
-    SELECT bundle_key, array_agg(permission_key ORDER BY position) AS permissions
-    FROM iam_permission_bundle_items
-    GROUP BY bundle_key
-) listed
-WHERE listed.bundle_key = bundle.bundle_key;
-
-ALTER TABLE organizations
-    ADD COLUMN iam_policy_version BIGINT NOT NULL DEFAULT 1,
-    ADD CONSTRAINT chk_organizations_iam_policy_version
-        CHECK (iam_policy_version > 0);
-
-UPDATE organizations organization
-SET iam_policy_version = policy.version
-FROM iam_policy_versions policy
-WHERE policy.organization_id = organization.id;
-
-CREATE OR REPLACE FUNCTION bump_iam_policy_version(p_organization_id VARCHAR)
-RETURNS BIGINT LANGUAGE plpgsql AS $$
-DECLARE
-    next_version BIGINT;
-BEGIN
-    UPDATE organizations
-       SET iam_policy_version = iam_policy_version + 1
-     WHERE id = p_organization_id
-    RETURNING iam_policy_version INTO next_version;
-    RETURN COALESCE(next_version, 1);
-END
-$$;
-
+-- Every permission a role, a policy or an API token lists is in the catalog. A permission
+-- that an organization's role or policy, a route or a live API token still lists cannot
+-- leave the catalog; leaving it takes it out of the built-in roles and policies
+-- (release_iam_permission).
 CREATE FUNCTION check_iam_permission_keys()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -9507,10 +8559,6 @@ $$;
 
 CREATE TRIGGER trg_iam_roles_permissions_known
 BEFORE INSERT OR UPDATE OF permissions ON iam_roles
-FOR EACH ROW EXECUTE FUNCTION check_iam_permission_keys();
-
-CREATE TRIGGER trg_iam_permission_bundles_permissions_known
-BEFORE INSERT OR UPDATE OF permissions ON iam_permission_bundles
 FOR EACH ROW EXECUTE FUNCTION check_iam_permission_keys();
 
 -- ============================================================
@@ -9549,7 +8597,7 @@ CREATE TRIGGER trg_iam_policies_permissions_known
 BEFORE INSERT OR UPDATE OF permissions ON iam_policies
 FOR EACH ROW EXECUTE FUNCTION check_iam_permission_keys();
 
--- The built-in policies: the permission sets custom roles started from, and the scope of data
+-- The built-in policies: the permission sets custom roles start from, and the scope of data
 -- intake tokens. A built-in policy's document lists its permissions in one statement.
 INSERT INTO iam_policies (
     id, organization_id, policy_key, name, description, document, permissions,
@@ -9571,38 +8619,137 @@ SELECT
     clock_timestamp(),
     clock_timestamp()
 FROM (
-    SELECT bundle.bundle_key AS policy_key,
-           COALESCE(named.name, bundle.bundle_key) AS name,
-           COALESCE(named.description, '') AS description,
-           bundle.permissions
-      FROM iam_permission_bundles bundle
-      LEFT JOIN (
-          VALUES
-              ('readonly_observer', 'Read-only observer',
-               'Reads observability data, dashboards, alerts, schedules, saved views, pipelines, functions, reports, status pages, synthetics, service levels, and postmortems.'),
-              ('data_analyst', 'Data analyst',
-               'Explores observability data, and creates dashboards and saved views.'),
-              ('pipeline_developer', 'Pipeline developer',
-               'Reads observability data, and manages streams, pipelines, and functions.'),
-              ('alert_administrator', 'Alert administrator',
-               'Reads observability data, and manages alert rules, schedules, status pages, synthetics, and postmortems.'),
-              ('organization_administrator', 'Organization administrator',
-               'Manages organization settings, members, roles, access grants, API tokens, service accounts, and audit, plus status pages, synthetics, service levels, and postmortems.')
-      ) AS named(policy_key, name, description)
-        ON named.policy_key = bundle.bundle_key
-    UNION ALL
-    SELECT 'data_intake',
-           'Data intake',
-           'Writes data, and reports deployments and changes.',
-           ARRAY['streams.write', 'apm.deploy']::TEXT[]
-) AS seed;
+    VALUES
+        ('alert_administrator', 'Alert administrator',
+         'Reads observability data, and manages alert rules, schedules, status pages, synthetics, and postmortems.',
+         ARRAY[
+             'alerts.calendars.manage', 'alerts.calendars.read', 'alerts.discovery.read',
+             'alerts.escalations.delete', 'alerts.escalations.manage', 'alerts.escalations.read',
+             'alerts.importance.manage', 'alerts.importance.read', 'alerts.incidents.acknowledge',
+             'alerts.incidents.create', 'alerts.incidents.escalate', 'alerts.incidents.rca',
+             'alerts.incidents.read', 'alerts.incidents.remediate', 'alerts.incidents.silence',
+             'alerts.incidents.tickets', 'alerts.incidents.update', 'alerts.inhibitions.manage',
+             'alerts.inhibitions.read', 'alerts.mutes.manage', 'alerts.mutes.read',
+             'alerts.remediation.manage', 'alerts.remediation.read', 'alerts.response.manage',
+             'alerts.response.read', 'alerts.routing.manage', 'alerts.routing.read',
+             'alerts.rules.delete', 'alerts.rules.manage', 'alerts.rules.read',
+             'alerts.semantic_groups.manage', 'alerts.semantic_groups.read',
+             'alerts.sources.manage', 'alerts.sources.read', 'alerts.tickets.manage',
+             'alerts.tickets.read', 'apm.definitions.read', 'apm.deployments.read',
+             'apm.error_rules.read', 'apm.errors.read', 'apm.services.read', 'apm.settings.read',
+             'apm.slos.read', 'debug_artifacts.read', 'log_patterns.read', 'logs.read',
+             'metrics.read', 'notify.connectors.delete', 'notify.connectors.manage',
+             'notify.connectors.read', 'notify.defaults.manage', 'notify.defaults.read',
+             'notify.deliveries.acknowledge', 'notify.deliveries.read', 'notify.deliveries.retry',
+             'notify.policies.delete', 'notify.policies.manage', 'notify.policies.read',
+             'notify.templates.manage', 'notify.templates.read', 'postmortems.manage',
+             'postmortems.read', 'profiles.read', 'query.jobs.read', 'query.jobs.run',
+             'query.slow.read', 'rum.analytics.read', 'rum.applications.read', 'rum.events.read',
+             'rum.issues.read', 'rum.playlists.read', 'rum.replay.read', 'rum.sessions.read',
+             'schedules.calendar_feeds.manage', 'schedules.create', 'schedules.delete',
+             'schedules.overrides.manage', 'schedules.read', 'schedules.swaps.approve',
+             'schedules.swaps.request', 'schedules.update', 'status_pages.access.manage',
+             'status_pages.archive', 'status_pages.automation.approve',
+             'status_pages.automation.manage', 'status_pages.automation.read',
+             'status_pages.create', 'status_pages.delete', 'status_pages.domain.manage',
+             'status_pages.events.manage', 'status_pages.events.publish', 'status_pages.read',
+             'status_pages.slack.manage', 'status_pages.subscribers.manage', 'status_pages.update',
+             'streams.query', 'streams.read', 'synthetics.locations.read',
+             'synthetics.monitors.archive', 'synthetics.monitors.manage',
+             'synthetics.monitors.read', 'synthetics.monitors.run', 'synthetics.results.read',
+             'synthetics.secrets.read', 'traces.read'
+         ]::TEXT[]),
+        ('data_analyst', 'Data analyst',
+         'Explores observability data, and creates dashboards and saved views.',
+         ARRAY[
+             'apm.definitions.read', 'apm.deployments.read', 'apm.error_rules.read',
+             'apm.errors.read', 'apm.services.read', 'apm.settings.read', 'apm.slos.read',
+             'dashboards.annotations.manage', 'dashboards.annotations.read', 'dashboards.create',
+             'dashboards.edit', 'dashboards.folders.manage', 'dashboards.folders.read',
+             'dashboards.read', 'debug_artifacts.read', 'log_patterns.read', 'logs.read',
+             'metrics.read', 'profiles.read', 'query.jobs.read', 'query.jobs.run',
+             'query.slow.read', 'reports.read', 'rum.analytics.read', 'rum.applications.read',
+             'rum.events.read', 'rum.issues.read', 'rum.playlists.read', 'rum.replay.read',
+             'rum.sessions.read', 'saved_views.create', 'saved_views.edit', 'saved_views.read',
+             'streams.query', 'streams.read', 'traces.read'
+         ]::TEXT[]),
+        ('data_intake', 'Data intake',
+         'Writes data, and reports deployments and changes.',
+         ARRAY[
+             'apm.deploy', 'logs.write', 'metrics.write', 'profiles.write', 'traces.write'
+         ]::TEXT[]),
+        ('organization_administrator', 'Organization administrator',
+         'Manages organization settings, members, roles, access grants, API tokens, service accounts, and audit, plus status pages, synthetics, service levels, and postmortems.',
+         ARRAY[
+             'api_tokens.issue', 'api_tokens.read', 'api_tokens.revoke', 'audit.read',
+             'iam.cross_org.manage', 'iam.cross_org.read', 'iam.grants.manage', 'iam.grants.read',
+             'iam.policies.delete', 'iam.policies.manage', 'iam.policies.read', 'iam.roles.delete',
+             'iam.roles.manage', 'iam.roles.read', 'intake_budgets.manage', 'intake_usage.read',
+             'org.cipher_keys.manage', 'org.cipher_keys.read', 'org.cipher_keys.rotate',
+             'org.domains.manage', 'org.domains.read', 'org.email_domains.manage',
+             'org.email_domains.read', 'org.field_masking.manage', 'org.field_masking.read',
+             'org.members.approve', 'org.members.invite', 'org.members.mfa_reset',
+             'org.members.read', 'org.members.remove', 'org.members.update',
+             'org.preferences.manage', 'org.preferences.read', 'org.regex_patterns.manage',
+             'org.regex_patterns.read', 'org.running_queries.cancel', 'org.running_queries.read',
+             'org.sharing.manage', 'org.sharing.read', 'org.signin.manage', 'org.signin.read',
+             'org.sso.manage', 'org.sso.read', 'org.teams.manage', 'postmortems.manage',
+             'postmortems.read', 'rum.applications.manage', 'rum.replay.comments.manage',
+             'service_accounts.delete', 'service_accounts.manage', 'service_accounts.read',
+             'service_levels.manage', 'service_levels.read', 'status_pages.access.manage',
+             'status_pages.archive', 'status_pages.automation.approve',
+             'status_pages.automation.manage', 'status_pages.automation.read',
+             'status_pages.create', 'status_pages.delete', 'status_pages.domain.manage',
+             'status_pages.events.manage', 'status_pages.events.publish', 'status_pages.read',
+             'status_pages.slack.manage', 'status_pages.subscribers.manage', 'status_pages.update',
+             'synthetics.locations.manage', 'synthetics.locations.read',
+             'synthetics.monitors.archive', 'synthetics.monitors.manage',
+             'synthetics.monitors.read', 'synthetics.monitors.run', 'synthetics.results.read',
+             'synthetics.secrets.manage', 'synthetics.secrets.read'
+         ]::TEXT[]),
+        ('pipeline_developer', 'Pipeline developer',
+         'Reads observability data, and manages streams, pipelines, and functions.',
+         ARRAY[
+             'apm.definitions.read', 'apm.deployments.read', 'apm.error_rules.read',
+             'apm.errors.read', 'apm.services.read', 'apm.settings.read', 'apm.slos.read',
+             'connectors.manage', 'connectors.read', 'debug_artifacts.manage',
+             'debug_artifacts.read', 'functions.create', 'functions.delete', 'functions.edit',
+             'functions.read', 'functions.run', 'log_patterns.manage', 'log_patterns.read',
+             'logs.read', 'logs.write', 'metrics.read', 'metrics.write', 'pipelines.create',
+             'pipelines.delete', 'pipelines.edit', 'pipelines.pause', 'pipelines.read',
+             'pipelines.run', 'profiles.read', 'profiles.write', 'query.jobs.read',
+             'query.jobs.run', 'query.slow.read', 'rum.analytics.read', 'rum.applications.read',
+             'rum.events.read', 'rum.issues.read', 'rum.playlists.read', 'rum.replay.read',
+             'rum.sessions.read', 'streams.configure', 'streams.create', 'streams.query',
+             'streams.read', 'tables.create', 'tables.delete', 'tables.edit', 'tables.read',
+             'traces.read', 'traces.write'
+         ]::TEXT[]),
+        ('readonly_observer', 'Read-only observer',
+         'Reads observability data, dashboards, alerts, schedules, saved views, pipelines, functions, reports, status pages, synthetics, service levels, and postmortems.',
+         ARRAY[
+             'alerts.calendars.read', 'alerts.discovery.read', 'alerts.escalations.read',
+             'alerts.importance.read', 'alerts.incidents.read', 'alerts.inhibitions.read',
+             'alerts.mutes.read', 'alerts.remediation.read', 'alerts.response.read',
+             'alerts.routing.read', 'alerts.rules.read', 'alerts.semantic_groups.read',
+             'alerts.sources.read', 'alerts.tickets.read', 'apm.definitions.read',
+             'apm.deployments.read', 'apm.error_rules.read', 'apm.errors.read',
+             'apm.services.read', 'apm.settings.read', 'apm.slos.read', 'connectors.read',
+             'dashboards.annotations.read', 'dashboards.folders.read', 'dashboards.read',
+             'debug_artifacts.read', 'functions.read', 'log_patterns.read', 'logs.read',
+             'metrics.read', 'notify.connectors.read', 'notify.defaults.read',
+             'notify.deliveries.read', 'notify.policies.read', 'notify.templates.read',
+             'pipelines.read', 'postmortems.read', 'profiles.read', 'query.jobs.read',
+             'query.jobs.run', 'query.slow.read', 'reports.read', 'rum.analytics.read',
+             'rum.applications.read', 'rum.events.read', 'rum.issues.read', 'rum.playlists.read',
+             'rum.replay.read', 'rum.sessions.read', 'saved_views.read',
+             'schedules.calendar_feeds.manage', 'schedules.read', 'schedules.swaps.request',
+             'service_levels.read', 'status_pages.automation.read', 'status_pages.read',
+             'streams.query', 'streams.read', 'synthetics.locations.read',
+             'synthetics.monitors.read', 'synthetics.results.read', 'synthetics.secrets.read',
+             'tables.read', 'traces.read'
+         ]::TEXT[])
+) AS seed(policy_key, name, description, permissions);
 
--- A role attaches policies of its own organization or built-in ones. It grants its own
--- permissions and theirs, read through iam_role_grants.
-ALTER TABLE iam_roles
-    ADD COLUMN policy_ids TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-    ADD CONSTRAINT chk_iam_roles_policy_ids
-        CHECK (array_position(policy_ids, NULL) IS NULL);
 CREATE INDEX idx_iam_roles_policy_ids ON iam_roles USING GIN (policy_ids);
 
 CREATE FUNCTION check_iam_role_policies()
@@ -9647,10 +8794,20 @@ RETURNS TEXT[] LANGUAGE sql STABLE AS $$
 $$;
 
 -- A policy a role attaches cannot be deleted; a token following it holds it by foreign key.
+-- The roles of a deleted organization no longer hold it: its purge removes both.
 CREATE FUNCTION release_iam_policy()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM iam_roles WHERE OLD.id = ANY(policy_ids)) THEN
+    IF EXISTS (
+        SELECT 1
+          FROM iam_roles role
+         WHERE OLD.id = ANY(role.policy_ids)
+           AND NOT EXISTS (
+               SELECT 1 FROM organizations organization
+                WHERE organization.id = role.org_id
+                  AND organization.deleted_at IS NOT NULL
+           )
+    ) THEN
         RAISE EXCEPTION 'IAM policy % is still attached to a role', OLD.id
             USING ERRCODE = '23503';
     END IF;
@@ -9692,293 +8849,6 @@ FOR EACH ROW EXECUTE FUNCTION check_api_token_policy();
 CREATE TRIGGER trg_api_tokens_permissions_known
 BEFORE INSERT OR UPDATE OF permissions ON api_tokens
 FOR EACH ROW EXECUTE FUNCTION check_iam_permission_keys();
-
--- The organization's permissions by resource and action. The catalog above grew a permission or two
--- per product area; each row here is what an endpoint does, with the permissions it takes over.
--- Whoever held one of those holds it, the built-in roles and policies included.
-CREATE TEMP TABLE iam_permission_split (
-    permission_key  TEXT    PRIMARY KEY,
-    domain          TEXT    NOT NULL,
-    replaces        TEXT[]  NOT NULL
-) ON COMMIT DROP;
-
-INSERT INTO iam_permission_split (permission_key, domain, replaces)
-VALUES
-    ('org.preferences.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.preferences.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.sharing.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.sharing.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.email_domains.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.email_domains.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.sso.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.sso.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.signin.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.signin.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.cipher_keys.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.cipher_keys.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.cipher_keys.rotate', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.field_masking.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.field_masking.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.regex_patterns.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.regex_patterns.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.domains.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.domains.manage', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.running_queries.read', 'organization', ARRAY['org.settings.read']::TEXT[]),
-    ('org.running_queries.cancel', 'organization', ARRAY['org.settings.manage']::TEXT[]),
-    ('org.members.invite', 'iam', ARRAY['org.members.manage']::TEXT[]),
-    ('org.members.update', 'iam', ARRAY['org.members.manage']::TEXT[]),
-    ('org.members.remove', 'iam', ARRAY['org.members.manage']::TEXT[]),
-    ('org.members.approve', 'iam', ARRAY['org.members.manage']::TEXT[]),
-    ('org.members.mfa_reset', 'iam', ARRAY['org.members.manage']::TEXT[]),
-    ('org.teams.manage', 'iam', ARRAY['iam.policies.manage']::TEXT[]),
-    ('iam.roles.delete', 'iam', ARRAY['iam.roles.manage']::TEXT[]),
-    ('iam.policies.read', 'iam', ARRAY['iam.roles.read']::TEXT[]),
-    ('iam.policies.manage', 'iam', ARRAY['iam.roles.manage']::TEXT[]),
-    ('iam.policies.delete', 'iam', ARRAY['iam.roles.manage']::TEXT[]),
-    ('iam.grants.read', 'iam', ARRAY['iam.policies.read']::TEXT[]),
-    ('iam.grants.manage', 'iam', ARRAY['iam.policies.manage']::TEXT[]),
-    ('iam.cross_org.read', 'iam', ARRAY['iam.policies.read']::TEXT[]),
-    ('iam.cross_org.manage', 'iam', ARRAY['iam.policies.manage']::TEXT[]),
-    ('api_tokens.issue', 'iam', ARRAY['api_tokens.manage']::TEXT[]),
-    ('api_tokens.revoke', 'iam', ARRAY['api_tokens.manage']::TEXT[]),
-    ('service_accounts.delete', 'iam', ARRAY['service_accounts.manage']::TEXT[]),
-    ('alerts.rules.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.rules.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.rules.delete', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.routing.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.routing.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.escalations.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.escalations.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.escalations.delete', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.calendars.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.calendars.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.importance.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.importance.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.incidents.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.incidents.create', 'alerts', ARRAY['alerts.acknowledge']::TEXT[]),
-    ('alerts.incidents.acknowledge', 'alerts', ARRAY['alerts.acknowledge']::TEXT[]),
-    ('alerts.incidents.update', 'alerts', ARRAY['alerts.acknowledge']::TEXT[]),
-    ('alerts.incidents.escalate', 'alerts', ARRAY['alerts.acknowledge']::TEXT[]),
-    ('alerts.incidents.silence', 'alerts', ARRAY['alerts.silence']::TEXT[]),
-    ('alerts.incidents.rca', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.incidents.remediate', 'alerts', ARRAY['alerts.acknowledge']::TEXT[]),
-    ('alerts.incidents.tickets', 'alerts', ARRAY['alerts.acknowledge']::TEXT[]),
-    ('alerts.mutes.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.mutes.manage', 'alerts', ARRAY['alerts.silence']::TEXT[]),
-    ('alerts.inhibitions.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.inhibitions.manage', 'alerts', ARRAY['alerts.silence']::TEXT[]),
-    ('alerts.remediation.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.remediation.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.response.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.response.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.semantic_groups.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.semantic_groups.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.sources.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.sources.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.tickets.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('alerts.tickets.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('alerts.discovery.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('notify.connectors.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('notify.connectors.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('notify.connectors.delete', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('notify.policies.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('notify.policies.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('notify.policies.delete', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('notify.templates.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('notify.templates.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('notify.defaults.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('notify.defaults.manage', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('notify.deliveries.read', 'alerts', ARRAY['alerts.read']::TEXT[]),
-    ('notify.deliveries.acknowledge', 'alerts', ARRAY['alerts.acknowledge']::TEXT[]),
-    ('notify.deliveries.retry', 'alerts', ARRAY['alerts.manage']::TEXT[]),
-    ('schedules.create', 'alerts', ARRAY['schedules.manage']::TEXT[]),
-    ('schedules.update', 'alerts', ARRAY['schedules.manage']::TEXT[]),
-    ('schedules.delete', 'alerts', ARRAY['schedules.manage']::TEXT[]),
-    ('schedules.overrides.manage', 'alerts', ARRAY['schedules.manage']::TEXT[]),
-    ('schedules.swaps.request', 'alerts', ARRAY['schedules.read']::TEXT[]),
-    ('schedules.swaps.approve', 'alerts', ARRAY['schedules.manage']::TEXT[]),
-    ('schedules.calendar_feeds.manage', 'alerts', ARRAY['schedules.read']::TEXT[]),
-    ('logs.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('logs.write', 'observability', ARRAY['streams.write']::TEXT[]),
-    ('traces.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('traces.write', 'observability', ARRAY['streams.write']::TEXT[]),
-    ('metrics.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('metrics.write', 'observability', ARRAY['streams.write']::TEXT[]),
-    ('profiles.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('profiles.write', 'observability', ARRAY['streams.write']::TEXT[]),
-    ('query.jobs.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('query.jobs.run', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('query.slow.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('log_patterns.read', 'observability', ARRAY['streams.read']::TEXT[]),
-    ('log_patterns.manage', 'observability', ARRAY['streams.configure']::TEXT[]),
-    ('debug_artifacts.read', 'observability', ARRAY['streams.read']::TEXT[]),
-    ('debug_artifacts.manage', 'observability', ARRAY['streams.configure']::TEXT[]),
-    ('inspections.read', 'observability', ARRAY['agent.use']::TEXT[]),
-    ('inspections.run', 'observability', ARRAY['inspections.manage']::TEXT[]),
-    ('apm.services.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('apm.errors.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('apm.errors.manage', 'observability', ARRAY['apm.manage']::TEXT[]),
-    ('apm.error_rules.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('apm.error_rules.manage', 'observability', ARRAY['apm.manage']::TEXT[]),
-    ('apm.definitions.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('apm.definitions.manage', 'observability', ARRAY['apm.manage']::TEXT[]),
-    ('apm.deployments.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('apm.slos.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('apm.slos.manage', 'observability', ARRAY['apm.manage']::TEXT[]),
-    ('apm.slos.delete', 'observability', ARRAY['apm.manage']::TEXT[]),
-    ('apm.settings.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('apm.settings.manage', 'observability', ARRAY['apm.manage']::TEXT[]),
-    ('rum.events.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('rum.analytics.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('rum.sessions.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('rum.replay.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('rum.applications.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('rum.applications.manage', 'observability', ARRAY['api_tokens.manage']::TEXT[]),
-    ('rum.issues.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('rum.issues.manage', 'observability', ARRAY['rum.manage']::TEXT[]),
-    ('rum.playlists.read', 'observability', ARRAY['streams.query']::TEXT[]),
-    ('rum.playlists.manage', 'observability', ARRAY['rum.manage']::TEXT[]),
-    ('rum.replay.comments.write', 'observability', ARRAY['rum.manage']::TEXT[]),
-    ('rum.replay.comments.manage', 'observability', ARRAY['api_tokens.manage']::TEXT[]),
-    ('rum.replay.summaries.generate', 'observability', ARRAY['rum.manage']::TEXT[]),
-    ('status_pages.create', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.update', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.archive', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.delete', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.access.manage', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.domain.manage', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.slack.manage', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.subscribers.manage', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.automation.read', 'status_pages', ARRAY['status_pages.read']::TEXT[]),
-    ('status_pages.automation.manage', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.automation.approve', 'status_pages', ARRAY['status_pages.publish']::TEXT[]),
-    ('status_pages.events.manage', 'status_pages', ARRAY['status_pages.manage']::TEXT[]),
-    ('status_pages.events.publish', 'status_pages', ARRAY['status_pages.publish']::TEXT[]),
-    ('synthetics.monitors.read', 'synthetics', ARRAY['synthetics.read']::TEXT[]),
-    ('synthetics.monitors.manage', 'synthetics', ARRAY['synthetics.manage']::TEXT[]),
-    ('synthetics.monitors.run', 'synthetics', ARRAY['synthetics.manage']::TEXT[]),
-    ('synthetics.monitors.archive', 'synthetics', ARRAY['synthetics.manage']::TEXT[]),
-    ('synthetics.results.read', 'synthetics', ARRAY['synthetics.read']::TEXT[]),
-    ('synthetics.locations.read', 'synthetics', ARRAY['synthetics.read']::TEXT[]),
-    ('synthetics.secrets.read', 'synthetics', ARRAY['synthetics.read']::TEXT[]),
-    ('dashboards.folders.read', 'dashboards', ARRAY['dashboards.read']::TEXT[]),
-    ('dashboards.folders.manage', 'dashboards', ARRAY['dashboards.create', 'dashboards.edit']::TEXT[]),
-    ('dashboards.folders.delete', 'dashboards', ARRAY['dashboards.delete']::TEXT[]),
-    ('dashboards.annotations.read', 'dashboards', ARRAY['dashboards.read']::TEXT[]),
-    ('dashboards.annotations.manage', 'dashboards', ARRAY['dashboards.edit']::TEXT[]),
-    ('connectors.read', 'pipelines', ARRAY['pipelines.read']::TEXT[]),
-    ('connectors.manage', 'pipelines', ARRAY['pipelines.edit']::TEXT[]),
-    ('tables.read', 'pipelines', ARRAY['functions.read']::TEXT[]),
-    ('tables.create', 'pipelines', ARRAY['functions.create']::TEXT[]),
-    ('tables.edit', 'pipelines', ARRAY['functions.edit']::TEXT[]),
-    ('tables.delete', 'pipelines', ARRAY['functions.delete']::TEXT[]),
-    ('agent.approvals.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.approvals.request', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.automations.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.automations.run', 'agent', ARRAY['agent.automations.manage']::TEXT[]),
-    ('agent.automations.tokens', 'agent', ARRAY['agent.automations.manage']::TEXT[]),
-    ('agent.investigations.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.investigations.manage', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.knowledge.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.knowledge.manage', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.memories.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.memories.manage', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.memories.settings', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.mcp_servers.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.mcp_servers.manage', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.skills.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.skills.manage', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.skills.rescan', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.skill_repositories.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.skill_repositories.manage', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.tools.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.tools.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.models.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.models.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.models.rotate', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.profiles.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.profiles.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.prompts.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.prompts.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.toolsets.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.toolsets.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.usage.read', 'agent', ARRAY['agent.use']::TEXT[]),
-    ('agent.usage.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.quality.read', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.quality.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.network_policy.read', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.network_policy.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.inbound_mcp.read', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.inbound_mcp.manage', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.im.read', 'agent', ARRAY['agent.manage']::TEXT[]),
-    ('agent.im.manage', 'agent', ARRAY['agent.manage']::TEXT[]);
-
-INSERT INTO iam_permissions (
-    permission_key, scope, domain, label_key, description_key, catalog_version
-)
-SELECT
-    split.permission_key,
-    'organization',
-    split.domain,
-    'permissions.' || replace(split.permission_key, '.', '_'),
-    'permissions_hint.' || replace(split.permission_key, '.', '_'),
-    30
-FROM iam_permission_split split
-ON CONFLICT (permission_key) DO UPDATE
-SET scope = EXCLUDED.scope,
-    domain = EXCLUDED.domain,
-    label_key = EXCLUDED.label_key,
-    description_key = EXCLUDED.description_key,
-    catalog_version = EXCLUDED.catalog_version;
-
-UPDATE iam_roles role
-SET permissions = ARRAY(
-    SELECT listed.permission_key
-      FROM unnest(role.permissions) AS listed(permission_key)
-     WHERE listed.permission_key <> ALL (ARRAY['alerts.acknowledge', 'alerts.manage', 'alerts.read', 'alerts.silence', 'api_tokens.manage', 'apm.manage', 'iam.policies.manage', 'iam.policies.read', 'org.members.manage', 'org.settings.manage', 'org.settings.read', 'rum.manage', 'schedules.manage', 'status_pages.manage', 'status_pages.publish', 'streams.write', 'synthetics.manage', 'synthetics.read']::TEXT[])
-     UNION
-    SELECT split.permission_key
-      FROM iam_permission_split split
-     WHERE split.replaces && role.permissions
-     ORDER BY 1
-)
-WHERE role.scope <> 'platform';
-
-WITH split_policy AS (
-    SELECT policy.id,
-           ARRAY(
-               SELECT listed.permission_key
-                 FROM unnest(policy.permissions) AS listed(permission_key)
-                WHERE listed.permission_key <> ALL (ARRAY['alerts.acknowledge', 'alerts.manage', 'alerts.read', 'alerts.silence', 'api_tokens.manage', 'apm.manage', 'iam.policies.manage', 'iam.policies.read', 'org.members.manage', 'org.settings.manage', 'org.settings.read', 'rum.manage', 'schedules.manage', 'status_pages.manage', 'status_pages.publish', 'streams.write', 'synthetics.manage', 'synthetics.read']::TEXT[])
-                UNION
-               SELECT split.permission_key
-                 FROM iam_permission_split split
-                WHERE split.replaces && policy.permissions
-                ORDER BY 1
-           ) AS permissions
-      FROM iam_policies policy
-)
-UPDATE iam_policies policy
-SET permissions = split_policy.permissions,
-    document = jsonb_build_object(
-        'Version', '1',
-        'Statement', jsonb_build_array(
-            jsonb_build_object('Effect', 'Allow', 'Action', to_jsonb(split_policy.permissions))
-        )
-    )
-FROM split_policy
-WHERE split_policy.id = policy.id;
-
-DELETE FROM iam_role_permissions
-WHERE permission_key IN ('alerts.acknowledge', 'alerts.manage', 'alerts.read', 'alerts.silence', 'api_tokens.manage', 'apm.manage', 'org.members.manage', 'org.settings.manage', 'org.settings.read', 'rum.manage', 'schedules.manage', 'status_pages.manage', 'status_pages.publish', 'streams.write', 'synthetics.manage', 'synthetics.read');
-
-DELETE FROM iam_permissions
-WHERE permission_key IN ('alerts.acknowledge', 'alerts.manage', 'alerts.read', 'alerts.silence', 'api_tokens.manage', 'apm.manage', 'org.members.manage', 'org.settings.manage', 'org.settings.read', 'rum.manage', 'schedules.manage', 'status_pages.manage', 'status_pages.publish', 'streams.write', 'synthetics.manage', 'synthetics.read');
-
-UPDATE iam_catalog_versions
-SET version = GREATEST(version, 30),
-    updated_at = clock_timestamp()
-WHERE catalog_key = 'permissions';
 
 -- iam_routes is created by the route catalog baseline; the function resolves
 -- it when a permission is deleted.
@@ -10041,8 +8911,3 @@ CREATE TRIGGER trg_iam_permissions_release
 BEFORE DELETE ON iam_permissions
 FOR EACH ROW EXECUTE FUNCTION release_iam_permission();
 
-DROP TABLE iam_role_permissions;
-DROP TABLE iam_permission_bundle_items;
-DROP TABLE iam_permission_bundles;
-DROP TABLE iam_policy_versions;
-DROP TABLE iam_permission_catalog_versions;

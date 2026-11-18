@@ -148,13 +148,14 @@ CREATE TEMP TABLE iam_route_seed (
 ) ON COMMIT DROP;
 
 INSERT INTO iam_route_seed VALUES
-    -- Personal account routes are available in either interactive scope.
+    -- Personal routes are open to every member in either interactive scope. The workbench at
+    -- /home is one of them: each of its cards asks the read permission of its own area.
     ('root', '/', 'any', 'all', NULL, NULL, TRUE, ARRAY[]::TEXT[]),
+    ('home', '/home', 'any', 'all', 'home', 10, TRUE, ARRAY[]::TEXT[]),
     ('account.settings', '/account/settings', 'any', 'all', NULL, NULL, TRUE, ARRAY[]::TEXT[]),
     ('account.settings.section', '/account/settings/:section', 'any', 'all', NULL, NULL, TRUE, ARRAY[]::TEXT[]),
 
     -- Read-only observability routes shared by tenant and system scope.
-    ('home', '/home', 'any', 'any', 'home', 10, TRUE, ARRAY['streams.query', 'sys.telemetry.read']::TEXT[]),
     ('metrics', '/metrics', 'any', 'any', 'observe', 20, TRUE, ARRAY['metrics.read', 'sys.telemetry.read']::TEXT[]),
     ('logs', '/logs', 'any', 'any', 'observe', 30, TRUE, ARRAY['logs.read', 'sys.telemetry.read']::TEXT[]),
     ('logs.inspector', '/logs/inspector', 'any', 'any', NULL, NULL, TRUE, ARRAY['logs.read', 'sys.telemetry.read']::TEXT[]),
@@ -165,8 +166,6 @@ INSERT INTO iam_route_seed VALUES
     ('profiles', '/profiles', 'any', 'any', 'observe', 70, TRUE, ARRAY['profiles.read', 'sys.telemetry.read']::TEXT[]),
     ('profiles.compare', '/profiles/compare', 'any', 'any', NULL, NULL, TRUE, ARRAY['profiles.read', 'sys.telemetry.read']::TEXT[]),
     ('profile.detail', '/profiles/:id', 'any', 'any', NULL, NULL, TRUE, ARRAY['profiles.read', 'sys.telemetry.read']::TEXT[]),
-    ('services.legacy', '/services', 'any', 'any', NULL, NULL, TRUE, ARRAY['apm.services.read', 'sys.telemetry.read']::TEXT[]),
-    ('service.legacy.detail', '/services/:service', 'any', 'any', NULL, NULL, TRUE, ARRAY['apm.services.read', 'sys.telemetry.read']::TEXT[]),
 
     -- APM routes.
     ('apm', '/apm', 'any', 'any', 'observe', 50, TRUE, ARRAY['apm.services.read', 'apm.errors.read', 'apm.slos.read', 'apm.settings.read', 'sys.telemetry.read']::TEXT[]),
@@ -178,7 +177,6 @@ INSERT INTO iam_route_seed VALUES
     ('apm.settings', '/apm/settings', 'any', 'any', NULL, NULL, TRUE, ARRAY['apm.settings.read', 'sys.telemetry.read']::TEXT[]),
     ('apm.service.detail', '/apm/services/:service', 'any', 'any', NULL, NULL, TRUE, ARRAY['apm.services.read', 'sys.telemetry.read']::TEXT[]),
     ('apm.service.section', '/apm/services/:service/:section', 'any', 'any', NULL, NULL, TRUE, ARRAY['apm.services.read', 'sys.telemetry.read']::TEXT[]),
-    ('apm.user.experience', '/apm/user-experience/*', 'organization', 'all', NULL, NULL, TRUE, ARRAY['rum.events.read']::TEXT[]),
 
     -- Dashboards and stream catalog are readable in both scopes.
     ('dashboards', '/dashboards', 'any', 'any', 'observe', 10, TRUE, ARRAY['dashboards.read', 'sys.dashboards.read']::TEXT[]),
@@ -212,14 +210,11 @@ INSERT INTO iam_route_seed VALUES
     ('rum.settings', '/rum/settings/:section', 'organization', 'all', NULL, NULL, TRUE, ARRAY['rum.applications.read']::TEXT[]),
     ('rum.source.maps', '/rum/settings/source-maps', 'organization', 'all', NULL, NULL, TRUE, ARRAY['debug_artifacts.read']::TEXT[]),
     ('rum.upload.source.maps', '/rum/settings/source-maps/upload', 'organization', 'all', NULL, NULL, TRUE, ARRAY['debug_artifacts.manage']::TEXT[]),
-    ('rum.source.maps.legacy', '/rum/source-maps', 'organization', 'all', NULL, NULL, TRUE, ARRAY['debug_artifacts.read']::TEXT[]),
-    ('rum.upload.source.maps.legacy', '/rum/upload-source-maps', 'organization', 'all', NULL, NULL, TRUE, ARRAY['debug_artifacts.manage']::TEXT[]),
 
     -- Tenant observability and data-management routes.
     ('datasource', '/datasource', 'organization', 'all', 'data', 10, TRUE, ARRAY['streams.query']::TEXT[]),
     ('datasource.category', '/datasource/:category', 'organization', 'all', NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
     ('datasource.source', '/datasource/:category/:source', 'organization', 'all', NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
-    ('datasources.legacy', '/datasources', 'organization', 'all', NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
     ('intake', '/intake', 'organization', 'all', NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
     ('intake.category', '/intake/:category', 'organization', 'all', NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),
     ('intake.source', '/intake/:category/:source', 'organization', 'all', NULL, NULL, TRUE, ARRAY['streams.query']::TEXT[]),

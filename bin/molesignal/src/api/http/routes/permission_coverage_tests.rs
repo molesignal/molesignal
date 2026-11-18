@@ -325,8 +325,7 @@ fn migrations() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/engines/postgres/src/migrations")
 }
 
-/// The catalog as the baseline leaves it: what its seeds insert, and the split that replaces part of
-/// it. Reads the SQL so that this needs no database.
+/// The catalog the baseline seeds. Reads the SQL so that this needs no database.
 fn catalog() -> BTreeSet<String> {
     let sql = fs::read_to_string(migrations().join("20260101000001_initial.sql"))
         .expect("read the baseline");
@@ -336,36 +335,10 @@ fn catalog() -> BTreeSet<String> {
     )
     .expect("regex");
 
-    let mut keys = seeded
+    seeded
         .captures_iter(&sql)
         .map(|capture| capture[1].to_owned())
-        .collect::<BTreeSet<_>>();
-
-    keys.insert("sys.dashboards.read".to_owned());
-
-    let split = sql
-        .split("INSERT INTO iam_permission_split")
-        .nth(1)
-        .and_then(|rest| rest.split(';').next())
-        .expect("the split of the catalog");
-
-    let row = Regex::new(r"\('([a-z_]+(?:\.[a-z_]+)+)', '[a-z_]+', ARRAY").expect("regex");
-    keys.extend(
-        row.captures_iter(split)
-            .map(|capture| capture[1].to_owned()),
-    );
-
-    let leaving = sql
-        .split("DELETE FROM iam_permissions\nWHERE permission_key IN (")
-        .nth(1)
-        .and_then(|rest| rest.split(')').next())
-        .expect("what leaves the catalog");
-
-    for key in leaving.split(',') {
-        keys.remove(key.trim().trim_matches('\''));
-    }
-
-    keys
+        .collect()
 }
 
 fn assert_all_known(what: &str, named: impl IntoIterator<Item = (String, String)>, least: usize) {
