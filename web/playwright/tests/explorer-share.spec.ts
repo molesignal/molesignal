@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { explorerRead, explorerReadBody } from '../fixtures/explorerReads';
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
-const field = (name: string, dataType = 'utf8') => ({ name, dataType: dataType, nullable: true, indexed: false });
+const field = (name: string, dataType = 'utf8') => ({ name, dataType: dataType, nullable: true, indexType: 'none' });
 const stream = (name: string, type: 'logs' | 'traces', fields: ReturnType<typeof field>[]) => ({
   id: `${type}-stream`,
   name,
@@ -58,7 +58,7 @@ test.describe('Sharing an explorer query', () => {
       route.fulfill({
         json: [
           stream('application_logs', 'logs', [
-            { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
+            { name: '_timestamp', dataType: 'timestamp', nullable: false, indexType: 'skip' },
             field('level'),
             field('message'),
           ]),

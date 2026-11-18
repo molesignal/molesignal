@@ -5,6 +5,7 @@ import * as React from 'react';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
 import { hasVisibleText } from '@/shell/lib/hasVisibleText';
+import { usePlacedButtonSize } from '@/shell/ui/button-size';
 
 const buttonVariants = cva(
   // A disabled button keeps its shape and says so in the pale disabled grey; a filled one
@@ -46,12 +47,13 @@ export interface ButtonProps
   disabledReason?: React.ReactNode;
 }
 
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
       className,
       variant,
-      size,
+      size: ownSize,
       asChild = false,
       disabled = false,
       disabledReason,
@@ -61,6 +63,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     const Comp = asChild ? Slot : 'button';
+    const placed = usePlacedButtonSize();
+    const size = ownSize ?? (placed === 'sm' ? 'sm' : undefined);
     // Words get room at either side and their icon is drawn at their size (polish/icons.css), as
     // in `ChromeButton`; the large and the icon sizes keep their own.
     const words =

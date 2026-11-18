@@ -132,7 +132,7 @@ export function ManagementNav({
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="bottom-0 top-topbar flex h-auto w-[min(320px,calc(100vw-16px))] max-w-none flex-col overflow-hidden border-bd-0 bg-bg-0 p-4 data-[state=open]:animate-none md:left-sidebar-collapsed"
+            className="bottom-0 top-topbar flex h-auto w-[min(320px,calc(100vw-16px))] max-w-none flex-col overflow-hidden border-bd-0 bg-bg-0 p-4 data-[state=open]:animate-none"
           >
             <SheetTitle className="sr-only">{ariaLabel}</SheetTitle>
             <nav
@@ -188,7 +188,7 @@ export function ManagementNav({
       <nav
         aria-label={ariaLabel}
         className={cn(
-          'group/settings-nav sticky top-4 hidden max-h-[calc(100vh-var(--topbar-h)-80px)] min-h-0 flex-col pr-2 lg:flex',
+          'sticky top-4 hidden max-h-[calc(100vh-var(--topbar-h)-80px)] min-h-0 flex-col lg:flex',
           className,
         )}
       >
@@ -256,20 +256,23 @@ function ManagementNavContents({
 
   return (
     <>
-      <div className="mb-3 flex items-center gap-1">
-        <label
-          data-ui="input-control"
-          className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 transition-colors hover:bg-bg-3 focus-within:bg-bg-3 lg:h-9"
-        >
-          <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
-          <input
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder={searchPlaceholder}
-            aria-label={searchAriaLabel}
-            className="min-w-0 flex-1 bg-transparent font-sans text-base text-tx-0 placeholder:text-tx-3 focus:outline-none lg:text-sm"
-          />
-        </label>
+      {/* The search takes the whole row and carries the button that folds the menu at its end,
+          as the search over an explorer's fields does. */}
+      <label
+        data-ui="input-control"
+        className={cn(
+          'mb-3 flex h-10 min-w-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] pl-2.5 transition-colors hover:bg-bg-3 focus-within:bg-bg-3 lg:h-9',
+          onCollapse && collapseNavigationLabel ? 'pr-1' : 'pr-2.5',
+        )}
+      >
+        <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
+        <input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder={searchPlaceholder}
+          aria-label={searchAriaLabel}
+          className="min-w-0 flex-1 bg-transparent font-sans text-base text-tx-0 placeholder:text-tx-3 focus:outline-none lg:text-sm"
+        />
         {onCollapse && collapseNavigationLabel && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -277,7 +280,7 @@ function ManagementNavContents({
                 type="button"
                 onClick={onCollapse}
                 aria-label={collapseNavigationLabel}
-                className="grid h-9 w-8 shrink-0 place-items-center rounded-md text-tx-3 opacity-40 transition-colors hover:bg-bg-2 hover:text-tx-0 hover:opacity-100 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:opacity-100 group-hover/settings-nav:opacity-100 group-focus-within/settings-nav:opacity-100"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded text-tx-3 transition-colors hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none"
               >
                 <PanelLeftClose className="h-3.5 w-3.5" />
               </button>
@@ -287,7 +290,7 @@ function ManagementNavContents({
             </TooltipContent>
           </Tooltip>
         )}
-      </div>
+      </label>
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto">
         <NavIndicator
           box={indicator.box}

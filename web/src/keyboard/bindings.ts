@@ -7,11 +7,10 @@ export interface BindingDoc {
 }
 
 /**
- * The canonical keymap documented to the user. Each entry corresponds to a
- * concrete handler wired in by the corresponding feature module — the
- * functional handler is registered at runtime via `useBindings`. This module
- * exists purely so the help overlay and `docs/web/keyboard.md` build script
- * agree on the surface.
+ * The global keymap the keyboard-map Playwright spec presses through
+ * (`playwright/tests/a11y-keyboard-map.spec.ts`). The handlers, and the
+ * localized descriptions the help overlay shows, are registered at runtime via
+ * `useBindings` (`routes/ShellRoot.tsx`); keep this list in step with them.
  */
 export const GLOBAL_KEYMAP: BindingDoc[] = [
   { keys: 'mod+k',       description: 'Open command palette',                  category: 'general' },

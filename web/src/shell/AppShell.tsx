@@ -6,16 +6,16 @@ import {
   canAccessProductPath,
   useProductAccess,
 } from '@/product/access';
-import { findProductRoute, isProductRouteActive, PRODUCT_NAV_ITEMS } from '@/product/ia';
+import { findProductRoute } from '@/product/ia';
 import { ProductRouteAccessGuard } from '@/routes/RouteGuard';
 import { InvestigationContextBar } from '@/shell/InvestigationContextBar';
 import { cn } from '@/shell/lib/cn';
+import { activeNavigationEntry } from '@/shell/menu/entries';
+import { MainMenu } from '@/shell/menu/MainMenu';
+import { useMenuPreference } from '@/shell/menu/preference';
 import { MoleAgentPanel } from '@/shell/MoleAgentPanel';
 import { useSpotlight } from '@/shell/polish/useSpotlight';
-import { Sidebar } from '@/shell/Sidebar';
 import { Topbar } from '@/shell/Topbar';
-import { Sheet, SheetContent, SheetTitle } from '@/shell/ui/sheet';
-import { useViewportWidth } from '@/shell/useViewportWidth';
 import { useMoleAgentStore } from '@/stores/useMoleAgentStore';
 
 interface AppShellProps {
@@ -54,66 +54,40 @@ function isSurfaceWorkbenchRoute(pathname: string): boolean {
 }
 
 /**
- * Shell layout: fixed Topbar / collapsible Sidebar / fluid main.
- * The chrome regions are fixed-positioned; the `<main>`
- * element is offset by topbar+sidebar via padding so scrollable page bodies
- * don't slide under the chrome. The InvestigationContextBar (when an
- * investigation is active) and the Mole Agent slide-out are mounted here at
- * the shell level so they persist across route changes.
+ * Shell layout: the fixed top bar over the page, which takes the whole width. The navigation
+ * hangs from the menu button in the top bar and drops down over the page when opened. The
+ * `<main>` element is offset by the top bar via padding so scrollable page bodies don't slide
+ * under it. The InvestigationContextBar (when an investigation is active) and the Mole Agent
+ * slide-out are mounted here at the shell level so they persist across route changes.
  */
 export function AppShell(_props: AppShellProps) {
   const { t } = useTranslation('shell');
-  const [collapsed, setCollapsed] = React.useState(true);
-  const [temporarilyExpanded, setTemporarilyExpanded] = React.useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const closeMenu = React.useCallback(() => setMenuOpen(false), []);
   const location = useLocation();
-  const [autoCollapsedSidebarExpanded, setAutoCollapsedSidebarExpanded] = React.useState(false);
-  const isSettingsRoute =
-    location.pathname === '/settings' || location.pathname.startsWith('/settings/');
-  const isIamRoute = location.pathname === '/iam' || location.pathname.startsWith('/iam/');
-  const isManagementRoute = isSettingsRoute || isIamRoute;
-  const isDashboardEditorRoute =
-    location.pathname === '/dashboards/new/edit' ||
-    /^\/dashboards\/[^/]+\/edit$/.test(location.pathname) ||
-    /^\/dashboards\/[^/]+\/panels\/new$/.test(location.pathname);
-  const isAutoCollapsedRoute = isManagementRoute || isDashboardEditorRoute;
   const isSurfaceWorkbench = isSurfaceWorkbenchRoute(location.pathname);
-  const primarySidebarCollapsed = isAutoCollapsedRoute
-    ? !autoCollapsedSidebarExpanded
-    : collapsed;
-  const sidebarVisuallyCollapsed =
-    primarySidebarCollapsed && !temporarilyExpanded;
   const nav = useNavigate();
-  const viewportWidth = useViewportWidth();
+  const { visit } = useMenuPreference();
+  const area = activeNavigationEntry(location.pathname);
   const toggleMoleAgent = useMoleAgentStore((s) => s.toggle);
   const access = useProductAccess();
   const canUseMoleAgent = canAccessProductPath('/agent', access);
   useSpotlight();
 
   React.useEffect(() => {
-    const route = [...PRODUCT_NAV_ITEMS]
-      .filter((item) => isProductRouteActive(item, location.pathname))
-      .sort((a, b) => (b.activePrefix ?? b.path).length - (a.activePrefix ?? a.path).length)[0]
-      ?? findProductRoute(location.pathname);
+    const route = area ?? findProductRoute(location.pathname);
     document.title = route ? `${t(`nav:${route.labelKey}`)}｜MoleSignal` : 'MoleSignal';
     return () => { document.title = 'MoleSignal'; };
-  }, [location.pathname, t]);
+  }, [area, location.pathname, t]);
 
   React.useEffect(() => {
-    setMobileNavOpen(false);
+    setMenuOpen(false);
   }, [location.pathname]);
 
+  // The area opened goes to the head of the menu's recent list (once the list has been read).
   React.useEffect(() => {
-    if (!isAutoCollapsedRoute) setAutoCollapsedSidebarExpanded(false);
-  }, [isAutoCollapsedRoute]);
-
-  React.useEffect(() => {
-    if (!primarySidebarCollapsed) setTemporarilyExpanded(false);
-  }, [primarySidebarCollapsed]);
-
-  React.useEffect(() => {
-    if (viewportWidth >= 768) setMobileNavOpen(false);
-  }, [viewportWidth]);
+    if (area) visit(area.id);
+  }, [area, visit]);
 
   // ⌘J / Ctrl-J toggles Mole Agent from anywhere in the app.
   React.useEffect(() => {
@@ -133,20 +107,6 @@ export function AppShell(_props: AppShellProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [canUseMoleAgent, toggleMoleAgent]);
 
-  const handleToggleSidebar = () => {
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    if (isMobile) {
-      setMobileNavOpen((v) => !v);
-      return;
-    }
-    setTemporarilyExpanded(false);
-    if (isAutoCollapsedRoute) {
-      setAutoCollapsedSidebarExpanded((v) => !v);
-      return;
-    }
-    setCollapsed((v) => !v);
-  };
-
   return (
     <div
       data-shell-layout={isSurfaceWorkbench ? 'surface-workbench' : undefined}
@@ -155,7 +115,7 @@ export function AppShell(_props: AppShellProps) {
         // bar collapses; `h-screen` (100vh) would hide the page's last rows
         // behind it.
         'h-dvh min-w-0 overflow-hidden bg-bg-0 text-tx-0',
-        isSurfaceWorkbench && 'bg-[var(--page-canvas)] [--topbar-h:48px]',
+        isSurfaceWorkbench && 'bg-[var(--page-canvas)]',
       )}
     >
       <a
@@ -166,46 +126,18 @@ export function AppShell(_props: AppShellProps) {
       </a>
 
       <Topbar
-        onToggleSidebar={handleToggleSidebar}
+        menuOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((open) => !open)}
         onPaletteOpen={_props.onPaletteOpen}
         onNocOpen={() => nav('/noc')}
         surfaceWorkbench={isSurfaceWorkbench}
       />
 
-      {viewportWidth < 768 ? (
-        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-          <SheetContent
-            side="left"
-            aria-describedby={undefined}
-            className="w-[min(var(--sidebar-w),calc(100vw-32px))] p-0 pt-10"
-            onCloseAutoFocus={(event) => {
-              event.preventDefault();
-              document.querySelector<HTMLButtonElement>('[data-testid="sidebar-toggle"]')?.focus();
-            }}
-          >
-            <SheetTitle className="sr-only">{t('nav:primary_navigation')}</SheetTitle>
-            <Sidebar
-              collapsed={false}
-              mobileOpen
-              onNavigate={() => setMobileNavOpen(false)}
-            />
-          </SheetContent>
-        </Sheet>
-      ) : (
-        <Sidebar
-          collapsed={sidebarVisuallyCollapsed}
-          onHoverChange={(hovered) =>
-            setTemporarilyExpanded(primarySidebarCollapsed && hovered)
-          }
-        />
-      )}
+      <MainMenu open={menuOpen} onClose={closeMenu} />
 
       <main
         id="main"
-        className={cn(
-          'h-dvh min-w-0 overflow-x-hidden overflow-y-auto pt-topbar transition-[padding-left] duration-150 ease-out-default',
-          primarySidebarCollapsed ? 'md:pl-sidebar-collapsed' : 'md:pl-sidebar',
-        )}
+        className="h-dvh min-w-0 overflow-x-hidden overflow-y-auto pt-topbar"
       >
         <InvestigationContextBar />
         <ProductRouteAccessGuard>

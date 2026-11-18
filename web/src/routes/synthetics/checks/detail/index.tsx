@@ -9,6 +9,7 @@ import { useActionAccess } from '@/product/actionAccess';
 import type { ProductStateProps } from '@/product/states';
 import { DetailPage } from '@/product/templates';
 import { ChromeButton } from '@/shell/chrome';
+import { useRecordVisit } from '@/shell/recentVisits';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import { toast } from '@/shell/ui/sonner';
 
@@ -53,6 +54,17 @@ export function CheckDetail() {
     enabled: Boolean(monitorId),
     refetchInterval: SYNTHETICS_REFRESH_MILLIS,
   });
+  const visitedCheck = detailQuery.data?.monitor;
+  useRecordVisit(
+    visitedCheck
+      ? {
+          kind: 'check',
+          id: visitedCheck.id,
+          label: visitedCheck.name,
+          path: `/synthetics/checks/${encodeURIComponent(visitedCheck.id)}`,
+        }
+      : null,
+  );
   const resultQuery = useQuery({
     queryKey: ['synthetics', 'monitor', monitorId, 'results', 100],
     queryFn: () => syntheticsApi.listResults(monitorId!, { limit: 100 }),

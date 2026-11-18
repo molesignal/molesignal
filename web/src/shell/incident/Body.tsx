@@ -12,6 +12,7 @@ import type { AlertRule, Incident } from '@/types/alerting';
 
 import { IncidentBlastRadius } from './BlastRadius';
 import { IncidentExternalAlert } from './ExternalAlert';
+import { IncidentGuide } from './Guide';
 import { IncidentHandlingNote } from './HandlingNote';
 import { InhibitionNote } from './InhibitionNote';
 import { IncidentMajor } from './MajorIncident';
@@ -84,6 +85,8 @@ export function IncidentBody({
       <IncidentInvestigationActions incident={incident} rule={rule} time={timeWindow} />
     </IncidentSection>
   );
+  // What the rule's guide asks of whoever looks into it; nothing when the rule has none.
+  const guide = <IncidentGuide rule={rule} time={timeWindow} surface={surface} />;
   const analysis = <IncidentRcaSection incidentId={incident.id} surface={surface} />;
   const blastRadius = <IncidentBlastRadius incident={incident} surface={surface} />;
   const similar = <IncidentSimilar incident={incident} surface={surface} />;
@@ -163,6 +166,7 @@ export function IncidentBody({
         {external}
         {rumSessions}
         {investigation}
+        {guide}
         {analysis}
         {changes}
         {remediation}
@@ -190,6 +194,7 @@ export function IncidentBody({
         {external}
         {rumSessions}
         {investigation}
+        {guide}
         {query}
         {analysis}
         {changes}

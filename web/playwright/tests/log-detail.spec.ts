@@ -3,14 +3,14 @@ import { expect, test, type Page } from '@playwright/test';
 import { explorerRead, explorerReadBody } from '../fixtures/explorerReads';
 import { installMockShellSession } from '../fixtures/mockSession';
 
-const field = (name: string, dataType = 'utf8') => ({ name, dataType: dataType, nullable: true, indexed: false });
+const field = (name: string, dataType = 'utf8') => ({ name, dataType: dataType, nullable: true, indexType: 'none' });
 const STREAM = {
   id: 'application-logs',
   name: 'application_logs',
   streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexType: 'skip' },
       field('level'),
       field('service.name'),
       field('message'),

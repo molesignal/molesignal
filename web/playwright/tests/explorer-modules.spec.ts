@@ -10,9 +10,9 @@ const LOG_STREAM = {
   streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
-      { name: 'level', dataType: 'utf8', nullable: true, indexed: true },
-      { name: 'message', dataType: 'utf8', nullable: true, indexed: false },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexType: 'skip' },
+      { name: 'level', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+      { name: 'message', dataType: 'utf8', nullable: true, indexType: 'none' },
     ],
   },
   retention: { days: 7 },

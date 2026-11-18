@@ -124,3 +124,33 @@ test.describe('account settings center', () => {
     }
   });
 });
+
+
+test('workspace identifiers have bounded, visible copy wells', async ({ page, mockServer }) => {
+  await mountMockRoutes(page, mockServer.port, { theme: 'light' });
+  await page.goto('/account/settings/workspace');
+  await page.locator('summary').click();
+  const rows = page.locator('details [data-settings-row]');
+  await expect(rows).toHaveCount(3);
+  for (const row of await rows.all()) {
+    const well = row.locator('code').locator('..');
+    const appearance = await well.evaluate((element) => ({
+      background: getComputedStyle(element).backgroundColor,
+      canvas: getComputedStyle(document.documentElement).getPropertyValue('--page-canvas').trim(),
+      width: element.getBoundingClientRect().width,
+    }));
+    expect(appearance.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(appearance.width).toBeLessThanOrEqual(560);
+    const differsFromCanvas = await well.evaluate((element) => {
+      const probe = document.createElement('div');
+      probe.style.backgroundColor = 'var(--page-canvas)';
+      document.body.appendChild(probe);
+      const different = getComputedStyle(probe).backgroundColor !== getComputedStyle(element).backgroundColor;
+      probe.remove();
+      return different;
+    });
+    expect(differsFromCanvas).toBe(true);
+    await expect(well.getByRole('button')).toHaveCount(1);
+  }
+  await page.screenshot({ path: '/tmp/molesignal-workspace-identity.png' });
+});

@@ -32,7 +32,7 @@ test.describe('a page that throws', () => {
     await expect(failure.getByText('This page ran into a problem')).toBeVisible();
     await expect(failure.getByRole('button', { name: 'Reload this page' })).toBeVisible();
     await expect(failure.getByRole('button', { name: 'Copy error report' })).toBeVisible();
-    await expect(page.getByTestId('sidebar-toggle')).toBeVisible();
+    await expect(page.getByTestId('main-menu-trigger')).toBeVisible();
 
     await failure.getByRole('link', { name: 'Back to Home' }).click();
     await expect(page).toHaveURL(/\/home(?:[?#]|$)/);
@@ -114,7 +114,9 @@ test.describe('a draft', () => {
     await page.goto('/alerts/rules/new');
 
     await page.getByPlaceholder('e.g. api_high_error_rate', { exact: true }).fill('half a rule');
-    await page.locator('aside a[href="/home"], nav a[href="/home"]').first().click();
+    // Leave by the navigation: the main menu's Home entry.
+    await page.getByTestId('main-menu-trigger').click();
+    await page.getByTestId('main-menu').getByRole('link', { name: 'Home', exact: true }).click();
 
     const prompt = page.getByTestId('unsaved-prompt');
     await expect(prompt).toBeVisible();

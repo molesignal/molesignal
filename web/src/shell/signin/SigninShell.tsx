@@ -51,7 +51,7 @@ export interface SigninShellProps {
   mfa?: Omit<MfaPanelProps, 'busy' | 'onBack'> | null;
   /** Setting up a second factor on the spot, for the organization that asks for one. */
   enroll?: { organizationName: string; panel: React.ReactNode } | null;
-  /** Product version only; the deployment's release channel is not shown here. */
+  /** Product version shown on the sign-in page. */
   buildVersion?: string | undefined;
   signupEnabled?: boolean;
   onSignup?: () => void;

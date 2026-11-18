@@ -1,6 +1,6 @@
 import { http } from '@/lib/http';
 
-/** Mirrors `molesignal::domain::iam::Team`. */
+/** Mirrors `domain::iam::Team`. */
 export interface Team {
   id: string;
   orgId: string;

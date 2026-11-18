@@ -70,7 +70,7 @@ function SearchPanelHarness() {
 }
 
 describe('CollapsibleSidePanel', () => {
-  it('puts a search in the head row in place of the title, which still names the panel and its rail', () => {
+  it('puts a search in the head row in place of the title, which still names the panel', () => {
     render(<SearchPanelHarness />);
 
     // The search and the button that folds the panel share the row the title had.
@@ -84,10 +84,11 @@ describe('CollapsibleSidePanel', () => {
     fireEvent.change(search, { target: { value: 'status' } });
     expect(screen.getByText('fields matching status')).not.toBeNull();
 
-    // Folded, the rail says what is folded.
+    // Folded, the rail is the button that opens it again, with nothing written down it.
     fireEvent.click(collapse);
     expect(screen.queryByRole('textbox', { name: 'Filter fields' })).toBeNull();
-    expect(screen.getByText('Fields')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Expand fields' })).not.toBeNull();
+    expect(screen.queryByText('Fields')).toBeNull();
   });
 
   it('renders the lightweight utility treatment and its field grouping', () => {

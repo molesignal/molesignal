@@ -27,7 +27,7 @@
   border-radius: inherit;
   background: inherit;
   pointer-events: none;
-  animation: ms-live-ring 2.6s var(--easing-out) infinite;
+  animation: ms-live-ring var(--ms-live-duration, 2.6s) var(--easing-out) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

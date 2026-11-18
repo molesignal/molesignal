@@ -77,7 +77,8 @@ const MODULES = [
 
 const REMAINING_MODULES = [
   { path: '/dashboards', surface: '[data-page-body] > :last-child' },
-  { path: '/alerts', surface: '[data-page-body] > :last-child' },
+  // Beside its menu of pages: the list's own card, in the column after the menu.
+  { path: '/alerts', surface: '[data-page-body] [data-list-surface]' },
   { path: '/synthetics', surface: '[data-page-body] > section' },
   { path: '/status-pages', surface: '[data-page-body] > :last-child' },
   { path: '/agent', surface: '[data-agent-content-surface]' },
@@ -122,10 +123,8 @@ for (const module of MODULES) {
     await expect(canvas).toBeVisible();
     await expect(surface).toBeVisible();
     await expect(page.getByRole('banner')).toHaveCSS('border-bottom-width', '0px');
-    await expect(page.getByTestId('primary-sidebar')).toHaveCSS(
-      'border-right-width',
-      '0px',
-    );
+    // No rail beside the page: the navigation hangs from the top bar, the page takes the width.
+    await expect(page.locator('#main')).toHaveCSS('padding-left', '0px');
     if ('titleInBar' in module) {
       await expect(header).toHaveCount(0);
       await expect(
@@ -172,10 +171,8 @@ for (const module of REMAINING_MODULES) {
     await expect(header).toBeVisible();
     await expect(surface).toBeVisible();
     await expect(page.getByRole('banner')).toHaveCSS('border-bottom-width', '0px');
-    await expect(page.getByTestId('primary-sidebar')).toHaveCSS(
-      'border-right-width',
-      '0px',
-    );
+    // No rail beside the page: the navigation hangs from the top bar, the page takes the width.
+    await expect(page.locator('#main')).toHaveCSS('padding-left', '0px');
     await expect(header).toHaveCSS('border-bottom-width', '0px');
     await expect(header).toHaveCSS('margin-top', '5px');
     await expect(header).toHaveCSS('margin-bottom', '5px');
@@ -314,9 +311,11 @@ test('uses Control Surface styling for shared and native selectors', async ({ pa
   await expect(nativeSelector).toHaveCSS('border-left-width', '0px');
 });
 
-// A field has no border: its edge is a ring of shadow on the element that carries its fill,
-// the control itself or the box around a bare input.
+// A field has no border: its edge is a shadow on the element that carries its fill, the control
+// itself or the box around a bare input. On dark, where these run, it is a ring of shadow; on light a
+// soft shadow, with no line of a ring in it.
 const FIELD_RING = '0px 0px 0px 1px';
+const softEdge = (shadow: string) => shadow !== 'none' && !shadow.includes(FIELD_RING);
 
 function fieldEdge(control: Locator): Promise<string> {
   return control.evaluate((element) => {
@@ -325,28 +324,57 @@ function fieldEdge(control: Locator): Promise<string> {
   });
 }
 
-test('draws the global and workbench search controls with a ring that darkens on focus', async ({
-  page,
-}) => {
+test('draws the workbench search field with a ring that darkens on focus', async ({ page }) => {
   await page.goto('/rum/explorer');
 
-  const controls = [
-    page.getByTestId('command-palette-trigger'),
-    page.getByPlaceholder('Find a field'),
-  ];
-
-  for (const control of controls) {
-    await expect(control).toBeVisible();
-    for (const side of ['top', 'right', 'bottom', 'left'] as const) {
-      await expect(control).toHaveCSS(`border-${side}-width`, '0px');
-    }
-    const rest = await fieldEdge(control);
-    expect(rest).toContain(FIELD_RING);
-    await control.focus();
-    await expect(control).toHaveCSS('border-top-width', '0px');
-    await expect.poll(() => fieldEdge(control)).not.toBe(rest);
-    expect(await fieldEdge(control)).toContain(FIELD_RING);
+  const control = page.getByPlaceholder('Find a field');
+  await expect(control).toBeVisible();
+  for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+    await expect(control).toHaveCSS(`border-${side}-width`, '0px');
   }
+  const rest = await fieldEdge(control);
+  expect(rest).toContain(FIELD_RING);
+  await control.focus();
+  await expect(control).toHaveCSS('border-top-width', '0px');
+  await expect.poll(() => fieldEdge(control)).not.toBe(rest);
+  expect(await fieldEdge(control)).toContain(FIELD_RING);
+});
+
+test('on light, draws a field with a soft shadow and no line, deeper on focus', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/rum/explorer');
+
+  const control = page.getByPlaceholder('Find a field');
+  await expect(control).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  const rest = await fieldEdge(control);
+  expect(softEdge(rest)).toBe(true);
+  await control.focus();
+  await expect.poll(() => fieldEdge(control)).not.toBe(rest);
+  expect(softEdge(await fieldEdge(control))).toBe(true);
+});
+
+test('sets the global search on the top bar as a card: a soft shadow, no ring', async ({ page }) => {
+  await page.goto('/rum/explorer');
+
+  const search = page.getByTestId('command-palette-trigger');
+  await expect(search).toBeVisible();
+  for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+    await expect(search).toHaveCSS(`border-${side}-width`, '0px');
+  }
+  const shadow = await search.evaluate((element) => getComputedStyle(element).boxShadow);
+  expect(shadow).not.toBe('none');
+  expect(shadow).not.toContain(FIELD_RING);
+  // Holding the keyboard, its fill steps darker and no frame is drawn; its words keep their tone.
+  const words = search.locator('span').first();
+  const restWords = await words.evaluate((element) => getComputedStyle(element).color);
+  const restFill = await search.evaluate((element) => getComputedStyle(element).backgroundColor);
+  // A key first, so the focus counts as the keyboard's.
+  await page.keyboard.press('Shift');
+  await search.focus();
+  await expect.poll(() => search.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(restFill);
+  expect(await words.evaluate((element) => getComputedStyle(element).color)).toBe(restWords);
+  await expect(search).toHaveCSS('box-shadow', shadow);
 });
 
 test('uses Control Surface styling for text inputs', async ({ page }) => {

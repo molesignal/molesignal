@@ -13,7 +13,6 @@
     "close_navigation": "关闭导航"
   },
   "topbar": {
-    "toggle_sidebar": "切换侧栏",
     "search_placeholder": "搜索页面 · 数据流 · 服务 · 仪表盘…",
     "open_noc": "进入 NOC 大屏模式",
     "noc": "NOC 大屏",
@@ -22,10 +21,11 @@
     "docs": "文档",
     "keyboard_shortcuts": "键盘快捷键",
     "mole_agent": "打开 Mole Agent（⌘J）",
-    "organization_status": "{{name}}，{{status}}",
-    "switch_organization": "切换组织",
-    "current_organization": "当前组织",
     "manage_organizations": "管理组织…",
+    "organization_menu": "组织：{{name}}",
+    "organization_settings": "组织设置",
+    "members": "成员",
+    "switch_to": "切换到",
     "membership_required": "需要组织成员身份",
     "about": "关于"
   },
@@ -412,12 +412,18 @@
     "context_label": "上下文",
     "loading": "正在加载 Mole Agent…"
   },
-  "system_status": {
-    "healthy": "核心 API 已连接",
-    "degraded": "核心 API 部分异常",
-    "disconnected": "核心 API 无法连接"
-  },
   "about": {
+    "updates": {
+      "menu": "新版本可用",
+      "available": "新版本可用：v{{version}}",
+      "checking": "正在检查更新…",
+      "unavailable": "无法检查更新",
+      "current": "已是最新版本",
+      "stale": "当前无法连接 GitHub，显示上次成功检查的结果。",
+      "notes": "更新说明与下载",
+      "check": "检查更新",
+      "cooldown": "检查结果共用缓存，手动检查最多每 5 分钟刷新一次。"
+    },
     "title": "关于",
     "accessible_title": "关于 MoleSignal",
     "subtitle": "面向日志、指标、链路和性能分析的可观测性平台。",
@@ -425,7 +431,6 @@
     "edition": "版本类型",
     "commit": "Commit Hash",
     "build_id": "构建 ID",
-    "release_channel": "发布通道",
     "branch": "构建分支",
     "built": "构建时间",
     "time_with_zone": "{{time}}（{{zone}}）",

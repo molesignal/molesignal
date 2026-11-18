@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
 import { PageSizeSelect } from '@/shell/PageSizeSelect';
@@ -16,6 +17,8 @@ interface CursorPaginationProps {
   onPrevious: () => void;
   onNext: () => void;
   onPageSizeChange: (pageSize: number) => void;
+  /** Quiet words after the page size, such as the credit a page owes for what its rows say. */
+  note?: React.ReactNode;
   className?: string | undefined;
 }
 
@@ -37,6 +40,7 @@ export function CursorPagination({
   onPrevious,
   onNext,
   onPageSizeChange,
+  note,
   className,
 }: CursorPaginationProps) {
   return (
@@ -53,6 +57,7 @@ export function CursorPagination({
         ariaLabel={pageSizeAriaLabel}
         onChange={onPageSizeChange}
       />
+      {note ? <div className="min-w-0 pl-3">{note}</div> : null}
 
       <div className="ml-auto flex items-center gap-1">
         <button

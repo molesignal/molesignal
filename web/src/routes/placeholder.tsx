@@ -4,7 +4,7 @@ import { Kbd } from '@/shell/ui/kbd';
 
 /**
  * Minimal placeholder route body. Each route gets a stub so the router and the
- * IconRail compile end-to-end; the real bodies arrive with the feature module
+ * main menu compile end-to-end; the real bodies arrive with the feature module
  * that owns them (Services with topology, Dashboards with the native viewer, etc.).
  */
 export function Placeholder({ title }: { title: string }) {

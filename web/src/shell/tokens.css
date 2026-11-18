@@ -37,18 +37,27 @@
 
   /* Workbench depth: canvas gutters separate functional surfaces. */
   --app-header-surface:       var(--bg-1);
-  --sidebar-surface:          #0c0e13;
   --page-canvas:              var(--bg-0);
+  /* An inset in a card (a value that can only be copied, what a field opens on, a snippet):
+     a step under the card it is set in. */
+  --inset-surface:            var(--bg-0);
   --functional-surface:       var(--bg-1);
   /* A field's fill is a veil of light over whatever it stands on, so it reads alike on a
      card, a gray panel and a floating surface; its edge is a ring of shadow (polish/edges.css). */
   --control-surface:          rgba(255, 255, 255, 0.035);
+  /* The top bar's search box is a card on the bar, with no edge drawn round it: a step lighter
+     than the bar, and the faint light on its top edge that cards have on dark. Under the pointer
+     it lifts a little; the fill stays, as a field's does, and steps once more for the keyboard. */
+  --search-surface:               var(--bg-2);
+  --search-surface-focus:         var(--bg-3);
+  --shadow-search-surface:        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-search-surface-hover:  inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 6px rgba(0, 0, 0, 0.35);
   --floating-surface:         var(--bg-2);
   --floating-item-hover:      var(--bg-3);
   --floating-item-emphasis:   var(--bg-3);
   --workspace-selection-fill: #2a2e35;
   --floating-item-selected:   rgba(104, 160, 235, 0.12);
-  /* The current entry of a menu (the sidebar, the settings menus): a fill and the brand's
+  /* The current entry of a menu (the main menu, the settings menus): a fill and the brand's
      words; a row under the pointer takes a lighter fill than the current one. */
   --nav-current-surface:      var(--indigo-dim);
   --nav-current-ink:          var(--indigo-soft);
@@ -138,22 +147,29 @@
   --orange-fg:   #ffffff;
 
   --app-header-surface:       #ffffff;
-  /* White, as the console's: the current entry's pale fill (#eff3f8) has to show on it. */
-  --sidebar-surface:          #ffffff;
-  --page-canvas:              #f5f6f8;
+  --page-canvas:              #f8f9fb;
+  /* An inset keeps a firmer step under the white card it is set in than the canvas round the
+     cards: 2.7 points of lightness, its only edge. */
+  --inset-surface:            #f5f6f8;
   --functional-surface:       #ffffff;
   /* A field is white wherever it stands: its edge is a ring of shadow (polish/edges.css),
      which reads on white cards, the canvas and gray panels alike. */
   --control-surface:          #ffffff;
+  /* The top bar's search box is a card on the bar, with no edge drawn round it: white on the
+     white bar, so its soft shadow wraps every side of it, where a card's falls mostly below.
+     For the keyboard it takes the fill every quiet control takes then. */
+  --search-surface:               #ffffff;
+  --search-surface-focus:         var(--bg-2);
+  --shadow-search-surface:        0 1px 2px rgba(19, 24, 37, 0.06), 0 2px 8px rgba(19, 24, 37, 0.08);
+  --shadow-search-surface-hover:  0 1px 2px rgba(19, 24, 37, 0.08), 0 4px 12px rgba(19, 24, 37, 0.1);
   --floating-surface:         #ffffff;
   --floating-item-hover:      #f5f6f8;
   --floating-item-emphasis:   var(--bg-3);
   --workspace-selection-fill: #dde0ea;
   --floating-item-selected:   rgba(0, 100, 200, 0.06);
   /* Menus and titles in black, as all text on light; the current menu entry in the brand's
-     blue, its icon too, whether the sidebar is folded or open. It and the entry under the
-     pointer stand on Ant Design Pro's faint fills (4% and 3% black, flattened on the white
-     they sit on). */
+     blue, its icon too. It and the entry under the pointer stand on Ant Design Pro's faint
+     fills (4% and 3% black, flattened on the white they sit on). */
   --nav-current-surface:      #f5f5f5;
   --nav-current-ink:          var(--indigo);
   --nav-hover-surface:        #f7f7f7;
@@ -168,19 +184,21 @@
   --shortcut-hint:            #767676;
   --tx-disabled:              var(--tx-4);
   --row-rule:                 rgba(19, 24, 37, 0.045);
-  /* White on the #f5f6f8 canvas is 2.7 points of lightness: that step and a soft shadow
-     under it are the card's whole edge. */
+  /* White on the #f8f9fb canvas is 1.8 points of lightness, too small a step to carry an edge
+     alone: the soft shadow under the card does most of the work, deep enough that its sides
+     and its foot read without a line. */
   --shadow-functional-surface:
-    0 1px 2px rgba(19, 24, 37, 0.04),
-    0 6px 16px -8px rgba(19, 24, 37, 0.08);
+    0 1px 2px rgba(19, 24, 37, 0.06),
+    0 6px 16px -8px rgba(19, 24, 37, 0.12);
 
   --overlay:         rgba(19, 24, 37, 0.50);
   --overlay-soft:    rgba(19, 24, 37, 0.20);
 
   /* lighter, more diffuse shadows on light bg */
   --shadow-sm:       0 1px 2px rgba(19, 24, 37, 0.08);
-  --shadow-md:       0 4px 12px rgba(19, 24, 37, 0.10), 0 0 0 1px rgba(19, 24, 37, 0.04);
-  --shadow-lg:       0 12px 32px rgba(19, 24, 37, 0.14), 0 0 0 1px rgba(19, 24, 37, 0.06);
+  /* No ring under the fall-off: on light a floating surface stands off by its shadow alone. */
+  --shadow-md:       0 4px 12px rgba(19, 24, 37, 0.10);
+  --shadow-lg:       0 12px 32px rgba(19, 24, 37, 0.14);
   --shadow-drawer:   -2px 0 16px rgba(19, 24, 37, 0.10);
   --shadow-popup:    0 4px 12px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
   --shadow-login:    0 20px 60px rgba(19, 24, 37, 0.12);
@@ -301,8 +319,6 @@ pre {
 /* layout sizing — chrome heights / sidebar widths / radii / motion */
 :root {
   --topbar-h:            52px;
-  --sidebar-w:           220px;
-  --sidebar-w-collapsed: 64px;
   --subsidebar-w:        224px;  /* Settings / IAM sub-sidebar */
   --pageheader-h:        0px;    /* live PageHeader height — written by PageHeader on mount, read by page bodies */
   --contextbar-h:        0px;    /* live InvestigationContextBar height — 0 when no active investigation stack */
@@ -349,7 +365,6 @@ pre {
      editor's face (fonts/, SIL OFL): Chrome cannot reach SF Mono and fell to
      Menlo. */
   --font-sans: 'MoleSignal Sans', 'Alibaba PuHuiTi 3.0', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Helvetica Neue', Arial, sans-serif;
-  --font-sidebar: var(--font-sans);
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Alibaba PuHuiTi 3.0', 'PingFang SC', 'Microsoft YaHei', monospace;
   --font-code: 'JetBrains Mono', 'SFMono-Regular', 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 
@@ -357,7 +372,7 @@ pre {
   --duration-instant:  80ms;
   --duration-fast:     120ms;   /* fade-in, toggle, hover */
   --duration-normal:   200ms;   /* drawer slide, sheet, popover */
-  --duration-slow:     320ms;   /* page transitions, sidebar fold */
+  --duration-slow:     320ms;   /* page transitions */
   --duration-slower:   480ms;
 
   --easing-default:    cubic-bezier(0.4, 0, 0.2, 1);
@@ -397,6 +412,13 @@ pre {
   }
 }
 
+/* A page set as a surface workbench (AppShell marks it) has a 48px top bar. The root says so,
+   not the shell: drawers and their overlays are portaled to the body, outside the shell, and
+   stand under the bar by this value. Said by the shell alone, they stood 4px below the bar. */
+:root:has([data-shell-layout='surface-workbench']) {
+  --topbar-h: 48px;
+}
+
 /* Density belongs to data surfaces. It must not shrink shell chrome or root type. */
 :root,
 [data-density='normal'] {
@@ -404,8 +426,6 @@ pre {
   --row-pad-y:  8px;
   --row-pad-x:  12px;
   --font-body:  14px;
-  --topbar-h:   52px;
-  --sidebar-item-h: 30px;
 }
 
 [data-density='compact'] {
@@ -413,8 +433,6 @@ pre {
   --row-pad-y:  5px;
   --row-pad-x:  10px;
   --font-body:  14px;
-  --topbar-h:   52px;
-  --sidebar-item-h: 30px;
 }
 
 [data-density='comfortable'] {
@@ -422,8 +440,6 @@ pre {
   --row-pad-y:  10px;
   --row-pad-x:  14px;
   --font-body:  14px;
-  --topbar-h:   52px;
-  --sidebar-item-h: 30px;
 }
 
 /* base */
@@ -517,10 +533,6 @@ html[data-report-document] [data-sonner-toaster] {
 .type-kpi {
   font-size: var(--font-kpi);
   line-height: 1.2667; /* 30 / 38 */
-}
-
-.font-sidebar-face {
-  font-family: var(--font-sidebar);
 }
 
 * {
@@ -734,13 +746,13 @@ textarea::placeholder,
 }
 
 /* Text inputs use Control Surface styling. The explicit marker also covers
- * compound controls and button-based launchers such as search. */
+ * compound controls. The top bar's search launcher is not one: it is a card on
+ * the bar (Topbar.tsx), with a shadow of its own. */
 :where(
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):not([type='hidden']),
   textarea,
   [data-ui='input-control'],
   [data-ui='textarea-control'],
-  [data-ui='search-control'],
   [data-ui='read-only-control']
 ) {
   border-width: 0 !important;

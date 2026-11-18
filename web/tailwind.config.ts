@@ -253,9 +253,6 @@ const config: Config = {
       },
       spacing: {
         topbar: 'var(--topbar-h)',
-        sidebar: 'var(--sidebar-w)',
-        'sidebar-collapsed': 'var(--sidebar-w-collapsed)',
-        'sidebar-item': 'var(--sidebar-item-h)',
         subsidebar: 'var(--subsidebar-w)',
         row: 'var(--row-height)',
         'row-pad-x': 'var(--row-pad-x)',

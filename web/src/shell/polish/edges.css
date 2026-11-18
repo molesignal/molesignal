@@ -65,34 +65,34 @@
   --shadow-frame-inline: 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
+/*
+ * On light, no edge is a line (the user, 2026-11-08: 「不画边线，浅色靠柔和阴影」): a field, a button
+ * and a framed box stand off what they are on by a soft shadow alone, deeper under the pointer and
+ * while a field holds the focus. What cannot be used is told by its grey fill, with no shadow.
+ */
 [data-theme='light'] {
   --shadow-field:
-    0 0 0 1px rgba(19, 24, 37, 0.1),
-    0 1px 2px -1px rgba(19, 24, 37, 0.1);
+    0 1px 2px rgba(19, 24, 37, 0.06),
+    0 2px 8px rgba(19, 24, 37, 0.08);
   --shadow-field-hover:
-    0 0 0 1px rgba(19, 24, 37, 0.17),
-    0 1px 2px -1px rgba(19, 24, 37, 0.12);
+    0 1px 2px rgba(19, 24, 37, 0.08),
+    0 4px 12px rgba(19, 24, 37, 0.1);
   --shadow-field-focus:
-    0 0 0 1px rgba(19, 24, 37, 0.26),
-    0 1px 2px -1px rgba(19, 24, 37, 0.12);
-  --shadow-field-disabled: 0 0 0 1px rgba(19, 24, 37, 0.06);
+    0 1px 2px rgba(19, 24, 37, 0.1),
+    0 4px 14px rgba(19, 24, 37, 0.14);
+  --shadow-field-disabled: none;
 
   --raised-surface:       #ffffff;
   --raised-surface-hover: #f7f8fa;
   --shadow-raised:
-    0 0 0 1px rgba(19, 24, 37, 0.08),
-    0 1px 1px -0.5px rgba(19, 24, 37, 0.08),
-    0 2px 3px -1.5px rgba(19, 24, 37, 0.08),
-    0 4px 6px -3px rgba(19, 24, 37, 0.06);
+    0 1px 2px rgba(19, 24, 37, 0.08),
+    0 2px 6px -1px rgba(19, 24, 37, 0.08);
   --shadow-raised-hover:
-    0 0 0 1px rgba(19, 24, 37, 0.12),
-    0 1px 1px -0.5px rgba(19, 24, 37, 0.1),
-    0 3px 4px -1.5px rgba(19, 24, 37, 0.1),
-    0 6px 8px -4px rgba(19, 24, 37, 0.08);
+    0 1px 2px rgba(19, 24, 37, 0.1),
+    0 4px 10px -2px rgba(19, 24, 37, 0.12);
   --shadow-raised-press:
-    0 0 0 1px rgba(19, 24, 37, 0.12),
-    0 1px 1px rgba(19, 24, 37, 0.06);
-  --shadow-raised-disabled: 0 0 0 1px rgba(19, 24, 37, 0.06);
+    0 1px 1px rgba(19, 24, 37, 0.08);
+  --shadow-raised-disabled: none;
 
   --shadow-filled:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
@@ -106,14 +106,12 @@
     0 6px 8px -4px rgba(19, 24, 37, 0.12);
 
   --shadow-frame:
-    0 0 0 1px rgba(19, 24, 37, 0.05),
-    0 1px 2px -1px rgba(19, 24, 37, 0.06),
-    0 2px 4px -2px rgba(19, 24, 37, 0.04);
+    0 1px 2px rgba(19, 24, 37, 0.05),
+    0 2px 6px -2px rgba(19, 24, 37, 0.07);
   --shadow-frame-hover:
-    0 0 0 1px rgba(19, 24, 37, 0.12),
-    0 1px 2px -1px rgba(19, 24, 37, 0.08),
-    0 3px 6px -3px rgba(19, 24, 37, 0.08);
-  --shadow-frame-inline: 0 0 0 1px rgba(19, 24, 37, 0.1);
+    0 1px 2px rgba(19, 24, 37, 0.08),
+    0 4px 10px -3px rgba(19, 24, 37, 0.1);
+  --shadow-frame-inline: 0 1px 2px rgba(19, 24, 37, 0.08);
 }
 
 /*

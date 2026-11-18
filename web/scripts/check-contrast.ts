@@ -60,11 +60,11 @@ const BODY_PAIRS: Array<[string, string]> = [
 ];
 
 // The current entry of a menu: the brand's words on its fill, which on dark is a veil over the
-// sidebar or the page.
+// main menu's panel or the page.
 const NAV_CURRENT: Pair = {
   fg: '--nav-current-ink',
   bg: '--nav-current-surface',
-  over: ['--sidebar-surface', '--page-canvas'],
+  over: ['--functional-surface', '--page-canvas'],
   target: 4.5,
   label: 'AA body',
 };
@@ -124,8 +124,9 @@ function buildPairList(): Pair[] {
   for (const [fg, bg] of BADGE_PAIRS) out.push({ fg, bg, target: 3, label: 'AA UI' });
   out.push(NAV_CURRENT);
   out.push({ fg: '--placeholder', bg: PLACEHOLDER_FILL, over: FIELD_GROUNDS, target: 3, label: 'AA UI' });
-  // A shortcut shown in a field is read like any word: AA on the field over the top bar.
-  out.push({ fg: '--shortcut-hint', bg: PLACEHOLDER_FILL, over: ['--functional-surface'], target: 4.5, label: 'AA body' });
+  // A shortcut shown in the top bar's search box is read like any word: AA on the box over the
+  // bar. Its fill does not change under the pointer.
+  out.push({ fg: '--shortcut-hint', bg: '--search-surface', over: ['--app-header-surface'], target: 4.5, label: 'AA body' });
   return out;
 }
 

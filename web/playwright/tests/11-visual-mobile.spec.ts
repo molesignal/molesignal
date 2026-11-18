@@ -56,7 +56,7 @@ for (const theme of ['dark', 'light'] as Theme[]) {
       await page.waitForLoadState('networkidle').catch(() => undefined);
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       // The page is the home page, not a shell that could not load its access.
-      await expect(page.locator('[data-home-surface="hero"]')).toBeVisible();
+      await expect(page.getByTestId('workbench')).toBeVisible();
       await expect(page).toHaveScreenshot(`home-mobile-${theme}.png`, {
         fullPage: true,
         animations: 'disabled',

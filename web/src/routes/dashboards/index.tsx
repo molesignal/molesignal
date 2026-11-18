@@ -108,7 +108,7 @@ function favoriteStorageKey(orgId: string): string {
   return `molesignal:dashboard-favorites:${orgId || 'default'}`;
 }
 
-function readFavoriteIds(orgId: string): Set<string> {
+export function readFavoriteIds(orgId: string): Set<string> {
   if (typeof window === 'undefined') return new Set();
   try {
     const value = JSON.parse(window.localStorage.getItem(favoriteStorageKey(orgId)) ?? '[]');

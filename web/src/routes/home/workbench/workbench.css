@@ -1,0 +1,59 @@
+/*
+ * Workbench: the reader's places and resources on the left, what waits on them on the right.
+ * On a wide screen the two columns fill the screen below the title and end on one line: the
+ * resources list as many rows as fit, the to-dos take the room their column has left and scroll
+ * within their card when it is not enough.
+ */
+.wb-grid {
+  display: grid;
+  gap: var(--home-card-gap);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.wb-column {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--home-card-gap);
+}
+
+.wb-column > .wb-fixed {
+  flex-shrink: 0;
+}
+
+.wb-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 8px;
+  row-gap: 2px;
+}
+
+@container home-canvas (max-width: 700px) {
+  .wb-recent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container home-canvas (min-width: 980px) {
+  .wb-grid {
+    grid-template-columns: minmax(0, 2.15fr) minmax(340px, 0.85fr);
+    /* The screen below the top bar, the title row and the page's foot. */
+    height: max(600px, calc(100dvh - var(--topbar-h, 48px) - 42px - 24px));
+    align-items: stretch;
+  }
+
+  .wb-column > .wb-fill,
+  .wb-column > .wb-todos {
+    flex: 1 1 0;
+    min-height: 160px;
+  }
+}
+
+@container home-canvas (max-width: 979px) {
+  /* One column: the resources list keeps a height of its own instead of the screen's. */
+  .wb-column > .wb-fill {
+    height: 420px;
+  }
+}

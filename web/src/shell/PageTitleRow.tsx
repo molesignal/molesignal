@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
+import { ButtonSize } from '@/shell/ui/button-size';
 
 interface PageTitleRowProps {
   title: React.ReactNode;
@@ -53,7 +54,9 @@ export function PageTitleRow({
         actionsClassName,
       )}
     >
-      {actions}
+      {/* The buttons that name no size are small, as tall as the controls in the cards under the
+          row: at 32px they stood as tall as the row and outweighed the title beside them. */}
+      <ButtonSize size="sm">{actions}</ButtonSize>
     </div>
   );
 

@@ -16,9 +16,9 @@
   --spotlight: color-mix(in srgb, var(--indigo) 14%, transparent);
 }
 
+/* On light no edge is a line: the trace of the brand colour is in the soft shadow alone. */
 [data-theme='light'] {
   --shadow-functional-surface-hover:
-    0 0 0 1px rgba(0, 100, 200, 0.2),
     0 2px 4px rgba(19, 24, 37, 0.06),
     0 10px 24px -10px rgba(0, 100, 200, 0.22);
   --spotlight: color-mix(in srgb, var(--indigo) 8%, transparent);

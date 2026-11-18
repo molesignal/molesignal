@@ -114,6 +114,11 @@ const CONNECTED = { id: 'c-1', name: 'Ops mail', connectorType: 'email_smtp', en
 const WITH_KEY = { id: 'p-1', name: 'OpenAI', provider: 'openai', defaultModel: 'gpt-5', enabled: true, keySet: true };
 const SAMPLE_STREAMS = ['sample_app_logs', 'sample_app_metrics', 'sample_app_traces'].map((name) => ({ id: name, name }));
 
+/** The setting-up steps open from their row among the workbench's to-dos. */
+function openSetup(page: Page) {
+  return page.locator('[data-home-surface="activation"] button');
+}
+
 function setupDrawer(page: Page) {
   return page.getByRole('dialog', { name: 'Quick start' });
 }
@@ -126,12 +131,12 @@ test.describe('Activation — empty OSS org', () => {
     await page.goto('/home');
 
     // No streams → the streams panel shows its empty state…
-    await expect(page.getByText('No streams registered yet.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('workbench')).toBeVisible({ timeout: 10_000 });
     // …and the compact activation strip reports every remaining setup step.
     await expect(page.getByText('8 setup steps remaining')).toBeVisible();
 
     // The list reads from data coming in to someone answering an alert.
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     await expect(setupDrawer(page).getByRole('listitem')).toHaveText([
       /Connect a datasource/,
       /Load sample data/,
@@ -159,12 +164,11 @@ test.describe('Activation — active org', () => {
 
     // Streams render (so the empty state is gone) and the three core steps are
     // complete (streams + dashboards + alerts) → the strip leads on to on-call.
-    await expect(page.getByText('No streams registered yet.')).toHaveCount(0);
     const strip = page.locator('[data-home-surface="activation"]');
     await expect(strip.getByText('4 setup steps remaining')).toBeVisible({ timeout: 10_000 });
     await expect(strip.getByText('Set up an on-call schedule')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     await expect(setupDrawer(page).getByText('Core workflows are active')).toBeVisible();
   });
 });
@@ -187,12 +191,12 @@ test.describe('Activation — sample data', () => {
     await expect(strip.getByText('1 setup step remaining')).toBeVisible({ timeout: 10_000 });
     await expect(strip.getByText('Add a notification channel')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     await expect(setupDrawer(page).getByRole('button', { name: /Load sample data/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
     await page.route('**/api/v1/notify/connectors', (route) => route.fulfill({ json: [CONNECTED] }));
-    await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await page.reload();
 
     await expect(strip).toHaveCount(0);
   });
@@ -207,7 +211,7 @@ test.describe('Activation — sample data', () => {
     await expect(strip.getByText('8 setup steps remaining')).toBeVisible({ timeout: 10_000 });
     await expect(strip.getByText('Connect a datasource')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     await expect(setupDrawer(page).getByRole('button', { name: /Load sample data/ })).toBeVisible();
   });
 
@@ -224,7 +228,7 @@ test.describe('Activation — sample data', () => {
     await page.goto('/home');
 
     await expect(page.getByText('8 setup steps remaining')).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     const step = setupDrawer(page).getByRole('button', { name: /Load sample data/ });
     await step.click();
 
@@ -243,7 +247,7 @@ test.describe('Activation — sample data', () => {
     });
 
     await page.goto('/home');
-    await page.getByRole('button', { name: 'Complete setup' }).click({ timeout: 10_000 });
+    await openSetup(page).click({ timeout: 10_000 });
 
     await expect(setupDrawer(page).getByRole('button', { name: /Load sample data/ })).toContainText('Done');
   });
@@ -257,7 +261,7 @@ test.describe('Activation — sample data', () => {
 
     await page.route('**/api/v1/onboarding/sample-data', (route) => route.fulfill({ json: { loaded: true } }));
     await page.route('**/api/v1/streams', (route) => route.fulfill({ json: SAMPLE_STREAMS }));
-    await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await page.reload();
 
     await expect(page.getByText('6 setup steps remaining')).toBeVisible();
   });
@@ -271,7 +275,7 @@ test.describe('Activation — sample data', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByText('No streams registered yet.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('workbench')).toBeVisible({ timeout: 10_000 });
     await page.waitForLoadState('networkidle');
     await expect(page.locator('[data-home-surface="activation"]')).toHaveCount(0);
   });
@@ -284,7 +288,7 @@ test.describe('Activation — sample data', () => {
     await overrideHomeData(page, NOTHING_SET_UP);
 
     await page.goto('/home');
-    await page.getByRole('button', { name: 'Complete setup' }).click({ timeout: 10_000 });
+    await openSetup(page).click({ timeout: 10_000 });
 
     await expect(setupDrawer(page).getByRole('listitem')).toHaveText([/Set up an on-call schedule/]);
   });
@@ -306,7 +310,7 @@ test.describe('Activation — the response steps follow real data', () => {
 
     await expect(page.getByText('5 setup steps remaining')).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     for (const step of ['Set up an on-call schedule', 'Add a notification channel', 'Connect an AI model']) {
       await expect(setupDrawer(page).getByRole('button', { name: new RegExp(step) })).toContainText('Done');
     }
@@ -339,7 +343,7 @@ test.describe('Activation — the response steps follow real data', () => {
     await expect(page.getByText('8 setup steps remaining')).toBeVisible({ timeout: 10_000 });
 
     await page.route('**/api/v1/notify/connectors', (route) => route.fulfill({ json: [CONNECTED] }));
-    await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await page.reload();
 
     await expect(page.getByText('7 setup steps remaining')).toBeVisible();
   });
@@ -353,7 +357,7 @@ test.describe('Activation — the response steps follow real data', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByText('No streams registered yet.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('workbench')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('[data-home-surface="activation"]')).toHaveCount(0);
   });
 
@@ -367,7 +371,7 @@ test.describe('Activation — the response steps follow real data', () => {
       await overrideHomeData(page, NOTHING_SET_UP);
 
       await page.goto('/home');
-      await page.getByRole('button', { name: 'Complete setup' }).click();
+      await openSetup(page).click();
       await setupDrawer(page).getByRole('button', { name: new RegExp(step) }).click();
 
       await expect(page).toHaveURL(new RegExp(`${path}(?:[?#]|$)`));
@@ -418,14 +422,12 @@ test.describe('Activation — what the reader may read and do', () => {
     await expect(page.getByText('No on-call schedule configured')).toHaveCount(0);
 
     // A refresh runs a query whatever its `enabled` says, so it has to leave these out itself.
-    await Promise.all([
-      page.waitForRequest('**/api/v1/home/overview**'),
-      page.getByRole('button', { name: 'Refresh', exact: true }).click(),
-    ]);
+    // Opened again, the page asks for what it reads once more, and still leaves these out.
+    await page.reload();
     await page.waitForLoadState('networkidle');
     expect(asked).toEqual([]);
 
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     await expect(setupDrawer(page).getByRole('listitem')).toHaveText([
       /Connect a datasource/,
       /Load sample data/,
@@ -446,7 +448,7 @@ test.describe('Activation — what the reader may read and do', () => {
     await page.goto('/home');
 
     await expect(page.getByText('1 setup step remaining')).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     await expect(setupDrawer(page).getByRole('listitem')).toHaveText([/Connect an AI model/]);
 
     await setupDrawer(page).getByRole('button', { name: /Connect an AI model/ }).click();
@@ -472,7 +474,7 @@ test.describe('Activation — what the reader may read and do', () => {
     await page.goto('/home');
 
     await expect(page.getByText('2 setup steps remaining')).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: 'Complete setup' }).click();
+    await openSetup(page).click();
     await expect(setupDrawer(page).getByRole('listitem')).toHaveText([
       /Connect a datasource/,
       /Load sample data/,
@@ -485,7 +487,7 @@ test.describe('Activation — what the reader may read and do', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByText('No streams registered yet.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('workbench')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('[data-home-surface="activation"]')).toHaveCount(0);
   });
 });

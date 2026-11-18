@@ -207,13 +207,13 @@ export function SettingsRow({
 }
 
 /**
- * A value that can be copied but not changed (an identifier, a callback address). It sits in a
- * well of the page's canvas, without the ring and the white of a field: nothing in it may look
+ * A value that can be copied but not changed (an identifier, a callback address). It sits in an
+ * inset (`--inset-surface`), without the ring and the white of a field: nothing in it may look
  * as if it could be typed in.
  */
 /** The ground a value that cannot be edited sits on, the same whether it can be copied or not. */
 const readOnlyGround =
-  'flex min-h-11 w-full min-w-0 items-center rounded-md bg-[var(--page-canvas)] pl-3 lg:min-h-9';
+  'flex min-h-11 w-full min-w-0 items-center rounded-md bg-[var(--inset-surface)] pl-3 lg:min-h-9';
 
 /** A value that cannot be edited and is not one to copy, such as the type of a saved connector. */
 export function ReadOnlyValue({
@@ -246,10 +246,12 @@ export function CopyableValue({
   value,
   copyLabel,
   copiedLabel,
+  className,
 }: {
   value: string;
   copyLabel: string;
   copiedLabel: string;
+  className?: string;
 }) {
   const [copied, setCopied] = React.useState(false);
   const resetTimer = React.useRef<number | null>(null);
@@ -274,7 +276,7 @@ export function CopyableValue({
   }, [value]);
 
   return (
-    <div className={readOnlyGround}>
+    <div className={cn(readOnlyGround, className)}>
       <code className="min-w-0 flex-1 truncate font-mono text-base text-tx-1 lg:text-sm">{value}</code>
       <CopyIconButton
         onClick={() => void copy()}

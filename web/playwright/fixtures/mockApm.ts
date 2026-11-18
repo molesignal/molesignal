@@ -370,6 +370,13 @@ const definitions = [
     tags: { domain: 'orders', pci: '' },
     apdexThreshold: 300_000,
     keyTransactions: [] as Array<{ name: string; kind: string }>,
+    aliases: ['order_service', '订单中心'],
+    dataSources: {
+      logs: [{ stream: 'logs', filter: "service_name = 'order_service'" }],
+      metrics: [{ selector: '{service="checkout"}' }],
+      dashboards: ['d2'],
+      links: [{ name: 'Runbook', url: 'https://wiki.example.com/checkout' }],
+    },
     archived: false,
     updatedBy: 'user-1',
     updatedAt: NOW,

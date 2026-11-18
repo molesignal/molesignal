@@ -8,24 +8,38 @@ test.describe('account settings menu and preference fields', () => {
     await mountMockRoutes(page, mockServer.port, { theme: 'light' });
   });
 
-  test('keeps the collapse control level with the search field and beside it, not over it', async ({
+  test('carries the collapse control at the end of a search field as wide as the menu', async ({
     page,
   }) => {
     await page.goto('/account/settings/preferences');
 
-    const field = page.locator('nav[aria-label="Account settings"] label[data-ui="input-control"]');
-    const collapse = page.getByRole('button', { name: 'Collapse menu' });
+    const menu = page.locator('nav[aria-label="Account settings"]');
+    const field = menu.locator('label[data-ui="input-control"]');
+    const collapse = field.getByRole('button', { name: 'Collapse menu' });
     await expect(collapse).toBeVisible();
 
-    const [fieldBox, collapseBox] = await Promise.all([field.boundingBox(), collapse.boundingBox()]);
+    const [menuBox, fieldBox, inputBox, collapseBox] = await Promise.all([
+      menu.boundingBox(),
+      field.boundingBox(),
+      field.getByRole('textbox').boundingBox(),
+      collapse.boundingBox(),
+    ]);
+    expect(menuBox).not.toBeNull();
     expect(fieldBox).not.toBeNull();
+    expect(inputBox).not.toBeNull();
     expect(collapseBox).not.toBeNull();
 
-    // One row: the same vertical centre...
-    const centre = (box: { y: number; height: number }) => box.y + box.height / 2;
-    expect(Math.abs(centre(fieldBox!) - centre(collapseBox!))).toBeLessThanOrEqual(1);
-    // ...and the control sits to the field's right instead of floating over its text.
-    expect(collapseBox!.x).toBeGreaterThanOrEqual(fieldBox!.x + fieldBox!.width - 1);
+    // The field takes the menu's whole row.
+    expect(Math.abs(fieldBox!.width - menuBox!.width)).toBeLessThanOrEqual(1);
+    // The control stands inside it, as far from its right edge as from its top and bottom...
+    const top = collapseBox!.y - fieldBox!.y;
+    const bottom = fieldBox!.y + fieldBox!.height - (collapseBox!.y + collapseBox!.height);
+    const right = fieldBox!.x + fieldBox!.width - (collapseBox!.x + collapseBox!.width);
+    expect(top).toBeGreaterThan(0);
+    expect(Math.abs(top - bottom)).toBeLessThanOrEqual(1);
+    expect(Math.abs(right - top)).toBeLessThanOrEqual(1);
+    // ...and after the words typed, not over them.
+    expect(collapseBox!.x).toBeGreaterThanOrEqual(inputBox!.x + inputBox!.width);
   });
 
   test('collapses to the strip and expands again from the menu\'s own control', async ({ page }) => {
@@ -42,7 +56,7 @@ test.describe('account settings menu and preference fields', () => {
     await expect(page.getByRole('button', { name: 'Collapse menu' })).toBeVisible();
   });
 
-  test('keeps every preference field on its fill, its ring darker, when pointed at or opened', async ({
+  test('keeps every preference field on its fill, its shadow deeper, when pointed at or opened', async ({
     page,
   }) => {
     await page.goto('/account/settings/preferences');
@@ -60,7 +74,7 @@ test.describe('account settings menu and preference fields', () => {
       }, colour);
     const fillOf = (selector: string) =>
       page.locator(selector).first().evaluate((element) => getComputedStyle(element).backgroundColor);
-    // A field's edge is a ring of shadow; the pointer and the focus darken it, the fill stays.
+    // A field's edge is a soft shadow with no ring; the pointer and the focus deepen it, the fill stays.
     const ringOf = (selector: string) =>
       page.locator(selector).first().evaluate((element) => getComputedStyle(element).boxShadow);
     const canvasFill = await painted(
@@ -78,10 +92,11 @@ test.describe('account settings menu and preference fields', () => {
       const restRing = await ringOf(selector);
       // Never the page canvas: the field would vanish into it.
       expect(rest.join(), `${selector} at rest`).not.toBe(canvasFill.join());
-      expect(restRing, `${selector} at rest`).toContain('0px 0px 0px 1px');
+      expect(restRing, `${selector} at rest`).not.toBe('none');
+      expect(restRing, `${selector} at rest`).not.toContain('0px 0px 0px 1px');
 
       await field.hover();
-      // The ring eases to its darker step; the fill stays where it was.
+      // The shadow eases to its deeper step; the fill stays where it was.
       await expect.poll(() => ringOf(selector)).not.toBe(restRing);
       expect((await painted(await fillOf(selector))).join(), `${selector} hovered`).toBe(rest.join());
 

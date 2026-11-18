@@ -3,6 +3,9 @@ import * as React from 'react';
 
 import { cn } from '@/shell/lib/cn';
 
+/** How the panel is folded, for a search in its head row to carry at its end. */
+const SidePanelCollapseContext = React.createContext<{ collapse: () => void; label: string } | null>(null);
+
 const SIDE_PANEL_DEFAULT_MAX_WIDTH = 480;
 const SIDE_PANEL_RESIZE_STEP = 16;
 
@@ -164,6 +167,11 @@ export function CollapsibleSidePanel({
     applyPanelWidth(nextWidth);
   }, [applyPanelWidth, resolvedMaxWidth, resolvedMinWidth]);
 
+  const collapse = React.useMemo(
+    () => ({ collapse: () => onCollapsedChange(true), label: collapseLabel }),
+    [collapseLabel, onCollapsedChange],
+  );
+
   if (collapsed) {
     return (
       <aside
@@ -186,13 +194,6 @@ export function CollapsibleSidePanel({
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
-        <div
-          className={cn(
-            'mt-4 max-h-[180px] rotate-180 overflow-hidden text-ellipsis whitespace-nowrap font-sans text-xs font-strong tracking-normal text-tx-3 [writing-mode:vertical-rl]',
-          )}
-        >
-          {title}
-        </div>
       </aside>
     );
   }
@@ -222,16 +223,25 @@ export function CollapsibleSidePanel({
           headerClassName,
         )}
       >
-        {header ? <div className="min-w-0 flex-1">{header}</div> : <span className="min-w-0 flex-1 truncate">{title}</span>}
-        <button
-          type="button"
-          onClick={() => onCollapsedChange(true)}
-          aria-label={collapseLabel}
-          title={collapseLabel}
-          className="grid h-8 w-8 place-items-center rounded-md text-tx-3 hover:bg-bg-3 hover:text-tx-0"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-        </button>
+        {header ? (
+          // A search in the head row takes the whole row and carries the button that folds the panel at its end.
+          <SidePanelCollapseContext.Provider value={collapse}>
+            <div className="min-w-0 flex-1">{header}</div>
+          </SidePanelCollapseContext.Provider>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 truncate">{title}</span>
+            <button
+              type="button"
+              onClick={collapse.collapse}
+              aria-label={collapseLabel}
+              title={collapseLabel}
+              className="grid h-8 w-8 place-items-center rounded-md text-tx-3 hover:bg-bg-3 hover:text-tx-0"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
       </div>
       <div className={cn('min-h-0 flex-1 overflow-hidden', bodyClassName)}>{children}</div>
       {footer ? <div className="shrink-0">{footer}</div> : null}
@@ -290,8 +300,15 @@ interface SidePanelSearchProps {
  * list and not of the row's title.
  */
 export function SidePanelSearch({ value, onChange, placeholder, label }: SidePanelSearchProps) {
+  const collapse = React.useContext(SidePanelCollapseContext);
+
   return (
-    <div className="flex h-8 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-body">
+    <div
+      className={cn(
+        'flex h-8 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] font-sans text-xs font-body',
+        collapse ? 'pl-2.5 pr-1' : 'px-2.5',
+      )}
+    >
       <Search className="h-3.5 w-3.5 shrink-0 text-tx-3" />
       <input
         value={value}
@@ -300,6 +317,17 @@ export function SidePanelSearch({ value, onChange, placeholder, label }: SidePan
         aria-label={label}
         className="min-w-0 flex-1 bg-transparent text-tx-0 placeholder:text-tx-3 focus:bg-transparent"
       />
+      {collapse && (
+        <button
+          type="button"
+          onClick={collapse.collapse}
+          aria-label={collapse.label}
+          title={collapse.label}
+          className="grid h-6 w-6 shrink-0 place-items-center rounded text-tx-3 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 focus-visible:outline-none"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }

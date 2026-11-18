@@ -1,16 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Bell,
-  BookOpen,
   Bot,
-  HelpCircle,
-  Info,
-  Keyboard,
   LogOut,
   Monitor,
   Moon,
   Palette,
-  PanelLeft,
   Search,
   Sun,
   UserRound,
@@ -29,9 +24,9 @@ import {
 import { AboutDialog } from '@/shell/AboutDialog';
 import { chromeIconButtonSizeClass, uiUserAvatarClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
-import { LogoMark } from '@/shell/LogoMark';
+import { MenuButton } from '@/shell/menu/MenuButton';
 import { NotificationCenter } from '@/shell/notifications/NotificationCenter';
-import { OrgStatusSwitcher } from '@/shell/OrgStatusSwitcher';
+import { OrgSwitcher } from '@/shell/OrgSwitcher';
 import {
   USER_PREFERENCES_QUERY_KEY,
   useApplyUserPreferences,
@@ -47,6 +42,7 @@ import {
 } from '@/shell/ui/dropdown-menu';
 import { Kbd } from '@/shell/ui/kbd';
 import { toast } from '@/shell/ui/sonner';
+import { HelpMenu } from '@/shell/updates/HelpMenu';
 import { UserMenuLanguage } from '@/shell/UserMenuLanguage';
 import { normalizeRole, useAuthStore } from '@/stores/auth';
 import { signOut } from '@/stores/auth/signOut';
@@ -55,14 +51,17 @@ import { isOrgEntryDeclined } from '@/stores/useOrgEntry';
 import { useCurrentOrgSelection, useOrgStore } from '@/stores/useOrgStore';
 
 interface TopbarProps {
-  onToggleSidebar: () => void;
+  /** Whether the main menu hangs open from its button. */
+  menuOpen: boolean;
+  onToggleMenu: () => void;
   onPaletteOpen: () => void;
   onNocOpen: () => void;
   surfaceWorkbench?: boolean;
 }
 
 export function Topbar({
-  onToggleSidebar,
+  menuOpen,
+  onToggleMenu,
   onPaletteOpen,
   onNocOpen,
   surfaceWorkbench = false,
@@ -176,35 +175,28 @@ export function Topbar({
           : 'border-b border-bd-0 bg-bg-1',
       )}
     >
-      {/* brand */}
-      <button
-        type="button"
-        onClick={() => nav(preferredHome())}
-        className="group ms-press flex shrink-0 items-center gap-2 rounded-md focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none"
-        aria-label={t('nav:home')}
-        title={t('nav:home')}
-      >
-        <LogoMark size={24} />
-        <span className="hidden font-sans text-md font-bold tracking-[-0.02em] text-tx-0 sm:inline">
-          MoleSignal
-        </span>
-      </button>
+      {/* The organization's mark, name and the reader's role, where the brand stood: its own logo,
+          else the platform's. */}
+      <OrgSwitcher
+        orgName={currentOrgName}
+        role={role}
+        currentOrgId={currentOrgId}
+        orgOptions={orgOptions}
+        onSwitch={(id) => void handleSwitchOrg(id)}
+        className="-ml-1.5"
+      />
 
-      <IconBtn
-        onClick={onToggleSidebar}
-        title={t('shell:topbar.toggle_sidebar')}
-        testid="sidebar-toggle"
-      >
-        <PanelLeft className="h-4 w-4" />
-      </IconBtn>
+      {/* The whole navigation hangs from here, on every screen. */}
+      <MenuButton open={menuOpen} onToggle={onToggleMenu} />
 
-      {/* Global search — the product's "launch anything" control surface. */}
+      {/* Global search — the product's "launch anything" control surface. It is a card on the bar,
+          not a field: no ring drawn round it, a soft shadow that lifts under the pointer, and a
+          fill a step darker while it holds the keyboard. Its words keep their tone throughout. */}
       <button
         type="button"
         onClick={onPaletteOpen}
-        className="flex h-9 w-9 shrink-0 items-center justify-center gap-2.5 rounded-md border-0 bg-[var(--control-surface)] px-0 sm:px-3 text-left text-tx-3 transition-colors duration-fast ease-default focus-visible:text-tx-3 focus-visible:outline-none sm:w-auto sm:max-w-[720px] sm:flex-1 sm:justify-start [@media(pointer:coarse)]:h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
+        className="flex h-9 w-9 shrink-0 items-center justify-center gap-2.5 rounded-md border-0 bg-[var(--search-surface)] px-0 sm:px-3 text-left text-tx-3 [box-shadow:var(--shadow-search-surface)] transition-[background-color,box-shadow] duration-fast ease-default hover:[box-shadow:var(--shadow-search-surface-hover)] focus-visible:bg-[var(--search-surface-focus)] focus-visible:text-tx-3 focus-visible:outline-none sm:w-auto sm:max-w-[720px] sm:flex-1 sm:justify-start [@media(pointer:coarse)]:h-[44px] [@media(pointer:coarse)]:min-w-[44px]"
         aria-label={t('shell:chrome.command_palette')}
-        data-ui="search-control"
         data-testid="command-palette-trigger"
       >
         <Search className="h-4 w-4" />
@@ -268,14 +260,6 @@ export function Topbar({
             <Moon key="moon" className="h-4 w-4 animate-pop-in" />
           )}
         </IconBtn>
-        <OrgStatusSwitcher
-          orgName={currentOrgName}
-          role={role}
-          currentOrgId={currentOrgId}
-          orgOptions={orgOptions}
-          onSwitch={(id) => void handleSwitchOrg(id)}
-          className="ml-1 mr-2"
-        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -377,59 +361,6 @@ export function Topbar({
 
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
     </header>
-  );
-}
-
-function HelpMenu({
-  title,
-  docsLabel,
-  keyboardLabel,
-  aboutLabel,
-  onDocs,
-  onKeyboard,
-  onAbout,
-}: {
-  title: string;
-  docsLabel: string;
-  keyboardLabel: string;
-  aboutLabel: string;
-  onDocs: () => void;
-  onKeyboard: () => void;
-  onAbout: () => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          title={title}
-          aria-label={title}
-          className={cn(
-            'ms-press relative hidden items-center justify-center rounded-md text-tx-2 md:flex',
-            chromeIconButtonSizeClass,
-            'hover:bg-bg-3 hover:text-tx-0',
-            'focus-visible:bg-indigo-dim focus-visible:text-indigo focus-visible:outline-none',
-          )}
-        >
-          <HelpCircle className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onSelect={onDocs}>
-          <BookOpen className="h-4 w-4" />
-          <span>{docsLabel}</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onAbout}>
-          <Info className="h-4 w-4" />
-          <span>{aboutLabel}</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onKeyboard}>
-          <Keyboard className="h-4 w-4" />
-          <span>{keyboardLabel}</span>
-          <Kbd className="ml-auto font-sans text-xs">?</Kbd>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

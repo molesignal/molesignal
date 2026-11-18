@@ -13,7 +13,6 @@
     "close_navigation": "Close navigation"
   },
   "topbar": {
-    "toggle_sidebar": "Toggle sidebar",
     "search_placeholder": "Search pages · streams · services · dashboards…",
     "open_noc": "Open NOC wallboard mode",
     "noc": "NOC Wallboard",
@@ -22,10 +21,11 @@
     "docs": "Docs",
     "keyboard_shortcuts": "Keyboard shortcuts",
     "mole_agent": "Open Mole Agent (⌘J)",
-    "organization_status": "{{name}}, {{status}}",
-    "switch_organization": "Switch organization",
-    "current_organization": "Current organization",
     "manage_organizations": "Manage organizations…",
+    "organization_menu": "Organization: {{name}}",
+    "organization_settings": "Organization settings",
+    "members": "Members",
+    "switch_to": "Switch to",
     "membership_required": "Membership required",
     "about": "About"
   },
@@ -412,12 +412,18 @@
     "context_label": "Context",
     "loading": "Loading Mole Agent…"
   },
-  "system_status": {
-    "healthy": "Core API connected",
-    "degraded": "Core API degraded",
-    "disconnected": "Core API unreachable"
-  },
   "about": {
+    "updates": {
+      "menu": "New version available",
+      "available": "New version available: v{{version}}",
+      "checking": "Checking for updates…",
+      "unavailable": "Unable to check for updates",
+      "current": "You are up to date",
+      "stale": "Showing the last successful check. GitHub is currently unavailable.",
+      "notes": "Release notes & downloads",
+      "check": "Check for updates",
+      "cooldown": "Checks use a shared cache; manual checks refresh at most once every 5 minutes."
+    },
     "title": "About",
     "accessible_title": "About MoleSignal",
     "subtitle": "An observability platform for logs, metrics, traces, and performance analysis.",
@@ -425,7 +431,6 @@
     "edition": "Edition type",
     "commit": "Commit Hash",
     "build_id": "Build ID",
-    "release_channel": "Release channel",
     "branch": "Build branch",
     "built": "Build time",
     "time_with_zone": "{{time}} ({{zone}})",

@@ -197,6 +197,7 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'alerts.importance.manage',
   'alerts.incidents.rca',
   'alerts.remediation.manage',
+  'alerts.remediation.preapprove',
   'alerts.response.manage',
   'alerts.semantic_groups.manage',
   'alerts.sources.manage',
@@ -451,7 +452,6 @@ function mockCapabilityRoutes(
     'settings.alert_evaluation',
   ]);
   const systemTelemetryOwners = new Set([
-    'home',
     'logs',
     'metrics',
     'traces',
@@ -486,6 +486,7 @@ function mockCapabilityRoutes(
   // (`20260101000003_iam_route_catalog.sql`).
   const explicit = [
     ['root', '/', true],
+    ['home', '/home', true],
     ['account.settings', '/account/settings/*', true],
     ['settings', '/settings', scope === 'system'
       ? MOCK_PLATFORM_READS.some((permission) => permissionSet.has(permission))
@@ -1129,6 +1130,13 @@ export function registerRoutes(app: Express): void {
       earliestAt: cut > 0 ? Date.now() * 1000 - kept * DAY_MICROS : null,
     });
   });
+  app.get('/api/v1/version/updates', (_req, res) =>
+    res.json({
+      currentVersion: '26.0.0.0', latestVersion: '26.0.0.0',
+      releaseUrl: 'https://github.com/molesignal/molesignal/releases/tag/v26.0.0.0',
+      updateAvailable: false, checkedAt: 1_785_087_406_000_000, status: 'ok',
+    }),
+  );
   app.get('/api/v1/version', (_req, res) =>
     res.json({
       version: '26.0.0.0',
@@ -1136,7 +1144,6 @@ export function registerRoutes(app: Express): void {
       branch: 'main',
       buildEpochSecs: 1_785_087_406,
       buildId: 'gha-12345-1',
-      releaseChannel: 'stable',
       edition: 'enterprise',
     }),
   );
@@ -1909,7 +1916,7 @@ export function registerRoutes(app: Express): void {
         'query_metrics',
         'list_streams',
         'get_trace',
-        'list_recent_alerts',
+        'list_incidents',
         'list_on_call_schedules',
         'get_current_on_call',
         'list_rum_sessions',
@@ -2121,7 +2128,7 @@ export function registerRoutes(app: Express): void {
     makeTool('list_rum_actions', '列出 RUM 行为与 Web Vitals 事件。', 'observability', 'RUM'),
     makeTool('list_rum_errors', '列出最近的前端错误。', 'observability', 'RUM'),
     makeTool('list_continuous_profiles', '列出持续剖析数据。', 'observability', 'Profiles'),
-    makeTool('list_recent_alerts', '列出当前活跃告警事件。', 'alerts_on_call', 'Alert'),
+    makeTool('list_incidents', '按状态与时间范围列出告警事件。', 'alerts_on_call', 'Alert'),
     makeTool(
       'list_on_call_schedules',
       '列出可用值班表及当前值班人。',

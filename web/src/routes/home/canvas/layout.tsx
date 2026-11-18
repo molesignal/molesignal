@@ -17,31 +17,6 @@ export function OperationsCanvas({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function CanvasSurfaceGrid({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div data-home-surface-grid className={cn('home-canvas-surface-grid', className)}>
-      {children}
-    </div>
-  );
-}
-
-/** A stack of cards that keeps its own height instead of stretching to a grid row. */
-export function CanvasColumn({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={cn('home-canvas-column', className)}>{children}</div>;
-}
-
 export function CanvasSection({
   title,
   icon,
@@ -57,12 +32,12 @@ export function CanvasSection({
   icon?: React.ReactNode;
   actions?: React.ReactNode;
   children: React.ReactNode;
-  className?: string;
-  bodyClassName?: string;
-  ariaLabel?: string;
-  testId?: string;
+  className?: string | undefined;
+  bodyClassName?: string | undefined;
+  ariaLabel?: string | undefined;
+  testId?: string | undefined;
   /** Position in the entrance sequence; omit to render without an entrance. */
-  riseIndex?: number;
+  riseIndex?: number | undefined;
 }) {
   return (
     <section

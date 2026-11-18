@@ -36,11 +36,16 @@
   "incidents": "Incidents",
   "alert_rules": "Alert rules",
   "primary_navigation": "Primary",
-  "pinned": "Pinned",
   "recent": "Recent",
-  "pin": "Pin to top",
-  "unpin": "Unpin",
-  "drag_handle": "Drag to reorder",
+  "menu": {
+    "open": "Open menu",
+    "close": "Close menu",
+    "open_in_new_tab": "Open in a new tab",
+    "open_entry_in_new_tab": "Open {{name}} in a new tab",
+    "new_tab_hint": "⌘/Ctrl-click or middle-click opens a new tab",
+    "always_new_tab": "Always open in a new tab",
+    "search_hint": "Search pages, streams, services and dashboards"
+  },
   "groups": {
     "home": "Home",
     "observe": "Observe",

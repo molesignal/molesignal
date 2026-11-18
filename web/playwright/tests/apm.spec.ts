@@ -258,20 +258,6 @@ test('APM opens on an overview of every service: what they did, which weigh most
   await expect(page).toHaveURL(/\/apm\/services\/checkout\?namespace=shop&environment=prod/);
 });
 
-test('the APM user-experience address opens RUM', async ({ page, mockServer }) => {
-  await boot(page, mockServer.port);
-  await page.goto('/apm/user-experience/overview');
-  await expect(page).toHaveURL(/\/rum\/explorer$/);
-  await expect(page.getByRole('link', { name: 'Applications' })).toBeVisible();
-});
-
-test('legacy service URLs open the service in APM', async ({ page, mockServer }) => {
-  await boot(page, mockServer.port);
-  await page.goto('/services/checkout?environment=prod');
-  await expect(page).toHaveURL(/\/apm\/services\/checkout\?environment=prod$/);
-  await expect(page.getByRole('heading', { name: 'checkout', exact: true })).toBeVisible();
-});
-
 test('APM keyboard navigation opens the service catalog', async ({ page, mockServer }) => {
   await boot(page, mockServer.port);
   await page.goto('/investigate');

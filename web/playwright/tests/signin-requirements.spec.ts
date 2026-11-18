@@ -69,9 +69,9 @@ async function switchingAnswers(page: Page, waiting: object) {
 
 async function switchToStaging(page: Page) {
   await page.goto('/account/settings/profile');
-  await page.getByTestId('org-status-trigger').click();
+  await page.getByTestId('org-switcher-trigger').click();
   await page
-    .locator("[data-ui='org-status-menu'] [data-ui='workspace-option']")
+    .locator("[data-ui='org-switcher-menu'] [data-ui='workspace-option']")
     .filter({ hasText: 'acme-staging' })
     .click();
 }
@@ -274,7 +274,7 @@ test.describe('sign-in requirements', () => {
     await dialog.getByRole('button', { name: 'Verify and enter' }).click();
 
     await expect(dialog).toBeHidden();
-    await expect(page.getByTestId('org-status-trigger')).toContainText('acme-staging');
+    await expect(page.getByTestId('org-switcher-trigger')).toContainText('acme-staging');
     expect(proofs).toEqual([{ method: 'totp', code: MOCK_TOTP_CODE }]);
   });
 
@@ -288,7 +288,7 @@ test.describe('sign-in requirements', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click();
 
     await expect(dialog).toBeHidden();
-    await expect(page.getByTestId('org-status-trigger')).toContainText('acme-prod');
+    await expect(page.getByTestId('org-switcher-trigger')).toContainText('acme-prod');
     await expect(page.getByText(/Couldn’t switch|Failed to switch/)).toHaveCount(0);
   });
 
@@ -317,7 +317,7 @@ test.describe('sign-in requirements', () => {
     await expect(dialog).toContainText('“acme-staging” only allows single sign-on');
     await expect(dialog.getByRole('button', { name: 'Okta' })).toBeVisible();
     await dialog.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByTestId('org-status-trigger')).toContainText('acme-prod');
+    await expect(page.getByTestId('org-switcher-trigger')).toContainText('acme-prod');
   });
 
   test('going through its provider is the way in the next visit points at', async ({ page }) => {

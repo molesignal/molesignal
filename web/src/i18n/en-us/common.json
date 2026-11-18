@@ -74,6 +74,10 @@
     "code": "Code",
     "builder": "Builder"
   },
+  "query_fold": {
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
   "query_language": {
     "label": "Query"
   },

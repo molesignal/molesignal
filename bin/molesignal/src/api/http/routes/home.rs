@@ -15,37 +15,34 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    intake::usage::source::UsageSelection,
+    storage::logical_query_dataset_types,
+    stream::StreamType,
+};
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission, intake::usage::source::UsageSelection,
-        storage::logical_query_dataset_types, stream::StreamType,
-    },
-    infra::query::catalog_source::StreamSnapshotSelection,
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::{api::AppState, infra::query::catalog_source::StreamSnapshotSelection};
 
 mod storage;
 
+#[cfg(test)]
+use domain::{
+    intake::usage::source::{HOUR_MICROS, IntakeUsageBucket},
+    storage::{QueryFile, primary_dataset_type},
+    stream::StreamDefinition,
+};
 use storage::{
     BucketTotals, StreamScan, bucket_raw_usage, build_buckets, needs_attention, signal_overviews,
     status_rank, summarize_stream, unavailable_stream,
 };
 #[cfg(test)]
 use storage::{HEALTHY_LAG_MICROS, stream_status};
-
-#[cfg(test)]
-use crate::{
-    domain::intake::usage::source::{HOUR_MICROS, IntakeUsageBucket},
-    domain::storage::{QueryFile, primary_dataset_type},
-    domain::stream::StreamDefinition,
-};
 
 const DEFAULT_WINDOW_SECS: i64 = 24 * 60 * 60;
 const MIN_WINDOW_SECS: i64 = 60 * 60;
@@ -344,10 +341,10 @@ async fn overview(
 
 #[cfg(test)]
 mod tests {
+    use kernel::ids::Id;
     use serde_json::Map;
 
     use super::*;
-    use crate::shared::ids::Id;
 
     fn definition(name: &str, stream_type: StreamType) -> StreamDefinition {
         StreamDefinition {
@@ -355,7 +352,7 @@ mod tests {
             org_id: Id::from_string("org-1"),
             name: name.to_string(),
             stream_type,
-            schema: crate::domain::stream::Schema { fields: Vec::new() },
+            schema: domain::stream::Schema { fields: Vec::new() },
             retention: None,
             created_at: TimestampMicros(0),
             updated_at: TimestampMicros(0),
@@ -382,6 +379,7 @@ mod tests {
             null_counts: Map::new(),
             indexed_at_micros: None,
             shard: None,
+            clustering: Default::default(),
         }
     }
 

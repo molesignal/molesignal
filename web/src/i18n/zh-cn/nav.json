@@ -1,5 +1,5 @@
 {
-  "home": "首页",
+  "home": "工作台",
   "logs": "日志",
   "metrics": "指标",
   "traces": "链路",
@@ -36,13 +36,18 @@
   "incidents": "事件",
   "alert_rules": "告警规则",
   "primary_navigation": "主导航",
-  "pinned": "已固定",
   "recent": "最近访问",
-  "pin": "固定到顶部",
-  "unpin": "取消固定",
-  "drag_handle": "拖动重排序",
+  "menu": {
+    "open": "打开菜单",
+    "close": "关闭菜单",
+    "open_in_new_tab": "在新标签页打开",
+    "open_entry_in_new_tab": "在新标签页打开{{name}}",
+    "new_tab_hint": "⌘/Ctrl 点击或中键点击：在新标签页打开",
+    "always_new_tab": "总在新标签页打开",
+    "search_hint": "搜索页面、数据流、服务、仪表盘"
+  },
   "groups": {
-    "home": "首页",
+    "home": "工作台",
     "observe": "观察",
     "reliability": "可靠性",
     "ai_ops": "AI 运维",

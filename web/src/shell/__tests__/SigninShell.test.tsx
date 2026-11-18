@@ -398,7 +398,7 @@ describe.sequential('SigninShell', () => {
     expect(onSignup).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the product version and nothing about the release channel', () => {
+  it('shows the product version', () => {
     const { rerender } = render(
       <SigninShell {...signinProps({ buildVersion: undefined })} />,
     );

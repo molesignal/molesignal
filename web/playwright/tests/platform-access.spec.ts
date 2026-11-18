@@ -242,9 +242,9 @@ test.describe('the sidebar of the platform organization', () => {
   test('reaches a settings page from a permission over that page alone', async ({ page, mockServer }) => {
     await mountPlatform(page, mockServer.port, ['sys.settings.retention.read']);
 
-    // The home page is out of reach, so this is where the app lands.
+    // The workbench is open to every member, whatever they hold.
     await page.goto('/home');
-    await expect(page).toHaveURL(/\/settings\/stream_retention$/);
+    await expect(page.getByTestId('workbench')).toBeVisible();
 
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
 
@@ -276,7 +276,7 @@ test.describe('root', () => {
     await servePlatform(page);
 
     await page.goto('/home');
-    await page.getByTestId('org-status-trigger').click();
+    await page.getByTestId('org-switcher-trigger').click();
 
     await expect(page.getByTestId('current-org-role')).toHaveText('超级管理员');
   });

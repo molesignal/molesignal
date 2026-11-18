@@ -24,7 +24,7 @@ const field = (name: string, dataType: 'utf8' | 'int64' = 'utf8') => ({
   name,
   dataType: dataType,
   nullable: true,
-  indexed: INDEXED.has(name),
+  indexType: INDEXED.has(name) ? 'full_text' : 'none',
 });
 
 const TRACE_STREAM = {
@@ -187,7 +187,24 @@ test('lists the attributes that share the first part of their names under it', a
   const group = panel.locator('[data-field-group="molesignal"]');
   const toggle = group.getByRole('button', { name: 'molesignal: 2 fields' });
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(group.locator('[data-field-group-count]')).toHaveText('2');
+  // The count's tile is as tall as the name's type and its figures a size under it, so the tile reads as large as
+  // the name: not a second chip as large as the type's. Tile and name share a centre line, and the ground shows as
+  // much beside the figures as over and under them (the figures bring half a pixel to each side themselves).
+  const count = group.locator('[data-field-group-count]');
+  const groupNameText = toggle.getByText('molesignal', { exact: true });
+  await expect(count).toHaveText('2');
+  await expect(groupNameText).toHaveCSS('font-size', '12px');
+  await expect(count).toHaveCSS('font-size', '11px');
+  await expect(count).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(count).toHaveCSS('padding-left', '1.5px');
+  await expect(count).toHaveCSS('padding-right', '1.5px');
+  // The figures' line is as tall as their type, on a 1px floor: their baseline is 10px under the tile's top in every
+  // engine, where a centred taller line left them half a pixel low in WebKit.
+  await expect(count.locator('span')).toHaveCSS('line-height', '11px');
+  await expect(count).toHaveCSS('padding-bottom', '1px');
+  const [countBox, groupNameBox] = await Promise.all([boundingBox(count), boundingBox(groupNameText)]);
+  expect(countBox.height).toBe(12);
+  expect(Math.abs(countBox.y + countBox.height / 2 - (groupNameBox.y + groupNameBox.height / 2))).toBeLessThanOrEqual(0.5);
   await expect(panel.locator('[data-trace-field="molesignal.compaction.level"]')).toHaveCount(0);
   await expect(panel.locator('[data-trace-field="service.name"] [data-trace-field-row]')).toHaveText('Tservice.name');
   await expect(panel.locator('[data-field-group="service"]')).toHaveCount(0);
@@ -355,7 +372,7 @@ test('counts on each tab what it has loaded: the traces, and the spans once they
   );
   await page.goto('/traces');
 
-  const tabs = page.locator('[data-query-workbench-appearance="surface"] [data-query-tab-selection="underline"]');
+  const tabs = page.locator('[data-query-workbench-appearance="surface"] [data-query-tabs]');
   await expect(tabs.getByRole('tab', { name: /^Traces/ })).toHaveText(/^Traces\s*2$/);
   // The spans are listed when their tab is opened, and counted then.
   await expect(tabs.getByRole('tab', { name: /^Spans/ })).toHaveText(/^Spans$/);
@@ -401,7 +418,6 @@ test('stands the field list and the results on one surface, under the workbench 
 
   const shell = page.locator('[data-shell-layout="surface-workbench"]');
   const topbar = page.getByRole('banner');
-  const sidebar = page.getByTestId('primary-sidebar');
   const canvas = page.locator('[data-workspace="traces"]');
   const querySurface = page.locator('[data-query-workbench-appearance="surface"]');
   // The explorer has no title row: its name sits at the start of the workbench bar.
@@ -410,7 +426,7 @@ test('stands the field list and the results on one surface, under the workbench 
   const fieldPanel = page.locator('aside[data-variant="utility"]');
   const results = page.locator('[data-workspace-pane="trace-results"]');
   const pagination = results.getByRole('navigation');
-  const primaryTabs = querySurface.locator('[data-query-tab-selection="underline"]');
+  const primaryTabs = querySurface.locator('[data-query-tabs]');
   const activeTab = primaryTabs.getByRole('tab', { name: /^Traces/ });
   const syntaxHelp = querySurface.getByRole('button', { name: /query syntax reference/i });
   const timeRange = querySurface.getByRole('button', { name: /^Time range:/ });
@@ -421,23 +437,15 @@ test('stands the field list and the results on one surface, under the workbench 
   await expect(barTitle.getByTestId('page-header-module-icon')).toBeVisible();
   await expect(barTitle.getByRole('heading', { level: 1, name: 'Traces' })).toBeVisible();
   await expect(topbar).toHaveCSS('border-bottom-width', '0px');
-  await expect(sidebar).toHaveCSS('border-right-width', '0px');
+  await expect(page.locator('#main')).toHaveCSS('padding-left', '0px');
   await expect(pagination).toHaveCSS('border-top-width', '0px');
   await expect(syntaxHelp).toHaveCSS('border-width', '0px');
   await expect(timeRange).toHaveCSS('border-width', '0px');
   await expect(activeTab).toHaveAttribute('aria-selected', 'true');
-  // The query-toolbar tabs keep their own 3px underline; the module tab strips
-  // (`ModuleTabs`) are the ones with the 2px gliding indicator.
-  expect(
-    await activeTab.evaluate(
-      (element) => getComputedStyle(element, '::after').height,
-    ),
-  ).toBe('3px');
-  expect(
-    await activeTab.evaluate(
-      (element) => getComputedStyle(element, '::after').backgroundColor,
-    ),
-  ).not.toBe('rgba(0, 0, 0, 0)');
+  // What the explorer lists is one segmented control, as the code/builder switch beside it: the
+  // chosen kind is filled, not underlined. The module tab strips (`ModuleTabs`) keep their indicator.
+  expect(await activeTab.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  expect(await activeTab.evaluate((element) => getComputedStyle(element, '::after').content)).toBe('none');
   // One surface: the list set off from the results by its own line, with no gutter between.
   const [workspaceSize, panelSize, resultsSize] = await Promise.all([boundingBox(workspace), boundingBox(fieldPanel), boundingBox(results)]);
   expect(panelSize.width).toBe(260);

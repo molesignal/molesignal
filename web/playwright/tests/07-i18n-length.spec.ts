@@ -125,9 +125,7 @@ for (const locale of LOCALES) {
         // the same in both languages.
         await expect(page.getByText('Unexpected Application Error!')).toHaveCount(0);
         if (pageDef.signedIn) {
-          await expect(
-            page.getByTestId('primary-sidebar').getByRole('link').first(),
-          ).toBeVisible();
+          await expect(page.getByTestId('main-menu-trigger')).toBeVisible();
         } else {
           await expect(page.getByTestId('signin-card')).toBeVisible();
         }

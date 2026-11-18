@@ -276,7 +276,7 @@ export function PolicyDrawer({
           )}
           {readOnly ? (
             <ReadOnlyField label={t('policies.fields.description')}>
-              <p className="m-0 rounded-md bg-[var(--page-canvas)] px-3 py-2 font-sans text-sm leading-relaxed text-tx-1">
+              <p className="m-0 rounded-md bg-[var(--inset-surface)] px-3 py-2 font-sans text-sm leading-relaxed text-tx-1">
                 {description || '—'}
               </p>
             </ReadOnlyField>

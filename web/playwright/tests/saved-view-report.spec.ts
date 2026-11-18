@@ -98,7 +98,7 @@ test.describe('saved view report', () => {
     });
 
     // None of the application is on the page: no navigation, no top bar, no list to manage.
-    await expect(page.getByTestId('sidebar-toggle')).toHaveCount(0);
+    await expect(page.getByTestId('main-menu-trigger')).toHaveCount(0);
     await expect(page.locator('nav')).toHaveCount(0);
     await expect(page.locator('main#main')).toHaveCount(0);
     await expect(page.getByRole('button')).toHaveCount(0);
@@ -172,7 +172,7 @@ test.describe('saved view report', () => {
   test('is still the list a person manages without the report parameter', async ({ page }) => {
     await page.goto('/saved-views?view=sv1');
 
-    await expect(page.getByTestId('sidebar-toggle')).toBeVisible();
+    await expect(page.getByTestId('main-menu-trigger')).toBeVisible();
     await expect(page.getByRole('button', { name: 'New saved view' })).toBeVisible();
     await expect(page.getByText('Yesterday errors')).toBeVisible();
     await expect(page.locator('html')).not.toHaveAttribute('data-report-document', '');
@@ -190,7 +190,7 @@ test.describe('saved view report', () => {
       'saved view does-not-exist not found',
     );
     await expect(page.getByRole('alert')).toHaveText('saved view does-not-exist not found');
-    await expect(page.getByTestId('sidebar-toggle')).toHaveCount(0);
+    await expect(page.getByTestId('main-menu-trigger')).toHaveCount(0);
     await expect(page.getByRole('table')).toHaveCount(0);
   });
 

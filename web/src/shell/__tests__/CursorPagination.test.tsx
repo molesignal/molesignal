@@ -32,4 +32,25 @@ describe('CursorPagination', () => {
     expect(next).toHaveBeenCalledOnce();
     expect(screen.queryByText(/\d+\s*\/\s*\d+/)).toBeNull();
   });
+
+  it('says a note after the page size, in the same row', () => {
+    render(
+      <CursorPagination
+        pageSize={20}
+        pageSizeOptions={[20, 50]}
+        hasPrevious={false}
+        hasNext={false}
+        ariaLabel="Session pagination"
+        pageSizeAriaLabel="Sessions per page"
+        previousLabel="Previous"
+        nextLabel="Next"
+        onPrevious={vi.fn()}
+        onNext={vi.fn()}
+        onPageSizeChange={vi.fn()}
+        note={<span>IP geolocation by DB-IP</span>}
+      />,
+    );
+
+    expect(screen.getByRole('navigation', { name: 'Session pagination' })).toHaveTextContent('IP geolocation by DB-IP');
+  });
 });

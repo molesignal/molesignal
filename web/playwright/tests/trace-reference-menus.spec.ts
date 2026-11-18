@@ -20,7 +20,7 @@ const field = (name: string, dataType: 'utf8' | 'int64' = 'utf8') => ({
   name,
   dataType: dataType,
   nullable: true,
-  indexed: name === 'trace_id',
+  indexType: name === 'trace_id' ? 'full_text' : 'none',
 });
 
 const TRACE_STREAM = {

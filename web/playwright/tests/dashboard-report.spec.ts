@@ -93,7 +93,7 @@ test.describe('dashboard report', () => {
     await expect(page.getByRole('heading', { level: 3, name: 'Service 8 request rate' })).toBeVisible();
 
     // None of the application is on the page: no navigation, no top bar, no page toolbar.
-    await expect(page.getByTestId('sidebar-toggle')).toHaveCount(0);
+    await expect(page.getByTestId('main-menu-trigger')).toHaveCount(0);
     await expect(page.locator('nav')).toHaveCount(0);
     await expect(page.locator('main#main')).toHaveCount(0);
     for (const name of ['Edit', 'Share', 'Set fullscreen', 'Refresh all panels', 'More actions']) {
@@ -134,7 +134,7 @@ test.describe('dashboard report', () => {
   test('is still the page a person works in without the report parameter', async ({ page }) => {
     await page.goto('/dashboards/d1');
 
-    await expect(page.getByTestId('sidebar-toggle')).toBeVisible();
+    await expect(page.getByTestId('main-menu-trigger')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Open panel menu: Service 1 request rate' })).toHaveCount(1);
     await expect(page.locator('html')).not.toHaveAttribute('data-report-document', '');
@@ -150,6 +150,6 @@ test.describe('dashboard report', () => {
     const reason = await page.locator('html').getAttribute('data-report-render-error');
     expect(reason).toBeTruthy();
     await expect(page.getByRole('alert')).toHaveText(reason ?? '');
-    await expect(page.getByTestId('sidebar-toggle')).toHaveCount(0);
+    await expect(page.getByTestId('main-menu-trigger')).toHaveCount(0);
   });
 });

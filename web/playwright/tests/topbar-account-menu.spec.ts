@@ -9,14 +9,13 @@ test.describe('topbar account menu', () => {
     await page.goto('/account/settings/profile');
 
     await expect(page.getByTestId('command-palette-trigger')).toBeVisible();
-    // The organization stands by the avatar, its light the status of the core API.
-    const org = page.getByTestId('org-status-trigger');
-    await expect(org).toHaveText('acme-prod');
-    await expect(org).toHaveAccessibleName('acme-prod, Core API connected');
-    await expect(org.getByTestId('system-status-indicator')).toHaveAttribute(
-      'data-state',
-      'healthy',
-    );
+    // The organization stands where the brand stood: its mark and its name. The reader's role in
+    // it is told in its menu.
+    const org = page.getByTestId('org-switcher-trigger');
+    await expect(org).toContainText('acme-prod');
+    await expect(org).not.toContainText('Owner');
+    await expect(org).toHaveAccessibleName('Organization: acme-prod');
+    await expect(page.getByTestId('system-status-indicator')).toHaveCount(0);
 
     const userMenuTrigger = page.getByTestId('user-menu-trigger');
     await userMenuTrigger.click();
@@ -55,7 +54,7 @@ test.describe('topbar account menu', () => {
     await expect(page).toHaveURL(/\/account\/settings\/preferences/);
   });
 
-  test('shows a single organization without the arrows that switch', async ({
+  test('shows a single organization with nothing to switch to', async ({
     page,
     mockServer,
   }) => {
@@ -82,51 +81,41 @@ test.describe('topbar account menu', () => {
     });
     await page.goto('/account/settings/profile');
 
-    const org = page.getByTestId('org-status-trigger');
-    await expect(org).toHaveText('acme-prod');
-    await expect(org.locator('svg.lucide-chevrons-up-down')).toHaveCount(0);
+    const org = page.getByTestId('org-switcher-trigger');
+    await expect(org).toContainText('acme-prod');
     await org.click();
 
-    const menu = page.locator("[data-ui='org-status-menu']");
-    await expect(menu.getByText('Current organization', { exact: true })).toBeVisible();
-    await expect(menu.getByRole('menuitemradio')).toHaveCount(1);
-    await expect(menu.getByRole('menuitemradio', { name: /^acme-prod/ })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    const menu = page.locator("[data-ui='org-switcher-menu']");
+    await expect(menu.getByTestId('current-org-role')).toHaveText('Owner');
+    await expect(menu.getByText('Switch to', { exact: true })).toHaveCount(0);
+    await expect(menu.locator("[data-ui='workspace-option']")).toHaveCount(0);
   });
 
-  test('opens on the organizations with the current one marked, the status left to the light', async ({
+  test('opens on the current organization, then the ways to its settings and the others to switch to', async ({
     page,
     mockServer,
   }) => {
     await mountMockRoutes(page, mockServer.port);
     await page.goto('/account/settings/profile');
 
-    const org = page.getByTestId('org-status-trigger');
-    await expect(org.locator('svg.lucide-chevrons-up-down')).toHaveCount(1);
+    const org = page.getByTestId('org-switcher-trigger');
     await org.click();
+    await expect(org).toHaveAttribute('data-state', 'open');
 
-    const menu = page.locator("[data-ui='org-status-menu']");
+    const menu = page.locator("[data-ui='org-switcher-menu']");
     await expect(menu).toBeVisible();
-    // The status is the light and the button's name; the menu does not say it again.
+    // The status light is gone: the menu does not say the API's state either.
     await expect(menu.getByText('Core API connected', { exact: true })).toHaveCount(0);
-    await expect(menu.getByText('Switch organization', { exact: true })).toBeVisible();
-    const current = menu.locator("[data-ui='workspace-option'][data-state='checked']");
-    await expect(current).toContainText('acme-prod');
     await expect(menu.getByTestId('current-org-role')).toHaveText('Owner');
+    // A narrow menu, and roles as pills, the way the member list shows them.
+    expect(await menu.evaluate((element) => Number.parseFloat(getComputedStyle(element).width))).toBe(240);
+    await expect(menu.getByTestId('current-org-role').locator(':scope > span')).toHaveCSS('border-radius', '9999px');
+    await expect(menu.getByText('Switch to', { exact: true })).toBeVisible();
+    // The organization the reader is in heads the menu and is not offered again below.
+    await expect(menu.locator("[data-ui='workspace-option']", { hasText: 'acme-prod' })).toHaveCount(0);
+    await expect(menu.locator("[data-ui='workspace-option']").first()).toBeVisible();
     // Administering organizations is a platform right: an organization's owner is not offered it.
     await expect(menu.getByRole('menuitem', { name: 'Manage organizations…' })).toHaveCount(0);
-    // The organization the reader is in takes the selection fill, a step off the menu.
-    await expect
-      .poll(async () => {
-        const [optionFill, menuFill] = await Promise.all([
-          current.evaluate((element) => getComputedStyle(element).backgroundColor),
-          menu.evaluate((element) => getComputedStyle(element).backgroundColor),
-        ]);
-        return optionFill !== menuFill && optionFill !== 'rgba(0, 0, 0, 0)';
-      })
-      .toBe(true);
   });
 
   test('offers the way to the organizations to whoever may administer them', async ({
@@ -142,8 +131,8 @@ test.describe('topbar account menu', () => {
     });
     await page.goto('/home');
 
-    await page.getByTestId('org-status-trigger').click();
-    const menu = page.locator("[data-ui='org-status-menu']");
+    await page.getByTestId('org-switcher-trigger').click();
+    const menu = page.locator("[data-ui='org-switcher-menu']");
     await menu.getByRole('menuitem', { name: 'Manage organizations…' }).click();
 
     await expect(page).toHaveURL(/\/iam\/organizations(?:[?#]|$)/);
@@ -184,11 +173,11 @@ test.describe('topbar account menu', () => {
     });
     await page.goto('/home');
 
-    const org = page.getByTestId('org-status-trigger');
-    await expect(org).toHaveText('_sys');
+    const org = page.getByTestId('org-switcher-trigger');
+    await expect(org).toContainText('_sys');
     await org.click();
     await expect(page.getByTestId('current-org-role')).toHaveText('Owner');
-    await page.getByRole('menuitemradio', { name: /^default/ }).click();
+    await page.getByRole('menuitem', { name: /default/ }).click();
 
     await expect(page).toHaveURL(/\/home(?:[?#]|$)/);
     await expect(page.getByRole('link', { name: 'License' })).toHaveCount(0);
@@ -213,6 +202,28 @@ test('draws the avatar as a 28px disc inside the 32px topbar target', async ({
   // Centred in its target.
   expect(Math.abs(disc.x + disc.width / 2 - (target.x + target.width / 2))).toBeLessThanOrEqual(0.5);
   expect(Math.abs(disc.y + disc.height / 2 - (target.y + target.height / 2))).toBeLessThanOrEqual(0.5);
+});
+
+test('names the organization as the product was named, beside a bare mark', async ({ page, mockServer }) => {
+  await mountMockRoutes(page, mockServer.port);
+  await page.goto('/home');
+
+  const org = page.getByTestId('org-switcher-trigger');
+  const name = org.getByText('acme-prod', { exact: true });
+  const markSlot = org.locator(':scope > :first-child');
+  const titleWeight = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--fw-display-strong').trim(),
+  );
+
+  // The type the MoleSignal name had in this place: 14px at the title weight, drawn a little tight.
+  await expect(name).toHaveCSS('font-size', '14px');
+  await expect(name).toHaveCSS('font-weight', titleWeight);
+  await expect(name).toHaveCSS('letter-spacing', '-0.28px');
+  // The mark stands on no tile, at the size it had beside that name.
+  const mark = (await markSlot.boundingBox())!;
+  expect(mark.width).toBe(24);
+  expect(mark.height).toBe(24);
+  await expect(markSlot).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
 
 test.describe('language in the user menu', () => {

@@ -107,7 +107,6 @@ test('sign-in page has no development bypass and uses authenticated sign-in', as
         branch: 'test',
         buildEpochSecs: 1_785_087_406,
         buildId: 'playwright-smoke',
-        releaseChannel: 'alpha',
         edition: 'community',
       },
     }),

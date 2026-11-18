@@ -119,6 +119,7 @@ export async function installMockShellSession(
     'alerts.importance.manage',
     'alerts.incidents.rca',
     'alerts.remediation.manage',
+    'alerts.remediation.preapprove',
     'alerts.response.manage',
     'alerts.semantic_groups.manage',
     'alerts.sources.manage',
@@ -216,6 +217,10 @@ export async function installMockShellSession(
       },
     }),
   );
+  await page.route('**/api/v1/version/updates?*', (route) => route.fulfill({
+    json: { currentVersion: '26.0.0.0', latestVersion: '26.0.0.0', releaseUrl: null,
+      updateAvailable: false, checkedAt: 1_785_087_406_000_000, status: 'ok' },
+  }));
   await page.route('**/api/v1/version', (route) =>
     route.fulfill({
       json: {
@@ -224,7 +229,6 @@ export async function installMockShellSession(
         branch: 'test',
         buildEpochSecs: 1_785_087_406,
         buildId: 'playwright-session',
-        releaseChannel: 'alpha',
         edition: 'community',
       },
     }),

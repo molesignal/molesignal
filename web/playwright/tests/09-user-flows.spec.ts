@@ -253,12 +253,6 @@ test.describe('Connect a data source', () => {
     });
   });
 
-  test('legacy plural datasource route redirects to the datasource catalog', async ({ page }) => {
-    await page.goto('/datasources?time=now-24h..now');
-
-    await expect(page).toHaveURL(/\/datasource\/[^/]+\/[^/]+/, { timeout: 10_000 });
-  });
-
   const datasourceCases = [
       {
         route: '/datasource/custom/curl?signal=logs&stream=app_logs',

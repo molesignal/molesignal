@@ -64,13 +64,11 @@ for (const combo of COMBINATIONS) {
         preferences: { theme: combo.theme, density: combo.density },
       });
     // Wait until the saved look is on the page, and the shell has its
-    // navigation, before sampling pixels.
+    // menu, before sampling pixels.
     const settled = async (page: Page) => {
       await expect(page.locator('html')).toHaveAttribute('data-theme', combo.theme);
       await expect(page.locator('html')).toHaveAttribute('data-density', combo.density);
-      await expect(
-        page.getByTestId('primary-sidebar').getByRole('link').first(),
-      ).toBeVisible();
+      await expect(page.getByTestId('main-menu-trigger')).toBeVisible();
     };
 
     test('sign-in page', async ({ page, mockServer }) => {

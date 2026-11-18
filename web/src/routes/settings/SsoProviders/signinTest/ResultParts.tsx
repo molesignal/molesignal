@@ -52,7 +52,7 @@ function FailureDetail({ detail }: { detail: string }) {
   };
 
   return (
-    <div className="mt-3 flex min-w-0 items-start gap-2 rounded-md bg-[var(--page-canvas)] py-1 pl-3 pr-1">
+    <div className="mt-3 flex min-w-0 items-start gap-2 rounded-md bg-[var(--inset-surface)] py-1 pl-3 pr-1">
       <code
         data-testid="sso-test-detail"
         className="min-w-0 flex-1 whitespace-pre-wrap py-1 font-mono text-xs leading-relaxed text-tx-1 [overflow-wrap:anywhere]"

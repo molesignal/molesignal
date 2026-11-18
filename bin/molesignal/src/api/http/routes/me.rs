@@ -14,18 +14,16 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id};
 use object_store::{ObjectStoreExt, PutPayload, path::Path as ObjPath};
+use postgres::repositories::user_preferences::UserPreferences;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::user_preferences::UserPreferences,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 mod ui_preference;
+mod workspace_profile;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -40,6 +38,7 @@ pub fn routes() -> Router<AppState> {
             get(get_workspace_preferences).put(update_workspace_preferences),
         )
         .merge(ui_preference::routes())
+        .merge(workspace_profile::routes())
 }
 
 /// 公开端点（auth 白名单，顶层 merge）：`<img src>` 渲染头像时不会带 Bearer，
@@ -259,8 +258,8 @@ fn is_valid_timezone(tz: &str) -> bool {
 
 impl MeProfileResp {
     fn from_parts(
-        user: crate::domain::iam::User,
-        org: crate::domain::iam::Organization,
+        user: domain::iam::User,
+        org: domain::iam::Organization,
         display_role: String,
     ) -> Self {
         Self {

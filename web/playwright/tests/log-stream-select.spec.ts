@@ -13,8 +13,8 @@ const logStream = (name: string) => ({
   streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
-      { name: 'level', dataType: 'utf8', nullable: true, indexed: false },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexType: 'skip' },
+      { name: 'level', dataType: 'utf8', nullable: true, indexType: 'none' },
     ],
   },
   retention: { days: 7 },

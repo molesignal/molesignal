@@ -34,7 +34,7 @@ export function TableExportButton<T>({
   name: string;
   columns: readonly DataTableColumn<T>[];
   rows: readonly T[];
-  /** `md` beside the page's other head buttons. */
+  /** `md` beside 32px controls (a row of filters); a title row's buttons are `sm`. */
   size?: 'sm' | 'md' | undefined;
   className?: string | undefined;
 }) {

@@ -34,11 +34,11 @@ const field = (name: string, dataType = 'utf8') => ({
   name,
   dataType: dataType,
   nullable: name !== '_timestamp',
-  indexed: false,
+  indexType: 'none',
 });
 
 /** A field the stream keeps an index of: the field list of an explorer sets those apart. */
-const indexed = (name: string, dataType = 'utf8') => ({ ...field(name, dataType), indexed: true });
+const indexed = (name: string, dataType = 'utf8') => ({ ...field(name, dataType), indexType: 'full_text' });
 
 const stream = (
   id: string,

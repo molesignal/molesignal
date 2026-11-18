@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen, type LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -19,15 +19,11 @@ import {
   SurfacePageHeader,
 } from '@/shell/SurfaceWorkbench';
 import { ViewCountsUnknownContext } from '@/shell/tabs/ViewTabs';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/shell/ui/tooltip';
 import { useSubnavStore } from '@/stores/useSubnavStore';
 
 import type { ProductBreadcrumbItem } from './ia';
 import { listContent } from './listContent';
+import { SectionsAside, SectionsExpand } from './SectionsAside';
 import { ProductState, type ProductStateProps } from './states';
 
 interface ProductPageFrameProps {
@@ -36,7 +32,7 @@ interface ProductPageFrameProps {
   toolbar?: React.ReactNode | undefined;
   breadcrumbs?: readonly ProductBreadcrumbItem[] | null | undefined;
   backTo?: string | null | undefined;
-  /** Optional sub-nav rendered between the header and the body (e.g. AlertsSubNav). */
+  /** Optional row of tabs between the header and the body (a module's `ModuleTabs`). */
   subnav?: React.ReactNode | undefined;
   children?: React.ReactNode | undefined;
   className?: string | undefined;
@@ -54,6 +50,10 @@ interface OverviewPageProps extends ProductPageFrameProps {
 }
 
 interface ListPageProps extends ProductPageFrameProps {
+  /** The module's pages in a menu beside the list, grouped, instead of a row of tabs over it (Alerts). */
+  sections?: React.ReactNode | undefined;
+  /** How the menu folds away for a wide page, held by the page as Access holds its own. */
+  sectionNavigation?: SectionNavigation | undefined;
   kpis?: readonly KpiStripItem[] | undefined;
   kpiLayout?: KpiStripLayout | undefined;
   kpiClassName?: string | undefined;
@@ -105,13 +105,14 @@ interface ManagementPageProps extends ProductPageFrameProps {
    */
   menuOwnsCollapse?: boolean | undefined;
   state?: ProductStateProps | null | undefined;
-  sectionNavigation?:
-    | {
-        collapsed: boolean;
-        onExpand: () => void;
-        expandLabel: string;
-      }
-    | undefined;
+  sectionNavigation?: SectionNavigation | undefined;
+}
+
+/** A menu of sections the page folds away itself: folded, it leaves no strip beside the content. */
+interface SectionNavigation {
+  collapsed: boolean;
+  onExpand: () => void;
+  expandLabel: string;
 }
 
 interface GatePageProps extends Omit<ProductPageFrameProps, 'children'> {
@@ -136,6 +137,8 @@ function unknownFigure(item: KpiStripItem): KpiStripItem {
 }
 
 export function ListPage({
+  sections,
+  sectionNavigation,
   kpis,
   kpiLayout,
   kpiClassName,
@@ -156,16 +159,10 @@ export function ListPage({
   const headed = surface && contentSurface && Boolean(listHead);
   const figuresUnknown = requestedState?.variant === 'loading' || requestedState?.variant === 'error';
   const { state, children } = listContent(requestedState, list);
-  return (
-    <ViewCountsUnknownContext.Provider value={figuresUnknown}>
-    <ProductPageFrame
-      {...frame}
-      appearance={appearance}
-      bodyClassName={cn(
-        surface ? 'space-y-[12px]' : 'space-y-4',
-        bodyClassName,
-      )}
-    >
+  const stack = surface ? 'space-y-[12px]' : 'space-y-4';
+  const folded = Boolean(sections && sectionNavigation?.collapsed);
+  const body = (
+    <>
       <KpiStrip
         items={figuresUnknown ? kpis?.map(unknownFigure) : kpis}
         layout={kpiLayout}
@@ -238,7 +235,54 @@ export function ListPage({
       ) : (
         children
       )}
-    </ProductPageFrame>
+    </>
+  );
+
+  return (
+    <ViewCountsUnknownContext.Provider value={figuresUnknown}>
+      <ProductPageFrame
+        {...frame}
+        appearance={appearance}
+        bodyClassName={cn(
+          sections
+            ? cn(
+                'grid items-start',
+                surface ? 'gap-[12px]' : 'gap-6',
+                folded ? 'lg:grid-cols-1' : 'lg:grid-cols-[var(--subsidebar-w)_minmax(0,1fr)]',
+              )
+            : stack,
+          bodyClassName,
+        )}
+      >
+        {sections ? (
+          <>
+            <SectionsAside
+              sections={sections}
+              appearance={appearance}
+              {...(sectionNavigation
+                ? {
+                    folding: {
+                      collapsed: sectionNavigation.collapsed,
+                      fullyHidden: true,
+                      ownsCollapse: true,
+                      onToggle: sectionNavigation.onExpand,
+                      expandLabel: sectionNavigation.expandLabel,
+                      collapseLabel: sectionNavigation.expandLabel,
+                    },
+                  }
+                : {})}
+            />
+            <div className="relative min-w-0">
+              {folded && sectionNavigation && (
+                <SectionsExpand label={sectionNavigation.expandLabel} onExpand={sectionNavigation.onExpand} />
+              )}
+              <div className={stack}>{body}</div>
+            </div>
+          </>
+        ) : (
+          body
+        )}
+      </ProductPageFrame>
     </ViewCountsUnknownContext.Provider>
   );
 }
@@ -348,58 +392,20 @@ export function ManagementPage({
         bodyClassName,
       )}
     >
-      {sections &&
-        (collapsed && !fullyHidden ? (
-          // Collapsed: a thin strip with just an expand affordance.
-          <aside>
-            <button
-              type="button"
-              onClick={toggle}
-              aria-label={expandLabel}
-              title={expandLabel}
-              className={cn(
-                'sticky top-6 hidden h-9 w-9 place-items-center rounded-md text-tx-2 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 lg:grid',
-                appearance === 'surface'
-                  ? 'border-0 bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]'
-                  : 'border border-bd-0 bg-bg-1',
-              )}
-            >
-              <PanelLeftOpen className="h-4 w-4" />
-            </button>
-            <div className="lg:hidden">{sections}</div>
-          </aside>
-        ) : (
-          <aside
-            className={cn(
-              'relative min-w-0',
-              collapsed && fullyHidden && 'lg:hidden',
-            )}
-          >
-            {!fullyHidden && !menuOwnsCollapse && (
-              <button
-                type="button"
-                onClick={toggle}
-                aria-label={t('subnav.collapse', {
-                  defaultValue: 'Collapse menu',
-                })}
-                title={t('subnav.collapse', {
-                  defaultValue: 'Collapse menu',
-                })}
-                className="absolute right-2 top-2 z-10 hidden h-8 w-8 place-items-center rounded-md text-tx-3 hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 lg:grid"
-              >
-                <PanelLeftClose className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <div
-              className={cn(
-                appearance === 'surface' &&
-                  'rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]',
-              )}
-            >
-              {sections}
-            </div>
-          </aside>
-        ))}
+      {sections && (
+        <SectionsAside
+          sections={sections}
+          appearance={appearance}
+          folding={{
+            collapsed,
+            fullyHidden,
+            ownsCollapse: menuOwnsCollapse,
+            onToggle: toggle,
+            expandLabel,
+            collapseLabel: t('subnav.collapse', { defaultValue: 'Collapse menu' }),
+          }}
+        />
+      )}
       <div
         data-management-content
         data-management-appearance={appearance}
@@ -410,23 +416,7 @@ export function ManagementPage({
             'rounded-md bg-[var(--functional-surface)] [box-shadow:var(--shadow-functional-surface)]',
         )}
       >
-        {collapsed && fullyHidden && (
-          <div className="absolute -left-5 top-0 z-10 hidden h-full lg:block">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={toggle}
-                  aria-label={expandLabel}
-                  className="sticky top-6 grid h-8 w-8 place-items-center rounded-md bg-bg-0 text-tx-3 opacity-50 transition-colors hover:bg-bg-2 hover:text-tx-0 hover:opacity-100 focus-visible:bg-bg-2 focus-visible:text-tx-0 focus-visible:opacity-100"
-                >
-                  <PanelLeftOpen className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">{expandLabel}</TooltipContent>
-            </Tooltip>
-          </div>
-        )}
+        {collapsed && fullyHidden && <SectionsExpand label={expandLabel} onExpand={toggle} />}
         {state ? <ProductState {...state} /> : children}
       </div>
     </ProductPageFrame>

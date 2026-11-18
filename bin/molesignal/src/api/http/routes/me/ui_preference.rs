@@ -15,15 +15,16 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use domain::iam::IamContext;
+use kernel::{Error, Result};
+use postgres::repositories::user_ui_preference::UiPreferenceKey;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    infra::persistence::repositories::user_ui_preference::UiPreferenceKey,
-    shared::{Error, Result},
-};
+use crate::api::AppState;
+
+mod navigation;
+mod workbench;
 
 /// The longest a key is: a stream's name, a dashboard's id.
 const MAX_KEY_CHARS: usize = 255;
@@ -86,6 +87,11 @@ enum Scope {
     NotificationsRead,
     /// The views of the RUM explorer one keeps to come back to. One key, `explorer`.
     RumSavedViews,
+    /// The places one opened lately, the latest first, for the workbench. One key, `visits`.
+    WorkbenchRecent,
+    /// The main menu: the areas one opened lately and whether entries open in a new tab. One
+    /// key, `menu`.
+    MainMenu,
 }
 
 impl Scope {
@@ -101,6 +107,8 @@ impl Scope {
             "apm.favorites" => Ok(Self::ApmFavorites),
             "notifications.read" => Ok(Self::NotificationsRead),
             "rum.saved_views" => Ok(Self::RumSavedViews),
+            "workbench.recent" => Ok(Self::WorkbenchRecent),
+            "navigation.menu" => Ok(Self::MainMenu),
             _ => Err(Error::invalid(format!(
                 "unknown interface preference: {raw}"
             ))),
@@ -119,6 +127,8 @@ impl Scope {
             Self::ApmFavorites => "apm.favorites",
             Self::NotificationsRead => "notifications.read",
             Self::RumSavedViews => "rum.saved_views",
+            Self::WorkbenchRecent => "workbench.recent",
+            Self::MainMenu => "navigation.menu",
         }
     }
 
@@ -135,6 +145,8 @@ impl Scope {
             Self::ApmFavorites => validate_apm_favorites(value),
             Self::NotificationsRead => validate_notifications_read(value),
             Self::RumSavedViews => validate_rum_saved_views(value),
+            Self::WorkbenchRecent => workbench::validate_recent_visits(value),
+            Self::MainMenu => navigation::validate_main_menu(value),
         }
     }
 }

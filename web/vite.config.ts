@@ -32,10 +32,6 @@ export default defineConfig({
         target: 'http://localhost:5080',
         changeOrigin: false,
       },
-      '/docs/inbound-mcp': {
-        target: 'http://localhost:5080',
-        changeOrigin: false,
-      },
       '^/api/v1/(mcp|oauth)': {
         target: 'http://localhost:5080',
         changeOrigin: false,

@@ -2,398 +2,236 @@ import type { Page } from '@playwright/test';
 
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
-const DAY_MICROS = 86_400_000_000;
-
-const EMPTY_OVERVIEW = {
-  generatedAt: 200,
-  window: { startTime: 100, endTime: 200, windowSecs: 100 },
-  intakeStatus: 'no_data',
-  probeReason: null,
-  intakeBytes: 0,
-  storedBytes: 0,
-  rows: 0,
-  compressionSavingsRatio: null,
-  activeStreams: 0,
-  totalStreams: 0,
-  attentionStreams: 0,
-  lastReceivedAt: null,
-  statsProbe: { succeeded: 1, total: 1 },
-  buckets: [],
-  signals: [],
-  streams: [],
-};
-
-/** Two streams that stopped sending six days ago: the "everything is quiet" state. */
-function staleFleet() {
-  const now = Date.now() * 1000;
-  const lastReceived = now - 6 * DAY_MICROS;
-  const streams = [
-    { id: 'logs-1', name: 'app_logs', streamType: 'logs' },
-    { id: 'metrics-1', name: 'http_requests_total', streamType: 'metrics' },
-  ];
+/** An incident as the list answers it; only what the workbench reads is filled in. */
+function incident(id: string, fields: Record<string, unknown>) {
   return {
-    overview: {
-      ...EMPTY_OVERVIEW,
-      generatedAt: now,
-      window: {
-        startTime: now - DAY_MICROS,
-        endTime: now,
-        windowSecs: 86_400,
-      },
-      totalStreams: streams.length,
-      attentionStreams: streams.length,
-      lastReceivedAt: lastReceived,
-      streams: streams.map((stream) => ({
-        ...stream,
-        status: 'degraded',
-        rows: 0,
-        storedBytes: 0,
-        firstReceivedAt: lastReceived - DAY_MICROS,
-        lastReceivedAt: lastReceived,
-      })),
-    },
-    runtime: {
-      generatedAt: now,
-      windowStart: now - DAY_MICROS,
-      windowEnd: now,
-      windowSecs: 86_400,
-      streams: streams.map((stream) => ({
-        ...stream,
-        status: 'interrupted',
-        rows: 0,
-        storedBytes: 0,
-        currentStoredBytes: 0,
-        firstReceivedAt: lastReceived - DAY_MICROS,
-        lastReceivedAt: lastReceived,
-        statsAvailable: true,
-        buckets: [],
-      })),
-    },
+    id,
+    orgId: 'org-1',
+    ruleId: 'rule-1',
+    status: 'open',
+    severity: 'error',
+    summary: id,
+    assignees: [],
+    affectedServices: ['checkout'],
+    traceIds: [],
+    hostIds: [],
+    labels: {},
+    createdAt: Date.now() * 1000 - 10 * 60_000_000,
+    updatedAt: Date.now() * 1000,
+    ...fields,
   };
 }
 
-/** `count` recent audit events, newest first. */
-function auditEvents(count: number) {
-  const now = Date.now() * 1000;
-  return Array.from({ length: count }, (_, index) => ({
-    id: `event-${index}`,
-    orgId: 'org-1',
-    actorKind: 'user',
-    actorId: 'user-1',
-    action: 'agent.tool.called',
-    targetKind: 'chat',
-    targetId: `chat-${index}`,
-    payload: {},
-    ts: now - index * 60_000_000,
-  }));
-}
-
-async function mockHome(
-  page: Page,
-  { overview, runtime }: { overview: unknown; runtime: unknown },
-  { audit = 0 }: { audit?: number } = {},
-) {
-  await page.route('**/api/v1/home/overview**', (route) =>
-    route.fulfill({ json: overview }),
-  );
-  await page.route('**/api/v1/streams/runtime**', (route) =>
-    route.fulfill({ json: runtime }),
-  );
-  await page.route('**/api/v1/audit**', (route) =>
-    route.fulfill({ json: { items: auditEvents(audit), nextCursor: null } }),
+async function mockIncidents(page: Page, incidents: unknown[]) {
+  await page.route(/\/api\/v1\/alerts\/incidents(\?.*)?$/, (route) =>
+    route.request().method() === 'GET' ? route.fulfill({ json: incidents }) : route.fallback(),
   );
 }
 
-test.describe('Home surface hierarchy', () => {
+test.describe('Workbench', () => {
   test.beforeEach(async ({ page, mockServer }) => {
     await mountMockRoutes(page, mockServer.port);
   });
 
-  test('uses canvas gutters and functional-surface depth', async ({ page }) => {
-    await mockHome(page, {
-      overview: EMPTY_OVERVIEW,
-      runtime: {
-        generatedAt: 200,
-        windowStart: 100,
-        windowEnd: 200,
-        windowSecs: 100,
-        streams: [],
-      },
-    });
+  test('lays its cards on the canvas without frames: corners and shadows, 16px apart', async ({ page }) => {
     await page.goto('/home');
 
+    await expect(page.getByTestId('workbench')).toBeVisible();
     await expect(page.locator('[data-page-appearance="surface"]')).toBeVisible();
-
-    const header = page.getByTestId('page-header');
-    const headerAppearance = await header.evaluate((element) => {
-      const styles = getComputedStyle(element);
-      return {
-        borderBottom: styles.borderBottomWidth,
-        background: styles.backgroundColor,
-      };
-    });
-    expect(headerAppearance.borderBottom).toBe('0px');
-
-    // Bands (verdict, workspace, footer) sit 24px apart; cards inside a band sit 16px apart.
-    const canvas = page.getByTestId('home-operations-canvas');
-    await expect(canvas).not.toHaveClass(/border|divide/);
-    expect(await canvas.evaluate((element) => getComputedStyle(element).rowGap)).toBe('24px');
-
-    const hero = page.locator('[data-home-surface="hero"]');
-    const metrics = page.locator('[data-home-surface="kpi"]');
-    await expect(hero).toHaveCount(1);
-    await expect(metrics).toHaveCount(3);
-    for (const card of [hero, ...(await metrics.all())]) {
-      const appearance = await card.evaluate((element) => {
-        const styles = getComputedStyle(element);
-        return {
-          borderTop: styles.borderTopWidth,
-          borderRight: styles.borderRightWidth,
-          borderBottom: styles.borderBottomWidth,
-          borderLeft: styles.borderLeftWidth,
-          radius: styles.borderRadius,
-          shadow: styles.boxShadow,
-        };
-      });
-      expect([
-        appearance.borderTop,
-        appearance.borderRight,
-        appearance.borderBottom,
-        appearance.borderLeft,
-      ]).toEqual(['0px', '0px', '0px', '0px']);
-      expect(appearance.radius).not.toBe('0px');
-      expect(appearance.shadow).not.toBe('none');
+    await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
+    for (const card of ['workbench-recent', 'workbench-resources', 'workbench-todos']) {
+      await expect(page.getByTestId(card)).toBeVisible();
     }
 
-    const surfaceGrids = page.locator('[data-home-surface-grid]');
-    await expect(surfaceGrids).toHaveCount(1);
-    const gridAppearance = await surfaceGrids.first().evaluate((element) => {
-      const styles = getComputedStyle(element);
-      return {
-        rowGap: styles.rowGap,
-        columnGap: styles.columnGap,
-        borderTop: styles.borderTopWidth,
-      };
-    });
-    expect(gridAppearance.rowGap).toBe('16px');
-    expect(gridAppearance.columnGap).toBe('16px');
-    expect(gridAppearance.borderTop).toBe('0px');
+    const grid = page.getByTestId('workbench');
+    expect(await grid.evaluate((element) => getComputedStyle(element).columnGap)).toBe('16px');
 
     const sections = page.locator('[data-home-surface="section"]');
-    await expect(sections).toHaveCount(4);
     for (const section of await sections.all()) {
       const appearance = await section.evaluate((element) => {
         const styles = getComputedStyle(element);
         return {
-          borderTop: styles.borderTopWidth,
-          borderLeft: styles.borderLeftWidth,
-          radius: styles.borderRadius,
-        };
-      });
-      expect(appearance.borderTop).toBe('0px');
-      expect(appearance.borderLeft).toBe('0px');
-      expect(appearance.radius).not.toBe('0px');
-    }
-
-    const operationalContext = page.getByTestId('home-primary-operational-context');
-    const contextAppearance = await operationalContext
-      .locator(':scope > div')
-      .evaluate((element) => {
-        const styles = getComputedStyle(element);
-        return {
-          borderLeft: styles.borderLeftWidth,
+          borders: [styles.borderTopWidth, styles.borderRightWidth, styles.borderBottomWidth, styles.borderLeftWidth],
           radius: styles.borderRadius,
           shadow: styles.boxShadow,
         };
       });
-    expect(contextAppearance.borderLeft).toBe('0px');
-    expect(contextAppearance.radius).not.toBe('0px');
-    expect(contextAppearance.shadow).not.toBe('none');
+      expect(appearance.borders).toEqual(['0px', '0px', '0px', '0px']);
+      expect(appearance.radius).not.toBe('0px');
+      expect(appearance.shadow).not.toBe('none');
+    }
   });
 
-  test('leads with one verdict and its next step, then the evidence', async ({
-    page,
-  }) => {
-    // A wide screen: the verdict strip should be a single short row there.
-    await page.setViewportSize({ width: 1920, height: 1080 });
-    await mockHome(page, staleFleet());
-    await page.goto('/home');
-
-    const hero = page.locator('[data-home-surface="hero"]');
-    await expect(hero).toHaveAttribute('data-verdict', 'stale');
-    await expect(hero.getByRole('heading', { name: 'Data is stale' })).toBeVisible();
-    await expect(
-      hero.getByText('All 2 streams have had no data for over 24 hours.'),
-    ).toBeVisible();
-    await expect(hero.getByRole('button', { name: 'Check data intake' })).toBeVisible();
-
-    // A strip, not a banner: the verdict takes a glance, so it stays short.
-    const heroBox = await hero.boundingBox();
-    expect(heroBox).not.toBeNull();
-    expect(heroBox!.height).toBeLessThanOrEqual(125);
-    const metricBoxes = await Promise.all(
-      (await page.locator('[data-home-surface="kpi"]').all()).map((card) => card.boundingBox()),
-    );
-    for (const box of metricBoxes) expect(box!.height).toBeLessThanOrEqual(125);
-
-    // Reading order: verdict, then the workspace that backs it up.
-    const workspaceBox = await page
-      .locator('[data-home-surface-grid]')
-      .first()
-      .boundingBox();
-    expect(heroBox).not.toBeNull();
-    expect(workspaceBox).not.toBeNull();
-    expect(heroBox!.y + heroBox!.height).toBeLessThanOrEqual(workspaceBox!.y);
-
-    // The one primary action on the page is the verdict's; "New" is a quiet button.
-    const heroCta = await hero
-      .getByRole('button', { name: 'Check data intake' })
-      .evaluate((element) => getComputedStyle(element).backgroundColor);
-    const newButton = await page
-      .getByRole('button', { name: 'New' })
-      .first()
-      .evaluate((element) => getComputedStyle(element).backgroundColor);
-    expect(heroCta).not.toBe(newButton);
-  });
-
-  // One test for each layout: a page load apiece, so no case waits on the
-  // time the others took.
   for (const viewport of [
     { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
     { width: 1280, height: 800 },
   ]) {
-    // Few, some and more events than the card has room for: the columns line
-    // up whatever the activity list (and the on-call card above it) holds.
-    for (const audit of [0, 3, 8]) {
-      const label = `${viewport.width}px with ${audit} events`;
+    test(`ends both columns on one line and shows whole rows only at ${viewport.width}px`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.setViewportSize(viewport);
+      await page.goto('/home');
+      await expect(page.getByTestId('workbench-resources').locator('tbody tr').first()).toBeVisible();
 
-      test(`ends both workspace columns on the same line at ${label}`, async ({ page }) => {
-        // No entrance animation, so nothing is mid-transform when the boxes are measured.
-        await page.emulateMedia({ reducedMotion: 'reduce' });
-        await page.setViewportSize(viewport);
-        await mockHome(page, staleFleet(), { audit });
-        await page.goto('/home');
-        await expect(page.locator('[data-home-surface="hero"]')).toBeVisible();
-        await expect(page.getByTestId('home-primary-operational-context')).toBeVisible();
+      const bottoms = await page.locator('.wb-grid > .wb-column').evaluateAll((columns) =>
+        columns.map((column) => column.lastElementChild!.getBoundingClientRect().bottom),
+      );
+      expect(bottoms).toHaveLength(2);
+      expect(Math.abs(bottoms[0]! - bottoms[1]!)).toBeLessThan(1);
 
-        const columns = await page
-          .locator('[data-home-surface-grid] > *')
-          .evaluateAll((elements) =>
-            elements.map((element) => {
-              const column = element.getBoundingClientRect();
-              const last = element.lastElementChild?.getBoundingClientRect();
-              return { bottom: column.bottom, lastBottom: last?.bottom ?? column.bottom };
-            }),
-          );
-        expect(columns).toHaveLength(2);
-        expect(Math.abs(columns[0]!.bottom - columns[1]!.bottom)).toBeLessThan(1);
-        // The cards themselves reach the shared edge, not just their wrappers.
-        expect(Math.abs(columns[0]!.lastBottom - columns[1]!.lastBottom)).toBeLessThan(1);
-
-        // Only whole rows are shown: none is cut by the edge of its card.
-        const cut = await page.evaluate(() => {
-          const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-fit-row]'));
-          return rows
-            .filter((row) => getComputedStyle(row).visibility !== 'hidden')
-            .filter((row) => {
-              const edge = row.closest('section')!.getBoundingClientRect().bottom;
-              return row.getBoundingClientRect().bottom > edge + 0.5;
-            }).length;
-        });
-        expect(cut).toBe(0);
+      // The resources list as many rows as fit: none is cut by the edge of its card.
+      const cut = await page.getByTestId('workbench-resources').evaluate((card) => {
+        const edge = card.getBoundingClientRect().bottom;
+        return Array.from(card.querySelectorAll('tbody tr')).filter(
+          (row) => row.getBoundingClientRect().bottom > edge + 0.5,
+        ).length;
       });
-    }
+      expect(cut).toBe(0);
+    });
   }
 
-  test('opens a stream from a real link and draws a single scrollbar', async ({
-    page,
-  }) => {
-    await mockHome(page, staleFleet());
+  test('lists what waits on the reader, the worst first, and acknowledges from the list', async ({ page }) => {
+    await mockIncidents(page, [
+      incident('inc-warn', { severity: 'warning', summary: 'Dashboard is logging errors' }),
+      incident('inc-error', { severity: 'error', summary: 'Checkout p95 is three times its usual' }),
+      incident('inc-theirs', { summary: 'Someone else holds this', assignees: ['someone-else'] }),
+    ]);
+    const acknowledged: string[] = [];
+    await page.route('**/api/v1/alerts/incidents/*/ack', (route) => {
+      acknowledged.push(new URL(route.request().url()).pathname);
+      return route.fulfill({ status: 204 });
+    });
     await page.goto('/home');
 
-    const link = page.getByRole('link', { name: 'app_logs' });
-    await expect(link).toHaveAttribute('href', '/logs?stream=app_logs');
+    const incidents = page.getByTestId('workbench-todos').locator('[data-todo="incident"]');
+    await expect(incidents).toHaveCount(2);
+    await expect(incidents.nth(0)).toContainText('Checkout p95 is three times its usual');
+    await expect(incidents.nth(1)).toContainText('Dashboard is logging errors');
 
-    // Identical conditions collapse to quiet text instead of a column of pills.
-    const statusCell = page.locator('tbody tr').first().locator('td').nth(2);
-    await expect(statusCell).toHaveText('Stale');
-
-    // Rows are sized to fit, so the table never gains its own vertical scrollbar.
-    const metrics = await page
-      .getByTestId('home-top-streams-viewport')
-      .locator(':scope > div')
-      .evaluate((element) => ({
-        overflowY: getComputedStyle(element).overflowY,
-        overflow: element.scrollHeight - element.clientHeight,
-      }));
-    expect(metrics.overflowY).toBe('hidden');
-    expect(metrics.overflow).toBeLessThanOrEqual(0);
+    await incidents.nth(0).getByRole('button', { name: 'Acknowledge' }).click();
+    await expect.poll(() => acknowledged).toEqual(['/api/v1/alerts/incidents/inc-error/ack']);
   });
 
-  test('degrades instead of crashing when the backend answers with empty bodies', async ({
-    page,
-  }) => {
-    // The default mock answers the home and runtime endpoints with `{}`.
-    const pageErrors: string[] = [];
-    page.on('pageerror', (error) => pageErrors.push(error.message));
+  test('names a critical incident nobody answered above the workbench, and only that', async ({ page }) => {
+    await mockIncidents(page, [
+      incident('inc-critical', { severity: 'critical', summary: 'Public API answers 502' }),
+      incident('inc-held', { severity: 'critical', status: 'acknowledged', summary: 'Already in hand' }),
+      incident('inc-error', { summary: 'Checkout is slow' }),
+    ]);
     await page.goto('/home');
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
-    await expect(page.locator('[data-home-surface="hero"]')).toBeVisible();
+    const banner = page.getByText('Critical · 1 firing');
+    await expect(banner).toBeVisible();
+    await expect(page.getByText('Already in hand')).toHaveCount(0);
+  });
+
+  test('says which scope it shows when the one chosen has nothing in it', async ({ page }) => {
+    // Dashboards someone else made: nothing in them is the reader's own.
+    await page.route('**/api/v1/dashboards', (route) =>
+      route.fulfill({
+        json: ['Checkout overview', 'Payments SLO'].map((title, index) => ({
+          id: `dash-${index}`,
+          orgId: 'org-1',
+          uid: `dash-${index}`,
+          title,
+          tags: [],
+          model: {},
+          version: 1,
+          createdAt: 1,
+          updatedAt: Date.now() * 1000,
+          createdBy: 'someone-else',
+        })),
+      }),
+    );
+    await page.goto('/home');
+
+    const resources = page.getByTestId('workbench-resources');
+    await expect(resources.locator('tbody tr').first()).toBeVisible();
+    // Nothing in the mock is owned by the reader: the list goes on to the next scope that has rows.
+    await expect(resources.getByTestId('workbench-resources-fallback')).toContainText('Owned by me');
+  });
+
+  test('keeps the places the reader opens, the latest first, for the next visit', async ({ page }) => {
+    await page.goto('/alerts/incidents/inc-2292');
+    await expect(page.getByText('Checkout p95 at 2.4 s, three times its usual').first()).toBeVisible();
+    await page.waitForResponse(
+      (response) => response.url().includes('/me/ui-preference/workbench.recent/visits') && response.request().method() === 'PUT',
+    );
+
+    await page.goto('/home');
+    const recent = page.getByTestId('workbench-recent');
+    await expect(recent.getByRole('link').first()).toContainText('Checkout p95 at 2.4 s, three times its usual');
+    await expect(recent.getByRole('link').first()).toHaveAttribute('href', '/alerts/incidents/inc-2292');
+  });
+
+  test('degrades instead of crashing when the backend answers with empty bodies', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    for (const path of ['**/api/v1/alerts/postmortem-actions/mine', '**/api/v1/streams/usage**', '**/api/v1/streams/budgets']) {
+      await page.route(path, (route) => route.fulfill({ json: {} }));
+    }
+    await page.goto('/home');
+
+    await expect(page.getByTestId('workbench')).toBeVisible();
+    await page.waitForLoadState('networkidle');
     expect(pageErrors).toEqual([]);
   });
 
-  test('gives the page controls one filled button style', async ({ page }) => {
-    await mockHome(page, {
-      overview: EMPTY_OVERVIEW,
-      runtime: {
-        generatedAt: 200,
-        windowStart: 100,
-        windowEnd: 200,
-        windowSecs: 100,
-        streams: [],
-      },
-    });
-    await page.goto('/home');
-
-    // Colors transition over 120ms after load; sample the settled value.
-    await page.addStyleTag({
-      content: '*, *::before, *::after { transition: none !important; }',
-    });
-    const fill = (name: string | RegExp) =>
-      page
-        .getByRole('button', { name })
-        .first()
-        .evaluate((element) => getComputedStyle(element).backgroundColor);
-    // A bare icon button next to filled ones reads as disabled, not as a button.
-    // Polled: under load the toolbar can re-render between finding a button and
-    // reading its style.
-    await expect
-      .poll(() => fill(/Last 24 hours/))
-      .not.toMatch(/^(|rgba\(0, 0, 0, 0\))$/);
-    const windowFill = await fill(/Last 24 hours/);
-    await expect.poll(() => fill('Refresh')).toBe(windowFill);
-    await expect.poll(() => fill('New')).toBe(windowFill);
-  });
-
   test('gives icon-only chrome controls a 32px target', async ({ page }) => {
-    await mockHome(page, {
-      overview: EMPTY_OVERVIEW,
-      runtime: {
-        generatedAt: 200,
-        windowStart: 100,
-        windowEnd: 200,
-        windowSecs: 100,
-        streams: [],
-      },
-    });
     await page.goto('/home');
 
-    for (const testId of ['sidebar-toggle', 'theme-toggle', 'user-menu-trigger']) {
+    for (const testId of ['main-menu-trigger', 'theme-toggle', 'user-menu-trigger']) {
       const box = await page.getByTestId(testId).boundingBox();
       expect(box, testId).not.toBeNull();
       expect(box!.width, testId).toBeGreaterThanOrEqual(32);
       expect(box!.height, testId).toBeGreaterThanOrEqual(32);
     }
+  });
+});
+
+test('sample setup opens the installed dashboard', async ({ page, mockServer }) => {
+  await mountMockRoutes(page, mockServer.port);
+  await page.route('**/api/v1/streams', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/dashboards', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/onboarding/sample-data', (route) => route.fulfill({
+    json: route.request().method() === 'POST'
+      ? { loaded: true, totalRows: 196, streams: [], dashboardId: 'sample-dashboard', savedViewIds: ['one', 'two', 'three', 'four'] }
+      : { loaded: false },
+  }));
+  await page.goto('/home');
+  await page.locator('[data-home-surface="activation"] button').click();
+  await page.getByRole('button', { name: /Load sample data/ }).click();
+  await expect(page).toHaveURL(/\/dashboards\/sample-dashboard$/);
+});
+
+test.describe('Workbench for every member', () => {
+  test('opens to a member who holds almost nothing, and asks nothing they cannot read', async ({ page, mockServer }) => {
+    await mountMockRoutes(page, mockServer.port, { capabilityPermissions: ['dashboards.read'] });
+    const asked: string[] = [];
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (/^\/api\/v1\/(alerts\/incidents|schedules|notify\/reachability)/.test(pathname)) asked.push(pathname);
+    });
+    await page.goto('/home');
+
+    const kinds = page.getByTestId('workbench-resources').getByRole('group', { name: 'Kind of resource' });
+    await expect(kinds.getByRole('button', { name: /^Dashboards/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(kinds.getByRole('button', { name: /^(Services|Checks)/ })).toHaveCount(0);
+    await expect(page.getByTestId('workbench-oncall')).toHaveCount(0);
+    await expect(page.getByTestId('workbench-usage')).toHaveCount(0);
+    await expect(page.getByTestId('workbench-new')).toHaveCount(0);
+    await expect(page.getByTestId('workbench-todos')).not.toContainText('Incidents could not be fetched');
+    expect(asked).toEqual([]);
+  });
+
+  test('lists incidents to a reader who cannot acknowledge them, without the button', async ({ page, mockServer }) => {
+    await mountMockRoutes(page, mockServer.port, { capabilityPermissions: ['alerts.incidents.read'] });
+    await mockIncidents(page, [incident('inc-error', { summary: 'Checkout is slow' })]);
+    await page.goto('/home');
+
+    const row = page.getByTestId('workbench-todos').locator('[data-todo="incident"]');
+    await expect(row).toContainText('Checkout is slow');
+    await expect(row.getByRole('button', { name: 'Acknowledge' })).toHaveCount(0);
   });
 });

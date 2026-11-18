@@ -11,10 +11,10 @@ const LOG_STREAM = {
   streamType: 'logs',
   schema: {
     fields: [
-      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
-      { name: 'level', dataType: 'utf8', nullable: true, indexed: true },
-      { name: 'status', dataType: 'int64', nullable: true, indexed: false },
-      { name: 'message', dataType: 'utf8', nullable: true, indexed: false },
+      { name: '_timestamp', dataType: 'timestamp', nullable: false, indexType: 'skip' },
+      { name: 'level', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+      { name: 'status', dataType: 'int64', nullable: true, indexType: 'none' },
+      { name: 'message', dataType: 'utf8', nullable: true, indexType: 'none' },
     ],
   },
   retention: { days: 7 },
@@ -78,7 +78,11 @@ function modes(page: Page) {
  * quote pairing would rewrite it on the way.
  */
 async function writeStatement(page: Page, statement: string) {
-  await front(page).getByLabel('Log field query editor').click({ force: true });
+  // Into the lines a person clicks, not the hidden layer that takes the keys: that layer is laid
+  // out only once the editor has drawn, and a click on it can come first.
+  const editor = front(page).locator('.monaco-editor').first();
+  await editor.locator('.view-lines').click();
+  await expect(editor).toHaveClass(/\bfocused\b/);
   await page.keyboard.insertText(statement);
 }
 
@@ -95,8 +99,11 @@ test.describe('Code and Builder', () => {
     await serveLogs(page);
     for (const path of ['/metrics', '/logs', '/traces']) {
       await page.goto(path);
+      // Two icons that name themselves, in that order.
       const buttons = modes(page).getByRole('button');
-      await expect(buttons).toHaveText(['Code', 'Builder']);
+      await expect(buttons).toHaveCount(2);
+      await expect(buttons.nth(0)).toHaveAccessibleName('Code');
+      await expect(buttons.nth(1)).toHaveAccessibleName('Builder');
       await expect(buttons.first()).toHaveAttribute('aria-pressed', 'true');
       // The old language switch is gone: the editor reads what is typed instead.
       await expect(front(page).getByRole('button', { name: 'SQL', exact: true })).toHaveCount(0);

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { cn } from '@/shell/lib/cn';
 import { hasVisibleText } from '@/shell/lib/hasVisibleText';
+import { usePlacedButtonSize } from '@/shell/ui/button-size';
 import {
   Table as ShadTable,
   TableCell as ShadTableCell,
@@ -175,7 +176,7 @@ export const ChromeButton = React.forwardRef<
 >(function ChromeButton(
   {
     variant = 'default',
-    size = 'md',
+    size: ownSize,
     className,
     disabled,
     disabledReason,
@@ -183,8 +184,13 @@ export const ChromeButton = React.forwardRef<
   },
   ref,
 ) {
+  // A button that names no size takes the one its place asks for: small in a title row.
+  const placed = usePlacedButtonSize();
+  const size: ButtonSize = ownSize ?? (placed === 'sm' ? 'sm' : 'md');
   // Words get room at either side, 16px in a 32px button and 12px in a 28px one, and their icon
-  // is drawn at their size (polish/icons.css). A button of an icon alone stays nearly square.
+  // is drawn at their size (polish/icons.css). A button of an icon alone is a square, its icon in
+  // the middle: with the sides of a word button it stood 38 wide by 32, and a row of them read as
+  // boxes of two sizes beside the square ones.
   const words = hasVisibleText(rest.children);
   const button = (
     <button
@@ -196,7 +202,9 @@ export const ChromeButton = React.forwardRef<
       aria-disabled={disabled || undefined}
       className={cn(
         'ms-press inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md font-sans font-strong disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-transparent disabled:bg-bg-2 disabled:text-[var(--tx-disabled)] disabled:opacity-100 disabled:shadow-none',
-        size === 'md' ? ['h-9 text-sm', words ? 'px-4' : 'px-3'] : ['h-8 text-xs', words ? 'px-3' : 'px-2.5'],
+        size === 'md'
+          ? ['h-9 text-sm', words ? 'px-4' : 'w-9 justify-center px-0']
+          : ['h-8 text-xs', words ? 'px-3' : 'w-8 justify-center px-0'],
         variant === 'default' &&
           'border border-transparent bg-bg-2 text-tx-1 enabled:hover:bg-bg-3 enabled:hover:text-tx-0',
         variant === 'primary' &&

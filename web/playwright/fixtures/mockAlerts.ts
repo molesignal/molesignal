@@ -55,6 +55,27 @@ const RULE_SEEDS: RuleSeed[] = [
   { id: 'rule-cert-expiry', name: 'Certificate expiry', description: 'Days left on the edge certificate.', service: 'edge', team: 'platform', severity: 'info', language: 'promql', statement: 'min(tls_certificate_days_remaining{host="app.acme.example"})', stream: { name: 'tls_certificate_days_remaining', streamType: 'metrics' }, threshold: 21, state: 'healthy', enabled: false },
 ];
 
+/** Investigation guides: what the platform team asks to be looked at first when the public API fails. */
+const RULE_GUIDES: Record<string, NonNullable<AlertRule['guide']>> = {
+  'rule-api-5xx': {
+    steps: '1. Check which routes return the 5xx.\n2. Look for an edge proxy change in the last hour.',
+    queries: [
+      {
+        name: '5xx by route',
+        language: 'promql',
+        statement: 'sum by (route) (rate(http_requests_total{service="api-gateway",code=~"5.."}[5m]))',
+      },
+      {
+        name: 'Gateway error logs',
+        language: 'sql',
+        stream: { name: 'app_logs', streamType: 'logs' },
+        statement: "SELECT * FROM \"app_logs\" WHERE \"service.name\" = 'api-gateway' AND level = 'ERROR'",
+      },
+    ],
+    dashboards: ['d2'],
+  },
+};
+
 function rules(now: number): AlertRule[] {
   return RULE_SEEDS.map((seed, index) => ({
     id: seed.id,
@@ -77,6 +98,7 @@ function rules(now: number): AlertRule[] {
     escalationPolicyId: seed.team === 'payments' ? 'esc-payments' : 'esc-platform',
     labels: { service: seed.service, team: seed.team },
     annotations: { runbook: `https://runbooks.acme.example/${seed.id}` },
+    ...(seed.id in RULE_GUIDES ? { guide: RULE_GUIDES[seed.id]! } : {}),
     lastEvalAt: seed.enabled === false ? null : now - (index + 1) * 7_000_000,
     lastState: seed.state === 'pending' ? { kind: 'pending', consecutive: 2 } : { kind: seed.state },
     createdAt: now - (120 - index * 9) * DAY,
@@ -500,6 +522,8 @@ export function registerAlertRoutes(
   // No remediation action, cluster or ticket connector is set up here; a spec that needs them routes its own.
   app.get('/api/v1/alerts/remediation/actions', (_req, res) => res.json({ actions: [] }));
   app.get('/api/v1/alerts/remediation/clusters', (_req, res) => res.json({ clusters: [] }));
+  // Pre-approval is off until an organization turns it on.
+  app.get('/api/v1/alerts/remediation/preapproval', (_req, res) => res.json({ enabled: false, actions: {} }));
   app.get('/api/v1/alerts/incidents/:id/remediations', (_req, res) => res.json({ actions: [], runs: [] }));
   app.get('/api/v1/alerts/tickets/connectors', (_req, res) => res.json({ connectors: [] }));
   app.get('/api/v1/alerts/tickets/sites', (_req, res) =>

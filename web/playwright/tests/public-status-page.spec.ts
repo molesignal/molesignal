@@ -5,8 +5,10 @@ import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 const WHITE = 'rgb(255, 255, 255)';
 const TRANSPARENT = 'rgba(0, 0, 0, 0)';
 const RING = '0px 0px 0px 1px';
+/** A soft shadow with no line of a ring in it: the edge a control has on light. */
+const softEdge = (shadow: string) => shadow !== 'none' && !shadow.includes(RING);
 
-/** A control has no border: a ring of shadow, on it or on the box around a bare input, is its edge. */
+/** A control has no border: a shadow, on it or on the box around a bare input, is its edge. */
 const ringOf = (control: Locator) =>
   control.evaluate((element) => {
     const box = element.closest('[class*="bg-[var(--control-surface)]"]') ?? element;
@@ -74,12 +76,12 @@ test.describe('public status page', () => {
     await page.goto('/status/acme-cloud');
 
     // The language select says the language and no more: the mark, the name and the arrow stand
-    // together, inside a ring that tells it from the header it lies on.
+    // together, on a soft shadow that tells it from the header it lies on.
     const language = page.getByRole('combobox', { name: 'Status page language' });
     await expect(language).toBeVisible();
     const languageBox = (await language.boundingBox())!;
     expect(languageBox.width).toBeLessThan(140);
-    expect(await ringOf(language)).toContain(RING);
+    expect(softEdge(await ringOf(language))).toBe(true);
     await expect(language).not.toHaveCSS('background-color', TRANSPARENT);
 
     const subscribe = page.getByRole('button', { name: 'Subscribe' });
@@ -89,11 +91,11 @@ test.describe('public status page', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    // Fields have no border, so the ring is what makes them fields.
+    // Fields have no border, so the soft shadow is what makes them fields.
     const channel = dialog.getByRole('combobox');
     const address = dialog.getByPlaceholder('you@example.com');
     for (const control of [channel, address]) {
-      expect(await ringOf(control)).toContain(RING);
+      expect(softEdge(await ringOf(control))).toBe(true);
     }
     // The dialog grows into place as it opens, and a box read on screen is scaled with it: the two
     // fields are compared by the height they are laid out at.
@@ -116,7 +118,7 @@ test.describe('public status page', () => {
     await expect(rss).toHaveValue(/\/api\/v1\/public\/status-pages\/acme-cloud\/feed\.rss$/);
     await expect(atom).toHaveValue(/\/api\/v1\/public\/status-pages\/acme-cloud\/feed\.atom$/);
     for (const control of [rss, atom, dialog.getByRole('button', { name: 'Copy the RSS feed address' })]) {
-      expect(await ringOf(control)).toContain(RING);
+      expect(softEdge(await ringOf(control))).toBe(true);
     }
     await expect(send).toHaveCount(0);
   });

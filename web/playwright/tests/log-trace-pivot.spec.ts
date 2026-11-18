@@ -21,12 +21,12 @@ test.beforeEach(async ({ page }) => {
         streamType: 'logs',
         schema: {
           fields: [
-            { name: '_timestamp', dataType: 'timestamp', nullable: false, indexed: true },
-            { name: 'level', dataType: 'utf8', nullable: true, indexed: true },
-            { name: 'service', dataType: 'utf8', nullable: true, indexed: true },
-            { name: 'message', dataType: 'utf8', nullable: true, indexed: false },
-            { name: 'body', dataType: 'utf8', nullable: true, indexed: false },
-            { name: 'trace_id', dataType: 'utf8', nullable: true, indexed: true },
+            { name: '_timestamp', dataType: 'timestamp', nullable: false, indexType: 'skip' },
+            { name: 'level', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+            { name: 'service', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+            { name: 'message', dataType: 'utf8', nullable: true, indexType: 'none' },
+            { name: 'body', dataType: 'utf8', nullable: true, indexType: 'none' },
+            { name: 'trace_id', dataType: 'utf8', nullable: true, indexType: 'full_text' },
           ],
         },
         settings: { queryable: true },
