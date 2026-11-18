@@ -8,6 +8,11 @@ use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    rum::event::RumStream,
+};
+use kernel::{Result, time::TimestampMicros};
 use serde::Serialize;
 use serde_json::{Map, Value};
 
@@ -17,10 +22,7 @@ use super::{
 };
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::{iam::permission, rum::event::RumStream},
     infra::rum::query::{Condition, ListRequest, Scope, list_sql, timeline_columns},
-    shared::{Result, time::TimestampMicros},
 };
 
 /// Rows are written a little before and after the activity the session reports.

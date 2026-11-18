@@ -29,22 +29,22 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::{
+    intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
+    stream::StreamType,
+};
 use flate2::read::GzDecoder;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use crate::{
     api::AppState,
     app::intake::usage::IntakeReceipt,
-    domain::{
-        intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
-        stream::StreamType,
-    },
     infra::connectors::{
         Connector, ConnectorKind,
         cloudflare_logpush::parse_ndjson,
         heroku_drain::parse_text,
         kinesis_firehose::{FirehoseRequest, parse_firehose_request},
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub fn routes() -> Router<AppState> {

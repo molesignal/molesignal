@@ -8,15 +8,13 @@
 use std::sync::Arc;
 
 use datafusion::prelude::SessionContext;
+use domain::rum::event::RumStream;
 use serde_json::{Value, json};
 
 use super::*;
-use crate::{
-    domain::rum::event::RumStream,
-    infra::{
-        query::analyzer::session_context,
-        rum::query::execution::{Answer, Cell, Written, answer, table, written},
-    },
+use crate::infra::{
+    query::analyzer::session_context,
+    rum::query::execution::{Answer, Cell, Written, answer, table, written},
 };
 
 const DAY: i64 = 86_400_000_000;

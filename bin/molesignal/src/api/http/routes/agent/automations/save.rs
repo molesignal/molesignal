@@ -3,21 +3,18 @@
 
 //! 新建与修改规则：校验提交的东西，核对通知渠道，算出下一次运行，记下执行身份与语言。
 
+use agent::{
+    automations::{Automation, AutomationOutputs, AutomationTrigger, MAX_AUTOMATIONS_PER_ORG},
+    scope::Scope,
+};
+use domain::{iam::IamContext, notify::connector::NotifyTarget};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 
 use super::access::run_as;
 use crate::{
-    agent::{
-        automations::{Automation, AutomationOutputs, AutomationTrigger, MAX_AUTOMATIONS_PER_ORG},
-        scope::Scope,
-    },
     api::{AppState, http::interface_language::interface_language},
-    app::{
-        automations::{schedule, templates, validate},
-        iam::IamContext,
-    },
-    domain::notify::connector::NotifyTarget,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::automations::{schedule, templates, validate},
 };
 
 /// 保存规则时提交的东西。

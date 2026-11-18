@@ -23,10 +23,9 @@ use chrono::{
     DateTime, Datelike, Duration, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, TimeZone,
     Timelike, Utc,
 };
+use kernel::{Error, Result, time::TimestampMicros};
 pub use monthly::{MAX_MONTHLY_DURATION_MINUTES, MonthDay, MonthlyWindow};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::shared::{Error, Result, time::TimestampMicros};
 
 /// 一天有多少分钟。
 pub const MINUTES_PER_DAY: u16 = 24 * 60;
@@ -181,7 +180,7 @@ impl WeeklyWindows {
     }
 
     /// 能在 `org_id` 里用：说得通，引用的日历是这个组织的。
-    pub fn check(&self, org_id: &crate::shared::ids::Id) -> Result<()> {
+    pub fn check(&self, org_id: &kernel::ids::Id) -> Result<()> {
         self.validate()?;
 
         match &self.calendar {
@@ -232,7 +231,7 @@ impl TimeCondition {
     }
 
     /// 能在 `org_id` 里用：说得通，引用的节假日日历是这个组织的。
-    pub fn check(&self, org_id: &crate::shared::ids::Id) -> Result<()> {
+    pub fn check(&self, org_id: &kernel::ids::Id) -> Result<()> {
         self.windows.check(org_id)
     }
 

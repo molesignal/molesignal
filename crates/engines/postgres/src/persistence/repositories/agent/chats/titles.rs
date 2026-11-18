@@ -3,6 +3,7 @@
 
 //! 会话的名字：给临时标题的会话起名，人给会话改名，按 ID 一次取几个会话（例如记忆页写出处）。
 
+use kernel::{Result, ids::Id};
 use sqlx::PgPool;
 
 use super::{
@@ -10,7 +11,6 @@ use super::{
     Chat,
     rows::{CHAT_COLS, chat_row},
 };
-use crate::shared::{Result, ids::Id};
 
 pub(super) async fn get_chats(pool: &PgPool, org_id: &Id, ids: &[Id]) -> Result<Vec<Chat>> {
     if ids.is_empty() {

@@ -6,19 +6,15 @@ mod layout;
 mod queries;
 mod variables;
 
+use contracts::{ContractIssue, ContractValidator, dashboard_model_validator};
+use domain::dashboard::authoring::{
+    AuthoringRefresh, DashboardAuthoringSpec, VisualizationManifest, visualization_manifest,
+};
+use kernel::{Error, Result};
 use serde_json::{Value, json};
 
 use self::{elements::compile_elements, variables::compile_variables};
-use crate::{
-    app::dashboard::validation::{DashboardValidationMode, ensure_dashboard_model_with},
-    domain::dashboard::authoring::{
-        AuthoringRefresh, DashboardAuthoringSpec, VisualizationManifest, visualization_manifest,
-    },
-    shared::{
-        Error, Result,
-        contracts::{ContractIssue, ContractValidator, dashboard_model_validator},
-    },
-};
+use crate::app::dashboard::validation::{DashboardValidationMode, ensure_dashboard_model_with};
 
 #[derive(Debug, Clone)]
 pub struct CompiledDashboard {
@@ -59,7 +55,7 @@ impl DashboardAuthoringCompiler {
         }
 
         let spec_value = serde_json::to_value(spec)
-            .map_err(|error| crate::shared::Error::internal(error.to_string()))?;
+            .map_err(|error| kernel::Error::internal(error.to_string()))?;
         let spec_hash = model_validator.canonical_hash(&spec_value);
         let mut context = CompileContext::default();
         let elements = compile_elements(&spec.elements, &mut context, manifest)?;

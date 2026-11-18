@@ -5,21 +5,17 @@ mod common;
 
 use std::sync::Arc;
 
-use molesignal::{
-    app::dashboard::contract_registry::DashboardContractRegistryService,
-    config::MetaDatabaseSettings,
-    domain::dashboard::contract_registry::{
-        DASHBOARD_AUTHORING_CAPABILITY, DashboardContractRepository,
-    },
-    infra::persistence::{
-        MetaStore, repositories::dashboard_contract_registry::PgDashboardContractRepository,
-    },
-    shared::{
-        contracts::{canonical_json_bytes, sha256_hex},
-        time::TimestampMicros,
-    },
+use contracts::{canonical_json_bytes, sha256_hex};
+use domain::dashboard::contract_registry::{
+    DASHBOARD_AUTHORING_CAPABILITY, DashboardContractRepository,
+};
+use kernel::time::TimestampMicros;
+use molesignal::app::dashboard::contract_registry::DashboardContractRegistryService;
+use postgres::{
+    MetaStore, repositories::dashboard_contract_registry::PgDashboardContractRepository,
 };
 use serde_json::json;
+use settings::MetaDatabaseSettings;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")

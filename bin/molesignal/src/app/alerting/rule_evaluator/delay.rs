@@ -13,13 +13,13 @@ use std::{
     time::Duration,
 };
 
-use tokio::task::JoinHandle;
-
-use super::RuleEvaluator;
-use crate::domain::{
+use domain::{
     alerting::rule::{AlertRule, EvaluationDelay},
     iam::{DEFAULT_ALERT_EVALUATION_DELAY_SECS, InstanceSettingsRepository},
 };
+use tokio::task::JoinHandle;
+
+use super::RuleEvaluator;
 
 /// 多久读一次实例设置。
 const REFRESH_EVERY: Duration = Duration::from_secs(60);
@@ -79,8 +79,9 @@ impl RuleEvaluator {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::rule::AlertQuery;
+
     use super::*;
-    use crate::domain::alerting::rule::AlertQuery;
 
     fn query(delay_secs: Option<u32>) -> AlertQuery {
         serde_json::from_value(serde_json::json!({

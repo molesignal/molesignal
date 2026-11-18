@@ -6,12 +6,12 @@
 //! Platform settings managers only. `secret` raw bytes 永不出库 / 不打 log。
 
 use axum::{Extension, Json, Router, extract::State, routing::get};
+use domain::iam::{IamContext, permission};
+use kernel::Result;
+use postgres::repositories::signing_secrets::rotate_jwt_secret;
 use serde::Serialize;
 
-use crate::{
-    api::AppState, app::iam::IamContext, domain::iam::permission,
-    infra::persistence::repositories::signing_secrets::rotate_jwt_secret, shared::Result,
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

@@ -3,14 +3,13 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::log_inspection::{NotifyWhen, RunTrigger};
+use kernel::ids::Id;
+
 use super::*;
-use crate::{
-    app::log_inspection::{
-        notification::tests::{inspection, run},
-        test_support::{Agent, Channels, Identity, Model, SeededLanguage, Store},
-    },
-    domain::log_inspection::{NotifyWhen, RunTrigger},
-    shared::ids::Id,
+use crate::app::log_inspection::{
+    notification::tests::{inspection, run},
+    test_support::{Agent, Channels, Identity, Model, SeededLanguage, Store},
 };
 
 const ABNORMAL: &str =

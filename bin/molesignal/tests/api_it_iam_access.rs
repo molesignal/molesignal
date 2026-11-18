@@ -4,16 +4,12 @@
 mod common;
 
 use common::{Credential, TestServer, session_cookie, skip_unless_enabled, system_session_token};
-use molesignal::{
-    domain::iam::{
-        IamMembership,
-        api_token::{ApiToken, ApiTokenKind, ApiTokenScope},
-    },
-    infra::persistence::repositories::api_tokens::{
-        assemble_token, generate_token_parts, hash_secret,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use domain::iam::{
+    IamMembership,
+    api_token::{ApiToken, ApiTokenKind, ApiTokenScope},
 };
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::repositories::api_tokens::{assemble_token, generate_token_parts, hash_secret};
 use reqwest::StatusCode;
 use serde_json::{Value, json};
 
@@ -1217,7 +1213,7 @@ async fn settings_read_capability_allows_get_and_denies_write() {
                 org_id: server.root_org_id.clone(),
                 joined_at: TimestampMicros::now(),
             },
-            &[molesignal::shared::ids::Id::from_string(role_id)],
+            &[kernel::ids::Id::from_string(role_id)],
             &server.root_user_id,
         )
         .await

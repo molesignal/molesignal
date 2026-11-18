@@ -8,15 +8,13 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
+use domain::iam::policy::PolicyDocument;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::{super::sqlx_err, roles::bump_version};
-use crate::{
-    domain::iam::policy::PolicyDocument,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

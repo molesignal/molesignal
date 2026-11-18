@@ -11,18 +11,17 @@ use arrow::{
     datatypes::{DataType, TimeUnit},
 };
 use datafusion::physical_expr::{LexOrdering, PhysicalSortExpr, expressions::col as physical_col};
-
-use crate::{
-    domain::{
-        intake::EVENT_ID_FIELD,
-        metrics::METRIC_NAME_FIELD,
-        rum::event::Versioned,
-        storage::{DatasetTypeId, PartitionPolicy, type_id::builtin},
-        stream::FieldPartitions,
-    },
-    infra::storage::arrow_schema::TS_COL,
-    shared::{Error, Result, trace::summary::TRACE_SUMMARY_START_NS_FIELD},
+use domain::{
+    intake::EVENT_ID_FIELD,
+    metrics::METRIC_NAME_FIELD,
+    rum::event::Versioned,
+    storage::{DatasetTypeId, PartitionPolicy, type_id::builtin},
+    stream::FieldPartitions,
 };
+use kernel::{Error, Result};
+use signals::trace::summary::TRACE_SUMMARY_START_NS_FIELD;
+
+use crate::infra::storage::arrow_schema::TS_COL;
 
 pub fn split_by_utc_hour(batch: &RecordBatch) -> Result<Vec<RecordBatch>> {
     split_by_partition(batch, &PartitionPolicy::default())
@@ -251,9 +250,9 @@ mod tests {
         array::{Int64Array, StringArray},
         datatypes::{Field, Schema},
     };
+    use domain::stream::{FieldPartition, PartitionScheme};
 
     use super::*;
-    use crate::domain::stream::{FieldPartition, PartitionScheme};
 
     #[test]
     fn splits_rows_at_hour_boundary_without_reordering_each_partition() {

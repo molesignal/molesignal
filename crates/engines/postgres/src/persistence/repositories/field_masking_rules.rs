@@ -4,15 +4,13 @@
 //! 组织级字段遮掩规则的 PostgreSQL repository。
 
 use async_trait::async_trait;
+use domain::masking::{FieldMaskingAlgorithm, FieldMaskingRule, FieldMaskingRuleRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::{
     sqlx_err,
     streams::{stream_type_from_str, stream_type_to_str},
-};
-use crate::{
-    domain::masking::{FieldMaskingAlgorithm, FieldMaskingRule, FieldMaskingRuleRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub struct PgFieldMaskingRuleRepository {

@@ -15,12 +15,9 @@
 //! `get_plaintext` 的返回值只在 [`crate::infra::secret::resolve_secret_ref`] 内即用即弃。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::cipher::CipherRootKey;
 use sqlx::{PgPool, Row};
-
-use crate::{
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 #[async_trait]
 pub trait ClusterSecretRepository: Send + Sync {
@@ -72,7 +69,7 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
         .bind(now)
         .execute(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(())
     }
@@ -86,7 +83,7 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
         .bind(ref_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)?
+        .map_err(postgres::sqlx_err)?
         .ok_or_else(|| Error::not_found(format!("cluster secret `{ref_id}` 未配置")))?;
 
         let enc: Vec<u8> = row
@@ -116,7 +113,7 @@ impl ClusterSecretRepository for PgClusterSecretRepository {
         .bind(ref_id)
         .execute(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(())
     }

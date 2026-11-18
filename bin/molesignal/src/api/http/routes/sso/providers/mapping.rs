@@ -5,12 +5,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use domain::iam::{IamContext, SsoFieldMapping, SsoProviderConfig, SsoProviderKind};
+use kernel::{Error, Result, ids::Id};
+
 use crate::{
     api::{AppState, http::routes::iam::grant_limit},
-    app::iam::IamContext,
-    domain::iam::{SsoFieldMapping, SsoProviderConfig, SsoProviderKind},
     infra::sso::claims::claim_sources,
-    shared::{Error, Result, ids::Id},
 };
 
 /// 允许登录的组最多几项。
@@ -206,8 +206,9 @@ pub(super) async fn ensure_roles_exist(
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::iam::{SsoFieldMapping, SsoProviderKind};
+
     use super::{normalize_allowed_groups, normalize_field_mapping, normalize_role_mapping};
-    use crate::domain::iam::{SsoFieldMapping, SsoProviderKind};
 
     #[test]
     fn normalizes_group_names_and_rejects_duplicates() {

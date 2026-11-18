@@ -4,17 +4,15 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use domain::log_inspection::{
+    InspectionLevel, InspectionSchedule, NotifyWhen, RunStatus, RunTrigger,
+};
+use kernel::ids::Id;
 
 use super::*;
-use crate::{
-    app::log_inspection::{
-        InspectionLimits,
-        test_support::{Agent, Channels, Identity, Model, SeededLanguage, Store},
-    },
-    domain::log_inspection::{
-        InspectionLevel, InspectionSchedule, NotifyWhen, RunStatus, RunTrigger,
-    },
-    shared::ids::Id,
+use crate::app::log_inspection::{
+    InspectionLimits,
+    test_support::{Agent, Channels, Identity, Model, SeededLanguage, Store},
 };
 
 const NORMAL: &str = r#"{"level":"normal","summary":"quiet","evidence":[]}"#;
@@ -261,7 +259,7 @@ async fn a_run_left_by_a_node_that_stopped_is_settled_on_a_later_tick() {
 
     assert_eq!(
         run.failure,
-        Some(crate::domain::log_inspection::RunFailure::Interrupted)
+        Some(domain::log_inspection::RunFailure::Interrupted)
     );
     assert!(fixture.agent.requests().is_empty());
 }

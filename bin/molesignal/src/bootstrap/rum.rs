@@ -10,21 +10,21 @@
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
+use domain::{
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    rum::event::RumStream,
+    stream::StreamType,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde_json::{Map, Value};
 
 use crate::{
     app::query::QueryService,
-    domain::{
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        rum::event::RumStream,
-        stream::StreamType,
-    },
     infra::rum::{query::session_rows_sql, session_state::SessionHistory},
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 /// How many of the newest rows of a session are read back. The rows of one node may know less

@@ -6,15 +6,13 @@ use std::{
     time::Instant,
 };
 
+use domain::apm::{ApmSpanFact, ApmWriteRepository, ProjectionGapReason};
+use kernel::time::TimestampMicros;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use super::{ApmProjectorConfig, ApmProjectorHealth, GapLedger};
-use crate::{
-    app::apm::{ApmAggregator, ApmCardinalityLimiter, metrics},
-    domain::apm::{ApmSpanFact, ApmWriteRepository, ProjectionGapReason},
-    shared::time::TimestampMicros,
-};
+use crate::app::apm::{ApmAggregator, ApmCardinalityLimiter, metrics};
 
 pub(super) struct ProjectionCommand {
     pub(super) fact: ApmSpanFact,
@@ -266,7 +264,7 @@ async fn flush(
 async fn flush_batch(
     repository: &dyn ApmWriteRepository,
     batch: &crate::app::apm::ApmFlushBatch,
-    gaps: &[crate::domain::apm::ProjectionGap],
+    gaps: &[domain::apm::ProjectionGap],
     max_error_samples: usize,
 ) -> Result<(), ()> {
     for (org_id, started_at) in &batch.projection_starts {

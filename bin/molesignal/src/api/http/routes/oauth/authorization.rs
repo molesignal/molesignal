@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::inbound_mcp::{InboundMcpAuthorizationCode, InboundMcpSettings};
 use axum::{
     Extension, Json, Router,
     extract::{Query, State},
@@ -8,6 +9,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use domain::iam::IamContext;
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use url::Url;
@@ -16,14 +19,9 @@ use super::{
     client::{normalize_scope, resolve_client, scope_allowed},
     metadata,
 };
-use crate::{
-    agent::inbound_mcp::{InboundMcpAuthorizationCode, InboundMcpSettings},
-    api::{
-        AppState,
-        http::middleware::{Permission, auth::AuthenticatedCredential},
-    },
-    app::iam::IamContext,
-    shared::{Error, Result, time::TimestampMicros},
+use crate::api::{
+    AppState,
+    http::middleware::{Permission, auth::AuthenticatedCredential},
 };
 
 const AUTHORIZATION_CODE_TTL_MICROS: i64 = 5 * 60 * 1_000_000;

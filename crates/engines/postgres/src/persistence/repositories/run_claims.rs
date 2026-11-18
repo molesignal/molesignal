@@ -7,13 +7,11 @@
 //! WHERE，不需要额外加锁。持有者崩溃后租约到期，别的节点即可接手重跑。
 
 use async_trait::async_trait;
+use domain::run_claim::RunClaimRepository;
+use kernel::{Result, time::TimestampMicros};
 use sqlx::PgPool;
 
 use super::sqlx_err;
-use crate::{
-    domain::run_claim::RunClaimRepository,
-    shared::{Result, time::TimestampMicros},
-};
 
 pub struct PgRunClaimRepository {
     pool: PgPool,

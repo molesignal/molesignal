@@ -10,6 +10,7 @@
 
 use std::{convert::Infallible, time::Duration};
 
+use agent::runs::{Run, RunEvent, RunEventKind};
 use axum::{
     Extension,
     body::Body,
@@ -18,18 +19,15 @@ use axum::{
     response::Response,
 };
 use bytes::Bytes;
+use domain::iam::{IamContext, permission};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use serde_json::json;
+use signals::trace_stream::segmented_result_stream;
 use tokio::sync::mpsc::Sender;
 
 use super::readable_run;
-use crate::{
-    agent::runs::{Run, RunEvent, RunEventKind},
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Result, ids::Id, trace_stream::segmented_result_stream},
-};
+use crate::api::AppState;
 
 /// 一次最多从库里读这么多个事件。
 const PAGE: i64 = 500;
@@ -62,7 +60,7 @@ pub(super) async fn events(
     let after = resume.or(query.after).unwrap_or(0).max(0);
     let (tx, rx) = tokio::sync::mpsc::channel::<Frame>(64);
 
-    crate::shared::trace_context::spawn_with_current_trace_context(relay(state, run, after, tx));
+    signals::trace_context::spawn_with_current_trace_context(relay(state, run, after, tx));
 
     let frames = Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx));
     let body = segmented_result_stream(frames, "agent.http.sse", "sse");

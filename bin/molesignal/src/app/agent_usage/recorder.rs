@@ -5,14 +5,14 @@
 
 use std::sync::Arc;
 
+use agent::{
+    chat::{ModelCall, ModelCallObserver},
+    usage::{Cost, TokenCounts, UsageDelta},
+};
 use async_trait::async_trait;
 use parking_lot::Mutex;
 
 use super::{AgentUsage, UsageScope, traces::trace_event};
-use crate::agent::{
-    chat::{ModelCall, ModelCallObserver},
-    usage::{Cost, TokenCounts, UsageDelta},
-};
 
 pub struct UsageRecorder {
     usage: Arc<AgentUsage>,

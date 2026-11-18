@@ -12,7 +12,16 @@
 
 use std::{sync::Arc, time::Instant};
 
+use agent::im::ImRepository;
 use async_trait::async_trait;
+use domain::notify::{
+    buttons::AlertButtons,
+    connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+        NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType,
+    },
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -21,18 +30,7 @@ use super::{
     wecom::markdown_content,
     wecom_template_card,
 };
-use crate::{
-    agent::im::ImRepository,
-    domain::notify::{
-        buttons::AlertButtons,
-        connector::{
-            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-            NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType,
-        },
-    },
-    infra::im::wecom,
-    shared::{Error, Result, ids::Id},
-};
+use crate::infra::im::wecom;
 
 pub const WECOM_BOT_CONNECTOR_TYPE: &str = "wecom_bot";
 
@@ -203,10 +201,11 @@ impl ConnectorAdapter for WecomBotConnectorAdapter {
 
 #[cfg(test)]
 mod tests {
+    use domain::notify::buttons::AlertAction;
+    use kernel::time::TimestampMicros;
     use serde_json::json;
 
     use super::*;
-    use crate::{domain::notify::buttons::AlertAction, shared::time::TimestampMicros};
 
     #[test]
     fn a_smart_bot_needs_its_id_and_secret_and_a_websocket_address() {

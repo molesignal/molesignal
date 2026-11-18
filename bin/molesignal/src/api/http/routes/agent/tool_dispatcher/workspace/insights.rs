@@ -4,18 +4,16 @@
 //! `get_agent_insights`：`/insight` 读的数。范围跟着会话：团队会话看本队，个人会话看发起人与
 //! 他所在的团队；组织会话（组织作用域的自动化）只看组织的自动化。
 
+use agent::{
+    insights::{DEFAULT_DAYS, InsightScope, MAX_DAYS},
+    scope::ChatScope,
+};
+use kernel::{Result, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
+use tool_runtime::ToolResult;
 
 use super::{WorkspaceCall, parse};
-use crate::{
-    agent::{
-        insights::{DEFAULT_DAYS, InsightScope, MAX_DAYS},
-        scope::ChatScope,
-        tools::ToolResult,
-    },
-    shared::{Result, time::TimestampMicros},
-};
 
 const MICROS_PER_DAY: i64 = 24 * 60 * 60 * 1_000_000;
 

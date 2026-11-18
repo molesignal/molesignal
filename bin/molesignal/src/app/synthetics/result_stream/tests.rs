@@ -3,16 +3,14 @@
 
 use std::collections::BTreeMap;
 
+use domain::synthetics::{
+    MonitorKind, MonitorLifecycle, MonitorState, ProbeAttempt, ProbeOutcome, ProbeStepEvidence,
+    SyntheticMonitor, SyntheticResult, TimingBreakdown,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::json;
 
 use super::{available, stream_fields};
-use crate::{
-    domain::synthetics::{
-        MonitorKind, MonitorLifecycle, MonitorState, ProbeAttempt, ProbeOutcome, ProbeStepEvidence,
-        SyntheticMonitor, SyntheticResult, TimingBreakdown,
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 fn monitor() -> SyntheticMonitor {
     SyntheticMonitor {

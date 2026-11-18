@@ -3,13 +3,13 @@
 
 //! Signed keyset cursors for the trace summary list.
 
+use kernel::{Error, Result, cursor::CursorDirection, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use super::{TraceCondition, TraceFilter, TraceListContext, TraceListRow, TraceListSort};
 use crate::{
-    api::http::pagination::cursor::{CursorDirection, decode_signed_cursor, encode_signed_cursor},
+    api::http::pagination::cursor::{decode_signed_cursor, encode_signed_cursor},
     app::iam::IamService,
-    shared::{Error, Result, ids::Id},
 };
 
 const CURSOR_VERSION: u8 = 2;

@@ -8,13 +8,10 @@
 //! 错满就锁一段时间，所有节点看到的是同一份计数。锁上时计数清零，锁过了重新开始一个时间窗。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
-
-use crate::{
-    infra::persistence::sqlx_err,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// 错几次、在多长时间里错，锁多久。
 #[derive(Debug, Clone, Copy)]

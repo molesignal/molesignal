@@ -11,18 +11,16 @@
 //! 是按钮的值，[`card_action`]）。处理完 5 秒内用那一帧的 `req_id` 换掉卡片
 //! （`aibot_respond_update_msg`，[`answer`]），没做成的那句话单聊告诉点的人。
 
+use agent::im::{
+    BotStatus, CardAction, CardAnswer, ConversationKind, ImOutgoing, ImRepository, NoticeKind,
+    Sender,
+};
+use domain::notify::{buttons::AlertButtonValue, connector::NotifyConnector};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 
 use super::{frame, holds, send, tell};
-use crate::{
-    agent::im::{
-        BotStatus, CardAction, CardAnswer, ConversationKind, ImOutgoing, ImRepository, NoticeKind,
-        Sender,
-    },
-    domain::notify::{buttons::AlertButtonValue, connector::NotifyConnector},
-    infra::notify::adapters::wecom_template_card,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::infra::notify::adapters::wecom_template_card;
 
 /// 点了机器人发的模板卡片上的一个按钮。不是告警按钮（处理完的「✓」）时不算。
 pub(crate) fn card_action(frame: &Value) -> Option<CardAction> {

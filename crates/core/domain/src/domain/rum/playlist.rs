@@ -6,9 +6,8 @@
 //! is shared by everyone who may read RUM.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 pub const MAX_PLAYLIST_NAME_LEN: usize = 128;
 pub const MAX_PLAYLIST_DESCRIPTION_LEN: usize = 1_000;

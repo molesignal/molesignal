@@ -15,23 +15,20 @@ use axum::{
     extract::{ConnectInfo, State},
     http::{HeaderMap, HeaderName, header},
 };
+use domain::{
+    iam::{IamContext, permission},
+    intake::usage::source::{IntakeCredential, UNNAMED_SERVICE},
+    rum::event::{RumEventType, RumStream},
+    stream::StreamType,
+};
+use kernel::Result;
 use serde_json::Value;
 
 use super::symbolication::translate_events;
 use crate::{
     api::{AppState, http::client_ip::ClientIpResolverHandle},
-    app::{
-        iam::IamContext,
-        intake::usage::{IntakeReceipt, ServiceTally, split_by_events},
-    },
-    domain::{
-        iam::permission,
-        intake::usage::source::{IntakeCredential, UNNAMED_SERVICE},
-        rum::event::{RumEventType, RumStream},
-        stream::StreamType,
-    },
+    app::intake::usage::{IntakeReceipt, ServiceTally, split_by_events},
     infra::rum::intake::{Decoded, DecodedBody, Report, Request, decode_body},
-    shared::Result,
 };
 
 #[permission("rum.write")]
@@ -154,14 +151,14 @@ mod tests {
 
     fn context(application: Option<&str>) -> IamContext {
         IamContext {
-            user_id: crate::shared::ids::Id::from_string("u-1"),
-            org_id: crate::shared::ids::Id::from_string("org-1"),
+            user_id: kernel::ids::Id::from_string("u-1"),
+            org_id: kernel::ids::Id::from_string("org-1"),
             display_role: String::new(),
             roles: Vec::new(),
-            credential_token_id: Some(crate::shared::ids::Id::from_string("t-1")),
+            credential_token_id: Some(kernel::ids::Id::from_string("t-1")),
             credential_application_id: application.map(str::to_string),
             credential_service_account_id: None,
-            scope: crate::domain::iam::IamScope::Organization,
+            scope: domain::iam::IamScope::Organization,
             permissions: Default::default(),
             policy_version: 0,
         }

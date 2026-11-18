@@ -2,19 +2,17 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::synthetics::{
+    ActiveMonitorRevision, MonitorLifecycle, MonitorRevision, MonitorSpec, MonitorState,
+    SyntheticMonitor, SyntheticMonitorRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::{
     PgSyntheticRepository, client_key,
     codec::{MONITOR_COLS, REVISION_COLS, row_to_monitor, row_to_revision},
 };
-use crate::{
-    domain::synthetics::{
-        ActiveMonitorRevision, MonitorLifecycle, MonitorRevision, MonitorSpec, MonitorState,
-        SyntheticMonitor, SyntheticMonitorRepository,
-    },
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
 
 const REVISION_CAN_PUBLISH_SQL: &str = "SELECT EXISTS(
         SELECT 1 FROM synthetic_monitor_revisions

@@ -6,12 +6,10 @@
 pub mod usage;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::{storage::DatasetTypeId, stream::StreamType},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::{storage::DatasetTypeId, stream::StreamType};
 
 /// Stable intake identity used as the final keyset-pagination tie-breaker
 /// for log-backed datasets. The trusted application layer overwrites any
@@ -82,7 +80,7 @@ pub trait IntakeSink: Send + Sync {
         batch: IntakeBatch,
     ) -> Result<IntakeResult> {
         if dataset_type != self.primary_dataset_type(batch.stream_type)? {
-            return Err(crate::shared::Error::invalid(format!(
+            return Err(kernel::Error::invalid(format!(
                 "intake sink does not support physical dataset `{dataset_type}`"
             )));
         }

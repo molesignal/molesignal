@@ -8,16 +8,13 @@
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
-use serde_json::json;
-
-use crate::{
-    domain::{
-        apm::ApmAlertQuery,
-        query::{QueryResult, StreamHint},
-        stream::StreamType,
-    },
-    shared::{Error, Result, ids::Id, time::TimeRange},
+use domain::{
+    apm::ApmAlertQuery,
+    query::{QueryResult, StreamHint},
+    stream::StreamType,
 };
+use kernel::{Error, Result, ids::Id, time::TimeRange};
+use serde_json::json;
 
 /// A figure read for a rule, and what it is about.
 #[derive(Debug, Clone, PartialEq)]

@@ -3,10 +3,9 @@
 
 use std::sync::LazyLock;
 
+use kernel::{Error, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result};
 
 static CLASS_LINE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(.+?) -> (.+?):$").expect("class mapping regex"));

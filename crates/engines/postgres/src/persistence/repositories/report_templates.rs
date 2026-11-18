@@ -4,11 +4,11 @@
 //! Organization-scoped custom report templates.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

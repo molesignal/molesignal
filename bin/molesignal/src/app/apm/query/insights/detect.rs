@@ -9,13 +9,12 @@
 //! line halfway between the stricter baseline and now two buckets running,
 //! and mostly stayed: a single bad bucket is not a start.
 
+use domain::apm::{HealthLines, ServiceIdentity};
+use kernel::time::TimestampMicros;
+
 use super::{
     super::{RedSummary, RedTrendPoint, ServiceHealth, health::assess_health},
     model::{Insight, InsightKind, InsightSeverity},
-};
-use crate::{
-    domain::apm::{HealthLines, ServiceIdentity},
-    shared::time::TimestampMicros,
 };
 
 /// The fewest requests a stretch needs for its error rate or latency to count.

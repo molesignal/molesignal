@@ -5,9 +5,8 @@
 //! client sends as text: the text is read as the Traces page reads it, into
 //! the same free text, filters and condition tree.
 
+use kernel::{Error, Result};
 use query_language::field_query::read_trace_query;
-
-use crate::shared::{Error, Result};
 
 /// The longest field query a read takes, in bytes.
 const MAX_EXPRESSION_LENGTH: usize = 8 * 1024;

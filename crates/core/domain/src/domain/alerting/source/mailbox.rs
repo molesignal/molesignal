@@ -10,9 +10,8 @@
 //! 邮箱只配在来源的接收集群上，不随联邦同步：密码不出集群。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// 默认多久读一次。
 pub const DEFAULT_MAILBOX_POLL_SECS: u32 = 60;

@@ -7,15 +7,13 @@
 
 use std::time::Duration;
 
+use domain::alerting::ticket::{MeegleSettings, TicketConnector};
+use kernel::{Error, Result};
 use reqwest::{Method, RequestBuilder, header::USER_AGENT};
 use serde_json::{Value, json};
 
 use super::{CreatedTicket, TicketDraft, TicketState};
-use crate::{
-    domain::alerting::ticket::{MeegleSettings, TicketConnector},
-    infra::connectors::dispatcher::http::pinned_client,
-    shared::{Error, Result},
-};
+use crate::infra::connectors::dispatcher::http::pinned_client;
 
 const TIMEOUT: Duration = Duration::from_secs(20);
 

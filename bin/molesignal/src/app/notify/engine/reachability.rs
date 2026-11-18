@@ -9,13 +9,11 @@
 
 use std::collections::HashMap;
 
+use domain::notify::{connector::ConnectorStatus, preference::NotifyCategory};
+use kernel::{Result, ids::Id};
 use serde::Serialize;
 
 use super::NotifyEngine;
-use crate::{
-    domain::notify::{connector::ConnectorStatus, preference::NotifyCategory},
-    shared::{Result, ids::Id},
-};
 
 /// 告警通知会用到的两类个人设置。
 const CATEGORIES: [NotifyCategory; 2] = [NotifyCategory::Escalation, NotifyCategory::Alert];

@@ -9,6 +9,7 @@
 //!
 //! 链接只私下发：群里的人看不到别人的链接。只存令牌的摘要，用一次就作废，15 分钟过期。
 
+use agent::im::{ConversationKind, ImLink, ImPlatform, LINK_LIFETIME_MICROS};
 use aws_lc_rs::{
     digest,
     rand::{SecureRandom, SystemRandom},
@@ -19,19 +20,15 @@ use axum::{
     routing::get,
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 
 use super::{inbound::Place, texts::Texts};
 use crate::{
-    agent::im::{ConversationKind, ImLink, ImPlatform, LINK_LIFETIME_MICROS},
     api::{AppState, http::routes::activity_audit},
-    app::{
-        iam::IamContext,
-        notify::{CreateUserNotifyEndpoint, UpdateUserNotifyEndpoint},
-    },
-    domain::iam::permission,
+    app::notify::{CreateUserNotifyEndpoint, UpdateUserNotifyEndpoint},
     infra::im,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {

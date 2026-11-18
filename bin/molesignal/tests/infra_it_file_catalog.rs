@@ -11,36 +11,32 @@
 
 mod common;
 
-use molesignal::{
-    config::MetaDatabaseSettings,
-    domain::{
-        iam::{Organization, OrganizationRepository},
-        storage::{
-            Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ArtifactUpdate,
-            CatalogInvariant, ColumnStats, CommitFlush, DataSegment, DatasetSelection,
-            DatasetTypeId, FileCatalog, FlushProvenance, ObjectChecksum, OrganizationScope,
-            Partition, PartitionManifestPointer, PhysicalDatasetId, PublishDatasetTransform,
-            PublishPartitionManifest, ReplaceSegments, SegmentId, SegmentState, SequenceRange,
-            StoredObject, TombstoneSegments, UpdateArtifact, WalSequence, WriterEpoch,
-            WriterNodeId, builtin_registry, type_id,
-        },
-        stream::{Schema, StreamDefinition, StreamRepository, StreamType},
+use domain::{
+    iam::{Organization, OrganizationRepository},
+    storage::{
+        Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ArtifactUpdate,
+        CatalogInvariant, ColumnStats, CommitFlush, DataSegment, DatasetSelection, DatasetTypeId,
+        FileCatalog, FlushProvenance, ObjectChecksum, OrganizationScope, Partition,
+        PartitionManifestPointer, PhysicalDatasetId, PublishDatasetTransform,
+        PublishPartitionManifest, ReplaceSegments, SegmentId, SegmentState, SequenceRange,
+        StoredObject, TombstoneSegments, UpdateArtifact, WalSequence, WriterEpoch, WriterNodeId,
+        builtin_registry, type_id,
     },
-    infra::{
-        persistence::{
-            MetaStore,
-            repositories::{
-                file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
-                streams::PgStreamRepository,
-            },
-        },
-        storage::layout::StorageLayout,
-    },
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
+    stream::{Schema, StreamDefinition, StreamRepository, StreamType},
+};
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::storage::layout::StorageLayout;
+use postgres::{
+    MetaStore,
+    repositories::{
+        file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
+        streams::PgStreamRepository,
     },
 };
+use settings::MetaDatabaseSettings;
 use testcontainers_modules::postgres::Postgres as PgImage;
 
 fn skip_unless_enabled() -> bool {
@@ -144,7 +140,7 @@ fn ready_parquet_for(
     let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_PARQUET);
     let key = StorageLayout::artifact_key(
         &h.scope.organization_id,
-        molesignal::domain::storage::StreamTypeId::LOGS,
+        domain::storage::StreamTypeId::LOGS,
         dataset_id,
         partition,
         segment_id,
@@ -180,7 +176,7 @@ fn pending_tantivy(
     let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
     let key = StorageLayout::artifact_key(
         &h.scope.organization_id,
-        molesignal::domain::storage::StreamTypeId::LOGS,
+        domain::storage::StreamTypeId::LOGS,
         &h.dataset_id,
         partition,
         segment_id,
@@ -584,7 +580,7 @@ async fn manifest_generation_switches_atomically_and_can_retire_partition() {
         object: StoredObject {
             key: StorageLayout::manifest_key(
                 &h.scope.organization_id,
-                molesignal::domain::storage::StreamTypeId::LOGS,
+                domain::storage::StreamTypeId::LOGS,
                 &h.dataset_id,
                 &segment.partition,
                 1,
@@ -705,7 +701,7 @@ async fn cross_dataset_transform_retires_sealed_base_and_publishes_output_atomic
         object: StoredObject {
             key: StorageLayout::manifest_key(
                 &h.scope.organization_id,
-                molesignal::domain::storage::StreamTypeId::LOGS,
+                domain::storage::StreamTypeId::LOGS,
                 &h.dataset_id,
                 &input.partition,
                 1,

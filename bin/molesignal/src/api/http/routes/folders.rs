@@ -18,18 +18,15 @@ use axum::{
     extract::{Path, State},
     routing::{get, put},
 };
+use domain::{
+    dashboard::Folder,
+    iam::{IamContext, permission, resource_permission},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::{
-    api::{AppState, http::middleware::ProtectedResource},
-    app::iam::IamContext,
-    domain::{
-        dashboard::Folder,
-        iam::{permission, resource_permission},
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::middleware::ProtectedResource};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

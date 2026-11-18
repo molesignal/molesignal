@@ -4,6 +4,8 @@
 //! One call of the map opened: what it carried over time, what was asked
 //! along it, and, of a service called, its error groups.
 
+use domain::apm::{BucketDimension, BucketKind, MergedBucket, TransactionKind};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{
@@ -13,10 +15,6 @@ use super::{
     errors::error_summaries,
     map::{GraphCall, MapEdgeKind, category_name, consumed_topic},
     ranking::{dependency_summaries, transaction_summaries},
-};
-use crate::{
-    domain::apm::{BucketDimension, BucketKind, MergedBucket, TransactionKind},
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 /// The most operations and errors a call lists.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Quotas and throttles as events arrive ([`crate::domain::pipeline::limit`]).
+//! Quotas and throttles as events arrive ([`domain::pipeline::limit`]).
 //!
 //! Every few seconds a node writes what it counted into the ledger and reads back what all nodes
 //! counted for its quotas ([`Limits::sync`]): between two syncs a quota sees only this node's new
@@ -10,15 +10,12 @@
 //! for people to read.
 use std::{collections::HashMap, sync::Arc};
 
+use domain::pipeline::limit::{
+    LimitKey, LimitUsage, LimitUsageLedger, LimitUsageRow, QuotaSpec, ThrottleSpec, utc_day,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use parking_lot::Mutex;
 use serde_json::Value;
-
-use crate::{
-    domain::pipeline::limit::{
-        LimitKey, LimitUsage, LimitUsageLedger, LimitUsageRow, QuotaSpec, ThrottleSpec, utc_day,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 mod quota;
 mod throttle;

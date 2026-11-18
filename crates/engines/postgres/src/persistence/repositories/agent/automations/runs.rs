@@ -3,14 +3,12 @@
 
 //! `agent_automation_runs`：每次运行一行，结束时写回状态、原因、回答的开头与输出的结果。
 
+use agent::automations::{AutomationRun, AutomationRunStatus, RunEnding, TriggerKind};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::super::super::sqlx_err;
-use crate::{
-    agent::automations::{AutomationRun, AutomationRunStatus, RunEnding, TriggerKind},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 fn run_row(row: PgRow) -> Result<AutomationRun> {
     let trigger: String = row.try_get("trigger").map_err(sqlx_err)?;

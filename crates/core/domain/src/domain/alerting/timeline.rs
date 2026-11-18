@@ -6,10 +6,9 @@
 //! 触发和自动恢复从事件本身读出，不另记；通知了谁从投递记录读出。这里记的是其余的经过。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// 一条备注最多多少字。
 pub const MAX_NOTE_CHARS: usize = 4000;

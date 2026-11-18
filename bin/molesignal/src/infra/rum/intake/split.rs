@@ -5,9 +5,8 @@
 
 use std::collections::HashMap;
 
+use domain::{intake::RawEvent, rum::event::RumStream};
 use serde_json::Value;
-
-use crate::domain::{intake::RawEvent, rum::event::RumStream};
 
 /// One event of the request, as the row of its stream.
 pub struct Row {
@@ -98,10 +97,10 @@ fn revision(event: &RawEvent) -> i64 {
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
     use serde_json::json;
 
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn view(index: usize, id: &str, revision: i64) -> Row {
         Row {

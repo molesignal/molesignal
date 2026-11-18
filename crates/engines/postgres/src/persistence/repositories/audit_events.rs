@@ -7,14 +7,13 @@
 //! compactor 的审计保留任务分批删除。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 use serde_json::{Map, Value};
+use signals::trace_normalization::sanitize_telemetry_fields;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::shared::{
-    Result, ids::Id, time::TimestampMicros, trace_normalization::sanitize_telemetry_fields,
-};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{
@@ -9,7 +10,6 @@ use super::{
     InboundMcpOAuthClient, InboundMcpOAuthConnection, InboundMcpOAuthToken, InboundMcpSettings,
     InboundMcpTask, NewInboundMcpOAuthClient,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[async_trait]
 pub trait InboundMcpRepository: Send + Sync {

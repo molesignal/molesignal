@@ -6,22 +6,20 @@
 //! Slack message is the same copy with buttons; a webhook receives the
 //! payload, which carries the same links.
 
+use domain::{
+    i18n_language::LanguagePack,
+    status_page::{
+        StatusPage, StatusPageNotificationDelivery, StatusPageNotificationMessage,
+        StatusPageSubscriber, StatusPageSubscriberChannel, SubscriberComponents,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 use url::Url;
 
 use super::{
     super::notification_copy::{self, EmailCopy, EventUpdate},
     slack_message::{SlackButton, slack_body},
-};
-use crate::{
-    domain::{
-        i18n_language::LanguagePack,
-        status_page::{
-            StatusPage, StatusPageNotificationDelivery, StatusPageNotificationMessage,
-            StatusPageSubscriber, StatusPageSubscriberChannel, SubscriberComponents,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// What a message to a subscriber takes from the page it is sent for.

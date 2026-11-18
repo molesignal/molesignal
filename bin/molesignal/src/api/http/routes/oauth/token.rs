@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::inbound_mcp::InboundMcpOAuthTokenKind;
 use axum::{
     Form, Json, Router,
     extract::State,
@@ -12,6 +13,8 @@ use base64::{
     Engine as _,
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
 };
+use domain::iam::api_token::TOKEN_MARKER;
+use kernel::{ids::Id, time::TimestampMicros};
 use rand::TryRng as _;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -24,12 +27,7 @@ use super::{
     },
     metadata,
 };
-use crate::{
-    agent::inbound_mcp::InboundMcpOAuthTokenKind,
-    api::AppState,
-    domain::iam::api_token::TOKEN_MARKER,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 mod issuance;
 

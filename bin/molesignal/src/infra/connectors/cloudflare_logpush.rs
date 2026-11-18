@@ -6,12 +6,9 @@
 //! Cloudflare 推 NDJSON 流（每行一条事件），HTTP POST 到 `/api/v1/_cloudflare`，
 //! 受 `X-Connector-Token` 头鉴权。本模块只提供解析；HTTP 层调用。
 
+use domain::intake::RawEvent;
+use kernel::{Result, time::TimestampMicros};
 use serde_json::{Map, Value};
-
-use crate::{
-    domain::intake::RawEvent,
-    shared::{Result, time::TimestampMicros},
-};
 
 pub fn parse_ndjson(body: &str) -> Result<Vec<RawEvent>> {
     let mut out = Vec::new();

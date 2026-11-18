@@ -9,24 +9,21 @@
 //! the Traces on the page, every Span of them.
 
 use axum::{Extension, Json, extract::State};
+use domain::{
+    iam::{IamContext, permission},
+    stream::{StreamDefinition, StreamType},
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 
 use super::{
     list::MAX_TRACE_PAGE_SIZE, request::validate_trace_id, resolve_traces_stream_definition,
 };
-use crate::{
-    api::{
-        AppState,
-        http::routes::web::field_stats::{
-            Analysed, FieldKind, FieldStatsResponse, Scope, Unavailable, analyze,
-        },
+use crate::api::{
+    AppState,
+    http::routes::web::field_stats::{
+        Analysed, FieldKind, FieldStatsResponse, Scope, Unavailable, analyze,
     },
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        stream::{StreamDefinition, StreamType},
-    },
-    shared::{Error, Result},
 };
 
 #[derive(Debug, Default, Deserialize)]

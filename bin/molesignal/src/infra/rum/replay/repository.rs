@@ -4,13 +4,13 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{
     MAX_REPLAY_SEGMENTS_PER_SESSION, RUM_REPLAY_FORMAT_VERSION, RumReplayMetaRepository,
     RumReplayRecord,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 pub struct PgRumReplayMetaRepository {
     pool: PgPool,
@@ -43,7 +43,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind(seq)
         .fetch_optional(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)
+        .map_err(postgres::sqlx_err)
         .map(|row| row.map(record_from_row))
     }
 
@@ -71,7 +71,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind(row.created_at)
         .execute(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(result.rows_affected() == 1)
     }
@@ -92,7 +92,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind((MAX_REPLAY_SEGMENTS_PER_SESSION + 1) as i64)
         .fetch_all(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)
+        .map_err(postgres::sqlx_err)
         .map(|rows| rows.into_iter().map(record_from_row).collect())
     }
 
@@ -113,15 +113,13 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind(session_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
-        let total = row
-            .try_get::<i64, _>("total")
-            .map_err(crate::infra::persistence::sqlx_err)?;
+        let total = row.try_get::<i64, _>("total").map_err(postgres::sqlx_err)?;
 
         let segments = row
             .try_get::<i64, _>("segments")
-            .map_err(crate::infra::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok((total.max(0) as u64, segments.max(0) as usize))
     }
@@ -145,7 +143,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind(RUM_REPLAY_FORMAT_VERSION as i32)
         .fetch_all(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(rows
             .into_iter()
@@ -174,7 +172,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind(limit as i64)
         .fetch_all(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(rows
             .into_iter()
@@ -193,7 +191,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
         .bind(limit as i64)
         .fetch_all(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)
+        .map_err(postgres::sqlx_err)
         .map(|rows| rows.into_iter().map(record_from_row).collect())
     }
 
@@ -206,7 +204,7 @@ impl RumReplayMetaRepository for PgRumReplayMetaRepository {
             .bind(ids)
             .execute(&self.pool)
             .await
-            .map_err(crate::infra::persistence::sqlx_err)?;
+            .map_err(postgres::sqlx_err)?;
 
         Ok(())
     }

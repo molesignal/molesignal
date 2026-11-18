@@ -8,12 +8,9 @@
 
 use std::collections::{BTreeSet, HashMap};
 
+use domain::iam::{User, UserRepository};
+use kernel::{Error, Result, ids::Id};
 use serde::Serialize;
-
-use crate::{
-    domain::iam::{User, UserRepository},
-    shared::{Error, Result, ids::Id},
-};
 
 /// 报表运行身份的显示信息。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -84,9 +81,10 @@ mod tests {
     use std::sync::Mutex;
 
     use async_trait::async_trait;
+    use domain::iam::UserStatus;
+    use kernel::time::TimestampMicros;
 
     use super::*;
-    use crate::{domain::iam::UserStatus, shared::time::TimestampMicros};
 
     /// 批量读取遇到不存在的 id 时，适配器的两种行为。两种都要能用。
     #[derive(Clone, Copy)]

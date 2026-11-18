@@ -9,15 +9,12 @@
 //! it: data goes on rather than being held back by a database that does not answer.
 use std::collections::HashMap;
 
-use parking_lot::Mutex;
-
-use crate::{
-    domain::pipeline::limit::{
-        LimitKey, LimitUsage, LimitUsageLedger, LimitUsageRow, MAX_QUOTA_BUCKETS, OTHER_BUCKET,
-        QuotaSpec,
-    },
-    shared::ids::Id,
+use domain::pipeline::limit::{
+    LimitKey, LimitUsage, LimitUsageLedger, LimitUsageRow, MAX_QUOTA_BUCKETS, OTHER_BUCKET,
+    QuotaSpec,
 };
+use kernel::ids::Id;
+use parking_lot::Mutex;
 
 /// A quota's buckets on one day.
 struct QuotaDay {

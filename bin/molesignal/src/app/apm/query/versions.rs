@@ -3,14 +3,13 @@
 
 use std::collections::HashMap;
 
+use domain::apm::BucketKind;
+use kernel::{Error, Result};
+
 use super::{
     ApmQueryContext, ApmQueryService, RedDelta, RedSummary, VersionCompareResponse, VersionSide,
     aggregate::red_from_buckets_at, apdex::ApdexThresholds, common::overflow_dimensions,
     deploys::judge, errors::error_summaries, ranking::transaction_summaries,
-};
-use crate::{
-    domain::apm::BucketKind,
-    shared::{Error, Result},
 };
 
 impl ApmQueryService {
@@ -184,9 +183,9 @@ fn signed_delta(candidate: u64, baseline: u64) -> i64 {
 
 fn regressed_transactions(
     context: &ApmQueryContext,
-    baseline: &[crate::domain::apm::MergedBucket],
-    candidate: &[crate::domain::apm::MergedBucket],
-    histogram: &crate::domain::apm::HistogramSchema,
+    baseline: &[domain::apm::MergedBucket],
+    candidate: &[domain::apm::MergedBucket],
+    histogram: &domain::apm::HistogramSchema,
     thresholds: &ApdexThresholds,
 ) -> Result<Vec<super::TransactionSummary>> {
     let baseline = transaction_summaries(context, baseline, histogram, thresholds)?

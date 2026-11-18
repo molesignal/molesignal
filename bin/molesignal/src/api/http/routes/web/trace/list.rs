@@ -10,6 +10,12 @@ use axum::{
     extract::{Query, State},
     response::Json,
 };
+use domain::iam::{IamContext, permission};
+use kernel::{
+    Error, Result,
+    cursor::{CursorDirection, CursorPage, trim_cursor_page},
+    time::TimestampMicros,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -18,15 +24,7 @@ use super::{
     filter::{self, TraceCondition, TraceFilter},
     resolve_traces_stream_definition,
 };
-use crate::{
-    api::{
-        AppState,
-        http::pagination::cursor::{CursorDirection, CursorPage, trim_cursor_page},
-    },
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 mod cursor;
 pub(super) mod histogram;
@@ -215,7 +213,7 @@ fn resolve_context(
     state: &AppState,
     ctx: &IamContext,
     query: ListTracesQuery,
-    schema: &crate::domain::stream::Schema,
+    schema: &domain::stream::Schema,
 ) -> Result<TraceListContext> {
     let requested_page_size = query.limit.clamp(1, MAX_TRACE_PAGE_SIZE);
 
@@ -275,7 +273,7 @@ fn validate_cursor_request(
     query: &ListTracesQuery,
     requested_page_size: usize,
     payload: &TraceCursorPayload,
-    schema: &crate::domain::stream::Schema,
+    schema: &domain::stream::Schema,
 ) -> Result<()> {
     let mismatched = query.from.is_some_and(|from| from != payload.from)
         || query.to.is_some_and(|to| to != payload.to)
@@ -321,7 +319,7 @@ mod tests {
 
     #[test]
     fn trace_filters_reject_unknown_field_before_scan() {
-        let schema = crate::shared::trace::normalization::canonical_trace_schema();
+        let schema = signals::trace::normalization::canonical_trace_schema();
         let filters = serde_json::json!([{
             "field": "duration_ms",
             "op": "=",
@@ -335,7 +333,7 @@ mod tests {
 
     #[test]
     fn trace_filters_reject_unknown_operator_before_scan() {
-        let schema = crate::shared::trace::normalization::canonical_trace_schema();
+        let schema = signals::trace::normalization::canonical_trace_schema();
         let filters = serde_json::json!([{
             "field": "service.name",
             "op": "regex",

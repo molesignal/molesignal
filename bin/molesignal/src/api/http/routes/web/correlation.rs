@@ -21,10 +21,12 @@ use axum::{
 };
 use base64::engine::{Engine, general_purpose::URL_SAFE_NO_PAD};
 use chrono::Duration as ChronoDuration;
+use domain::iam::{IamContext, permission};
+use kernel::Error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{api::AppState, app::iam::IamContext, domain::iam::permission, shared::Error};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/correlation/{fromKind}/{toKind}", get(correlation))
@@ -202,7 +204,7 @@ fn derive_trace_to_host(payload: &Value) -> (Vec<Filter>, Prefill) {
 
 async fn derive_metric_to_trace(
     state: &AppState,
-    org_id: &crate::shared::ids::Id,
+    org_id: &kernel::ids::Id,
     payload: &Value,
     from: &str,
     to: &str,

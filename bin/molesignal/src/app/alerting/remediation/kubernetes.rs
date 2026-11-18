@@ -13,16 +13,14 @@
 use std::{collections::BTreeMap, net::SocketAddr, time::Duration};
 
 use chrono::Utc;
+use domain::alerting::remediation::{
+    Escape, KubernetesCluster, KubernetesOperation, KubernetesRemediation, render_template,
+};
+use kernel::{Error, Result};
 use reqwest::{Method, header::CONTENT_TYPE, redirect::Policy};
 use serde_json::{Value, json};
 
-use crate::{
-    domain::alerting::remediation::{
-        Escape, KubernetesCluster, KubernetesOperation, KubernetesRemediation, render_template,
-    },
-    infra::connectors::config::http::is_metadata_address,
-    shared::{Error, Result},
-};
+use crate::infra::connectors::config::http::is_metadata_address;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REPLICAS: u32 = 1_000;

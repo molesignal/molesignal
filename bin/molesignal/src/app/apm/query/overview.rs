@@ -3,6 +3,12 @@
 
 use std::collections::HashMap;
 
+use domain::apm::{
+    BucketDimension, BucketKind, HealthLines, InstanceObservation, MergedBucket, ServiceIdentity,
+    ServiceObservation, VersionObservation,
+};
+use kernel::{Error, Result};
+
 use super::{
     ApmQueryContext, ApmQueryService, ApmTenantHealthResponse, InstrumentationSummary,
     OverviewResponse, PagedResponse, ServiceDetailResponse, ServiceSummary, VersionSummary,
@@ -19,13 +25,6 @@ use super::{
     profile::{instances_by_service, service_profile},
     ranking::{dependency_summaries, transaction_summaries},
     standings,
-};
-use crate::{
-    domain::apm::{
-        BucketDimension, BucketKind, HealthLines, InstanceObservation, MergedBucket,
-        ServiceIdentity, ServiceObservation, VersionObservation,
-    },
-    shared::{Error, Result},
 };
 
 impl ApmQueryService {
@@ -363,7 +362,7 @@ pub(super) fn build_service_summaries(
     versions: &[VersionObservation],
     instances: Option<&[InstanceObservation]>,
     buckets: &[MergedBucket],
-    histogram: &crate::domain::apm::HistogramSchema,
+    histogram: &domain::apm::HistogramSchema,
     (thresholds, lines): (&ApdexThresholds, &HealthLines),
 ) -> Result<Vec<ServiceSummary>> {
     let mut grouped = HashMap::<ServiceIdentity, Vec<MergedBucket>>::new();

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 use super::{
     call::{CallLine, QueuedCall},
@@ -15,7 +16,6 @@ use super::{
     routing::{OrganizationNotifyDefault, TeamNotifyDefault},
     template::NotifyTemplate,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[async_trait]
 pub trait NotifyConnectorRepository: Send + Sync {

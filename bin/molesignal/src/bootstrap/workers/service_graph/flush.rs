@@ -13,13 +13,10 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::iam::InstanceSettingsRepository;
+use kernel::{Result, time::TimestampMicros};
+use service_graph::{ServiceGraphAggregator, ServiceGraphRepository};
 use tokio::task::JoinHandle;
-
-use crate::{
-    domain::iam::InstanceSettingsRepository,
-    infra::traces::{ServiceGraphAggregator, ServiceGraphRepository},
-    shared::{Result, time::TimestampMicros},
-};
 
 /// 分钟桶宽（μs），与 [`ServiceGraphAggregator`] 内部一致。
 const BUCKET_SIZE_US: i64 = 60 * 1_000_000;

@@ -4,14 +4,12 @@
 //! 飞书开放接口：回复到话题里（卡片里的 Markdown，发不出去退回纯文本）、「处理中」的表情、私聊，
 //! 以及来不及在确认里带回去的点击结果。
 
+use agent::im::{CardAction, CardAnswer};
+use kernel::{Error, Result};
 use serde_json::{Value, json};
 
 use super::{App, MAX_MARKDOWN_CHARS, WORKING_EMOJI, http, ok, send};
-use crate::{
-    agent::im::{CardAction, CardAnswer},
-    infra::notify::adapters::{lark_card, truncate_chars},
-    shared::{Error, Result},
-};
+use crate::infra::notify::adapters::{lark_card, truncate_chars};
 
 fn card(markdown: &str) -> String {
     json!({

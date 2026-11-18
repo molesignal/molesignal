@@ -10,15 +10,21 @@
 //! 会话的作用域就是规则的作用域；事件触发的组织规则绑定事件的团队（从升级策略推出），推不出
 //! 时仍是组织会话。
 
+use agent::{
+    automations::{Automation, AutomationRun, AutomationRunStatus, TriggerKind, reasons},
+    references::{MessageReference, ReferenceKind},
+    runs::{Run, RunPrincipal, RunSource},
+    scope::Scope,
+};
+use domain::{
+    alerting::incident::Incident,
+    iam::{IamContext, IamScope},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::{Chat, ChatMessage};
 use serde_json::json;
 
 use crate::{
-    agent::{
-        automations::{Automation, AutomationRun, AutomationRunStatus, TriggerKind, reasons},
-        references::{MessageReference, ReferenceKind},
-        runs::{Run, RunPrincipal, RunSource},
-        scope::Scope,
-    },
     api::{
         AppState,
         http::routes::agent::{
@@ -33,10 +39,7 @@ use crate::{
             references,
         },
     },
-    app::{automations::outcome::excerpt, iam::IamContext},
-    domain::{alerting::incident::Incident, iam::IamScope},
-    infra::persistence::repositories::agent::chats::{Chat, ChatMessage},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::automations::outcome::excerpt,
 };
 
 /// 运行记录里留下的上下文最长这么多字符。
@@ -50,7 +53,7 @@ pub(crate) struct Start {
     /// 事件触发时的事件。
     pub(crate) incident: Option<Incident>,
     /// 发现触发时的那条自动发现。
-    pub(crate) finding: Option<crate::domain::alerting::discovery::Finding>,
+    pub(crate) finding: Option<domain::alerting::discovery::Finding>,
     /// 手动运行的人。
     pub(crate) started_by: Option<Id>,
 }
@@ -66,7 +69,7 @@ fn unattended_instruction(name: &str) -> String {
 }
 
 /// 触发这一次的自动发现：当作数据交给模型，连同去哪里读它。
-fn finding_context(finding: &crate::domain::alerting::discovery::Finding) -> String {
+fn finding_context(finding: &domain::alerting::discovery::Finding) -> String {
     let facts = json!({
         "id": finding.id.0,
         "kind": finding.kind.as_str(),
@@ -339,7 +342,7 @@ pub(crate) async fn start(
     let record = state.agent.automations.create_run(record).await?;
 
     if let Err(error) = state.agent.runs.create(run).await {
-        let ending = crate::agent::automations::RunEnding {
+        let ending = agent::automations::RunEnding {
             status: AutomationRunStatus::Failed,
             reason: Some(reasons::ERROR.into()),
             summary: Some(error.to_string()),

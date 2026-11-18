@@ -13,17 +13,16 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::iam::{
+    IamContext, IamScope, catalog::IamPermissionScope, permission, policy::PolicyDocument,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::iam::policies::{IamPolicy, IamPolicyWithUsage};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::iam::grant_limit;
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{IamScope, catalog::IamPermissionScope, permission, policy::PolicyDocument},
-    infra::persistence::repositories::iam::policies::{IamPolicy, IamPolicyWithUsage},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

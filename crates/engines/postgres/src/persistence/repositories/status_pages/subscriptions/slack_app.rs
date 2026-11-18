@@ -6,14 +6,12 @@
 //! the incoming webhook Slack created for the channel they chose.
 
 use async_trait::async_trait;
+use domain::status_page::{SlackAppCompletion, StatusPageSlackAppRepository, StatusPageSubscriber};
+use kernel::{Error, Result, time::TimestampMicros};
 
 use super::{
     super::PgStatusPageRepository, MAX_SUBSCRIBERS_PER_PAGE, SUBSCRIBER_COLS, count_subscribed,
     lock_page_subscribers, requests::insert_subscriber,
-};
-use crate::{
-    domain::status_page::{SlackAppCompletion, StatusPageSlackAppRepository, StatusPageSubscriber},
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 const WAITING: &str = "origin = 'slack_app' AND status = 'pending'";

@@ -14,12 +14,10 @@ use axum::{
     },
 };
 use chrono::SecondsFormat;
+use domain::status_page::{StatusPageIncident, StatusPageSnapshot};
+use kernel::{Error, Result, time::TimestampMicros};
 
-use crate::{
-    api::AppState,
-    domain::status_page::{StatusPageIncident, StatusPageSnapshot},
-    shared::{Error, Result, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 /// The most events a feed carries.
 const FEED_ENTRIES: usize = 100;

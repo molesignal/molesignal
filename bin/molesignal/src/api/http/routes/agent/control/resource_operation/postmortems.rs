@@ -6,17 +6,14 @@
 //! in the transaction that writes, and a published one is left to the people who revise it on the
 //! status page.
 
+use agent::model::ApprovalRequest;
+use domain::{iam::IamContext, status_page::PostmortemWrite};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::AppState,
-    app::iam::IamContext,
-    domain::status_page::PostmortemWrite,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

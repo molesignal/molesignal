@@ -10,14 +10,12 @@ use aws_lc_rs::{
     rand::{SecureRandom, SystemRandom},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
+use domain::alerting::meeting::TencentMeetingSettings;
+use kernel::{Error, Result};
 use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
 
 use super::{MEETING_SECS, client, send, unix_seconds};
-use crate::{
-    domain::alerting::meeting::TencentMeetingSettings,
-    shared::{Error, Result},
-};
 
 const API: &str = "https://api.meeting.qq.com";
 const PATH: &str = "/v1/meetings";

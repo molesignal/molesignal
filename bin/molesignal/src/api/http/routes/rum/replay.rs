@@ -11,22 +11,19 @@ use axum::{
     extract::{ConnectInfo, Path, State},
     http::{HeaderMap, header},
 };
+use domain::{
+    iam::{IamContext, permission},
+    intake::usage::source::{IntakeCredential, RUM_REPLAY_SOURCE},
+    rum::validate_application_id,
+    stream::StreamType,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::{
     api::{AppState, http::client_ip::ClientIpResolverHandle},
-    app::{
-        iam::IamContext,
-        intake::usage::{IntakeReceipt, ServiceTally},
-    },
-    domain::{
-        iam::permission,
-        intake::usage::source::{IntakeCredential, RUM_REPLAY_SOURCE},
-        rum::validate_application_id,
-        stream::StreamType,
-    },
-    shared::{Error, Result},
+    app::intake::usage::{IntakeReceipt, ServiceTally},
 };
 
 /// A segment as the SDKs upload it.

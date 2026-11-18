@@ -5,18 +5,16 @@
 //! 两处在一条语句或一个事务里完成，列表不会读到只改了一半的状态。
 
 use async_trait::async_trait;
+use domain::log_inspection::{
+    InspectionNotification, InspectionToolCall, LogInspectionRun, RunCompletion, RunFailure,
+    RunStatus, RunTrigger, repositories::LogInspectionRunRepository,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{Row, TracedQuery, postgres::PgRow, types::Json};
 
 use super::{
     super::sqlx_err, PgLogInspectionRepository, id, optional_id, optional_level,
     optional_timestamp, timestamp,
-};
-use crate::{
-    domain::log_inspection::{
-        InspectionNotification, InspectionToolCall, LogInspectionRun, RunCompletion, RunFailure,
-        RunStatus, RunTrigger, repositories::LogInspectionRunRepository,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 const COLS: &str = "id, inspection_id, org_id, trigger_kind, status, level, window_start,
@@ -322,7 +320,7 @@ impl LogInspectionRunRepository for PgLogInspectionRepository {
             .fetch_optional(&self.pool)
             .await
             .map_err(sqlx_err)?
-            .ok_or_else(|| crate::shared::Error::not_found("log inspection run"))?;
+            .ok_or_else(|| kernel::Error::not_found("log inspection run"))?;
 
         row_to_run(row)
     }

@@ -7,11 +7,10 @@
 
 use std::collections::HashMap;
 
+use domain::apm::ServiceIdentity;
+use kernel::{Result, ids::Id};
+
 use super::{ApmQueryService, aggregate::DEFAULT_APDEX_THRESHOLD_MICROS};
-use crate::{
-    domain::apm::ServiceIdentity,
-    shared::{Result, ids::Id},
-};
 
 /// The thresholds people set, by service namespace, then name, and the one
 /// of a service that sets none.
@@ -106,15 +105,14 @@ impl ApmQueryService {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::ranking::transaction_summaries, *};
-    use crate::{
-        app::apm::ApmQueryContext,
-        domain::apm::{
-            BucketDimension, BucketMeasurements, HistogramSchema, LatencyHistogram, MergedBucket,
-            QueryResolution, SortDirection, TransactionIdentity, TransactionKind,
-        },
-        shared::time::{TimeRange, TimestampMicros},
+    use domain::apm::{
+        BucketDimension, BucketMeasurements, HistogramSchema, LatencyHistogram, MergedBucket,
+        QueryResolution, SortDirection, TransactionIdentity, TransactionKind,
     };
+    use kernel::time::{TimeRange, TimestampMicros};
+
+    use super::{super::ranking::transaction_summaries, *};
+    use crate::app::apm::ApmQueryContext;
 
     #[test]
     fn a_service_is_read_with_its_own_threshold_or_the_default() {

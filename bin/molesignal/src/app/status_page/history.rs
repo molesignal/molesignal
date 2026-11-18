@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::{StatusPageHistoryPage, StatusPageHistoryQuery};
+use kernel::{Error, Result, ids::Id};
+
 use super::StatusPageService;
-use crate::{
-    domain::status_page::{StatusPageHistoryPage, StatusPageHistoryQuery},
-    shared::{Error, Result, ids::Id},
-};
 
 impl StatusPageService {
     pub async fn query_history(

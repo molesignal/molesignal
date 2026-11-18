@@ -13,15 +13,16 @@ use serde::{Deserialize, Serialize};
 mod domain_management;
 mod public_domain;
 
+use domain::{
+    iam::{IamContext, permission},
+    status_page::{StatusPageAccessRule, StatusPageAccessRuleKind, StatusPageAccessSession},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::request_hostname;
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{iam::IamContext, status_page::StatusPageAccessRuleInput},
-    domain::{
-        iam::permission,
-        status_page::{StatusPageAccessRule, StatusPageAccessRuleKind, StatusPageAccessSession},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::status_page::StatusPageAccessRuleInput,
 };
 
 pub(super) fn management_routes() -> Router<AppState> {

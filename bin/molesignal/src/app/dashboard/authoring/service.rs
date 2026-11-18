@@ -3,25 +3,23 @@
 
 use std::{sync::Arc, time::Duration};
 
+use contracts::ContractIssue;
+use domain::dashboard::authoring::{
+    AuthoringElement, DashboardAuthoringCapabilities, DashboardAuthoringSpec, DashboardDraft,
+    DashboardDraftRepository, DashboardDraftStatus, DashboardQueryPreflight, DraftConsumption,
+    PreflightReport, PreflightWarningRecord, PreparedDashboardDraft, SectionElement,
+    VisualizationManifest,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 
 use super::{DashboardAuthoringCompiler, compiler::CompiledDashboard};
-use crate::{
-    app::dashboard::{
-        DashboardService,
-        contract_registry::{
-            DashboardContractResolver, ResolvedDashboardContracts,
-            builtin_dashboard_contract_resolver,
-        },
-        validation::{DashboardValidationMode, ensure_dashboard_model_with},
+use crate::app::dashboard::{
+    DashboardService,
+    contract_registry::{
+        DashboardContractResolver, ResolvedDashboardContracts, builtin_dashboard_contract_resolver,
     },
-    domain::dashboard::authoring::{
-        AuthoringElement, DashboardAuthoringCapabilities, DashboardAuthoringSpec, DashboardDraft,
-        DashboardDraftRepository, DashboardDraftStatus, DashboardQueryPreflight, DraftConsumption,
-        PreflightReport, PreflightWarningRecord, PreparedDashboardDraft, SectionElement,
-        VisualizationManifest,
-    },
-    shared::{Error, Result, contracts::ContractIssue, ids::Id, time::TimestampMicros},
+    validation::{DashboardValidationMode, ensure_dashboard_model_with},
 };
 
 const DEFAULT_DRAFT_TTL: Duration = Duration::from_secs(30 * 60);

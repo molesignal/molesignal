@@ -13,15 +13,13 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::cluster::{ClusterRegistry, PeerInfo, PeerRole, intake_routing_key};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use signals::rendezvous;
 use sqlx::{PgPool, Row};
 use tokio::sync::Mutex;
 
 use super::super::sqlx_err;
-use crate::{
-    domain::cluster::{ClusterRegistry, PeerInfo, PeerRole, intake_routing_key},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 const NODE_DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(2);
 

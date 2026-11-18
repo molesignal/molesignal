@@ -21,6 +21,11 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::{
+    i18n_language::LanguagePack,
+    iam::{SsoProvider, SsoProviderKind, User},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -46,12 +51,7 @@ use crate::{
         signin_limit::{SigninAccount, SigninError},
         signin_policy::Admission,
     },
-    domain::{
-        i18n_language::LanguagePack,
-        iam::{SsoProvider, SsoProviderKind, User},
-    },
     infra::sso::{LinkedIdentity, SsoIdentity, SsoIdentityProof, SsoLinkRequest},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 关联请求的有效期。
@@ -191,7 +191,7 @@ async fn send_code(
         .set_email_code(&pending.id, &code_digest(&pending.id, &email_code), now)
         .await?;
 
-    crate::shared::trace_context::spawn_with_current_trace_context(async move {
+    signals::trace_context::spawn_with_current_trace_context(async move {
         if let Err(error) = sender.send_text(&[user.email], &subject, &body).await {
             tracing::warn!(error = %error, "sso link: verification email send failed");
         }
@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn the_email_is_written_in_the_page_language() {
-        use crate::shared::i18n_language_seed::seeded_pack;
+        use crate::i18n_language_seed::seeded_pack;
 
         assert_eq!(email_language(Some("zh-CN")), "zh-cn");
         assert_eq!(email_language(None), "en-us");

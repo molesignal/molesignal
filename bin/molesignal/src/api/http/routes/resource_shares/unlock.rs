@@ -14,6 +14,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -27,7 +28,6 @@ use crate::{
         check_password,
         signin_limit::{SigninAccount, SigninError, SigninLimiter},
     },
-    shared::{Error, Result},
 };
 
 #[derive(Debug, Deserialize)]
@@ -140,13 +140,11 @@ mod tests {
         password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
     };
     use axum::body::to_bytes;
+    use domain::iam::SigninLimits;
+    use kernel::ids::Id;
 
     use super::*;
-    use crate::{
-        app::iam::{signin_limit::SigninRefused, test_support::signin_limiter},
-        domain::iam::SigninLimits,
-        shared::ids::Id,
-    };
+    use crate::app::iam::{signin_limit::SigninRefused, test_support::signin_limiter};
 
     const RIGHT: &str = "open sesame";
     const WRONG: &str = "wrong password";

@@ -11,17 +11,15 @@ use std::{
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use kernel::{Error, Result};
 use object_store::{
     CredentialProvider,
     aws::{AwsCredential, AwsCredentialProvider},
 };
+use signals::http_trace::{self, HttpTarget};
 use tokio::sync::Mutex;
 
 use super::sigv4::{self, SigningKey};
-use crate::shared::{
-    Error, Result,
-    http_trace::{self, HttpTarget},
-};
 
 /// How long an assumed role's key is asked for.
 const SESSION_SECS: u64 = 3600;

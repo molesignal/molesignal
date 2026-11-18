@@ -9,8 +9,14 @@
 
 use std::sync::Arc;
 
+use agent::tool_control::ToolControlRepository;
+use domain::{i18n_language::I18nLanguageRepository, run_claim::RunGate, stream::StreamRepository};
+use postgres::repositories::{
+    agent::model_providers::ModelProviderRepository, log_inspection::PgLogInspectionRepository,
+};
+use settings::Settings;
+
 use crate::{
-    agent::tool_control::ToolControlRepository,
     app::{
         agent_usage::AgentUsage,
         iam::{IamAccessService, IamService},
@@ -22,11 +28,6 @@ use crate::{
         tools::ToolRuntime,
     },
     bootstrap::workers::log_inspection::{LogInspectionWorker, agent::ModelAgent},
-    config::Settings,
-    domain::{i18n_language::I18nLanguageRepository, run_claim::RunGate, stream::StreamRepository},
-    infra::persistence::repositories::{
-        agent::model_providers::ModelProviderRepository, log_inspection::PgLogInspectionRepository,
-    },
 };
 
 pub(super) struct LogInspectionDependencies {

@@ -6,16 +6,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use domain::alerting::source::{MailCursor, MailboxSettings};
+use kernel::{ids::Id, time::TimestampMicros};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream},
 };
 
 use super::*;
-use crate::{
-    domain::alerting::source::{MailCursor, MailboxSettings},
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 const MAIL: &str = "From: nagios@acme.com\r\nSubject: PROBLEM disk\r\n\r\nDisk full\r\n";
 

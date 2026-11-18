@@ -7,6 +7,18 @@
 
 use std::sync::Arc;
 
+use agent::{
+    chat::{
+        ChatMessage as ExternalChatMessage, CompletionRequest, MessageRole, ModelCallObserver,
+        ToolChoice, observed_complete,
+    },
+    memory::{DISTILL_INSTRUCTION, index_prompt, parse_drafts},
+    runs::{RunEventKind, language_instruction},
+    usage::UsageOrigin,
+};
+use domain::iam::IamContext;
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::Chat;
 use serde_json::json;
 
 use super::{
@@ -15,22 +27,8 @@ use super::{
     history::{system_message, to_model},
 };
 use crate::{
-    agent::{
-        chat::{
-            ChatMessage as ExternalChatMessage, CompletionRequest, MessageRole, ModelCallObserver,
-            ToolChoice, observed_complete,
-        },
-        memory::{DISTILL_INSTRUCTION, index_prompt, parse_drafts},
-        runs::{RunEventKind, language_instruction},
-        usage::UsageOrigin,
-    },
     api::http::routes::agent::{budget, viewer::chat_scope},
-    app::{
-        agent_usage::{BudgetGate, UsageScope},
-        iam::IamContext,
-    },
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::{ids::Id, time::TimestampMicros},
+    app::agent_usage::{BudgetGate, UsageScope},
 };
 
 /// 交给模型的对话最多这么多字符，多了只留最近的。

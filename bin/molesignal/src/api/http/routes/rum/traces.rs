@@ -17,6 +17,14 @@ use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    rum::event::RumStream,
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -26,17 +34,11 @@ use super::{
 };
 use crate::{
     api::{AppState, http::routes::web::trace::resolve_traces_stream},
-    app::iam::IamContext,
-    domain::{iam::permission, rum::event::RumStream},
     infra::{
         rum::query::{Condition, ListRequest, Scope, list_sql},
         traces::summary_reader::{
             SummaryOrder, TraceSummaryQuery, TraceSummaryReader, TraceSummaryRecord,
         },
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
     },
 };
 

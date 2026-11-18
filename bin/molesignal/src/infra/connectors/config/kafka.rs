@@ -7,10 +7,10 @@
 //! The settings become librdkafka properties in [`KafkaSettings::client_properties`]; certificates
 //! and the key travel as PEM text, so nothing is written to disk.
 
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{auth_mode, flag, require, text, unused};
-use crate::shared::{Error, Result};
 
 const MODES: &[&str] = &[
     "none",

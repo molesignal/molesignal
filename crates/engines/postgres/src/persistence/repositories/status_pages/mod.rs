@@ -18,13 +18,11 @@ mod planned_maintenance;
 mod postmortems;
 mod subscriptions;
 
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::PgPool;
 
 pub(crate) use super::sqlx_err;
-use crate::{
-    infra::cipher::CipherRootKey,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
 
 pub struct PgStatusPageRepository {
     pub(crate) pool: PgPool,
@@ -56,7 +54,7 @@ async fn touch_page(
     .map_err(sqlx_err)?;
 
     if result.rows_affected() == 0 {
-        return Err(crate::shared::Error::not_found("status page not found"));
+        return Err(kernel::Error::not_found("status page not found"));
     }
 
     Ok(())

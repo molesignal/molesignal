@@ -11,8 +11,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-
-use crate::shared::{Error, Result};
+use kernel::{Error, Result};
 
 /// The language a key is read from when the requested language lacks it.
 pub const FALLBACK_LANGUAGE_CODE: &str = "en-us";

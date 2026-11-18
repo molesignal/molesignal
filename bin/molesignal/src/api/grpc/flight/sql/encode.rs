@@ -24,9 +24,8 @@ use arrow::{
     datatypes::{DataType, Field, Schema, TimeUnit},
     error::ArrowError,
 };
+use domain::query::QueryResult;
 use serde_json::Value;
-
-use crate::domain::query::QueryResult;
 
 /// 推断出的列类型；优先级见 [`infer_column`]。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -4,7 +4,7 @@
 //! 来源的 Token：与 API Token 同一个样子 `mspat-<36>`，生成与校验也用同一套：前 10 位用来找来源，
 //! 后 26 位存 SHA-256 哈希。Token 只在新建和轮换时出现一次。
 
-use crate::infra::persistence::repositories::api_tokens::{
+use postgres::repositories::api_tokens::{
     assemble_token, generate_token_parts, hash_secret, split_token, verify_secret,
 };
 

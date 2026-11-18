@@ -4,13 +4,11 @@
 //! `inhibit_rules` 表 Pg 实装（告警抑制）。
 
 use async_trait::async_trait;
+use domain::alerting::inhibit::{InhibitRule, InhibitRuleRepository, InhibitSource, InhibitTarget};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::inhibit::{InhibitRule, InhibitRuleRepository, InhibitSource, InhibitTarget},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgInhibitRuleRepository {
     pool: PgPool,

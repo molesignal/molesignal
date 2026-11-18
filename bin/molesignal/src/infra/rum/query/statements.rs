@@ -3,20 +3,19 @@
 
 //! The statements the explorer and the detail pages run.
 
+use domain::{
+    rum::event::{RumStream, Versioned},
+    stream::FieldType,
+};
+use kernel::{
+    Error, Result,
+    cursor::{CursorDirection, CursorSortDirection, CursorValue, lexicographic_seek},
+};
+
 use super::{
     columns::trouble,
     member::Column,
     sql::{Relation, Scope, ident, literal},
-};
-use crate::{
-    domain::{
-        rum::event::{RumStream, Versioned},
-        stream::FieldType,
-    },
-    shared::{
-        Error, Result,
-        cursor::{CursorDirection, CursorSortDirection, CursorValue, lexicographic_seek},
-    },
 };
 
 /// The result columns that carry what the page needs to order and cut a list: the time of the row
@@ -227,11 +226,10 @@ pub fn session_rows_sql(session_id: &str, from: i64, to: i64, limit: usize) -> S
 
 #[cfg(test)]
 mod tests {
+    use domain::rum::event::field;
+
     use super::*;
-    use crate::{
-        domain::rum::event::field,
-        infra::rum::query::{columns::all_columns, filter::Condition},
-    };
+    use crate::infra::rum::query::{columns::all_columns, filter::Condition};
 
     fn scope<'a>(stream: RumStream, conditions: &'a [Condition]) -> Scope<'a> {
         Scope {

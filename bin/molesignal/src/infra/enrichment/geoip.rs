@@ -11,9 +11,8 @@
 
 use std::{net::IpAddr, path::Path, sync::Arc};
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GeoLocation {

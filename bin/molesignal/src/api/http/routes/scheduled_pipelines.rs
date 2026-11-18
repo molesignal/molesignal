@@ -15,26 +15,24 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission, resource_permission},
+    pipeline::scheduled::ScheduledConfig,
+    query::{QueryLanguage, QueryRequest, StreamHint},
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use postgres::repositories::pipelines::runs::{PipelineRun, PipelineRunSummary};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
     api::{AppState, http::middleware::ProtectedResource},
-    app::{iam::IamContext, reporting::RunAsProfile},
-    domain::{
-        iam::{permission, resource_permission},
-        pipeline::scheduled::ScheduledConfig,
-        query::{QueryLanguage, QueryRequest, StreamHint},
-    },
-    infra::{
-        persistence::repositories::pipelines::runs::{PipelineRun, PipelineRunSummary},
-        pipeline::{ScheduledPipeline, exec::parse_signal_type, scheduled::state::RunState},
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+    app::reporting::RunAsProfile,
+    infra::pipeline::{ScheduledPipeline, exec::parse_signal_type, scheduled::state::RunState},
 };
 
 mod audit_reader;
@@ -487,8 +485,8 @@ async fn submit_backfill(
     Path(id): Path<String>,
     Json(req): Json<BackfillReq>,
 ) -> Result<Response> {
-    if crate::domain::pipeline::realtime::is_realtime(&pipeline.function_steps)
-        || crate::domain::pipeline::alert::is_alert(&pipeline.function_steps)
+    if domain::pipeline::realtime::is_realtime(&pipeline.function_steps)
+        || domain::pipeline::alert::is_alert(&pipeline.function_steps)
     {
         return Err(Error::invalid(
             "realtime and alert pipelines do not support backfill",

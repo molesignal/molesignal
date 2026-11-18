@@ -3,13 +3,11 @@
 
 //! 开了「在 IM 里回答」的连接器，它们的状态与租约。
 
+use agent::im::{BotStatus, ImBot};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, postgres::PgRow};
 
 use super::{micros, optional_micros, optional_text, sqlx_err, text};
-use crate::{
-    agent::im::{BotStatus, ImBot},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const COLUMNS: &str = "connector_id, org_id, enabled, default_team_id, status, status_detail, \
                        status_at, last_message_at, created_by, updated_by, \

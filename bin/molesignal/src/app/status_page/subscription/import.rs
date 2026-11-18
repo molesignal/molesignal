@@ -9,17 +9,15 @@
 
 use std::collections::{HashMap, HashSet};
 
+use domain::status_page::{
+    ComponentLifecycle, ImportedStatusPageSubscriber, StatusPage, StatusPageLifecycle,
+    StatusPageSubscriberChannel, StatusPageSubscriberImport, StatusPageSubscriberImportMode,
+    StatusPageSubscriberImportOutcome, SubscriberComponents,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{super::StatusPageService, subscription_token, token_hash};
-use crate::{
-    domain::status_page::{
-        ComponentLifecycle, ImportedStatusPageSubscriber, StatusPage, StatusPageLifecycle,
-        StatusPageSubscriberChannel, StatusPageSubscriberImport, StatusPageSubscriberImportMode,
-        StatusPageSubscriberImportOutcome, SubscriberComponents,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const MAX_IMPORT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_IMPORT_ROWS: usize = 10_000;

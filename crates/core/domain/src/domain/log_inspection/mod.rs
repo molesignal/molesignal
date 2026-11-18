@@ -8,12 +8,10 @@
 
 pub mod repositories;
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::notify::connector::NotifyTargetType,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::notify::connector::NotifyTargetType;
 
 /// 多久执行一次。带时刻的周期按巡检的时区（[`LogInspection::timezone`]）解释。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

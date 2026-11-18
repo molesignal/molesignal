@@ -4,13 +4,12 @@
 //! 发起请求的人在 Agent 作用域里是谁：所在的团队、是否持有 `agent.manage`，以及他对一个
 //! 会话的访问程度。规则本身在 `agent::scope`。
 
-use crate::{
-    agent::scope::{ChatAccess, ChatScope, Scope, Viewer, chat_access},
-    api::AppState,
-    app::iam::IamContext,
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::{Error, Result, ids::Id},
-};
+use agent::scope::{ChatAccess, ChatScope, Scope, Viewer, chat_access};
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::agent::chats::Chat;
+
+use crate::api::AppState;
 
 pub(crate) async fn viewer(state: &AppState, ctx: &IamContext) -> Result<Viewer> {
     let teams = state

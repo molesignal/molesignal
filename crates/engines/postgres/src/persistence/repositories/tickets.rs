@@ -7,17 +7,14 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use domain::alerting::ticket::{
+    IncidentTicket, TicketAutoRule, TicketComments, TicketConnector, TicketRepository, TicketSystem,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::ticket::{
-        IncidentTicket, TicketAutoRule, TicketComments, TicketConnector, TicketRepository,
-        TicketSystem,
-    },
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
 
 pub struct PgTicketRepository {
     pool: PgPool,

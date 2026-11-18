@@ -12,16 +12,11 @@
 use std::sync::Arc;
 
 use base64::Engine as _;
-use molesignal::{
-    config::MetaDatabaseSettings,
-    infra::{
-        cipher::CipherRootKey,
-        persistence::MetaStore,
-        sso::{SsoHandoff, SsoStateEntry, SsoStateStore, state_store::MAX_ENTRIES},
-    },
-    shared::Error,
-};
+use kernel::Error;
+use molesignal::infra::sso::{SsoHandoff, SsoStateEntry, SsoStateStore, state_store::MAX_ENTRIES};
+use postgres::{MetaStore, cipher::CipherRootKey};
 use serde_json::json;
+use settings::MetaDatabaseSettings;
 use sqlx::{PgPool, Row};
 use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres as PgImage;

@@ -3,10 +3,8 @@
 
 //! 电话与短信连接器共用的部分：号码的写法（E.164），以及一条通知在电话里念什么、短信里发什么。
 
-use crate::{
-    domain::notify::connector::{NotifyMessage, NotifyTarget, NotifyTargetType},
-    shared::{Error, Result},
-};
+use domain::notify::connector::{NotifyMessage, NotifyTarget, NotifyTargetType};
+use kernel::{Error, Result};
 
 /// 同一个号码一分钟只拨一次，其间的通知合并成下一通（阿里云对同一号码本来就是每分钟一通）。
 pub(crate) const CALL_MERGE_WINDOW_SECS: u32 = 60;

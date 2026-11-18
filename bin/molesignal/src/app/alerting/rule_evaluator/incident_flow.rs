@@ -5,6 +5,24 @@
 
 use std::collections::BTreeMap;
 
+use domain::{
+    alerting::{
+        handling::EscalationReason,
+        incident::{
+            Incident, IncidentStatus, Severity, TriggeringQuery, generate_title,
+            resolve_incident_severity,
+        },
+        rule::AlertRule,
+    },
+    pipeline::alert::AlertEventSource,
+    query::QueryResult,
+};
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+
 use super::{
     GROUP_WINDOW_SECS, RuleEvaluator,
     decision::Decision,
@@ -12,28 +30,9 @@ use super::{
     groups::Subject,
     incident_context::derive_incident_context,
 };
-use crate::{
-    app::{
-        alerting::{event_pipelines::Processed, rum_source, service::WRITE_ATTEMPTS},
-        notify::{ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT},
-    },
-    domain::{
-        alerting::{
-            handling::EscalationReason,
-            incident::{
-                Incident, IncidentStatus, Severity, TriggeringQuery, generate_title,
-                resolve_incident_severity,
-            },
-            rule::AlertRule,
-        },
-        pipeline::alert::AlertEventSource,
-        query::QueryResult,
-    },
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use crate::app::{
+    alerting::{event_pipelines::Processed, rum_source, service::WRITE_ATTEMPTS},
+    notify::{ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT},
 };
 
 impl RuleEvaluator {
@@ -445,13 +444,13 @@ fn incoming_incident(
         resolved_by: None,
         team_id: None,
         routing: None,
-        handling: crate::domain::alerting::handling::IncidentHandling {
+        handling: domain::alerting::handling::IncidentHandling {
             // 自动发现是启发式的：规则没说时按低紧急度，只通知第一级、不在免打扰时段打扰。
             urgency: rule.trigger.urgency.clone().or_else(|| {
                 rule.query
                     .discovery
                     .is_some()
-                    .then(crate::domain::alerting::urgency::Urgency::low)
+                    .then(domain::alerting::urgency::Urgency::low)
             }),
             priority: rule.trigger.priority,
             ..Default::default()

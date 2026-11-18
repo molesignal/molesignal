@@ -3,9 +3,8 @@
 
 //! 邮件来源怎么读一封邮件：接受谁发来的、什么主题算恢复、哪些不算告警、去重键怎么取。
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result};
 
 /// 一个来源最多列几个发件人。
 pub const MAX_ALLOWED_SENDERS: usize = 64;

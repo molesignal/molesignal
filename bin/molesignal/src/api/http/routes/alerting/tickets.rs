@@ -21,21 +21,18 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post, put},
 };
+use domain::{
+    alerting::{
+        incident::Incident,
+        ticket::{MEEGLE_SITES, TicketAutoRule, TicketComments, TicketConnector, TicketSystem},
+    },
+    iam::{IamContext, permission, resource_permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::{
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::{
-        alerting::{
-            incident::Incident,
-            ticket::{MEEGLE_SITES, TicketAutoRule, TicketComments, TicketConnector, TicketSystem},
-        },
-        iam::{permission, resource_permission},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 const WEBHOOK_PREFIX: &str = "/api/v1/public/tickets/jira/";
 

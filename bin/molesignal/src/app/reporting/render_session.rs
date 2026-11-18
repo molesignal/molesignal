@@ -8,12 +8,11 @@
 //! 打印完立即清除。这个 token 只在一次渲染所需的时间内有效，也没有 refresh token。
 
 use async_trait::async_trait;
+use domain::iam::IamContext;
+use kernel::Result;
+use postgres::repositories::scheduled_reports::ScheduledReport;
 
-use crate::{
-    app::iam::{IamContext, IamService},
-    infra::persistence::repositories::scheduled_reports::ScheduledReport,
-    shared::Result,
-};
+use crate::app::iam::IamService;
 
 /// 渲染用 token 的有效期。一次渲染最长 60 秒，其余留给排队等待空闲的浏览器实例。
 pub const RENDER_SESSION_TTL_SECS: u64 = 600;
@@ -38,12 +37,11 @@ pub fn render_session(iam: &IamService, context: &IamContext) -> Result<String> 
 mod tests {
     use std::collections::BTreeSet;
 
+    use domain::iam::{IamAssignedRole, IamScope};
+    use kernel::ids::Id;
+
     use super::*;
-    use crate::{
-        app::iam::test_support::iam_service,
-        domain::iam::{IamAssignedRole, IamScope},
-        shared::ids::Id,
-    };
+    use crate::app::iam::test_support::iam_service;
 
     fn context() -> IamContext {
         IamContext {

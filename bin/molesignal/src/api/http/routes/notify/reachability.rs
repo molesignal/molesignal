@@ -9,14 +9,11 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::{iam::IamContext, notify::Reachability},
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id},
-};
+use crate::{api::AppState, app::notify::Reachability};
 
 /// 一次最多问多少人。
 const MAX_USERS: usize = 200;

@@ -3,13 +3,11 @@
 
 //! 页面读到的规则：规则本身，加上读的人能做什么。
 
+use agent::{automations::Automation, scope::Viewer};
+use domain::iam::IamContext;
 use serde::Serialize;
 
 use super::access::{can_edit, can_moderate};
-use crate::{
-    agent::{automations::Automation, scope::Viewer},
-    app::iam::IamContext,
-};
 
 #[derive(Debug, Serialize)]
 pub(super) struct AutomationView {

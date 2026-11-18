@@ -8,23 +8,19 @@
 
 use std::sync::Arc;
 
+use domain::{
+    alerting::incident::{
+        CONDITION_LABEL, EXTERNAL_SOURCE, MANUAL_SOURCE, NO_DATA_CONDITION, SOURCE_LABEL,
+        SYNTHETIC_SOURCE,
+    },
+    i18n_language::{FALLBACK_LANGUAGE_CODE, I18nLanguageRepository, LanguagePack},
+    pipeline::alert::{AlertEventSource, AlertFields, AlertOutcomeKind, AlertPipeline, AlertStage},
+};
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository;
 use serde_json::{Map, Value};
 
 use super::{AlertPipelines, Passage};
-use crate::{
-    domain::{
-        alerting::incident::{
-            CONDITION_LABEL, EXTERNAL_SOURCE, MANUAL_SOURCE, NO_DATA_CONDITION, SOURCE_LABEL,
-            SYNTHETIC_SOURCE,
-        },
-        i18n_language::{FALLBACK_LANGUAGE_CODE, I18nLanguageRepository, LanguagePack},
-        pipeline::alert::{
-            AlertEventSource, AlertFields, AlertOutcomeKind, AlertPipeline, AlertStage,
-        },
-    },
-    infra::persistence::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 const LANGUAGE_KEY_PREFIX: &str = "alerting.pipeline.";
 const DROPPED_LANGUAGE_KEY: &str = "alerting.pipeline.dropped";

@@ -14,16 +14,14 @@ use std::{
 };
 
 use bytes::{BufMut, Bytes, BytesMut};
+use kernel::{Error, Result};
 use moka::sync::Cache;
 use object_store::{GetOptions, ObjectStore, path::Path as ObjectPath};
 use parking_lot::Mutex;
+use settings::ObjectCacheSettings;
 use tokio::{io::AsyncWriteExt, sync::Semaphore};
 
 use super::{RegisteredObject, metrics};
-use crate::{
-    config::ObjectCacheSettings,
-    shared::{Error, Result},
-};
 
 mod codec;
 mod disk;
@@ -595,13 +593,11 @@ fn cache_usize(value: u64, what: &str) -> object_store::Result<usize> {
 
 #[cfg(test)]
 mod tests {
+    use domain::storage::{ObjectChecksum, ObjectKey, StoredObject};
+    use kernel::ids::Id;
     use object_store::{ObjectStoreExt, memory::InMemory};
 
     use super::*;
-    use crate::{
-        domain::storage::{ObjectChecksum, ObjectKey, StoredObject},
-        shared::ids::Id,
-    };
 
     fn registered(bytes: &[u8]) -> RegisteredObject {
         RegisteredObject {

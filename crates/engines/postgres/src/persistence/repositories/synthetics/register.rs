@@ -2,15 +2,13 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::synthetics::{
+    ProbeAgent, ProbeRegisterToken, ProbeRegistrationGrant, SyntheticAgentRepository,
+    SyntheticRegisterRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::PgSyntheticRepository;
-use crate::{
-    domain::synthetics::{
-        ProbeAgent, ProbeRegisterToken, ProbeRegistrationGrant, SyntheticAgentRepository,
-        SyntheticRegisterRepository,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 #[async_trait]
 impl SyntheticRegisterRepository for PgSyntheticRepository {

@@ -15,14 +15,11 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::iam::{IamContext, email_domain_allowed, permission};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{email_domain_allowed, permission},
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

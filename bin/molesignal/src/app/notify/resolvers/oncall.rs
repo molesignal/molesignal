@@ -4,19 +4,16 @@
 use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    alerting::{repositories::ScheduleRepository, schedule::Schedule},
+    notify::{
+        policy::NotifyEvent,
+        recipient::{NotifyRecipient, RecipientResolver},
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
-
-use crate::{
-    domain::{
-        alerting::{repositories::ScheduleRepository, schedule::Schedule},
-        notify::{
-            policy::NotifyEvent,
-            recipient::{NotifyRecipient, RecipientResolver},
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub const NEXT_ONCALL_RESOLVER: &str = "next_oncall";
 pub const SCHEDULE_MEMBERS_RESOLVER: &str = "schedule_members";
@@ -171,8 +168,9 @@ fn next_oncall_user(schedule: &Schedule, at: TimestampMicros) -> Option<Id> {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::schedule::{Rotation, RotationKind};
+
     use super::*;
-    use crate::domain::alerting::schedule::{Rotation, RotationKind};
 
     #[test]
     fn next_oncall_finds_next_rotation_member() {

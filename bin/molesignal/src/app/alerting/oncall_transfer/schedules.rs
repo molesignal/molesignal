@@ -3,13 +3,10 @@
 
 //! 包里的一项（名字已经换回 id）变成要写的排班。
 
+use domain::alerting::schedule::{Rotation, Schedule};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
-
-use crate::{
-    domain::alerting::schedule::{Rotation, Schedule},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 导出时不带的键。
 pub const SCHEDULE_DROP: [&str; 7] = [

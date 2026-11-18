@@ -11,15 +11,14 @@
 use std::time::Duration;
 
 use base64::Engine as _;
-use molesignal::{
-    config::MetaDatabaseSettings,
-    domain::status_page::StatusPageAccessRepository,
-    infra::{
-        cipher::{CipherRootKey, kek_rewrap::rewrap_all},
-        persistence::{MetaStore, repositories::status_pages::PgStatusPageRepository},
-    },
-    shared::ids::Id,
+use domain::status_page::StatusPageAccessRepository;
+use kernel::ids::Id;
+use postgres::{
+    MetaStore,
+    cipher::{CipherRootKey, kek_rewrap::rewrap_all},
+    repositories::status_pages::PgStatusPageRepository,
 };
+use settings::MetaDatabaseSettings;
 use sqlx::{PgPool, Row};
 use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres as PgImage;

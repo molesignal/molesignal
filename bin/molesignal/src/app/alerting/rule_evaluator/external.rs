@@ -10,28 +10,27 @@
 
 use std::collections::BTreeMap;
 
+use domain::{
+    alerting::{
+        handling::IncidentHandling,
+        incident::{
+            CONDITION_LABEL, EXTERNAL_KIND_LABEL, EXTERNAL_SOURCE, Incident, IncidentStatus,
+            NO_DATA_CONDITION, SOURCE_LABEL, Severity,
+        },
+        source::{AlertOutcome, AlertSource, ExternalAction, ExternalAlert},
+        urgency::Urgency,
+    },
+    pipeline::alert::AlertEventSource,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     RuleEvaluator,
     events::{emit_lifecycle, enqueue_notify_event},
 };
-use crate::{
-    app::{
-        alerting::{event_pipelines::Processed, service::WRITE_ATTEMPTS},
-        notify::{ALERT_ACKNOWLEDGED_EVENT, ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT},
-    },
-    domain::{
-        alerting::{
-            handling::IncidentHandling,
-            incident::{
-                CONDITION_LABEL, EXTERNAL_KIND_LABEL, EXTERNAL_SOURCE, Incident, IncidentStatus,
-                NO_DATA_CONDITION, SOURCE_LABEL, Severity,
-            },
-            source::{AlertOutcome, AlertSource, ExternalAction, ExternalAlert},
-            urgency::Urgency,
-        },
-        pipeline::alert::AlertEventSource,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::{
+    alerting::{event_pipelines::Processed, service::WRITE_ATTEMPTS},
+    notify::{ALERT_ACKNOWLEDGED_EVENT, ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT},
 };
 
 /// 一个来源里一个去重键的事件指纹，与规则、拨测的指纹分开。
@@ -387,8 +386,9 @@ fn first_of(labels: &BTreeMap<String, String>, keys: &[&str]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::source::AlertSourceKind;
+
     use super::*;
-    use crate::domain::alerting::source::AlertSourceKind;
 
     fn source() -> AlertSource {
         AlertSource {

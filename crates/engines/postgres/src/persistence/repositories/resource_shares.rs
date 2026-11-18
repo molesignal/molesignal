@@ -9,15 +9,13 @@
 //! Each organization's sharing policy is in [`policy`].
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
 
 mod policy;
 

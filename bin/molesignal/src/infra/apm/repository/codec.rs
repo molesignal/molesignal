@@ -3,15 +3,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use domain::apm::{BucketDimension, BucketKind, BucketMeasurements, MergedBucket, QueryResolution};
+use kernel::{Error, Result, time::TimestampMicros};
 use sqlx::{
     Row,
     postgres::{PgRow, types::PgInterval},
     types::Json,
-};
-
-use crate::{
-    domain::apm::{BucketDimension, BucketKind, BucketMeasurements, MergedBucket, QueryResolution},
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) const HOUR_MICROS: i64 = 3_600 * 1_000_000;
@@ -87,18 +84,15 @@ pub(super) fn dimension_key(dimension: &BucketDimension) -> Result<Vec<u8>> {
 pub(super) fn row_to_bucket(row: PgRow) -> Result<PersistedBucketRow> {
     let schema_version: i16 = row
         .try_get("histogram_schema_version")
-        .map_err(crate::infra::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
     let schema_version = u16::try_from(schema_version)
         .map_err(|_| Error::internal("negative APM histogram schema version"))?;
 
-    let dimension: Json<BucketDimension> = row
-        .try_get("dimension")
-        .map_err(crate::infra::persistence::sqlx_err)?;
+    let dimension: Json<BucketDimension> = row.try_get("dimension").map_err(postgres::sqlx_err)?;
 
-    let measurements: Json<BucketMeasurements> = row
-        .try_get("measurements")
-        .map_err(crate::infra::persistence::sqlx_err)?;
+    let measurements: Json<BucketMeasurements> =
+        row.try_get("measurements").map_err(postgres::sqlx_err)?;
 
     if measurements.0.latency.schema_version != schema_version {
         return Err(Error::internal(
@@ -106,9 +100,7 @@ pub(super) fn row_to_bucket(row: PgRow) -> Result<PersistedBucketRow> {
         ));
     }
 
-    let dimension_key: Vec<u8> = row
-        .try_get("dimension_key")
-        .map_err(crate::infra::persistence::sqlx_err)?;
+    let dimension_key: Vec<u8> = row.try_get("dimension_key").map_err(postgres::sqlx_err)?;
 
     if dimension_key.len() != blake3::OUT_LEN {
         return Err(Error::internal("invalid APM dimension key length"));
@@ -117,7 +109,7 @@ pub(super) fn row_to_bucket(row: PgRow) -> Result<PersistedBucketRow> {
     Ok(PersistedBucketRow {
         bucket_at: row
             .try_get::<TimestampMicros, _>("bucket_at")
-            .map_err(crate::infra::persistence::sqlx_err)?
+            .map_err(postgres::sqlx_err)?
             .0,
         dimension_key,
         histogram_schema_version: schema_version,

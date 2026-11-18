@@ -8,17 +8,16 @@
 //!   签名证书。
 
 use axum::{Extension, Json, Router, routing::post};
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
 use serde::Deserialize;
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
     infra::sso::{
         oidc::discovery::{OidcDiscovery, discover},
         saml::metadata::{self, SamlIdpMetadata},
     },
-    shared::{Error, Result},
 };
 
 pub(super) fn routes() -> Router<AppState> {

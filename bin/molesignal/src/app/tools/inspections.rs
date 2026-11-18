@@ -6,6 +6,11 @@
 
 use std::collections::HashMap;
 
+use domain::{
+    iam::IamContext,
+    log_inspection::{LogInspection, LogInspectionRun},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
@@ -14,14 +19,7 @@ use super::{
     ToolRuntime,
     common::{json_result, parse_args},
 };
-use crate::{
-    app::{
-        iam::IamContext,
-        reporting::{RunAsProfile, run_as_profiles},
-    },
-    domain::log_inspection::{LogInspection, LogInspectionRun},
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::reporting::{RunAsProfile, run_as_profiles};
 
 const DEFAULT_RUNS: i64 = 10;
 const MAX_RUNS: i64 = 50;

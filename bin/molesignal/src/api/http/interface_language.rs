@@ -9,12 +9,13 @@
 //! and each of those also keeps a text of its own in its own table. A caller
 //! shows that one when the entry is missing.
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack},
-    shared::Result,
+use domain::{
+    i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack},
+    iam::IamContext,
 };
+use kernel::Result;
+
+use crate::api::AppState;
 
 /// The language code the signed-in user reads the interface in: their own
 /// preference, or the default of the workspace while they have set none.

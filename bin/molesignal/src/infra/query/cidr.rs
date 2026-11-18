@@ -3,7 +3,7 @@
 
 //! `cidr_match(value TEXT, network TEXT) -> BOOLEAN`：地址是否落在网段里。
 //!
-//! IPv4 映射进 IPv6 比较（见 [`crate::domain::stream::cidr_range`]），`10.0.0.0/8` 也匹配
+//! IPv4 映射进 IPv6 比较（见 [`domain::stream::cidr_range`]），`10.0.0.0/8` 也匹配
 //! `::ffff:10.1.2.3`。值不是地址时为 false，任一参数为 NULL 时为 NULL。网段写错时，常量网段报错，
 //! 逐行给出的网段在那一行为 NULL。`ip` 索引的字段上，顶层合取的 `cidr_match` 还用文件的地址
 //! 范围跳过不可能命中的文件，见 [`super::skip_pruner`]。
@@ -22,8 +22,7 @@ use datafusion::{
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
     },
 };
-
-use crate::domain::stream::{address_number, cidr_range};
+use domain::stream::{address_number, cidr_range};
 
 pub fn cidr_match_udf() -> ScalarUDF {
     ScalarUDF::from(CidrMatch {

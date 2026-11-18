@@ -7,9 +7,8 @@
 //! 与标准差相当；大多数组一样时 MAD 为 0，尺度至少取中位数的 5%，免得一点点差别也算离群。有值的组
 //! 少于 3 个时不判断。
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result};
 
 pub const DEFAULT_OUTLIER_TOLERANCE: f64 = 3.0;
 pub const MIN_OUTLIER_TOLERANCE: f64 = 0.5;

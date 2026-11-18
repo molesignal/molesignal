@@ -5,13 +5,11 @@
 //! update it publishes when maintenance starts at the planned time. The copy
 //! comes from the backend language pack, in the default language of the page.
 
+use domain::{i18n_language::LanguagePack, status_page::StatusPageNotificationMessage};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde_json::Value;
 
 use super::StatusPageService;
-use crate::{
-    domain::{i18n_language::LanguagePack, status_page::StatusPageNotificationMessage},
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 /// Every entry this copy is written from has a key under this prefix.
 const LANGUAGE_KEY_PREFIX: &str = "status_page.";
@@ -279,15 +277,16 @@ fn status_name<'a>(pack: &'a LanguagePack, statuses: &str, status: &'a str) -> &
 
 #[cfg(test)]
 pub(super) mod tests {
+    use domain::status_page::{ComponentStatus, PublicIncidentStatus};
+
     use super::*;
-    use crate::domain::status_page::{ComponentStatus, PublicIncidentStatus};
 
     /// 2026-05-25 10:00 UTC.
     const PLANNED_START: i64 = 1_779_703_200_000_000;
 
     /// The seeded entries status page emails are written from.
     pub(in crate::app::status_page) fn seeded_pack(language_code: &str) -> LanguagePack {
-        crate::shared::i18n_language_seed::seeded_pack(LANGUAGE_KEY_PREFIX, language_code)
+        crate::i18n_language_seed::seeded_pack(LANGUAGE_KEY_PREFIX, language_code)
     }
 
     fn maintenance_update(status: &str, scheduled_for: Option<String>) -> EventUpdate<'_> {

@@ -3,14 +3,13 @@
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use domain::cluster::PeerRole;
+use kernel::ids::Id;
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::{
-        cluster::{PeerRole, WorkOwnership},
-        status_page::{DependencySignalQueue, StatusPageService},
-    },
-    shared::ids::Id,
+use crate::app::{
+    cluster::WorkOwnership,
+    status_page::{DependencySignalQueue, StatusPageService},
 };
 
 /// 收到变化后最多等这么久再评估，把同一阵变化合并成一次。

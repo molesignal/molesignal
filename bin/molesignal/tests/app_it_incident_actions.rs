@@ -7,28 +7,25 @@
 use std::sync::{Arc, Mutex as StdMutex};
 
 use async_trait::async_trait;
-use molesignal::{
-    app::alerting::{
-        Actor, AlertRouting, AlertingService, IncidentActions,
-        actions::{BulkAction, Reassignment},
-    },
-    domain::{
-        alerting::{
-            escalation::{EscalationPolicy, EscalationStep, EscalationTarget},
-            handling::EscalationReason,
-            incident::{Incident, IncidentStatus, Severity},
-            repositories::{
-                AlertRuleRepository, EscalationPolicyRepository, IncidentRepository,
-                ScheduleRepository,
-            },
-            routing::{RoutingRule, RoutingRuleRepository, TeamPolicy, TeamPolicyRepository},
-            rule::{AlertRule, RuleState},
-            schedule::Schedule,
-            timeline::{ActionVia, IncidentTimelineRepository, TimelineEntry, TimelineKind},
+use domain::{
+    alerting::{
+        escalation::{EscalationPolicy, EscalationStep, EscalationTarget},
+        handling::EscalationReason,
+        incident::{Incident, IncidentStatus, Severity},
+        repositories::{
+            AlertRuleRepository, EscalationPolicyRepository, IncidentRepository, ScheduleRepository,
         },
-        iam::{IamAssignedRole, IamMembership, IamMembershipRepository, Team, TeamRepository},
+        routing::{RoutingRule, RoutingRuleRepository, TeamPolicy, TeamPolicyRepository},
+        rule::{AlertRule, RuleState},
+        schedule::Schedule,
+        timeline::{ActionVia, IncidentTimelineRepository, TimelineEntry, TimelineKind},
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    iam::{IamAssignedRole, IamMembership, IamMembershipRepository, Team, TeamRepository},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use molesignal::app::alerting::{
+    Actor, AlertRouting, AlertingService, IncidentActions,
+    actions::{BulkAction, Reassignment},
 };
 
 // ---- 内存仓库 ----

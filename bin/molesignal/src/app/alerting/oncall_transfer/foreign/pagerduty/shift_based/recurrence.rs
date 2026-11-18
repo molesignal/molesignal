@@ -15,12 +15,11 @@
 
 use chrono::{Datelike, NaiveDateTime, Timelike};
 use chrono_tz::Tz;
+use domain::alerting::time_window::MINUTES_PER_DAY;
+use kernel::time::TimestampMicros;
 
 use super::super::super::weekly::WeekMinutes;
-use crate::{
-    app::alerting::oncall_transfer::Finding, domain::alerting::time_window::MINUTES_PER_DAY,
-    shared::time::TimestampMicros,
-};
+use crate::app::alerting::oncall_transfer::Finding;
 
 const HOUR_SECS: i64 = 3_600;
 const DAY_SECS: i64 = 24 * HOUR_SECS;

@@ -10,12 +10,12 @@
 
 use std::net::IpAddr;
 
+use kernel::{Error, Result};
 use reqwest::header::{HeaderName, HeaderValue};
 use serde_json::Value;
 use url::Url;
 
 use super::{auth_mode, text, unused};
-use crate::shared::{Error, Result};
 
 const MODES: &[&str] = &["none", "bearer", "basic", "header", "hmac"];
 

@@ -20,20 +20,17 @@ use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    rum::{
+        MAX_PLAYLIST_SESSIONS, RumPlaylist, RumPlaylistEntry, RumPlaylistPatch,
+        validate_playlist_description, validate_playlist_name, validate_playlist_session,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::{AppState, http::middleware::Permission},
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        rum::{
-            MAX_PLAYLIST_SESSIONS, RumPlaylist, RumPlaylistEntry, RumPlaylistPatch,
-            validate_playlist_description, validate_playlist_name, validate_playlist_session,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::middleware::Permission};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

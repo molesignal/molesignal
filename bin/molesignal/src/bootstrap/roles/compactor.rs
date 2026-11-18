@@ -12,25 +12,20 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{
+    iam::{InstanceSettingsRepository, OrganizationRepository},
+    metrics::MetricDirectory,
+    stream::{Downsample, StreamRepository, StreamType},
+};
+use kernel::{
+    drain::DrainController,
+    time::{TimeRange, TimestampMicros},
+};
 use object_store::{ObjectStore, ObjectStoreExt, path::Path as ObjPath};
+use postgres::repositories::investigation_blobs::InvestigationBlobRepository;
 use tokio::{sync::Semaphore, task::JoinHandle};
 
-use crate::{
-    app::cluster::WorkOwnership,
-    domain::{
-        iam::{InstanceSettingsRepository, OrganizationRepository},
-        metrics::MetricDirectory,
-        stream::{Downsample, StreamRepository, StreamType},
-    },
-    infra::{
-        persistence::repositories::investigation_blobs::InvestigationBlobRepository,
-        storage::compactor::Compactor,
-    },
-    shared::{
-        drain::DrainController,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::{app::cluster::WorkOwnership, infra::storage::compactor::Compactor};
 
 /// 投资栈 ephemeral payload 保留 7 天（web-investigation-shell）。
 const INVESTIGATION_BLOB_TTL_SECS: i64 = 7 * 86_400;
@@ -220,14 +215,14 @@ async fn run_once(
 
 #[cfg(test)]
 mod tests {
+    use domain::{cluster::PeerRole, metrics::MemoryMetricDirectory};
     use object_store::memory::InMemory;
+    use settings::{CompactorSettings, ObjectCacheSettings};
 
     use super::*;
     use crate::{
-        app::cluster::{PeerRole, ownership::test_support::Nodes},
+        app::cluster::ownership::test_support::Nodes,
         bootstrap::test_support::tenants,
-        config::{CompactorSettings, ObjectCacheSettings},
-        domain::metrics::MemoryMetricDirectory,
         infra::{
             intake::dataset_resolver::test_support::StubFileCatalog,
             storage::{

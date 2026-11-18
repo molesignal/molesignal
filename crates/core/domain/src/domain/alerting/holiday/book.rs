@@ -12,9 +12,9 @@ use std::{
 };
 
 use chrono::NaiveDate;
+use kernel::ids::Id;
 
 use super::{DayKind, HolidayCalendar};
-use crate::shared::ids::Id;
 
 #[derive(Debug, Clone)]
 struct Entry {

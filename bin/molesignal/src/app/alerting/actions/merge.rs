@@ -9,19 +9,17 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::alerting::{
+    handling::MAX_MERGE_SOURCES,
+    incident::{Incident, IncidentStatus},
+    repositories::IncidentRepository,
+    timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
+};
+use kernel::{Error, Result, ids::Id};
 use serde_json::json;
 
 use super::{Actor, IncidentActions, check_actionable};
-use crate::{
-    app::alerting::AlertIncidentLifecycleSink,
-    domain::alerting::{
-        handling::MAX_MERGE_SOURCES,
-        incident::{Incident, IncidentStatus},
-        repositories::IncidentRepository,
-        timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::alerting::AlertIncidentLifecycleSink;
 
 impl IncidentActions {
     /// 把 `source_ids` 并入 `target_id`，返回主事件。并入的事件自己并入过的，一起改挂到主事件下。

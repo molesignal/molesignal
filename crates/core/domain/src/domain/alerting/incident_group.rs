@@ -14,9 +14,8 @@
 //! 仍在 `molesignal_infra`。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

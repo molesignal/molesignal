@@ -3,10 +3,10 @@
 
 //! 规则的条件：一轮没有值时怎么算、开着的事件怎样才算恢复，以及这两样和触发条件说得通。
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use super::rule::{AlertRuleKind, AlertTrigger, ComparisonOp, SeverityThreshold};
-use crate::shared::{Error, Result};
 
 impl AlertTrigger {
     /// `kind` 的规则没有值时实际怎么算。

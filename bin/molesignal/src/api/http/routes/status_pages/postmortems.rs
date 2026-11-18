@@ -9,17 +9,14 @@ use axum::{
     extract::{Path, State},
     routing::{post, put},
 };
+use domain::{
+    iam::{IamContext, permission},
+    status_page::{PostmortemWrite, StatusPageIncident, StatusPagePublicationState},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
-use crate::{
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        status_page::{PostmortemWrite, StatusPageIncident, StatusPagePublicationState},
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

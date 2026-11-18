@@ -6,23 +6,21 @@
 //! 写入的活跃 series 上限。
 
 use async_trait::async_trait;
+use domain::{
+    apm::ApmLimits,
+    iam::{
+        ClientIpMode, ClientIpResolverSettings, DEFAULT_ALERT_EVALUATION_DELAY_SECS,
+        DEFAULT_AUDIT_RETENTION_DAYS, DEFAULT_INTAKE_USAGE_MAX_SERVICES_PER_ORG,
+        DEFAULT_INTAKE_USAGE_RETENTION_DAYS, DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC,
+        DEFAULT_MAX_ACTIVE_SERIES_PER_ORG, DEFAULT_STREAM_RETENTION_DAYS,
+        DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS, InstanceSettings, InstanceSettingsRepository,
+        SigninLimits,
+    },
+};
+use kernel::{Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::{
-        apm::ApmLimits,
-        iam::{
-            ClientIpMode, ClientIpResolverSettings, DEFAULT_ALERT_EVALUATION_DELAY_SECS,
-            DEFAULT_AUDIT_RETENTION_DAYS, DEFAULT_INTAKE_USAGE_MAX_SERVICES_PER_ORG,
-            DEFAULT_INTAKE_USAGE_RETENTION_DAYS, DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC,
-            DEFAULT_MAX_ACTIVE_SERIES_PER_ORG, DEFAULT_STREAM_RETENTION_DAYS,
-            DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS, InstanceSettings, InstanceSettingsRepository,
-            SigninLimits,
-        },
-    },
-    shared::{Result, time::TimestampMicros},
-};
 
 pub struct PgInstanceSettingsRepository {
     pool: PgPool,
@@ -310,7 +308,7 @@ fn parse_client_ip_mode(value: String) -> Result<ClientIpMode> {
         "peer" => Ok(ClientIpMode::Peer),
         "header" => Ok(ClientIpMode::Header),
         "forwarded_chain" => Ok(ClientIpMode::ForwardedChain),
-        other => Err(crate::shared::Error::internal(format!(
+        other => Err(kernel::Error::internal(format!(
             "invalid rum client IP mode stored in instance_settings: {other}"
         ))),
     }

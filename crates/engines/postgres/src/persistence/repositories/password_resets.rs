@@ -7,10 +7,10 @@
 //! 消费令牌与更新用户密码在同一个事务中完成，避免令牌已作废但密码未更新。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 #[async_trait]
 pub trait PasswordResetRepository: Send + Sync {

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::search::jobs::SearchJob;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
@@ -9,11 +12,7 @@ use super::super::{
     ToolRuntime,
     common::{json_result, parse_args, redact_credentials},
 };
-use crate::{
-    app::{iam::IamContext, query::jobs::SearchJobViewer},
-    infra::persistence::repositories::search::jobs::SearchJob,
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::query::jobs::SearchJobViewer;
 
 pub(super) async fn list(
     runtime: &ToolRuntime,

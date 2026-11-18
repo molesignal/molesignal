@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 /// 用户在某个企业连接器中的可投递身份。
 #[derive(Debug, Clone, Serialize, Deserialize)]

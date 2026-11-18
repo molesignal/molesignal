@@ -5,6 +5,8 @@
 //! tables, asked in words. The statement is the one the explorer's aggregate runs, so the numbers
 //! agree with the rows the explorer lists.
 
+use domain::iam::IamContext;
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
@@ -12,7 +14,6 @@ use tool_runtime::ToolResult;
 use super::{reader, summary_span};
 use crate::{
     app::{
-        iam::IamContext,
         rum::{
             aggregate::{self, Request, descending},
             overview::scope_filters,
@@ -24,7 +25,6 @@ use crate::{
         },
     },
     infra::rum::query::{Filter, MeasureSpec},
-    shared::{Error, Result},
 };
 
 const DEFAULT_LIMIT: usize = 20;

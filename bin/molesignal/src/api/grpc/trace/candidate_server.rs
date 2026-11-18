@@ -9,20 +9,18 @@
 
 use std::sync::Arc;
 
+use protocol::cluster::v1::{
+    TraceCandidateDisposition, TraceCandidateServiceSubmitRequest,
+    TraceCandidateServiceSubmitResponse, TraceForceKeep,
+    trace_candidate_service_server::{TraceCandidateService, TraceCandidateServiceServer},
+};
+use signals::{
+    tail_sampling::{ForceKeep, TraceCandidate},
+    trace_normalization::{CANONICAL_SPAN_SCHEMA_VERSION, CanonicalSpan},
+};
 use tonic::{Request, Response, Status};
 
-use crate::{
-    app::trace::{TracePipeline, TraceSubmitError},
-    protocol::cluster::v1::{
-        TraceCandidateDisposition, TraceCandidateServiceSubmitRequest,
-        TraceCandidateServiceSubmitResponse, TraceForceKeep,
-        trace_candidate_service_server::{TraceCandidateService, TraceCandidateServiceServer},
-    },
-    shared::{
-        tail_sampling::{ForceKeep, TraceCandidate},
-        trace_normalization::{CANONICAL_SPAN_SCHEMA_VERSION, CanonicalSpan},
-    },
-};
+use crate::app::trace::{TracePipeline, TraceSubmitError};
 
 pub const TRACE_CANDIDATE_ORIGIN_HEADER: &str = "x-molesignal-internal-origin";
 pub const TRACE_CANDIDATE_ORIGIN_VALUE: &str = "trace-candidate";
@@ -209,7 +207,7 @@ mod tests {
 
     #[test]
     fn candidate_decoder_preserves_resource_and_scope() {
-        let mut span = crate::shared::trace_fixtures::canonical_http_trace()
+        let mut span = signals::trace_fixtures::canonical_http_trace()
             .into_iter()
             .next()
             .unwrap();

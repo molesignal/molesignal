@@ -7,16 +7,13 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::{
+    repositories::org_settings::{self, sections::SIGNIN},
+    sqlx_err,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
-
-use crate::{
-    infra::persistence::{
-        repositories::org_settings::{self, sections::SIGNIN},
-        sqlx_err,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// 进入一个组织的会话要满足什么。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

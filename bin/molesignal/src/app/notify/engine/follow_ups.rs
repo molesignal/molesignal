@@ -5,22 +5,21 @@
 //! 就用它再发，再排下一步。发送失败的一步照旧立即换下一个。等待时间与上一步相同的步骤只做失败兜底。
 //! 到期时告警在静默里的，等静默结束再发。
 
+use domain::notify::{
+    delivery::{DeliveryFilter, DeliveryStage},
+    follow_up::NotifyFollowUp,
+    policy::{NotifyDeliveryMode, NotifyEvent, NotifyPolicy},
+    recipient::NotifyRecipient,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
+
 use super::{
     NotifyEngine,
     model::ResolvedRoute,
     pipelines::PolicyCopy,
     silences::{OrgSilences, RECHECK_MICROS},
 };
-use crate::{
-    app::notify::{ALERT_ESCALATED_EVENT, ALERT_TRIGGERED_EVENT},
-    domain::notify::{
-        delivery::{DeliveryFilter, DeliveryStage},
-        follow_up::NotifyFollowUp,
-        policy::{NotifyDeliveryMode, NotifyEvent, NotifyPolicy},
-        recipient::NotifyRecipient,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::notify::{ALERT_ESCALATED_EVENT, ALERT_TRIGGERED_EVENT};
 
 /// 一个到期的后续步骤处理完以后。
 enum StepRun {

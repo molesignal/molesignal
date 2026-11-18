@@ -3,13 +3,11 @@
 
 //! 批量处理：对几个事件做同一件事，一个失败不影响其余的。
 
+use domain::alerting::{incident::Severity, priority::Priority, urgency::Urgency};
+use kernel::{Error, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use super::{Actor, IncidentActions, Reassignment};
-use crate::{
-    domain::alerting::{incident::Severity, priority::Priority, urgency::Urgency},
-    shared::{Error, ids::Id},
-};
 
 /// 一次最多处理几个事件。
 pub const MAX_BULK_INCIDENTS: usize = 100;

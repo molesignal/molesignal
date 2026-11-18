@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::shared::{Error, Result};
+use kernel::{Error, Result};
 
 /// 条件块最多嵌套几层。
 pub(super) const MAX_DEPTH: usize = 5;

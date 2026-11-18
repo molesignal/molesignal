@@ -14,16 +14,14 @@
 use std::collections::BTreeMap;
 
 use chrono::{FixedOffset, NaiveDateTime, TimeZone};
+use domain::alerting::{
+    incident::Severity,
+    source::{ExternalAction, ExternalAlert},
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{Parsed, field, json, strings, web_address};
-use crate::{
-    domain::alerting::{
-        incident::Severity,
-        source::{ExternalAction, ExternalAlert},
-    },
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 /// 会改名的维度：不算进去重键。
 const RENAMED_DIMENSIONS: [&str; 2] = ["objName", "deviceName"];

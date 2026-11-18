@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use sqlx::Row;
-
-use crate::{
-    domain::synthetics::{
-        AgentCapacity, AgentStatus, EgressPolicy, LocationExecution, LocationHealth,
-        LocationLifecycle, LocationScope, MonitorLifecycle, MonitorRevision, MonitorSchedule,
-        MonitorSpec, MonitorState, MultiLocationPolicy, ProbeAgent, ProbeCapability, ProbeLocation,
-        ProbeOutcome, ProbeTask, ProbeTaskState, SyntheticMonitor, SyntheticResult,
-        SyntheticSecret,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::synthetics::{
+    AgentCapacity, AgentStatus, EgressPolicy, LocationExecution, LocationHealth, LocationLifecycle,
+    LocationScope, MonitorLifecycle, MonitorRevision, MonitorSchedule, MonitorSpec, MonitorState,
+    MultiLocationPolicy, ProbeAgent, ProbeCapability, ProbeLocation, ProbeOutcome, ProbeTask,
+    ProbeTaskState, SyntheticMonitor, SyntheticResult, SyntheticSecret,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use sqlx::Row;
 
 pub(super) const LOCATION_COLS: &str = "id, organization_id, name, code, description, scope,
     execution, lifecycle, health, system_managed, egress_policy,
@@ -204,7 +200,7 @@ pub(super) fn row_to_monitor(row: sqlx::postgres::PgRow) -> Result<SyntheticMoni
         description: row.try_get("description").map_err(super::sqlx_err)?,
         kind: parse(
             &kind,
-            crate::domain::synthetics::MonitorKind::parse,
+            domain::synthetics::MonitorKind::parse,
             "Monitor kind",
         )?,
         lifecycle: parse(&lifecycle, MonitorLifecycle::parse, "Monitor lifecycle")?,

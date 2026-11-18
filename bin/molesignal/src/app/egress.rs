@@ -9,13 +9,10 @@
 
 use std::net::{IpAddr, SocketAddr};
 
+use agent::network::MemberNetworkPolicy;
 use ipnet::IpNet;
+use kernel::{Error, Result};
 use url::Url;
-
-use crate::{
-    agent::network::MemberNetworkPolicy,
-    shared::{Error, Result},
-};
 
 /// 一个连接可以连到哪里。
 #[derive(Debug, Clone, PartialEq, Eq)]

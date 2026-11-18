@@ -7,25 +7,22 @@
 use std::{collections::BTreeMap, time::Duration};
 
 use arrow::array::RecordBatch;
+use domain::{
+    metrics::{
+        METRIC_NAME_FIELD, MetricDirectory, MetricDirectoryEntry, is_metric_identity_storage_field,
+        is_metric_query_semantics_storage_field, is_prometheus_exemplar_storage_field,
+    },
+    storage::QueryFile,
+    stream::{FieldType, StreamDefinition, StreamSettings},
+};
 use futures::future::try_join_all;
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use moka::future::Cache;
 
 use super::*;
-use crate::{
-    domain::{
-        metrics::{
-            METRIC_NAME_FIELD, MetricDirectory, MetricDirectoryEntry,
-            is_metric_identity_storage_field, is_metric_query_semantics_storage_field,
-            is_prometheus_exemplar_storage_field,
-        },
-        storage::QueryFile,
-        stream::{FieldType, StreamDefinition, StreamSettings},
-    },
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
 
 /// How long a directory answer and a stream's settings are reused.
 const REUSE_FOR: Duration = Duration::from_secs(10);
@@ -217,8 +214,7 @@ impl PromQLEngine {
         stream: &str,
         time_range: TimeRange,
     ) -> Result<MetricStorageSnapshot> {
-        let dataset_types =
-            crate::domain::storage::logical_query_dataset_types(StreamType::METRICS)?;
+        let dataset_types = domain::storage::logical_query_dataset_types(StreamType::METRICS)?;
 
         let (mut files, buffered_batches) =
             if let (Some(source), Some(streams)) = (&self.catalog_source, &self.streams) {

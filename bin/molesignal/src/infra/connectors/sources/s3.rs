@@ -23,21 +23,19 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::intake::RawEvent;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
+use kernel::{Error, Result, time::TimestampMicros};
 use object_store::{ClientOptions, ObjectStore, ObjectStoreExt, RetryConfig, path::Path};
 use serde_json::{Map, Value, json};
 
-use crate::{
-    domain::intake::RawEvent,
-    infra::connectors::{
-        PullBatch, PullConnector, PullContext,
-        aws::CredentialSource,
-        config::{self, StartFrom},
-        dispatcher::s3::{builder, normalize_prefix},
-        repo::Connector,
-    },
-    shared::{Error, Result, time::TimestampMicros},
+use crate::infra::connectors::{
+    PullBatch, PullConnector, PullContext,
+    aws::CredentialSource,
+    config::{self, StartFrom},
+    dispatcher::s3::{builder, normalize_prefix},
+    repo::Connector,
 };
 
 /// How many objects one pull reads at most; the next one goes on from there.

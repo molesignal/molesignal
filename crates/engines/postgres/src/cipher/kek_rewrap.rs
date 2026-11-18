@@ -19,13 +19,11 @@
 //! - `derive_key` 的派生密钥直接换掉：通知回调地址里的 Token 会变，外部平台上要重新配置；
 //! - 字段脱敏的 `hash` 在查询时现算：轮换前后同一个值的结果不同。
 
+use kernel::{Error, Result};
 use sqlx::{PgConnection, PgPool, Row};
 
 use super::keys::root::CipherRootKey;
-use crate::{
-    infra::persistence::sqlx_err,
-    shared::{Error, Result},
-};
+use crate::persistence::sqlx_err;
 
 /// 一对 `(nonce, ciphertext)` 列。
 struct SealedPair {

@@ -3,13 +3,12 @@
 
 use std::sync::Arc;
 
+use domain::{iam::IamScope, log_inspection::InspectionSchedule};
+
 use super::*;
-use crate::{
-    app::log_inspection::{
-        input::tests::{input, limits},
-        test_support::{Agent, Channels, Model, Store, Streams, member},
-    },
-    domain::{iam::IamScope, log_inspection::InspectionSchedule},
+use crate::app::log_inspection::{
+    input::tests::{input, limits},
+    test_support::{Agent, Channels, Model, Store, Streams, member},
 };
 
 const MANAGE: [&str; 3] = ["agent.use", "logs.read", "inspections.manage"];

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::storage::{DatasetIntakeUsage, OrganizationScope, PhysicalDatasetId};
+use kernel::Result;
 use sqlx::{PgPool, Row};
 
 use super::{rows::to_u64, sqlx_err};
-use crate::{
-    domain::storage::{DatasetIntakeUsage, OrganizationScope, PhysicalDatasetId},
-    shared::Result,
-};
 
 pub(super) async fn read(
     pool: &PgPool,

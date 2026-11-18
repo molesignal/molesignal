@@ -4,12 +4,10 @@
 //! Resource loaders used by alerting route permission attributes.
 
 use async_trait::async_trait;
+use domain::alerting::{escalation::EscalationPolicy, incident::Incident, rule::AlertRule};
+use kernel::{Result, ids::Id};
 
-use crate::{
-    api::{AppState, http::middleware::ProtectedResource},
-    domain::alerting::{escalation::EscalationPolicy, incident::Incident, rule::AlertRule},
-    shared::{Result, ids::Id},
-};
+use crate::api::{AppState, http::middleware::ProtectedResource};
 
 #[async_trait]
 impl ProtectedResource for AlertRule {

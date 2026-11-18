@@ -5,20 +5,18 @@
 //!
 //! 调查的 SQL 在 [`investigations`]，Agent Profile 的在 [`profiles`]，自动化在 [`automations`]。
 
+use agent::model::{
+    AgentProfile, AgentRepository, ApprovalRequest, ApprovalStatus, Execution, Investigation,
+    InvestigationDetail, InvestigationEvidence, InvestigationHypothesis, InvestigationStep,
+    ToolCallRecord,
+};
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    agent::model::{
-        AgentProfile, AgentRepository, ApprovalRequest, ApprovalStatus, Execution, Investigation,
-        InvestigationDetail, InvestigationEvidence, InvestigationHypothesis, InvestigationStep,
-        ToolCallRecord,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub mod automations;
 pub mod chat_archives;
@@ -604,11 +602,13 @@ impl AgentRepository for PgAgentRepository {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::agent::model::{
+    use agent::model::{
         ConfidenceLevel, FactStatus, HypothesisStatus, InvestigationStatus, NetworkAccess,
-        RiskLevel, StepStatus,
+        StepStatus,
     };
+    use tool_runtime::RiskLevel;
+
+    use super::*;
 
     #[test]
     fn enum_round_trip_uses_database_wire_values() {

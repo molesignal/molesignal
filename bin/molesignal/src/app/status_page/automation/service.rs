@@ -3,17 +3,15 @@
 
 use std::collections::HashSet;
 
-use super::{AutomationRuleInput, AutomationSimulation};
-use crate::{
-    app::status_page::StatusPageService,
-    domain::status_page::{
-        ActiveAutomationRule, AutomationCandidate, AutomationCandidateDetail,
-        AutomationCandidateState, AutomationRuleLifecycle, AutomationSettings,
-        AutomationSourceKind, AutomationSourceObservation, StatusAutomationRevision,
-        StatusAutomationRule,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::status_page::{
+    ActiveAutomationRule, AutomationCandidate, AutomationCandidateDetail, AutomationCandidateState,
+    AutomationRuleLifecycle, AutomationSettings, AutomationSourceKind, AutomationSourceObservation,
+    StatusAutomationRevision, StatusAutomationRule,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use super::{AutomationRuleInput, AutomationSimulation};
+use crate::app::status_page::StatusPageService;
 
 impl StatusPageService {
     pub async fn create_automation_rule(
@@ -373,7 +371,7 @@ impl StatusPageService {
             .into_iter()
             .filter(|component| {
                 !component.is_group()
-                    && component.lifecycle == crate::domain::status_page::ComponentLifecycle::Active
+                    && component.lifecycle == domain::status_page::ComponentLifecycle::Active
             })
             .map(|component| component.id.0)
             .collect::<HashSet<_>>();

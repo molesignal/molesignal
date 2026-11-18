@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use crate::{
-    app::status_page::StatusPageService,
-    domain::status_page::{AutomationCandidate, StatusPageIncident},
-    shared::{Result, time::TimestampMicros},
-};
+use domain::status_page::{AutomationCandidate, StatusPageIncident};
+use kernel::{Result, time::TimestampMicros};
+
+use crate::app::status_page::StatusPageService;
 
 impl StatusPageService {
     pub(super) fn automation_incident_update_is_duplicate(

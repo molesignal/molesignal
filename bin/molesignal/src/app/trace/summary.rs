@@ -3,18 +3,14 @@
 
 //! Trace 原始 Span 与列表摘要的独立写入投影。
 
+use domain::{intake::RawEvent, stream::Schema};
+use kernel::time::TimestampMicros;
 use serde_json::Value;
-
-use crate::{
-    domain::{intake::RawEvent, stream::Schema},
-    shared::{
-        tail_sampling::DecidedTrace,
-        time::TimestampMicros,
-        trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-            TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD,
-            TRACE_SUMMARY_START_NS_FIELD,
-        },
+use signals::{
+    tail_sampling::DecidedTrace,
+    trace::summary::{
+        TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+        TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
     },
 };
 
@@ -125,11 +121,12 @@ fn summary_carrier(spans: &[RawEvent]) -> Option<&RawEvent> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::shared::{
+    use signals::{
         tail_sampling::DecidedTrace,
         trace::normalization::{CanonicalSpan, SamplingReason},
     };
+
+    use super::*;
 
     #[test]
     fn writes_spans_without_summary_marker_and_one_independent_summary() {

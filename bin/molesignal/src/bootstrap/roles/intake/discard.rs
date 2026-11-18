@@ -6,11 +6,10 @@
 //! 进程内存预算由所有数据集共享。一个数据集的 buffer 若永远 flush 不出去，就会一直占着
 //! 预算，最终让每个数据集的写入都被限流。
 
+use kernel::Error;
+
 use super::IntakeWorker;
-use crate::{
-    infra::intake::{BufferKey, BufferWriter, DatasetBuffer, inc_flush_error},
-    shared::Error,
-};
+use crate::infra::intake::{BufferKey, BufferWriter, DatasetBuffer, inc_flush_error};
 
 impl IntakeWorker {
     /// 流或物理数据集已被删除：缓冲里的数据没有任何去处。整体丢弃并归还预算，WAL 尽力清理。

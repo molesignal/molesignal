@@ -9,15 +9,13 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{cluster::PeerRole, iam::OrganizationRepository, query::SlowQueryRepository};
+use kernel::Result;
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::{
-        cluster::{PeerRole, WorkOwnership},
-        recommendations::{QueryProfile, RecommendationSeverity, analyze},
-    },
-    domain::{iam::OrganizationRepository, query::SlowQueryRepository},
-    shared::Result,
+use crate::app::{
+    cluster::WorkOwnership,
+    recommendations::{QueryProfile, RecommendationSeverity, analyze},
 };
 
 #[derive(Debug, Clone)]

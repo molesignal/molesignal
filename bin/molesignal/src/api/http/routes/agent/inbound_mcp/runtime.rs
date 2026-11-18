@@ -69,18 +69,18 @@ impl InboundMcpAdapterRuntime {
         Ok(guard)
     }
 
-    pub fn notify_catalog_changed(&self, org_id: &crate::shared::ids::Id) {
+    pub fn notify_catalog_changed(&self, org_id: &kernel::ids::Id) {
         let sender = self.sender(org_id);
         let _ = sender.send(CatalogEvent::Tools);
         let _ = sender.send(CatalogEvent::Prompts);
         let _ = sender.send(CatalogEvent::Resources);
     }
 
-    pub fn subscribe(&self, org_id: &crate::shared::ids::Id) -> broadcast::Receiver<CatalogEvent> {
+    pub fn subscribe(&self, org_id: &kernel::ids::Id) -> broadcast::Receiver<CatalogEvent> {
         self.sender(org_id).subscribe()
     }
 
-    fn sender(&self, org_id: &crate::shared::ids::Id) -> broadcast::Sender<CatalogEvent> {
+    fn sender(&self, org_id: &kernel::ids::Id) -> broadcast::Sender<CatalogEvent> {
         self.events
             .entry(org_id.0.clone())
             .or_insert_with(|| broadcast::channel(128).0)
@@ -92,8 +92,9 @@ impl InboundMcpAdapterRuntime {
 mod tests {
     use std::time::Duration;
 
+    use kernel::ids::Id;
+
     use super::*;
-    use crate::shared::ids::Id;
 
     #[tokio::test]
     async fn catalog_notifications_are_isolated_by_organization() {

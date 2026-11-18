@@ -3,11 +3,10 @@
 
 //! ICMP and DNS settings an Agent can run.
 
+use domain::synthetics::{DnsSpec, IcmpSpec, MonitorKind};
+use kernel::{Error, Result};
+
 use super::assertions::validate_assertions;
-use crate::{
-    domain::synthetics::{DnsSpec, IcmpSpec, MonitorKind},
-    shared::{Error, Result},
-};
 
 const MAX_PINGS: u8 = 20;
 const MAX_PING_INTERVAL_MILLIS: u32 = 10_000;
@@ -87,8 +86,9 @@ pub(super) fn validate_dns(spec: &DnsSpec) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use domain::synthetics::{DnsSpec, IcmpSpec};
+
     use super::{validate_dns, validate_icmp};
-    use crate::domain::synthetics::{DnsSpec, IcmpSpec};
 
     fn icmp(count: u8, interval_millis: u32) -> IcmpSpec {
         IcmpSpec {

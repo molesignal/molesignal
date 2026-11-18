@@ -5,6 +5,11 @@
 
 use std::{collections::HashMap, ops::ControlFlow};
 
+use domain::{
+    masking::FieldMaskingAlgorithm,
+    query::{QueryLanguage, QueryRequest},
+};
+use kernel::{Error, Result};
 use sqlparser::{
     ast::{Expr, Select, SelectItem, Visit, Visitor, visit_expressions},
     dialect::GenericDialect,
@@ -12,13 +17,6 @@ use sqlparser::{
 };
 
 use super::{insert_algorithm, normalize_identifier};
-use crate::{
-    domain::{
-        masking::FieldMaskingAlgorithm,
-        query::{QueryLanguage, QueryRequest},
-    },
-    shared::{Error, Result},
-};
 
 #[derive(Default)]
 struct AliasCollector {

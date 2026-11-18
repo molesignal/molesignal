@@ -9,33 +9,33 @@
 
 use std::sync::Arc;
 
+use agent::{
+    chat::{
+        ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider, ProviderAdapter,
+        ToolChoice, TransportOptions, adapter_from_parts, observed_complete,
+    },
+    scoring::{
+        Evaluator,
+        evaluation::{
+            EVALUATION_PURPOSE, Material, VERDICT_INSTRUCTION, Verdict, material_text,
+            output_language, parse_verdict,
+        },
+    },
+    usage::UsageOrigin,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::{
+    model_providers::ModelProvider,
+    prompts::{prompt_hash, render_prompt},
+};
 use serde_json::{Map, Value};
 
 use crate::{
-    agent::{
-        chat::{
-            ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider,
-            ProviderAdapter, ToolChoice, TransportOptions, adapter_from_parts, observed_complete,
-        },
-        scoring::{
-            Evaluator,
-            evaluation::{
-                EVALUATION_PURPOSE, Material, VERDICT_INSTRUCTION, Verdict, material_text,
-                output_language, parse_verdict,
-            },
-        },
-        usage::UsageOrigin,
-    },
     api::{
         AppState,
         rca::{pick_provider, system_user_id},
     },
     app::agent_usage::UsageScope,
-    infra::persistence::repositories::agent::{
-        model_providers::ModelProvider,
-        prompts::{prompt_hash, render_prompt},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 评审回答最多这么多 token：一个分数和两句理由。

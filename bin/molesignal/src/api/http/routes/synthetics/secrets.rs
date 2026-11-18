@@ -7,13 +7,16 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    synthetics::SyntheticSecret,
+};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{iam::IamContext, synthetics::CreateSecretInput},
-    domain::{iam::permission, synthetics::SyntheticSecret},
-    shared::{Result, ids::Id},
+    app::synthetics::CreateSecretInput,
 };
 
 pub(super) fn routes() -> Router<AppState> {

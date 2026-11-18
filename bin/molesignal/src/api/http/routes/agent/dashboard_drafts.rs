@@ -6,24 +6,25 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::{
+    dashboard::authoring::DashboardDraftStatus,
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::catalog::BuiltinToolKind;
 
 use super::toolsets::resolve_toolsets;
 use crate::{
-    agent::tools::BuiltinToolKind,
     api::{
         AppState,
         http::{middleware::Permission, routes::activity_audit},
     },
-    app::{
-        iam::IamContext,
-        tools::dashboard::{
-            CreateApprovalRequest, create_agent_approval, dashboard_required_approvals,
-        },
+    app::tools::{
+        approvals::{CreateApprovalRequest, create_agent_approval},
+        dashboard::dashboard_required_approvals,
     },
-    domain::{dashboard::authoring::DashboardDraftStatus, iam::permission},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub fn routes() -> Router<AppState> {

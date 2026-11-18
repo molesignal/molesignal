@@ -5,23 +5,21 @@
 
 use std::collections::HashSet;
 
+use agent::{
+    mcp::{McpPrompt, McpPromptArgument, NamedValue},
+    scope::Scope,
+    tool_control::{
+        ManagedToolStatus, McpServer, McpTool, MemberCredential, MemberCredentialSpec, ToolPolicy,
+        ToolPolicyDefaults,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{Row, postgres::PgRow, types::Json};
+use tool_runtime::{RiskLevel, ToolExecutionMode};
 
 use super::super::super::sqlx_err;
-use crate::{
-    agent::{
-        mcp::{McpPrompt, McpPromptArgument, NamedValue},
-        model::RiskLevel,
-        scope::Scope,
-        tool_control::{
-            ManagedToolStatus, McpServer, McpTool, MemberCredential, MemberCredentialSpec,
-            ToolExecutionMode, ToolPolicy, ToolPolicyDefaults,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub(super) const POLICY_COLS: &str = "org_id,tool_name,enabled,execution_mode,environment_overrides,\
     timeout_ms,max_calls_per_run,max_response_bytes,updated_by,created_at,updated_at";

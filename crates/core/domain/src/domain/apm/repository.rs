@@ -2,17 +2,17 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 
 use super::{
     BucketDimension, BucketKind, BucketMeasurements, ErrorGroupRecord, ErrorSample,
     InstanceObservation, OwnerSnapshot, ProjectionGap, ProjectionState, QueryResolution,
     ServiceObservation, VersionObservation,
-};
-use crate::shared::{
-    Result,
-    ids::Id,
-    time::{TimeRange, TimestampMicros},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

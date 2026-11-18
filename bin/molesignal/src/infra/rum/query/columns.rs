@@ -3,13 +3,11 @@
 
 //! What the explorer reads of each stream when it is not told otherwise.
 
-use crate::{
-    domain::{
-        rum::event::{RumStream, field, fields},
-        stream::FieldType,
-    },
-    shared::{Error, Result},
+use domain::{
+    rum::event::{RumStream, field, fields},
+    stream::FieldType,
 };
+use kernel::{Error, Result};
 
 const MAX_COLUMNS: usize = 64;
 

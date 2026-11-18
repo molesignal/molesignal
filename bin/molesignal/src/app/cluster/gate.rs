@@ -13,13 +13,12 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::run_claim::{RunClaimRepository, RunGate, RunPermit};
+use kernel::{Result, time::TimestampMicros};
 use prometheus::IntCounterVec;
+use signals::metrics::register_int_counter_vec;
 
 use super::WorkOwnership;
-use crate::{
-    domain::run_claim::{RunClaimRepository, RunGate, RunPermit},
-    shared::{Result, metrics::register_int_counter_vec, time::TimestampMicros},
-};
 
 /// 运行租约的默认时长：覆盖一次报告渲染与投递、一次 connector 拉取或一次 pipeline 运行。
 /// 持有者崩溃后，别的节点最多再等这么久才会重跑它的单元。
@@ -101,11 +100,10 @@ pub fn record_overlap_skipped(work: &str) {
 
 #[cfg(test)]
 mod tests {
+    use domain::{cluster::PeerRole, run_claim::MemoryRunClaims};
+
     use super::*;
-    use crate::{
-        app::cluster::{PeerRole, ownership::test_support::Nodes},
-        domain::run_claim::MemoryRunClaims,
-    };
+    use crate::app::cluster::ownership::test_support::Nodes;
 
     const KIND: &str = "scheduled_report";
 

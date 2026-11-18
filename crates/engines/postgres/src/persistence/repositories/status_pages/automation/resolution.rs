@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::{AutomationCandidate, StatusPageIncidentUpdate};
+use kernel::{Error, Result, ids::Id};
+
 use super::{
     super::{PgStatusPageRepository, incidents::insert_update, touch_page},
     codec::{CANDIDATE_COLS, row_to_candidate},
-};
-use crate::{
-    domain::status_page::{AutomationCandidate, StatusPageIncidentUpdate},
-    shared::{Error, Result, ids::Id},
 };
 
 pub(super) async fn resolve_if_inactive(

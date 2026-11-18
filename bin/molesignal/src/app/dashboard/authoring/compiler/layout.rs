@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use serde_json::{Value, json};
-
-use crate::domain::dashboard::authoring::{
+use domain::dashboard::authoring::{
     AuthoringSize, GridDimensions, VisualizationCapability, VisualizationManifest,
 };
+use serde_json::{Value, json};
 
 #[derive(Default)]
 pub(super) struct LayoutCursor {

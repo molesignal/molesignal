@@ -18,22 +18,20 @@
 
 use std::future::Future;
 
+use domain::{
+    iam::IamContext,
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::{FieldType, StreamType},
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Serialize;
 
 use self::{bins::BinPlan, reading::Bars, trend::TrendPlan};
 use super::histogram::within_budget;
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::{FieldType, StreamType},
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::api::AppState;
 
 mod bins;
 mod reading;

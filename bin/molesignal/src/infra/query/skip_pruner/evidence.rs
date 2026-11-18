@@ -6,13 +6,13 @@
 
 use std::cmp::Ordering;
 
-use serde_json::Value;
-
-use super::condition::{Comparison, Condition, Literal, Test};
-use crate::domain::{
+use domain::{
     storage::QueryFile,
     stream::{FieldType, address_number, parse_address_key},
 };
+use serde_json::Value;
+
+use super::condition::{Comparison, Condition, Literal, Test};
 
 /// `file` 里可能有满足 `condition` 的行：每一样统计都不排除它。
 pub(super) fn may_match(condition: &Condition, file: &QueryFile) -> bool {

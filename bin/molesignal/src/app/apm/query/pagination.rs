@@ -3,14 +3,13 @@
 
 use std::cmp::Ordering;
 
-use super::{ApmQueryContext, DependencySummary, ErrorSummary, ServiceSummary, TransactionSummary};
-use crate::{
-    domain::apm::{QueryCursor, SortDirection},
-    shared::{
-        Error, Result,
-        cursor::{CursorDirection, trim_cursor_page},
-    },
+use domain::apm::{QueryCursor, SortDirection};
+use kernel::{
+    Error, Result,
+    cursor::{CursorDirection, trim_cursor_page},
 };
+
+use super::{ApmQueryContext, DependencySummary, ErrorSummary, ServiceSummary, TransactionSummary};
 
 pub(super) trait ApmSortable {
     fn compare(&self, other: &Self, field: &str) -> Ordering;

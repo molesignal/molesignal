@@ -11,6 +11,8 @@
 
 use std::net::IpAddr;
 
+use domain::iam::User;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use webauthn_rs::prelude::{PasskeyAuthentication, PublicKeyCredential};
 
@@ -26,9 +28,7 @@ use crate::{
         mfa::{self, LOCKOUT, RECENT_SIGN_IN_MICROS, recovery, totp},
         signin_limit::{SigninAccount, SigninError},
     },
-    domain::iam::User,
     infra::mfa::{Failure, MfaChallengePurpose},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 请求里带的第二因素，`method` 说明是哪一种。
@@ -360,11 +360,10 @@ pub(super) fn locked(until: TimestampMicros, now: TimestampMicros) -> Error {
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::{IamScope, UserStatus};
+
     use super::*;
-    use crate::{
-        app::iam::SignInMethod,
-        domain::iam::{IamScope, UserStatus},
-    };
+    use crate::app::iam::SignInMethod;
 
     fn user(password_hash: &str) -> User {
         User {

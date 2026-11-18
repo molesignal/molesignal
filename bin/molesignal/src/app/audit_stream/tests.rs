@@ -3,8 +3,9 @@
 
 use std::sync::Mutex;
 
+use domain::stream::{AUDIT_STREAM, is_platform_stream};
+
 use super::*;
-use crate::domain::stream::is_platform_stream;
 
 /// The events as they reach Postgres.
 #[derive(Default)]
@@ -107,8 +108,8 @@ fn the_streams_the_platform_writes_are_its_own() {
     for stream in [
         AUDIT_STREAM,
         crate::app::synthetics::RESULT_STREAM,
-        crate::agent::telemetry::AGENT_STREAM,
-        crate::agent::scoring::SCORE_STREAM,
+        agent::telemetry::AGENT_STREAM,
+        agent::scoring::SCORE_STREAM,
     ] {
         assert!(is_platform_stream(stream), "{stream}");
     }

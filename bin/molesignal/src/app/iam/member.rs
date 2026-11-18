@@ -5,11 +5,10 @@
 //! theirs: the checks a request goes through (account, organization), then their roles and
 //! permissions.
 
-use super::{IamAccessService, IamContext, IamService};
-use crate::{
-    domain::iam::IamScope,
-    shared::{Error, Result, ids::Id},
-};
+use domain::iam::{IamContext, IamScope};
+use kernel::{Error, Result, ids::Id};
+
+use super::{IamAccessService, IamService};
 
 pub struct Member {
     pub email: String,

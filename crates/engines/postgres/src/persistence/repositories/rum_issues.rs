@@ -7,16 +7,14 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use domain::rum::{
+    RumIssue, RumIssueChange, RumIssueEnvironment, RumIssueMoment, RumIssueRepository,
+    RumIssueSighting, RumIssueStatus, RumVersionRepository,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::rum::{
-        RumIssue, RumIssueChange, RumIssueEnvironment, RumIssueMoment, RumIssueRepository,
-        RumIssueSighting, RumIssueStatus, RumVersionRepository,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// Most versions kept for one application.
 const MAX_VERSIONS: i64 = 500;

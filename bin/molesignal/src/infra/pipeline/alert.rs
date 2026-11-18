@@ -16,15 +16,12 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::pipeline::alert::{
+    AlertConfig, AlertOutcome, AlertOutcomeKind, AlertPipeline, AlertPipelineRepository,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 use sqlx::{PgPool, Row, types::Json};
-
-use crate::{
-    domain::pipeline::alert::{
-        AlertConfig, AlertOutcome, AlertOutcomeKind, AlertPipeline, AlertPipelineRepository,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// How long an organization's alert pipelines stay cached.
 const TTL: Duration = Duration::from_secs(10);
@@ -50,7 +47,7 @@ impl PgAlertPipelineRepository {
 
     async fn load(&self, org: &Id) -> Result<Vec<AlertPipeline>> {
         let rows = sqlx::query("SELECT id, name, function_steps, updated_at FROM scheduled_pipelines WHERE org_id = $1 AND enabled = TRUE AND function_steps->>'mode' = 'alert'")
-            .bind(org.as_str()).fetch_all(&self.pool).await.map_err(crate::infra::persistence::sqlx_err)?;
+            .bind(org.as_str()).fetch_all(&self.pool).await.map_err(postgres::sqlx_err)?;
 
         let mut pipelines: Vec<AlertPipeline> = rows
             .into_iter()
@@ -157,7 +154,7 @@ impl AlertPipelineRepository for PgAlertPipelineRepository {
         .bind(latest.map(Json))
         .execute(&self.pool)
         .await
-        .map_err(crate::infra::persistence::sqlx_err)?;
+        .map_err(postgres::sqlx_err)?;
 
         Ok(())
     }

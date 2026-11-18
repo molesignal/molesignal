@@ -8,22 +8,20 @@
 
 use std::collections::HashSet;
 
+use agent::{
+    mcp::{
+        ImportedServer, NamedValueInput, ValueKind, find_reserved_overlap, normalize_values,
+        parse_client_config, unique_handle,
+    },
+    scope::{Scope, Viewer},
+    tool_control::{McpServer, McpServerInput, MemberCredentialSpec},
+};
 use ipnet::IpNet;
+use kernel::{Error, Result, ids::Id};
 use reqwest::header::HeaderName;
 use serde::{Deserialize, Serialize};
 
 use super::{McpService, transport::validate_endpoint_shape};
-use crate::{
-    agent::{
-        mcp::{
-            ImportedServer, NamedValueInput, ValueKind, find_reserved_overlap, normalize_values,
-            parse_client_config, unique_handle,
-        },
-        scope::{Scope, Viewer},
-        tool_control::{McpServer, McpServerInput, MemberCredentialSpec},
-    },
-    shared::{Error, Result, ids::Id},
-};
 
 const DEFAULT_TIMEOUT_MS: i64 = 10_000;
 const MAX_TIMEOUT_MS: i64 = 120_000;

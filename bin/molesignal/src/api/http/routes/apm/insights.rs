@@ -12,16 +12,13 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::Result;
 
 use super::QueryParams;
 use crate::{
     api::AppState,
-    app::{
-        apm::{InsightsResponse, record_apm_query_latency},
-        iam::IamContext,
-    },
-    domain::iam::permission,
-    shared::Result,
+    app::apm::{InsightsResponse, record_apm_query_latency},
 };
 
 pub(super) fn routes() -> Router<AppState> {

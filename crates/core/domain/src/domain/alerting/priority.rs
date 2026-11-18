@@ -9,9 +9,8 @@
 
 use std::fmt;
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::shared::{Error, Result};
 
 /// 优先级最多几档。
 pub const MAX_PRIORITY_LEVELS: u8 = 9;

@@ -4,11 +4,8 @@
 use std::str::FromStr;
 
 use chrono::Utc;
-
-use crate::{
-    domain::synthetics::MonitorSchedule,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use domain::synthetics::MonitorSchedule;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 pub fn next_due_at(
     monitor_id: &Id,

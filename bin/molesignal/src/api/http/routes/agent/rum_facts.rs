@@ -9,24 +9,22 @@
 
 use std::fmt::Write as _;
 
+use domain::{alerting::incident::Incident, iam::IamContext, rum::RumApplication};
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
+
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        rum::{
-            issues::{
-                self, Query,
-                select::{Holder, IssueView, Sort, StatusFilter},
-            },
-            overview::{self, Overview},
-            reader::{Reader, Span},
-            vitals::Reading,
+    app::rum::{
+        issues::{
+            self, Query,
+            select::{Holder, IssueView, Sort, StatusFilter},
         },
-    },
-    domain::{alerting::incident::Incident, rum::RumApplication},
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
+        overview::{self, Overview},
+        reader::{Reader, Span},
+        vitals::Reading,
     },
 };
 

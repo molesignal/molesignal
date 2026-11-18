@@ -13,10 +13,10 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use kernel::{Error, Result, ids::Id};
 use moka::future::Cache;
 
 use super::{super::keys::CipherKeyRepository, cipher::OrgFieldKey};
-use crate::shared::{Error, Result, ids::Id};
 
 /// 自动 provision 的默认字段加密 DEK 的保留 key 名。
 pub const FIELD_DEFAULT_KEY_NAME: &str = "__field_default__";
@@ -151,9 +151,9 @@ mod tests {
     use std::sync::Mutex as StdMutex;
 
     use async_trait::async_trait;
+    use kernel::time::TimestampMicros;
 
     use super::{super::super::keys::CipherKey, *};
-    use crate::shared::time::TimestampMicros;
 
     /// 进程内 CipherKeyRepository：raw key 直存（不经 KEK），仅测试用。
     #[derive(Default)]

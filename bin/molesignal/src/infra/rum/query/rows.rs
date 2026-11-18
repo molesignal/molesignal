@@ -3,14 +3,14 @@
 
 //! The rows that come back from a list statement.
 
-use serde_json::{Map, Value};
-
-use super::statements::{ID_COLUMN, TS_COLUMN};
-use crate::domain::{
+use domain::{
     query::QueryResult,
     rum::event::{RumStream, field},
     stream::FieldType,
 };
+use serde_json::{Map, Value};
+
+use super::statements::{ID_COLUMN, TS_COLUMN};
 
 /// One row of a list: the columns asked for, when it happened, and what tells it from the other
 /// rows of that moment.

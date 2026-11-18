@@ -24,16 +24,18 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    pipeline::{alert::is_alert, realtime::is_realtime, scheduled::ScheduledConfig},
+    query::QueryResult,
+    stream::StreamType,
+};
+use function_runtime::VrlRuntime;
+use kernel::{Error, Result, ids::Id};
 use serde_json::Value;
 use tokio::task::JoinHandle;
 
 use crate::{
     app::{audit_read::AuditReadCheck, intake::IntakeService, query::QueryService},
-    domain::{
-        pipeline::{alert::is_alert, realtime::is_realtime, scheduled::ScheduledConfig},
-        query::QueryResult,
-        stream::StreamType,
-    },
     infra::{
         connectors::{ConnectorDispatcher, ConnectorRepository},
         pipeline::{
@@ -47,9 +49,7 @@ use crate::{
                 state::{SourceResult, Window},
             },
         },
-        runtime::VrlRuntime,
     },
-    shared::{Error, Result, ids::Id},
 };
 
 mod dead_letter;

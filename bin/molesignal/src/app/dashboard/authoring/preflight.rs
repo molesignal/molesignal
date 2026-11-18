@@ -5,27 +5,25 @@ use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use chrono::DateTime;
+use contracts::ContractIssue;
+use domain::{
+    dashboard::authoring::{
+        AuthoringElement, AuthoringQuery, DashboardAuthoringSpec, DashboardQueryPreflight,
+        PanelAuthoringSpec, PanelPreflight, PreflightReport, PreflightStatus, PreflightWarning,
+        SectionElement, visualization_manifest,
+    },
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::{StreamDefinition, StreamRepository, StreamType},
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use promql_parser::parser as promql_parser;
 use query_language::{extract_referenced_tables, prepare_flight_sql_select};
 
-use crate::{
-    app::query::QueryService,
-    domain::{
-        dashboard::authoring::{
-            AuthoringElement, AuthoringQuery, DashboardAuthoringSpec, DashboardQueryPreflight,
-            PanelAuthoringSpec, PanelPreflight, PreflightReport, PreflightStatus, PreflightWarning,
-            SectionElement, visualization_manifest,
-        },
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::{StreamDefinition, StreamRepository, StreamType},
-    },
-    shared::{
-        Error, Result,
-        contracts::ContractIssue,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::app::query::QueryService;
 
 /// Steps a PromQL panel is tried at: enough to tell whether its range has data.
 const PREFLIGHT_PROMQL_STEPS: i64 = 60;
@@ -115,7 +113,7 @@ impl RuntimeDashboardQueryPreflight {
         query: &AuthoringQuery,
         path: &str,
         time_range: TimeRange,
-    ) -> std::result::Result<crate::domain::query::QueryResult, ContractIssue> {
+    ) -> std::result::Result<domain::query::QueryResult, ContractIssue> {
         let request = build_query_request(org_id, available_streams, query, path, time_range)?;
         let limits = &visualization_manifest().limits;
         let timeout = Duration::from_millis(limits.preflight_timeout_ms);

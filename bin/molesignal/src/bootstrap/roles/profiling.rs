@@ -5,10 +5,9 @@
 
 use std::net::SocketAddr;
 
-use crate::{
-    api::{AppState, http::routes::profiling::pprof_routes},
-    config::ProfilingSettings,
-};
+use settings::ProfilingSettings;
+
+use crate::api::{AppState, http::routes::profiling::pprof_routes};
 
 pub async fn serve(state: AppState, settings: ProfilingSettings) -> anyhow::Result<()> {
     let address: SocketAddr = format!("{}:{}", settings.bind, settings.port).parse()?;

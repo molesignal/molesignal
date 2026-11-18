@@ -8,25 +8,22 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::{
+    alerting::{
+        incident::IncidentStatus,
+        mute::{INCIDENT_ID_MATCHER_LABEL, MuteRule, MuteWindow},
+        semantic_group::{LabelMatcher, MatchOp},
+    },
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{
-    api::{
-        AppState,
-        http::federation::{delete_payload, emit_cud},
-    },
-    app::iam::IamContext,
-    domain::{
-        alerting::{
-            incident::IncidentStatus,
-            mute::{INCIDENT_ID_MATCHER_LABEL, MuteRule, MuteWindow},
-            semantic_group::{LabelMatcher, MatchOp},
-        },
-        federation::{CudAction, ResourceKind},
-        iam::permission,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::api::{
+    AppState,
+    http::federation::{delete_payload, emit_cud},
 };
 
 pub fn routes() -> Router<AppState> {

@@ -289,7 +289,7 @@ fn a_time_condition_holds_inside_or_outside_its_windows() {
 }
 
 /// 一份只有国庆（10 月 1 日周四、2 日周五放假）和 10 月 10 日（周六）补班的日历，记进缓存。
-fn national_day() -> crate::shared::ids::Id {
+fn national_day() -> kernel::ids::Id {
     use crate::domain::alerting::holiday::{self, DayKind, HolidayCalendar, HolidayDay};
 
     let day = |date: &str, kind| HolidayDay {
@@ -298,8 +298,8 @@ fn national_day() -> crate::shared::ids::Id {
         name: String::new(),
     };
     let calendar = HolidayCalendar {
-        id: crate::shared::ids::Id::new(),
-        org_id: crate::shared::ids::Id::from_string("org"),
+        id: kernel::ids::Id::new(),
+        org_id: kernel::ids::Id::from_string("org"),
         name: "China".into(),
         description: String::new(),
         days: vec![

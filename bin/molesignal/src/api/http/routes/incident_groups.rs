@@ -8,21 +8,18 @@ use axum::{
     extract::{Path, Query, State},
     routing::{get, post},
 };
+use domain::{
+    alerting::{
+        incident::Incident,
+        incident_group::{IncidentGroup, IncidentGroupState},
+        timeline::ActionVia,
+    },
+    iam::{IamContext, permission},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        alerting::{
-            incident::Incident,
-            incident_group::{IncidentGroup, IncidentGroupState},
-            timeline::ActionVia,
-        },
-        iam::permission,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

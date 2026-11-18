@@ -6,19 +6,17 @@
 //! reader, inside the time budget of every count, so what the engine masks stays masked and a
 //! question that takes too long says so instead of failing.
 
+use domain::{query::QueryResult, rum::event::RumStream};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::reader::{Reader, Span, within_budget};
-use crate::{
-    domain::{query::QueryResult, rum::event::RumStream},
-    infra::rum::{
-        analytics::{
-            self, Funnel, FunnelSpec, MAX_DEPTH, MAX_PERIODS, Paths, PathsSpec, Period, Retention,
-            RetentionSpec, Step,
-        },
-        query::{Filter, Unavailable},
+use crate::infra::rum::{
+    analytics::{
+        self, Funnel, FunnelSpec, MAX_DEPTH, MAX_PERIODS, Paths, PathsSpec, Period, Retention,
+        RetentionSpec, Step,
     },
-    shared::{Error, Result, time::TimestampMicros},
+    query::{Filter, Unavailable},
 };
 
 const HOUR_MICROS: i64 = 3_600_000_000;

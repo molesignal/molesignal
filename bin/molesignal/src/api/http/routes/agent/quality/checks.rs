@@ -9,11 +9,21 @@
 //! 设为默认时由 [`gate_set_default`] 把门；检查由 worker 用 [`process_next`] 做，每做完一个样本
 //! 记一次进度。规则见 `agent::scoring::check`。
 
+use agent::scoring::{
+    Evaluator, GateMode, TargetSource,
+    check::{
+        CheckSample, CheckStatus, Gate, MAX_CHECK_SAMPLES, PromptCheck, checked_sources, gate,
+    },
+    evaluation::Material,
+};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::prompts::AgentPromptTemplate;
 use serde::Serialize;
 use serde_json::json;
 
@@ -22,20 +32,7 @@ use super::{
     facts::{gather, readable},
     replay,
 };
-use crate::{
-    agent::scoring::{
-        Evaluator, GateMode, TargetSource,
-        check::{
-            CheckSample, CheckStatus, Gate, MAX_CHECK_SAMPLES, PromptCheck, checked_sources, gate,
-        },
-        evaluation::Material,
-    },
-    api::{AppState, http::routes::activity_audit, rca::system_user_id},
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::agent::prompts::AgentPromptTemplate,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::routes::activity_audit, rca::system_user_id};
 
 /// 领走的检查多久没有进度算节点没了。
 const LEASE_MICROS: i64 = 10 * 60 * 1_000_000;

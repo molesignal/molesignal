@@ -3,17 +3,15 @@
 
 use std::collections::BTreeSet;
 
+use agent::model::ApprovalRequest;
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::annotations::Annotation;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use super::super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::AppState,
-    app::iam::IamContext,
-    infra::persistence::repositories::annotations::Annotation,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub(super) async fn execute(
     state: &AppState,

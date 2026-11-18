@@ -10,11 +10,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
 
-use crate::{
-    app::iam::{IamAccessService, IamContext, IamService, member::member_context},
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::iam::{IamAccessService, IamService, member::member_context};
 
 /// 执行一次巡检需要的权限：用 Mole Agent，查询数据流。
 pub const RUN_PERMISSIONS: [&str; 2] = ["agent.use", "logs.read"];
@@ -24,7 +23,7 @@ pub const RUN_PERMISSIONS: [&str; 2] = ["agent.use", "logs.read"];
 /// API Token 只代表它绑定的那个角色，以签发者本人的身份去读日志会越过这个角色，所以用
 /// API Token 保存的请求没有可用身份，直接拒绝。
 pub fn run_as_user(saver: &IamContext) -> Result<Id> {
-    if saver.scope != crate::domain::iam::IamScope::Organization {
+    if saver.scope != domain::iam::IamScope::Organization {
         return Err(Error::forbidden(
             "a scheduled log inspection runs as the organization member who saves it: save it \
              while signed in to the organization, not with an API token",
@@ -87,8 +86,9 @@ fn unusable(who: &str, why: &str) -> Error {
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::IamScope;
+
     use super::*;
-    use crate::domain::iam::IamScope;
 
     fn context(scope: IamScope, permissions: &[&str]) -> IamContext {
         IamContext {

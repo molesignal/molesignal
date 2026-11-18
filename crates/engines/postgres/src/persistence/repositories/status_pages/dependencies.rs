@@ -5,17 +5,15 @@
 //! them.
 
 use async_trait::async_trait;
+use domain::status_page::{
+    DependencyHealth, HealthWrite, StatusPageComponent, StatusPageDependencyRepository,
+};
+use kernel::{Result, ids::Id};
 use sqlx::{Row, types::Json};
 
 use super::{
     PgStatusPageRepository,
     codec::{COMPONENT_COLS, row_to_component},
-};
-use crate::{
-    domain::status_page::{
-        DependencyHealth, HealthWrite, StatusPageComponent, StatusPageDependencyRepository,
-    },
-    shared::{Result, ids::Id},
 };
 
 #[async_trait]

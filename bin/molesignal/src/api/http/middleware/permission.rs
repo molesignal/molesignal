@@ -12,11 +12,12 @@
 //! resolved from the database IAM catalog and policy tables.
 
 use async_trait::async_trait;
+use domain::iam::IamContext;
+use kernel::{Error, ids::Id};
 
 use crate::{
     api::AppState,
-    app::iam::{IamAccessRequest, IamContext, IamTarget},
-    shared::{Error, ids::Id},
+    app::iam::{IamAccessRequest, IamTarget},
 };
 
 pub struct Permission;

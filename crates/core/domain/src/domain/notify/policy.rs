@@ -3,14 +3,12 @@
 
 use std::collections::BTreeMap;
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{connector::NotifyChannel, preference::NotifyCategory};
-use crate::{
-    domain::alerting::time_window::TimeCondition,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::alerting::time_window::TimeCondition;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

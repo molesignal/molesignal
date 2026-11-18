@@ -6,10 +6,9 @@
 
 use std::ops::Deref;
 
-use crate::{
-    api::AppState,
-    app::{iam::IamContext, rum::reader},
-};
+use domain::iam::IamContext;
+
+use crate::{api::AppState, app::rum::reader};
 pub(super) use crate::{
     app::rum::reader::{Counted, Span, within_budget},
     infra::rum::query::{Row, rows},

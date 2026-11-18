@@ -5,22 +5,20 @@
 
 use std::time::Duration;
 
+use kernel::{Error, Result, ids::Id};
 use object_store::{
     ClientOptions, ObjectStoreExt, PutPayload, RetryConfig, aws::AmazonS3Builder, path::Path,
 };
 use serde_json::Value;
 
 use super::to_json_lines;
-use crate::{
-    infra::connectors::{
-        aws::{CredentialSource, credential_provider},
-        config::{
-            self,
-            aws::{AccessKey, AwsAuth},
-        },
-        repo::Connector,
+use crate::infra::connectors::{
+    aws::{CredentialSource, credential_provider},
+    config::{
+        self,
+        aws::{AccessKey, AwsAuth},
     },
-    shared::{Error, Result, ids::Id},
+    repo::Connector,
 };
 
 /// The object a connection test writes and then removes, when the policy allows removing it.
@@ -187,7 +185,7 @@ mod tests {
     }
 
     fn s3_connector(config: Value) -> Connector {
-        use crate::shared::time::TimestampMicros;
+        use kernel::time::TimestampMicros;
 
         Connector {
             id: Id::new(),

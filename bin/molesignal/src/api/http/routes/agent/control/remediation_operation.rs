@@ -6,16 +6,13 @@
 
 use std::collections::BTreeMap;
 
+use agent::model::ApprovalRequest;
+use domain::{alerting::remediation::RemediationRisk, iam::IamContext};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
 use super::approval_execution::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::AppState,
-    app::iam::IamContext,
-    domain::alerting::remediation::RemediationRisk,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -9,10 +9,8 @@
 mod common;
 
 use common::{TestServer, skip_unless_enabled, wait_until, wait_until_async};
-use molesignal::{
-    domain::stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
-    shared::time::TimestampMicros,
-};
+use domain::stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType};
+use kernel::time::TimestampMicros;
 use opentelemetry_proto::tonic::{
     collector::trace::v1::ExportTraceServiceRequest,
     common::v1::{AnyValue, KeyValue, any_value},

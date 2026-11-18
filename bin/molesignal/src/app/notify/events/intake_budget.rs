@@ -7,23 +7,21 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use domain::{
+    i18n_language::{I18nLanguageRepository, LanguagePack},
+    intake::usage::{
+        budget::{BudgetState, IntakeBudget, IntakeBudgetRepository},
+        source::{IntakeUsageRepository, UsageDimension},
+    },
+    notify::{connector::NotifyMessage, policy::NotifyEvent},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository;
 use serde_json::json;
 
-use crate::{
-    app::{
-        intake::usage::{BudgetStanding, IntakeSourceDirectory, SourceLabel, budget_standings},
-        notify::{NotifyDispatch, NotifyEngine},
-    },
-    domain::{
-        i18n_language::{I18nLanguageRepository, LanguagePack},
-        intake::usage::{
-            budget::{BudgetState, IntakeBudget, IntakeBudgetRepository},
-            source::{IntakeUsageRepository, UsageDimension},
-        },
-        notify::{connector::NotifyMessage, policy::NotifyEvent},
-    },
-    infra::persistence::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
-    shared::{Result, ids::Id, time::TimestampMicros},
+use crate::app::{
+    intake::usage::{BudgetStanding, IntakeSourceDirectory, SourceLabel, budget_standings},
+    notify::{NotifyDispatch, NotifyEngine},
 };
 
 pub const INTAKE_BUDGET_WARNING_EVENT: &str = "intake.budget.warning";
@@ -271,10 +269,10 @@ fn readable_size(bytes: u64) -> String {
 
 #[cfg(test)]
 mod tests {
+    use domain::intake::usage::budget::BudgetPeriod;
+
     use super::*;
-    use crate::{
-        domain::intake::usage::budget::BudgetPeriod, shared::i18n_language_seed::seeded_pack,
-    };
+    use crate::i18n_language_seed::seeded_pack;
 
     const MIB: u64 = 1024 * 1024;
 

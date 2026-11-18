@@ -8,17 +8,15 @@
 
 use std::collections::BTreeMap;
 
+use domain::apm::QueryResolution;
 use futures::future::try_join_all;
+use kernel::{Error, Result, time::TimestampMicros};
 use service_graph::{EdgeSnapshot, ServiceGraphRepository};
 
 use super::super::{
     ApmQueryContext, ApmQueryService, GraphCall, GraphPoint, MapEdgeDetail, MapResponse,
 };
-use crate::{
-    app::apm::OrgNames,
-    domain::apm::QueryResolution,
-    shared::{Error, Result, time::TimestampMicros},
-};
+use crate::app::apm::OrgNames;
 
 const MINUTE_MICROS: i64 = 60_000_000;
 const HOUR_MICROS: i64 = 3_600_000_000;

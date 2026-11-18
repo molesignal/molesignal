@@ -3,10 +3,9 @@
 
 use std::{collections::HashSet, sync::LazyLock};
 
+use contracts::DASHBOARD_VISUALIZATIONS_V1;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-
-use crate::shared::contracts::DASHBOARD_VISUALIZATIONS_V1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

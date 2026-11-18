@@ -4,17 +4,15 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use async_trait::async_trait;
+use domain::apm::{
+    APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanKind, ErrorGroupRecord, ErrorSample,
+    InstrumentationMetadata, OwnerSnapshot, ProjectionGap, ProjectionState, ServiceIdentity,
+    ServiceObservation, SnapshotWriteStats, VersionObservation,
+};
+use kernel::{Result, ids::Id};
 use parking_lot::Mutex as ParkingMutex;
 
 use super::*;
-use crate::{
-    domain::apm::{
-        APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanKind, ErrorGroupRecord, ErrorSample,
-        InstrumentationMetadata, OwnerSnapshot, ProjectionGap, ProjectionState, ServiceIdentity,
-        ServiceObservation, SnapshotWriteStats, VersionObservation,
-    },
-    shared::{Result, ids::Id},
-};
 
 #[derive(Default)]
 struct MemoryWriter {
@@ -31,7 +29,7 @@ impl ApmWriteRepository for MemoryWriter {
         _versions: &[VersionObservation],
     ) -> Result<()> {
         if self.fail.load(Ordering::Relaxed) {
-            return Err(crate::shared::Error::internal("unavailable"));
+            return Err(kernel::Error::internal("unavailable"));
         }
 
         Ok(())

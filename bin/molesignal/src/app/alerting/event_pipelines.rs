@@ -19,21 +19,18 @@
 
 use std::sync::Arc;
 
-use serde_json::{Map, Value, json};
-
-use crate::{
-    domain::{
-        alerting::incident::{Incident, Severity},
-        function::{Function, FunctionExecutor, FunctionLanguage, FunctionOutcome},
-        pipeline::alert::{
-            AlertEnricher, AlertEventSource, AlertFieldChange, AlertFields, AlertOutcome,
-            AlertOutcomeKind, AlertPipeline, AlertPipelineRepository, AlertStage, AlertStep,
-            fields::MAX_RECORDED_CHANGES,
-        },
-        query::QueryEngine,
+use domain::{
+    alerting::incident::{Incident, Severity},
+    function::{Function, FunctionExecutor, FunctionLanguage, FunctionOutcome},
+    pipeline::alert::{
+        AlertEnricher, AlertEventSource, AlertFieldChange, AlertFields, AlertOutcome,
+        AlertOutcomeKind, AlertPipeline, AlertPipelineRepository, AlertStage, AlertStep,
+        fields::MAX_RECORDED_CHANGES,
     },
-    shared::{ids::Id, time::TimestampMicros},
+    query::QueryEngine,
 };
+use kernel::{ids::Id, time::TimestampMicros};
+use serde_json::{Map, Value, json};
 
 mod enrich;
 pub mod notify;

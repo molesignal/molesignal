@@ -6,16 +6,14 @@ use std::{
     time::Instant,
 };
 
+use domain::storage::{FileCatalog, GcQueueEntry, OrganizationScope};
 use futures::{StreamExt, stream};
+use kernel::{Result, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt, path::Path};
 use prometheus::{Histogram, IntCounter};
+use settings::GarbageCollectionSettings;
 
-use crate::{
-    config::GarbageCollectionSettings,
-    domain::storage::{FileCatalog, GcQueueEntry, OrganizationScope},
-    infra::storage::object_reader::ObjectReader,
-    shared::{Result, time::TimestampMicros},
-};
+use crate::infra::storage::object_reader::ObjectReader;
 
 pub struct ObjectGcWorker {
     catalog: Arc<dyn FileCatalog>,
@@ -108,7 +106,7 @@ impl ObjectGcWorker {
                 failed_total().inc();
                 self.retry(scope, &entry, &error.to_string()).await?;
 
-                Err(crate::shared::Error::internal(format!(
+                Err(kernel::Error::internal(format!(
                     "delete GC object: {error}"
                 )))
             }
@@ -140,7 +138,7 @@ fn deleted_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_int_counter(
+        signals::metrics::register_int_counter(
             "object_gc_deleted_total",
             "Objects deleted after delayed GC safety checks",
         )
@@ -151,7 +149,7 @@ fn failed_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_int_counter(
+        signals::metrics::register_int_counter(
             "object_gc_failed_total",
             "Delayed object GC delete failures",
         )
@@ -162,7 +160,7 @@ fn unsafe_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_int_counter(
+        signals::metrics::register_int_counter(
             "object_gc_safety_rejections_total",
             "GC claims rejected by final Catalog reference checks",
         )
@@ -173,7 +171,7 @@ fn delete_duration() -> &'static Histogram {
     static METRIC: OnceLock<Histogram> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_histogram(
+        signals::metrics::register_histogram(
             "object_gc_delete_duration_seconds",
             "Delayed object deletion latency",
             vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0],

@@ -3,17 +3,14 @@
 
 use std::collections::HashMap;
 
+use agent::model::ApprovalRequest;
+use domain::{dashboard::Folder, iam::IamContext};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::{AppState, http::middleware::Permission},
-    app::iam::IamContext,
-    domain::dashboard::Folder,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::middleware::Permission};
 
 const MAX_FOLDER_LEVELS: usize = 3;
 

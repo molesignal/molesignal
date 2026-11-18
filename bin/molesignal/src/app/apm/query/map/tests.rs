@@ -3,11 +3,12 @@
 
 use std::collections::HashMap;
 
-use super::*;
-use crate::domain::apm::{
+use domain::apm::{
     BucketDimension, BucketMeasurements, DependencyIdentity, HistogramSchema, MergedBucket,
     ServiceIdentity, TransactionIdentity, TransactionKind,
 };
+
+use super::*;
 
 fn measurements(requests: u64, errors: u64) -> BucketMeasurements {
     let mut measurements = BucketMeasurements::empty(&HistogramSchema::current());

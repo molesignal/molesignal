@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::dashboard::authoring::AuthoringQuery;
 use serde_json::{Value, json};
-
-use crate::domain::dashboard::authoring::AuthoringQuery;
 
 pub(super) struct CompiledQuery {
     pub data_source_type: &'static str,

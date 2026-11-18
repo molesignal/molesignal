@@ -8,19 +8,17 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use agent::telemetry::AGENT_STREAM;
+use domain::{
+    intake::{IntakeBatch, RawEvent},
+    stream::StreamType,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use tokio::task::JoinHandle;
 
-use crate::{
-    agent::telemetry::AGENT_STREAM,
-    app::{
-        agent_usage::{TraceEvent, TraceReceiver},
-        intake::IntakeService,
-    },
-    domain::{
-        intake::{IntakeBatch, RawEvent},
-        stream::StreamType,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use crate::app::{
+    agent_usage::{TraceEvent, TraceReceiver},
+    intake::IntakeService,
 };
 
 const BATCH: usize = 64;

@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::dashboard::{Folder, repositories::FolderRepository};
+use kernel::{Error, Result, ids::Id};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::dashboard::{Folder, repositories::FolderRepository},
-    shared::{Error, Result, ids::Id},
-};
 
 pub struct PgFolderRepository {
     pool: PgPool,

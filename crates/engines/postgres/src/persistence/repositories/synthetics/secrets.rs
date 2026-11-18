@@ -2,17 +2,15 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::synthetics::{
+    SecretMaterial, SyntheticSecret, SyntheticSecretRepository, SyntheticSecretVersion,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::Row;
 
 use super::{
     PgSyntheticRepository, client_key,
     codec::{SECRET_COLS, row_to_secret},
-};
-use crate::{
-    domain::synthetics::{
-        SecretMaterial, SyntheticSecret, SyntheticSecretRepository, SyntheticSecretVersion,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 fn seal(

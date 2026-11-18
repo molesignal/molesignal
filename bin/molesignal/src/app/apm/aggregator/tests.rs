@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use super::*;
-use crate::domain::apm::{
+use domain::apm::{
     APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanKind, InstanceSighting, InstrumentationMetadata,
     TransactionIdentity, TransactionKind,
 };
+
+use super::*;
 
 fn fact(span_id: &str, kind: ApmSpanKind, duration: u64) -> ApmSpanFact {
     ApmSpanFact {
@@ -96,7 +97,7 @@ fn exemplar_and_error_samples_are_bounded() {
     for (index, duration) in [10, 30, 20].into_iter().enumerate() {
         let mut value = fact(&format!("span-{index}"), ApmSpanKind::Server, duration);
         value.outcome = ApmOutcome::Error;
-        value.error = Some(crate::domain::apm::ErrorIdentity {
+        value.error = Some(domain::apm::ErrorIdentity {
             fingerprint: "group".into(),
             error_type: "Failure".into(),
             application_frame: None,

@@ -3,6 +3,9 @@
 
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
+use agent::inbound_mcp::InboundMcpSettings;
+use domain::iam::IamContext;
+use kernel::Error;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
     model::*,
@@ -16,12 +19,7 @@ use super::{
     runtime::{CatalogEvent, InboundMcpAdapterRuntime},
     tasks, tools,
 };
-use crate::{
-    agent::inbound_mcp::InboundMcpSettings,
-    api::{AppState, http::middleware::auth::AuthenticatedCredential},
-    app::iam::IamContext,
-    shared::Error,
-};
+use crate::api::{AppState, http::middleware::auth::AuthenticatedCredential};
 
 #[derive(Clone)]
 pub(super) struct InboundMcpHandler {
@@ -61,7 +59,7 @@ impl InboundMcpHandler {
 
         let mut events = self.runtime.subscribe(&data.iam.org_id);
 
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
+        signals::trace_context::spawn_with_current_trace_context(async move {
             let mut refresh = tokio::time::interval(std::time::Duration::from_secs(30));
             refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             refresh.tick().await;
@@ -411,7 +409,7 @@ impl ServerHandler for InboundMcpHandler {
         let uri = request.uri;
         let mut events = self.runtime.subscribe(&data.iam.org_id);
 
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
+        signals::trace_context::spawn_with_current_trace_context(async move {
             let mut refresh = tokio::time::interval(std::time::Duration::from_secs(30));
             refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             refresh.tick().await;

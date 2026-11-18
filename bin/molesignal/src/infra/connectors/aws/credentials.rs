@@ -12,6 +12,7 @@ use std::{
     time::Duration,
 };
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use moka::sync::Cache;
 use object_store::{
     ClientOptions, RetryConfig, StaticCredentialProvider,
@@ -19,12 +20,9 @@ use object_store::{
 };
 
 use super::{external_id, region_or_default, session_name, sts::AssumeRoleProvider, sts_endpoint};
-use crate::{
-    infra::connectors::{
-        config::aws::{AccessKey, AwsAuth},
-        repo::Connector,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::infra::connectors::{
+    config::aws::{AccessKey, AwsAuth},
+    repo::Connector,
 };
 
 /// The environment that makes up the node's identity, and the setting each one fills in.
@@ -223,10 +221,10 @@ fn env(variable: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn connector(updated_at: i64) -> Connector {
         Connector {

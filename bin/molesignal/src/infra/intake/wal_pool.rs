@@ -36,20 +36,18 @@ use std::{
 
 use anyhow::{Context, Result, anyhow};
 use dashmap::DashMap;
+use domain::storage::{DatasetTypeId, PhysicalDatasetId, WalCodecId, WalSequence, WriterEpoch};
+use kernel::ids::Id;
+use postgres::cipher::CipherRootKey;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 pub use self::recovery::{WalEpochDir, WalRecoverySource};
-use crate::{
-    domain::storage::{DatasetTypeId, PhysicalDatasetId, WalCodecId, WalSequence, WriterEpoch},
-    infra::{
-        cipher::CipherRootKey,
-        intake::metrics::{WalInflightGuard, observe_wal_lock_wait},
-        segment_wal::{
-            FsyncPolicy, SegmentWal, WalEntryType, scan_segment_max_index, sync_dir_parent_of,
-        },
+use crate::infra::{
+    intake::metrics::{WalInflightGuard, observe_wal_lock_wait},
+    segment_wal::{
+        FsyncPolicy, SegmentWal, WalEntryType, scan_segment_max_index, sync_dir_parent_of,
     },
-    shared::ids::Id,
 };
 
 /// 一条 WAL 流的写入身份；由 dataset 解析层构造。
@@ -441,13 +439,11 @@ fn truncate_dir_blocking(dir: &Path, seq: u64) -> Result<()> {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use domain::storage::type_id;
     use tempfile::tempdir;
 
     use super::*;
-    use crate::{
-        domain::storage::type_id,
-        infra::segment_wal::{SyncLevel, scan_segment_file_readonly},
-    };
+    use crate::infra::segment_wal::{SyncLevel, scan_segment_file_readonly};
 
     pub(crate) fn identity(dataset: &str) -> WalStreamIdentity {
         WalStreamIdentity {

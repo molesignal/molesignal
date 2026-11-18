@@ -5,13 +5,11 @@
 //! 用 Account ID、Client ID 和 Client Secret 换令牌，再 `POST https://api.zoom.us/v2/users/{主持人}/meetings`
 //! 开一场即时会议。应用要有 `meeting:write:meeting:admin`（或旧的 `meeting:write:admin`）权限。
 
+use domain::alerting::meeting::ZoomSettings;
+use kernel::{Error, Result};
 use serde_json::json;
 
 use super::{client, send};
-use crate::{
-    domain::alerting::meeting::ZoomSettings,
-    shared::{Error, Result},
-};
 
 const TOKEN_URL: &str = "https://zoom.us/oauth/token";
 const API: &str = "https://api.zoom.us/v2";

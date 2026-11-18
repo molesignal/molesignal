@@ -4,6 +4,8 @@
 //! Where people click on a page of a RUM application and how far down they go, in numbers: the
 //! elements with the most clicks and the share of views that reached each depth.
 
+use domain::iam::IamContext;
+use kernel::Result;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
@@ -11,7 +13,6 @@ use tool_runtime::ToolResult;
 use super::{reader, summary_span};
 use crate::{
     app::{
-        iam::IamContext,
         rum::{
             heatmap::{self, MapRequest},
             overview::scope_filters,
@@ -22,7 +23,6 @@ use crate::{
         },
     },
     infra::rum::query::Filter,
-    shared::Result,
 };
 
 const DEFAULT_LIMIT: usize = 20;

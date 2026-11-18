@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::dashboard::Dashboard;
+use kernel::{Error, Result, ids::Id};
 use serde_json::Value;
 
 use super::DashboardService;
-use crate::{
-    domain::dashboard::Dashboard,
-    shared::{Error, Result, ids::Id},
-};
 
 impl DashboardService {
     pub async fn add_panel(

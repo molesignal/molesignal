@@ -5,22 +5,22 @@
 
 use std::sync::Arc;
 
+use domain::{
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::StreamType,
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde_json::Value;
 
 use super::{BootstrapPipelineExecutor, rows_to_objects};
 use crate::{
     app::audit_read::{AuditReadCheck, grants_to_read},
-    domain::{
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::StreamType,
-    },
     infra::{
         pipeline::{ScheduledPipeline, scheduled::state::Window},
         query::grants::scope,
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
     },
 };
 

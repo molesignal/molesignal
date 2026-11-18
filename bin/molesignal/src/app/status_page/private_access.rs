@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::{
+    StatusPage, StatusPageAccessRule, StatusPageAccessSession, StatusPageDomainState,
+    StatusPageMagicLinkExchange, StatusPageSubscriberChannel, StatusPageVisibility,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::api_tokens::generate_token;
 use serde::Serialize;
 use url::Url;
 
 use super::{
     MICROS_PER_DAY, StatusPageAccessRuleInput, StatusPageService, notification_copy,
     validation::normalize_domain_lookup,
-};
-use crate::{
-    domain::status_page::{
-        StatusPage, StatusPageAccessRule, StatusPageAccessSession, StatusPageDomainState,
-        StatusPageMagicLinkExchange, StatusPageSubscriberChannel, StatusPageVisibility,
-    },
-    infra::persistence::repositories::api_tokens::generate_token,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const MICROS_PER_MINUTE: i64 = 60 * 1_000_000;
@@ -72,7 +70,7 @@ impl StatusPageService {
     ) -> Result<StatusPageAccessRule> {
         let page = self.repository.get_page(org_id, page_id).await?;
 
-        if page.lifecycle != crate::domain::status_page::StatusPageLifecycle::Active {
+        if page.lifecycle != domain::status_page::StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "access rules cannot be changed on an archived status page",
             ));
@@ -106,7 +104,7 @@ impl StatusPageService {
     pub async fn delete_access_rule(&self, org_id: &Id, page_id: &Id, rule_id: &Id) -> Result<()> {
         let page = self.repository.get_page(org_id, page_id).await?;
 
-        if page.lifecycle != crate::domain::status_page::StatusPageLifecycle::Active {
+        if page.lifecycle != domain::status_page::StatusPageLifecycle::Active {
             return Err(Error::conflict(
                 "access rules cannot be changed on an archived status page",
             ));
@@ -150,7 +148,7 @@ impl StatusPageService {
 
         let created = self
             .repository
-            .create_magic_link(crate::domain::status_page::StatusPageMagicLink {
+            .create_magic_link(domain::status_page::StatusPageMagicLink {
                 id: Id::new(),
                 org_id: page.org_id.clone(),
                 status_page_id: page.id.clone(),
@@ -257,7 +255,7 @@ impl StatusPageService {
         slug: &str,
         raw_session_token: Option<&str>,
         requested_origin: &str,
-    ) -> Result<crate::domain::status_page::StatusPageSnapshot> {
+    ) -> Result<domain::status_page::StatusPageSnapshot> {
         let page = self.get_customer_page(slug).await?;
         self.authorize_customer_page(&page, raw_session_token, requested_origin)
             .await?;
@@ -268,7 +266,7 @@ impl StatusPageService {
         &self,
         domain: &str,
         raw_session_token: Option<&str>,
-    ) -> Result<Option<crate::domain::status_page::StatusPageSnapshot>> {
+    ) -> Result<Option<domain::status_page::StatusPageSnapshot>> {
         let Some(page) = self.resolve_customer_page_by_domain(domain).await? else {
             return Ok(None);
         };
@@ -447,12 +445,12 @@ fn normalize_email(value: &str) -> Result<String> {
 }
 
 fn normalize_access_rule(
-    kind: crate::domain::status_page::StatusPageAccessRuleKind,
+    kind: domain::status_page::StatusPageAccessRuleKind,
     value: &str,
 ) -> Result<String> {
     match kind {
-        crate::domain::status_page::StatusPageAccessRuleKind::Email => normalize_email(value),
-        crate::domain::status_page::StatusPageAccessRuleKind::Domain => {
+        domain::status_page::StatusPageAccessRuleKind::Email => normalize_email(value),
+        domain::status_page::StatusPageAccessRuleKind::Domain => {
             let domain = value.trim().trim_start_matches('@').to_ascii_lowercase();
 
             normalize_domain_lookup(&domain)
@@ -464,8 +462,9 @@ fn normalize_access_rule(
 
 #[cfg(test)]
 mod tests {
+    use domain::status_page::StatusPageAccessRuleKind;
+
     use super::*;
-    use crate::domain::status_page::StatusPageAccessRuleKind;
 
     #[test]
     fn access_rules_are_exact_and_normalized() {

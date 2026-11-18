@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::pipeline::metric::OTHER_SERIES;
 use serde_json::json;
 
 use super::*;
-use crate::domain::pipeline::metric::OTHER_SERIES;
 
 const MINUTE: i64 = 60_000_000;
 

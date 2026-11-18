@@ -20,20 +20,18 @@ use std::{
     time::{Duration, Instant},
 };
 
+use domain::{
+    log_inspection::{LogInspection, LogInspectionRun},
+    run_claim::{OpenGate, RunGate, RunPermit},
+};
+use kernel::{Result, time::TimestampMicros};
 use parking_lot::Mutex;
 use tokio::{
     sync::{OwnedSemaphorePermit, Semaphore},
     task::JoinHandle,
 };
 
-use crate::{
-    app::log_inspection::InspectionRunner,
-    domain::{
-        log_inspection::{LogInspection, LogInspectionRun},
-        run_claim::{OpenGate, RunGate, RunPermit},
-    },
-    shared::{Result, time::TimestampMicros},
-};
+use crate::app::log_inspection::InspectionRunner;
 
 pub mod agent;
 mod dispatcher;
@@ -214,7 +212,7 @@ impl LogInspectionWorker {
     ) -> JoinHandle<()> {
         let runner = self.runner.clone();
 
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
+        signals::trace_context::spawn_with_current_trace_context(async move {
             let outcome = runner.execute(&inspection, &run).await;
 
             tracing::info!(

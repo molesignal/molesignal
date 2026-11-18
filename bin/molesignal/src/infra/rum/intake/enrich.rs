@@ -7,14 +7,12 @@
 
 use std::{net::IpAddr, sync::Arc};
 
+use domain::rum::RumApplicationSettings;
 use moka::sync::Cache;
 use serde_json::{Map, Value};
 use woothee::parser::Parser;
 
-use crate::{
-    domain::rum::RumApplicationSettings,
-    infra::enrichment::{GeoLocation, GeoLookup},
-};
+use crate::infra::enrichment::{GeoLocation, GeoLookup};
 
 const AGENT_CACHE_ENTRIES: u64 = 1024;
 const MAX_AGENT_LEN: usize = 512;

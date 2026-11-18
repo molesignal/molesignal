@@ -2,14 +2,12 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::synthetics::{ProbeAgent, ProbeTask, SyntheticTaskRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::{
     PgSyntheticRepository,
     codec::{TASK_COLS, row_to_task},
-};
-use crate::{
-    domain::synthetics::{ProbeAgent, ProbeTask, SyntheticTaskRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[async_trait]
@@ -78,8 +76,7 @@ impl SyntheticTaskRepository for PgSyntheticRepository {
     ) -> Result<Option<ProbeTask>> {
         if !matches!(
             agent.status,
-            crate::domain::synthetics::AgentStatus::Online
-                | crate::domain::synthetics::AgentStatus::Degraded
+            domain::synthetics::AgentStatus::Online | domain::synthetics::AgentStatus::Degraded
         ) {
             return Err(Error::conflict("Probe Agent is not accepting tasks"));
         }

@@ -4,7 +4,7 @@
 //! 字段级校验 trait：每个 `*Request` 自己实现 `Validate`，
 //! 失败抛 `Error::Invalid("field <X>: <reason>")`。**不引入 third-party `validator`。**
 
-use crate::shared::{Error, Result};
+use kernel::{Error, Result};
 
 pub trait Validate {
     fn validate(&self) -> Result<()>;

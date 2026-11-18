@@ -1,35 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{
+    function::FunctionOutcome,
+    iam::IamContext,
+    pipeline::{
+        alert::{AlertConfig, AlertStep, EnrichQuery, is_alert, query::known_placeholder},
+        processing::{ProcessingKind, ProcessingStep, parse_processing_steps},
+        protected::{Guard, RUM_CUSTOM_FIELDS, changed_protected, protected_of},
+        realtime::validate_config,
+        scheduled::ScheduledConfig,
+    },
+    query::QueryLanguage,
+    rum::event::{RumField, fields as rum_fields},
+    stream::{AUDIT_STREAM, FieldType},
+};
+use function_runtime::{VrlRuntime, vrl::runtime::CompiledProgram};
+use kernel::{Error, Result, ids::Id};
+use query_language::template_sample;
 use serde_json::{Value, json};
 
 use super::UpdateReq;
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::{
-        function::FunctionOutcome,
-        pipeline::{
-            alert::{AlertConfig, AlertStep, EnrichQuery, is_alert, query::known_placeholder},
-            processing::{ProcessingKind, ProcessingStep, parse_processing_steps},
-            protected::{Guard, RUM_CUSTOM_FIELDS, changed_protected, protected_of},
-            realtime::validate_config,
-            scheduled::ScheduledConfig,
-        },
-        query::QueryLanguage,
-        rum::event::{RumField, fields as rum_fields},
-        stream::{AUDIT_STREAM, FieldType},
-    },
     infra::{
         connectors::{ConnectorKind, ConnectorRepository},
         pipeline::{ScheduledPipeline, scheduled::parse_every_secs},
-        query::{
-            grants::{AUDIT_READ, statement_names_audit},
-            parser::template_sample,
-        },
-        runtime::{VrlRuntime, vrl::runtime::CompiledProgram},
+        query::grants::{AUDIT_READ, statement_names_audit},
     },
-    shared::{Error, Result, ids::Id},
 };
 
 /// What a pipeline's configuration names outside itself belongs to the organization.
@@ -245,7 +243,7 @@ fn reads_audit(source: &str, config: &Value) -> bool {
 }
 
 /// A realtime pipeline on metrics, traces or RUM leaves what its data rests on as it arrives
-/// ([`crate::domain::pipeline::protected`]). Each step runs once on an event that has all of it,
+/// ([`domain::pipeline::protected`]). Each step runs once on an event that has all of it,
 /// and a step that changes a kept field is refused here instead of failing every event later; so
 /// is a step that can drop a RUM view or vital (`abort`). A step that changes a kept field only
 /// under some condition is caught as events arrive.
@@ -460,8 +458,8 @@ mod tests {
             run_state: json!({}),
             audit_reader_id: Some(Id::from_string("ada")),
             enabled: true,
-            created_at: crate::shared::time::TimestampMicros(0),
-            updated_at: crate::shared::time::TimestampMicros(0),
+            created_at: kernel::time::TimestampMicros(0),
+            updated_at: kernel::time::TimestampMicros(0),
         }
     }
 

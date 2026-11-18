@@ -4,21 +4,19 @@
 use std::{collections::HashMap, sync::LazyLock};
 
 use async_trait::async_trait;
+use domain::{
+    intake::{IntakeError, IntakeResult},
+    rum::{
+        ERRORS_FILTER, RetentionCondition, RetentionFilter, RetentionOp, RumApplicationPatch,
+        RumApplicationSettings, RumPlatform, normalize_filters,
+    },
+    stream::{Schema, StreamDefinition},
+};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
 
 use super::{sample::keeps, *};
-use crate::{
-    domain::{
-        intake::{IntakeError, IntakeResult},
-        rum::{
-            ERRORS_FILTER, RetentionCondition, RetentionFilter, RetentionOp, RumApplicationPatch,
-            RumApplicationSettings, RumPlatform, normalize_filters,
-        },
-        stream::{Schema, StreamDefinition},
-    },
-    infra::enrichment::GeoLocation,
-};
+use crate::infra::enrichment::GeoLocation;
 
 const NOW: i64 = 1_760_000_000_000;
 

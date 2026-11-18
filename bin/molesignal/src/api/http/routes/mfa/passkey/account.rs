@@ -18,6 +18,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{patch, post},
 };
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use webauthn_rs::prelude::{
     CreationChallengeResponse, RegisterPublicKeyCredential, RequestChallengeResponse,
@@ -40,8 +42,7 @@ use crate::{
             signin_limit::SigninSource,
         },
     },
-    app::iam::{IamContext, SignInSession, sessions_end_now, signin_limit::SigninError},
-    shared::{Error, Result, ids::Id},
+    app::iam::{SignInSession, sessions_end_now, signin_limit::SigninError},
 };
 
 pub(super) fn routes() -> Router<AppState> {

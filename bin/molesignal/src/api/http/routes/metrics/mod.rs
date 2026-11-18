@@ -12,8 +12,9 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use signals::metrics::gather_text;
 
-use crate::{api::AppState, shared::metrics::gather_text};
+use crate::api::AppState;
 
 mod catalog;
 

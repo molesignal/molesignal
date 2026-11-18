@@ -12,7 +12,7 @@
 mod common;
 
 use common::TestServer;
-use molesignal::shared::time::TimestampMicros;
+use kernel::time::TimestampMicros;
 use opentelemetry_proto::tonic::{
     collector::trace::v1::ExportTraceServiceRequest,
     common::v1::{AnyValue, KeyValue, any_value},

@@ -6,17 +6,16 @@
 
 use std::collections::BTreeMap;
 
-use super::synthetic::{synthetic_fingerprint, synthetic_no_data_fingerprint};
-use crate::{
-    domain::{
-        alerting::incident::{
-            CONDITION_LABEL, DESCRIPTION_ANNOTATION, Incident, IncidentStatus, NO_DATA_CONDITION,
-            SOURCE_LABEL, SYNTHETIC_SOURCE, SYNTHETIC_STATE_LABEL, Severity,
-        },
-        synthetics::{MonitorRevision, MonitorState, SyntheticMonitor},
+use domain::{
+    alerting::incident::{
+        CONDITION_LABEL, DESCRIPTION_ANNOTATION, Incident, IncidentStatus, NO_DATA_CONDITION,
+        SOURCE_LABEL, SYNTHETIC_SOURCE, SYNTHETIC_STATE_LABEL, Severity,
     },
-    shared::{ids::Id, time::TimestampMicros},
+    synthetics::{MonitorRevision, MonitorState, SyntheticMonitor},
 };
+use kernel::{ids::Id, time::TimestampMicros};
+
+use super::synthetic::{synthetic_fingerprint, synthetic_no_data_fingerprint};
 
 /// 拨测事件因何而开。
 pub(super) enum Opening<'a> {

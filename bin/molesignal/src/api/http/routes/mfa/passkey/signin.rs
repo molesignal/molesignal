@@ -16,6 +16,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::Deserialize;
 use webauthn_rs::prelude::{DiscoverableAuthentication, DiscoverableKey, PublicKeyCredential};
 
@@ -35,7 +36,6 @@ use crate::{
         mfa::{challenge_digest, passkey},
     },
     infra::mfa::MfaChallengePurpose,
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {

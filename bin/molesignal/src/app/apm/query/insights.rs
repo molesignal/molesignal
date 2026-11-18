@@ -9,6 +9,15 @@
 
 use std::collections::{HashMap, HashSet};
 
+use domain::apm::{
+    BucketDimension, BucketKind, DependencyCategory, DeploymentEvent, DeploymentQuery,
+    MergedBucket, QueryResolution, ServiceIdentity,
+};
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
+
 use self::{
     detect::{ServiceFigures, Stretch},
     suggest::Served,
@@ -19,16 +28,6 @@ use super::{
     common::overflow_dimensions,
     health::assess_health,
     standings::red_by_service,
-};
-use crate::{
-    domain::apm::{
-        BucketDimension, BucketKind, DependencyCategory, DeploymentEvent, DeploymentQuery,
-        MergedBucket, QueryResolution, ServiceIdentity,
-    },
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 mod changes;
@@ -225,7 +224,7 @@ impl ApmQueryService {
 /// Each service's trend in `buckets`.
 fn trends_by_service(
     buckets: &[MergedBucket],
-    schema: &crate::domain::apm::HistogramSchema,
+    schema: &domain::apm::HistogramSchema,
     apdex_threshold_micros: u64,
 ) -> Result<HashMap<ServiceIdentity, Vec<RedTrendPoint>>> {
     let mut grouped = HashMap::<ServiceIdentity, Vec<MergedBucket>>::new();

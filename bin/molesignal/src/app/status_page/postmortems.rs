@@ -5,14 +5,13 @@
 //! goes on or after it, published once it is resolved, and told to the
 //! subscribers who hear about the incident.
 
-use super::StatusPageService;
-use crate::{
-    domain::status_page::{
-        PostmortemWrite, PublicIncidentStatus, StatusPageIncident, StatusPageIncidentKind,
-        StatusPageLifecycle, StatusPagePublicationState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::status_page::{
+    PostmortemWrite, PublicIncidentStatus, StatusPageIncident, StatusPageIncidentKind,
+    StatusPageLifecycle, StatusPagePublicationState,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use super::StatusPageService;
 
 const MAX_POSTMORTEM_CHARS: usize = 20_000;
 

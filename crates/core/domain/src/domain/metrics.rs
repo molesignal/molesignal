@@ -5,9 +5,8 @@
 
 use std::collections::BTreeMap;
 
+use kernel::time::TimestampMicros;
 use serde::{Deserialize, Serialize};
-
-use crate::shared::time::TimestampMicros;
 
 mod directory;
 

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::apm::{DataQuality, QueryResolution};
+use kernel::time::TimestampMicros;
+
 use super::*;
-use crate::{
-    app::apm::ApmQueryRange,
-    domain::apm::{DataQuality, QueryResolution},
-    shared::time::TimestampMicros,
-};
+use crate::app::apm::ApmQueryRange;
 
 fn red(requests: u64, errors: u64) -> MapRed {
     MapRed {

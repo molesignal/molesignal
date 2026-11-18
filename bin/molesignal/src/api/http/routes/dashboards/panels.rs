@@ -6,19 +6,16 @@ use axum::{
     extract::{Path, Query, State},
     routing::post,
 };
+use domain::{
+    dashboard::Dashboard,
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, resource_permission},
+};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{
-    api::{AppState, http::federation::emit_cud},
-    app::iam::IamContext,
-    domain::{
-        dashboard::Dashboard,
-        federation::{CudAction, ResourceKind},
-        iam::resource_permission,
-    },
-    shared::{Result, ids::Id},
-};
+use crate::api::{AppState, http::federation::emit_cud};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

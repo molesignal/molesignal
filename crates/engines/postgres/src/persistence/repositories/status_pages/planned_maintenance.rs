@@ -5,12 +5,10 @@
 //! due to start, and the reminder that goes out before a planned start.
 
 use async_trait::async_trait;
+use domain::status_page::{MaintenanceDueToStart, StatusPagePlannedMaintenanceRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 use super::PgStatusPageRepository;
-use crate::{
-    domain::status_page::{MaintenanceDueToStart, StatusPagePlannedMaintenanceRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 #[async_trait]
 impl StatusPagePlannedMaintenanceRepository for PgStatusPageRepository {

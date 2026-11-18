@@ -3,6 +3,13 @@
 
 //! OTLP metric normalization into MoleSignal's metric storage contract.
 
+use domain::{
+    intake::RawEvent,
+    metrics::{
+        METRIC_DESCRIPTION_FIELD, METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD,
+        METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD, METRIC_UNIT_FIELD,
+    },
+};
 use opentelemetry_proto::tonic::{
     collector::metrics::v1::ExportMetricsServiceRequest,
     common::v1::KeyValue,
@@ -11,13 +18,6 @@ use opentelemetry_proto::tonic::{
 use serde_json::{Map, Value};
 
 use super::{base_fields, nanos_to_micros, put_attrs};
-use crate::domain::{
-    intake::RawEvent,
-    metrics::{
-        METRIC_DESCRIPTION_FIELD, METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD,
-        METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD, METRIC_UNIT_FIELD,
-    },
-};
 
 #[derive(Clone, Copy)]
 struct MetricMetadata {

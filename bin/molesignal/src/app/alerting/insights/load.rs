@@ -10,12 +10,9 @@
 use std::collections::{BTreeSet, HashMap};
 
 use chrono::{Datelike, Duration, TimeZone, Timelike, Utc, Weekday};
+use domain::{alerting::schedule::Schedule, notify::delivery::PageRecord};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Serialize;
-
-use crate::{
-    domain::{alerting::schedule::Schedule, notify::delivery::PageRecord},
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 pub const NIGHT_START_HOUR: u32 = 22;
 pub const NIGHT_END_HOUR: u32 = 8;

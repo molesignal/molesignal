@@ -8,15 +8,12 @@ use axum::{
     extract::{Path, Query, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::annotations::{Annotation, AnnotationFilter};
 use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::annotations::{Annotation, AnnotationFilter},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

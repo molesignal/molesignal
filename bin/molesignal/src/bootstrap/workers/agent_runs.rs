@@ -14,19 +14,17 @@
 
 use std::{sync::Arc, time::Duration};
 
+use agent::runs::{Run, RunPrincipal, RunRepository, RunSource};
+use domain::iam::IamScope;
+use kernel::time::TimestampMicros;
+use settings::Settings;
 use tokio::{sync::Semaphore, task::JoinHandle};
 use tracing::Instrument;
 
 use super::polling::PollingBackoff;
-use crate::{
-    agent::runs::{Run, RunPrincipal, RunRepository, RunSource},
-    api::{
-        AppState,
-        http::routes::agent::chat::run::{RunSlot, execute, lease_until, request::RunRequest},
-    },
-    config::Settings,
-    domain::iam::IamScope,
-    shared::time::TimestampMicros,
+use crate::api::{
+    AppState,
+    http::routes::agent::chat::run::{RunSlot, execute, lease_until, request::RunRequest},
 };
 
 /// 看门多久一次。

@@ -11,6 +11,11 @@
 
 use std::{process::Stdio, time::Duration};
 
+use agent::{
+    scope::Scope,
+    tool_control::{McpServerInput, McpServerRuntime},
+};
+use kernel::{Error, Result};
 use serde_json::{Value, json};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
@@ -20,13 +25,6 @@ use tokio::{
 use super::{
     McpService,
     transport::{initialize_params, max_bytes_of, rpc_result, timeout_of},
-};
-use crate::{
-    agent::{
-        scope::Scope,
-        tool_control::{McpServerInput, McpServerRuntime},
-    },
-    shared::{Error, Result},
 };
 
 /// 子进程从服务端带过去的环境变量：找得到程序，有家目录与临时目录，按 UTF-8 读写。
@@ -280,14 +278,13 @@ impl StdioSession {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        agent::{
-            mcp::NamedValueInput,
-            tool_control::{McpServer, MemberCredentialSpec},
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use agent::{
+        mcp::NamedValueInput,
+        tool_control::{McpServer, MemberCredentialSpec},
     };
+    use kernel::{ids::Id, time::TimestampMicros};
+
+    use super::*;
 
     /// 一个最小的 stdio MCP 服务器：回答 initialize、tools/list，先 ping 一下再回答 tools/call。
     const FAKE_SERVER: &str = r#"while IFS= read -r line; do

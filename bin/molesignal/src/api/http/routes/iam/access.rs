@@ -8,24 +8,24 @@ use axum::{
     extract::{Path, State},
     routing::{delete, get, post},
 };
+use domain::iam::{
+    IamContext, IamScope,
+    access::{
+        IamCrossOrgGrant, IamCrossOrgGrantStatus, IamPrincipalType, IamResourceRelationship,
+        IamRoleBinding, ORGANIZATION_NARROWABLE_PERMISSIONS,
+    },
+    catalog::{IamPermissionCatalog, IamPermissionScope},
+    permission,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::grant_limit;
 use crate::{
     api::{AppState, http::middleware::Permission},
-    app::iam::{IamAccessRequest, IamCapabilitySnapshot, IamContext, validate_iam_conditions},
-    domain::iam::{
-        IamScope,
-        access::{
-            IamCrossOrgGrant, IamCrossOrgGrantStatus, IamPrincipalType, IamResourceRelationship,
-            IamRoleBinding, ORGANIZATION_NARROWABLE_PERMISSIONS,
-        },
-        catalog::{IamPermissionCatalog, IamPermissionScope},
-        permission,
-    },
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::iam::{IamAccessRequest, IamCapabilitySnapshot, validate_iam_conditions},
 };
 
 const RESOURCE_TYPES: &[&str] = &[

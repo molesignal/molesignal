@@ -4,14 +4,14 @@
 //! The signed cursor of a page of the explorer. It carries the whole query, so a page is cut from
 //! the same rows however far on the reader has gone, and the boundary row.
 
+use kernel::{Error, Result, cursor::CursorDirection, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use super::Context;
 use crate::{
-    api::http::pagination::cursor::{CursorDirection, decode_signed_cursor, encode_signed_cursor},
+    api::http::pagination::cursor::{decode_signed_cursor, encode_signed_cursor},
     app::iam::IamService,
     infra::rum::query::Filter,
-    shared::{Error, Result, ids::Id},
 };
 
 const VERSION: u8 = 1;

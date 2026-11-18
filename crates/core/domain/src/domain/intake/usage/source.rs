@@ -6,14 +6,12 @@
 //! bytes, so that their totals agree.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::{
-        iam::IamContext,
-        stream::{StreamType, validate_stream_name},
-    },
-    shared::{Error, Result, ids::Id},
+use crate::domain::{
+    iam::IamContext,
+    stream::{StreamType, validate_stream_name},
 };
 
 pub const HOUR_MICROS: i64 = 3_600 * 1_000_000;

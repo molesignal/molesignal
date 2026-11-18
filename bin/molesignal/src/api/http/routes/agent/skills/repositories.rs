@@ -11,21 +11,21 @@
 //!
 //! 访问令牌只写不读：响应里只有是否已设与末四位；修改时留空表示不变。
 
+use agent::skills::{RepoHost, TokenChange};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::{get, post, put},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::viewer::{requested_scope, viewer};
 use crate::{
-    agent::skills::{RepoHost, TokenChange},
     api::{AppState, http::routes::activity_audit},
-    app::{iam::IamContext, skills::RepositoryInput},
-    domain::iam::permission,
-    shared::{Result, ids::Id},
+    app::skills::RepositoryInput,
 };
 
 pub(super) fn routes() -> axum::Router<AppState> {

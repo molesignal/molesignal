@@ -5,13 +5,11 @@
 //! a run's detail was stored under are returned for the caller to delete once the rows are gone:
 //! an object left over wastes space, a row left pointing at nothing would mislead.
 
+use domain::synthetics::PurgedResults;
+use kernel::{Result, time::TimestampMicros};
 use sqlx::Row;
 
 use super::PgSyntheticRepository;
-use crate::{
-    domain::synthetics::PurgedResults,
-    shared::{Result, time::TimestampMicros},
-};
 
 pub(super) async fn purge_results(
     repository: &PgSyntheticRepository,

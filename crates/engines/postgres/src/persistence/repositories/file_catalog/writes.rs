@@ -3,16 +3,14 @@
 
 //! flush / compaction / retention 共用的事务内写入原语。
 
+use domain::storage::{
+    Artifact, DataSegment, GcReason, ObjectChecksum, ObjectKey, OrganizationScope,
+    PhysicalDatasetId, SegmentId,
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use sqlx::{PgConnection, Row, types::Json};
 
 use super::{rows::to_i64, sqlx_err};
-use crate::{
-    domain::storage::{
-        Artifact, DataSegment, GcReason, ObjectChecksum, ObjectKey, OrganizationScope,
-        PhysicalDatasetId, SegmentId,
-    },
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 /// 锁定 dataset 行并返回当前 catalog_version。所有改动可见文件集合的事务都
 /// 必须先拿这把锁，保证版本号串行递增。

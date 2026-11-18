@@ -15,17 +15,17 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::{
+    alerting::source::{Mailbox, MailboxSettings},
+    iam::{IamContext, permission},
+};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{alerting::sources::MailboxWrite, iam::IamContext},
-    domain::{
-        alerting::source::{Mailbox, MailboxSettings},
-        iam::permission,
-    },
-    shared::{Result, ids::Id},
+    app::alerting::sources::MailboxWrite,
 };
 
 pub(super) fn routes() -> Router<AppState> {

@@ -11,11 +11,10 @@ use std::sync::{
 };
 
 use async_trait::async_trait;
-use profiles::NormalizedProfile;
-
-use crate::shared::self_telemetry::set_profile_available;
 #[cfg(feature = "profiling-pprof")]
-use crate::shared::time::TimestampMicros;
+use kernel::time::TimestampMicros;
+use profiles::NormalizedProfile;
+use signals::self_telemetry::set_profile_available;
 
 #[derive(Debug, Clone)]
 pub struct CapturedProfile {

@@ -11,6 +11,14 @@
 use std::{collections::HashSet, fs, path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    intake::RawEvent,
+    rum::{
+        RumApplicationSettings, RumSessionMerger,
+        event::{RumStream, stream_schema},
+    },
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::{Map, Value, json};
 
 use super::{
@@ -20,18 +28,10 @@ use super::{
 };
 use crate::{
     app::intake::check_event_types,
-    domain::{
-        intake::RawEvent,
-        rum::{
-            RumApplicationSettings, RumSessionMerger,
-            event::{RumStream, stream_schema},
-        },
-    },
     infra::{
         enrichment::GeoLocation,
         rum::session_state::{SessionHistory, SessionMerger},
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 const NOW: i64 = 1_760_000_100_000;

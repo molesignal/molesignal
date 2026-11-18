@@ -14,8 +14,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-
-use crate::shared::{Result, time::TimestampMicros};
+use kernel::{Result, time::TimestampMicros};
 
 /// 运行租约的存储。`(kind, key)` 标识一个工作单元，`kind` 区分报告、pipeline、connector 等。
 #[async_trait]

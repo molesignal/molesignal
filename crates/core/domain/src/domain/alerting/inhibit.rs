@@ -20,6 +20,7 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -27,7 +28,6 @@ use super::{
     mute::INCIDENT_ID_MATCHER_LABEL,
     semantic_group::LabelMatcher,
 };
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 mod resolve;
 mod settle;

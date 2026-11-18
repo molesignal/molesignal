@@ -7,16 +7,14 @@
 //! `uq_log_inspection_runs_active` 这个部分唯一索引保证，不靠先查后写。
 
 use async_trait::async_trait;
+use domain::log_inspection::{
+    InspectionLevel, InspectionNotifyRoute, InspectionSchedule, LastInspectionRun, LogInspection,
+    NotifyWhen, RunStatus, repositories::LogInspectionRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::log_inspection::{
-        InspectionLevel, InspectionNotifyRoute, InspectionSchedule, LastInspectionRun,
-        LogInspection, NotifyWhen, RunStatus, repositories::LogInspectionRepository,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 mod runs;
 

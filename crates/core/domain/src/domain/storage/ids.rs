@@ -9,9 +9,8 @@
 
 use std::fmt;
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
-
-use crate::shared::ids::Id;
 
 macro_rules! entity_id {
     ($(#[$doc:meta])* $name:ident) => {

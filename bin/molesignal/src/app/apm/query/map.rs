@@ -11,19 +11,17 @@
 
 use std::collections::{BTreeSet, HashMap};
 
+use domain::apm::{BucketKind, DependencyCategory, OTHER_DIMENSION};
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Serialize;
 
 use self::builder::Map;
 use super::{
     ApmQueryContext, ApmQueryService, ApmResponseMeta, RedSummary, ServiceHealth,
     common::overflow_dimensions,
-};
-use crate::{
-    domain::apm::{BucketKind, DependencyCategory, OTHER_DIMENSION},
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 /// The most nodes a map draws; past it the least busy services are left out.

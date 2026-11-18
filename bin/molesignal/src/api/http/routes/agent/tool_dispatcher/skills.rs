@@ -4,17 +4,15 @@
 //! `list_skills`、`load_skill`、`read_skill_file`：只在这个会话能用的 Skill 里找。名称写法与
 //! 清单里一样，团队 Skill 有歧义时带 `@团队`。
 
+use agent::skills::wrap_skill_body;
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use crate::{
-    agent::{
-        skills::wrap_skill_body,
-        tools::{BuiltinToolKind, ToolResult},
-    },
     api::AppState,
     app::skills::{Lookup, SessionSkill, SessionSkills, text_file},
-    shared::{Error, Result},
 };
 
 #[derive(Debug, Deserialize)]

@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use crate::{
-    app::status_page::StatusPageService,
-    domain::status_page::AutomationCandidateState,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use domain::status_page::AutomationCandidateState;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use crate::app::status_page::StatusPageService;
 
 impl StatusPageService {
     pub async fn prepare_automation_draft_publish(

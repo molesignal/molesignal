@@ -15,8 +15,7 @@ use std::sync::{
 };
 
 use prometheus::{IntCounter, IntCounterVec};
-
-use crate::shared::metrics::register_int_counter_vec;
+use signals::metrics::register_int_counter_vec;
 
 /// 三个 cache level 共享的 vec：用 `level` label 区分。
 fn hits_vec() -> IntCounterVec {
@@ -41,7 +40,7 @@ fn hit_ratio_vec() -> prometheus::GaugeVec {
     )
     .expect("create gauge vec");
 
-    match crate::shared::metrics::global_registry().register(Box::new(gauge.clone())) {
+    match signals::metrics::global_registry().register(Box::new(gauge.clone())) {
         Ok(()) | Err(prometheus::Error::AlreadyReg) => gauge,
         Err(e) => panic!("register gauge: {e}"),
     }

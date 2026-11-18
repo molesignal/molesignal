@@ -33,6 +33,7 @@ sqlx.workspace = true
 thiserror.workspace = true
 time.workspace = true
 tokio.workspace = true
+tool-runtime = { path = "../../modules/tool-runtime" }
 tracing.workspace = true
 
 [features]

@@ -7,16 +7,14 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use domain::apm::{
+    BucketDimension, HealthLines, HistogramSchema, MergedBucket, QueryResolution, ServiceIdentity,
+};
+use kernel::{Result, time::TimestampMicros};
+
 use super::{
     ApmQueryContext, HealthReason, HealthTrendPoint, RedSummary, ServiceHealth,
     ServiceHealthCounts, ServiceSummary, aggregate::red_from_buckets,
-};
-use crate::{
-    domain::apm::{
-        BucketDimension, HealthLines, HistogramSchema, MergedBucket, QueryResolution,
-        ServiceIdentity,
-    },
-    shared::{Result, time::TimestampMicros},
 };
 
 /// The most slots a health trend is cut into, whatever the range.

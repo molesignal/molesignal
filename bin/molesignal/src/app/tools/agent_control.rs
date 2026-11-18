@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{
     ToolRuntime,
     common::{bounded, json_result, parse_args},
-};
-use crate::{
-    app::iam::IamContext,
-    shared::{Error, Result, ids::Id},
 };
 
 #[derive(Debug, Default, Deserialize)]
@@ -113,9 +111,9 @@ pub(super) async fn execute(
                 .await?
                 .into_iter()
                 .filter(|automation| match &automation.scope {
-                    crate::agent::scope::Scope::Org => true,
-                    crate::agent::scope::Scope::Team { team_id } => teams.contains(team_id),
-                    crate::agent::scope::Scope::Personal { owner_id } => *owner_id == auth.user_id,
+                    agent::scope::Scope::Org => true,
+                    agent::scope::Scope::Team { team_id } => teams.contains(team_id),
+                    agent::scope::Scope::Personal { owner_id } => *owner_id == auth.user_id,
                 })
                 .collect::<Vec<_>>();
 

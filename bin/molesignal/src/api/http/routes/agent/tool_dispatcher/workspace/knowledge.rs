@@ -3,20 +3,17 @@
 
 //! `list_knowledge`、`read_knowledge`、`search_knowledge`、`edit_knowledge`。
 
+use agent::{
+    knowledge::{ENTRY_FILE, check_content, normalize_path},
+    scope::{ChatScope, Scope},
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::{RiskLevel, ToolResult, catalog::BuiltinToolKind};
 
 use super::{WorkspaceCall, parse};
-use crate::{
-    agent::{
-        knowledge::{ENTRY_FILE, check_content, normalize_path},
-        model::RiskLevel,
-        scope::{ChatScope, Scope},
-        tools::{BuiltinToolKind, ToolResult},
-    },
-    api::http::routes::{activity_audit, agent::tool_dispatcher::session},
-    shared::{Error, Result},
-};
+use crate::api::http::routes::{activity_audit, agent::tool_dispatcher::session};
 
 /// 读一个文件时最多交给模型这么多字节。
 const READ_BYTES: usize = 48 * 1024;

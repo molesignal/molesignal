@@ -6,14 +6,12 @@
 //! that are stored, counted at the newest revision of a view or a session, of the sessions people
 //! ran unless the query asks about the others.
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use super::selection::Selection;
-use crate::{
-    infra::rum::query::{
-        AggregateSpec, Column, MeasureSpec, PanelColumn, Plan, distribution_sql, interval,
-    },
-    shared::{Error, Result},
+use crate::infra::rum::query::{
+    AggregateSpec, Column, MeasureSpec, PanelColumn, Plan, distribution_sql, interval,
 };
 
 /// Most groups a chart over time follows, as in the explorer; how many groups a list holds unless

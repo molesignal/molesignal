@@ -7,18 +7,17 @@
 //! 群里、机器人设了默认团队且提问人是成员时是团队会话，否则是提问人的个人会话。`/new` 与
 //! `/scope` 开新会话，这个话题之后接着新的；旧会话留在 MoleSignal 里。
 
-use crate::{
-    agent::{
-        im::{ConversationKind, ImBot, ImThread, Inbound},
-        scope::{ChatAccess, Viewer},
-    },
-    api::{
-        AppState,
-        http::{interface_language::interface_language, routes::agent::viewer::access},
-    },
-    app::iam::IamContext,
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use agent::{
+    im::{ConversationKind, ImBot, ImThread, Inbound},
+    scope::{ChatAccess, Viewer},
+};
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::Chat;
+
+use crate::api::{
+    AppState,
+    http::{interface_language::interface_language, routes::agent::viewer::access},
 };
 
 /// 新会话记在哪里。

@@ -7,17 +7,14 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use domain::apm::{
+    ApmCatalogRepository, ApmSpanFact, ErrorIdentity, ErrorRule, ErrorRuleAction, ServiceIdentity,
+    ordered_error_rules,
+};
+use kernel::ids::Id;
 use parking_lot::RwLock;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
-
-use crate::{
-    domain::apm::{
-        ApmCatalogRepository, ApmSpanFact, ErrorIdentity, ErrorRule, ErrorRuleAction,
-        ServiceIdentity, ordered_error_rules,
-    },
-    shared::ids::Id,
-};
 
 /// How long a rule saved on another node takes at most to apply here.
 const REFRESH_EVERY: Duration = Duration::from_secs(30);
@@ -131,14 +128,13 @@ pub fn spawn_refresh(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::apm::{
-            APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanKind, InstrumentationMetadata,
-            SanitizedException, TransactionIdentity, TransactionKind,
-        },
-        shared::time::TimestampMicros,
+    use domain::apm::{
+        APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanKind, InstrumentationMetadata,
+        SanitizedException, TransactionIdentity, TransactionKind,
     };
+    use kernel::time::TimestampMicros;
+
+    use super::*;
 
     fn rule(id: &str, action: ErrorRuleAction, error_type: &str, position: u32) -> ErrorRule {
         ErrorRule {

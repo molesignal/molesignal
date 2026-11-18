@@ -15,21 +15,18 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::Result;
 use serde::Deserialize;
 
 use super::{address::json_list, reader::Reader};
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        rum::analytics::{self, Answer, FunnelRequest, PathsRequest, RetentionRequest},
-    },
-    domain::iam::permission,
+    app::rum::analytics::{self, Answer, FunnelRequest, PathsRequest, RetentionRequest},
     infra::rum::{
         analytics::{Funnel, Paths, Period, Retention, Step},
         query::Filter,
     },
-    shared::Result,
 };
 
 #[derive(Debug, Default, Deserialize)]

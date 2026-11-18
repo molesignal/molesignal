@@ -11,25 +11,22 @@
 //!
 //! API key 永不回显：响应只含 `key_last4` + `key_set`；审计 payload 不含明文/密文。
 
+use agent::{
+    chat::Provider,
+    usage::{Currency, validate_price},
+};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::agent::model_providers::{ModelProvider, ModelProviderInput};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{
-    agent::{
-        chat::Provider,
-        usage::{Currency, validate_price},
-    },
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::agent::model_providers::{ModelProvider, ModelProviderInput},
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

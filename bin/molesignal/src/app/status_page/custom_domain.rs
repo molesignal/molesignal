@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::{
+    StatusPageDomainCheckUpdate, StatusPageDomainConfig, StatusPageDomainHealthAlert,
+    StatusPageDomainState, StatusPageLifecycle,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::api_tokens::generate_token_parts;
 use serde::Serialize;
 
 use super::{StatusPageDomainInput, StatusPageService, validation::normalize_custom_domain};
-use crate::{
-    domain::status_page::{
-        StatusPageDomainCheckUpdate, StatusPageDomainConfig, StatusPageDomainHealthAlert,
-        StatusPageDomainState, StatusPageLifecycle,
-    },
-    infra::persistence::repositories::api_tokens::generate_token_parts,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const VERIFY_COOLDOWN_MICROS: i64 = 30 * 1_000_000;
 const BACKGROUND_INTERVAL_MICROS: i64 = 5 * 60 * 1_000_000;

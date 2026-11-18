@@ -2,12 +2,10 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::iam::api_token::ApiToken,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::iam::api_token::ApiToken;
 
 /// A non-human organization principal with no password, session, or JWT sign-in path. An
 /// independently managed API Token may authenticate as this principal and inherits its current

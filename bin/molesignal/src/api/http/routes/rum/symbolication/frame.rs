@@ -3,12 +3,9 @@
 
 //! RUM event metadata and stack-frame classification.
 
+use domain::rum::{DebugArtifactKind, normalize_architecture, normalize_debug_id};
+use kernel::{Error, Result};
 use serde_json::Value;
-
-use crate::{
-    domain::rum::{DebugArtifactKind, normalize_architecture, normalize_debug_id},
-    shared::{Error, Result},
-};
 
 pub(super) struct EventMetadata {
     pub(super) application_id: String,

@@ -4,14 +4,12 @@
 //! Named mutation tools. Each one creates a typed approval request; execution is centralized in
 //! the Agent operation registry so adapters never mutate resources directly.
 
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
 use serde_json::{Map, Value, json};
 use tool_runtime::{ToolInvocationContext, ToolResult, catalog::BuiltinToolKind};
 
 use super::{ToolRuntime, dashboard};
-use crate::{
-    app::iam::IamContext,
-    shared::{Error, Result, ids::Id},
-};
 
 pub(super) async fn execute(
     runtime: &ToolRuntime,

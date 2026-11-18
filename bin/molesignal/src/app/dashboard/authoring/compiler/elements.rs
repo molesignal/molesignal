@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use contracts::ContractIssue;
+use domain::dashboard::authoring::{
+    AuthoringElement, AuthoringSection, PanelAuthoringSpec, SectionElement, TextAuthoringSpec,
+    VisualizationManifest,
+};
+use kernel::{Error, Result};
 use serde_json::{Map, Value, json};
 
 use super::{
     CompileContext,
     layout::{LayoutCursor, panel_dimensions, text_dimensions},
     queries::compile_query,
-};
-use crate::{
-    domain::dashboard::authoring::{
-        AuthoringElement, AuthoringSection, PanelAuthoringSpec, SectionElement, TextAuthoringSpec,
-        VisualizationManifest,
-    },
-    shared::{Error, Result, contracts::ContractIssue},
 };
 
 pub(super) fn compile_elements(
@@ -57,7 +56,7 @@ fn compile_section(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let dimensions = crate::domain::dashboard::authoring::GridDimensions {
+    let dimensions = domain::dashboard::authoring::GridDimensions {
         w: manifest.grid.columns,
         h: child_cursor.bottom().max(8),
     };

@@ -10,27 +10,24 @@
 //!   [`GeneratedMetrics::new`]), so PromQL keeps every part and `increase` adds them up; so does a
 //!   part another node wrote for the same interval.
 //! - A step keeps at most [`MAX_SERIES`] series apart per interval on a node; the events of the
-//!   others go into one series labelled [`OTHER_SERIES`](crate::domain::pipeline::metric::OTHER_SERIES).
+//!   others go into one series labelled [`OTHER_SERIES`](domain::pipeline::metric::OTHER_SERIES).
 //! - What is not written yet is lost when a node crashes; a node that stops writes it first.
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use domain::{
+    intake::RawEvent,
+    metrics::{
+        METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD,
+        METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
+    },
+    pipeline::metric::{MAX_SERIES, MetricSpec, MetricType},
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use parking_lot::Mutex;
 use serde_json::{Map, Value};
-
-use crate::{
-    domain::{
-        intake::RawEvent,
-        metrics::{
-            METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD,
-            METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
-        },
-        pipeline::metric::{MAX_SERIES, MetricSpec, MetricType},
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 /// How long an interval waits after its end for events still on their way.
 pub const GRACE_MICROS: i64 = 5_000_000;

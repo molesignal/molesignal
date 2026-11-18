@@ -21,15 +21,14 @@
 
 use std::collections::BTreeMap;
 
-use super::{Parsed, epoch, host_of, json, text, web_address};
-use crate::{
-    domain::alerting::{
-        incident::Severity,
-        priority::Priority,
-        source::{ExternalAction, ExternalAlert, severity_from_word},
-    },
-    shared::{Error, Result},
+use domain::alerting::{
+    incident::Severity,
+    priority::Priority,
+    source::{ExternalAction, ExternalAlert, severity_from_word},
 };
+use kernel::{Error, Result};
+
+use super::{Parsed, epoch, host_of, json, text, web_address};
 
 pub(super) fn parse(body: &[u8]) -> Result<Parsed> {
     let payload = json(body)?;
@@ -169,10 +168,10 @@ fn transition_severity(transition: &str, alert_type: Option<&str>) -> Option<Sev
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
     use serde_json::Value;
 
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn payload(overrides: &[(&str, &str)]) -> Vec<u8> {
         let mut payload = serde_json::json!({

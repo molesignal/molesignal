@@ -10,22 +10,20 @@
 
 use std::collections::{HashMap, HashSet};
 
+use agent::{
+    scope::{Scope, Viewer},
+    skills::{
+        ArchiveKind, MAX_REPOSITORY_ARCHIVE_BYTES, MAX_SKILLS_PER_REPOSITORY, REPOSITORY_LIMITS,
+        RepoHost, RepositoryStatus, SkillBundle, SkillRepository, SkillSource, StoredSkill,
+        TokenChange, archive_request, archive_top_dir, files_under, list_paths, normalize_repo_dir,
+        parse_repo_url, skill_dirs, unpack,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{SkillService, fetch, install::check_name};
-use crate::{
-    agent::{
-        scope::{Scope, Viewer},
-        skills::{
-            ArchiveKind, MAX_REPOSITORY_ARCHIVE_BYTES, MAX_SKILLS_PER_REPOSITORY,
-            REPOSITORY_LIMITS, RepoHost, RepositoryStatus, SkillBundle, SkillRepository,
-            SkillSource, StoredSkill, TokenChange, archive_request, archive_top_dir, files_under,
-            list_paths, normalize_repo_dir, parse_repo_url, skill_dirs, unpack,
-        },
-    },
-    app::egress::TargetPolicy,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::egress::TargetPolicy;
 
 /// 自动同步的间隔。
 const AUTO_SYNC_EVERY_MICROS: i64 = 24 * 3_600 * 1_000_000;

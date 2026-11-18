@@ -14,8 +14,14 @@ use std::{
     time::Duration,
 };
 
+use domain::{
+    apm::{ApmCatalogRepository, ApmMaintenanceRepository, ApmRepository, ApmWriteRepository},
+    iam::InstanceSettingsRepository,
+};
+use kernel::{Result, time::TimestampMicros};
 use parking_lot::RwLock;
 use serde::Serialize;
+use settings::ApmSettings;
 use tokio::{sync::Mutex, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
@@ -24,15 +30,7 @@ use super::{
     ApmRollupConfig, ApmRollupService, BufferedApmProjector, ErrorRuleBook, OrgSettingsBook,
     metrics, spawn_refresh, spawn_settings_refresh,
 };
-use crate::{
-    app::cluster::WorkOwnership,
-    config::ApmSettings,
-    domain::{
-        apm::{ApmCatalogRepository, ApmMaintenanceRepository, ApmRepository, ApmWriteRepository},
-        iam::InstanceSettingsRepository,
-    },
-    shared::{Result, time::TimestampMicros},
-};
+use crate::app::cluster::WorkOwnership;
 
 /// How long limits saved on another node take at most to apply here.
 const LIMITS_EVERY: Duration = Duration::from_secs(30);

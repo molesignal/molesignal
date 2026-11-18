@@ -7,24 +7,22 @@
 //! 查过」的说明与回答要写成的样子；user 是原来的问题和那一轮工具查到的结果，工具不再调用。事件
 //! RCA：用要比的 `root_cause` Prompt 和事件的事实重写一份。两个版本用同一个模型、同样的材料。
 
+use agent::{
+    scoring::{ScoreTarget, evaluation::findings_text},
+    usage::UsageOrigin,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::prompts::{AgentPromptTemplate, render_prompt};
 use serde_json::{Map, Value};
 
 use super::{
     evaluating::{self, Model},
     facts::Facts,
 };
-use crate::{
-    agent::{
-        scoring::{ScoreTarget, evaluation::findings_text},
-        usage::UsageOrigin,
-    },
-    api::{
-        AppState,
-        http::routes::agent::chat::answer_presentation_instruction,
-        rca::{RcaGenerator, RcaOutputLocale},
-    },
-    infra::persistence::repositories::agent::prompts::{AgentPromptTemplate, render_prompt},
-    shared::{Result, ids::Id, time::TimestampMicros},
+use crate::api::{
+    AppState,
+    http::routes::agent::chat::answer_presentation_instruction,
+    rca::{RcaGenerator, RcaOutputLocale},
 };
 
 const REPLAY_INSTRUCTION: &str = "The investigation for this question already ran, and the \

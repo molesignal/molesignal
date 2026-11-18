@@ -8,6 +8,9 @@
 //! field come back masked with it, and one named like a field would inherit
 //! that field's masking too.
 
+use domain::stream::{FieldDef, FieldType, Schema, StreamDefinition};
+use kernel::{Error, Result};
+
 use super::RedScope;
 pub(super) use crate::api::http::routes::web::trace::latency::latency_edges;
 use crate::{
@@ -18,9 +21,7 @@ use crate::{
             latency::PREFERRED,
         },
     },
-    domain::stream::{FieldDef, FieldType, Schema, StreamDefinition},
     infra::query::escape_sql_ident,
-    shared::{Error, Result},
 };
 
 pub(super) const REQUESTS: &str = "__red_requests";

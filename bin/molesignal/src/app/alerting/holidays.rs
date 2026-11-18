@@ -8,14 +8,11 @@
 
 use std::{sync::Arc, time::Duration};
 
-use tokio::task::JoinHandle;
-
-use crate::{
-    domain::alerting::holiday::{
-        self, CalendarReference, HolidayCalendar, HolidayCalendarRepository, HolidayDay,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::alerting::holiday::{
+    self, CalendarReference, HolidayCalendar, HolidayCalendarRepository, HolidayDay,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use tokio::task::JoinHandle;
 
 /// 多久整份刷新一次缓存。
 const REFRESH_EVERY: Duration = Duration::from_secs(60);

@@ -17,13 +17,11 @@
 //! A step's failure keeps the event as it was read; a rejection or a delivery keeps it as it was
 //! sent.
 
+use domain::{intake::IntakeBatch, stream::StreamType};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::{Map, Value};
 
 use super::{PipelineOutput, PipelineSpec, streams::to_raw_event, summaries};
-use crate::{
-    domain::{intake::IntakeBatch, stream::StreamType},
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 pub(super) struct DeadLetter {
     stage: &'static str,

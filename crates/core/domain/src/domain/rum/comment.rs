@@ -5,9 +5,8 @@
 //! to the session of one application and is seen by everyone who may watch the replay.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// Longest comment, in characters.
 pub const MAX_COMMENT_LEN: usize = 2_000;

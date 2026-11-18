@@ -5,15 +5,13 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
+use kernel::ids::Id;
 use serde::Serialize;
 
 use super::{InhibitRule, match_view, may_be_target};
-use crate::{
-    domain::alerting::{
-        incident::{Incident, Severity},
-        semantic_group::{CompiledMatcher, LabelMatcher},
-    },
-    shared::ids::Id,
+use crate::domain::alerting::{
+    incident::{Incident, Severity},
+    semantic_group::{CompiledMatcher, LabelMatcher},
 };
 
 /// 一个事件被哪条规则、因为哪个事件压着。

@@ -5,13 +5,10 @@
 //! `i18n_language`（`automation.template.<key>.name|description|prompt`），用读者的语言。
 //! 「事件自动分析」就是事件 RCA 的新引擎：它带着工具调查，结论写回事件的 RCA。
 
+use agent::automations::{AutomationOutputs, AutomationTrigger, IncidentFilter};
+use domain::i18n_language::LanguagePack;
+use kernel::Result;
 use serde::Serialize;
-
-use crate::{
-    agent::automations::{AutomationOutputs, AutomationTrigger, IncidentFilter},
-    domain::i18n_language::LanguagePack,
-    shared::Result,
-};
 
 /// `i18n_language` 里模板文案的键前缀。
 pub const KEY_PREFIX: &str = "automation.template.";
@@ -118,7 +115,7 @@ pub fn is_known(key: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{app::automations::validate, shared::i18n_language_seed::seeded_pack};
+    use crate::{app::automations::validate, i18n_language_seed::seeded_pack};
 
     #[test]
     fn every_template_has_its_words_in_both_languages_and_saves_as_it_is() {

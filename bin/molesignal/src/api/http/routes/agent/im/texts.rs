@@ -6,16 +6,15 @@
 
 use std::sync::Arc;
 
-use crate::{
-    agent::im::ImPlatform,
-    api::AppState,
-    domain::i18n_language::{FALLBACK_LANGUAGE_CODE, I18nLanguageRepository, LanguagePack},
-    infra::persistence::repositories::{
-        user_preferences::UserPreferencesRepository,
-        workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
-    },
-    shared::ids::Id,
+use agent::im::ImPlatform;
+use domain::i18n_language::{FALLBACK_LANGUAGE_CODE, I18nLanguageRepository, LanguagePack};
+use kernel::ids::Id;
+use postgres::repositories::{
+    user_preferences::UserPreferencesRepository,
+    workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
 };
+
+use crate::api::AppState;
 
 pub(super) struct Texts {
     pack: LanguagePack,

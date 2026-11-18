@@ -27,6 +27,11 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::{
+    i18n_language::LanguagePack,
+    iam::{IamAssignedRole, UserStatus},
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -45,11 +50,6 @@ use crate::{
         },
     },
     app::iam::{SignInMethod, hash_password_off_thread},
-    domain::{
-        i18n_language::LanguagePack,
-        iam::{IamAssignedRole, UserStatus},
-    },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 /// 注册链接的有效期。
@@ -124,7 +124,7 @@ async fn signup(
 
     if can_verify_email(&state) {
         if take_quota(&state, &email, source).await? {
-            crate::shared::trace_context::spawn_with_current_trace_context(async move {
+            signals::trace_context::spawn_with_current_trace_context(async move {
                 offer_signup(&state, &email, req.locale.as_deref()).await;
             });
         }
@@ -141,7 +141,7 @@ async fn signup(
         // 已有的邮箱也算一遍，耗时才一样。
         let password_hash = hash_password_off_thread(&password).await?;
 
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
+        signals::trace_context::spawn_with_current_trace_context(async move {
             apply_for_approval(&state, email, display_name, password_hash).await;
         });
     }
@@ -478,7 +478,7 @@ fn existing_account_email(copy: &LanguagePack, signin_url: &str) -> Result<(Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shared::i18n_language_seed::seeded_pack;
+    use crate::i18n_language_seed::seeded_pack;
 
     #[test]
     fn an_address_is_trimmed_and_needs_an_at_sign() {

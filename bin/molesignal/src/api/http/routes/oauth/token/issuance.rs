@@ -3,15 +3,13 @@
 
 use std::collections::BTreeSet;
 
+use agent::inbound_mcp::{InboundMcpOAuthToken, InboundMcpOAuthTokenKind, InboundMcpSettings};
+use domain::iam::{IamContext, IamScope};
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::repositories::api_tokens::generate_token;
+
 use super::{OAuthError, OAuthResult, TokenResponse};
-use crate::{
-    agent::inbound_mcp::{InboundMcpOAuthToken, InboundMcpOAuthTokenKind, InboundMcpSettings},
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::IamScope,
-    infra::persistence::repositories::api_tokens::generate_token,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 const ACCESS_TOKEN_TTL_MICROS: i64 = 60 * 60 * 1_000_000;
 const REFRESH_TOKEN_TTL_MICROS: i64 = 30 * 24 * 60 * 60 * 1_000_000;

@@ -6,23 +6,21 @@ pub(crate) mod task;
 
 use std::{collections::HashMap, pin::Pin, sync::Arc, time::Duration};
 
+use domain::synthetics::{AgentCapacity, AgentStatus, MonitorSpec, ProbeAgent, ProbeCapability};
 use futures::{Stream, StreamExt as _};
+use kernel::{Error, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt as _, path::Path as ObjectPath};
+use protocol::probe::v1::{
+    self as wire, agent_frame, control_frame,
+    probe_service_server::{ProbeService, ProbeServiceServer},
+};
 use sha2::{Digest as _, Sha256};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
 
 use self::{result::result_from_wire, task::capabilities_from_wire};
-use crate::{
-    app::synthetics::{PROBE_PROTOCOL_VERSION, ProbeControlService, ProbeRegisterInput},
-    domain::synthetics::{AgentCapacity, AgentStatus, MonitorSpec, ProbeAgent, ProbeCapability},
-    protocol::probe::v1::{
-        self as wire, agent_frame, control_frame,
-        probe_service_server::{ProbeService, ProbeServiceServer},
-    },
-    shared::{Error, ids::Id, time::TimestampMicros},
-};
+use crate::app::synthetics::{PROBE_PROTOCOL_VERSION, ProbeControlService, ProbeRegisterInput};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProbeListener {
@@ -334,8 +332,8 @@ async fn handle_frame(
 
 async fn verify_artifact_objects(
     object_store: &Arc<dyn ObjectStore>,
-    result: &crate::domain::synthetics::SyntheticResult,
-) -> crate::shared::Result<()> {
+    result: &domain::synthetics::SyntheticResult,
+) -> kernel::Result<()> {
     for artifact in &result.artifacts {
         let path = ObjectPath::parse(&artifact.object_key).map_err(|error| {
             Error::invalid(format!("invalid Probe Artifact object key: {error}"))
@@ -495,8 +493,9 @@ fn to_status(error: Error) -> Status {
 
 #[cfg(test)]
 mod tests {
+    use domain::synthetics::AgentCapacity;
+
     use super::dispatch_budgets;
-    use crate::domain::synthetics::AgentCapacity;
 
     #[test]
     fn dispatch_uses_free_capacity_without_exceeding_in_flight_limits() {

@@ -8,11 +8,10 @@
 
 use std::collections::HashMap;
 
+use kernel::ids::Id;
+
 use super::{CauseIncident, ComponentDependency, DependencyKind, DependencyStatus, HealthCause};
-use crate::{
-    domain::{alerting::incident::Severity, synthetics::MonitorState},
-    shared::ids::Id,
-};
+use crate::domain::{alerting::incident::Severity, synthetics::MonitorState};
 
 /// How many incidents a cause names.
 const CAUSE_INCIDENTS: usize = 5;

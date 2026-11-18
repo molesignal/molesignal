@@ -4,15 +4,13 @@
 //! A query enrich step: a SQL or PromQL statement with values of the event in it, run when the
 //! incident opens; the rows it returns, up to a limit, go into an annotation as text.
 
+use kernel::{Error, Result};
 use serde_json::{Map, Value};
 
-use crate::{
-    domain::{
-        pipeline::realtime::public_stream,
-        query::{QueryLanguage, QueryResult, StreamHint},
-        stream::{AUDIT_STREAM, StreamType},
-    },
-    shared::{Error, Result},
+use crate::domain::{
+    pipeline::realtime::public_stream,
+    query::{QueryLanguage, QueryResult, StreamHint},
+    stream::{AUDIT_STREAM, StreamType},
 };
 
 /// The annotation a query enrich step writes unless it names another.

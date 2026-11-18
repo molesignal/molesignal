@@ -3,9 +3,8 @@
 
 use std::{collections::HashSet, sync::LazyLock};
 
+use kernel::{Error, Result};
 use serde::Deserialize;
-
-use crate::shared::{Error, Result};
 
 const MANIFEST_JSON: &str = include_str!("manifest.json");
 pub const INSTRUCTIONS: &str = include_str!("instructions.md");

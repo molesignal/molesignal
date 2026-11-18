@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use serde::{Deserialize, Serialize};
-
-use crate::shared::{
+use kernel::{
     ids::Id,
     time::{TimeRange, TimestampMicros},
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

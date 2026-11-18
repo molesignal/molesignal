@@ -7,21 +7,19 @@
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::{
+    connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+        NotifyChannel, NotifyMessage, NotifyTarget,
+    },
+    reply::{REPLY_KEYPRESS_URL_KEY, REPLY_VOICE_HINT_KEY},
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::{Account, create};
-use crate::{
-    domain::notify::{
-        connector::{
-            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-            NotifyChannel, NotifyMessage, NotifyTarget,
-        },
-        reply::{REPLY_KEYPRESS_URL_KEY, REPLY_VOICE_HINT_KEY},
-    },
-    infra::notify::adapters::{common, phone},
-    shared::{Error, Result},
-};
+use crate::infra::notify::adapters::{common, phone};
 
 pub const TWILIO_VOICE_CONNECTOR_TYPE: &str = "twilio_voice";
 
@@ -226,6 +224,7 @@ impl ConnectorAdapter for TwilioVoiceConnectorAdapter {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::connector::NotifyTargetType;
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -233,7 +232,6 @@ mod tests {
     };
 
     use super::{super::tests::SID, *};
-    use crate::domain::notify::connector::NotifyTargetType;
 
     fn message(title: &str) -> NotifyMessage {
         NotifyMessage {

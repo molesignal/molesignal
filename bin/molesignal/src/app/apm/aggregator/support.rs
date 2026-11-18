@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use crate::domain::apm::{ApmSpanFact, ErrorSample, TraceExemplar};
+use domain::apm::{ApmSpanFact, ErrorSample, TraceExemplar};
 
 pub(super) fn dimension_is_overflow(fact: &ApmSpanFact) -> bool {
     fact.transaction
         .as_ref()
-        .is_some_and(|value| value.name == crate::domain::apm::OTHER_DIMENSION)
+        .is_some_and(|value| value.name == domain::apm::OTHER_DIMENSION)
         || fact
             .dependency
             .as_ref()
-            .is_some_and(|value| value.target == crate::domain::apm::OTHER_DIMENSION)
+            .is_some_and(|value| value.target == domain::apm::OTHER_DIMENSION)
         || fact.error.as_ref().is_some_and(|value| value.overflow)
 }
 

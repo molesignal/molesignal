@@ -4,24 +4,24 @@
 //! Mole Agent 提议、人批准之后，对一个事件做的处理：转派、增派、立即升级、暂缓、改严重度、合并与
 //! 写备注。参数在审批的 `parameters` 里；以批准执行的人的身份做，时间线上记为 Mole Agent。
 
-use serde::Deserialize;
-use serde_json::Value;
-
-use super::approval_execution::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::{AppState, http::middleware::authorize_resource},
-    app::{
-        alerting::{Actor, actions::Reassignment},
-        iam::IamContext,
-    },
-    domain::alerting::{
+use agent::model::ApprovalRequest;
+use domain::{
+    alerting::{
         incident::{Incident, Severity},
         priority::Priority,
         timeline::ActionVia,
         urgency::Urgency,
     },
-    shared::{Error, Result, ids::Id},
+    iam::IamContext,
+};
+use kernel::{Error, Result, ids::Id};
+use serde::Deserialize;
+use serde_json::Value;
+
+use super::approval_execution::OperationOutcome;
+use crate::{
+    api::{AppState, http::middleware::authorize_resource},
+    app::alerting::{Actor, actions::Reassignment},
 };
 
 /// 这些操作由这里执行。
@@ -60,7 +60,7 @@ struct DeclareParams {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RoleParams {
-    role: crate::domain::alerting::response::ResponseRole,
+    role: domain::alerting::response::ResponseRole,
     /// 担任这个角色的人；为空时撤下。
     #[serde(default)]
     assignee_id: Option<Id>,
@@ -267,7 +267,7 @@ pub(super) async fn execute(
                 .response
                 .status_update(
                     incident,
-                    crate::domain::alerting::response::StatusUpdate {
+                    domain::alerting::response::StatusUpdate {
                         impact,
                         current,
                         next,
@@ -301,8 +301,7 @@ pub(super) async fn execute(
                         .await?;
                 }
                 Some(existing)
-                    if existing.status
-                        == crate::domain::alerting::postmortem::PostmortemStatus::Draft =>
+                    if existing.status == domain::alerting::postmortem::PostmortemStatus::Draft =>
                 {
                     postmortems
                         .update(

@@ -6,6 +6,7 @@
 
 use std::ops::ControlFlow;
 
+use query_language::{LikeSet, column_name};
 use sqlparser::{
     ast::{Expr, FunctionArg, FunctionArgExpr, FunctionArguments, Value, visit_expressions},
     dialect::GenericDialect,
@@ -16,10 +17,7 @@ use super::{
     MatchPredicate, TermMatch,
     match_text::{escape_like_literal, parse_match_text, rewrite_match_text},
 };
-use crate::infra::{
-    query::parser::{LikeSet, column_name},
-    search::tantivy_index::is_cjk,
-};
+use crate::infra::search::tantivy_index::is_cjk;
 
 /// 把 SQL 文本中的 `MATCH(field, 'term')` 与 `MATCH_TEXT(field, 'query')` 调用（spec 8.5）换成
 /// DataFusion 能执行的 `ILIKE` 表达式（避免依赖未注册的 UDF）。裁剪用的子串从改写后的语句里读，

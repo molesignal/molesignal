@@ -4,10 +4,10 @@
 //! 人对事件的处理：暂缓、手动指定的负责人与严重度、合并，以及升级通知的轮次；还有事件的紧急度和
 //! 优先级（开事件时定下，之后可以手动改），它们和这些处理一起存在 `incidents.handling` 里。
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{priority::Priority, urgency::Urgency};
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 /// 一次最多暂缓多久：7 天。
 pub const MAX_SNOOZE_SECS: u32 = 7 * 24 * 60 * 60;

@@ -6,16 +6,14 @@
 //! 发信限额（[`SigninAttemptRepository::take_quota`]）用同一张表，键的摘要不同。
 
 use async_trait::async_trait;
+use domain::iam::SigninLimits;
+use kernel::{Result, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{PgPool, Row, TracedTransaction};
 
 use super::rules::{
     self, AttemptKeys, Begun, KNOWN_SOURCE_MICROS, Quota, Refusal, RowKey, Rules, Settlement,
     Tallies, Tally, Written, begin, quota_taken, settled, succeeded_pair, written,
-};
-use crate::{
-    domain::iam::SigninLimits,
-    infra::persistence::sqlx_err,
-    shared::{Result, time::TimestampMicros},
 };
 
 /// 一次顺带清理的过期行数上限。

@@ -10,14 +10,13 @@
 //! both in one. Its answer is long: a row per bar and group, which the dashboard draws as a line
 //! per group.
 
+use domain::rum::event::RumStream;
+
 use super::plan::{Order, Plan};
-use crate::{
-    domain::rum::event::RumStream,
-    infra::rum::query::{
-        filter::Condition,
-        panel::{Names, PanelColumn, PanelRole, PanelStatement, relation, shown, where_clause},
-        sql::ident,
-    },
+use crate::infra::rum::query::{
+    filter::Condition,
+    panel::{Names, PanelColumn, PanelRole, PanelStatement, relation, shown, where_clause},
+    sql::ident,
 };
 
 fn direction(descending: bool) -> &'static str {

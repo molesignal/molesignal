@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::notify::{endpoint::UserNotifyEndpoint, repositories::UserNotifyEndpointRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::notify::{endpoint::UserNotifyEndpoint, repositories::UserNotifyEndpointRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgUserNotifyEndpointRepository {
     pool: PgPool,

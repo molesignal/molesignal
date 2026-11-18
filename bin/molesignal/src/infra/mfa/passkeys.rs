@@ -8,14 +8,12 @@
 //! 开始的登录作废；去掉最后一个时一并删掉恢复码。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{PgPool, Row, types::Json};
 use webauthn_rs::prelude::Passkey;
 
 use super::factors::{end_sessions_in, replace_codes_in, still_on_in};
-use crate::{
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 一个已存下的 Passkey。
 #[derive(Debug, Clone)]

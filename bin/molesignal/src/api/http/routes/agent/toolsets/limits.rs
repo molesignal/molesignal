@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-use crate::agent::{
+use agent::{
     chat::{DEFAULT_TEMPERATURE, LoopLimits},
     model::AgentProfile,
 };

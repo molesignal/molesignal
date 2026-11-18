@@ -7,20 +7,18 @@
 
 use std::collections::BTreeMap;
 
+use domain::apm::{
+    BucketDimension, BucketKind, BucketQuery, MergedBucket, QueryResolution, ServiceLevelObjective,
+    SloKind,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Serialize;
 
 use super::{ApmQueryService, aggregate::merged_latency};
-use crate::{
-    domain::apm::{
-        BucketDimension, BucketKind, BucketQuery, MergedBucket, QueryResolution,
-        ServiceLevelObjective, SloKind,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
 
 const HOUR_MICROS: i64 = 3_600_000_000;
 const DAY_MICROS: i64 = 24 * HOUR_MICROS;
@@ -94,7 +92,7 @@ impl Tally {
 }
 
 impl ApmQueryService {
-    fn objectives(&self) -> Result<&std::sync::Arc<dyn crate::domain::apm::ApmCatalogRepository>> {
+    fn objectives(&self) -> Result<&std::sync::Arc<dyn domain::apm::ApmCatalogRepository>> {
         self.catalog
             .as_ref()
             .ok_or_else(|| Error::unavailable("APM service level objectives are not available"))

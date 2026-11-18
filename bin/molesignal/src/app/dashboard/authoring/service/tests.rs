@@ -4,10 +4,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use parking_lot::Mutex;
-
-use super::*;
-use crate::domain::dashboard::{
+use domain::dashboard::{
     Dashboard, Folder,
     authoring::{
         ConsumeDashboardDraft, DashboardQueryPreflight, DraftConsumption, PanelPreflight,
@@ -15,6 +12,9 @@ use crate::domain::dashboard::{
     },
     repositories::{DashboardRepository, FolderRepository},
 };
+use parking_lot::Mutex;
+
+use super::*;
 
 const VALID_AUTHORING: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),

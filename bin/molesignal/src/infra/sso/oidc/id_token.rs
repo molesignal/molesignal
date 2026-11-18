@@ -11,10 +11,10 @@ use jsonwebtoken::{
     Algorithm, AlgorithmFamily, DecodingKey, Header, Validation, decode, decode_header,
     jwk::{AlgorithmParameters, EllipticCurve, Jwk, JwkSet, KeyAlgorithm, PublicKeyUse},
 };
+use kernel::{Error, Result, time::TimestampMicros};
 use serde_json::Value;
 
 use super::jwks::JwksCache;
-use crate::shared::{Error, Result, time::TimestampMicros};
 
 /// 时钟误差容忍。
 const LEEWAY_SECS: i64 = 60;

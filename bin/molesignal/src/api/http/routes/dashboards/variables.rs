@@ -17,20 +17,17 @@
 //! variable substitution 时已经展开。
 
 use axum::{Extension, Json, Router, extract::State, routing::post};
+use domain::{
+    iam::{IamContext, permission},
+    metrics::METRIC_NAME_FIELD,
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::StreamType,
+};
+use kernel::{Error, Result, time::TimeRange};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        metrics::METRIC_NAME_FIELD,
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::StreamType,
-    },
-    shared::{Error, Result, time::TimeRange},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/dashboards/variables/resolve", post(resolve))
@@ -96,8 +93,8 @@ async fn resolve(
     }
 
     let time_range = TimeRange::new(
-        crate::shared::time::TimestampMicros(req.time_range.start),
-        crate::shared::time::TimestampMicros(req.time_range.end),
+        kernel::time::TimestampMicros(req.time_range.start),
+        kernel::time::TimestampMicros(req.time_range.end),
     );
 
     let queries = match req.variable.kind.as_str() {

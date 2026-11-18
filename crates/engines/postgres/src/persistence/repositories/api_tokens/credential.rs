@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::iam::api_token::TOKEN_MARKER;
 use sha2::{Digest, Sha256};
-
-use crate::domain::iam::api_token::TOKEN_MARKER;
 
 /// Lower case without `i l o u`: five random bits a character, and none to misread.
 const ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";

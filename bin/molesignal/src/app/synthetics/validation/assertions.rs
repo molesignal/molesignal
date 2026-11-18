@@ -4,12 +4,10 @@
 //! What an assertion or an extraction may read, checked when a revision is saved rather than
 //! when a run trips over it.
 
-use crate::{
-    domain::synthetics::{
-        AssertionOperator, Extraction, MonitorAssertion, MonitorKind, assertion_source_allowed,
-    },
-    shared::{Error, Result},
+use domain::synthetics::{
+    AssertionOperator, Extraction, MonitorAssertion, MonitorKind, assertion_source_allowed,
 };
+use kernel::{Error, Result};
 
 const MAX_ASSERTIONS: usize = 20;
 
@@ -120,11 +118,10 @@ pub(super) fn validate_extractions(extractions: &[Extraction]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use domain::synthetics::{AssertionOperator, AssertionSeverity, MonitorAssertion, MonitorKind};
+    use kernel::ids::Id;
+
     use super::validate_assertions;
-    use crate::{
-        domain::synthetics::{AssertionOperator, AssertionSeverity, MonitorAssertion, MonitorKind},
-        shared::ids::Id,
-    };
 
     fn reading(source: &str) -> MonitorAssertion {
         MonitorAssertion {

@@ -4,13 +4,11 @@
 //! `notify_reply_refs`（回复短信、电话按键处理告警的引用）的 Pg 实装。
 
 use async_trait::async_trait;
+use domain::notify::reply::{NotifyReplyRepository, REPLY_SLOTS, ReplyRef};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::notify::reply::{NotifyReplyRepository, REPLY_SLOTS, ReplyRef},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgNotifyReplyRepository {
     pool: PgPool,

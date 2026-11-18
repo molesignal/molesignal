@@ -2,9 +2,9 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 use super::{InspectionNotification, LogInspection, LogInspectionRun, RunCompletion};
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// 定时巡检的定义存在哪里。
 #[async_trait]
@@ -45,7 +45,7 @@ pub trait LogInspectionRepository: Send + Sync {
 /// 巡检的执行记录存在哪里。
 ///
 /// 同一条巡检同一时刻至多有一条没结束的执行（排队中或执行中）：写入第二条时返回
-/// [`crate::shared::Error::Conflict`]，定时触发与手动触发因此不会叠在一起。
+/// [`kernel::Error::Conflict`]，定时触发与手动触发因此不会叠在一起。
 #[async_trait]
 pub trait LogInspectionRunRepository: Send + Sync {
     /// 定时触发：写入一条执行中的记录，并把这条巡检的下次执行时间推到 `next_run_at`。

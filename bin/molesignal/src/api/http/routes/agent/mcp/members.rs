@@ -4,24 +4,19 @@
 //! 作用域里的成员自己能做的事：启停服务器的工具（工具策略仍由 `agent.manage` 在「工具」里
 //! 管），一次启用全部只读工具，存取本人的成员凭据。
 
+use agent::tool_control::{ManagedToolStatus, McpTool};
 use axum::{
     Extension, Json,
     extract::{Path, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::RiskLevel;
 
 use super::super::viewer::viewer;
-use crate::{
-    agent::{
-        model::RiskLevel,
-        tool_control::{ManagedToolStatus, McpTool},
-    },
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ToolEnabledRequest {
@@ -210,9 +205,9 @@ pub(super) async fn delete_my_credential(
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use tool_runtime::ToolExecutionMode;
 
     use super::*;
-    use crate::agent::tool_control::ToolExecutionMode;
 
     fn tool(read_only: bool, risk: RiskLevel, status: ManagedToolStatus) -> McpTool {
         McpTool {

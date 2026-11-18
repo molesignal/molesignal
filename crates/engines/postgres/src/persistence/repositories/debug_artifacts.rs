@@ -4,16 +4,14 @@
 //! PostgreSQL adapter for RUM debug artifact metadata.
 
 use async_trait::async_trait;
+use domain::rum::{
+    DebugArtifactKind, DebugArtifactLookup, DebugArtifactMeta, DebugArtifactRepository,
+    DebugArtifactUpsert,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::rum::{
-        DebugArtifactKind, DebugArtifactLookup, DebugArtifactMeta, DebugArtifactRepository,
-        DebugArtifactUpsert,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgDebugArtifactRepository {
     pool: PgPool,

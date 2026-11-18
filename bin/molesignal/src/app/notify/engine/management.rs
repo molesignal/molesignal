@@ -3,20 +3,19 @@
 
 use std::collections::HashSet;
 
+use domain::notify::{
+    connector::{NotifyTarget, NotifyTargetType},
+    policy::{NotifyDeliveryMode, NotifyEvent, NotifyPolicy, validate_merge_window},
+    preference::NotifyCategory,
+    routing::{OrganizationNotifyDefault, TeamNotifyDefault},
+};
+use kernel::{Error, Result, ids::Id};
+
 use super::{
     NotifyEngine,
     model::{NotifyDefaultInput, NotifyPolicyInput, now},
 };
-use crate::{
-    app::notify::{config::validate_name, validate_matchers},
-    domain::notify::{
-        connector::{NotifyTarget, NotifyTargetType},
-        policy::{NotifyDeliveryMode, NotifyEvent, NotifyPolicy, validate_merge_window},
-        preference::NotifyCategory,
-        routing::{OrganizationNotifyDefault, TeamNotifyDefault},
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::notify::{config::validate_name, validate_matchers};
 
 impl NotifyEngine {
     pub async fn preview_policy_input(
@@ -368,7 +367,7 @@ impl NotifyEngine {
         &self,
         organization_id: &Id,
         delivery_mode: NotifyDeliveryMode,
-        delivery_config: &crate::domain::notify::policy::NotifyDeliveryConfig,
+        delivery_config: &domain::notify::policy::NotifyDeliveryConfig,
     ) -> Result<()> {
         let connector_ids = &delivery_config.connector_ids;
 
@@ -435,8 +434,8 @@ impl NotifyEngine {
     async fn validate_default_routes(
         &self,
         organization_id: &Id,
-        mut routes: Vec<crate::domain::notify::routing::NotifyDefaultRoute>,
-    ) -> Result<Vec<crate::domain::notify::routing::NotifyDefaultRoute>> {
+        mut routes: Vec<domain::notify::routing::NotifyDefaultRoute>,
+    ) -> Result<Vec<domain::notify::routing::NotifyDefaultRoute>> {
         if routes.is_empty() {
             return Err(Error::invalid("notify default requires at least one route"));
         }
@@ -500,8 +499,8 @@ fn policy_from_input(
     id: Id,
     organization_id: Id,
     input: NotifyPolicyInput,
-    created_at: crate::shared::time::TimestampMicros,
-    updated_at: crate::shared::time::TimestampMicros,
+    created_at: kernel::time::TimestampMicros,
+    updated_at: kernel::time::TimestampMicros,
 ) -> NotifyPolicy {
     NotifyPolicy {
         id,

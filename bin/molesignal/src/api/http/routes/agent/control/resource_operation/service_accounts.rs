@@ -1,26 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::model::ApprovalRequest;
+use domain::iam::{
+    IamContext,
+    api_token::{ApiTokenKind, ApiTokenScope},
+    service_account::ServiceAccount,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::iam::roles::IamRole;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::{
-        AppState,
-        http::routes::{
-            api_tokens::{TokenSpec, new_token},
-            iam::grant_limit,
-        },
+use crate::api::{
+    AppState,
+    http::routes::{
+        api_tokens::{TokenSpec, new_token},
+        iam::grant_limit,
     },
-    app::iam::IamContext,
-    domain::iam::{
-        api_token::{ApiTokenKind, ApiTokenScope},
-        service_account::ServiceAccount,
-    },
-    infra::persistence::repositories::iam::roles::IamRole,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const INITIAL_TOKEN_TTL_MICROS: i64 = 365 * 86_400 * 1_000_000;

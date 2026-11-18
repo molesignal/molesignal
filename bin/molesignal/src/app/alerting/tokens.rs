@@ -4,8 +4,7 @@
 //! 放在地址里的 Token（值班日历订阅、心跳打卡）：只给出一次，库里只存 SHA-256。
 
 use aws_lc_rs::digest;
-
-pub use crate::infra::persistence::repositories::api_tokens::generate_token as new_token;
+pub use postgres::repositories::api_tokens::generate_token as new_token;
 
 /// 存进库里的是 Token 的 SHA-256。
 pub fn token_hash(token: &str) -> String {

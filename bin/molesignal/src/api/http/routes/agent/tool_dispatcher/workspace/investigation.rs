@@ -4,20 +4,16 @@
 //! `update_investigation`：把调查过程记到这个会话的调查上（步骤、证据、假设、结论），调查页
 //! 照着显示。只记这个会话自己的调查。
 
+use agent::model::{
+    ConfidenceLevel, FactStatus, HypothesisStatus, InvestigationEvidence, InvestigationHypothesis,
+    InvestigationStatus, InvestigationStep, StepStatus,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::ToolResult;
 
 use super::{WorkspaceCall, parse};
-use crate::{
-    agent::{
-        model::{
-            ConfidenceLevel, FactStatus, HypothesisStatus, InvestigationEvidence,
-            InvestigationHypothesis, InvestigationStatus, InvestigationStep, StepStatus,
-        },
-        tools::ToolResult,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]

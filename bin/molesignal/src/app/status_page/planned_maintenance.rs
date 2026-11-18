@@ -6,11 +6,10 @@
 
 use std::collections::HashMap;
 
+use domain::status_page::{MaintenanceDueToStart, PublicIncidentStatus, StatusPageIncidentUpdate};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{StatusPageService, notification_copy};
-use crate::{
-    domain::status_page::{MaintenanceDueToStart, PublicIncidentStatus, StatusPageIncidentUpdate},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// What one sweep over planned maintenance did.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

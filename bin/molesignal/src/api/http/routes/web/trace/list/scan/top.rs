@@ -122,16 +122,15 @@ impl<'a> TopTraces<'a> {
 mod tests {
     use std::collections::HashMap;
 
+    use kernel::cursor::CursorDirection;
+
     use super::{
         super::{TraceListSort, effective_cmp},
         TopTraces,
     };
-    use crate::api::http::{
-        pagination::cursor::CursorDirection,
-        routes::web::trace::list::{
-            TraceListContext, TraceListItem, TraceListRow,
-            cursor::{TraceCursorBoundary, TraceCursorPosition},
-        },
+    use crate::api::http::routes::web::trace::list::{
+        TraceListContext, TraceListItem, TraceListRow,
+        cursor::{TraceCursorBoundary, TraceCursorPosition},
     };
 
     fn context(sort: TraceListSort) -> TraceListContext {

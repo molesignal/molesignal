@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::rum::{
+    RumAlertMetric, RumApplication, RumApplicationPatch, RumApplicationSettings, RumIssue,
+    RumIssueChange, RumIssueEnvironment, RumIssueSighting,
+};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
 
 use super::*;
-use crate::domain::rum::{
-    RumAlertMetric, RumApplication, RumApplicationPatch, RumApplicationSettings, RumIssue,
-    RumIssueChange, RumIssueEnvironment, RumIssueSighting,
-};
 
 const MINUTE: i64 = 60_000_000;
 
@@ -797,13 +797,13 @@ fn searched(kind: &str, function: &str, field: Option<&str>) -> RumAlertQuery {
         search: Some(RumAlertSearch {
             kind: kind.into(),
             statement: "resource.url_host = 'api.shop.example'".into(),
-            filters: vec![crate::domain::rum::RumAlertFilter {
+            filters: vec![domain::rum::RumAlertFilter {
                 field: "resource.url_host".into(),
                 op: "=".into(),
                 value: "api.shop.example".into(),
             }],
             free_text: Vec::new(),
-            measure: crate::domain::rum::RumAlertMeasure {
+            measure: domain::rum::RumAlertMeasure {
                 function: function.into(),
                 field: field.map(str::to_string),
             },

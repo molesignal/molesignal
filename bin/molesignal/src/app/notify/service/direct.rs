@@ -6,15 +6,14 @@
 
 use std::time::Instant;
 
-use super::{NotifyService, testing::completion_from_result};
-use crate::{
-    app::notify::config::{mask_target, truncate_error},
-    domain::notify::{
-        connector::{NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType},
-        delivery::{DeliveryStage, DeliveryStatus, NotifyDelivery},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::notify::{
+    connector::{NotifyConnector, NotifyMessage, NotifyTarget, NotifyTargetType},
+    delivery::{DeliveryStage, DeliveryStatus, NotifyDelivery},
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use super::{NotifyService, testing::completion_from_result};
+use crate::app::notify::config::{mask_target, truncate_error};
 
 /// 一次直接发送。
 #[derive(Debug, Clone)]

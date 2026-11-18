@@ -7,19 +7,17 @@
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::connector::{
+    ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+    ConnectorRegion, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{
     Account, ApiCall, PROVIDER, SMS_API, address, approved_template, call, common, phone, regions,
     template_params,
-};
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-        ConnectorRegion, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
-    },
-    shared::{Error, Result},
 };
 
 pub const TENCENT_SMS_CONNECTOR_TYPE: &str = "tencent_sms";
@@ -195,13 +193,13 @@ impl ConnectorAdapter for TencentSmsConnectorAdapter {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::{connector::NotifyTargetType, template::ProviderTemplate};
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{body_json, header, header_exists, header_regex, method, path},
     };
 
     use super::*;
-    use crate::domain::notify::{connector::NotifyTargetType, template::ProviderTemplate};
 
     fn config(base: &str) -> Value {
         json!({

@@ -7,10 +7,18 @@
 //! 先取到 prompt，再把团队挂进会话。参数按 `agent::mcp::bind_arguments` 填，`prompts/get` 用
 //! 发消息的人自己的凭据。prompt 的消息合成一段文字，作为这一轮交给模型的问题。
 
+use agent::{
+    commands::{CommandRecord, CommandSource, Invocation},
+    mcp::{bind_arguments, prompt_text},
+    scope::Viewer,
+};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use domain::iam::IamContext;
+use kernel::Error;
+use postgres::repositories::agent::chats::Chat;
 
 use super::{
     super::viewer::chat_scope,
@@ -19,17 +27,7 @@ use super::{
         refuse, refuse_with,
     },
 };
-use crate::{
-    agent::{
-        commands::{CommandRecord, CommandSource, Invocation},
-        mcp::{bind_arguments, prompt_text},
-        scope::Viewer,
-    },
-    api::AppState,
-    app::{iam::IamContext, mcp::safe_runtime_error},
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::Error,
-};
+use crate::{api::AppState, app::mcp::safe_runtime_error};
 
 /// prompt 展开后的文字上限。
 const MAX_PROMPT_BYTES: usize = 64 * 1024;

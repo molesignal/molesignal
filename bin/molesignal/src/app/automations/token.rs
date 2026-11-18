@@ -3,9 +3,8 @@
 
 //! API 触发的令牌：只存 SHA-256 与前缀，令牌本身只在生成时出现一次；轮换后旧令牌立即失效。
 
+use postgres::repositories::api_tokens::{generate_token, shown_prefix};
 use sha2::{Digest, Sha256};
-
-use crate::infra::persistence::repositories::api_tokens::{generate_token, shown_prefix};
 
 /// 新生成的令牌。
 pub struct NewToken {

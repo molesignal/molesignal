@@ -2,16 +2,14 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::synthetics::{
+    LocationStateUpdate, MissedRun, MonitorLocationState, MonitorState, StateObservation,
+    SyntheticStateRepository, SyntheticStateTransition,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::Row;
 
 use super::PgSyntheticRepository;
-use crate::{
-    domain::synthetics::{
-        LocationStateUpdate, MissedRun, MonitorLocationState, MonitorState, StateObservation,
-        SyntheticStateRepository, SyntheticStateTransition,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const LOCATION_STATE_COLS: &str = "organization_id, monitor_id, monitor_revision_id, location_id,
     current_state, candidate_state, candidate_count, consecutive_missing, last_result_id,
@@ -384,11 +382,10 @@ impl SyntheticStateRepository for PgSyntheticRepository {
 
 #[cfg(test)]
 mod tests {
+    use domain::synthetics::{MonitorState, StateObservation};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::next_location_state;
-    use crate::{
-        domain::synthetics::{MonitorState, StateObservation},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn observation(observed_state: MonitorState) -> StateObservation {
         StateObservation {

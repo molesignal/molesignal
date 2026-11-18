@@ -2,16 +2,14 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 
 use super::RumAlertQuery;
-use crate::{
-    domain::intake::{IntakeBatch, IntakeResult, RawEvent},
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::domain::intake::{IntakeBatch, IntakeResult, RawEvent};
 
 /// Where RUM rows are written: the intake of the stream the batch names. The rows are already in
 /// the shape of the stream; the intake only checks, stores and indexes them.

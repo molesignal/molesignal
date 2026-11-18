@@ -7,6 +7,7 @@
 //! number means the field is masked for the reader, and nothing more is read
 //! of it.
 
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{
@@ -16,7 +17,6 @@ use super::{
         STDDEV_POP, STDDEV_SAMP, STRETCH, TOTAL, VALUE,
     },
 };
-use crate::shared::{Error, Result};
 
 /// What the summary statement returned.
 #[derive(Debug, Default, PartialEq)]

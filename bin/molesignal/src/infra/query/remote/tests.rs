@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{query::QueryLanguage, stream::StreamType};
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use parking_lot::Mutex;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
 
 use super::*;
-use crate::{
-    api::grpc::query_server::QueryExecutionGrpc,
-    domain::{query::QueryLanguage, stream::StreamType},
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::api::grpc::query_server::QueryExecutionGrpc;
 
 /// 记录收到的请求，返回带标记的结果；`fail` 让所有调用以 400 失败。
 #[derive(Default)]
@@ -123,7 +121,7 @@ fn request(statement: &str, language: QueryLanguage) -> QueryRequest {
         language,
         statement: statement.into(),
         time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(10_000_000)),
-        stream: Some(crate::domain::query::StreamHint {
+        stream: Some(domain::query::StreamHint {
             name: "app".into(),
             stream_type: StreamType::LOGS,
         }),

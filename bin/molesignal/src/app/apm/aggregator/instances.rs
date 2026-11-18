@@ -4,8 +4,9 @@
 //! The instances a service runs as, gathered from the looks some facts carry,
 //! and the kinds of entry a service serves, gathered from every entry span.
 
+use domain::apm::{ApmSpanFact, InstanceObservation, TransactionKind};
+
 use super::ApmAggregator;
-use crate::domain::apm::{ApmSpanFact, InstanceObservation, TransactionKind};
 
 pub(super) struct InstanceState {
     pub(super) observation: InstanceObservation,

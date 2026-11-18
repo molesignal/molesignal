@@ -4,15 +4,13 @@
 //! Running a log inspection now: the queued run the inspection page's "Run now" starts, requested
 //! by whoever carries out the approved operation.
 
+use agent::model::ApprovalRequest;
+use domain::iam::IamContext;
+use kernel::{Result, ids::Id};
 use serde_json::json;
 
 use super::super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::AppState,
-    app::iam::IamContext,
-    shared::{Result, ids::Id},
-};
+use crate::api::AppState;
 
 pub(super) async fn run(
     state: &AppState,

@@ -23,13 +23,13 @@ use std::{fmt, ops::Range, sync::Arc};
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::{StreamExt, stream::BoxStream};
+use kernel::ids::Id;
 use object_store::{
     CopyOptions, GetOptions, GetResult, ListResult, MultipartUpload, ObjectMeta, ObjectStore,
     PutMultipartOptions, PutOptions, PutPayload, PutResult, RenameOptions, path::Path,
 };
 
 use super::layout::StorageLayout;
-use crate::shared::ids::Id;
 
 /// 把共享读存储限定到 `organization_id` 的对象前缀。
 pub fn scoped_to_org(inner: Arc<dyn ObjectStore>, organization_id: &Id) -> Arc<dyn ObjectStore> {

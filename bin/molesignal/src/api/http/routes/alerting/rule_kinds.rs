@@ -4,14 +4,12 @@
 //! 保存规则时按种类多做的几件事：组合规则组合的规则说得通，实时规则的汇总集群在联邦里，心跳规则
 //! 头一回保存时给出打卡地址。
 
+use domain::alerting::rule::{AlertQuery, AlertRule, AlertRuleKind};
+use kernel::{Error, Result, ids::Id};
 use serde_json::Value;
 
 use super::heartbeats;
-use crate::{
-    api::AppState,
-    domain::alerting::rule::{AlertQuery, AlertRule, AlertRuleKind},
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 /// 组合规则组合的规则都在本组织、本身不是组合规则；组合规则自己也不能被别的组合规则组合。这样不会成环。
 pub(super) async fn check_composite(

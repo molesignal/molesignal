@@ -3,15 +3,12 @@
 
 use std::collections::HashMap;
 
-use parking_lot::Mutex;
-
-use crate::{
-    domain::apm::{ProjectionGap, ProjectionGapReason},
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use domain::apm::{ProjectionGap, ProjectionGapReason};
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
 };
+use parking_lot::Mutex;
 
 const MINUTE_MICROS: i64 = 60_000_000;
 

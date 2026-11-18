@@ -7,18 +7,16 @@
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::connector::{
+    ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+    NotifyChannel, NotifyMessage, NotifyTarget,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::{Account, create, is_sid};
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-        NotifyChannel, NotifyMessage, NotifyTarget,
-    },
-    infra::notify::adapters::{common, phone},
-    shared::{Error, Result},
-};
+use crate::infra::notify::adapters::{common, phone};
 
 pub const TWILIO_SMS_CONNECTOR_TYPE: &str = "twilio_sms";
 
@@ -141,6 +139,7 @@ impl ConnectorAdapter for TwilioSmsConnectorAdapter {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::connector::NotifyTargetType;
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -148,7 +147,6 @@ mod tests {
     };
 
     use super::{super::tests::SID, *};
-    use crate::domain::notify::connector::NotifyTargetType;
 
     #[test]
     fn the_sender_is_a_number_a_service_or_a_sender_id() {

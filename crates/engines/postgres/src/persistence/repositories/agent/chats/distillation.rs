@@ -3,17 +3,14 @@
 
 //! 会话结束后提炼记忆：挑出该提炼的会话，并记下提炼到的位置。
 
+use kernel::{Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{
     Chat,
     rows::{CHAT_COLS_QUALIFIED, chat_row},
 };
-use crate::{
-    repositories::org_settings::sections::AGENT_MEMORY,
-    shared::{Result, time::TimestampMicros},
-    sqlx_err,
-};
+use crate::{repositories::org_settings::sections::AGENT_MEMORY, sqlx_err};
 
 /// 组织打开了提炼、停下超过 `idle_before`、上次提炼之后有新消息的会话（自动化的不算）。挑中的同时记下这次
 /// 提炼到的位置；先锁住再改，两个节点同时挑时 SKIP LOCKED 让它们分开。返回会话与上一次的位置。

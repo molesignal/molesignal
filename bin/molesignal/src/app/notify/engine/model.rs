@@ -3,22 +3,19 @@
 
 use std::collections::BTreeMap;
 
+use domain::{
+    alerting::time_window::TimeCondition,
+    notify::{
+        connector::{NotifyChannel, NotifyMessage, NotifyTargetType},
+        delivery::{DeliveryStage, NotifyDelivery},
+        policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyEvent, NotifyFallbackConfig},
+        preference::NotifyCategory,
+        routing::NotifyDefaultRoute,
+    },
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Serialize;
 use serde_json::Value;
-
-use crate::{
-    domain::{
-        alerting::time_window::TimeCondition,
-        notify::{
-            connector::{NotifyChannel, NotifyMessage, NotifyTargetType},
-            delivery::{DeliveryStage, NotifyDelivery},
-            policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyEvent, NotifyFallbackConfig},
-            preference::NotifyCategory,
-            routing::NotifyDefaultRoute,
-        },
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 #[derive(Debug, Clone)]
 pub struct NotifyPolicyInput {
@@ -114,9 +111,9 @@ pub struct NotifyDispatch {
 #[derive(Debug, Clone)]
 pub(super) struct ResolvedRoute {
     pub stage: DeliveryStage,
-    pub connector: crate::domain::notify::connector::NotifyConnector,
+    pub connector: domain::notify::connector::NotifyConnector,
     pub endpoint_id: Option<Id>,
-    pub target: crate::domain::notify::connector::NotifyTarget,
+    pub target: domain::notify::connector::NotifyTarget,
     /// 个人接收顺序里这一步的等待时间（秒）；团队与组织兜底是 0。
     pub delay_secs: i32,
 }

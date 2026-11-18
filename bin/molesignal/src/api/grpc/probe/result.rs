@@ -3,15 +3,14 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use crate::{
-    app::synthetics::{artifact_expiry, artifact_object_key, artifact_targets},
-    domain::synthetics::{
-        AssertionObservation, AssertionSeverity, ProbeAgent, ProbeAttempt, ProbeOutcome,
-        ProbeStepEvidence, ProbeTask, SyntheticResult, SyntheticResultArtifact, TimingBreakdown,
-    },
-    protocol::probe::v1 as wire,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::synthetics::{
+    AssertionObservation, AssertionSeverity, ProbeAgent, ProbeAttempt, ProbeOutcome,
+    ProbeStepEvidence, ProbeTask, SyntheticResult, SyntheticResultArtifact, TimingBreakdown,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use protocol::probe::v1 as wire;
+
+use crate::app::synthetics::{artifact_expiry, artifact_object_key, artifact_targets};
 
 const MAX_ATTEMPTS: usize = 3;
 const MAX_EXCERPT_BYTES: usize = 64 * 1024;

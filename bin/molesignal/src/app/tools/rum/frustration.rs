@@ -6,6 +6,11 @@
 //! systems) by the sessions each touched. An SDK judges the signs where the person is; the server
 //! does not judge them again.
 
+use domain::{
+    iam::IamContext,
+    rum::{RumApplication, RumPlatform},
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
@@ -13,7 +18,6 @@ use tool_runtime::ToolResult;
 use super::{reader, summary_span};
 use crate::{
     app::{
-        iam::IamContext,
         rum::{
             aggregate::{self, Request, number},
             overview::scope_filters,
@@ -25,9 +29,7 @@ use crate::{
             common::{TimeRangeArg, parse_args},
         },
     },
-    domain::rum::{RumApplication, RumPlatform},
     infra::rum::query::{Aggregate, Filter, MeasureSpec},
-    shared::{Error, Result},
 };
 
 const COUNT_FIELD: &str = "action.frustration.count";
@@ -417,7 +419,7 @@ mod tests {
         let group_by = ["action.target.name".to_string()];
 
         let plan = Plan::new(
-            crate::domain::rum::event::RumStream::Actions,
+            domain::rum::event::RumStream::Actions,
             &crate::infra::rum::query::AggregateSpec {
                 measures: &statement,
                 group_by: &group_by,

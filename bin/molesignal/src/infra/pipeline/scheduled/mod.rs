@@ -18,20 +18,18 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    pipeline::{alert::is_alert, realtime::is_realtime, scheduled::ScheduledConfig},
+    run_claim::{OpenGate, RunGate},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::pipelines::runs::{
+    PipelineRun, PipelineRunFinish, PipelineRunRepository, PipelineRunState,
+};
 
 use self::{
     repository::{ScheduledPipeline, ScheduledPipelineRepository},
     state::{RunState, SourceResult, Timing, Window},
-};
-use crate::{
-    domain::{
-        pipeline::{alert::is_alert, realtime::is_realtime, scheduled::ScheduledConfig},
-        run_claim::{OpenGate, RunGate},
-    },
-    infra::persistence::repositories::pipelines::runs::{
-        PipelineRun, PipelineRunFinish, PipelineRunRepository, PipelineRunState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 运行租约里这类工作的名字。
@@ -454,8 +452,9 @@ pub(crate) fn parse_every_secs(cron: &str) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::Error;
+
     use super::*;
-    use crate::shared::Error;
 
     #[test]
     fn every_parser() {
@@ -574,12 +573,10 @@ mod tests {
         time::Duration,
     };
 
+    use domain::{cluster::PeerRole, run_claim::MemoryRunClaims};
     use serde_json::json;
 
-    use crate::{
-        app::cluster::{PeerRole, ShardedRunGate, WorkOwnership, ownership::test_support::Nodes},
-        domain::run_claim::MemoryRunClaims,
-    };
+    use crate::app::cluster::{ShardedRunGate, WorkOwnership, ownership::test_support::Nodes};
 
     fn pipeline(last_run_at: Option<TimestampMicros>) -> ScheduledPipeline {
         ScheduledPipeline {

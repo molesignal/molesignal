@@ -6,13 +6,12 @@
 //! A rule made from the explorer is about the rows its query matches, as the explorer reads them:
 //! a query that asks about the sessions no person ran is taken at its word.
 
-use crate::{
-    domain::rum::{RumAlertMetric, RumAlertQuery, RumAlertSearch, RumPlatform},
-    infra::rum::query::{
-        Condition, Filter, asks_about_traffic, conditions as filter_conditions, ident, literal,
-        people_only, text_columns, text_conditions,
-    },
-    shared::Result,
+use domain::rum::{RumAlertMetric, RumAlertQuery, RumAlertSearch, RumPlatform};
+use kernel::Result;
+
+use crate::infra::rum::query::{
+    Condition, Filter, asks_about_traffic, conditions as filter_conditions, ident, literal,
+    people_only, text_columns, text_conditions,
 };
 
 /// Where the page of a view is told by: the path of a web page with its changing parts grouped,
@@ -103,8 +102,9 @@ pub(super) fn conditions(query: &RumAlertQuery, platform: RumPlatform) -> Result
 
 #[cfg(test)]
 mod tests {
+    use domain::rum::RumAlertMetric;
+
     use super::*;
-    use crate::domain::rum::RumAlertMetric;
 
     fn query() -> RumAlertQuery {
         RumAlertQuery {
@@ -186,14 +186,14 @@ mod tests {
                 statement: String::new(),
                 filters: filters
                     .into_iter()
-                    .map(|(field, op, value)| crate::domain::rum::RumAlertFilter {
+                    .map(|(field, op, value)| domain::rum::RumAlertFilter {
                         field: field.into(),
                         op: op.into(),
                         value: value.into(),
                     })
                     .collect(),
                 free_text: vec!["checkout".into()],
-                measure: crate::domain::rum::RumAlertMeasure {
+                measure: domain::rum::RumAlertMeasure {
                     function: "count".into(),
                     field: None,
                 },

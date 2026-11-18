@@ -3,11 +3,10 @@
 
 use std::collections::HashSet;
 
+use domain::status_page::{ActiveAutomationRule, StatusPageAutomationRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::super::PgStatusPageRepository;
-use crate::{
-    domain::status_page::{ActiveAutomationRule, StatusPageAutomationRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub(super) async fn reorder(
     repository: &PgStatusPageRepository,

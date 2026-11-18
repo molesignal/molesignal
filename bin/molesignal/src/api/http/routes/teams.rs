@@ -18,16 +18,13 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use domain::iam::{IamContext, Team, access::IamPrincipalType, permission};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::json;
 
 use super::iam::grant_limit;
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{Team, access::IamPrincipalType, permission},
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

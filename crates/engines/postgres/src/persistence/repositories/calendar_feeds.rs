@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::alerting::calendar::{CalendarFeed, CalendarFeedRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::calendar::{CalendarFeed, CalendarFeedRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgCalendarFeedRepository {
     pool: PgPool,

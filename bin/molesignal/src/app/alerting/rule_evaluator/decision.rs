@@ -5,22 +5,21 @@
 
 use std::collections::BTreeMap;
 
+use domain::{
+    alerting::{
+        anomaly::{AnomalyDecision, MAX_ANOMALY_LOOKBACK_DAYS, detector_for},
+        incident::Severity,
+        repositories::AlertRuleEvalState,
+        rule::{AlertRule, AlertRuleKind, RuleState},
+    },
+    query::{QueryResult, StreamHint},
+};
+use kernel::{Result, time::TimestampMicros};
+
 use super::{
     DAY_MICROS, RuleEvaluator,
     evaluation::first_cell_f64,
     round::{Reading, advance, with_no_data_value},
-};
-use crate::{
-    domain::{
-        alerting::{
-            anomaly::{AnomalyDecision, MAX_ANOMALY_LOOKBACK_DAYS, detector_for},
-            incident::Severity,
-            repositories::AlertRuleEvalState,
-            rule::{AlertRule, AlertRuleKind, RuleState},
-        },
-        query::{QueryResult, StreamHint},
-    },
-    shared::{Result, time::TimestampMicros},
 };
 
 /// 一轮评估的结论。

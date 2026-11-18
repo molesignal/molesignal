@@ -5,16 +5,14 @@
 //! people leave on its replay and the summaries a model writes of it.
 
 use async_trait::async_trait;
+use domain::rum::{
+    MAX_COMMENTS_PER_SESSION, RumReplayComment, RumReplayCommentRepository, RumSessionSummary,
+    RumSessionSummaryRepository, RumSummaryChapter,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::rum::{
-        MAX_COMMENTS_PER_SESSION, RumReplayComment, RumReplayCommentRepository, RumSessionSummary,
-        RumSessionSummaryRepository, RumSummaryChapter,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgRumReplayCommentRepository {
     pool: PgPool,

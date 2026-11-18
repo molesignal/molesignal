@@ -4,19 +4,16 @@
 use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    iam::IamMembershipRepository,
+    notify::{
+        policy::NotifyEvent,
+        recipient::{NotifyRecipient, RecipientResolver},
+    },
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::Value;
-
-use crate::{
-    domain::{
-        iam::IamMembershipRepository,
-        notify::{
-            policy::NotifyEvent,
-            recipient::{NotifyRecipient, RecipientResolver},
-        },
-    },
-    shared::{Error, Result, ids::Id},
-};
 
 pub const EVENT_USERS_RESOLVER: &str = "event_users";
 pub const ALERT_OWNER_RESOLVER: &str = "alert_owner";
@@ -196,7 +193,7 @@ mod tests {
             id: "event".into(),
             event_type: "alert.triggered".into(),
             organization_id: Id::from_string("org"),
-            occurred_at: crate::shared::time::TimestampMicros(1),
+            occurred_at: kernel::time::TimestampMicros(1),
             attributes: serde_json::json!({"owners": ["a", "b"]}),
         };
         assert_eq!(values_at(&base, "owners").len(), 2);

@@ -5,9 +5,8 @@
 //! of whoever asked, kept so that nobody pays for the same answer twice.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// One stretch of a session.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

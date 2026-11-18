@@ -3,14 +3,12 @@
 
 //! Serialize same-organization configuration mutations to avoid competing realtime routes: one
 //! enabled realtime pipeline per kind of data and source stream, as the realtime lookup keys them.
+use domain::pipeline::realtime::validate_config;
+use kernel::{Error, Result};
+use postgres::sqlx_err;
 use sqlx::{PgPool, TracedTransaction};
 
 use super::repository::ScheduledPipeline;
-use crate::{
-    domain::pipeline::realtime::validate_config,
-    infra::persistence::sqlx_err,
-    shared::{Error, Result},
-};
 
 pub(super) async fn lock_and_validate(
     pool: &PgPool,

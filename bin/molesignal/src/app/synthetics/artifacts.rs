@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::synthetics::{BrowserAction, MonitorSpec, ProbeTask};
+use kernel::time::TimestampMicros;
 use sha2::{Digest as _, Sha256};
-
-use crate::{
-    domain::synthetics::{BrowserAction, MonitorSpec, ProbeTask},
-    shared::time::TimestampMicros,
-};
 
 pub const MAX_SCREENSHOT_BYTES: u64 = 10 * 1024 * 1024;
 pub const MAX_HAR_BYTES: u64 = 10 * 1024 * 1024;
@@ -107,11 +104,10 @@ fn target_id(task: &ProbeTask, lease_token: &str, kind: &str, name: &str, index:
 
 #[cfg(test)]
 mod tests {
+    use domain::synthetics::{MonitorSpec, ProbeTask, ProbeTaskState};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::target_id;
-    use crate::{
-        domain::synthetics::{MonitorSpec, ProbeTask, ProbeTaskState},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn task() -> ProbeTask {
         ProbeTask {

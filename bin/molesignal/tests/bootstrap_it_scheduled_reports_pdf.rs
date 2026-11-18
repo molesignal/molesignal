@@ -26,19 +26,18 @@ use axum::{
     http::{HeaderMap, StatusCode, header::COOKIE},
     routing::get,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use molesignal::{
     app::reporting::ReportRenderSession,
     bootstrap::workers::scheduled_reports::ScheduledReportRunner,
-    infra::persistence::repositories::scheduled_reports::{
-        DeliveryStatus, ReportDelivery, ReportRecipient, ScheduledReport, ScheduledReportRepository,
-    },
-    report_renderer::{HeadlessChromeRenderer, RendererConfig},
-    shared::{
-        Error, ReportFormat, ReportRenderer, Result, SessionCookie, Viewport, ids::Id,
-        time::TimestampMicros,
-    },
 };
 use object_store::{ObjectStore, ObjectStoreExt, memory::InMemory};
+use postgres::repositories::scheduled_reports::{
+    DeliveryStatus, ReportDelivery, ReportRecipient, ScheduledReport, ScheduledReportRepository,
+};
+use report_renderer::{
+    HeadlessChromeRenderer, RendererConfig, ReportFormat, ReportRenderer, SessionCookie, Viewport,
+};
 use tokio::net::TcpListener;
 
 /// 真实前端的两种去登录页的方式：浏览器没有会话时路由在同一份文档里换到登录页；会话被后端

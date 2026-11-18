@@ -7,22 +7,19 @@
 //! `PUT    /api/v1/agent/settings/currencies/{code}`  添加一种，或改它的名称与符号
 //! `DELETE /api/v1/agent/settings/currencies/{code}`  删掉一种；还有模型服务用着时不能删
 
+use agent::{currencies::PriceCurrency, usage::Currency};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::{get, put},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
+use postgres::repositories::agent::model_providers::ModelProvider;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::{
-    agent::{currencies::PriceCurrency, usage::Currency},
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::agent::model_providers::ModelProvider,
-    shared::{Error, Result},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

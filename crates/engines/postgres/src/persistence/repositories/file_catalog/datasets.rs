@@ -3,15 +3,13 @@
 
 //! 物理数据集的幂等建集与列表。
 
+use domain::storage::{OrganizationScope, PhysicalDataset, PhysicalDatasetId, PhysicalDatasetSpec};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, types::Json};
 
 use super::{
     rows::{DATASET_COLS, dataset_from_row},
     sqlx_err,
-};
-use crate::{
-    domain::storage::{OrganizationScope, PhysicalDataset, PhysicalDatasetId, PhysicalDatasetSpec},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// `(org, logical_stream, dataset_type)` 幂等建集：已存在的直接返回现有行，

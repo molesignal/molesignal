@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::time::TimestampMicros;
 use serde::{Deserialize, Serialize};
 
 use super::{connector::NotifyMessage, policy::NotifyEvent};
-use crate::shared::time::TimestampMicros;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -25,13 +25,13 @@ impl NotifyEventStatus {
         }
     }
 
-    pub fn parse(value: &str) -> crate::shared::Result<Self> {
+    pub fn parse(value: &str) -> kernel::Result<Self> {
         match value {
             "pending" => Ok(Self::Pending),
             "processing" => Ok(Self::Processing),
             "completed" => Ok(Self::Completed),
             "failed" => Ok(Self::Failed),
-            other => Err(crate::shared::Error::internal(format!(
+            other => Err(kernel::Error::internal(format!(
                 "unknown notify event status: {other}"
             ))),
         }

@@ -9,10 +9,11 @@ mod browser;
 mod mobile;
 mod sql;
 
+use domain::rum::RumPlatform;
+use kernel::ids::Id;
 use serde_json::{Value, json};
 
 use self::sql::{EVERY_ENVIRONMENT, platform};
-use crate::{domain::rum::RumPlatform, shared::ids::Id};
 
 /// The version of the content of the dashboards this build ships. Raise it with every change of a
 /// panel, a variable or a title: an organization whose dashboard is older gets the new one.

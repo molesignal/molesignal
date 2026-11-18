@@ -16,6 +16,8 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono_tz::Tz;
+use domain::alerting::schedule::Rotation;
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -27,11 +29,7 @@ use super::{
     Draft, ForeignImport, ForeignSchedule, PAGERDUTY_FORMAT, kind_of_period, local_text,
     parse_time, rendered, weekly::WeekMinutes,
 };
-use crate::{
-    app::alerting::oncall_transfer::{Directory, Finding, TransferItem},
-    domain::alerting::schedule::Rotation,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::app::alerting::oncall_transfer::{Directory, Finding, TransferItem};
 
 mod final_schedule;
 mod restrictions;

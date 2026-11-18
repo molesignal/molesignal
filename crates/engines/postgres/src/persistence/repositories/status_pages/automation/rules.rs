@@ -2,18 +2,15 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::status_page::{
+    ActiveAutomationRule, AutomationRuleLifecycle, AutomationSettings, AutomationSourceObservation,
+    StatusAutomationRevision, StatusAutomationRule, StatusPageAutomationRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::{
     super::PgStatusPageRepository,
     codec::{ACTIVE_RULE_COLS, row_to_active},
-};
-use crate::{
-    domain::status_page::{
-        ActiveAutomationRule, AutomationRuleLifecycle, AutomationSettings,
-        AutomationSourceObservation, StatusAutomationRevision, StatusAutomationRule,
-        StatusPageAutomationRepository,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// The automation setting is kept on the page row.
@@ -233,17 +230,17 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
 
     async fn observe_automation_source(
         &self,
-        candidate: crate::domain::status_page::AutomationCandidate,
+        candidate: domain::status_page::AutomationCandidate,
         observation: AutomationSourceObservation,
         automatic: bool,
-    ) -> Result<crate::domain::status_page::AutomationCandidate> {
+    ) -> Result<domain::status_page::AutomationCandidate> {
         super::candidates::observe(self, candidate, observation, automatic).await
     }
 
     async fn recover_automation_source(
         &self,
         observation: AutomationSourceObservation,
-    ) -> Result<Vec<crate::domain::status_page::AutomationCandidate>> {
+    ) -> Result<Vec<domain::status_page::AutomationCandidate>> {
         super::candidates::recover(self, observation).await
     }
 
@@ -251,7 +248,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         &self,
         now: TimestampMicros,
         limit: u32,
-    ) -> Result<Vec<crate::domain::status_page::AutomationCandidate>> {
+    ) -> Result<Vec<domain::status_page::AutomationCandidate>> {
         super::candidates::list_due(self, now, limit).await
     }
 
@@ -259,7 +256,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         &self,
         org_id: &Id,
         candidate_id: &Id,
-    ) -> Result<crate::domain::status_page::AutomationCandidate> {
+    ) -> Result<domain::status_page::AutomationCandidate> {
         super::candidates::get(self, org_id, candidate_id).await
     }
 
@@ -267,7 +264,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         &self,
         org_id: &Id,
         candidate_id: &Id,
-    ) -> Result<crate::domain::status_page::AutomationCandidateDetail> {
+    ) -> Result<domain::status_page::AutomationCandidateDetail> {
         super::candidates::detail(self, org_id, candidate_id).await
     }
 
@@ -275,9 +272,9 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         &self,
         org_id: &Id,
         page_id: &Id,
-        state: Option<crate::domain::status_page::AutomationCandidateState>,
+        state: Option<domain::status_page::AutomationCandidateState>,
         limit: u32,
-    ) -> Result<Vec<crate::domain::status_page::AutomationCandidate>> {
+    ) -> Result<Vec<domain::status_page::AutomationCandidate>> {
         super::candidates::list(self, org_id, page_id, state, limit).await
     }
 
@@ -285,7 +282,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         &self,
         org_id: &Id,
         limit: u32,
-    ) -> Result<Vec<crate::domain::status_page::AutomationCandidate>> {
+    ) -> Result<Vec<domain::status_page::AutomationCandidate>> {
         super::pending::list(self, org_id, limit).await
     }
 
@@ -293,13 +290,13 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         &self,
         org_id: &Id,
         candidate_id: &Id,
-        expected: &[crate::domain::status_page::AutomationCandidateState],
-        state: crate::domain::status_page::AutomationCandidateState,
+        expected: &[domain::status_page::AutomationCandidateState],
+        state: domain::status_page::AutomationCandidateState,
         incident_id: Option<&Id>,
         actor_id: Option<&Id>,
         note: Option<&str>,
         updated_at: TimestampMicros,
-    ) -> Result<crate::domain::status_page::AutomationCandidate> {
+    ) -> Result<domain::status_page::AutomationCandidate> {
         super::candidates::mark(
             self,
             org_id,
@@ -316,9 +313,9 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
 
     async fn enqueue_automation_outbox(
         &self,
-        candidate: &crate::domain::status_page::AutomationCandidate,
-        item: crate::domain::status_page::AutomationOutboxItem,
-    ) -> Result<crate::domain::status_page::AutomationOutboxItem> {
+        candidate: &domain::status_page::AutomationCandidate,
+        item: domain::status_page::AutomationOutboxItem,
+    ) -> Result<domain::status_page::AutomationOutboxItem> {
         super::outbox::enqueue(self, candidate, item).await
     }
 
@@ -326,7 +323,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         &self,
         now: TimestampMicros,
         limit: u32,
-    ) -> Result<Vec<crate::domain::status_page::AutomationOutboxItem>> {
+    ) -> Result<Vec<domain::status_page::AutomationOutboxItem>> {
         super::outbox::claim(self, now, limit).await
     }
 
@@ -353,7 +350,7 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         candidate_id: &Id,
         actor_id: &Id,
         retried_at: TimestampMicros,
-    ) -> Result<crate::domain::status_page::AutomationCandidate> {
+    ) -> Result<domain::status_page::AutomationCandidate> {
         super::outbox::retry_candidate(self, org_id, candidate_id, actor_id, retried_at).await
     }
 
@@ -361,8 +358,8 @@ impl StatusPageAutomationRepository for PgStatusPageRepository {
         &self,
         org_id: &Id,
         candidate_id: &Id,
-        update: crate::domain::status_page::StatusPageIncidentUpdate,
-    ) -> Result<Option<crate::domain::status_page::AutomationCandidate>> {
+        update: domain::status_page::StatusPageIncidentUpdate,
+    ) -> Result<Option<domain::status_page::AutomationCandidate>> {
         super::resolution::resolve_if_inactive(self, org_id, candidate_id, update).await
     }
 

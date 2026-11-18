@@ -4,12 +4,9 @@
 //! 一个分数在 `_agent_score_traces` 里的样子：每次打分一条，字段名不带点（SQL 里点是限定符）。
 //! 规则打分的各个维度各占一个字段（`tool_success`、`evidence`……），没有的维度不写。
 
+use agent::scoring::{RuleDimension, Score, ScoreSubject};
+use domain::intake::RawEvent;
 use serde_json::{Map, Value, json};
-
-use crate::{
-    agent::scoring::{RuleDimension, Score, ScoreSubject},
-    domain::intake::RawEvent,
-};
 
 /// 评审的理由最多写这么多字符。
 const REASON_CHARS: usize = 500;
@@ -34,7 +31,7 @@ pub fn score_event(subject: &ScoreSubject, score: &Score) -> RawEvent {
     fields.insert("samples".into(), json!(score.samples));
     fields.insert("target_at".into(), json!(subject.target_at.0));
 
-    let id = |value: &Option<crate::shared::ids::Id>| value.as_ref().map(|id| json!(id.0));
+    let id = |value: &Option<kernel::ids::Id>| value.as_ref().map(|id| json!(id.0));
 
     let optional = [
         ("chat_id", id(&attribution.chat_id)),
@@ -100,11 +97,10 @@ pub fn score_event(subject: &ScoreSubject, score: &Score) -> RawEvent {
 
 #[cfg(test)]
 mod tests {
+    use agent::scoring::{Attribution, DimensionScore, ScoreTarget, TargetSource};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        agent::scoring::{Attribution, DimensionScore, ScoreTarget, TargetSource},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     #[test]
     fn a_rules_score_carries_its_dimensions_and_attribution() {

@@ -13,17 +13,17 @@ use axum::{
     extract::{Path, State},
     routing::{get, post, put},
 };
+use domain::{
+    alerting::remediation::{KubernetesCluster, RemediationTarget},
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{alerting::remediation::kubernetes, iam::IamContext},
-    domain::{
-        alerting::remediation::{KubernetesCluster, RemediationTarget},
-        iam::permission,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::alerting::remediation::kubernetes,
 };
 
 pub(super) fn routes() -> Router<AppState> {

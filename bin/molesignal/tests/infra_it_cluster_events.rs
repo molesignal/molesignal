@@ -19,20 +19,17 @@
 
 mod common;
 
-use molesignal::{
-    config::MetaDatabaseSettings,
-    domain::federation::{CloudEvent, CudAction, ResourceKind, wins},
-    infra::persistence::{
-        MetaStore,
-        repositories::cluster::events::{
-            ClusterEventOutboxRepository, ClusterOrgLinkRepository,
-            ClusterResourceVersionRepository, OrgLink, PgClusterEventOutboxRepository,
-            PgClusterOrgLinkRepository, PgClusterResourceVersionRepository, PgSeenEventsRepository,
-            SeenEventsRepository,
-        },
+use domain::federation::{CloudEvent, CudAction, ResourceKind, wins};
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::{
+    MetaStore,
+    repositories::cluster::events::{
+        ClusterEventOutboxRepository, ClusterOrgLinkRepository, ClusterResourceVersionRepository,
+        OrgLink, PgClusterEventOutboxRepository, PgClusterOrgLinkRepository,
+        PgClusterResourceVersionRepository, PgSeenEventsRepository, SeenEventsRepository,
     },
-    shared::{ids::Id, time::TimestampMicros},
 };
+use settings::MetaDatabaseSettings;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")

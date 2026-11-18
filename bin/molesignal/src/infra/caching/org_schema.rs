@@ -17,12 +17,9 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use domain::stream::{StreamDefinition, StreamMutationObserver, StreamType};
+use kernel::ids::Id;
 use parking_lot::RwLock;
-
-use crate::{
-    domain::stream::{StreamDefinition, StreamMutationObserver, StreamType},
-    shared::ids::Id,
-};
 
 type Key = (String, String, StreamType);
 
@@ -79,11 +76,10 @@ impl StreamMutationObserver for OrgSchemaCache {
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{Retention, Schema};
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{
-        domain::stream::{Retention, Schema},
-        shared::time::TimestampMicros,
-    };
 
     fn mk(org: &str, name: &str, t: StreamType) -> Arc<StreamDefinition> {
         Arc::new(StreamDefinition {

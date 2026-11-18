@@ -7,18 +7,16 @@
 
 use std::collections::HashMap;
 
+use domain::alerting::{
+    escalation::{EscalationStep, EscalationTarget},
+    incident::Incident,
+    timeline::TimelineKind,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::json;
 
 use super::EscalationDispatcher;
-use crate::{
-    app::notify::Reachability,
-    domain::alerting::{
-        escalation::{EscalationStep, EscalationTarget},
-        incident::Incident,
-        timeline::TimelineKind,
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::app::notify::Reachability;
 
 /// 一轮调度里查过的人。
 pub(super) type ReachCache = HashMap<Id, Reachability>;

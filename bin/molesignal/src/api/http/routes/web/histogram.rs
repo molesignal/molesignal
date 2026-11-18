@@ -12,10 +12,9 @@
 
 use std::{future::Future, time::Duration};
 
+use kernel::{Error, Result};
 use serde::Serialize;
 use serde_json::Value;
-
-use crate::shared::{Error, Result};
 
 pub(super) mod bars;
 
@@ -252,7 +251,7 @@ impl BucketPlan {
 /// Whether a count may read `rows` rows. One query reads no more than
 /// `[querier].max_scan_rows`, and a count is one query.
 pub(super) fn within_scan_limit(rows: u64) -> bool {
-    let limit = crate::config::get().querier.max_scan_rows;
+    let limit = settings::get().querier.max_scan_rows;
 
     limit == 0 || rows <= limit
 }

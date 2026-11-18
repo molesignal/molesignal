@@ -6,20 +6,18 @@
 //! 组织第一次读时（或删光之后再读时）写入常用的几种，只在这一节还空着时写，同时读的两个请求不会重复写；
 //! 写入时间按常用顺序错开一微秒。增改删在事务里锁住这一节再改。
 
+use agent::{
+    currencies::{CurrencyRepository, DEFAULT_CURRENCIES, PriceCurrency},
+    usage::Currency,
+};
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgConnection, PgPool, types::Json};
 
 use super::super::{
     org_settings::{self, sections::AGENT_CURRENCIES},
     sqlx_err,
-};
-use crate::{
-    agent::{
-        currencies::{CurrencyRepository, DEFAULT_CURRENCIES, PriceCurrency},
-        usage::Currency,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 /// `agent.currencies` 里的一种币种。

@@ -3,15 +3,12 @@
 
 use std::collections::HashMap;
 
-use serde::Serialize;
-
-use crate::{
-    domain::intake::usage::{
-        budget::{BudgetPeriod, BudgetState, IntakeBudget},
-        source::{IntakeUsageRepository, UsageDimension, UsageSelection},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+use domain::intake::usage::{
+    budget::{BudgetPeriod, BudgetState, IntakeBudget},
+    source::{IntakeUsageRepository, UsageDimension, UsageSelection},
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use serde::Serialize;
 
 /// How a budget stands in the period under way.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -107,9 +104,9 @@ pub async fn budget_standings(
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use domain::intake::usage::source::{IntakeUsageBucket, IntakeUsageRow, SourceUsage};
 
     use super::*;
-    use crate::domain::intake::usage::source::{IntakeUsageBucket, IntakeUsageRow, SourceUsage};
 
     const DAY: i64 = 86_400 * 1_000_000;
     const MIB: u64 = 1024 * 1024;

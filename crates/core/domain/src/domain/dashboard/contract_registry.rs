@@ -4,10 +4,9 @@
 //! Immutable Dashboard contract publications and the global authoring binding.
 
 use async_trait::async_trait;
+use kernel::{Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::shared::{Result, time::TimestampMicros};
 
 pub const DASHBOARD_AUTHORING_CAPABILITY: &str = "dashboard.authoring.v1";
 pub const DASHBOARD_MODEL_CONTRACT: &str = "dashboard.model";

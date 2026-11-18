@@ -14,9 +14,8 @@ mod tests;
 mod text;
 mod url;
 
+use domain::rum::ScrubKind;
 use serde_json::{Map, Value};
-
-use crate::domain::rum::ScrubKind;
 
 /// The addresses of an event, by the names of the fields along the way.
 const ADDRESSES: [&[&str]; 5] = [

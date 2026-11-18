@@ -3,13 +3,11 @@
 
 use std::collections::HashSet;
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::{
-        alerting::incident::Severity, status_page::ComponentStatus, synthetics::MonitorState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::domain::{
+    alerting::incident::Severity, status_page::ComponentStatus, synthetics::MonitorState,
 };
 
 /// The most dependencies one component can have.

@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use contracts::ContractIssue;
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{PreflightReport, VisualizationCapability};
-use crate::{
-    domain::dashboard::Dashboard,
-    shared::{contracts::ContractIssue, ids::Id, time::TimestampMicros},
-};
+use crate::domain::dashboard::Dashboard;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

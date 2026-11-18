@@ -3,13 +3,11 @@
 
 use std::{num::NonZeroU16, str::FromStr};
 
-use crate::{
-    domain::synthetics::{
-        BrowserAction, MonitorKind, MonitorRevision, MonitorSchedule, MonitorSpec,
-        MultiLocationPolicy, SshAuthentication, ValueSource,
-    },
-    shared::{Error, Result},
+use domain::synthetics::{
+    BrowserAction, MonitorKind, MonitorRevision, MonitorSchedule, MonitorSpec, MultiLocationPolicy,
+    SshAuthentication, ValueSource,
 };
+use kernel::{Error, Result};
 
 mod assertions;
 mod http;
@@ -397,13 +395,11 @@ fn validate_nonempty_value(value: &ValueSource, label: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::validate_grpc_endpoint;
-    use crate::{
-        app::synthetics::model::{CreateMonitorInput, build_revision},
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use crate::app::synthetics::model::{CreateMonitorInput, build_revision};
 
     /// Why an endpoint is turned down, if it is.
     fn refusal(endpoint: &str, use_tls: bool) -> Option<String> {

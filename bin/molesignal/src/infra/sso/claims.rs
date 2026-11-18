@@ -7,12 +7,9 @@
 //! `email | preferred_username`。整条路径恰好是一个 key（如 Auth0 的
 //! `https://example.com/roles`）时直接按 key 取。
 
+use domain::iam::SsoFieldMapping;
+use kernel::{Error, Result};
 use serde_json::Value;
-
-use crate::{
-    domain::iam::SsoFieldMapping,
-    shared::{Error, Result},
-};
 
 /// 从外部身份源取出、尚未落到本地账号的身份。
 #[derive(Debug, Clone, PartialEq, Eq)]

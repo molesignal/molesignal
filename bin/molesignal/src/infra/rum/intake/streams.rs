@@ -6,15 +6,12 @@
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
-use moka::sync::Cache;
-
-use crate::{
-    domain::{
-        rum::event::{RumStream, stream_schema},
-        stream::{Schema, StreamDefinition, StreamRepository, StreamType},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::{
+    rum::event::{RumStream, stream_schema},
+    stream::{Schema, StreamDefinition, StreamRepository, StreamType},
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use moka::sync::Cache;
 
 /// How long an organization's streams are taken to be in place. A stream deleted by hand is made
 /// again within this time; until then a write to it is a plain write to a missing stream.
@@ -123,10 +120,10 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use async_trait::async_trait;
+    use domain::stream::{FieldDef, FieldType};
     use parking_lot::Mutex;
 
     use super::*;
-    use crate::domain::stream::{FieldDef, FieldType};
 
     #[derive(Default)]
     struct MemStreams {

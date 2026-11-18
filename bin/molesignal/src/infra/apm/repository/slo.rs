@@ -4,17 +4,15 @@
 //! Service level objectives as people set them. What an objective has met
 //! is read from the APM buckets when asked, never stored.
 
+use domain::apm::{ServiceLevelObjective, SloKind, TransactionIdentity};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{
     PgPool, Row,
     postgres::{PgRow, types::PgInterval},
 };
 
 use super::codec::{interval, interval_micros};
-use crate::{
-    domain::apm::{ServiceLevelObjective, SloKind, TransactionIdentity},
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const COLUMNS: &str = "id, name, description, service_namespace, service_name, environment,
     transaction, kind, latency_threshold, objective, window_days, created_by,

@@ -2,17 +2,15 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::notify::{
+    connector::{ConnectorCapabilities, ConnectorStatus, ConnectorTestStatus, NotifyConnector},
+    repositories::NotifyConnectorRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::notify::{
-        connector::{ConnectorCapabilities, ConnectorStatus, ConnectorTestStatus, NotifyConnector},
-        repositories::NotifyConnectorRepository,
-    },
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
 
 pub struct PgNotifyConnectorRepository {
     pool: PgPool,

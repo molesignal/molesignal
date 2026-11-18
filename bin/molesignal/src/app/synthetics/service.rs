@@ -3,21 +3,19 @@
 
 use std::sync::Arc;
 
+use domain::synthetics::{
+    ActiveMonitorRevision, AgentStatus, LocationExecution, LocationHealth, LocationLifecycle,
+    LocationScope, MonitorLifecycle, MonitorRevision, MonitorState, ProbeAgent, ProbeLocation,
+    SecretMaterial, SyntheticMonitor, SyntheticRepository, SyntheticSecret, SyntheticSecretVersion,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     model::{
         CreateLocationInput, CreateMonitorInput, CreateSecretInput, UpdateAgentConfigurationInput,
         build_revision, normalize_agent_labels, validate_code, validate_name, validate_tags,
     },
     next_due_at, validate_revision,
-};
-use crate::{
-    domain::synthetics::{
-        ActiveMonitorRevision, AgentStatus, LocationExecution, LocationHealth, LocationLifecycle,
-        LocationScope, MonitorLifecycle, MonitorRevision, MonitorState, ProbeAgent, ProbeLocation,
-        SecretMaterial, SyntheticMonitor, SyntheticRepository, SyntheticSecret,
-        SyntheticSecretVersion,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub struct SyntheticService {
@@ -169,7 +167,7 @@ impl SyntheticService {
         actor_id: &Id,
         location_id: &Id,
         ttl_minutes: u32,
-    ) -> Result<crate::domain::synthetics::ProbeRegisterInstructions> {
+    ) -> Result<domain::synthetics::ProbeRegisterInstructions> {
         use base64::Engine as _;
         use sha2::{Digest, Sha256};
 
@@ -199,13 +197,13 @@ impl SyntheticService {
                 .saturating_add(i64::from(ttl_minutes) * 60 * 1_000_000),
         );
 
-        let plaintext = crate::infra::persistence::repositories::api_tokens::generate_token();
+        let plaintext = postgres::repositories::api_tokens::generate_token();
         let hash = Sha256::digest(plaintext.as_bytes()).to_vec();
 
         let token = self
             .repository
             .create_register_token(
-                crate::domain::synthetics::ProbeRegisterToken {
+                domain::synthetics::ProbeRegisterToken {
                     id: Id::new(),
                     organization_id: org_id.clone(),
                     location_id: location_id.clone(),
@@ -228,7 +226,7 @@ impl SyntheticService {
             self.register_endpoint, plaintext, ca_base64
         );
 
-        Ok(crate::domain::synthetics::ProbeRegisterInstructions {
+        Ok(domain::synthetics::ProbeRegisterInstructions {
             token,
             register_token: plaintext,
             register_endpoint: self.register_endpoint.clone(),

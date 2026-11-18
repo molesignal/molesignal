@@ -8,9 +8,8 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// Longest message kept with an issue, in bytes.
 pub const MAX_MESSAGE_LEN: usize = 512;

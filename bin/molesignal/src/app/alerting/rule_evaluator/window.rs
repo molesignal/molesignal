@@ -5,18 +5,17 @@
 
 use std::time::Duration;
 
-use super::RuleEvaluator;
-use crate::{
-    app::alerting::{apm_source::reading_result, rum_source},
-    domain::{
-        alerting::rule::{AlertRule, MAX_ALERT_GROUPS},
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
+use domain::{
+    alerting::rule::{AlertRule, MAX_ALERT_GROUPS},
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
 };
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
+
+use super::RuleEvaluator;
+use crate::app::alerting::{apm_source::reading_result, rum_source};
 
 /// 规则查询最多取多少行。按列拆分的 SQL 规则多取一行，看得出组数有没有超过上限。PromQL 的 limit 大于 1
 /// 会改走 range 查询，而即时查询本来就返回全部 series，所以仍是 1。

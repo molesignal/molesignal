@@ -14,15 +14,13 @@ mod state;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use domain::{intake::RawEvent, rum::RumSessionMerger};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use moka::sync::Cache;
 use serde_json::{Map, Value};
 use tokio::sync::{Mutex, Semaphore};
 
 use self::state::SessionState;
-use crate::{
-    domain::{intake::RawEvent, rum::RumSessionMerger},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// A session that began less than this long ago is taken to be new: there is nothing written for
 /// it to read back.

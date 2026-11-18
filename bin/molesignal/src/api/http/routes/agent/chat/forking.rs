@@ -3,24 +3,21 @@
 
 //! 分叉会话：从一条回答起，把会话复制成一个新会话，归分叉的人。
 
+use agent::scope::Scope;
 use axum::{
     Extension, Json,
     extract::{Path, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::Chat;
 use serde::Deserialize;
 
 use super::{
     super::viewer::readable_chat,
     messages::{ChatResp, to_chat_resp},
 };
-use crate::{
-    agent::scope::Scope,
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -9,10 +9,9 @@
 //! writing goes through intake, which the probe's report should not wait on. When the queue is
 //! full the row is dropped, and the run stays in Postgres all the same.
 
+use domain::synthetics::{ProbeOutcome, SyntheticMonitor, SyntheticResult};
 use serde_json::{Map, Value, json};
 use tokio::sync::mpsc;
-
-use crate::domain::synthetics::{ProbeOutcome, SyntheticMonitor, SyntheticResult};
 
 /// The internal stream the runs go to.
 pub const RESULT_STREAM: &str = "_synthetic_results";

@@ -12,13 +12,10 @@
 //! 里，任何节点都能接着验证。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::{cipher::CipherRootKey, sqlx_err};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, types::Json};
-
-use crate::{
-    infra::{cipher::CipherRootKey, persistence::sqlx_err},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 每个账号同一用途同时未过期的请求上限，挡住反复发起的登录。
 pub const MAX_PENDING_PER_USER: i64 = 5;

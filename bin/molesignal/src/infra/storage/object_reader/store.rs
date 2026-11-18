@@ -186,7 +186,7 @@ impl ObjectStore for CachedObjectStore {
     }
 }
 
-fn object_meta(location: Path, object: &crate::domain::storage::StoredObject) -> ObjectMeta {
+fn object_meta(location: Path, object: &domain::storage::StoredObject) -> ObjectMeta {
     ObjectMeta {
         location,
         last_modified: DateTime::<Utc>::from_timestamp(0, 0).expect("unix epoch is valid"),

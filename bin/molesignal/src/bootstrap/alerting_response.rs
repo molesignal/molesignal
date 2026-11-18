@@ -6,31 +6,30 @@
 
 use std::sync::Arc;
 
+use domain::{
+    alerting::timeline::IncidentTimelineRepository,
+    apm::ApmCatalogRepository,
+    notify::repositories::{NotifyDeliveryRepository, UserNotifyPreferenceRepository},
+};
+use postgres::repositories::{
+    calendar_feeds::PgCalendarFeedRepository,
+    incident_response::PgIncidentResponseRepository,
+    incidents::rca::PgIncidentRcaRepository,
+    notify::{PgNotifyConnectorRepository, PgUserNotifyEndpointRepository},
+    remediation::PgRemediationRepository,
+    schedule_swaps::PgSwapRequestRepository,
+    tickets::PgTicketRepository,
+    workspace_preference_defaults::PgWorkspacePreferenceDefaultsRepository,
+};
+use settings::Settings;
+
 use super::core::Core;
-use crate::{
-    app::{
-        alerting::{
-            AlertInsights, CalendarFeeds, IncidentResponseService, PostmortemService,
-            RelatedIncidents, RemediationService, ShiftSwaps, TicketService,
-        },
-        notify::NotifyEngine,
+use crate::app::{
+    alerting::{
+        AlertInsights, CalendarFeeds, IncidentResponseService, PostmortemService, RelatedIncidents,
+        RemediationService, ShiftSwaps, TicketService,
     },
-    config::Settings,
-    domain::{
-        alerting::timeline::IncidentTimelineRepository,
-        apm::ApmCatalogRepository,
-        notify::repositories::{NotifyDeliveryRepository, UserNotifyPreferenceRepository},
-    },
-    infra::persistence::repositories::{
-        calendar_feeds::PgCalendarFeedRepository,
-        incident_response::PgIncidentResponseRepository,
-        incidents::rca::PgIncidentRcaRepository,
-        notify::{PgNotifyConnectorRepository, PgUserNotifyEndpointRepository},
-        remediation::PgRemediationRepository,
-        schedule_swaps::PgSwapRequestRepository,
-        tickets::PgTicketRepository,
-        workspace_preference_defaults::PgWorkspacePreferenceDefaultsRepository,
-    },
+    notify::NotifyEngine,
 };
 
 /// 告警运行时已经建好、这几项服务要用的部件。

@@ -11,10 +11,12 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::Result;
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{api::AppState, app::iam::IamContext, domain::iam::permission, shared::Result};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/traces/service_graph", get(service_graph))

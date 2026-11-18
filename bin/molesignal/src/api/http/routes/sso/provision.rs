@@ -13,14 +13,14 @@
 
 use std::collections::BTreeMap;
 
+use domain::iam::{IamMembership, IamScope, Organization, SsoProvider, User};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{linking, policy};
 use crate::{
     api::{AppState, http::routes::auth::SessionView},
-    domain::iam::{IamMembership, IamScope, Organization, SsoProvider, User},
     infra::sso::{ExternalIdentity, LinkedIdentity, SsoIdentity, SsoIdentityProof},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) struct FederatedIdentity {

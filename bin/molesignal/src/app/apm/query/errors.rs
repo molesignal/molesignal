@@ -3,6 +3,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use domain::apm::{BucketDimension, BucketKind, ErrorGroupRecord, ErrorIssueStatus, MergedBucket};
+use kernel::{Error, Result};
 use serde::Deserialize;
 
 use super::{
@@ -13,10 +15,6 @@ use super::{
     common::{overflow_dimensions, signal_handle},
     pagination::paginate,
     ranking::transaction_summaries,
-};
-use crate::{
-    domain::apm::{BucketDimension, BucketKind, ErrorGroupRecord, ErrorIssueStatus, MergedBucket},
-    shared::{Error, Result},
 };
 
 /// Which error groups a list keeps, by what is being done about them.
@@ -243,7 +241,7 @@ pub(super) fn error_summaries(
     context: &ApmQueryContext,
     groups: &[ErrorGroupRecord],
     buckets: &[MergedBucket],
-    histogram: &crate::domain::apm::HistogramSchema,
+    histogram: &domain::apm::HistogramSchema,
 ) -> Result<Vec<ErrorSummary>> {
     let mut by_fingerprint = HashMap::<String, Vec<MergedBucket>>::new();
 

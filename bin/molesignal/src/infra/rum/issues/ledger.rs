@@ -14,12 +14,9 @@ use std::{
     time::Duration,
 };
 
+use domain::rum::{RumVersionRepository, version_key};
+use kernel::{ids::Id, time::TimestampMicros};
 use moka::sync::Cache;
-
-use crate::{
-    domain::rum::{RumVersionRepository, version_key},
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 /// Versions remembered as written, and for how long. A version dropped from memory is written
 /// again, which the ledger takes as nothing new.
@@ -92,10 +89,10 @@ mod tests {
     use std::collections::HashMap;
 
     use async_trait::async_trait;
+    use kernel::Result;
     use parking_lot::Mutex;
 
     use super::*;
-    use crate::shared::Result;
 
     #[derive(Default)]
     struct Recording {
@@ -113,7 +110,7 @@ mod tests {
             _at: TimestampMicros,
         ) -> Result<()> {
             if *self.fail.lock() {
-                return Err(crate::shared::Error::unavailable("down"));
+                return Err(kernel::Error::unavailable("down"));
             }
 
             self.calls

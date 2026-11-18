@@ -3,10 +3,11 @@
 
 //! 交给模型的工具清单，按 provider 期望的格式。
 
+use agent::chat::Provider;
 use serde_json::{Value, json};
+use tool_runtime::catalog::builtin_tools;
 
 use super::super::toolsets;
-use crate::agent::{chat::Provider, tools::builtin_tools};
 
 /// 把 [`builtin_tools`] 转成 provider 期望的 tools schema。
 /// OpenAI / OpenAI-compatible：`{type:function, function:{name,description,parameters}}`；

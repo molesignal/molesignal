@@ -17,16 +17,14 @@ use arrow::{
     util::display::array_value_to_string,
 };
 use datafusion::{datasource::MemTable, prelude::SessionContext};
+use domain::rum::event::{RumStream, field, stream_schema};
+use kernel::cursor::CursorDirection;
 
 use super::{
     Column, Filter, ListRequest, Scope, Seek, conditions, facet_sql, histogram_sql, list_sql,
     session_rows_sql, text_columns, text_conditions,
 };
-use crate::{
-    domain::rum::event::{RumStream, field, stream_schema},
-    infra::{query::analyzer::session_context, storage::arrow_schema::to_arrow},
-    shared::cursor::CursorDirection,
-};
+use crate::infra::{query::analyzer::session_context, storage::arrow_schema::to_arrow};
 
 mod aggregates;
 mod members;

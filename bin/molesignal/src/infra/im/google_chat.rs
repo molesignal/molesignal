@@ -17,24 +17,19 @@
 
 use std::time::Duration;
 
+use agent::im::{CardAction, CardAnswer, ConversationKind, Inbound, NoticeKind, Sender};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
+use domain::notify::buttons::AlertButtonValue;
+use kernel::{Error, Result};
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 use super::Listener;
-use crate::{
-    agent::im::{CardAction, CardAnswer, ConversationKind, Inbound, NoticeKind, Sender},
-    domain::notify::buttons::AlertButtonValue,
-    infra::notify::adapters::{
-        GOOGLE_CHAT_ALERT_FUNCTION, GOOGLE_CHAT_MAX_TEXT_CHARS, GOOGLE_CHAT_SCOPE,
-        GOOGLE_PUBSUB_SCOPE, GoogleChatApp, google_chat_card, google_chat_check as check,
-        google_chat_text, truncate_chars,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
+use crate::infra::notify::adapters::{
+    GOOGLE_CHAT_ALERT_FUNCTION, GOOGLE_CHAT_MAX_TEXT_CHARS, GOOGLE_CHAT_SCOPE, GOOGLE_PUBSUB_SCOPE,
+    GoogleChatApp, google_chat_card, google_chat_check as check, google_chat_text, truncate_chars,
 };
 
 /// 一次最多拉这么多条。

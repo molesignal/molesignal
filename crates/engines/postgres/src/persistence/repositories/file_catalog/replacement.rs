@@ -7,6 +7,10 @@
 //! 抢先提交）就整体回滚返回 Conflict，冲突方必须删掉自己刚写出的新对象。
 //! 所有旧对象只入延迟 GC 队列，绝不在事务里直接删除。
 
+use domain::storage::{
+    ArtifactState, GcReason, OrganizationScope, ReplaceSegments, SegmentState, TombstoneSegments,
+};
+use kernel::{Error, Result};
 use sqlx::{PgPool, Row};
 
 use super::{
@@ -14,13 +18,6 @@ use super::{
     writes::{
         bump_dataset_version, insert_segment, lock_dataset_version, tombstone_segment_artifacts,
     },
-};
-use crate::{
-    domain::storage::{
-        ArtifactState, GcReason, OrganizationScope, ReplaceSegments, SegmentState,
-        TombstoneSegments,
-    },
-    shared::{Error, Result},
 };
 
 mod transform;

@@ -5,15 +5,12 @@
 
 use std::time::Duration;
 
+use kernel::{Error, Result};
 use reqwest::Client;
 use serde::Serialize;
 use serde_json::Value;
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
-
-use crate::shared::{
-    Error, Result,
-    http_trace::{self, HttpTarget},
-};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]

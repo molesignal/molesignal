@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use sqlx::{Row, types::Json};
-
-use crate::{
-    domain::status_page::{
-        ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus,
-        ComponentVisibility, DependencyHealth, DependencyMode, DependencyStatus, HealthCause,
-        IncidentImpact, PublicIncidentStatus, StatusPage, StatusPageComponent,
-        StatusPageComponentStatusEvent, StatusPageIncident, StatusPageIncidentKind,
-        StatusPageIncidentUpdate, StatusPageLifecycle, StatusPagePostmortem,
-        StatusPagePublicationState, StatusPageVisibility,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::status_page::{
+    ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus, ComponentVisibility,
+    DependencyHealth, DependencyMode, DependencyStatus, HealthCause, IncidentImpact,
+    PublicIncidentStatus, StatusPage, StatusPageComponent, StatusPageComponentStatusEvent,
+    StatusPageIncident, StatusPageIncidentKind, StatusPageIncidentUpdate, StatusPageLifecycle,
+    StatusPagePostmortem, StatusPagePublicationState, StatusPageVisibility,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use sqlx::{Row, types::Json};
 
 pub(super) const PAGE_COLS: &str = "id, org_id, name, slug, logo_url, brand_color,
     custom_domain, timezone, language, languages, history_days, visibility,

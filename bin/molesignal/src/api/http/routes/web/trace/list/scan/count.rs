@@ -15,8 +15,20 @@
 use std::sync::Arc;
 
 use arrow::array::{Array, Int64Array, RecordBatch};
+use domain::{
+    storage::{DatasetTypeId, QueryFile, type_id::builtin},
+    stream::StreamType,
+};
 use futures::StreamExt;
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use object_store::ObjectStore;
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
+};
 
 use super::{
     TEXT_COLUMNS, TraceCondition, TraceListContext, files::file_may_match_query, integer_at,
@@ -30,22 +42,9 @@ use crate::{
             trace::latency::{LatencyTally, latency_edges},
         },
     },
-    domain::{
-        storage::{DatasetTypeId, QueryFile, type_id::builtin},
-        stream::StreamType,
-    },
     infra::storage::{
         org_scoped_store::scoped_to_org,
         parquet::reader::{ParquetReader, ReadOptions},
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-        trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-            TRACE_SUMMARY_START_NS_FIELD,
-        },
     },
 };
 
@@ -325,14 +324,12 @@ mod tests {
         array::{StringArray, UInt64Array},
         datatypes::{DataType, Field, Schema},
     };
+    use signals::trace::{
+        normalization::canonical_trace_schema, summary::TRACE_SUMMARY_SPAN_COUNT_FIELD,
+    };
 
     use super::*;
-    use crate::{
-        api::http::routes::web::trace::list::{TraceListSort, filter},
-        shared::trace::{
-            normalization::canonical_trace_schema, summary::TRACE_SUMMARY_SPAN_COUNT_FIELD,
-        },
-    };
+    use crate::api::http::routes::web::trace::list::{TraceListSort, filter};
 
     /// Bars of a millisecond from 10 ms, holding what began in `[10.5 ms, 13 ms)`.
     fn plan() -> BucketPlan {

@@ -8,9 +8,8 @@
 //! `POST /query/recommendations` 以无状态方式调用；统计通常取自上一次查询响应的
 //! `scanned_rows` / `took_ms`。未来也可由周期任务批量分析慢查询（需先落慢查询采集）。
 
+use domain::query::{QueryLanguage, SlowQuery};
 use serde::{Deserialize, Serialize};
-
-use crate::domain::query::{QueryLanguage, SlowQuery};
 
 /// 慢查询毫秒阈值。
 const SLOW_MS: u64 = 3_000;

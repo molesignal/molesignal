@@ -12,25 +12,23 @@
 use std::{collections::HashMap, sync::OnceLock};
 
 use arrow::{compute::concat_batches, record_batch::RecordBatch};
+use domain::{
+    storage::{
+        DataSegment, DatasetSelection, DatasetState, DatasetTypeId, OrganizationScope, Partition,
+        PartitionManifestPointer, PhysicalDataset, PublishDatasetTransform, builtin_registry,
+        primary_dataset_type, type_id,
+    },
+    stream::{Downsample, StreamDefinition, StreamType},
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use prometheus::IntCounter;
+use signals::metrics::register_int_counter;
 
 use super::{Compactor, DAY_MICROS, failures, valid_primary};
-use crate::{
-    domain::{
-        storage::{
-            DataSegment, DatasetSelection, DatasetState, DatasetTypeId, OrganizationScope,
-            Partition, PartitionManifestPointer, PhysicalDataset, PublishDatasetTransform,
-            builtin_registry, primary_dataset_type, type_id,
-        },
-        stream::{Downsample, StreamDefinition, StreamType},
-    },
-    infra::storage::downsample::downsample_batch,
-    shared::{
-        Error, Result,
-        metrics::register_int_counter,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::infra::storage::downsample::downsample_batch;
 
 struct PartitionInput {
     manifest: Option<PartitionManifestPointer>,

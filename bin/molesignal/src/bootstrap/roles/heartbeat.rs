@@ -12,15 +12,12 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::cluster::PeerRole;
+use kernel::{drain::DrainController, time::TimestampMicros};
+use postgres::repositories::cluster::nodes::ClusterNodesRepository;
+use settings::Role;
 use tokio::{sync::Mutex, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
-
-use crate::{
-    app::cluster::PeerRole,
-    config::Role,
-    infra::persistence::repositories::cluster::nodes::ClusterNodesRepository,
-    shared::{drain::DrainController, time::TimestampMicros},
-};
 
 /// 注销最多等这么久：元数据库不可达时不拖住关停，其余节点在心跳超时后摘除本节点。
 const LEAVE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -184,9 +181,10 @@ pub fn spawn_sweeper(repo: Arc<dyn ClusterNodesRepository>) -> JoinHandle<()> {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use kernel::Result;
+    use postgres::repositories::cluster::nodes::ClusterNodeRow;
 
     use super::*;
-    use crate::{infra::persistence::repositories::cluster::nodes::ClusterNodeRow, shared::Result};
 
     /// 按顺序记录心跳与注销的成员表。
     #[derive(Default)]

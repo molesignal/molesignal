@@ -3,11 +3,12 @@
 
 //! 工具调用的证据：落在 assistant 消息的 `evidence_json` 里，大的原始结果放对象存储。
 
+use kernel::ids::Id;
 use object_store::{ObjectStoreExt, PutPayload, path::Path as ObjPath};
 use serde_json::{Value, json};
 
 use super::CHAT_OBJECT_LAYOUT_VERSION;
-use crate::{api::AppState, shared::ids::Id};
+use crate::api::AppState;
 
 /// 单条 tool 原始结果内联上限（字节）；超此值 spill 到对象存储，evidence 只留 object_key + 摘要。
 const INLINE_TOOL_RESULT_LIMIT: usize = 16 * 1024;

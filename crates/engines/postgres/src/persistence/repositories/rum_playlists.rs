@@ -4,16 +4,13 @@
 //! PostgreSQL adapter for the playlists of RUM sessions.
 
 use async_trait::async_trait;
+use domain::rum::{
+    MAX_PLAYLIST_SESSIONS, RumPlaylist, RumPlaylistEntry, RumPlaylistPatch, RumPlaylistRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgConnection, PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::rum::{
-        MAX_PLAYLIST_SESSIONS, RumPlaylist, RumPlaylistEntry, RumPlaylistPatch,
-        RumPlaylistRepository,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgRumPlaylistRepository {
     pool: PgPool,

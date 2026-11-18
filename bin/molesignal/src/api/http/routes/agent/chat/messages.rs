@@ -8,10 +8,18 @@
 
 use std::collections::HashMap;
 
+use agent::{
+    commands::{CommandRecord, CommandSource},
+    scope::{ChatAccess, Scope, Viewer, can_delete_chat},
+    usage::Cost,
+};
 use axum::{
     Extension, Json,
     extract::{Path, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::{Chat, ChatMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -22,18 +30,7 @@ use super::{
     },
     archive::archive_chat,
 };
-use crate::{
-    agent::{
-        commands::{CommandRecord, CommandSource},
-        scope::{ChatAccess, Scope, Viewer, can_delete_chat},
-        usage::Cost,
-    },
-    api::{AppState, http::interface_language::interface_language},
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::agent::chats::{Chat, ChatMessage},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::interface_language::interface_language};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

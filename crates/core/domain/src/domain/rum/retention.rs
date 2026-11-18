@@ -14,9 +14,8 @@
 
 use std::collections::HashSet;
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result};
 
 /// Most filters an application has.
 pub const MAX_RETENTION_FILTERS: usize = 10;

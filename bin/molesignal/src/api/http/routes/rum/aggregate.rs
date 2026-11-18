@@ -12,18 +12,15 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::Result;
 use serde::Deserialize;
 
 use super::{address::json_list, reader::Reader, selection::Selection};
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        rum::aggregate::{self, descending},
-    },
-    domain::iam::permission,
+    app::rum::aggregate::{self, descending},
     infra::rum::query::{Aggregate, Filter, MeasureSpec},
-    shared::Result,
 };
 
 #[derive(Debug, Default, Deserialize)]

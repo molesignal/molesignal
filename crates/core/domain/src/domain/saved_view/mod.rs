@@ -4,12 +4,10 @@
 //! Saved view bounded context：保存的 SQL/PromQL 查询。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::query::QueryLanguage,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::query::QueryLanguage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

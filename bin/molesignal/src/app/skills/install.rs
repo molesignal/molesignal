@@ -4,20 +4,18 @@
 //! 上传一个 Skill 包：解开、校验、存进对象存储，再记一行。同一作用域里已经有同名 Skill 时，
 //! 要明说替换：替换保留原 ID，`/名称` 照旧可用，旧版本的文件随后删除。
 
+use agent::{
+    commands::find_builtin,
+    scope::{Scope, Viewer},
+    skills::{
+        MAX_PACKAGE_BYTES, PACKAGE_LIMITS, SkillBundle, SkillSource, StoredSkill, archive_kind,
+        bundle_from_package, unpack, zip_files,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStoreExt as _, PutPayload, path::Path as ObjPath};
 
 use super::{OBJECT_ROOT, SkillService, object_prefix};
-use crate::{
-    agent::{
-        commands::find_builtin,
-        scope::{Scope, Viewer},
-        skills::{
-            MAX_PACKAGE_BYTES, PACKAGE_LIMITS, SkillBundle, SkillSource, StoredSkill, archive_kind,
-            bundle_from_package, unpack, zip_files,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 一次上传。
 pub struct InstallRequest {
@@ -220,8 +218,9 @@ impl SkillService {
 
 #[cfg(test)]
 mod tests {
+    use agent::skills::{ArchiveKind, SKILL_FILE, SkillFile};
+
     use super::*;
-    use crate::agent::skills::{ArchiveKind, SKILL_FILE, SkillFile};
 
     #[test]
     fn a_skill_cannot_take_the_name_of_a_command() {

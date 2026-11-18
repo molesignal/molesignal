@@ -7,24 +7,23 @@
 
 use std::{sync::Arc, time::Duration};
 
+use agent::{
+    chat::{
+        ChatMessage as ExternalChatMessage, CompletionRequest, MessageRole, ModelCallObserver,
+        ToolChoice, observed_complete,
+    },
+    runs::RunEventKind,
+    titles::{TITLE_INSTRUCTION, clean_title, question_for_title},
+    usage::UsageOrigin,
+};
+use domain::iam::IamContext;
+use kernel::ids::Id;
+use postgres::repositories::agent::chats::Chat;
 use serde_json::json;
 use tokio::task::JoinHandle;
 
 use super::{super::provider::ResolvedProvider, RunControl, history::system_message};
-use crate::{
-    agent::{
-        chat::{
-            ChatMessage as ExternalChatMessage, CompletionRequest, MessageRole, ModelCallObserver,
-            ToolChoice, observed_complete,
-        },
-        runs::RunEventKind,
-        titles::{TITLE_INSTRUCTION, clean_title, question_for_title},
-        usage::UsageOrigin,
-    },
-    app::{agent_usage::UsageScope, iam::IamContext},
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::ids::Id,
-};
+use crate::app::agent_usage::UsageScope;
 
 /// 回答写完后最多再等起名这么久，好让页面拿到回答时也拿到名字。
 const WAIT: Duration = Duration::from_secs(10);

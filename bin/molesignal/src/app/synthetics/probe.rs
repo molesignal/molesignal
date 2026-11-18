@@ -3,20 +3,18 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use domain::synthetics::{
+    AgentCapacity, AgentStatus, BrowserAction, MonitorSpec, ProbeAgent, ProbeCapability,
+    ProbeLocation, ProbeTask, SecretMaterial, SshAuthentication, SyntheticRepository,
+    SyntheticResult, ValueSource,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use postgres::synthetics::{IssuedProbeCertificate, ProbeCertificateAuthority, ProbeServerTls};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use x509_cert::der::Decode as _;
 
 use super::{ProcessResultOutcome, SyntheticService};
-use crate::{
-    domain::synthetics::{
-        AgentCapacity, AgentStatus, BrowserAction, MonitorSpec, ProbeAgent, ProbeCapability,
-        ProbeLocation, ProbeTask, SecretMaterial, SshAuthentication, SyntheticRepository,
-        SyntheticResult, ValueSource,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub const PROBE_PROTOCOL_VERSION: u32 = 1;
 

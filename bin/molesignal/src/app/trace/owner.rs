@@ -10,17 +10,15 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
+use signals::{
+    tail_sampling::{TailSampler, TraceCandidate},
+    trace_metrics,
+};
 use tokio::{sync::mpsc, task::JoinHandle, time::Instant};
 use tokio_util::sync::CancellationToken;
 
 use super::{SinkEndpoint, TracePipelineConfig, fanout};
-use crate::{
-    app::apm::ApmCandidateProjector,
-    shared::{
-        tail_sampling::{TailSampler, TraceCandidate},
-        trace_metrics,
-    },
-};
+use crate::app::apm::ApmCandidateProjector;
 
 pub(super) struct CandidateOwnerRuntime {
     pub sampler: Arc<TailSampler>,

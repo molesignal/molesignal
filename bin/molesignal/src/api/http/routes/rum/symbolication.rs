@@ -3,18 +3,20 @@
 
 use std::collections::HashMap;
 
+use domain::{
+    iam::IamContext,
+    rum::{DebugArtifactKind, DebugArtifactLookup, DebugArtifactMeta},
+};
+use kernel::{Error, Result};
 use object_store::{ObjectStoreExt, path::Path as ObjectPath};
 use serde_json::{Map, Value};
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::rum::{DebugArtifactKind, DebugArtifactLookup, DebugArtifactMeta},
     infra::rum::{
         intake::Decoded,
         symbolication::{OriginalFrame, decode_artifact},
     },
-    shared::{Error, Result},
 };
 
 mod frame;

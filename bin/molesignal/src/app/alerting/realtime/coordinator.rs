@@ -17,19 +17,17 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::alerting::{
+    incident::Severity,
+    repositories::AlertRuleRepository,
+    rule::{AlertRule, AlertRuleKind},
+};
 use futures::future::join_all;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use tokio::task::JoinHandle;
 
 use super::spec::{Level, RealtimeSpec};
-use crate::{
-    app::{alerting::RuleEvaluator, cluster::WorkOwnership},
-    domain::alerting::{
-        incident::Severity,
-        repositories::AlertRuleRepository,
-        rule::{AlertRule, AlertRuleKind},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::{alerting::RuleEvaluator, cluster::WorkOwnership};
 
 /// 汇总一次的间隔。
 const TICK_EVERY: Duration = Duration::from_secs(1);

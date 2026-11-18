@@ -11,14 +11,12 @@
 
 use std::collections::BTreeSet;
 
+use domain::iam::{IamContext, IamScope};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{IamService, JWT_ISSUER, user_access_denial};
-use crate::{
-    domain::iam::{IamContext, IamScope},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// access token 的有效期。
 const ACCESS_TOKEN_TTL_SECS: i64 = 15 * 60;

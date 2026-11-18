@@ -19,17 +19,13 @@
 
 use std::{net::IpAddr, sync::Arc};
 
+use domain::iam::{InstanceSettingsRepository, SigninLimits, UserRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::{AuditEvent, AuditEventRepository};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
-use crate::{
-    domain::iam::{InstanceSettingsRepository, SigninLimits, UserRepository},
-    infra::{
-        persistence::repositories::audit_events::{AuditEvent, AuditEventRepository},
-        signin::{AttemptKeys, Quota, Settlement, SigninAttemptRepository, Tripped},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::infra::signin::{AttemptKeys, Quota, Settlement, SigninAttemptRepository, Tripped};
 
 /// 发信限额：每个邮箱每小时 5 封，每个来源每小时 20 次。注册和找回密码共用。
 const MAIL_QUOTA: Quota = Quota {
@@ -495,11 +491,10 @@ mod tests {
 
     /// 尝试到限的审计。次数记在内存里，走真实的规则。
     mod lockout_audit {
+        use domain::iam::{SigninLimits, User, UserStatus};
+
         use super::*;
-        use crate::{
-            app::iam::test_support::{AuditLog, SYSTEM_ORG, signin_limiter},
-            domain::iam::{SigninLimits, User, UserStatus},
-        };
+        use crate::app::iam::test_support::{AuditLog, SYSTEM_ORG, signin_limiter};
 
         fn source() -> Option<IpAddr> {
             Some(IpAddr::from([8, 8, 8, 8]))

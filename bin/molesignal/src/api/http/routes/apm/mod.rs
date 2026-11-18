@@ -10,24 +10,21 @@ use axum::{
     extract::{Path, Query, State},
     routing::get,
 };
+use domain::{
+    apm::{QueryResolution, SortDirection, TransactionKind},
+    iam::{IamContext, permission},
+};
+use kernel::{Result, time::TimestampMicros};
 use serde::Deserialize;
 
 use crate::{
     api::AppState,
-    app::{
-        apm::{
-            ApmQueryRequest, ApmTenantHealthResponse, DependencySummary, ErrorDetailResponse,
-            ErrorIssueFilter, ErrorListResponse, InstanceSummary, OverviewResponse, PagedResponse,
-            ServiceDetailResponse, ServiceSummary, TransactionDetailResponse, TransactionSummary,
-            VersionCompareResponse, record_apm_query_latency,
-        },
-        iam::IamContext,
+    app::apm::{
+        ApmQueryRequest, ApmTenantHealthResponse, DependencySummary, ErrorDetailResponse,
+        ErrorIssueFilter, ErrorListResponse, InstanceSummary, OverviewResponse, PagedResponse,
+        ServiceDetailResponse, ServiceSummary, TransactionDetailResponse, TransactionSummary,
+        VersionCompareResponse, record_apm_query_latency,
     },
-    domain::{
-        apm::{QueryResolution, SortDirection, TransactionKind},
-        iam::permission,
-    },
-    shared::{Result, time::TimestampMicros},
 };
 
 mod coverage;
@@ -333,12 +330,12 @@ async fn version_compare(
     let baseline = params
         .baseline
         .as_deref()
-        .ok_or_else(|| crate::shared::Error::invalid("baseline version is required"))?;
+        .ok_or_else(|| kernel::Error::invalid("baseline version is required"))?;
 
     let candidate = params
         .candidate
         .as_deref()
-        .ok_or_else(|| crate::shared::Error::invalid("candidate version is required"))?;
+        .ok_or_else(|| kernel::Error::invalid("candidate version is required"))?;
 
     let context = state.telemetry.apm_query.context(
         ctx.org_id,

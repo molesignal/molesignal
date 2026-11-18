@@ -10,14 +10,12 @@ mod common;
 mod enabled {
     use std::{fs, path::Path};
 
-    use molesignal::{
-        api::grpc::intake_server::IntakeGrpc,
-        domain::{
-            intake::RawEvent,
-            stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
-        },
-        shared::{metrics::register_int_counter, time::TimestampMicros},
+    use domain::{
+        intake::RawEvent,
+        stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
     };
+    use kernel::time::TimestampMicros;
+    use molesignal::api::grpc::intake_server::IntakeGrpc;
     use opentelemetry_proto::tonic::{
         collector::logs::v1::ExportLogsServiceRequest,
         common::v1::{AnyValue, any_value},
@@ -25,6 +23,7 @@ mod enabled {
     };
     use prost::Message;
     use serde_json::{Map, Value, json};
+    use signals::metrics::register_int_counter;
     use tonic::Request;
 
     use super::common::{
@@ -260,7 +259,7 @@ mod enabled {
             );
         }
 
-        use molesignal::protocol::intake::v1::{
+        use protocol::intake::v1::{
             PushRequest, StreamType as ProtoStreamType,
             intake_service_server::IntakeService as IntakeRpc,
         };

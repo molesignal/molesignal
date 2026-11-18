@@ -9,13 +9,11 @@
 //! so a permission added later cannot be left out of it by forgetting to name the role, and one
 //! that was given to owners earlier does not stay behind.
 
+use domain::iam::ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE;
+use kernel::{Result, ids::Id};
 use sqlx::PgPool;
 
 use super::{super::super::sqlx_err, bump_version};
-use crate::{
-    domain::iam::ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE,
-    shared::{Result, ids::Id},
-};
 
 /// Set the owner role to exactly the organization permissions of the catalog, on its built-in row
 /// and in every organization where the role already exists. Returns how many roles changed.

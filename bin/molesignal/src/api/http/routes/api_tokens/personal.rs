@@ -13,23 +13,20 @@ use axum::{
     response::Response,
     routing::{delete, get},
 };
+use domain::iam::{
+    IamContext, IamScope,
+    api_token::ApiTokenKind,
+    catalog::{IamPermissionDefinition, IamPermissionScope},
+    policy::DATA_INTAKE_POLICY,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
     IssuedTokenResp, ManagedTokenResp, RequestedScope, TokenResp, TokenSpec, expires_at,
     issue_scope, new_token, secret_response, validate_name,
 };
-use crate::{
-    api::{AppState, http::middleware::Permission},
-    app::iam::IamContext,
-    domain::iam::{
-        IamScope,
-        api_token::ApiTokenKind,
-        catalog::{IamPermissionDefinition, IamPermissionScope},
-        policy::DATA_INTAKE_POLICY,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::middleware::Permission};
 
 /// Who may issue, list and revoke tokens of their own.
 const PERSONAL_TOKENS_PERMISSION: &str = "personal_tokens.manage";

@@ -3,19 +3,17 @@
 
 //! `incident_groups` 表 Pg 实装（spec incidents-grouping capability）。
 //!
-//! 类型与 trait 已上移到 `crate::domain::alerting::incident_group`（app 层 evaluator
+//! 类型与 trait 已上移到 `domain::alerting::incident_group`（app 层 evaluator
 //! 需要直接调用 grouping）；这里只保留 Pg 实装。
 
 use async_trait::async_trait;
+use domain::alerting::incident_group::{
+    IncidentGroup, IncidentGroupRepository, IncidentGroupState,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::alerting::incident_group::{
-        IncidentGroup, IncidentGroupRepository, IncidentGroupState,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgIncidentGroupRepository {
     pool: PgPool,

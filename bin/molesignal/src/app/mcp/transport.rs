@@ -10,7 +10,9 @@
 
 use std::{net::SocketAddr, time::Duration};
 
+use agent::tool_control::{McpServer, McpServerRuntime};
 use futures::StreamExt;
+use kernel::{Error, Result, ids::Id};
 use reqwest::{
     Client, StatusCode,
     header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue},
@@ -20,11 +22,7 @@ use serde_json::{Value, json};
 use url::Url;
 
 use super::{sse::SseSession, stdio::StdioSession};
-use crate::{
-    agent::tool_control::{McpServer, McpServerRuntime},
-    app::egress::{TargetPolicy, resolve_target},
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::egress::{TargetPolicy, resolve_target};
 
 pub(super) const MCP_PROTOCOL_VERSION: &str = "2025-03-26";
 pub(super) const DEFAULT_TIMEOUT_MS: i64 = 10_000;
@@ -389,10 +387,10 @@ impl HttpSession {
             request = request.header("mcp-session-id", session_id);
         }
 
-        let response = crate::shared::http_trace::send(
+        let response = signals::http_trace::send(
             &self.client,
             request,
-            crate::shared::http_trace::HttpTarget::ThirdParty,
+            signals::http_trace::HttpTarget::ThirdParty,
         )
         .await
         .map_err(|error| Error::unavailable(format!("MCP request failed: {error}")))?;

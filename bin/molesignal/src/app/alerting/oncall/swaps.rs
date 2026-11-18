@@ -6,15 +6,14 @@
 
 use std::sync::Arc;
 
-use crate::{
-    app::notify::{NotifyEngine, swap_dispatch},
-    domain::alerting::{
-        repositories::ScheduleRepository,
-        schedule::{Schedule, ScheduleOverride},
-        swap::{SwapRequest, SwapRequestRepository, SwapStatus},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::alerting::{
+    repositories::ScheduleRepository,
+    schedule::{Schedule, ScheduleOverride},
+    swap::{SwapRequest, SwapRequestRepository, SwapStatus},
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use crate::app::notify::{NotifyEngine, swap_dispatch};
 
 /// 没写备注时替班的说明。
 const SWAP_REASON: &str = "Shift swap";
@@ -511,8 +510,9 @@ fn push_unique(ids: &mut Vec<Id>, id: &Id) {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::schedule::{Rotation, RotationKind};
+
     use super::*;
-    use crate::domain::alerting::schedule::{Rotation, RotationKind};
 
     const HOUR: i64 = 3_600_000_000;
 

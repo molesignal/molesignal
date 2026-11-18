@@ -6,12 +6,12 @@
 //! CRUD 与投递记录。渲染和定时触发在 `ScheduledReportRunner`（主服务的 worker）里。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReportRecipient {

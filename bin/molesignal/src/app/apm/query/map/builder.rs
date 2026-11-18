@@ -8,19 +8,18 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use domain::apm::{
+    BucketDimension, BucketMeasurements, DependencyCategory, HealthLines, HistogramSchema,
+    MergedBucket, ServiceIdentity, TransactionKind,
+};
+use kernel::Result;
+
 use super::{
     GraphCall, MapChange, MapEdge, MapEdgeKind, MapNode, MapNodeKind, MapRed, consumed_topic,
     map_red, service_node, target_node, topic_node,
 };
-use crate::{
-    app::apm::query::{
-        aggregate::red_from_measurements, apdex::ApdexThresholds, health::assess_health,
-    },
-    domain::apm::{
-        BucketDimension, BucketMeasurements, DependencyCategory, HealthLines, HistogramSchema,
-        MergedBucket, ServiceIdentity, TransactionKind,
-    },
-    shared::Result,
+use crate::app::apm::query::{
+    aggregate::red_from_measurements, apdex::ApdexThresholds, health::assess_health,
 };
 
 #[derive(Default)]

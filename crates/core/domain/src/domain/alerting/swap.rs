@@ -5,9 +5,8 @@
 //! 接受后还要有排班管理权限的人批准。开始时间到了还没定下来的申请过期。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// 备注最多多少字。
 pub const MAX_SWAP_NOTE_CHARS: usize = 500;

@@ -10,15 +10,13 @@
 use std::{collections::BTreeMap, sync::Mutex};
 
 use async_trait::async_trait;
-
-use crate::{
-    domain::stream::StreamDefinition,
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
 };
+
+use crate::domain::stream::StreamDefinition;
 
 /// One metric of one stream.
 #[derive(Debug, Clone, PartialEq, Eq)]

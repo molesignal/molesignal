@@ -16,18 +16,16 @@ use axum::{
     response::Response,
     routing::get,
 };
+use domain::iam::{IamContext, permission, resource_permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::scheduled_reports::{ReportRecipient, ScheduledReport};
+use report_renderer::{ReportFormat, SessionCookie, Viewport, validate_report_bytes};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
     api::{AppState, http::middleware::ProtectedResource},
-    app::{iam::IamContext, reporting::RunAsProfile},
-    domain::iam::{permission, resource_permission},
-    infra::persistence::repositories::scheduled_reports::{ReportRecipient, ScheduledReport},
-    shared::{
-        Error, ReportFormat, Result, SessionCookie, Viewport, ids::Id, time::TimestampMicros,
-        validate_report_bytes,
-    },
+    app::reporting::RunAsProfile,
 };
 
 pub fn routes() -> Router<AppState> {

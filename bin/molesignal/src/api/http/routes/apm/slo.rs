@@ -11,19 +11,16 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use domain::{
+    apm::{ServiceLevelObjective, SloKind, TransactionIdentity},
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{
-        apm::{SloDetailResponse, SloStatus},
-        iam::IamContext,
-    },
-    domain::{
-        apm::{ServiceLevelObjective, SloKind, TransactionIdentity},
-        iam::permission,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::apm::{SloDetailResponse, SloStatus},
 };
 
 pub(super) fn routes() -> Router<AppState> {

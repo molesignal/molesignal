@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{
+    iam::IamContext,
+    synthetics::{MonitorLifecycle, SyntheticResultListQuery},
+};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{
     ToolRuntime,
     common::{TimeRangeArg, bounded, json_result, parse_args, time_range},
-};
-use crate::{
-    app::iam::IamContext,
-    domain::synthetics::{MonitorLifecycle, SyntheticResultListQuery},
-    shared::{Result, ids::Id},
 };
 
 #[derive(Debug, Default, Deserialize)]
@@ -152,5 +152,5 @@ fn required_id(value: Option<String>, field: &str) -> Result<Id> {
     value
         .filter(|value| !value.trim().is_empty())
         .map(Id)
-        .ok_or_else(|| crate::shared::Error::invalid(format!("{field} is required")))
+        .ok_or_else(|| kernel::Error::invalid(format!("{field} is required")))
 }

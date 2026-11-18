@@ -9,14 +9,12 @@
 //! beside it for the lookup. Rotating the root key re-seals the column with the rest
 //! (`molesignal rewrap-kek`, see `cipher::kek_rewrap`).
 
+use kernel::{Error, Result};
+use postgres::cipher::CipherRootKey;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
 use super::config;
-use crate::{
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result},
-};
 
 /// A connector's settings as they are stored.
 #[derive(Debug, Default)]

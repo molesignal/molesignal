@@ -6,13 +6,10 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use domain::storage::{DataSegment, StoredObject};
+use kernel::{Error, Result, ids::Id};
 use object_store::ObjectStore;
-
-use crate::{
-    config::ObjectCacheSettings,
-    domain::storage::{DataSegment, StoredObject},
-    shared::{Error, Result, ids::Id},
-};
+use settings::ObjectCacheSettings;
 
 mod block_cache;
 mod metrics;
@@ -160,10 +157,10 @@ impl ObjectReader {
 #[cfg(test)]
 mod tests {
     use bytes::Bytes;
+    use domain::storage::{ObjectChecksum, ObjectKey};
     use object_store::{ObjectStoreExt, memory::InMemory, path::Path};
 
     use super::*;
-    use crate::domain::storage::{ObjectChecksum, ObjectKey};
 
     #[test]
     fn local_store_is_bypassed() {

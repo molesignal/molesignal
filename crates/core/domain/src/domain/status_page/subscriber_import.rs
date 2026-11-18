@@ -3,10 +3,10 @@
 
 //! Email subscribers brought over from another status page.
 
+use kernel::time::TimestampMicros;
 use serde::{Deserialize, Serialize};
 
 use super::SubscriberComponents;
-use crate::shared::time::TimestampMicros;
 
 /// What an imported address becomes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

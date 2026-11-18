@@ -2,17 +2,14 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    domain::apm::{QueryCursor, QueryResolution, SortDirection},
-    shared::{
-        Error, Result,
-        cursor::CursorDirection,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use domain::apm::{QueryCursor, QueryResolution, SortDirection};
+use kernel::{
+    Error, Result,
+    cursor::CursorDirection,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
 };
+use serde::{Deserialize, Serialize};
 
 const MAX_FILTER_BYTES: usize = 192;
 

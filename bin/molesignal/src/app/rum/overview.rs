@@ -6,6 +6,8 @@
 //! browser application; and the pages most viewed. The numbers come from the same aggregates the
 //! page asks for, so what Mole Agent says is what the page shows.
 
+use domain::rum::{RumApplication, RumPlatform};
+use kernel::Result;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -15,11 +17,7 @@ use super::{
     selection::Selection,
     vitals::{self, Reading, is_core},
 };
-use crate::{
-    domain::rum::{RumApplication, RumPlatform},
-    infra::rum::query::{Aggregate, Filter, MeasureSpec, Unavailable},
-    shared::Result,
-};
+use crate::infra::rum::query::{Aggregate, Filter, MeasureSpec, Unavailable};
 
 /// How many pages the overview names.
 const PAGES: usize = 5;

@@ -13,6 +13,12 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::QueryResult,
+    stream::Schema,
+};
+use kernel::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -28,10 +34,7 @@ use crate::{
         AppState,
         http::routes::web::histogram::{BucketPlan, within_budget},
     },
-    app::iam::IamContext,
-    domain::{iam::permission, query::QueryResult, stream::Schema},
     infra::query::escape_sql_ident,
-    shared::Result,
 };
 
 pub(super) mod spend;
@@ -111,7 +114,7 @@ pub(super) async fn time_spent(
         let requests = sampled(&run(sample_statement(&source)).await?);
 
         if requests.is_empty() {
-            return Ok::<_, crate::shared::Error>((requests, Vec::new()));
+            return Ok::<_, kernel::Error>((requests, Vec::new()));
         }
 
         let traces = requests

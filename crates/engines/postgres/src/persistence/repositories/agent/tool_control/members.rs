@@ -6,19 +6,17 @@
 //! 成员凭据存在 `sealed_secrets` 里 `owner_kind = 'mcp_member'` 的行，按（服务器，成员）一行：`owner_id`
 //! 是服务器，`slot` 是成员。只有本人的调用会解密它；列表里只有末四位。
 
+use agent::{
+    mcp::{McpPrompt, last4},
+    tool_control::MemberCredential,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{Row, types::Json};
 
 use super::{
     super::super::sqlx_err,
     PgToolControlRepository,
     rows::{StoredPrompt, member_credential_row, stored_prompts},
-};
-use crate::{
-    agent::{
-        mcp::{McpPrompt, last4},
-        tool_control::MemberCredential,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 impl PgToolControlRepository {

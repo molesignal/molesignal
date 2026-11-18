@@ -3,12 +3,12 @@
 
 //! Immutable cold-partition manifest domain model.
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use super::{
     Artifact, ArtifactId, DataSegment, Partition, PhysicalDatasetId, SegmentId, StoredObject,
 };
-use crate::shared::ids::Id;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PartitionManifest {
@@ -20,12 +20,12 @@ pub struct PartitionManifest {
 }
 
 impl PartitionManifest {
-    pub fn validate(&self) -> crate::shared::Result<()> {
+    pub fn validate(&self) -> kernel::Result<()> {
         if self.generation == 0
             || self.partition.start_micros >= self.partition.end_micros
             || self.segments.is_empty()
         {
-            return Err(crate::shared::Error::invalid(
+            return Err(kernel::Error::invalid(
                 "partition manifest requires a positive generation, valid partition, and segments",
             ));
         }
@@ -41,7 +41,7 @@ impl PartitionManifest {
                 || segment.state != super::SegmentState::Sealed
                 || !segment_ids.insert(segment.id.clone())
             {
-                return Err(crate::shared::Error::invalid(format!(
+                return Err(kernel::Error::invalid(format!(
                     "segment {} is duplicated, unsealed, or does not belong to manifest generation {}",
                     segment.id, self.generation
                 )));

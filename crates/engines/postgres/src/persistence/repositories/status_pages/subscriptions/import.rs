@@ -5,17 +5,16 @@
 
 use std::collections::HashMap;
 
+use domain::status_page::{
+    ImportedStatusPageSubscriber, StatusPageSubscriber, StatusPageSubscriberChannel,
+    StatusPageSubscriberImport, StatusPageSubscriberImportMode, StatusPageSubscriberImportOutcome,
+    StatusPageSubscriberOrigin, StatusPageSubscriberStatus,
+};
+use kernel::{Error, Result, ids::Id};
+
 use super::{
     super::PgStatusPageRepository, MAX_SUBSCRIBERS_PER_PAGE, component_id_strings,
     count_subscribed, lock_page_subscribers, requests::insert_subscriber,
-};
-use crate::{
-    domain::status_page::{
-        ImportedStatusPageSubscriber, StatusPageSubscriber, StatusPageSubscriberChannel,
-        StatusPageSubscriberImport, StatusPageSubscriberImportMode,
-        StatusPageSubscriberImportOutcome, StatusPageSubscriberOrigin, StatusPageSubscriberStatus,
-    },
-    shared::{Error, Result, ids::Id},
 };
 
 /// An address the import subscribes, and the row it already has, if any.

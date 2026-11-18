@@ -10,16 +10,12 @@
 
 use std::future::Future;
 
+use agent::tool_control::{ManagedToolStatus, McpServer, McpTool};
+use kernel::{Error, Result, ids::Id};
 use serde_json::{Map, Value, json};
+use tool_runtime::{ToolContent, ToolResult};
 
 use super::{McpService, schema, transport::Session};
-use crate::{
-    agent::{
-        tool_control::{ManagedToolStatus, McpServer, McpTool},
-        tools::{ToolContent, ToolResult},
-    },
-    shared::{Error, Result, ids::Id},
-};
 
 /// 工具结果与命令拒绝里用的错误码。
 pub const AUTHORIZATION_REQUIRED: &str = "authorization_required";
@@ -278,8 +274,9 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
     };
 
+    use agent::{scope::Scope, tool_control::MemberCredentialSpec};
+
     use super::*;
-    use crate::agent::{scope::Scope, tool_control::MemberCredentialSpec};
 
     #[tokio::test]
     async fn invalid_arguments_never_invoke_the_remote_call() {
@@ -371,8 +368,8 @@ mod tests {
             last_tested_at: None,
             last_synced_at: None,
             created_by: Id::from_string("user-1"),
-            created_at: crate::shared::time::TimestampMicros(1),
-            updated_at: crate::shared::time::TimestampMicros(1),
+            created_at: kernel::time::TimestampMicros(1),
+            updated_at: kernel::time::TimestampMicros(1),
         };
 
         let need = CredentialNeed::of(&server, false);

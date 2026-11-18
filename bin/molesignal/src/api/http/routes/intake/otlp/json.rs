@@ -49,7 +49,7 @@ mod tests {
     };
 
     fn field<'a>(
-        events: &'a [crate::domain::intake::RawEvent],
+        events: &'a [domain::intake::RawEvent],
         metric: &str,
         key: &str,
     ) -> Option<&'a Value> {

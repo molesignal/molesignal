@@ -60,7 +60,7 @@ impl Layout {
     }
 
     /// The bars of `gap`, counted with the same first bar as this layout.
-    pub(in super::super) fn plan(&self, gap: &Gap) -> crate::shared::Result<BucketPlan> {
+    pub(in super::super) fn plan(&self, gap: &Gap) -> kernel::Result<BucketPlan> {
         BucketPlan::new(
             Some(gap.from),
             Some(gap.to),
@@ -267,7 +267,7 @@ pub(in super::super) fn cache() -> Option<&'static Cache<String, Arc<KnownBars>>
 
     CACHE
         .get_or_init(|| {
-            let settings = &crate::config::try_get()?.cache.query_result;
+            let settings = &settings::try_get()?.cache.query_result;
 
             (settings.capacity > 0).then(|| {
                 Cache::builder()

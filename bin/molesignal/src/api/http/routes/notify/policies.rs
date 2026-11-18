@@ -9,28 +9,25 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use domain::{
+    alerting::time_window::TimeCondition,
+    iam::{IamContext, permission},
+    notify::{
+        connector::NotifyChannel,
+        policy::{
+            NotifyDeliveryConfig, NotifyDeliveryMode, NotifyEvent, NotifyFallbackConfig,
+            NotifyPolicy,
+        },
+        preference::NotifyCategory,
+    },
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        notify::{NotifyPolicyInput, NotifyPolicyPreview},
-    },
-    domain::{
-        alerting::time_window::TimeCondition,
-        iam::permission,
-        notify::{
-            connector::NotifyChannel,
-            policy::{
-                NotifyDeliveryConfig, NotifyDeliveryMode, NotifyEvent, NotifyFallbackConfig,
-                NotifyPolicy,
-            },
-            preference::NotifyCategory,
-        },
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    app::notify::{NotifyPolicyInput, NotifyPolicyPreview},
 };
 
 pub(super) fn routes() -> Router<AppState> {

@@ -9,19 +9,17 @@
 
 use std::collections::HashSet;
 
+use domain::storage::{
+    ArtifactState, CommitFlush, FlushCommitResult, OrganizationScope, SegmentState,
+    stale_writer_epoch,
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{
     rows::{to_i64, to_u64},
     sqlx_err,
     writes::{bump_dataset_version, insert_segment, lock_dataset_version},
-};
-use crate::{
-    domain::storage::{
-        ArtifactState, CommitFlush, FlushCommitResult, OrganizationScope, SegmentState,
-        stale_writer_epoch,
-    },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) async fn commit_flush(

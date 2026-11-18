@@ -8,21 +8,19 @@
 
 use std::sync::Arc;
 
+use agent::{
+    automations::reasons,
+    runs::{QuestionKind, Run, RunEventKind, RunSource},
+};
 use async_trait::async_trait;
 use serde_json::{Value, json};
+use tool_runtime::RiskLevel;
 
 use super::{
     super::super::tool_dispatcher::{Reply, RunInteraction},
     RunControl,
 };
-use crate::{
-    agent::{
-        automations::reasons,
-        model::RiskLevel,
-        runs::{QuestionKind, Run, RunEventKind, RunSource},
-    },
-    app::mcp::CredentialNeed,
-};
+use crate::app::mcp::CredentialNeed;
 
 /// 这一轮没有人在等着回答。
 pub(super) fn is_unattended(run: &Run) -> bool {

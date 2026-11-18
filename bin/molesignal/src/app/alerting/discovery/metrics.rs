@@ -16,23 +16,20 @@ use std::{
     sync::Arc,
 };
 
-use serde_json::{Value, json};
-
-use crate::{
-    domain::{
-        alerting::{
-            discovery::{Detection, FindingKind},
-            incident::Severity,
-        },
-        metrics::MetricDirectory,
-        query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult},
+use domain::{
+    alerting::{
+        discovery::{Detection, FindingKind},
+        incident::Severity,
     },
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+    metrics::MetricDirectory,
+    query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult},
 };
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use serde_json::{Value, json};
 
 const MINUTE: i64 = 60_000_000;
 
@@ -173,7 +170,7 @@ impl MetricDiscovery {
                 let before_idle = self
                     .instant(org_id, check.promql, now.0 - SHIFT_BACK)
                     .await?;
-                Ok::<_, crate::shared::Error>((now_idle, before_idle))
+                Ok::<_, kernel::Error>((now_idle, before_idle))
             };
 
             match read.await {

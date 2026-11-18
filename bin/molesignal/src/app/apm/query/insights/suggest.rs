@@ -9,6 +9,12 @@
 
 use std::collections::HashMap;
 
+use domain::apm::{
+    BucketDimension, BucketMeasurements, DependencyCategory, DependencyIdentity, HistogramSchema,
+    MergedBucket, OTHER_DIMENSION, ServiceIdentity, TransactionIdentity,
+};
+use kernel::Result;
+
 use super::{
     super::{
         RedSummary, ServiceHealth,
@@ -16,13 +22,6 @@ use super::{
     },
     detect::MIN_REQUESTS,
     model::{Insight, InsightKind, InsightSeverity},
-};
-use crate::{
-    domain::apm::{
-        BucketDimension, BucketMeasurements, DependencyCategory, DependencyIdentity,
-        HistogramSchema, MergedBucket, OTHER_DIMENSION, ServiceIdentity, TransactionIdentity,
-    },
-    shared::Result,
 };
 
 /// The share of a service's time a dependency, or an endpoint, takes to be named.

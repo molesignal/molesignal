@@ -4,8 +4,7 @@
 use std::time::Duration;
 
 use object_store::Error as OsError;
-
-use crate::config::ObjectStoreSettings;
+use settings::ObjectStoreSettings;
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct RetryPolicy {

@@ -22,12 +22,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+use domain::cluster::{ClusterRegistry, PeerRole, StandaloneRegistry};
 use parking_lot::Mutex;
 use prometheus::IntGaugeVec;
+use signals::{metrics::register_int_gauge_vec, rendezvous};
 use tokio::{task::JoinHandle, time::MissedTickBehavior};
-
-use super::{ClusterRegistry, PeerRole, StandaloneRegistry};
-use crate::shared::{metrics::register_int_gauge_vec, rendezvous};
 
 /// 单点任务用来求主节点的 key。
 pub const PRIMARY_KEY: &str = "primary";
@@ -258,9 +257,8 @@ pub(crate) mod test_support {
     use std::sync::Arc;
 
     use async_trait::async_trait;
+    use domain::cluster::{ClusterRegistry, PeerInfo, PeerRole};
     use parking_lot::Mutex;
-
-    use crate::app::cluster::{ClusterRegistry, PeerInfo, PeerRole};
 
     /// 单测用的可变成员表，代替 `cluster_nodes` 心跳。
     #[derive(Default)]

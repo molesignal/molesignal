@@ -13,12 +13,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::intake::{IntakeBatch, IntakeResult, IntakeSink};
+use kernel::Result;
 use parking_lot::Mutex;
-
-use crate::{
-    domain::intake::{IntakeBatch, IntakeResult, IntakeSink},
-    shared::Result,
-};
 
 #[derive(Default)]
 pub struct MemoryIntakeSink {

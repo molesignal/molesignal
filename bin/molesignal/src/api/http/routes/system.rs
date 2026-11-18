@@ -7,26 +7,19 @@ use axum::{
     http::StatusCode,
     routing::{delete, get},
 };
+use domain::iam::{IamContext, IamPlatformAdministrator, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::{api_tokens::generate_token, audit_events::AuditEvent};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use signals::{
+    policy::TraceDebugToken,
+    tail_sampling::{TailSamplerMetricSnapshot, TraceRuntimePolicy},
+};
 
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        trace::{TracePipelineHealthSnapshot, candidate_router::TraceCandidateRouterHealth},
-    },
-    domain::{
-        iam::{IamPlatformAdministrator, permission},
-        trace_policy::TraceDebugToken,
-    },
-    infra::persistence::repositories::{api_tokens::generate_token, audit_events::AuditEvent},
-    shared::{
-        Error, Result,
-        ids::Id,
-        tail_sampling::{TailSamplerMetricSnapshot, TraceRuntimePolicy},
-        time::TimestampMicros,
-    },
+    app::trace::{TracePipelineHealthSnapshot, candidate_router::TraceCandidateRouterHealth},
 };
 
 pub fn routes() -> Router<AppState> {
@@ -538,6 +531,9 @@ async fn record_system_audit(
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::IamScope;
+    use signals::tail_sampling::TailSamplerMetricSnapshot;
+
     use super::*;
     use crate::{
         api::{http::middleware::Permission, state::TraceSystemLoadHealth},
@@ -545,8 +541,6 @@ mod tests {
             TracePipelineHealthSnapshot, TraceSinkHealthSnapshot,
             candidate_router::TraceCandidateRouterHealth,
         },
-        domain::iam::IamScope,
-        shared::tail_sampling::TailSamplerMetricSnapshot,
     };
 
     #[test]

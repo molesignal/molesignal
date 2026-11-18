@@ -11,8 +11,12 @@ use std::{
     time::Duration,
 };
 
+use domain::apm::{ApmSpanFact, ApmWriteRepository, HistogramSchema, ProjectionGapReason};
+use kernel::time::TimestampMicros;
 use parking_lot::RwLock;
 use serde::Serialize;
+use settings::ApmSettings;
+use signals::{tail_sampling::CandidateDisposition, trace_normalization::CanonicalSpan};
 use tokio::{
     sync::{Mutex, mpsc},
     task::JoinHandle,
@@ -21,14 +25,6 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 use super::{ErrorRuleBook, InstanceLooks, OrgSettingsBook, extract_apm_fact, metrics};
-use crate::{
-    config::ApmSettings,
-    domain::apm::{ApmSpanFact, ApmWriteRepository, HistogramSchema, ProjectionGapReason},
-    shared::{
-        tail_sampling::CandidateDisposition, time::TimestampMicros,
-        trace_normalization::CanonicalSpan,
-    },
-};
 
 mod gaps;
 mod worker;
@@ -131,7 +127,7 @@ impl BufferedApmProjector {
         owner_id: String,
         repository: Arc<dyn ApmWriteRepository>,
         config: ApmProjectorConfig,
-    ) -> crate::shared::Result<Arc<Self>> {
+    ) -> kernel::Result<Arc<Self>> {
         config.histogram.validate()?;
         let (sender, receiver) = mpsc::channel(config.queue_capacity);
         let health = Arc::new(ApmProjectorHealth::default());

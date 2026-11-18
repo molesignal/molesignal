@@ -18,20 +18,18 @@ mod preferences;
 mod slack_app;
 mod slack_message;
 
+use domain::status_page::{
+    ComponentLifecycle, ComponentVisibility, StatusPage, StatusPageComponent,
+    StatusPageDeliveryPage, StatusPageLifecycle, StatusPageSubscriber, StatusPageSubscriberChannel,
+    StatusPageSubscriberOrigin, StatusPageSubscriberPage, StatusPageSubscriberStatus,
+    SubscriberComponents, SubscriptionRequestAction,
+};
 pub use import::{StatusPageImportProblem, StatusPageSubscriberImportReport};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use links::{SubscriptionMessage, subscription_message};
 pub use slack_app::StatusPageSlackAppSetting;
 
 use super::StatusPageService;
-use crate::{
-    domain::status_page::{
-        ComponentLifecycle, ComponentVisibility, StatusPage, StatusPageComponent,
-        StatusPageDeliveryPage, StatusPageLifecycle, StatusPageSubscriber,
-        StatusPageSubscriberChannel, StatusPageSubscriberOrigin, StatusPageSubscriberPage,
-        StatusPageSubscriberStatus, SubscriberComponents, SubscriptionRequestAction,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const CONFIRMATION_COOLDOWN_MICROS: i64 = 10 * 60 * 1_000_000;
 
@@ -284,7 +282,7 @@ impl StatusPageService {
 
     fn notification_sender(
         &self,
-    ) -> Result<&std::sync::Arc<dyn crate::domain::status_page::StatusPageNotificationSender>> {
+    ) -> Result<&std::sync::Arc<dyn domain::status_page::StatusPageNotificationSender>> {
         self.notification_sender.as_ref().ok_or_else(|| {
             Error::unavailable("status-page subscriber notifications are not configured")
         })

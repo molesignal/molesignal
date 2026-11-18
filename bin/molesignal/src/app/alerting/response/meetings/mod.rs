@@ -10,14 +10,12 @@ mod zoom;
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use domain::alerting::{meeting::MeetingMode, response::ResponseSettings};
+use kernel::{Error, Result};
 use reqwest::header::USER_AGENT;
 use serde_json::Value;
 
-use crate::{
-    domain::alerting::{meeting::MeetingMode, response::ResponseSettings},
-    infra::connectors::dispatcher::http::pinned_client,
-    shared::{Error, Result},
-};
+use crate::infra::connectors::dispatcher::http::pinned_client;
 
 const TIMEOUT: Duration = Duration::from_secs(15);
 

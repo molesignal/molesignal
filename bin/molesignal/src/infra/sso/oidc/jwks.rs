@@ -15,15 +15,11 @@ use jsonwebtoken::{
     AlgorithmFamily, DecodingKey,
     jwk::{Jwk, JwkSet},
 };
+use kernel::{Error, Result, time::TimestampMicros};
 use reqwest::Client;
 use serde_json::Value;
+use signals::http_trace::{self, HttpTarget};
 use tokio::sync::RwLock;
-
-use crate::shared::{
-    Error, Result,
-    http_trace::{self, HttpTarget},
-    time::TimestampMicros,
-};
 
 const REFRESH_INTERVAL_SECS: i64 = 30;
 

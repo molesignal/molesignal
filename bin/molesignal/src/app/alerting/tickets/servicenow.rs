@@ -14,17 +14,15 @@
 
 use std::time::Duration;
 
+use domain::alerting::ticket::{
+    ServiceNowAuth, ServiceNowSettings, TicketConnector, servicenow_impact_and_urgency,
+};
+use kernel::{Error, Result};
 use reqwest::{Method, RequestBuilder, header::USER_AGENT};
 use serde_json::{Map, Value, json};
 
 use super::{CreatedTicket, TicketDraft, TicketState, meegle::PluginToken};
-use crate::{
-    domain::alerting::ticket::{
-        ServiceNowAuth, ServiceNowSettings, TicketConnector, servicenow_impact_and_urgency,
-    },
-    infra::connectors::dispatcher::http::pinned_client,
-    shared::{Error, Result},
-};
+use crate::infra::connectors::dispatcher::http::pinned_client;
 
 const TIMEOUT: Duration = Duration::from_secs(20);
 
@@ -347,6 +345,8 @@ fn encode(sys_id: &str) -> String {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::alerting::ticket::{TicketAutoRule, TicketComments, TicketSystem};
+    use kernel::{ids::Id, time::TimestampMicros};
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{
@@ -356,10 +356,6 @@ mod tests {
     };
 
     use super::*;
-    use crate::{
-        domain::alerting::ticket::{TicketAutoRule, TicketComments, TicketSystem},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn connector(instance: &str, auth: &str, secrets: &[(&str, &str)]) -> TicketConnector {
         TicketConnector {

@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::{
+    StatusPageAccessRule, StatusPageAccessRuleKind, StatusPageAccessSession, StatusPageMagicLink,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::Row;
 
 use super::PgStatusPageRepository;
-use crate::{
-    domain::status_page::{
-        StatusPageAccessRule, StatusPageAccessRuleKind, StatusPageAccessSession,
-        StatusPageMagicLink,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 impl PgStatusPageRepository {
     pub(super) fn row_to_access_rule(

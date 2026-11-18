@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::synthetics::{ProbeAgentToken, ProbeAgentTokenStatus, SyntheticAgentTokenRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::Row as _;
 
 use super::PgSyntheticRepository;
-use crate::{
-    domain::synthetics::{ProbeAgentToken, ProbeAgentTokenStatus, SyntheticAgentTokenRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const TOKEN_COLS: &str = "token.id, token.organization_id, token.location_id, token.name,
     token.token_prefix, token.status, token.expires_at, token.last_used_at,

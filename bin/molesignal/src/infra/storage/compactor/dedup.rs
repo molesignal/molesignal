@@ -16,13 +16,11 @@ use arrow::{
     datatypes::SchemaRef,
     row::{OwnedRow, RowConverter, SortField},
 };
+use domain::rum::event::Versioned;
 use futures::{StreamExt, stream::BoxStream};
+use kernel::{Error, Result};
 
-use crate::{
-    domain::rum::event::Versioned,
-    infra::storage::arrow_schema::TS_COL,
-    shared::{Error, Result},
-};
+use crate::infra::storage::arrow_schema::TS_COL;
 
 /// The columns that tell the rows of one entity from those of another (the time and the key),
 /// when the dataset holds rows that are reported again; `None` for every other dataset.

@@ -5,21 +5,19 @@
 //! 少得多，`trace_id` 又有整值索引，在最长的查找窗口里找它的摘要行便宜；找到了就只读它起止之间的
 //! Span。
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        storage::{DatasetTypeId, type_id::builtin},
-        stream::StreamType,
-    },
-    infra::query::escape_sql_ident,
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-        trace::summary::{TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_START_NS_FIELD},
-    },
+use domain::{
+    iam::IamContext,
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    storage::{DatasetTypeId, type_id::builtin},
+    stream::StreamType,
 };
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
+use signals::trace::summary::{TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_START_NS_FIELD};
+
+use crate::{api::AppState, infra::query::escape_sql_ident};
 
 /// 读出的起止两边各放宽这么多，单位微秒：纳秒折成微秒时的取整。
 const SLACK_MICROS: i64 = 1_000_000;

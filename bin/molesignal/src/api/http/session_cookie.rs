@@ -20,12 +20,13 @@ use axum::{
     },
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
+use domain::iam::IamScope;
+use kernel::{Error, Result, ids::Id};
+use report_renderer::SessionCookie;
 
 use crate::{
     api::AppState,
     app::iam::{SignInMethod, SignInSession},
-    domain::iam::IamScope,
-    shared::{Error, Result, SessionCookie, ids::Id},
 };
 
 pub(crate) const ACCESS_COOKIE: &str = "accessToken";
@@ -276,8 +277,8 @@ mod tests {
             expires_at: 0,
             remember: false,
             method: SignInMethod::single_factor(),
-            auth_time: crate::shared::time::TimestampMicros(0),
-            verified_at: crate::shared::time::TimestampMicros(0),
+            auth_time: kernel::time::TimestampMicros(0),
+            verified_at: kernel::time::TimestampMicros(0),
         }
     }
 

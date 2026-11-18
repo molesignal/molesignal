@@ -10,13 +10,11 @@
 
 use std::collections::BTreeSet;
 
+use domain::iam::access::IamTokenGrant;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::iam::access::IamTokenGrant,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// The grant of a token that may still authenticate: not revoked, not expired, and, for a
 /// service-account token, bound to an enabled account that still exists.

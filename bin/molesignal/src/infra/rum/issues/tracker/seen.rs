@@ -6,16 +6,14 @@
 
 use std::collections::HashMap;
 
+use domain::{
+    intake::RawEvent,
+    rum::{MAX_MESSAGE_LEN, RumIssue, cut, environment_key, version_key},
+};
+use kernel::time::TimestampMicros;
 use serde_json::Value;
 
 use super::super::identity::{location, overflow_id};
-use crate::{
-    domain::{
-        intake::RawEvent,
-        rum::{MAX_MESSAGE_LEN, RumIssue, cut, environment_key, version_key},
-    },
-    shared::time::TimestampMicros,
-};
 
 /// The longest the type and the source of an error are kept with an issue, in bytes.
 const MAX_TYPE_LEN: usize = 256;

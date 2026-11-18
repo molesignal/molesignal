@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -13,7 +14,6 @@ use super::{
     rule::{AlertRule, RuleState},
     schedule::Schedule,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// 评估状态行：alert_rule_eval_state 表的领域模型。
 #[derive(Debug, Clone, Serialize, Deserialize)]

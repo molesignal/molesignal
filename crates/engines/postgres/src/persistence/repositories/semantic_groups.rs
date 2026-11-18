@@ -4,13 +4,11 @@
 //! `semantic_groups` 表 Pg 实装（告警分组规则）。
 
 use async_trait::async_trait;
+use domain::alerting::semantic_group::{LabelMatcher, SemanticGroup, SemanticGroupRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::semantic_group::{LabelMatcher, SemanticGroup, SemanticGroupRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgSemanticGroupRepository {
     pool: PgPool,

@@ -4,17 +4,15 @@
 //! Shared task dispatch operations used by external Agents and the Standalone Embedded Runner.
 
 use base64::Engine as _;
+use domain::synthetics::{
+    ClientKey, MonitorSpec, ProbeAgent, ProbeLocation, ProbeTask, SecretMaterial,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use rand::TryRng as _;
 use sha2::{Digest, Sha256};
 
 use super::{
     CLIENT_KEY_REFERENCE, ResolvedProbeSecret, SyntheticService, probe::collect_secret_references,
-};
-use crate::{
-    domain::synthetics::{
-        ClientKey, MonitorSpec, ProbeAgent, ProbeLocation, ProbeTask, SecretMaterial,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// An Agent beats every 15 s; one silent for four beats is taken to be gone.

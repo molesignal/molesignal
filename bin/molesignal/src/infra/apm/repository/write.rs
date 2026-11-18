@@ -2,19 +2,17 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::apm::{
+    ApmWriteRepository, ErrorGroupRecord, ErrorSample, InstanceObservation, OwnerSnapshot,
+    ProjectionGap, ProjectionState, ServiceObservation, SnapshotWriteStats, VersionObservation,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{Postgres, QueryBuilder, Row, types::Json};
 
 use super::{
     PgApmRepository,
     codec::{as_i16, as_i64, dimension_key, gap_id, kind_name},
-};
-use crate::{
-    domain::apm::{
-        ApmWriteRepository, ErrorGroupRecord, ErrorSample, InstanceObservation, OwnerSnapshot,
-        ProjectionGap, ProjectionState, ServiceObservation, SnapshotWriteStats, VersionObservation,
-    },
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const SNAPSHOT_BIND_COUNT: usize = 15;

@@ -5,9 +5,9 @@
 //! 再把接收集群的答复回给发送方。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id};
 
 use super::IntakeReply;
-use crate::shared::{Result, ids::Id};
 
 /// 转给接收集群的一次请求。
 #[derive(Debug, Clone, Copy)]

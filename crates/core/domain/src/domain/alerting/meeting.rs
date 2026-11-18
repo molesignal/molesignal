@@ -7,9 +7,8 @@
 
 use std::collections::BTreeMap;
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result};
 
 /// 会议怎么开。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

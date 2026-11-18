@@ -9,16 +9,13 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     api::AppState,
-    app::{
-        alerting::insights::{NIGHT_END_HOUR, NIGHT_START_HOUR, PersonLoad},
-        iam::IamContext,
-    },
-    domain::iam::permission,
-    shared::{Result, ids::Id, time::TimestampMicros},
+    app::alerting::insights::{NIGHT_END_HOUR, NIGHT_START_HOUR, PersonLoad},
 };
 
 pub(super) fn routes() -> Router<AppState> {

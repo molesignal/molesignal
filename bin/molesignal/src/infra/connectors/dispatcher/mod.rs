@@ -16,10 +16,10 @@
 //! 客户端参数、签名、kind 路由）由单元测试覆盖。
 
 use async_trait::async_trait;
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{ConnectorKind, aws::CredentialSource, repo::Connector};
-use crate::shared::{Error, Result};
 
 pub mod http;
 pub mod kafka;
@@ -80,7 +80,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_source_is_not_delivered_to() {
-        use crate::shared::{ids::Id, time::TimestampMicros};
+        use kernel::{ids::Id, time::TimestampMicros};
 
         let source = Connector {
             id: Id::new(),

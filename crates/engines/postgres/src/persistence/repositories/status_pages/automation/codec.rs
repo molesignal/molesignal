@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use sqlx::Row as _;
-
-use crate::{
-    domain::status_page::{
-        ActiveAutomationRule, AutomationCandidate, AutomationCandidateState, AutomationOutboxItem,
-        AutomationRuleLifecycle, IncidentImpact, StatusAutomationRevision, StatusAutomationRule,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::status_page::{
+    ActiveAutomationRule, AutomationCandidate, AutomationCandidateState, AutomationOutboxItem,
+    AutomationRuleLifecycle, IncidentImpact, StatusAutomationRevision, StatusAutomationRule,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use sqlx::Row as _;
 
 pub(super) const ACTIVE_RULE_COLS: &str = "
     rule.id AS rule_id, rule.organization_id, rule.status_page_id, rule.name,

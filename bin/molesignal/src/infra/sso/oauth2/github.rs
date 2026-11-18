@@ -6,13 +6,11 @@
 //! GitHub 只有 OAuth 2.0：主体是不会变的数字 `id`，邮箱取已验证的主邮箱
 //! （`user:email`），组织写作 `my-org`、团队写作 `my-org/sre`（`read:org`）。
 
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::OAuthClient;
-use crate::{
-    infra::sso::claims::ExternalIdentity,
-    shared::{Error, Result},
-};
+use crate::infra::sso::claims::ExternalIdentity;
 
 /// `userinfo_url` 是 `{API 根地址}/user`：github.com 是 `https://api.github.com/user`，
 /// Enterprise Server 是 `https://{host}/api/v3/user`。

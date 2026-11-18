@@ -12,10 +12,10 @@
 //! pointed elsewhere without anyone typing its credentials again. At rest they are sealed apart
 //! from the rest of the settings (see [`super::secrets`]).
 
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::ConnectorKind;
-use crate::shared::{Error, Result};
 
 pub mod aws;
 pub mod http;

@@ -2,10 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use contracts::ContractIssue;
+use kernel::{Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use super::DashboardAuthoringSpec;
-use crate::shared::{Result, contracts::ContractIssue, ids::Id};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

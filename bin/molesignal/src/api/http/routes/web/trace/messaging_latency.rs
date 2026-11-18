@@ -13,6 +13,12 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::QueryResult,
+    stream::Schema,
+};
+use kernel::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -23,14 +29,9 @@ use super::{
     resolve_traces_stream_definition,
     time_spent::spend::{SpanKind, kind_of},
 };
-use crate::{
-    api::{
-        AppState,
-        http::routes::web::histogram::{BucketPlan, within_budget},
-    },
-    app::iam::IamContext,
-    domain::{iam::permission, query::QueryResult, stream::Schema},
-    shared::Result,
+use crate::api::{
+    AppState,
+    http::routes::web::histogram::{BucketPlan, within_budget},
 };
 
 /// The most consumptions a reading samples.
@@ -118,7 +119,7 @@ pub(super) async fn messaging_latency(
         let consumptions = consumptions(&run(consumed_statement(&source, schema)).await?);
 
         if consumptions.is_empty() {
-            return Ok::<_, crate::shared::Error>((consumptions, HashMap::new()));
+            return Ok::<_, kernel::Error>((consumptions, HashMap::new()));
         }
 
         let statement = published_statement(&source, &consumptions);

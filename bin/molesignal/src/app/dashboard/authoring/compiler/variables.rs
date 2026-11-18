@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::dashboard::authoring::AuthoringVariable;
+use kernel::Result;
 use serde_json::{Value, json};
 
 use super::{CompileContext, queries::compile_query};
-use crate::{domain::dashboard::authoring::AuthoringVariable, shared::Result};
 
 pub(super) fn compile_variables(
     variables: &[AuthoringVariable],

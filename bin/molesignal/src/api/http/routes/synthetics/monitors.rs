@@ -7,22 +7,19 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    synthetics::{
+        ActiveMonitorRevision, MonitorLifecycle, MonitorRevision, ProbeTask, SyntheticMonitor,
+        SyntheticResult,
+    },
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{
-        iam::IamContext,
-        synthetics::{CreateMonitorInput, MissingRuns},
-    },
-    domain::{
-        iam::permission,
-        synthetics::{
-            ActiveMonitorRevision, MonitorLifecycle, MonitorRevision, ProbeTask, SyntheticMonitor,
-            SyntheticResult,
-        },
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    app::synthetics::{CreateMonitorInput, MissingRuns},
 };
 
 pub(super) fn routes() -> Router<AppState> {

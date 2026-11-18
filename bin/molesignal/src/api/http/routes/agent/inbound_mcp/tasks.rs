@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::inbound_mcp::{InboundMcpTask, InboundMcpTaskStatus};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use rmcp::{
     ErrorData, RoleServer,
     model::{
@@ -16,10 +18,6 @@ use tokio_util::sync::CancellationToken;
 use super::{
     handler::{InboundMcpHandler, InboundRequestData, protocol_error, request_data},
     tools::{ResolvedTool, execution},
-};
-use crate::{
-    agent::inbound_mcp::{InboundMcpTask, InboundMcpTaskStatus},
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 const TASK_TTL_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
@@ -69,7 +67,7 @@ pub(super) async fn spawn_read(
     let worker_data = data.clone();
     let worker_task = task.clone();
 
-    crate::shared::trace_context::spawn_with_current_trace_context(async move {
+    signals::trace_context::spawn_with_current_trace_context(async move {
         run_task(
             worker_handler,
             worker_data,

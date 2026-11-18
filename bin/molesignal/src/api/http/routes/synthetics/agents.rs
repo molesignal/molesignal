@@ -8,12 +8,15 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    synthetics::ProbeAgent,
+};
+use kernel::{Result, ids::Id};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{iam::IamContext, synthetics::UpdateAgentConfigurationInput},
-    domain::{iam::permission, synthetics::ProbeAgent},
-    shared::{Result, ids::Id},
+    app::synthetics::UpdateAgentConfigurationInput,
 };
 
 pub(super) fn routes() -> Router<AppState> {

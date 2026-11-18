@@ -11,9 +11,8 @@
 //! 回复或按键以引用里记的接收人的身份处理告警，要有 `alerts.incidents.acknowledge`。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// 回复引用多久有效：一天。
 pub const REPLY_TTL_MICROS: i64 = 24 * 60 * 60 * 1_000_000;

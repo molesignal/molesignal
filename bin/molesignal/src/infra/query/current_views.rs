@@ -25,11 +25,8 @@ use datafusion::{
     logical_expr::{Expr, ExprFunctionExt, lit},
     prelude::SessionContext,
 };
-
-use crate::{
-    domain::rum::event::RumStream,
-    shared::{Error, Result},
-};
+use domain::rum::event::RumStream;
+use kernel::{Error, Result};
 
 /// The column the rank of a revision is kept in while the newest is picked; the view does not
 /// expose it.

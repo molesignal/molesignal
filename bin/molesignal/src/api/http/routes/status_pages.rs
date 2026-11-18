@@ -24,13 +24,11 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use domain::status_page::{StatusPageSnapshot, StatusPageVisibility};
+use kernel::Result;
 
 use self::public::PublicStatusPageSnapshot;
-use crate::{
-    api::AppState,
-    domain::status_page::{StatusPageSnapshot, StatusPageVisibility},
-    shared::Result,
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

@@ -10,18 +10,16 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::alerting::source::{
+    AlertSource, AlertSourceKind, IntakeStatus, MailCursor, Mailbox, MailboxRepository,
+    MailboxSettings,
+};
 use futures::StreamExt;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use tokio::{task::JoinHandle, time::MissedTickBehavior};
 
 use super::{AlertSources, IntakeReply, intake::blank_record};
-use crate::{
-    app::cluster::WorkOwnership,
-    domain::alerting::source::{
-        AlertSource, AlertSourceKind, IntakeStatus, MailCursor, Mailbox, MailboxRepository,
-        MailboxSettings,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::cluster::WorkOwnership;
 
 /// 归属与重叠指标里这项工作的名字。
 const WORK: &str = "alert_mailboxes";
@@ -382,13 +380,13 @@ async fn read_mailbox(
 mod tests {
     use std::sync::Mutex;
 
-    use serde_json::json;
-
-    use super::*;
-    use crate::domain::alerting::{
+    use domain::alerting::{
         incident::Severity,
         source::{EmailRules, MailboxAuth, MailboxSecurity},
     };
+    use serde_json::json;
+
+    use super::*;
 
     fn settings() -> MailboxSettings {
         MailboxSettings {

@@ -10,12 +10,11 @@ use std::{
 };
 
 use http::{HeaderName, HeaderValue, Request, Response};
-use tower::{Layer, Service};
-use tracing::{Instrument, field};
-
-use crate::shared::trace_context::{
+use signals::trace_context::{
     REQUEST_ID, TRACE_ID, TraceContext, TraceTrust, with_current_trace_context,
 };
+use tower::{Layer, Service};
+use tracing::{Instrument, field};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct GrpcTraceLayer;

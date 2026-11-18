@@ -14,25 +14,21 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::notify::connector::{
+    ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel, NotifyMessage,
+    NotifyTarget,
+};
+use kernel::{Error, Result};
 use reqwest::{
     Method,
     header::{HeaderName, HeaderValue},
 };
 use serde::Deserialize;
 use serde_json::Value;
+use signals::http_trace::{self, HttpTarget};
 use url::form_urlencoded;
 
 use super::{common, phone};
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
-        NotifyMessage, NotifyTarget,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
-};
 
 pub const HTTP_SMS_CONNECTOR_TYPE: &str = "http_sms";
 
@@ -448,6 +444,7 @@ impl ConnectorAdapter for HttpSmsConnectorAdapter {
 
 #[cfg(test)]
 mod tests {
+    use domain::notify::connector::NotifyTargetType;
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -455,7 +452,6 @@ mod tests {
     };
 
     use super::*;
-    use crate::domain::notify::connector::NotifyTargetType;
 
     fn target(value: &str) -> NotifyTarget {
         NotifyTarget {

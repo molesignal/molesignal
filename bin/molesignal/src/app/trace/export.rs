@@ -16,20 +16,18 @@ use opentelemetry_proto::tonic::{
 use prost::Message;
 use reqwest::Client;
 use serde_json::{Value, json};
+use settings::ExternalTraceExporterSettings;
+use signals::{
+    self_telemetry::with_suppression, tail_sampling::DecidedTrace,
+    trace_normalization::CanonicalSpan,
+};
 use tonic::{
     codec::CompressionEncoding,
     metadata::{Ascii, MetadataKey, MetadataValue},
     transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity},
 };
 
-use crate::{
-    app::trace::TraceSink,
-    config::ExternalTraceExporterSettings,
-    shared::{
-        self_telemetry::with_suppression, tail_sampling::DecidedTrace,
-        trace_normalization::CanonicalSpan,
-    },
-};
+use crate::app::trace::TraceSink;
 
 pub const SELF_EXPORT_MARKER: &str = "x-molesignal-trace-self-export";
 
@@ -222,11 +220,11 @@ impl TraceSink for ExternalOtlpTraceSink {
                     client = client.send_compressed(CompressionEncoding::Gzip);
                 }
 
-                with_suppression(crate::shared::grpc_trace::call(
+                with_suppression(signals::grpc_trace::call(
                     request,
                     "opentelemetry.proto.collector.trace.v1.TraceService",
                     "Export",
-                    crate::shared::grpc_trace::GrpcTarget::ThirdParty,
+                    signals::grpc_trace::GrpcTarget::ThirdParty,
                     |request| client.export(request),
                 ))
                 .await
@@ -275,10 +273,10 @@ impl TraceSink for ExternalOtlpTraceSink {
                     request = request.header(SELF_EXPORT_MARKER, "1");
                 }
 
-                let response = with_suppression(crate::shared::http_trace::send(
+                let response = with_suppression(signals::http_trace::send(
                     client,
                     request,
-                    crate::shared::http_trace::HttpTarget::ThirdParty,
+                    signals::http_trace::HttpTarget::ThirdParty,
                 ))
                 .await
                 .map_err(|error| format!("OTLP HTTP export failed: {error}"))?;
@@ -512,6 +510,11 @@ mod tests {
         BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
         KeyUsagePurpose,
     };
+    use signals::{
+        tail_sampling::{DecidedTrace, ForceKeep, TailSampler, TraceCandidate, TraceRuntimePolicy},
+        trace_fixtures,
+        trace_normalization::{SamplingReason, TraceLimits},
+    };
     use tokio_stream::wrappers::TcpListenerStream;
     use tonic::{Request, Response, Status, transport::Server};
     use wiremock::{
@@ -520,15 +523,8 @@ mod tests {
     };
 
     use super::*;
-    use crate::{
-        app::trace::{MemoryTraceSink, TracePipeline, TracePipelineConfig, TraceSinkWorkerConfig},
-        shared::{
-            tail_sampling::{
-                DecidedTrace, ForceKeep, TailSampler, TraceCandidate, TraceRuntimePolicy,
-            },
-            trace_fixtures,
-            trace_normalization::{SamplingReason, TraceLimits},
-        },
+    use crate::app::trace::{
+        MemoryTraceSink, TracePipeline, TracePipelineConfig, TraceSinkWorkerConfig,
     };
 
     fn retained_trace() -> DecidedTrace {

@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::domain::iam::{
+use domain::iam::{
     IamScope,
     navigation::{IamRouteAccess, IamRouteCatalog, IamRoutePermissionMode, IamRouteScope},
 };
@@ -56,8 +56,9 @@ pub fn resolve_route_access(
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::navigation::{IamRouteDefinition, IamRoutePermissionMode};
+
     use super::*;
-    use crate::domain::iam::navigation::{IamRouteDefinition, IamRoutePermissionMode};
 
     #[test]
     fn route_decisions_apply_scope_and_permissions() {

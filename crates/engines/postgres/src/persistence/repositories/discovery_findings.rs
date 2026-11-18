@@ -4,17 +4,15 @@
 //! `discovery_findings` 表：自动发现找到的问题。
 
 use async_trait::async_trait;
+use domain::alerting::{
+    discovery::{DiscoveryRepository, Finding, FindingFilter, FindingKind},
+    incident::Severity,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, QueryBuilder, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::{
-        discovery::{DiscoveryRepository, Finding, FindingFilter, FindingKind},
-        incident::Severity,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgDiscoveryRepository {
     pool: PgPool,

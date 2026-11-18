@@ -13,25 +13,21 @@
 
 use std::{collections::HashMap, time::Duration};
 
+use agent::im::CardAnswer;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use futures::{SinkExt, StreamExt};
+use kernel::{Error, Result};
 use prost::Message as _;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use tokio::time::{Instant, interval_at};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
 use super::{Listener, ws};
-use crate::{
-    agent::im::CardAnswer,
-    infra::notify::adapters::{LARK_SITES, TOKENS, TokenCache, lark_card},
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
-};
+use crate::infra::notify::adapters::{LARK_SITES, TOKENS, TokenCache, lark_card};
 
 const PING_DEFAULT_SECS: u64 = 120;
 /// 收到的回复与卡片最多这么多字符。

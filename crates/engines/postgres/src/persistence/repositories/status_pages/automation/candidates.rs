@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{
+    alerting::incident::Severity,
+    status_page::{
+        AutomationCandidate, AutomationCandidateAction, AutomationCandidateDetail,
+        AutomationCandidateSource, AutomationCandidateState, AutomationSourceKind,
+        AutomationSourceObservation, AutomationWorkItem,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::Row as _;
 
 use super::{
     super::PgStatusPageRepository,
     codec::{CANDIDATE_COLS, CANDIDATE_SELECT_COLS, row_to_candidate},
-};
-use crate::{
-    domain::{
-        alerting::incident::Severity,
-        status_page::{
-            AutomationCandidate, AutomationCandidateAction, AutomationCandidateDetail,
-            AutomationCandidateSource, AutomationCandidateState, AutomationSourceKind,
-            AutomationSourceObservation, AutomationWorkItem,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) async fn observe(

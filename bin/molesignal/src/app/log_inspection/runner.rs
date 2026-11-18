@@ -13,7 +13,17 @@ use std::{
 };
 
 use chrono_tz::Tz;
+use domain::{
+    i18n_language::I18nLanguageRepository,
+    log_inspection::{
+        InspectionLevel, InspectionNotification, LastInspectionRun, LogInspection,
+        LogInspectionRun, RunCompletion, RunFailure, RunStatus,
+        repositories::{LogInspectionRepository, LogInspectionRunRepository},
+    },
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use prometheus::{Histogram, IntCounterVec};
+use signals::metrics::{register_histogram, register_int_counter_vec};
 
 use super::{
     InspectionLimits,
@@ -22,21 +32,6 @@ use super::{
     notification::{self, NotificationSender, Outcome},
     prompt, schedule,
     verdict::read_verdict,
-};
-use crate::{
-    domain::{
-        i18n_language::I18nLanguageRepository,
-        log_inspection::{
-            InspectionLevel, InspectionNotification, LastInspectionRun, LogInspection,
-            LogInspectionRun, RunCompletion, RunFailure, RunStatus,
-            repositories::{LogInspectionRepository, LogInspectionRunRepository},
-        },
-    },
-    shared::{
-        Error, Result,
-        metrics::{register_histogram, register_int_counter_vec},
-        time::TimestampMicros,
-    },
 };
 
 mod trigger;

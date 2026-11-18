@@ -5,12 +5,11 @@
 //! 只有一个值班人，所以重叠的挡住写入。
 
 use chrono_tz::Tz;
+use domain::alerting::schedule::Rotation;
+use kernel::time::TimestampMicros;
 
 use super::{Draft, local_text, weekly::WeekMinutes};
-use crate::{
-    app::alerting::oncall_transfer::Finding, domain::alerting::schedule::Rotation,
-    shared::time::TimestampMicros,
-};
+use crate::app::alerting::oncall_transfer::Finding;
 
 const MINUTE_MICROS: i64 = 60_000_000;
 /// 生效时段按周重复：多看一天，一周里没碰上就不会碰上。

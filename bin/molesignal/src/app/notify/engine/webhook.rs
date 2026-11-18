@@ -5,9 +5,8 @@
 //! RFC 3339（UTC），人员与团队写 ID。
 
 use chrono::{TimeZone, Utc};
+use domain::notify::policy::NotifyEvent;
 use serde_json::{Map, Value, json};
-
-use crate::domain::notify::policy::NotifyEvent;
 
 /// 请求体结构的版本：字段只增不改，改了就加一。2 起键名是 camelCase；`data` 仍是事件属性的原样。
 pub(super) const WEBHOOK_BODY_VERSION: u32 = 2;
@@ -105,8 +104,9 @@ fn rfc3339(micros: i64) -> String {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn event(event_type: &str, attributes: Value) -> NotifyEvent {
         NotifyEvent {

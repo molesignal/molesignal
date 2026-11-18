@@ -6,14 +6,12 @@
 
 use std::collections::BTreeMap;
 
-use crate::{
-    agent::{
-        automations::{AutomationRunStatus, reasons},
-        runs::RunStatus,
-    },
-    domain::{i18n_language::LanguagePack, notify::connector::NotifyMessage},
-    shared::Result,
+use agent::{
+    automations::{AutomationRunStatus, reasons},
+    runs::RunStatus,
 };
+use domain::{i18n_language::LanguagePack, notify::connector::NotifyMessage};
+use kernel::Result;
 
 /// 通知文案与原因说明在 `i18n_language` 里的键前缀。
 pub const KEY_PREFIX: &str = "automation.";
@@ -153,7 +151,7 @@ pub fn notification(pack: &LanguagePack, notice: &Notice<'_>) -> Result<NotifyMe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shared::i18n_language_seed::seeded_pack;
+    use crate::i18n_language_seed::seeded_pack;
 
     fn ending(status: RunStatus) -> AnswerEnding {
         AnswerEnding {

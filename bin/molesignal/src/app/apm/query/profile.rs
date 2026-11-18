@@ -8,9 +8,8 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use domain::apm::{INSTANCE_ENTRY_SCOPE, InstanceObservation, TransactionKind};
 use serde::Serialize;
-
-use crate::domain::apm::{INSTANCE_ENTRY_SCOPE, InstanceObservation, TransactionKind};
 
 /// The most values a figure lists.
 const MAX_VALUES: usize = 5;
@@ -148,7 +147,7 @@ pub fn service_profile(
 /// The instances of each service, by its identity.
 pub fn instances_by_service(
     instances: &[InstanceObservation],
-) -> HashMap<&crate::domain::apm::ServiceIdentity, Vec<&InstanceObservation>> {
+) -> HashMap<&domain::apm::ServiceIdentity, Vec<&InstanceObservation>> {
     let mut grouped = HashMap::<_, Vec<_>>::new();
 
     for instance in instances {
@@ -199,11 +198,10 @@ fn count(value: usize) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    use domain::apm::ServiceIdentity;
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        domain::apm::ServiceIdentity,
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn instance(id: &str, version: &str, attributes: &[(&str, &str)]) -> InstanceObservation {
         InstanceObservation {

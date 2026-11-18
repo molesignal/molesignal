@@ -4,13 +4,13 @@
 //! What a scheduled pipeline reads, writes and does when something fails, as its saved
 //! configuration (`function_steps`) says. Saving checks it and every run reads it through
 //! [`ScheduledConfig::parse`], so a pipeline that saves is one that runs as it was saved.
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{
     processing::{ProcessingKind, parse_processing_steps},
     realtime::{OutputKind, public_stream, writable_stream},
 };
-use crate::shared::{Error, Result};
 
 /// At most this many streams on either side of a pipeline.
 pub const MAX_STREAMS: usize = 8;

@@ -6,12 +6,9 @@
 //! Heroku 推 log drain 文本，每行一条；HTTP POST `/api/v1/_heroku`，鉴权头同。
 //! 解析失败时 fallback 原文 message。
 
+use domain::intake::RawEvent;
+use kernel::{Result, time::TimestampMicros};
 use serde_json::{Map, Value};
-
-use crate::{
-    domain::intake::RawEvent,
-    shared::{Result, time::TimestampMicros},
-};
 
 pub fn parse_text(body: &str) -> Result<Vec<RawEvent>> {
     let mut out = Vec::new();

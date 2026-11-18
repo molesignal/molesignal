@@ -3,7 +3,7 @@
 
 //! `[querier].max_scan_rows`：单次读取最多扫描的行数。
 
-use crate::shared::{Error, Result};
+use kernel::{Error, Result};
 
 /// 超限错误消息的开头；[`is_over_scan_limit`] 靠它认出这类错误。
 const OVER_LIMIT: &str = "the query would scan";
@@ -48,10 +48,10 @@ mod tests {
 
     #[test]
     fn other_client_errors_are_not_taken_for_the_limit() {
-        assert!(!is_over_scan_limit(&crate::shared::Error::invalid(
+        assert!(!is_over_scan_limit(&kernel::Error::invalid(
             "unsupported trace filter field: x"
         )));
-        assert!(!is_over_scan_limit(&crate::shared::Error::internal(
+        assert!(!is_over_scan_limit(&kernel::Error::internal(
             "the query would scan nothing"
         )));
     }

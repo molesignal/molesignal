@@ -7,22 +7,21 @@
 //! 团队会话加载组织与本队的 `MOLE.md`，个人会话加载组织的与已挂进来的团队的；记忆目录是这个
 //! 会话写记忆的地方的：团队会话是本队的，个人会话是发起人的。
 
-use crate::{
-    agent::{
-        knowledge::{ENTRY_FILE, entry_prompt},
-        memory::index_prompt,
-        scope::{ChatScope, Scope},
+use agent::{
+    knowledge::{ENTRY_FILE, entry_prompt},
+    memory::index_prompt,
+    scope::{ChatScope, Scope},
+};
+use domain::iam::IamContext;
+use kernel::ids::Id;
+use postgres::repositories::agent::chats::Chat;
+
+use crate::api::{
+    AppState,
+    http::routes::agent::{
+        tool_dispatcher::ChatWorkspace,
+        viewer::{chat_scope, viewer},
     },
-    api::{
-        AppState,
-        http::routes::agent::{
-            tool_dispatcher::ChatWorkspace,
-            viewer::{chat_scope, viewer},
-        },
-    },
-    app::iam::IamContext,
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::ids::Id,
 };
 
 pub(super) struct Loaded {

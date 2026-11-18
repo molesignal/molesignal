@@ -9,29 +9,23 @@ use std::{
 };
 
 use async_trait::async_trait;
-use serde_json::Value;
-use tokio::sync::RwLock;
-
-use crate::{
-    domain::dashboard::{
-        authoring::{VisualizationManifest, visualization_manifest},
-        contract_registry::{
-            DASHBOARD_AUTHORING_CAPABILITY, DASHBOARD_AUTHORING_CONTRACT, DASHBOARD_MODEL_CONTRACT,
-            DASHBOARD_VISUALIZATION_CONTRACT, DashboardContractBinding, DashboardContractBundle,
-            DashboardContractDocuments, DashboardContractKind, DashboardContractRef,
-            DashboardContractRepository, DashboardContractSelection, DashboardContractStatus,
-            DashboardContractVersion, JSON_SCHEMA_2020_12_DIALECT, VISUALIZATION_MANIFEST_DIALECT,
-        },
-    },
-    shared::{
-        Error, Result,
-        contracts::{
-            ContractValidator, DASHBOARD_AUTHORING_V1_SCHEMA, DASHBOARD_MODEL_V2_SCHEMA,
-            DASHBOARD_VISUALIZATIONS_V1, canonical_json_bytes, sha256_hex,
-        },
-        time::TimestampMicros,
+use contracts::{
+    ContractValidator, DASHBOARD_AUTHORING_V1_SCHEMA, DASHBOARD_MODEL_V2_SCHEMA,
+    DASHBOARD_VISUALIZATIONS_V1, canonical_json_bytes, sha256_hex,
+};
+use domain::dashboard::{
+    authoring::{VisualizationManifest, visualization_manifest},
+    contract_registry::{
+        DASHBOARD_AUTHORING_CAPABILITY, DASHBOARD_AUTHORING_CONTRACT, DASHBOARD_MODEL_CONTRACT,
+        DASHBOARD_VISUALIZATION_CONTRACT, DashboardContractBinding, DashboardContractBundle,
+        DashboardContractDocuments, DashboardContractKind, DashboardContractRef,
+        DashboardContractRepository, DashboardContractSelection, DashboardContractStatus,
+        DashboardContractVersion, JSON_SCHEMA_2020_12_DIALECT, VISUALIZATION_MANIFEST_DIALECT,
     },
 };
+use kernel::{Error, Result, time::TimestampMicros};
+use serde_json::Value;
+use tokio::sync::RwLock;
 
 pub struct ResolvedDashboardContracts {
     pub binding: DashboardContractBinding,

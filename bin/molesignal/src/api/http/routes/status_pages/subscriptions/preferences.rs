@@ -9,17 +9,15 @@ use axum::{
     extract::{Path, State},
     routing::post,
 };
+use domain::status_page::{
+    StatusPageSubscriber, StatusPageSubscriberChannel, StatusPageSubscriberStatus,
+    SubscriberComponentScope,
+};
+use kernel::{Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use super::mask_target;
-use crate::{
-    api::AppState,
-    domain::status_page::{
-        StatusPageSubscriber, StatusPageSubscriberChannel, StatusPageSubscriberStatus,
-        SubscriberComponentScope,
-    },
-    shared::{Result, ids::Id},
-};
+use crate::api::AppState;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new().route(

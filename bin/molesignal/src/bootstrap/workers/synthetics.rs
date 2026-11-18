@@ -3,16 +3,13 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::cluster::PeerRole;
+use kernel::{Result, time::TimestampMicros};
 use tokio::task::JoinHandle;
 
 use super::polling::PollingBackoff;
-use crate::{
-    app::{
-        cluster::{PeerRole, WorkOwnership},
-        status_page::StatusPageService,
-        synthetics::SyntheticService,
-    },
-    shared::{Result, time::TimestampMicros},
+use crate::app::{
+    cluster::WorkOwnership, status_page::StatusPageService, synthetics::SyntheticService,
 };
 
 mod embedded;

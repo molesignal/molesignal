@@ -10,13 +10,13 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use kernel::Error;
 use serde::Deserialize;
+use signals::self_telemetry::with_suppression;
 
 use crate::{
     api::{AppState, http::middleware::auth::authenticate_bearer},
     app::profiling::{CaptureError, CapturedProfile},
-    infra::profiles,
-    shared::{Error, self_telemetry::with_suppression},
 };
 
 pub fn routes() -> Router<AppState> {
@@ -127,7 +127,7 @@ enum ProfileAccess {
 }
 
 fn access_policy(
-    settings: &crate::config::ProfilingSettings,
+    settings: &settings::ProfilingSettings,
     compatibility_alias: bool,
 ) -> ProfileAccess {
     if !settings.enabled {
@@ -285,12 +285,10 @@ mod tests {
     use std::collections::BTreeMap;
 
     use axum::body::to_bytes;
+    use profiles::{NormalizedProfile, ProfileType, ValueType};
+    use settings::ProfilingSettings;
 
     use super::*;
-    use crate::{
-        config::ProfilingSettings,
-        infra::profiles::{NormalizedProfile, ProfileType, ValueType},
-    };
 
     #[test]
     fn listener_and_compatibility_aliases_apply_the_expected_access_policy() {

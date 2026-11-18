@@ -12,17 +12,14 @@ use axum::{
     extract::{Path, Query, State},
     routing::get,
 };
+use domain::{
+    alerting::discovery::{Finding, FindingFilter, FindingKind},
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        alerting::discovery::{Finding, FindingFilter, FindingKind},
-        iam::permission,
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

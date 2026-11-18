@@ -2,15 +2,16 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use signals::{
+    policy::{
+        PersistedTracePolicy, TraceDebugToken, TraceDebugTokenRepository, TracePolicyRepository,
+    },
+    tail_sampling::TraceRuntimePolicy,
+};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::trace_policy::{
-        PersistedTracePolicy, TraceDebugToken, TraceDebugTokenRepository, TracePolicyRepository,
-    },
-    shared::{Error, Result, ids::Id, tail_sampling::TraceRuntimePolicy, time::TimestampMicros},
-};
 
 pub struct PgTracePolicyRepository {
     pool: PgPool,

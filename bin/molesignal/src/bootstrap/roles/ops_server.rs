@@ -11,11 +11,9 @@
 //! 监听面向内部网络，不做鉴权，也不提供业务 API。
 
 use axum::{Router, routing::get};
+use settings::Settings;
 
-use crate::{
-    api::{AppState, http::routes},
-    config::Settings,
-};
+use crate::api::{AppState, http::routes};
 
 pub fn build_router(state: AppState) -> Router {
     Router::new()

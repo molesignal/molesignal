@@ -12,23 +12,22 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    app::alerting::importance::{ImportanceService, levels_of},
-    domain::{
-        alerting::{
-            escalation::EscalationPolicy,
-            importance::ImportanceLevels,
-            incident::Incident,
-            repositories::EscalationPolicyRepository,
-            routing::{
-                RoutingRuleRepository, RoutingSubject, RoutingTable, ServiceOwnerSource,
-                TeamPolicyRepository,
-            },
+use domain::{
+    alerting::{
+        escalation::EscalationPolicy,
+        importance::ImportanceLevels,
+        incident::Incident,
+        repositories::EscalationPolicyRepository,
+        routing::{
+            RoutingRuleRepository, RoutingSubject, RoutingTable, ServiceOwnerSource,
+            TeamPolicyRepository,
         },
-        iam::TeamRepository,
     },
-    shared::{Result, ids::Id},
+    iam::TeamRepository,
 };
+use kernel::{Result, ids::Id};
+
+use crate::app::alerting::importance::{ImportanceService, levels_of};
 
 /// 一个组织的路由表，和定紧急度要用的升级策略。
 #[derive(Clone)]

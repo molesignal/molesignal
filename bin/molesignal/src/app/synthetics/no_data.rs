@@ -11,16 +11,14 @@
 
 use std::collections::HashMap;
 
+use domain::synthetics::{
+    ActiveMonitorRevision, MissedRun, MonitorLocationState, MonitorRevision, SyntheticMonitor,
+    SyntheticResult,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{SyntheticService, aggregation::locations_needed};
-use crate::{
-    domain::synthetics::{
-        ActiveMonitorRevision, MissedRun, MonitorLocationState, MonitorRevision, SyntheticMonitor,
-        SyntheticResult,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// Whether a check gets results, told to the sinks when one of its locations reaches or leaves
 /// the run of missed runs that fails a location.
@@ -225,14 +223,13 @@ fn missing_locations<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::missing_locations;
-    use crate::{
-        domain::synthetics::{
-            IcmpSpec, MonitorLocationState, MonitorRevision, MonitorSchedule, MonitorSpec,
-            MonitorState, MultiLocationPolicy,
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use domain::synthetics::{
+        IcmpSpec, MonitorLocationState, MonitorRevision, MonitorSchedule, MonitorSpec,
+        MonitorState, MultiLocationPolicy,
     };
+    use kernel::{ids::Id, time::TimestampMicros};
+
+    use super::missing_locations;
 
     fn revision(policy: MultiLocationPolicy, locations: &[&str]) -> MonitorRevision {
         MonitorRevision {

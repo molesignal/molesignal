@@ -14,11 +14,10 @@
 //! joined row: each Span comparison in it is worked out for every trace as a
 //! column of 1 or 0, which the part reads beside the summary's fields.
 
+use kernel::{Error, Result};
+
 use super::{RAW_TABLE, TraceFilter, TraceListContext, filter_predicate, qualified, sql_literal};
-use crate::{
-    api::http::routes::web::trace::filter::TraceCondition,
-    shared::{Error, Result},
-};
+use crate::api::http::routes::web::trace::filter::TraceCondition;
 
 /// The column of the `matching_trace_ids` table that says whether a trace has
 /// a Span that passes one comparison: this prefix and its place in the query.

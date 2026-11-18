@@ -16,17 +16,14 @@ use axum::{
     response::Json,
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::Error;
 
 use self::{
     request::SearchQuery,
     response::{SearchItem, SearchResponse},
 };
-use crate::{
-    api::AppState,
-    app::{iam::IamContext, web::search::validate_query},
-    domain::iam::permission,
-    shared::Error,
-};
+use crate::{api::AppState, app::web::search::validate_query};
 
 mod request;
 mod response;

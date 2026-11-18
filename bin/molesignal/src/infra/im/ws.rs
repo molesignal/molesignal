@@ -6,6 +6,7 @@
 
 use std::{sync::Arc, time::Duration};
 
+use kernel::{Error, Result};
 use rustls::{
     ClientConfig,
     crypto::{CryptoProvider, aws_lc_rs},
@@ -19,8 +20,6 @@ use tokio::{
 use tokio_rustls::TlsConnector;
 use tokio_tungstenite::{WebSocketStream, client_async, tungstenite::client::IntoClientRequest};
 use url::Url;
-
-use crate::shared::{Error, Result};
 
 /// 连接与握手最多等这么久。
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);

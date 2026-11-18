@@ -5,6 +5,38 @@
 
 use std::sync::Arc;
 
+use domain::iam::{
+    IamMembership, IamMembershipRepository, IamPlatformAdministratorRepository,
+    InstanceSettingsRepository, Organization, OrganizationRepository, SsoProviderRepository,
+    api_token::ApiTokenRepository, service_account::ServiceAccountRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::{
+    api_tokens::PgApiTokenRepository,
+    audit_events::{AuditEventRepository, PgAuditEventRepository},
+    email_domains::{EmailDomainRepository, PgEmailDomainRepository},
+    iam::{
+        PgIamRepository,
+        memberships::PgIamMembershipRepository,
+        policies::{IamPolicyRepository, PgIamPolicyRepository},
+        roles::{IamRoleRepository, PgIamRoleRepository},
+        service_accounts::PgServiceAccountRepository,
+    },
+    instance_settings::PgInstanceSettingsRepository,
+    invitations::{InvitationRepository, PgInvitationRepository},
+    organizations::PgOrganizationRepository,
+    signing_secrets::{
+        PgSigningSecretRepository, SigningSecretRepository, bootstrap_or_load_jwt_secret,
+    },
+    sso_providers::PgSsoProviderRepository,
+    user_preferences::{PgUserPreferencesRepository, UserPreferencesRepository},
+    user_ui_preference::{PgUserUiPreferenceRepository, UserUiPreferenceRepository},
+    workspace_preference_defaults::{
+        PgWorkspacePreferenceDefaultsRepository, WorkspacePreferenceDefaultsRepository,
+    },
+};
+use settings::Settings;
+
 use super::{
     core::Core,
     workers::jwt_secrets::{self, SigningSecretsTable},
@@ -14,44 +46,10 @@ use crate::{
         audit_stream::{AuditStreamQueue, StreamedAuditEvents},
         iam::{IamAccessService, IamService},
     },
-    config::Settings,
-    domain::iam::{
-        IamMembership, IamMembershipRepository, IamPlatformAdministratorRepository,
-        InstanceSettingsRepository, Organization, OrganizationRepository, SsoProviderRepository,
-        api_token::ApiTokenRepository, service_account::ServiceAccountRepository,
+    infra::sso::{
+        JwksCache, PgSsoIdentityRepository, PgSsoLinkRequestRepository, PgSsoSigninTestRepository,
+        SsoIdentityRepository, SsoLinkRequestRepository, SsoSigninTestRepository, SsoStateStore,
     },
-    infra::{
-        persistence::repositories::{
-            api_tokens::PgApiTokenRepository,
-            audit_events::{AuditEventRepository, PgAuditEventRepository},
-            email_domains::{EmailDomainRepository, PgEmailDomainRepository},
-            iam::{
-                PgIamRepository,
-                memberships::PgIamMembershipRepository,
-                policies::{IamPolicyRepository, PgIamPolicyRepository},
-                roles::{IamRoleRepository, PgIamRoleRepository},
-                service_accounts::PgServiceAccountRepository,
-            },
-            instance_settings::PgInstanceSettingsRepository,
-            invitations::{InvitationRepository, PgInvitationRepository},
-            organizations::PgOrganizationRepository,
-            signing_secrets::{
-                PgSigningSecretRepository, SigningSecretRepository, bootstrap_or_load_jwt_secret,
-            },
-            sso_providers::PgSsoProviderRepository,
-            user_preferences::{PgUserPreferencesRepository, UserPreferencesRepository},
-            user_ui_preference::{PgUserUiPreferenceRepository, UserUiPreferenceRepository},
-            workspace_preference_defaults::{
-                PgWorkspacePreferenceDefaultsRepository, WorkspacePreferenceDefaultsRepository,
-            },
-        },
-        sso::{
-            JwksCache, PgSsoIdentityRepository, PgSsoLinkRequestRepository,
-            PgSsoSigninTestRepository, SsoIdentityRepository, SsoLinkRequestRepository,
-            SsoSigninTestRepository, SsoStateStore,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) struct IamRuntime {
@@ -168,7 +166,7 @@ impl IamRuntime {
             );
         }
 
-        let iam_repository: Arc<dyn crate::domain::iam::access::IamRepository> =
+        let iam_repository: Arc<dyn domain::iam::access::IamRepository> =
             Arc::new(PgIamRepository::new(core.pool.clone()));
 
         let access = Arc::new(IamAccessService::new(

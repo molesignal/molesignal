@@ -18,13 +18,10 @@ use aws_lc_rs::{
     },
 };
 use base64::Engine as _;
+use domain::notify::connector::NotifyConnector;
+use kernel::{Error, Result};
 use serde_json::Value;
 use url::Url;
-
-use crate::{
-    domain::notify::connector::NotifyConnector,
-    shared::{Error, Result},
-};
 
 /// 取证书、确认订阅最多等多久。
 const SNS_TIMEOUT: Duration = Duration::from_secs(5);

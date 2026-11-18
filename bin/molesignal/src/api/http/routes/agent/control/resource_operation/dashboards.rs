@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::model::ApprovalRequest;
+use domain::{
+    federation::{CudAction, ResourceKind},
+    iam::IamContext,
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::{
-        AppState,
-        http::{
-            federation::{delete_payload, emit_cud},
-            middleware::Permission,
-        },
+use crate::api::{
+    AppState,
+    http::{
+        federation::{delete_payload, emit_cud},
+        middleware::Permission,
     },
-    app::iam::IamContext,
-    domain::federation::{CudAction, ResourceKind},
-    shared::{Error, Result, ids::Id},
 };
 
 pub(super) async fn execute(
@@ -155,7 +155,7 @@ async fn load_authorized(
     ctx: &IamContext,
     id: &str,
     permission: &str,
-) -> Result<crate::domain::dashboard::Dashboard> {
+) -> Result<domain::dashboard::Dashboard> {
     let dashboard = state.dashboard.get(&Id(id.to_string())).await?;
 
     if dashboard.org_id != ctx.org_id {

@@ -7,13 +7,13 @@
 //! spans read from then on.
 
 use axum::{Extension, Json, Router, extract::State, routing::get};
-
-use crate::{
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::{apm::ApmOrgSettings, iam::permission},
-    shared::Result,
+use domain::{
+    apm::ApmOrgSettings,
+    iam::{IamContext, permission},
 };
+use kernel::Result;
+
+use crate::api::{AppState, http::routes::activity_audit};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new().route("/apm/settings", get(get_settings).put(put_settings))

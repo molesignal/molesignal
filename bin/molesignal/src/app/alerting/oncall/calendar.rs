@@ -7,18 +7,16 @@
 use std::{collections::HashMap, sync::Arc};
 
 use chrono::{TimeZone, Utc};
-
-use crate::{
-    app::alerting::tokens::{new_token, token_hash},
-    domain::alerting::{
-        calendar::{
-            CALENDAR_FUTURE_MICROS, CALENDAR_PAST_MICROS, CalendarFeed, CalendarFeedRepository,
-        },
-        repositories::ScheduleRepository,
-        schedule::Schedule,
+use domain::alerting::{
+    calendar::{
+        CALENDAR_FUTURE_MICROS, CALENDAR_PAST_MICROS, CalendarFeed, CalendarFeedRepository,
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    repositories::ScheduleRepository,
+    schedule::Schedule,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use crate::app::alerting::tokens::{new_token, token_hash};
 
 /// 日历里写给人看的几句话，用订阅的人的语言；`{schedule}`、`{person}` 会被换掉。
 #[derive(Debug, Clone)]

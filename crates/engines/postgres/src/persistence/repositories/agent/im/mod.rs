@@ -10,16 +10,14 @@ mod bots;
 mod messages;
 mod outbox;
 
+use agent::im::{
+    BotStatus, ImBot, ImLink, ImMessage, ImOutgoing, ImRepository, ImThread, MessageStatus,
+};
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, postgres::PgRow};
 
 use super::super::sqlx_err;
-use crate::{
-    agent::im::{
-        BotStatus, ImBot, ImLink, ImMessage, ImOutgoing, ImRepository, ImThread, MessageStatus,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgImRepository {
     pool: PgPool,

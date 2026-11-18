@@ -11,6 +11,8 @@ pub mod discovery;
 pub mod id_token;
 pub mod jwks;
 
+use domain::iam::SsoOidcConfig;
+use kernel::{Error, Result};
 use serde_json::Value;
 use url::Url;
 
@@ -18,10 +20,6 @@ use self::{id_token::Expected, jwks::JwksCache};
 use super::{
     claims::{ExternalIdentity, map_identity},
     oauth2::{OAuthClient, OAuthClientConfig, TokenRequestEncoding},
-};
-use crate::{
-    domain::iam::SsoOidcConfig,
-    shared::{Error, Result},
 };
 
 /// 没配 Scopes 时请求的默认值。

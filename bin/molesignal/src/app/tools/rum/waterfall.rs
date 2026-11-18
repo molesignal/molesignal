@@ -8,25 +8,22 @@
 
 use std::collections::BTreeMap;
 
+use domain::{iam::IamContext, rum::event::RumStream};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
 
 use super::{Read, list_rows, summary_span};
 use crate::{
-    app::{
-        iam::IamContext,
-        tools::{
-            ToolRuntime,
-            common::{TimeRangeArg, parse_args},
-        },
+    app::tools::{
+        ToolRuntime,
+        common::{TimeRangeArg, parse_args},
     },
-    domain::rum::event::RumStream,
     infra::rum::query::{Condition, requested_columns},
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 const NANOSECONDS_PER_MILLISECOND: f64 = 1_000_000.0;

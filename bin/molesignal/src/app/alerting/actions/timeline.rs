@@ -3,19 +3,17 @@
 
 //! 读事件的时间线：记下的经过、通知了谁，以及并入它的事件。
 
+use domain::{
+    alerting::{
+        incident::{IncidentStatus, Severity},
+        timeline::TimelineEntry,
+    },
+    notify::delivery::{DeliveryStage, DeliveryStatus},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{Actor, IncidentActions};
-use crate::{
-    domain::{
-        alerting::{
-            incident::{IncidentStatus, Severity},
-            timeline::TimelineEntry,
-        },
-        notify::delivery::{DeliveryStage, DeliveryStatus},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// 时间线最多列多少条投递。
 const MAX_DELIVERIES: u32 = 500;

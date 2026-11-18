@@ -4,6 +4,8 @@
 //! The feature flags a RUM application evaluates: which flags sessions met and, for one flag, how
 //! the sessions of each of its values did, side by side.
 
+use domain::{iam::IamContext, rum::event::RumStream};
+use kernel::Result;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
@@ -11,7 +13,6 @@ use tool_runtime::ToolResult;
 use super::{reader, summary_span};
 use crate::{
     app::{
-        iam::IamContext,
         rum::{
             aggregate::{self, Request},
             overview::scope_filters,
@@ -23,9 +24,7 @@ use crate::{
             common::{TimeRangeArg, parse_args},
         },
     },
-    domain::rum::event::RumStream,
     infra::rum::query::{Aggregate, KEY_COLUMN, KEY_COUNT, MeasureSpec, Scope, keys_sql},
-    shared::Result,
 };
 
 const DEFAULT_LIMIT: usize = 20;

@@ -6,9 +6,8 @@
 //! 报告按约定是一个 JSON 对象，`level` 是 `normal` / `attention` / `abnormal` 之一。模型没有
 //! 照做（写成了散文、漏了字段、写了别的词）时不去猜：等级记为未判定，由通知规则按异常对待。
 
+use domain::log_inspection::InspectionLevel;
 use serde_json::Value;
-
-use crate::domain::log_inspection::InspectionLevel;
 
 /// 列表里显示的结论，最多这么多字符。
 const SUMMARY_CHARS: usize = 500;

@@ -12,9 +12,18 @@ mod card;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::{
+    buttons::AlertButtons,
+    connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+        NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
+    },
+};
+use kernel::{Error, Result};
 use reqwest::Method;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 
 use self::card::adaptive_card;
 pub(crate) use self::{
@@ -24,19 +33,6 @@ pub(crate) use self::{
 use super::common::{
     body, client, default_timeout_secs, delivered, provider_message, truncate_chars,
     validate_http_url, validate_timeout,
-};
-use crate::{
-    domain::notify::{
-        buttons::AlertButtons,
-        connector::{
-            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-            NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
-        },
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
 };
 
 pub const TEAMS_APP_CONNECTOR_TYPE: &str = "teams_app";

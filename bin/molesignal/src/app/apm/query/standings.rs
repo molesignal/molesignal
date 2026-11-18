@@ -6,17 +6,16 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use domain::apm::{
+    BucketDimension, DEFAULT_DEPLOYMENT_ENVIRONMENT, HistogramSchema, MergedBucket,
+    ServiceIdentity, VersionObservation,
+};
+use kernel::Result;
+
 use super::{
     ApmQueryContext, EnvironmentShare, InstrumentationQuality, RedSummary, SdkShare, ServiceRank,
     ServiceRankings, ServiceSummary, VersionSummary, aggregate::red_from_buckets,
     overview::version_summary,
-};
-use crate::{
-    domain::apm::{
-        BucketDimension, DEFAULT_DEPLOYMENT_ENVIRONMENT, HistogramSchema, MergedBucket,
-        ServiceIdentity, VersionObservation,
-    },
-    shared::Result,
 };
 
 /// How many services a ranking lists.
@@ -210,11 +209,10 @@ pub(super) fn deployments(
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{
-        app::apm::query::{InstrumentationSummary, ServiceHealth, SignalFilterHandle},
-        shared::time::TimestampMicros,
-    };
+    use crate::app::apm::query::{InstrumentationSummary, ServiceHealth, SignalFilterHandle};
 
     fn summary(
         name: &str,

@@ -7,12 +7,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::iam::InstanceSettingsRepository;
+use kernel::drain::DrainController;
 use tokio::task::JoinHandle;
 
-use crate::{
-    domain::iam::InstanceSettingsRepository, infra::intake::PrometheusSeriesAdmission,
-    shared::drain::DrainController,
-};
+use crate::infra::intake::PrometheusSeriesAdmission;
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(30);
 

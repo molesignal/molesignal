@@ -16,6 +16,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::post,
 };
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
 use super::{provision::SignIn, random_token};
@@ -23,7 +24,6 @@ use crate::{
     api::{AppState, http::routes::auth::SessionView},
     app::iam::SignInMethod,
     infra::sso::SsoHandoff,
-    shared::{Error, Result, ids::Id},
 };
 
 /// 前端登录页；凭据放在查询参数 `sso` 里。

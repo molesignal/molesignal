@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use serde_json::{Value, json};
-
-use super::*;
-use crate::domain::dashboard::authoring::{
+use domain::dashboard::authoring::{
     AuthoringElement, AuthoringQuery, AuthoringRefresh, AuthoringSize, AuthoringTimeRange,
     AuthoringVariable, PanelAuthoringSpec, TextAuthoringSpec, TextMode, VisualizationIntent,
 };
+use serde_json::{Value, json};
+
+use super::*;
 
 const VALID_AUTHORING: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),

@@ -7,13 +7,10 @@
 //! module owns the signed envelope, page-size-plus-one trimming, direction
 //! semantics, and the stable HTTP response shape.
 
+use kernel::{Result, ids::Id};
 use serde::{Serialize, de::DeserializeOwned};
 
-pub use crate::shared::cursor::{CursorDirection, CursorPage, TrimmedCursorPage, trim_cursor_page};
-use crate::{
-    app::iam::IamService,
-    shared::{Result, ids::Id},
-};
+use crate::app::iam::IamService;
 
 pub const DEFAULT_CURSOR_TTL_SECS: u64 = 24 * 60 * 60;
 

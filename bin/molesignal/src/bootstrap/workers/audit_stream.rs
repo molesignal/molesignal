@@ -9,19 +9,17 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use domain::{
+    intake::{IntakeBatch, RawEvent},
+    stream::{AUDIT_STREAM, StreamType},
+};
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEvent;
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::{
-        audit_stream::{AUDIT_STREAM, AuditStreamReceiver, stream_fields},
-        intake::IntakeService,
-    },
-    domain::{
-        intake::{IntakeBatch, RawEvent},
-        stream::StreamType,
-    },
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::{ids::Id, time::TimestampMicros},
+use crate::app::{
+    audit_stream::{AuditStreamReceiver, stream_fields},
+    intake::IntakeService,
 };
 
 const BATCH: usize = 64;

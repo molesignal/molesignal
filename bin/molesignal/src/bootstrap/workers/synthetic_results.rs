@@ -11,19 +11,17 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use domain::{
+    intake::{IntakeBatch, RawEvent},
+    stream::StreamType,
+    synthetics::{SyntheticMonitor, SyntheticRepository, SyntheticResult},
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::{
-        intake::IntakeService,
-        synthetics::{RESULT_STREAM, ResultStreamReceiver, stream_fields},
-    },
-    domain::{
-        intake::{IntakeBatch, RawEvent},
-        stream::StreamType,
-        synthetics::{SyntheticMonitor, SyntheticRepository, SyntheticResult},
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use crate::app::{
+    intake::IntakeService,
+    synthetics::{RESULT_STREAM, ResultStreamReceiver, stream_fields},
 };
 
 const BATCH: usize = 64;

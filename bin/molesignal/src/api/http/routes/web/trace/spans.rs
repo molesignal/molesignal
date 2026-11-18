@@ -18,6 +18,16 @@ use axum::{
     extract::{Query, State},
     response::Json,
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::StreamType,
+};
+use kernel::{
+    Error, Result,
+    cursor::{CursorDirection, CursorPage, trim_cursor_page},
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -31,22 +41,7 @@ use super::{
     red::{RedScope, statements::Source},
     resolve_traces_stream_definition,
 };
-use crate::{
-    api::{
-        AppState,
-        http::pagination::cursor::{CursorDirection, CursorPage, trim_cursor_page},
-    },
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::StreamType,
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::api::AppState;
 
 mod cursor;
 mod statement;
@@ -202,7 +197,7 @@ fn resolve_context(
     state: &AppState,
     ctx: &IamContext,
     query: ListSpansQuery,
-    schema: &crate::domain::stream::Schema,
+    schema: &domain::stream::Schema,
 ) -> Result<SpanListContext> {
     let page_size = query.limit.clamp(1, MAX_TRACE_PAGE_SIZE);
 

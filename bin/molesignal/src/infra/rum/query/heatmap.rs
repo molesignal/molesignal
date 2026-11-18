@@ -9,11 +9,11 @@
 //! where on the page they landed. Scrolling is how many views reached each depth. Both count the
 //! rows that are stored: a map says where, not how many there would be.
 
+use kernel::{Error, Result};
 use serde::Serialize;
 use serde_json::Value;
 
 use super::sql::{Relation, Scope, ident};
-use crate::shared::{Error, Result};
 
 /// An element is cut into this many cells each way.
 pub const CELLS: i64 = 10;
@@ -349,10 +349,10 @@ pub fn read_scroll(columns: &[String], rows: &[Vec<Value>]) -> Result<ScrollMap>
 
 #[cfg(test)]
 mod tests {
+    use domain::rum::event::RumStream;
     use serde_json::json;
 
     use super::*;
-    use crate::domain::rum::event::RumStream;
 
     fn names(names: &[&str]) -> Vec<String> {
         names.iter().map(|name| (*name).to_string()).collect()

@@ -2,6 +2,10 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::status_page::{
+    StatusPageComponent, StatusPageComponentRepository, StatusPageComponentStatusEvent,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::types::Json;
 
 use super::{
@@ -11,12 +15,6 @@ use super::{
         row_to_component_status_event,
     },
     touch_page,
-};
-use crate::{
-    domain::status_page::{
-        StatusPageComponent, StatusPageComponentRepository, StatusPageComponentStatusEvent,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[async_trait]
@@ -76,7 +74,7 @@ impl StatusPageComponentRepository for PgStatusPageRepository {
     async fn update_component(
         &self,
         component: StatusPageComponent,
-        expected_status: crate::domain::status_page::ComponentStatus,
+        expected_status: domain::status_page::ComponentStatus,
         status_event: Option<StatusPageComponentStatusEvent>,
     ) -> Result<StatusPageComponent> {
         let mut transaction = sqlx::begin(&self.pool).await.map_err(super::sqlx_err)?;

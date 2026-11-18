@@ -10,21 +10,18 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::Result;
 use serde::Deserialize;
 
 use super::{address::json_list, reader::Reader};
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        rum::{
-            analytics::Answer,
-            heatmap::{self, MapRequest, SnapshotAnswer, SnapshotRequest},
-        },
+    app::rum::{
+        analytics::Answer,
+        heatmap::{self, MapRequest, SnapshotAnswer, SnapshotRequest},
     },
-    domain::iam::permission,
     infra::rum::query::{ClickMap, Filter, ScrollMap},
-    shared::Result,
 };
 
 #[derive(Debug, Default, Deserialize)]

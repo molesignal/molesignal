@@ -7,10 +7,10 @@
 //! 不带运行记录（运行属于来源会话）。消息按时间先后、同一时刻按 ID 排，"到那条为止"也照这个
 //! 顺序算。
 
+use kernel::{Error, Result};
 use sqlx::PgPool;
 
 use super::{super::super::sqlx_err, Chat, ChatMessage, rows::insert_chat};
-use crate::shared::{Error, Result};
 
 pub(super) async fn fork(pool: &PgPool, fork: Chat, upto: Option<&ChatMessage>) -> Result<Chat> {
     let source = fork

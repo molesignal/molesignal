@@ -9,16 +9,14 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use domain::apm::{DependencyCategory, HealthLines};
+use kernel::Result;
 use serde::Serialize;
 use service_graph::ServiceGraphRepository;
 
 use super::{
     ApmQueryContext, ApmQueryService, ApmResponseMeta, MapChange, MapEdge, MapEdgeKind, MapNode,
     MapNodeKind, MapRed, MapResponse, ServiceHealth, map::service_node,
-};
-use crate::{
-    domain::apm::{DependencyCategory, HealthLines},
-    shared::Result,
 };
 
 /// How far up the callers go, and how far down what is called.

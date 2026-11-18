@@ -15,10 +15,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use kernel::{Result, ids::Id};
 use parking_lot::RwLock;
 use serde_json::Value;
-
-use crate::shared::{Result, ids::Id};
 
 pub mod repository;
 
@@ -99,13 +98,13 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use async_trait::async_trait;
+    use kernel::time::TimestampMicros;
     use serde_json::json;
 
     use super::{
         repository::{ExtendRow, ExtendTableDefinition, ExtendTableSummary, ExtendValueField},
         *,
     };
-    use crate::shared::time::TimestampMicros;
 
     /// Rows of one table, counting how often they are read.
     #[derive(Default)]

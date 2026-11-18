@@ -7,10 +7,10 @@
 //! a role to assume when it names one, and the node's own identity otherwise. Where the
 //! credentials then come from is [`crate::infra::connectors::aws`].
 
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{auth_mode, both_or_neither, text, unused};
-use crate::shared::{Error, Result};
 
 const MODES: &[&str] = &[
     "access_key",

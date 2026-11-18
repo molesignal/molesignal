@@ -12,23 +12,20 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::StreamType,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 
 use super::{ClustersParam, execute_query};
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::StreamType,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::api::AppState;
 
 /// The fields of a query body, flat: `timeRange` as `start` and `end`, the
 /// stream hint as `stream` and `streamType`, and the federated clusters as

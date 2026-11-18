@@ -7,13 +7,13 @@
 //! catalog）；FileCatalog、WAL、Buffer 与对象布局只接收 [`PhysicalDatasetId`]，
 //! 不理解 logs / metrics / traces 的业务语义。
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use super::{
     ids::PhysicalDatasetId,
     type_id::{DatasetTypeId, IndexTypeId, WalCodecId},
 };
-use crate::shared::ids::Id;
 
 /// 时间分区粒度。对象布局与 Segment 槽位按它切桶。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -102,14 +102,14 @@ impl DatasetState {
 }
 
 impl std::str::FromStr for DatasetState {
-    type Err = crate::shared::Error;
+    type Err = kernel::Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "active" => Ok(Self::Active),
             "disabled" => Ok(Self::Disabled),
             "deleting" => Ok(Self::Deleting),
-            other => Err(crate::shared::Error::invalid(format!(
+            other => Err(kernel::Error::invalid(format!(
                 "unknown dataset state `{other}`"
             ))),
         }

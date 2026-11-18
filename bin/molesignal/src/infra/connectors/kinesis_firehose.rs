@@ -14,13 +14,10 @@
 //! HTTP receiver 在 `src/api/http/routes/intake_kinesis.rs` 里调本模块的
 //! [`parse_firehose_request`]。
 
+use domain::intake::RawEvent;
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Map, Value};
-
-use crate::{
-    domain::intake::RawEvent,
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

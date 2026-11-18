@@ -8,10 +8,18 @@
 //! `allowed-tools` 这一轮直接交给模型，但仍受组织工具策略与审批约束。要在 Runner 上跑脚本的
 //! Skill 还不能用。
 
+use agent::{
+    commands::{CommandRecord, CommandSource, Invocation},
+    scope::{ChatScope, Viewer},
+    skills::{render_invocation, wrap_skill_body},
+};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use domain::iam::{IamContext, Team};
+use kernel::Result;
+use postgres::repositories::agent::chats::Chat;
 
 use super::{
     super::viewer::chat_scope,
@@ -21,19 +29,8 @@ use super::{
     },
 };
 use crate::{
-    agent::{
-        commands::{CommandRecord, CommandSource, Invocation},
-        scope::{ChatScope, Viewer},
-        skills::{render_invocation, wrap_skill_body},
-    },
     api::{AppState, http::interface_language::interface_language_pack},
-    app::{
-        iam::IamContext,
-        skills::{Lookup, team_handle},
-    },
-    domain::iam::Team,
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::Result,
+    app::skills::{Lookup, team_handle},
 };
 
 /// `@` 后面写的团队：去掉空白的团队名（不分大小写）或团队 ID。

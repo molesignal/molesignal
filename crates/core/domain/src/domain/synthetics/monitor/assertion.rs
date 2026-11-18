@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use super::MonitorKind;
-use crate::shared::ids::Id;
 
 /// Whether an assertion of a `kind` check can look at `source`: what the Agent reads from the
 /// reply of that kind of check.

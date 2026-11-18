@@ -8,11 +8,9 @@
 
 mod common;
 
-use molesignal::{
-    infra::traces::EdgeSnapshot,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::Value;
+use service_graph::EdgeSnapshot;
 
 #[tokio::test]
 async fn topology_empty_window_returns_empty_graph() {

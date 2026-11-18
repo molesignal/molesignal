@@ -21,7 +21,7 @@ use std::{
     time::Duration,
 };
 
-use crate::shared::{Error, Result};
+use kernel::{Error, Result};
 
 /// immutable 字段路径列表（点分隔 TOML 路径）。命中这些字段的变化只 warn。
 pub const IMMUTABLE_FIELDS: &[&str] = &[

@@ -12,18 +12,15 @@ use axum::{
     extract::{Path, Query, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission, resource_permission},
+    query::QueryLanguage,
+    saved_view::SavedView,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 
-use crate::{
-    api::{AppState, http::middleware::ProtectedResource},
-    app::iam::IamContext,
-    domain::{
-        iam::{permission, resource_permission},
-        query::QueryLanguage,
-        saved_view::SavedView,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::middleware::ProtectedResource};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

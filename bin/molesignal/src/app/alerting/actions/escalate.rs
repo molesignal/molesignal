@@ -3,18 +3,16 @@
 
 //! 立即升级与改严重度。
 
+use domain::alerting::{
+    handling::EscalationReason,
+    incident::{Incident, IncidentStatus, Severity},
+    timeline::TimelineKind,
+};
+use kernel::{Error, Result, ids::Id};
 use serde_json::json;
 
 use super::{Actor, IncidentActions, check_actionable, reopen};
-use crate::{
-    app::alerting::dispatcher,
-    domain::alerting::{
-        handling::EscalationReason,
-        incident::{Incident, IncidentStatus, Severity},
-        timeline::TimelineKind,
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::alerting::dispatcher;
 
 impl IncidentActions {
     /// 立即升级到 `step`（从 0 数），不给时升到下一个适用的步骤；也可以选回前面的步骤再叫一遍。

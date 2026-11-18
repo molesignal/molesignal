@@ -5,20 +5,19 @@
 
 use std::collections::HashMap;
 
+use domain::{
+    i18n_language::LanguagePack,
+    status_page::{
+        StatusPage, StatusPageDeliveryStatus, StatusPageDomainState,
+        StatusPageNotificationDelivery, StatusPageNotificationMessage, StatusPagePublicationState,
+        StatusPageSubscriberChannel,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     super::StatusPageService,
     links::{NotificationPage, custom_page_url, delivery_message, platform_page_url},
-};
-use crate::{
-    domain::{
-        i18n_language::LanguagePack,
-        status_page::{
-            StatusPage, StatusPageDeliveryStatus, StatusPageDomainState,
-            StatusPageNotificationDelivery, StatusPageNotificationMessage,
-            StatusPagePublicationState, StatusPageSubscriberChannel,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const MAX_DELIVERY_ATTEMPTS: i32 = 5;

@@ -6,15 +6,12 @@
 
 use std::net::IpAddr;
 
+use domain::synthetics::{ClientCertificate, ClientKey, HttpJourneySpec};
+use kernel::{Error, Result};
 use rustls::{
     InconsistentKeys,
     pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject as _},
     sign::CertifiedKey,
-};
-
-use crate::{
-    domain::synthetics::{ClientCertificate, ClientKey, HttpJourneySpec},
-    shared::{Error, Result},
 };
 
 const MAX_HOST_BINDINGS: usize = 20;
@@ -137,15 +134,13 @@ fn validate_client_certificate(certificate: &ClientCertificate) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use domain::synthetics::{
+        ClientCertificate, ClientKey, HostBinding, HttpJourneySpec, HttpVersion,
+    };
+    use kernel::ids::Id;
     use rcgen::{CertificateParams, KeyPair};
 
     use super::validate_http_settings;
-    use crate::{
-        domain::synthetics::{
-            ClientCertificate, ClientKey, HostBinding, HttpJourneySpec, HttpVersion,
-        },
-        shared::ids::Id,
-    };
 
     fn spec(hosts: Vec<HostBinding>) -> HttpJourneySpec {
         HttpJourneySpec {

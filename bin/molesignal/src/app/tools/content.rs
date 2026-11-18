@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::iam::IamContext;
+use kernel::{Result, ids::Id};
+use postgres::repositories::annotations::AnnotationFilter;
 use serde::Deserialize;
 use serde_json::Value;
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
@@ -8,11 +11,6 @@ use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 use super::{
     ToolRuntime,
     common::{TimeRangeArg, bounded, json_result, parse_args, time_range},
-};
-use crate::{
-    app::iam::IamContext,
-    infra::persistence::repositories::annotations::AnnotationFilter,
-    shared::{Result, ids::Id},
 };
 
 pub(super) async fn execute(
@@ -44,7 +42,7 @@ pub(super) async fn execute(
                 .await?;
 
             if dashboard.org_id != auth.org_id {
-                return Err(crate::shared::Error::not_found("dashboard not found"));
+                return Err(kernel::Error::not_found("dashboard not found"));
             }
 
             json_result(&dashboard)
@@ -156,6 +154,6 @@ impl IdArg {
             .as_ref()
             .filter(|value| !value.trim().is_empty())
             .cloned()
-            .ok_or_else(|| crate::shared::Error::invalid(format!("{field} is required")))
+            .ok_or_else(|| kernel::Error::invalid(format!("{field} is required")))
     }
 }

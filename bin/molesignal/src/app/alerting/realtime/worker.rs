@@ -10,15 +10,13 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::alerting::{
+    realtime_snapshot::RealtimeSnapshotRepository, repositories::AlertRuleRepository,
+};
+use kernel::time::TimestampMicros;
 use tokio::task::JoinHandle;
 
 use super::{MAX_WINDOW_SECS, RealtimeAlerts};
-use crate::{
-    domain::alerting::{
-        realtime_snapshot::RealtimeSnapshotRepository, repositories::AlertRuleRepository,
-    },
-    shared::time::TimestampMicros,
-};
 
 /// 重新加载规则的间隔：让其它节点上的规则变更在这个时间内生效。
 const RELOAD_EVERY: Duration = Duration::from_secs(10);

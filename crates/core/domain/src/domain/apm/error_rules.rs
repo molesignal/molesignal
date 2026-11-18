@@ -7,10 +7,10 @@
 //! count as failed. Rules are tried in order and the first that matches
 //! holds. They apply to errors seen after they are saved.
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{ErrorIdentity, ServiceIdentity};
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// The most rules an organization keeps.
 pub const ERROR_RULES_MAX: usize = 100;

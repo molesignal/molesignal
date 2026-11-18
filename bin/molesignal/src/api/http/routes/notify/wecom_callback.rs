@@ -16,15 +16,15 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use domain::notify::connector::NotifyConnector;
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
 use crate::{
     api::{AppState, http::routes::agent::im::wecom_app_press},
-    domain::notify::connector::NotifyConnector,
     infra::notify::adapters::{
         WECOM_APP_CONNECTOR_TYPE, WecomCallback, wecom_card_event, wecom_encrypted_of,
     },
-    shared::{Error, Result, ids::Id},
 };
 
 pub(super) fn public_routes() -> Router<AppState> {

@@ -15,25 +15,22 @@
 
 use std::collections::HashMap;
 
+use agent::{
+    knowledge::{ENTRY_FILE, KnowledgeBase, MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES},
+    scope::{Scope, Viewer},
+};
 use axum::{
     Extension, Json, Router,
     extract::{DefaultBodyLimit, Query, State},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::viewer::{requested_scope, viewer};
-use crate::{
-    agent::{
-        knowledge::{ENTRY_FILE, KnowledgeBase, MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES},
-        scope::{Scope, Viewer},
-    },
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 mod upload;
 

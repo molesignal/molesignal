@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::inbound_mcp::{InboundMcpTask, InboundMcpTaskStatus};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::super::sqlx_err;
-use crate::{
-    agent::inbound_mcp::{InboundMcpTask, InboundMcpTaskStatus},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const COLS: &str = "id,org_id,principal_type,principal_id,tool_name,request,status,status_message,\
     input_requests,input_responses,result,error,cancel_requested,expires_at,\

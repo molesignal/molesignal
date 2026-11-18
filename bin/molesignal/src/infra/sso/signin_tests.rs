@@ -8,15 +8,12 @@
 //! 就对不上，不用哪条写配置的路径记得去作废它。
 
 use async_trait::async_trait;
+use domain::iam::SsoProvider;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row, types::Json};
-
-use crate::{
-    domain::iam::SsoProvider,
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 每个服务留最近多少条：结果里有人的邮箱和用户组，不长期存。
 const KEEP_PER_PROVIDER: i64 = 20;
@@ -370,10 +367,11 @@ impl SsoSigninTestRepository for PgSsoSigninTestRepository {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::iam::{
+    use domain::iam::{
         SsoOidcConfig, SsoPlatform, SsoProviderConfig, SsoProviderKind, SsoSamlConfig,
     };
+
+    use super::*;
 
     fn provider() -> SsoProvider {
         SsoProvider {

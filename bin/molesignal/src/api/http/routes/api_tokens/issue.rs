@@ -4,20 +4,16 @@
 //! What goes into a new token: a scope its issuer may hand out, a secret shown once, and an
 //! expiry.
 
+use domain::iam::{
+    IamContext,
+    api_token::{ApiToken, ApiTokenKind, ApiTokenScope},
+    catalog::IamPermissionScope,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::api_tokens::{assemble_token, generate_token_parts, hash_secret};
 use serde::Deserialize;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{
-        api_token::{ApiToken, ApiTokenKind, ApiTokenScope},
-        catalog::IamPermissionScope,
-    },
-    infra::persistence::repositories::api_tokens::{
-        assemble_token, generate_token_parts, hash_secret,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 /// The longest a token is issued for.
 const MAX_LIFETIME_DAYS: i64 = 365 * 5;
@@ -163,8 +159,9 @@ pub(crate) fn new_token(spec: TokenSpec, now: TimestampMicros) -> (ApiToken, Str
 mod tests {
     use std::collections::BTreeSet;
 
+    use domain::iam::IamScope;
+
     use super::*;
-    use crate::domain::iam::IamScope;
 
     fn issuer(permissions: &[&str]) -> IamContext {
         IamContext {

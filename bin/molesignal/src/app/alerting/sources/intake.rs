@@ -8,17 +8,15 @@
 //! - 同一个去重键上的告警一条一条处理（跨节点的锁），比这个键上次用到的发送方时间早的消息是晚到的
 //!   旧消息，直接忽略。所以发送方重试、好几个节点同时收到同一个分组都不会重复开事件。
 
+use domain::alerting::source::{
+    AlertOutcome, AlertSource, ExternalAlert, IntakeAlert, IntakeRequest, IntakeStatus,
+    MAX_BODY_EXCERPT_BYTES, MAX_RECORDED_ALERTS, SourceIncident,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 
 use super::{AlertSources, ForwardedRequest, formats, token};
-use crate::{
-    app::alerting::rule_evaluator::external_fingerprint,
-    domain::alerting::source::{
-        AlertOutcome, AlertSource, ExternalAlert, IntakeAlert, IntakeRequest, IntakeStatus,
-        MAX_BODY_EXCERPT_BYTES, MAX_RECORDED_ALERTS, SourceIncident,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::alerting::rule_evaluator::external_fingerprint;
 
 /// 回给发送方的答复。
 #[derive(Debug, Clone, PartialEq)]

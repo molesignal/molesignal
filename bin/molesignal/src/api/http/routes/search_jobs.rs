@@ -15,21 +15,18 @@ use axum::{
     extract::{Path, Query, State},
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, StreamHint},
+};
+use kernel::{Error, Result, ids::Id, time::TimeRange};
+use postgres::repositories::search::jobs::{
+    SearchJob, SearchJobCounts, SearchJobKind, SearchJobState,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    api::AppState,
-    app::{iam::IamContext, query::jobs::SearchJobViewer},
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, StreamHint},
-    },
-    infra::persistence::repositories::search::jobs::{
-        SearchJob, SearchJobCounts, SearchJobKind, SearchJobState,
-    },
-    shared::{Error, Result, ids::Id, time::TimeRange},
-};
+use crate::{api::AppState, app::query::jobs::SearchJobViewer};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -405,8 +402,9 @@ async fn delete(
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn job(request_json: Value) -> SearchJob {
         SearchJob {

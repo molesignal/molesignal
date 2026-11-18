@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
     DependencyIdentity, ErrorIdentity, InstanceSighting, ServiceIdentity, TransactionIdentity,
 };
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 pub const APM_FACT_SCHEMA_VERSION: u16 = 1;
 

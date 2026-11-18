@@ -14,6 +14,8 @@
 //!   引用，没有邮箱。
 
 use chrono_tz::Tz;
+use domain::alerting::{schedule::Rotation, time_window::parse_timezone};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -28,11 +30,7 @@ use super::{
     },
     Emails, Reference, starting_later, unreadable,
 };
-use crate::{
-    app::alerting::oncall_transfer::{Directory, Finding},
-    domain::alerting::{schedule::Rotation, time_window::parse_timezone},
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::app::alerting::oncall_transfer::{Directory, Finding};
 
 mod final_schedule;
 mod recurrence;

@@ -7,19 +7,17 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::{
+    alerting::{
+        incident::{Incident, IncidentStatus},
+        ticket::{IncidentTicket, TicketConnector},
+    },
+    i18n_language::LanguagePack,
+};
+use kernel::Result;
 
 use super::{TicketService, draft::text};
-use crate::{
-    app::alerting::AlertIncidentLifecycleSink,
-    domain::{
-        alerting::{
-            incident::{Incident, IncidentStatus},
-            ticket::{IncidentTicket, TicketConnector},
-        },
-        i18n_language::LanguagePack,
-    },
-    shared::Result,
-};
+use crate::app::alerting::AlertIncidentLifecycleSink;
 
 impl TicketService {
     /// 事件变了（生命周期里另起任务调）：新事件按连接器的自动规则建单；确认、解决写成评论，解决时

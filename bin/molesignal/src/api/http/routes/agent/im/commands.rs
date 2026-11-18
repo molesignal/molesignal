@@ -3,23 +3,22 @@
 
 //! IM 里自己的命令：`/help`、`/new`、`/scope`、`/feedback`。回复的说法见 [`super::texts`]。
 
+use agent::{
+    im::{
+        ImThread,
+        commands::{ImCommand, ScopeTarget, Usage},
+    },
+    scope::Viewer,
+};
+use domain::iam::IamContext;
+use kernel::{Error, Result};
+
 use super::{
     inbound::{Place, refusal_text},
     texts::Texts,
     threads::{self, NewScope},
 };
-use crate::{
-    agent::{
-        im::{
-            ImThread,
-            commands::{ImCommand, ScopeTarget, Usage},
-        },
-        scope::Viewer,
-    },
-    api::http::routes::agent::feedback::{self, FeedbackRequest},
-    app::iam::IamContext,
-    shared::{Error, Result},
-};
+use crate::api::http::routes::agent::feedback::{self, FeedbackRequest};
 
 /// 一条 IM 命令的回答。
 pub(super) async fn answer(

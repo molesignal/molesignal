@@ -10,9 +10,8 @@
 //! [`crate::domain::storage::ColumnStats::partitions`]）。查询按文件自己的记录判断，改了分片设置
 //! 之后旧文件照样判断得对；合并只把分片字段相同的文件合在一起。
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result};
 
 /// 按哈希分片时分片数的上限。
 const MAX_PARTITION_BUCKETS: u16 = 64;

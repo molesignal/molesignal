@@ -24,15 +24,15 @@ use axum::{
     extract::{Path, State},
     routing::{get, patch, post, put},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::viewer::{requested_scope, viewer};
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{iam::IamContext, mcp::ServerDraft},
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id},
+    app::mcp::ServerDraft,
 };
 
 mod import;

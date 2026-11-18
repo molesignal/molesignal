@@ -3,23 +3,21 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use domain::{
+    iam::{
+        UserRepository,
+        api_token::{ApiTokenRepository, TOKEN_MARKER},
+    },
+    intake::usage::source::{
+        CredentialKind, RUM_REPLAY_SOURCE, UsageDimension, parse_credential_key, parse_stream_key,
+        stream_source_key,
+    },
+    stream::{StreamRepository, StreamType},
+};
+use kernel::ids::Id;
 use serde::Serialize;
 
-use crate::{
-    domain::{
-        iam::{
-            UserRepository,
-            api_token::{ApiTokenRepository, TOKEN_MARKER},
-        },
-        intake::usage::source::{
-            CredentialKind, RUM_REPLAY_SOURCE, UsageDimension, parse_credential_key,
-            parse_stream_key, stream_source_key,
-        },
-        stream::{StreamRepository, StreamType},
-    },
-    infra::connectors::ConnectorRepository,
-    shared::ids::Id,
-};
+use crate::infra::connectors::ConnectorRepository;
 
 /// What a source is called, as a person reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

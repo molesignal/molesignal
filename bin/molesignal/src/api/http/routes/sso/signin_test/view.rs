@@ -8,14 +8,13 @@ use axum::{
     http::header::CACHE_CONTROL,
     response::{IntoResponse, Response},
 };
+use domain::iam::{IamContext, SsoPlatform, SsoProvider, SsoProviderKind};
+use kernel::{Result, time::TimestampMicros};
 use serde::Serialize;
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::iam::{SsoPlatform, SsoProvider, SsoProviderKind},
     infra::sso::{SsoSigninTest, SsoSigninTestReport, SsoSigninTestStatus, config_hash},
-    shared::{Result, time::TimestampMicros},
 };
 
 /// 等身份源回调的时间，和 `state` 的有效期一样（`bootstrap::iam` 的 `SsoStateStore`）。过了还没有

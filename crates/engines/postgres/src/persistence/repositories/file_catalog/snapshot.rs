@@ -9,19 +9,17 @@
 
 use std::collections::HashMap;
 
+use domain::storage::{
+    Artifact, CatalogSnapshot, DatasetSelection, DatasetSnapshot, ObjectChecksum, ObjectKey,
+    OrganizationScope, Partition, PartitionManifestPointer, PhysicalDatasetId, StoredObject,
+    WalCheckpointView, WalSequence, WriterEpoch, WriterNodeId,
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{
     rows::{ARTIFACT_COLS, SEGMENT_COLS, artifact_from_row, segment_from_row, to_u64},
     sqlx_err,
-};
-use crate::{
-    domain::storage::{
-        Artifact, CatalogSnapshot, DatasetSelection, DatasetSnapshot, ObjectChecksum, ObjectKey,
-        OrganizationScope, Partition, PartitionManifestPointer, PhysicalDatasetId, StoredObject,
-        WalCheckpointView, WalSequence, WriterEpoch, WriterNodeId,
-    },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) async fn snapshot(

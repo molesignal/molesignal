@@ -4,11 +4,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
+use domain::dashboard::{Folder, repositories::FolderRepository};
 use parking_lot::Mutex;
 use serde_json::Value;
 
 use super::*;
-use crate::domain::dashboard::{Folder, repositories::FolderRepository};
 
 const VALID_MODEL: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),

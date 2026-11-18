@@ -6,7 +6,11 @@
 //! Run 的来源是 IM：没有人在控制台里等着回答问题或确认，照无人值守处理。准备好的 Run 交回
 //! 调用方，由它先记下 Run 与 IM 消息的对应再排进队列：回答得再快，结束时也找得到回复到哪里。
 
+use agent::runs::{Run, RunPrincipal, RunSource};
 use axum::{body::to_bytes, response::Response};
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::{Chat, ChatMessage};
 use serde_json::{Value, json};
 
 use super::{
@@ -14,11 +18,8 @@ use super::{
     run::request::{AnswerRequest, RunRequest, TurnSnapshot},
 };
 use crate::{
-    agent::runs::{Run, RunPrincipal, RunSource},
     api::{AppState, http::routes::agent::viewer::readable_chat},
-    app::{agent_usage::BudgetGate, iam::IamContext},
-    infra::persistence::repositories::agent::chats::{Chat, ChatMessage},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::agent_usage::BudgetGate,
 };
 
 /// 一条 IM 提问准备得怎么样。

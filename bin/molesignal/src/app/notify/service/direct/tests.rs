@@ -4,22 +4,18 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use domain::notify::{
+    connector::{ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel},
+    repositories::{
+        NotifyConnectorRepository, NotifyDeliveryRepository, NotifyRouteReferenceRepository,
+    },
+};
 use serde_json::Value;
 
 use super::*;
-use crate::{
-    app::notify::{
-        ConnectorRegistry,
-        engine::tests::{MemoryStore, connector},
-    },
-    domain::notify::{
-        connector::{
-            ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
-        },
-        repositories::{
-            NotifyConnectorRepository, NotifyDeliveryRepository, NotifyRouteReferenceRepository,
-        },
-    },
+use crate::app::notify::{
+    ConnectorRegistry,
+    engine::tests::{MemoryStore, connector},
 };
 
 const TITLE: &str = "Log inspection found a problem: payments";

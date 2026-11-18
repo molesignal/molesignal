@@ -2,16 +2,14 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use chrono::{Datelike as _, Duration, Utc};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use rcgen::{
     BasicConstraints, CertificateParams, DnType, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
     KeyUsagePurpose, SerialNumber, SubjectPublicKeyInfo,
 };
 use sqlx::Row;
 
-use crate::{
-    infra::{cipher::CipherRootKey, persistence::sqlx_err},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::{cipher::CipherRootKey, persistence::sqlx_err};
 
 const AUTHORITY_ID: &str = "probe-root-v1";
 

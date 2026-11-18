@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::notify::policy::{NotifyEvent, NotifyPolicy};
+use kernel::{Error, Result};
 use serde_json::Value;
-
-use crate::{
-    domain::notify::policy::{NotifyEvent, NotifyPolicy},
-    shared::{Error, Result},
-};
 
 pub fn validate_matchers(matchers: &Value) -> Result<()> {
     let fields = matchers
@@ -75,14 +72,13 @@ fn value_matches(actual: &Value, expected: &Value) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::notify::{
-            policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig},
-            preference::NotifyCategory,
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use domain::notify::{
+        policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig},
+        preference::NotifyCategory,
     };
+    use kernel::{ids::Id, time::TimestampMicros};
+
+    use super::*;
 
     fn policy(matchers: Value) -> NotifyPolicy {
         NotifyPolicy {

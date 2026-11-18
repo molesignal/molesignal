@@ -14,6 +14,11 @@ use axum::{
     },
     response::{IntoResponse, Response},
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::{
+    api_tokens::generate_token,
+    resource_shares::{ResourceShare, ResourceShareMode, ResourceShareSession},
+};
 use serde_json::json;
 
 use super::{
@@ -21,14 +26,7 @@ use super::{
     audit::{ShareVisitor, record_audit},
     share_is_active, token_hash,
 };
-use crate::{
-    api::AppState,
-    infra::persistence::repositories::{
-        api_tokens::generate_token,
-        resource_shares::{ResourceShare, ResourceShareMode, ResourceShareSession},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 const SHARE_SESSION_SECS: i64 = 30 * 60;
 /// `web/src/routes/PublicShare.tsx` 认这个标记。公开访问的代理配置里 `/shared` 是精确匹配，所以用查询

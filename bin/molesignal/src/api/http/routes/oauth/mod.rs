@@ -8,9 +8,10 @@ use axum::{
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
+use kernel::Error;
 use serde::Serialize;
 
-use crate::{api::AppState, shared::Error};
+use crate::api::AppState;
 
 mod authorization;
 mod client;

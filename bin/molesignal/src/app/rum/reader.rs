@@ -5,20 +5,19 @@
 
 use std::time::Duration;
 
-use crate::{
-    app::{iam::IamContext, query::QueryService},
-    domain::{
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        rum::event::RumStream,
-        stream::{StreamRepository, StreamType},
-    },
-    infra::rum::query::Unavailable,
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use domain::{
+    iam::IamContext,
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    rum::event::RumStream,
+    stream::{StreamRepository, StreamType},
 };
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+
+use crate::{app::query::QueryService, infra::rum::query::Unavailable};
 
 /// A count gives up before the web client's own request limit of 30 s, so the page can fall back
 /// to the rows that are loaded instead of failing.

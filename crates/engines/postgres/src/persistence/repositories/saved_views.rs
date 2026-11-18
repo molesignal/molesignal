@@ -2,16 +2,14 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::{
+    query::QueryLanguage,
+    saved_view::{SavedView, SavedViewRepository},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::{
-        query::QueryLanguage,
-        saved_view::{SavedView, SavedViewRepository},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgSavedViewRepository {
     pool: PgPool,

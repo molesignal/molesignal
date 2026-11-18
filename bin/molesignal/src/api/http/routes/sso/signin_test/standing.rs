@@ -6,13 +6,13 @@
 
 use std::collections::HashMap;
 
+use domain::iam::{SsoProvider, SsoProviderKind};
+use kernel::{Result, ids::Id};
 use serde::Serialize;
 
 use crate::{
     api::AppState,
-    domain::iam::{SsoProvider, SsoProviderKind},
     infra::sso::{SsoSigninTestStatus, SsoSigninTestSummary, config_hash},
-    shared::{Result, ids::Id},
 };
 
 /// 服务当前配置的测试情况。
@@ -115,8 +115,9 @@ pub(crate) async fn has_passing_test(state: &AppState, org_id: &Id) -> Result<bo
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn finished(id: &str, hash: &str, status: SsoSigninTestStatus) -> SsoSigninTestSummary {
         SsoSigninTestSummary {

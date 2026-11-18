@@ -26,22 +26,20 @@ pub mod trace;
 
 use std::{net::SocketAddr, sync::Arc};
 
+use postgres::repositories::cluster::nodes::ClusterNodesRepository;
+use settings::{FlightSqlSettings, GrpcSettings, OtlpGrpcSettings, ProbeGrpcSettings};
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 
-use crate::{
-    api::{
-        AppState,
-        grpc::{
-            cluster_server::ClusterGrpc,
-            event_server::EventServiceGrpc,
-            flight::{FlightGrpc, sql::server::FlightSqlGrpc},
-            intake_server::IntakeGrpc,
-            query_server::QueryExecutionGrpc,
-        },
-        http::client_ip::ClientIpResolverHandle,
+use crate::api::{
+    AppState,
+    grpc::{
+        cluster_server::ClusterGrpc,
+        event_server::EventServiceGrpc,
+        flight::{FlightGrpc, sql::server::FlightSqlGrpc},
+        intake_server::IntakeGrpc,
+        query_server::QueryExecutionGrpc,
     },
-    config::{FlightSqlSettings, GrpcSettings, OtlpGrpcSettings, ProbeGrpcSettings},
-    infra::persistence::repositories::cluster::nodes::ClusterNodesRepository,
+    http::client_ip::ClientIpResolverHandle,
 };
 
 /// Probe Agent 双端口控制面：注册入口使用服务端 TLS；Control 使用同一 CA 的 mTLS。

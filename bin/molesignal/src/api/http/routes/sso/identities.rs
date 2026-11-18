@@ -13,15 +13,11 @@ use axum::{
     http::StatusCode,
     routing::{delete, get},
 };
+use domain::iam::{IamContext, IamScope, SsoPlatform, SsoProviderKind, User};
+use kernel::{Error, Result, ids::Id};
 use serde::Serialize;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{IamScope, SsoPlatform, SsoProviderKind, User},
-    infra::sso::SsoIdentityView,
-    shared::{Error, Result, ids::Id},
-};
+use crate::{api::AppState, infra::sso::SsoIdentityView};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

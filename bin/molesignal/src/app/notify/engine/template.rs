@@ -3,20 +3,18 @@
 
 use std::collections::BTreeMap;
 
+use domain::notify::{
+    connector::{NotifyChannel, NotifyMessage},
+    policy::{NotifyEvent, NotifyPolicy},
+    preference::NotifyCategory,
+    template::{NotifyCard, NotifyCardField, NotifyCardLink, NotifyTemplate, ProviderTemplate},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 
 use super::{
     NotifyEngine,
     blocks::{resolve_blocks, validate_blocks},
-};
-use crate::{
-    domain::notify::{
-        connector::{NotifyChannel, NotifyMessage},
-        policy::{NotifyEvent, NotifyPolicy},
-        preference::NotifyCategory,
-        template::{NotifyCard, NotifyCardField, NotifyCardLink, NotifyTemplate, ProviderTemplate},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 模板能写成的格式；`json` 只给 Webhook 渠道的模板，变量按 JSON 字符串转义后填入。
@@ -846,14 +844,13 @@ fn fill_with(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::notify::template::{
-            NOTIFY_TEMPLATE_PRESET_LANGUAGE_PREFIX, NotifyCardColor, NotifyTemplatePreset,
-            notify_template_field_catalog, notify_template_preset_catalog, notify_template_presets,
-        },
-        shared::i18n_language_seed::seeded_pack,
+    use domain::notify::template::{
+        NOTIFY_TEMPLATE_PRESET_LANGUAGE_PREFIX, NotifyCardColor, NotifyTemplatePreset,
+        notify_template_field_catalog, notify_template_preset_catalog, notify_template_presets,
     };
+
+    use super::*;
+    use crate::i18n_language_seed::seeded_pack;
 
     fn message() -> NotifyMessage {
         NotifyMessage {
@@ -979,7 +976,7 @@ mod tests {
             &NotifyTemplate {
                 id: Id::new(),
                 organization_id: Id::new(),
-                category: crate::domain::notify::preference::NotifyCategory::Alert,
+                category: domain::notify::preference::NotifyCategory::Alert,
                 channel: None,
                 body: "[{{severity}}] {{summary}} · {{fingerprint}} · {{labels.service}} @ {{event.occurred_at}}".into(),
                 format: "markdown".into(),
@@ -1021,7 +1018,7 @@ mod tests {
         let template = NotifyTemplate {
             id: Id::new(),
             organization_id: Id::new(),
-            category: crate::domain::notify::preference::NotifyCategory::Alert,
+            category: domain::notify::preference::NotifyCategory::Alert,
             channel: None,
             body: "{{rule.name}} {{incident.summary}} {{evaluated_at}}".into(),
             format: "text".into(),
@@ -1064,7 +1061,7 @@ mod tests {
             &NotifyTemplate {
                 id: Id::new(),
                 organization_id: Id::new(),
-                category: crate::domain::notify::preference::NotifyCategory::Oncall,
+                category: domain::notify::preference::NotifyCategory::Oncall,
                 channel: None,
                 body: "{{ schedule.name }} {{oncall.current_user_id}} -> {{oncall.next_user_id}} @ {{oncall.transition_at}}".into(),
                 format: "text".into(),

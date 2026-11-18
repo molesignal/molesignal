@@ -6,18 +6,16 @@
 
 use std::collections::BTreeMap;
 
+use domain::iam::{
+    SsoFieldMapping, SsoLdapConfig, SsoOauth2Config, SsoOidcConfig, SsoPlatform, SsoProviderConfig,
+    SsoProviderKind, SsoSamlConfig,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use url::Url;
 
 use super::mapping::{normalize_allowed_groups, normalize_field_mapping, normalize_role_mapping};
-use crate::{
-    domain::iam::{
-        SsoFieldMapping, SsoLdapConfig, SsoOauth2Config, SsoOidcConfig, SsoPlatform,
-        SsoProviderConfig, SsoProviderKind, SsoSamlConfig,
-    },
-    infra::sso::{LdapConfig, LdapLoginFlow},
-    shared::{Error, Result},
-};
+use crate::infra::sso::{LdapConfig, LdapLoginFlow};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct UpsertRequest {
@@ -399,12 +397,13 @@ fn ldap_flow_config(config: &SsoLdapConfig) -> LdapConfig {
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::{SsoPlatform, SsoProviderConfig};
+
     use super::{UpsertRequest, build_config};
-    use crate::domain::iam::{SsoPlatform, SsoProviderConfig};
 
     #[test]
     fn ldap_update_preserves_omitted_bind_password() {
-        let existing = SsoProviderConfig::Ldap(crate::domain::iam::SsoLdapConfig {
+        let existing = SsoProviderConfig::Ldap(domain::iam::SsoLdapConfig {
             url: "ldaps://ldap.example.com".into(),
             bind_dn: "cn=reader,dc=example,dc=com".into(),
             bind_password: "existing-secret".into(),

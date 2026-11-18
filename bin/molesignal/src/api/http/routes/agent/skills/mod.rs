@@ -17,6 +17,7 @@
 
 mod repositories;
 
+use agent::skills::MAX_PACKAGE_BYTES;
 use axum::{
     Extension, Json, Router,
     body::Body,
@@ -25,22 +26,18 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::viewer::{requested_scope, viewer};
 use crate::{
-    agent::skills::MAX_PACKAGE_BYTES,
     api::{
         AppState,
         http::{interface_language::interface_language_pack, routes::activity_audit},
     },
-    app::{
-        iam::IamContext,
-        skills::{BUNDLED_SKILL_KEY, InstallRequest, Installed},
-    },
-    domain::iam::permission,
-    shared::{Error, Result},
+    app::skills::{BUNDLED_SKILL_KEY, InstallRequest, Installed},
 };
 
 pub fn routes() -> Router<AppState> {

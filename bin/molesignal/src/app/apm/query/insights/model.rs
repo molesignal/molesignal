@@ -4,15 +4,13 @@
 //! What insights say: each finding, the figures behind it, and the changes
 //! near when it began.
 
+use domain::apm::{
+    ChangeKind, DependencyIdentity, DeploymentStatus, ServiceIdentity, TransactionIdentity,
+};
+use kernel::time::TimestampMicros;
 use serde::Serialize;
 
 use super::super::{ApmResponseMeta, RedSummary};
-use crate::{
-    domain::apm::{
-        ChangeKind, DependencyIdentity, DeploymentStatus, ServiceIdentity, TransactionIdentity,
-    },
-    shared::time::TimestampMicros,
-};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]

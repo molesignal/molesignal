@@ -4,6 +4,8 @@
 //! 设置身份验证器的两步，账号页和登录时现场开启共用：先给新的密钥和二维码，第一个验证码对上才
 //! 生效。
 
+use domain::iam::User;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{
@@ -19,9 +21,7 @@ use crate::{
         },
         sessions_end_now,
     },
-    domain::iam::User,
     infra::mfa::{MfaChallenge, MfaChallengePurpose, NewTotp},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 等第一个验证码的设置。

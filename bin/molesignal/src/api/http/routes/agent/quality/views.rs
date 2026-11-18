@@ -9,22 +9,19 @@
 //!
 //! 个人对话只在合计里，列表与详情都没有它们。
 
+use agent::scoring::{OverviewFilter, ScoreTarget, ScoredFilter, TargetSource};
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use super::facts::{Kind, gather};
-use crate::{
-    agent::scoring::{OverviewFilter, ScoreTarget, ScoredFilter, TargetSource},
-    api::{AppState, http::interface_language::interface_language_pack},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result, time::TimestampMicros},
-};
+use crate::api::{AppState, http::interface_language::interface_language_pack};
 
 const MICROS_PER_DAY: i64 = 86_400_000_000;
 const DEFAULT_DAYS: i64 = 30;

@@ -10,11 +10,11 @@
 
 use std::collections::BTreeSet;
 
+use kernel::{Error, Result};
 use regex::RegexBuilder;
 use serde::{Deserialize, Serialize};
 
 use super::{DEFAULT_SERVICE_NAMESPACE, ServiceTier};
-use crate::shared::{Error, Result};
 
 pub const NAMING_RULES_MAX: usize = 20;
 pub const ENVIRONMENT_MAPPINGS_MAX: usize = 50;

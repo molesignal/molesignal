@@ -5,6 +5,8 @@
 //! thresholds web.dev gives. The engine computes them, over every view in the range, with the same
 //! aggregate the RUM overview reads.
 
+use domain::{iam::IamContext, rum::event::RumStream, stream::StreamType};
+use kernel::{Result, time::TimeRange};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
@@ -12,16 +14,13 @@ use tool_runtime::ToolResult;
 use super::{equal_to, rum_range};
 use crate::{
     app::{
-        iam::IamContext,
         rum::vitals::{VITALS, measures, summary},
         tools::{
             ToolRuntime,
             common::{TimeRangeArg, parse_args, run_optional_stream_query},
         },
     },
-    domain::{rum::event::RumStream, stream::StreamType},
     infra::rum::query::{Aggregate, AggregateSpec, Filter, Plan, Scope, conditions},
-    shared::{Result, time::TimeRange},
 };
 
 const PAGE_GROUP: &str = "view.url_path_group";

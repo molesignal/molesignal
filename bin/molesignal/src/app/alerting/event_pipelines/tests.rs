@@ -4,18 +4,16 @@
 use std::{collections::BTreeMap, sync::Mutex};
 
 use async_trait::async_trait;
+use domain::{
+    pipeline::alert::AlertConfig,
+    query::{QueryRequest, QueryResult},
+};
+use function_runtime::VrlFunctionExecutor;
+use kernel::{Error, Result};
 
 use super::{
     notify::{BeforeNotify, NotifyFacts},
     *,
-};
-use crate::{
-    domain::{
-        pipeline::alert::AlertConfig,
-        query::{QueryRequest, QueryResult},
-    },
-    infra::runtime::VrlFunctionExecutor,
-    shared::{Error, Result},
 };
 
 /// The organization's pipelines, as given, and what was recorded of them.
@@ -463,7 +461,7 @@ fn an_event_is_read_back_as_text_maps() {
 
 #[test]
 fn steps_set_and_clear_the_priority_and_the_urgency() {
-    use crate::domain::alerting::{priority::Priority, urgency::Urgency};
+    use domain::alerting::{priority::Priority, urgency::Urgency};
 
     let base = incident();
     let set = changed(&base, &json!({ "priority": "p2", "urgency": "low" })).unwrap();
@@ -938,7 +936,7 @@ async fn a_pipeline_before_notifications_goes_by_its_policies_and_conditions() {
 fn a_drop_before_a_notification_is_told_in_the_workspace_language() {
     let told = |language: &str| {
         notify::drop_reason_text(
-            &crate::shared::i18n_language_seed::seeded_pack("alerting.pipeline.", language),
+            &crate::i18n_language_seed::seeded_pack("alerting.pipeline.", language),
             "quiet",
             "night",
         )

@@ -3,17 +3,14 @@
 
 use std::collections::BTreeMap;
 
+use domain::{iam::IamContext, rum::event::RumStream, stream::StreamType};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolContent, ToolResult, catalog::BuiltinToolKind};
 
 use super::{ToolRuntime, common::*, profiles, rum::equal_to, traces};
-use crate::{
-    app::iam::IamContext,
-    domain::{rum::event::RumStream, stream::StreamType},
-    infra::rum::query::{ListRequest, Scope, default_columns, list_sql, rows},
-    shared::{Error, Result, ids::Id},
-};
+use crate::infra::rum::query::{ListRequest, Scope, default_columns, list_sql, rows};
 
 pub(super) async fn execute(
     runtime: &ToolRuntime,
@@ -214,7 +211,7 @@ async fn correlate(
 async fn correlated_rum(
     runtime: &ToolRuntime,
     auth: &IamContext,
-    range: crate::shared::time::TimeRange,
+    range: kernel::time::TimeRange,
     service: Option<&str>,
     trace_id: Option<&str>,
     limit: usize,

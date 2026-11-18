@@ -1,24 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{iam::IamContext, rum::event::RumStream, stream::StreamType};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{ToolRuntime, common::*};
 use crate::{
-    app::{
-        iam::IamContext,
-        rum::reader::{Reader, Span},
-    },
-    domain::{rum::event::RumStream, stream::StreamType},
+    app::rum::reader::{Reader, Span},
     infra::rum::query::{
         Condition, ListRequest, Scope, default_columns, list_sql, people_only, rows,
         timeline_columns,
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
     },
 };
 

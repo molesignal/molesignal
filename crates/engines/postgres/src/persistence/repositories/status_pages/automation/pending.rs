@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::AutomationCandidate;
+use kernel::{Result, ids::Id};
+
 use super::{
     super::PgStatusPageRepository,
     codec::{CANDIDATE_COLS, row_to_candidate},
-};
-use crate::{
-    domain::status_page::AutomationCandidate,
-    shared::{Result, ids::Id},
 };
 
 pub(super) async fn list(

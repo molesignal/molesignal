@@ -13,12 +13,11 @@
 
 use std::sync::LazyLock;
 
+use domain::rum::{MAX_LOCATION_LEN, cut};
 use regex::{Captures, Regex};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
-
-use crate::domain::rum::{MAX_LOCATION_LEN, cut};
 
 /// The version of the grouping rules.
 const RULES: &str = "v1";

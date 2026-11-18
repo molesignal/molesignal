@@ -5,16 +5,14 @@
 //! for each bar of time. The pages of RUM and the tools of Mole Agent read through it, so what a
 //! tool says is what the chart beside the list shows.
 
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{
     reader::{Reader, within_budget},
     selection::Selection,
 };
-use crate::{
-    infra::rum::query::{Aggregate, AggregateSpec, BucketPlan, MeasureSpec, Plan, Scope},
-    shared::{Error, Result},
-};
+use crate::infra::rum::query::{Aggregate, AggregateSpec, BucketPlan, MeasureSpec, Plan, Scope};
 
 /// What to compute over a selection.
 pub struct Request<'a> {

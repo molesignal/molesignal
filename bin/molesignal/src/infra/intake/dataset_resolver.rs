@@ -10,18 +10,16 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-
-use crate::{
-    domain::{
-        storage::{
-            DatasetTypeId, FileCatalog, OrganizationScope, PhysicalDataset, StreamTypeId,
-            StreamTypeRegistry, WalCodecId,
-        },
-        stream::StreamDefinition,
+use domain::{
+    storage::{
+        DatasetTypeId, FileCatalog, OrganizationScope, PhysicalDataset, StreamTypeId,
+        StreamTypeRegistry, WalCodecId,
     },
-    infra::intake::wal_pool::WalStreamIdentity,
-    shared::{Result, ids::Id},
+    stream::StreamDefinition,
 };
+use kernel::{Result, ids::Id};
+
+use crate::infra::intake::wal_pool::WalStreamIdentity;
 
 /// 解析结果：dataset 行 + WAL 编码。
 #[derive(Debug, Clone)]
@@ -91,7 +89,7 @@ impl DatasetResolver {
             .await?;
 
         let dataset = datasets.into_iter().next().ok_or_else(|| {
-            crate::shared::Error::internal(format!(
+            kernel::Error::internal(format!(
                 "file catalog omitted ensured dataset `{dataset_type}` for stream {}",
                 stream.id
             ))
@@ -115,19 +113,17 @@ pub(crate) mod test_support {
 
     use async_trait::async_trait;
     use dashmap::DashMap;
+    use domain::storage::{
+        ArtifactState, CatalogSnapshot, CommitFlush, DataSegment, DatasetSelection,
+        DatasetSnapshot, DatasetState, DatasetTransformResult, FileCatalog, FlushCommitResult,
+        OrganizationScope, PartitionManifestPointer, PhysicalDataset, PhysicalDatasetId,
+        PhysicalDatasetSpec, PublishDatasetTransform, ReplaceSegments, SegmentState,
+        TombstoneSegments, UpdateArtifact, WalCheckpointView, WalSequence, WriterEpoch,
+        WriterNodeId, builtin_registry, stale_writer_epoch,
+    };
+    use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
     use super::DatasetResolver;
-    use crate::{
-        domain::storage::{
-            ArtifactState, CatalogSnapshot, CommitFlush, DataSegment, DatasetSelection,
-            DatasetSnapshot, DatasetState, DatasetTransformResult, FileCatalog, FlushCommitResult,
-            OrganizationScope, PartitionManifestPointer, PhysicalDataset, PhysicalDatasetId,
-            PhysicalDatasetSpec, PublishDatasetTransform, ReplaceSegments, SegmentState,
-            TombstoneSegments, UpdateArtifact, WalCheckpointView, WalSequence, WriterEpoch,
-            WriterNodeId, builtin_registry, stale_writer_epoch,
-        },
-        shared::{Error, Result, ids::Id, time::TimestampMicros},
-    };
 
     /// 单测用内存 FileCatalog，覆盖数据集解析、快照和 flush 原子提交语义。
     #[derive(Default)]
@@ -212,7 +208,7 @@ pub(crate) mod test_support {
         async fn intake_usage(
             &self,
             _: &OrganizationScope,
-        ) -> Result<Vec<crate::domain::storage::DatasetIntakeUsage>> {
+        ) -> Result<Vec<domain::storage::DatasetIntakeUsage>> {
             Ok(Vec::new())
         }
 
@@ -734,14 +730,13 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
-    use super::{test_support::test_resolver, *};
-    use crate::{
-        domain::{
-            storage::{DatasetTypeId, primary_dataset_type, type_id::builtin},
-            stream::{Schema, StreamType},
-        },
-        shared::time::TimestampMicros,
+    use domain::{
+        storage::{DatasetTypeId, primary_dataset_type, type_id::builtin},
+        stream::{Schema, StreamType},
     };
+    use kernel::time::TimestampMicros;
+
+    use super::{test_support::test_resolver, *};
 
     fn stream(stream_type: StreamType) -> StreamDefinition {
         StreamDefinition {

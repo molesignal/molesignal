@@ -4,13 +4,11 @@
 //! `incident_timeline`（事件的时间线与备注）的 Pg 实装。
 
 use async_trait::async_trait;
+use domain::alerting::timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::alerting::timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgIncidentTimelineRepository {
     pool: PgPool,

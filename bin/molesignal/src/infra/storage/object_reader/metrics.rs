@@ -4,8 +4,7 @@
 use std::sync::OnceLock;
 
 use prometheus::{Histogram, IntCounter, IntGauge};
-
-use crate::shared::metrics::{register_histogram, register_int_counter, register_int_gauge};
+use signals::metrics::{register_histogram, register_int_counter, register_int_gauge};
 
 struct ObjectReadMetrics {
     requests: IntCounter,

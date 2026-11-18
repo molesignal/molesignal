@@ -3,13 +3,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::cluster::PeerRole;
 use tokio::task::JoinHandle;
 
 use super::polling::PollingBackoff;
-use crate::app::{
-    cluster::{PeerRole, WorkOwnership},
-    status_page::StatusPageService,
-};
+use crate::app::{cluster::WorkOwnership, status_page::StatusPageService};
 
 /// 非主节点多久后再检查一次自己是否已成为主节点。
 const NOT_PRIMARY_RECHECK: Duration = Duration::from_secs(5);

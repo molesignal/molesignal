@@ -2,9 +2,9 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id};
 
 use super::{Dashboard, Folder};
-use crate::shared::{Result, ids::Id};
 
 #[async_trait]
 pub trait DashboardRepository: Send + Sync {

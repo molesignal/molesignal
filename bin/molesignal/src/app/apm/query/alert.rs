@@ -6,19 +6,17 @@
 //! unit thresholds are set in.
 
 use async_trait::async_trait;
+use domain::apm::{
+    ApmAlertMetric, ApmAlertQuery, BucketDimension, BucketKind, BucketQuery, ErrorGroupQuery,
+    QueryResolution,
+};
+use kernel::{Error, Result, ids::Id, time::TimeRange};
 
 use super::{
     ApmQueryService, RedSummary,
     aggregate::{DEFAULT_APDEX_THRESHOLD_MICROS, red_from_buckets_at},
 };
-use crate::{
-    app::alerting::{ApmAlertReading, ApmAlertSource},
-    domain::apm::{
-        ApmAlertMetric, ApmAlertQuery, BucketDimension, BucketKind, BucketQuery, ErrorGroupQuery,
-        QueryResolution,
-    },
-    shared::{Error, Result, ids::Id, time::TimeRange},
-};
+use crate::app::alerting::{ApmAlertReading, ApmAlertSource};
 
 #[async_trait]
 impl ApmAlertSource for ApmQueryService {

@@ -14,8 +14,18 @@ mod card;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::{
+    buttons::AlertButtons,
+    connector::{
+        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+        NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
+    },
+    template::NotifyCard,
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 
 pub(crate) use self::{
     callback::{WecomCallback, WecomCardEvent, card_event as wecom_card_event, encrypted_of},
@@ -26,21 +36,6 @@ use super::{
     common::{
         TOKENS, TokenCache, body, client, default_timeout_secs, delivered, provider_message,
         require, truncate_bytes, truncate_chars, validate_http_url, validate_timeout, with_query,
-    },
-};
-use crate::{
-    domain::notify::{
-        buttons::AlertButtons,
-        connector::{
-            ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-            NotifyChannel, NotifyMessage, NotifyTarget, NotifyTargetType,
-        },
-        template::NotifyCard,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-        ids::Id,
     },
 };
 
@@ -615,12 +610,12 @@ mod tests {
     fn a_card_is_coloured_markdown_with_its_fields_links_and_footer() {
         let card = NotifyCard {
             title: String::new(),
-            color: crate::domain::notify::template::NotifyCardColor::Severity,
-            fields: vec![crate::domain::notify::template::NotifyCardField {
+            color: domain::notify::template::NotifyCardColor::Severity,
+            fields: vec![domain::notify::template::NotifyCardField {
                 label: "Host".into(),
                 value: "db-1".into(),
             }],
-            links: vec![crate::domain::notify::template::NotifyCardLink {
+            links: vec![domain::notify::template::NotifyCardLink {
                 label: "Runbook".into(),
                 url: "https://runbooks.example.com/disk".into(),
             }],

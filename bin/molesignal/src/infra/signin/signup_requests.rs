@@ -7,12 +7,9 @@
 //! 可以有几个有效的链接，第一个用掉后其余作废，所以别人反复申请不会让本人手上的链接失效。
 
 use async_trait::async_trait;
+use kernel::{Result, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{PgPool, Row};
-
-use crate::{
-    infra::persistence::sqlx_err,
-    shared::{Result, time::TimestampMicros},
-};
 
 #[async_trait]
 pub trait SignupRequestRepository: Send + Sync {

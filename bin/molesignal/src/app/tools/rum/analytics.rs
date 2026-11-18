@@ -6,6 +6,11 @@
 //! analytics tab runs, so the numbers agree with the funnel, the paths and the retention it shows.
 
 use chrono::DateTime;
+use domain::{
+    iam::IamContext,
+    rum::{RumApplication, RumPlatform},
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
@@ -13,7 +18,6 @@ use tool_runtime::ToolResult;
 use super::{reader, summary_span};
 use crate::{
     app::{
-        iam::IamContext,
         rum::{
             analytics::{self, Answer, FunnelRequest, PathsRequest, RetentionRequest},
             overview::scope_filters,
@@ -23,12 +27,10 @@ use crate::{
             common::{TimeRangeArg, parse_args, time_range},
         },
     },
-    domain::rum::{RumApplication, RumPlatform},
     infra::rum::{
         analytics::{Funnel, OTHER, Paths, Period, Retention, Step, StepKind},
         query::Filter,
     },
-    shared::{Error, Result},
 };
 
 /// A share of a whole, as a percentage with one decimal.
@@ -550,12 +552,11 @@ fn describe_retention(
 
 #[cfg(test)]
 mod tests {
+    use domain::rum::RumApplicationSettings;
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        domain::rum::RumApplicationSettings,
-        infra::rum::analytics::{Cohort, FunnelGroup, FunnelStep, PathLink, PathNode},
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use crate::infra::rum::analytics::{Cohort, FunnelGroup, FunnelStep, PathLink, PathNode};
 
     fn application(platform: RumPlatform) -> RumApplication {
         RumApplication {

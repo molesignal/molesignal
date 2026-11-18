@@ -9,14 +9,12 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use kernel::{Error, Result};
 use serde::Serialize;
 use serde_json::Value;
 
 use super::{StepKind, checked_range, events, shared_conditions, text, whole};
-use crate::{
-    infra::rum::query::{Condition, Filter, WEIGHT, ident, literal},
-    shared::{Error, Result},
-};
+use crate::infra::rum::query::{Condition, Filter, WEIGHT, ident, literal};
 
 /// The fields a page is told by: the path with the changing parts grouped, the path, a screen's name.
 pub const PAGE_FIELDS: [&str; 3] = ["view.url_path_group", "view.url_path", "view.name"];

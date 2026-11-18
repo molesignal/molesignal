@@ -9,8 +9,7 @@
 //! `decrypt(value)` 反编码后查 cipher_keys 表拿 raw_key → AES-GCM open。
 
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce, aead::Aead};
-
-use crate::shared::{Error, Result};
+use kernel::{Error, Result};
 
 pub struct CipherPayload {
     pub key_id: String,

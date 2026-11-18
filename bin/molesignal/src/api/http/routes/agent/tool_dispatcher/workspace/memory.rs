@@ -4,17 +4,13 @@
 //! `remember`、`forget`、`read_memory`：会话作用域里的记忆。个人会话是发起人的，团队会话是
 //! 本队的。对话里把记住与忘掉显示出来，可以撤销，所以不再另外确认。
 
+use agent::memory::{MemoryDraft, MemoryKind};
+use kernel::Result;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{WorkspaceCall, parse};
-use crate::{
-    agent::{
-        memory::{MemoryDraft, MemoryKind},
-        tools::{BuiltinToolKind, ToolResult},
-    },
-    shared::Result,
-};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]

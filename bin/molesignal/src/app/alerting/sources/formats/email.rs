@@ -12,19 +12,17 @@
 
 use std::{collections::BTreeMap, sync::LazyLock};
 
+use domain::alerting::{
+    incident::Severity,
+    source::{
+        DEFAULT_RESOLVE_PATTERN, EmailRules, ExternalAction, ExternalAlert, MAX_DEDUP_KEY_CHARS,
+    },
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use mail_parser::{Message, MessageParser, MimeHeaders};
 use regex::Regex;
 
 use super::Parsed;
-use crate::{
-    domain::alerting::{
-        incident::Severity,
-        source::{
-            DEFAULT_RESOLVE_PATTERN, EmailRules, ExternalAction, ExternalAlert, MAX_DEDUP_KEY_CHARS,
-        },
-    },
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 /// 开头的回复、转发前缀，可以叠好几层。
 static REPLY_PREFIX: LazyLock<Regex> = LazyLock::new(|| {

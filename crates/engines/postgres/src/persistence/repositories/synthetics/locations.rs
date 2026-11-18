@@ -2,14 +2,12 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::synthetics::{LocationScope, ProbeLocation, SyntheticLocationRepository};
+use kernel::{Error, Result, ids::Id};
 
 use super::{
     PgSyntheticRepository,
     codec::{LOCATION_COLS, row_to_location},
-};
-use crate::{
-    domain::synthetics::{LocationScope, ProbeLocation, SyntheticLocationRepository},
-    shared::{Error, Result, ids::Id},
 };
 
 #[async_trait]

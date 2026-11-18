@@ -4,15 +4,14 @@
 //! 保存规则时的校验：名称、任务提示、触发、输出与时限。通知渠道还要核对连接器，那一步在
 //! 路由里（要查这个组织的连接器）。
 
-use super::schedule;
-use crate::{
-    agent::automations::{
-        AutomationOutputs, AutomationTrigger, FindingFilter, IncidentFilter, MAX_CHANNELS,
-        MAX_PROMPT_CHARS, MAX_TIMEOUT_SECS, MIN_TIMEOUT_SECS,
-    },
-    domain::{alerting::discovery::FindingKind, notify::connector::NotifyTargetType},
-    shared::{Error, Result},
+use agent::automations::{
+    AutomationOutputs, AutomationTrigger, FindingFilter, IncidentFilter, MAX_CHANNELS,
+    MAX_PROMPT_CHARS, MAX_TIMEOUT_SECS, MIN_TIMEOUT_SECS,
 };
+use domain::{alerting::discovery::FindingKind, notify::connector::NotifyTargetType};
+use kernel::{Error, Result};
+
+use super::schedule;
 
 pub const MAX_NAME_CHARS: usize = 120;
 pub const MAX_DESCRIPTION_CHARS: usize = 1_000;
@@ -70,7 +69,7 @@ pub fn prompt(raw: &str) -> Result<String> {
 }
 
 pub fn timeout(secs: Option<u32>) -> Result<u32> {
-    let secs = secs.unwrap_or(crate::agent::automations::DEFAULT_TIMEOUT_SECS);
+    let secs = secs.unwrap_or(agent::automations::DEFAULT_TIMEOUT_SECS);
 
     if !(MIN_TIMEOUT_SECS..=MAX_TIMEOUT_SECS).contains(&secs) {
         return Err(invalid(format!(
@@ -260,8 +259,10 @@ pub fn outputs(
 mod tests {
     use std::collections::BTreeMap;
 
+    use agent::automations::AutomationChannel;
+    use kernel::ids::Id;
+
     use super::*;
-    use crate::{agent::automations::AutomationChannel, shared::ids::Id};
 
     #[test]
     fn names_prompts_and_timeouts_have_bounds() {

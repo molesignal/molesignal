@@ -7,10 +7,8 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use molesignal::{
-    domain::alerting::incident::{Incident, IncidentStatus, Severity},
-    shared::{ids::Id, time::TimestampMicros},
-};
+use domain::alerting::incident::{Incident, IncidentStatus, Severity};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 #[allow(clippy::too_many_arguments)]

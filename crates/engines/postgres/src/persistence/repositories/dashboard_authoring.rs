@@ -2,21 +2,20 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use contracts::ContractIssue;
+use domain::dashboard::{
+    authoring::{
+        ConsumeDashboardDraft, DashboardDraft, DashboardDraftRepository, DashboardDraftStatus,
+        DraftConsumption, PreflightReport, PreflightWarningRecord,
+    },
+    contract_registry::DASHBOARD_AUTHORING_CAPABILITY,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::{
     dashboards::{COLS as DASHBOARD_COLS, row_to_dashboard},
     sqlx_err,
-};
-use crate::{
-    domain::dashboard::{
-        authoring::{
-            ConsumeDashboardDraft, DashboardDraft, DashboardDraftRepository, DashboardDraftStatus,
-            DraftConsumption, PreflightReport, PreflightWarningRecord,
-        },
-        contract_registry::DASHBOARD_AUTHORING_CAPABILITY,
-    },
-    shared::{Error, Result, contracts::ContractIssue, ids::Id, time::TimestampMicros},
 };
 
 pub struct PgDashboardDraftRepository {
@@ -306,7 +305,7 @@ async fn ensure_active_contract_binding(
 
 async fn insert_dashboard(
     transaction: &mut sqlx::PgConnection,
-    dashboard: &crate::domain::dashboard::Dashboard,
+    dashboard: &domain::dashboard::Dashboard,
 ) -> Result<()> {
     sqlx::query(
         "INSERT INTO dashboards

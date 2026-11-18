@@ -12,8 +12,7 @@ use std::str::FromStr;
 
 use chrono::Utc;
 use chrono_tz::Tz;
-
-use crate::shared::{Error, Result, time::TimestampMicros};
+use kernel::{Error, Result, time::TimestampMicros};
 
 /// 相邻两次运行至少隔这么久。
 pub const MIN_GAP_MINUTES: i64 = 15;

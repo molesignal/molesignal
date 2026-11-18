@@ -6,16 +6,15 @@
 
 use std::sync::Arc;
 
-use crate::{
-    agent::{
-        chat::{Provider, ProviderAdapter, TransportOptions, adapter_from_env, adapter_from_parts},
-        usage::ModelPrices,
-    },
-    api::AppState,
-    app::iam::IamContext,
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::{Error, Result, ids::Id},
+use agent::{
+    chat::{Provider, ProviderAdapter, TransportOptions, adapter_from_env, adapter_from_parts},
+    usage::ModelPrices,
 };
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::agent::chats::Chat;
+
+use crate::api::AppState;
 
 /// 解析出的 provider adapter + 运行参数。
 pub(super) struct ResolvedProvider {

@@ -3,19 +3,19 @@
 
 use std::collections::HashSet;
 
+use domain::status_page::{
+    AutomationCandidate, AutomationCandidateState, AutomationOutboxItem,
+    AutomationSourceObservation, PublicIncidentStatus, StatusPageIncident, StatusPageIncidentKind,
+    StatusPageIncidentUpdate, StatusPagePublicationState,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::json;
 
 use super::{
     super::validation::validate_message, render::materialize_candidate, service::complete_match,
 };
-use crate::{
-    app::status_page::{StatusPageIncidentInput, StatusPageIncidentUpdateInput, StatusPageService},
-    domain::status_page::{
-        AutomationCandidate, AutomationCandidateState, AutomationOutboxItem,
-        AutomationSourceObservation, PublicIncidentStatus, StatusPageIncident,
-        StatusPageIncidentKind, StatusPageIncidentUpdate, StatusPagePublicationState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::status_page::{
+    StatusPageIncidentInput, StatusPageIncidentUpdateInput, StatusPageService,
 };
 
 const OUTBOX_BATCH_LIMIT: u32 = 200;

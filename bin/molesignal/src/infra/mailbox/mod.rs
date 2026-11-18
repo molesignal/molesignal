@@ -16,7 +16,11 @@ use std::{
 
 use async_imap::{Authenticator, Client, Session};
 use async_trait::async_trait;
+use domain::alerting::source::{
+    MailCursor, Mailbox, MailboxAuth, MailboxSecurity, MailboxSettings,
+};
 use futures::TryStreamExt;
+use kernel::{Error, Result};
 use rustls::{
     ClientConfig,
     crypto::{CryptoProvider, aws_lc_rs},
@@ -31,11 +35,7 @@ use tokio_rustls::{TlsConnector, client::TlsStream};
 
 use crate::{
     app::alerting::sources::{FetchedMail, MailBatch, MailboxClient, MailboxStatus},
-    domain::alerting::source::{
-        MailCursor, Mailbox, MailboxAuth, MailboxSecurity, MailboxSettings,
-    },
     infra::connectors::{config::http::is_metadata_address, dispatcher::http::pinned_client},
-    shared::{Error, Result},
 };
 
 /// 连接和握手最多等这么久。

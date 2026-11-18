@@ -7,19 +7,17 @@ mod common;
 
 use std::sync::Arc;
 
-use molesignal::{
-    domain::apm::{
-        APM_PERSISTENCE_SCHEMA_VERSION, ApmMaintenanceRepository, ApmQueryRepository,
-        ApmWriteRepository, BucketDimension, BucketKind, BucketMeasurements, BucketQuery,
-        HistogramSchema, LatencyHistogram, OwnerSnapshot, QueryResolution, RollupRequest,
-        ServiceIdentity, ServiceObservation,
-    },
-    infra::apm::PgApmRepository,
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use domain::apm::{
+    APM_PERSISTENCE_SCHEMA_VERSION, ApmMaintenanceRepository, ApmQueryRepository,
+    ApmWriteRepository, BucketDimension, BucketKind, BucketMeasurements, BucketQuery,
+    HistogramSchema, LatencyHistogram, OwnerSnapshot, QueryResolution, RollupRequest,
+    ServiceIdentity, ServiceObservation,
 };
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::apm::PgApmRepository;
 
 const MINUTE_MICROS: i64 = 60 * 1_000_000;
 const HOUR_MICROS: i64 = 60 * MINUTE_MICROS;
@@ -279,6 +277,6 @@ fn query(org_id: &Id, start: i64, end: i64) -> BucketQuery {
     }
 }
 
-fn request_count(rows: &[molesignal::domain::apm::MergedBucket]) -> u64 {
+fn request_count(rows: &[domain::apm::MergedBucket]) -> u64 {
     rows.iter().map(|row| row.measurements.request_count).sum()
 }

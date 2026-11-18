@@ -3,20 +3,19 @@
 
 use std::collections::HashSet;
 
+use domain::{
+    alerting::incident::IncidentStatus,
+    status_page::{
+        ComponentLifecycle, StatusPageEventList, StatusPageEventView, StatusPageIncident,
+        StatusPageIncidentKind, StatusPageIncidentUpdate, StatusPageLifecycle,
+        StatusPagePublicationState,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     MAX_COMPONENTS_PER_PAGE, StatusPageIncidentInput, StatusPageService, deduplicate_ids,
     updates::validate_next_update, validation::validate_incident_input,
-};
-use crate::{
-    domain::{
-        alerting::incident::IncidentStatus,
-        status_page::{
-            ComponentLifecycle, StatusPageEventList, StatusPageEventView, StatusPageIncident,
-            StatusPageIncidentKind, StatusPageIncidentUpdate, StatusPageLifecycle,
-            StatusPagePublicationState,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// New maintenance starts by itself at its planned start and reminds
@@ -187,7 +186,7 @@ impl StatusPageService {
 
         if existing.kind != StatusPageIncidentKind::Maintenance
             || existing.publication_state != StatusPagePublicationState::Published
-            || existing.status != crate::domain::status_page::PublicIncidentStatus::Scheduled
+            || existing.status != domain::status_page::PublicIncidentStatus::Scheduled
         {
             return Err(Error::conflict(
                 "only scheduled maintenance can be rescheduled",
@@ -195,8 +194,8 @@ impl StatusPageService {
         }
 
         input.kind = StatusPageIncidentKind::Maintenance;
-        input.impact = crate::domain::status_page::IncidentImpact::Maintenance;
-        input.status = crate::domain::status_page::PublicIncidentStatus::Scheduled;
+        input.impact = domain::status_page::IncidentImpact::Maintenance;
+        input.status = domain::status_page::PublicIncidentStatus::Scheduled;
         input.publication_state = StatusPagePublicationState::Published;
         input.source_incident_id = None;
         input.keep_planned_options_of(&existing);
@@ -403,8 +402,9 @@ impl StatusPageService {
 
 #[cfg(test)]
 mod tests {
+    use domain::status_page::{IncidentImpact, PublicIncidentStatus};
+
     use super::*;
-    use crate::domain::status_page::{IncidentImpact, PublicIncidentStatus};
 
     fn input(kind: StatusPageIncidentKind) -> StatusPageIncidentInput {
         StatusPageIncidentInput {

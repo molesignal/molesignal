@@ -4,18 +4,16 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-
-use crate::{
-    app::{alerting::AlertIncidentLifecycleSink, status_page::StatusPageService},
-    domain::{
-        alerting::{
-            incident::{Incident, IncidentStatus},
-            mute::{MuteRuleRepository, match_labels_for_incident},
-        },
-        status_page::{AutomationSourceKind, AutomationSourceObservation},
+use domain::{
+    alerting::{
+        incident::{Incident, IncidentStatus},
+        mute::{MuteRuleRepository, match_labels_for_incident},
     },
-    shared::Result,
+    status_page::{AutomationSourceKind, AutomationSourceObservation},
 };
+use kernel::Result;
+
+use crate::app::{alerting::AlertIncidentLifecycleSink, status_page::StatusPageService};
 
 pub struct StatusPageAlertIncidentSink {
     status_pages: Arc<StatusPageService>,

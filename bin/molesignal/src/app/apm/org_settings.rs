@@ -9,17 +9,14 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use domain::apm::{
+    ApmCatalogRepository, ApmOrgSettings, ApmSpanFact, NAMING_PATTERN_SIZE_LIMIT, NamingRule,
+};
+use kernel::ids::Id;
 use parking_lot::RwLock;
 use regex::{Regex, RegexBuilder};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
-
-use crate::{
-    domain::apm::{
-        ApmCatalogRepository, ApmOrgSettings, ApmSpanFact, NAMING_PATTERN_SIZE_LIMIT, NamingRule,
-    },
-    shared::ids::Id,
-};
 
 /// How long settings saved on another node take at most to apply here.
 const REFRESH_EVERY: Duration = Duration::from_secs(30);
@@ -194,8 +191,9 @@ pub fn spawn_settings_refresh(
 
 #[cfg(test)]
 mod tests {
+    use domain::apm::{EnvironmentMapping, ServiceAlias};
+
     use super::*;
-    use crate::domain::apm::{EnvironmentMapping, ServiceAlias};
 
     #[test]
     fn the_first_matching_rule_renames_and_nothing_is_never_a_name() {

@@ -5,15 +5,12 @@
 
 use std::{borrow::Cow, time::Duration};
 
+use domain::iam::SsoFieldMapping;
+use kernel::{Error, Result};
 use ldap3::{
     Ldap, LdapConnAsync, LdapConnSettings, Scope, SearchEntry, SearchOptions, ldap_escape,
 };
 use url::Url;
-
-use crate::{
-    domain::iam::SsoFieldMapping,
-    shared::{Error, Result},
-};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(10);
@@ -353,10 +350,11 @@ fn ldap_unavailable(operation: &'static str, error: impl std::fmt::Display) -> S
 mod tests {
     use std::collections::HashMap;
 
+    use domain::iam::SsoFieldMapping;
+    use kernel::Error;
     use ldap3::SearchEntry;
 
     use super::{LdapConfig, LdapFailure, LdapLoginFlow, render_user_filter, user_from_entry};
-    use crate::{domain::iam::SsoFieldMapping, shared::Error};
 
     fn config() -> LdapConfig {
         LdapConfig {

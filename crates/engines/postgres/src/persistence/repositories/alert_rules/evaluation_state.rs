@@ -13,16 +13,14 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use domain::alerting::{
+    forecast::ForecastSeries,
+    repositories::{AlertRuleEvalState, AlertRuleEvalStateRepository},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::alerting::{
-        forecast::ForecastSeries,
-        repositories::{AlertRuleEvalState, AlertRuleEvalStateRepository},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 const COLS: &str = "rule_id, group_key, group_labels, consecutive_matches, consecutive_clears,
      consecutive_no_data, no_data_since, last_eval_at, last_matched,

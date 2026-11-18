@@ -4,28 +4,25 @@
 //! How a RUM application did over a range, in one tool: what the overview page opens with, and the
 //! unresolved issues touching the most sessions, so the next question has somewhere to start.
 
+use domain::{iam::IamContext, rum::RumApplication};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
 
 use super::{reader, summary_span};
-use crate::{
-    app::{
-        iam::IamContext,
-        rum::{
-            issues::{
-                self, Query,
-                select::{Holder, Sort, StatusFilter},
-            },
-            overview::{self, Overview},
+use crate::app::{
+    rum::{
+        issues::{
+            self, Query,
+            select::{Holder, Sort, StatusFilter},
         },
-        tools::{
-            ToolRuntime,
-            common::{TimeRangeArg, parse_args},
-        },
+        overview::{self, Overview},
     },
-    domain::rum::RumApplication,
-    shared::{Error, Result},
+    tools::{
+        ToolRuntime,
+        common::{TimeRangeArg, parse_args},
+    },
 };
 
 /// How many issues the overview names.
@@ -158,12 +155,11 @@ fn describe(application: &RumApplication, environment: Option<&str>, numbers: &O
 
 #[cfg(test)]
 mod tests {
+    use domain::rum::{RumApplicationSettings, RumPlatform};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        app::rum::{overview::Pulse, vitals::Reading},
-        domain::rum::{RumApplicationSettings, RumPlatform},
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use crate::app::rum::{overview::Pulse, vitals::Reading};
 
     fn application() -> RumApplication {
         RumApplication {

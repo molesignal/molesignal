@@ -4,24 +4,22 @@
 //! The error issues of a RUM application: the list ranked by what each touched, and one issue with
 //! its history, its latest sessions and its stack. The reads are the ones the issue pages make.
 
+use domain::iam::IamContext;
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
 
 use super::{reader, summary_span};
-use crate::{
-    app::{
-        iam::IamContext,
-        rum::issues::{
-            self, Query,
-            select::{Holder, Sort, StatusFilter},
-        },
-        tools::{
-            ToolRuntime,
-            common::{TimeRangeArg, json_result, parse_args},
-        },
+use crate::app::{
+    rum::issues::{
+        self, Query,
+        select::{Holder, Sort, StatusFilter},
     },
-    shared::{Error, Result},
+    tools::{
+        ToolRuntime,
+        common::{TimeRangeArg, json_result, parse_args},
+    },
 };
 
 const DEFAULT_LIMIT: usize = 20;

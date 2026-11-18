@@ -9,11 +9,11 @@
 
 use std::sync::LazyLock;
 
+use kernel::{Error, Result};
 use regex::Regex;
 use serde::Serialize;
 
 use super::expression::{FieldExpression, has_top_level_or, parse_field_expression, quoted_text};
-use crate::shared::{Error, Result};
 
 /// The most values one `in` list holds, as the trace reads take it.
 pub const MAX_TRACE_IN_VALUES: usize = 64;

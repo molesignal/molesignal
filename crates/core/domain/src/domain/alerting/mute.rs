@@ -8,13 +8,13 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
     semantic_group::LabelMatcher,
     time_window::{CalendarUse, MonthlyWindow, WeeklyWindows},
 };
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// Reserved matcher label injected only while evaluating mute rules. It lets
 /// the API create a silence that targets exactly one incident without

@@ -3,17 +3,17 @@
 
 use std::collections::BTreeMap;
 
+use domain::{
+    iam::IamContext,
+    stream::{DEFAULT_PROFILE_STREAM, StreamType},
+};
+use kernel::{Result, time::TimeRange};
+use profiles::{NormalizedProfile, merge as profiles_merge};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{ToolRuntime, common::*};
-use crate::{
-    app::iam::IamContext,
-    domain::stream::{DEFAULT_PROFILE_STREAM, StreamType},
-    infra::profiles::{self, NormalizedProfile, merge as profiles_merge},
-    shared::{Result, time::TimeRange},
-};
 
 const DEFAULT_MAX_PROFILES: usize = 200;
 const HARD_MAX_PROFILES: usize = 1_000;

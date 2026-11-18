@@ -11,16 +11,13 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use domain::alerting::{
+    incident::Incident,
+    timeline::{TimelineEntry, TimelineKind},
+};
+use kernel::ids::Id;
 use serde::Serialize;
 use serde_json::Value;
-
-use crate::{
-    domain::alerting::{
-        incident::Incident,
-        timeline::{TimelineEntry, TimelineKind},
-    },
-    shared::ids::Id,
-};
 
 /// 各拆分维度最多列多少项。
 const MOST_ROWS: usize = 20;

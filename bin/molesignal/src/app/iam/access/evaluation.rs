@@ -5,22 +5,17 @@
 
 use std::collections::BTreeSet;
 
+use domain::iam::{
+    IamContext, IamScope,
+    access::{IamCrossOrgGrantQuery, IamRelationshipQuery, IamRoleBinding, ResolvedIamRoleBinding},
+    catalog::IamPermissionScope,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{
     IamAccessRequest, IamAccessService, IamAttributes, IamDecision, IamDecisionReason, IamSubject,
     IamTarget,
-};
-use crate::{
-    app::iam::IamContext,
-    domain::iam::{
-        IamScope,
-        access::{
-            IamCrossOrgGrantQuery, IamRelationshipQuery, IamRoleBinding, ResolvedIamRoleBinding,
-        },
-        catalog::IamPermissionScope,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 impl IamAccessService {

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::query::QueryResult;
+use kernel::ids::Id;
 use serde_json::json;
 
 use super::{AvailabilityQuery, Summary, bucket_start, summaries};
-use crate::{domain::query::QueryResult, shared::ids::Id};
 
 const HOUR: i64 = 60 * 60 * 1_000_000;
 
@@ -147,14 +148,14 @@ mod engine {
         },
         prelude::SessionContext,
     };
+    use domain::query::QueryResult;
+    use kernel::ids::Id;
 
     use super::{
         super::{AvailabilityQuery, summaries, text},
         HOUR,
     };
-    use crate::{
-        domain::query::QueryResult, infra::query::arrow_json::batches_to_json, shared::ids::Id,
-    };
+    use crate::infra::query::arrow_json::batches_to_json;
 
     /// Runs as `(started, check, location, outcome, duration)`.
     type Run = (i64, &'static str, &'static str, &'static str, Option<f64>);

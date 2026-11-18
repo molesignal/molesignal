@@ -2,17 +2,15 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use base64::Engine as _;
-
-use crate::{
-    app::synthetics::{CLIENT_KEY_REFERENCE, ResolvedProbeSecret, artifact_targets},
-    domain::synthetics::{
-        AssertionOperator, AssertionSeverity, BrowserAction, EgressPolicy, GrpcCall, HeaderValue,
-        HttpVersion, MonitorAssertion, MonitorSpec, ProbeCapability, ProbeLocation, ProbeTask,
-        SshAuthentication, ValueSource,
-    },
-    protocol::probe::v1 as wire,
-    shared::{Error, Result},
+use domain::synthetics::{
+    AssertionOperator, AssertionSeverity, BrowserAction, EgressPolicy, GrpcCall, HeaderValue,
+    HttpVersion, MonitorAssertion, MonitorSpec, ProbeCapability, ProbeLocation, ProbeTask,
+    SshAuthentication, ValueSource,
 };
+use kernel::{Error, Result};
+use protocol::probe::v1 as wire;
+
+use crate::app::synthetics::{CLIENT_KEY_REFERENCE, ResolvedProbeSecret, artifact_targets};
 
 pub(super) fn capabilities_from_wire(values: &[i32]) -> Result<Vec<ProbeCapability>> {
     values

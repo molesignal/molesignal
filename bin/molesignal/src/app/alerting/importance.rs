@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 组织的优先级与紧急度档位（见 [`crate::domain::alerting::importance`]）：读、改。
+//! 组织的优先级与紧急度档位（见 [`domain::alerting::importance`]）：读、改。
 //!
 //! 开事件、升级、发通知时都要看档位，所以每个组织的档位在本节点缓存 [`CACHE_FOR`]；本节点改了立即
 //! 换掉，别的节点最多晚这么久。读不出时按内置的档位算，不挡住开事件和通知。
@@ -12,10 +12,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    domain::alerting::importance::{ImportanceLevels, ImportanceRepository, StoredImportance},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use domain::alerting::importance::{ImportanceLevels, ImportanceRepository, StoredImportance};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 /// 一个组织的档位缓存多久。
 const CACHE_FOR: Duration = Duration::from_secs(30);

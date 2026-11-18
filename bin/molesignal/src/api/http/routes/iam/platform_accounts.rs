@@ -12,14 +12,11 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::iam::{IamContext, User, permission};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{User, permission},
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 /// How many accounts one search answers with: enough to pick from, and a reason to type more.
 const SEARCH_LIMIT: usize = 20;
@@ -131,8 +128,10 @@ fn matching(users: Vec<User>, needle: &str) -> Vec<User> {
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::UserStatus;
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{domain::iam::UserStatus, shared::time::TimestampMicros};
 
     fn account(email: &str, display_name: &str) -> User {
         User {

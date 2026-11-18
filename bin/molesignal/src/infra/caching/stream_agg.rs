@@ -22,9 +22,9 @@ use std::{
 };
 
 use moka::{Expiry, future::Cache};
+use settings::StreamAggCacheSettings;
 
 use super::metrics::CacheMetrics;
-use crate::config::StreamAggCacheSettings;
 
 /// 缓存里的 label 集表示，与 promql 引擎的 `LabelSet` 同构（稳定排序、hash 友好）。
 pub type CachedLabels = BTreeMap<String, String>;

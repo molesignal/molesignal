@@ -4,18 +4,16 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use domain::alerting::{
+    handling::IncidentHandling,
+    incident::{Incident, IncidentStatus, Severity, TriggeringQuery},
+    repositories::IncidentRepository,
+    routing::IncidentRouting,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::{
-        handling::IncidentHandling,
-        incident::{Incident, IncidentStatus, Severity, TriggeringQuery},
-        repositories::IncidentRepository,
-        routing::IncidentRouting,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub mod groups;
 pub mod rca;
@@ -367,7 +365,7 @@ impl IncidentRepository for PgIncidentRepository {
     async fn list_since(
         &self,
         org_id: &Id,
-        since: crate::shared::time::TimestampMicros,
+        since: kernel::time::TimestampMicros,
     ) -> Result<Vec<Incident>> {
         let rows = sqlx::query(&format!(
             "SELECT {COLS} FROM incidents

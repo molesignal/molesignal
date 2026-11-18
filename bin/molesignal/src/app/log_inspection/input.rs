@@ -6,12 +6,10 @@
 //! 数据流、模型配置、通知连接器存不存在要去问别处，在 [`super::service`] 里核对。
 
 use chrono_tz::Tz;
+use domain::log_inspection::{InspectionNotifyRoute, InspectionSchedule, NotifyWhen};
+use kernel::{Error, Result, ids::Id};
 
 use super::{InspectionLimits, prompt, schedule};
-use crate::{
-    domain::log_inspection::{InspectionNotifyRoute, InspectionSchedule, NotifyWhen},
-    shared::{Error, Result, ids::Id},
-};
 
 const NAME_CHARS: usize = 120;
 const STREAM_CHARS: usize = 255;
@@ -65,7 +63,7 @@ pub(super) fn validate(input: InspectionInput, limits: &InspectionLimits) -> Res
     let stream = bounded("stream", input.stream.trim(), 1, STREAM_CHARS)?;
 
     // An inspection runs in the background, where nobody's audit.read applies.
-    if stream == crate::domain::stream::AUDIT_STREAM {
+    if stream == domain::stream::AUDIT_STREAM {
         return Err(Error::invalid(
             "a scheduled log inspection cannot read `_audit`: it runs in the background, where \
              nobody's audit.read applies",
@@ -164,8 +162,9 @@ fn bounded(field: &str, value: &str, min: usize, max: usize) -> Result<String> {
 
 #[cfg(test)]
 pub(super) mod tests {
+    use domain::notify::connector::NotifyTargetType;
+
     use super::*;
-    use crate::domain::notify::connector::NotifyTargetType;
 
     pub(in crate::app::log_inspection) fn limits() -> InspectionLimits {
         InspectionLimits::new(3600, 20, 2, 300, 30)

@@ -17,10 +17,13 @@ use std::{
     time::Duration,
 };
 
+use agent::tool_control::McpServerRuntime;
 use eventsource_stream::{Event, Eventsource};
 use futures::{Stream, StreamExt};
+use kernel::{Error, Result, ids::Id};
 use reqwest::{Client, header::HeaderMap};
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use tokio::time::{Instant, timeout_at};
 use url::Url;
 
@@ -28,15 +31,7 @@ use super::transport::{
     client_for, initialize_params, max_bytes_of, request_headers, rpc_result, status_error, target,
     timeout_of,
 };
-use crate::{
-    agent::tool_control::McpServerRuntime,
-    app::egress::TargetPolicy,
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-        ids::Id,
-    },
-};
+use crate::app::egress::TargetPolicy;
 
 type Events = Pin<Box<dyn Stream<Item = Result<Event>> + Send>>;
 
@@ -256,6 +251,7 @@ impl Outbox {
 mod tests {
     use std::convert::Infallible;
 
+    use agent::{scope::Scope, tool_control::McpServer};
     use axum::{
         Json, Router,
         extract::State,
@@ -263,14 +259,11 @@ mod tests {
         response::sse::{Event as SseEvent, Sse},
         routing::{get, post},
     };
+    use kernel::time::TimestampMicros;
     use tokio::sync::{Mutex, mpsc};
     use tokio_stream::wrappers::UnboundedReceiverStream;
 
     use super::*;
-    use crate::{
-        agent::{scope::Scope, tool_control::McpServer},
-        shared::time::TimestampMicros,
-    };
 
     /// What was posted, with the `x-tenant` header it came with.
     type Posted = Arc<Mutex<Vec<(Value, Option<String>)>>>;

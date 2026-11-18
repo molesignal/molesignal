@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::{Error, Result, cursor::CursorDirection, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    api::http::pagination::cursor::{CursorDirection, decode_signed_cursor, encode_signed_cursor},
+    api::http::pagination::cursor::{decode_signed_cursor, encode_signed_cursor},
     app::iam::IamService,
-    shared::{Error, Result, ids::Id},
 };
 
 const VERSION: u8 = 1;

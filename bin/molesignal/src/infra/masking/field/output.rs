@@ -5,12 +5,11 @@
 
 use std::collections::HashMap;
 
+use domain::{masking::FieldMaskingAlgorithm, metrics::MetricLabelSet};
+use kernel::ids::Id;
+use postgres::cipher::CipherRootKey;
+
 use super::{mask_value, normalize_identifier};
-use crate::{
-    domain::{masking::FieldMaskingAlgorithm, metrics::MetricLabelSet},
-    infra::cipher::CipherRootKey,
-    shared::ids::Id,
-};
 
 pub(super) fn mask_label_set(
     labels: &mut MetricLabelSet,

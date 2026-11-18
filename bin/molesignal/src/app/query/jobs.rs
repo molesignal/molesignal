@@ -9,18 +9,16 @@
 
 use std::sync::Arc;
 
+use domain::{iam::IamContext, query::QueryRequest};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt, path::Path as ObjectPath};
+use postgres::repositories::search::jobs::{
+    SearchJob, SearchJobCounts, SearchJobListQuery, SearchJobRepository, SearchJobState,
+};
 use serde::Serialize;
 use serde_json::Value;
 
 use super::QueryService;
-use crate::{
-    domain::{iam::IamContext, query::QueryRequest},
-    infra::persistence::repositories::search::jobs::{
-        SearchJob, SearchJobCounts, SearchJobListQuery, SearchJobRepository, SearchJobState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const DEFAULT_TTL_SECS: i64 = 7 * 86_400;
 
@@ -171,7 +169,7 @@ impl SearchJobService {
                 user_id,
                 role_key,
                 request_json,
-                trace_link: crate::shared::trace_context::current_trace_context()
+                trace_link: signals::trace_context::current_trace_context()
                     .map(|context| context.serialized_link()),
                 state: SearchJobState::Pending,
                 attempt: 0,
@@ -356,16 +354,14 @@ mod tests {
     use std::{collections::BTreeSet, sync::Mutex, time::Duration};
 
     use async_trait::async_trait;
+    use domain::{
+        iam::IamScope,
+        query::{PromqlEngine, QueryEngine, QueryResult},
+    };
     use object_store::{PutPayload, memory::InMemory};
 
     use super::*;
-    use crate::{
-        app::search::{AdmissionConfig, AdmissionController},
-        domain::{
-            iam::IamScope,
-            query::{PromqlEngine, QueryEngine, QueryResult},
-        },
-    };
+    use crate::app::search::{AdmissionConfig, AdmissionController};
 
     const ADA: &str = "u-ada";
     const BO: &str = "u-bo";

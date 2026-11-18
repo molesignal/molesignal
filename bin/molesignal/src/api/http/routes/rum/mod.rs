@@ -42,10 +42,10 @@ use axum::{
     extract::DefaultBodyLimit,
     routing::{delete, get, patch, post},
 };
+use domain::rum::event::RumStream;
 
 use crate::{
     api::AppState,
-    domain::rum::event::RumStream,
     infra::rum::{intake::MAX_DECODED_BYTES, replay::MAX_REPLAY_SEGMENT_BYTES},
 };
 

@@ -2,17 +2,15 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::alerting::{
+    escalation::{EscalationPolicy, EscalationStep},
+    repositories::EscalationPolicyRepository,
+    urgency::UrgencyRule,
+};
+use kernel::{Result, ids::Id};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::{
-        escalation::{EscalationPolicy, EscalationStep},
-        repositories::EscalationPolicyRepository,
-        urgency::UrgencyRule,
-    },
-    shared::{Result, ids::Id},
-};
 
 pub struct PgEscalationPolicyRepository {
     pool: PgPool,

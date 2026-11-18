@@ -3,9 +3,8 @@
 
 //! 恢复码：丢了身份验证器时，每个恢复码可以代替验证码用一次。
 
+use kernel::ids::Id;
 use sha2::{Digest, Sha256};
-
-use crate::shared::ids::Id;
 
 /// 一组恢复码的个数。
 pub const COUNT: usize = 10;

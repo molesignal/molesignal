@@ -8,15 +8,12 @@ use std::{
     sync::Arc,
 };
 
-use parking_lot::RwLock;
-
-use crate::{
-    domain::apm::{
-        ApmLimits, ApmSpanFact, DependencyCategory, DependencyIdentity, ErrorIdentity,
-        OTHER_DIMENSION, ServiceIdentity, TransactionIdentity,
-    },
-    shared::ids::Id,
+use domain::apm::{
+    ApmLimits, ApmSpanFact, DependencyCategory, DependencyIdentity, ErrorIdentity, OTHER_DIMENSION,
+    ServiceIdentity, TransactionIdentity,
 };
+use kernel::ids::Id;
+use parking_lot::RwLock;
 
 const HOUR_MICROS: i64 = 3_600_000_000;
 
@@ -249,14 +246,13 @@ fn overflow_error(org_id: &Id, service: &ServiceIdentity) -> ErrorIdentity {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::apm::{
-            APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanKind, DependencyCategory,
-            InstrumentationMetadata, TransactionKind,
-        },
-        shared::time::TimestampMicros,
+    use domain::apm::{
+        APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanKind, DependencyCategory,
+        InstrumentationMetadata, TransactionKind,
     };
+    use kernel::time::TimestampMicros;
+
+    use super::*;
 
     fn fact(service: &str) -> ApmSpanFact {
         ApmSpanFact {
@@ -326,16 +322,16 @@ mod tests {
         assert!(decision.accepted);
         assert_eq!(
             overflow.transaction.as_ref().unwrap().name,
-            crate::domain::apm::OTHER_DIMENSION
+            domain::apm::OTHER_DIMENSION
         );
         assert_eq!(
             overflow.dependency.as_ref().unwrap().target,
-            crate::domain::apm::OTHER_DIMENSION
+            domain::apm::OTHER_DIMENSION
         );
         assert!(overflow.service_version.is_none());
         assert_eq!(
             overflow.service_instance_id.as_deref(),
-            Some(crate::domain::apm::OTHER_DIMENSION)
+            Some(domain::apm::OTHER_DIMENSION)
         );
     }
 

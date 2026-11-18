@@ -3,14 +3,12 @@
 
 //! `search_jobs` 的列表读取：按状态和提交人筛选、翻页，以及各状态的任务数。
 
+use kernel::{Result, ids::Id};
 use serde::Serialize;
 use sqlx::{PgPool, Row};
 
 use super::{COLS, SearchJob, SearchJobState, row_to};
-use crate::{
-    persistence::sqlx_err,
-    shared::{Result, ids::Id},
-};
+use crate::persistence::sqlx_err;
 
 /// 列表要哪一段任务。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

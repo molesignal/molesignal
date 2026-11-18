@@ -4,15 +4,13 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
-
-use crate::{
-    app::{status_page::StatusPageService, synthetics::SyntheticTransitionSink},
-    domain::{
-        status_page::{AutomationSourceKind, AutomationSourceObservation},
-        synthetics::SyntheticStateTransition,
-    },
-    shared::Result,
+use domain::{
+    status_page::{AutomationSourceKind, AutomationSourceObservation},
+    synthetics::SyntheticStateTransition,
 };
+use kernel::Result;
+
+use crate::app::{status_page::StatusPageService, synthetics::SyntheticTransitionSink};
 
 pub struct StatusPageSyntheticTransitionSink {
     status_pages: Arc<StatusPageService>,

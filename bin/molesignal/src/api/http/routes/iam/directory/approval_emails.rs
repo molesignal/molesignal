@@ -6,15 +6,13 @@
 //! 全部 best-effort：没有配置 SMTP、文案取不到或发送失败都只记日志，绝不阻塞注册和审批。
 //! 主题与正文在 `i18n_language` 表里，按工作区的默认语言取。
 
-use crate::{
-    api::AppState,
-    app::iam::IamSubject,
-    domain::{
-        i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack},
-        iam::IamScope,
-    },
-    shared::ids::Id,
+use domain::{
+    i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack},
+    iam::IamScope,
 };
+use kernel::ids::Id;
+
+use crate::{api::AppState, app::iam::IamSubject};
 
 /// 审批邮件在 `i18n_language` 表里的键前缀。
 const KEY_PREFIX: &str = "iam.email.";
@@ -179,7 +177,7 @@ fn written(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shared::i18n_language_seed::seeded_pack;
+    use crate::i18n_language_seed::seeded_pack;
 
     #[test]
     fn pending_registration_email_points_admins_to_the_approvals() {

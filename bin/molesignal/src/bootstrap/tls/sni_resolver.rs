@@ -17,12 +17,11 @@ use std::{
 };
 
 use dashmap::DashMap;
+use postgres::repositories::domains::DomainRepository;
 use rustls::{
     server::{ClientHello, ResolvesServerCert},
     sign::CertifiedKey,
 };
-
-use crate::infra::persistence::repositories::domains::DomainRepository;
 
 const DEFAULT_TTL_SECS: u64 = 60;
 
@@ -171,12 +170,10 @@ fn rustls_default_provider() -> Arc<rustls::crypto::CryptoProvider> {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use kernel::{Result as SharedResult, ids::Id, time::TimestampMicros};
+    use postgres::repositories::domains::{AcmeChallenge, DomainRow};
 
     use super::*;
-    use crate::{
-        infra::persistence::repositories::domains::{AcmeChallenge, DomainRow},
-        shared::{Result as SharedResult, ids::Id, time::TimestampMicros},
-    };
 
     /// Fake repo：只支持 find_by_hostname；其他 method panic。
     struct FakeRepo {

@@ -4,22 +4,19 @@
 //! Agent Profile API：一种工作模式用哪个模型、哪些工具、什么数据范围，以及一轮对话的
 //! 工具调用次数、总时限与温度。
 
+use agent::model::{AgentProfile, NetworkAccess};
 use axum::{
     Extension, Json,
     extract::{Path, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolSurface;
 
 use super::{default_true, validate_allowed_tools};
-use crate::{
-    agent::model::{AgentProfile, NetworkAccess},
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -209,10 +206,10 @@ pub(super) async fn update_profile(
 
 #[cfg(test)]
 mod tests {
+    use agent::model::NetworkAccess;
     use serde_json::json;
 
     use super::{AgentProfileRequest, validate_profile_request};
-    use crate::agent::model::NetworkAccess;
 
     #[test]
     fn profile_network_access_accepts_blocked_and_allowed() {

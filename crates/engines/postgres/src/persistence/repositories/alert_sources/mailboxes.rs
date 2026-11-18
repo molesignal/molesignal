@@ -4,14 +4,12 @@
 //! `alert_source_mailboxes` 表：邮件来源读的 IMAP 邮箱。密码用根密钥加密。
 
 use async_trait::async_trait;
+use domain::alerting::source::{MailCursor, Mailbox, MailboxRepository, MailboxSettings};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::alerting::source::{MailCursor, Mailbox, MailboxRepository, MailboxSettings},
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
 
 pub struct PgMailboxRepository {
     pool: PgPool,

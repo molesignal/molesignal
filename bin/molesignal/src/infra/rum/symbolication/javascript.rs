@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use kernel::{Error, Result};
+
 use super::OriginalFrame;
-use crate::shared::{Error, Result};
 
 pub struct JavascriptSourceMap {
     decoded: sourcemap::DecodedMap,

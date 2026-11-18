@@ -12,23 +12,22 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::{
+    iam::{IamContext, Organization, permission},
+    storage::PhysicalDatasetId,
+    stream::{StreamDefinition, StreamRepository, StreamType},
+};
 use futures::StreamExt;
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 
 use super::validate_stream_retention_days;
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::{Organization, permission},
-        storage::PhysicalDatasetId,
-        stream::{StreamDefinition, StreamRepository, StreamType},
-    },
     infra::query::catalog_source::{CatalogQuerySource, SegmentSize},
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 const DAY_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
@@ -367,23 +366,24 @@ async fn estimate_org(
 mod tests {
     use std::{collections::BTreeSet, sync::Arc};
 
+    use domain::{
+        storage::{
+            Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ColumnStats,
+            DataSegment, DatasetSelection, DatasetTypeId, FileCatalog, IndexPolicy, ObjectChecksum,
+            ObjectKey, OrganizationScope, Partition, PartitionManifest, PartitionManifestPointer,
+            PartitionPolicy, PhysicalDataset, PhysicalDatasetSpec, SegmentId, SegmentState,
+            StoragePolicy, StoredObject, WalCodecId, type_id::builtin,
+        },
+        stream::{Retention, Schema},
+    };
+    use kernel::ids::Id;
     use object_store::{ObjectStore, ObjectStoreExt, memory::InMemory, path::Path};
     use serde_json::json;
+    use settings::{CompactorSettings, ObjectCacheSettings};
 
     use super::*;
     use crate::{
         bootstrap::test_support::FixedStreams,
-        config::{CompactorSettings, ObjectCacheSettings},
-        domain::{
-            storage::{
-                Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ColumnStats,
-                DataSegment, DatasetSelection, DatasetTypeId, FileCatalog, IndexPolicy,
-                ObjectChecksum, ObjectKey, OrganizationScope, Partition, PartitionManifest,
-                PartitionManifestPointer, PartitionPolicy, PhysicalDataset, PhysicalDatasetSpec,
-                SegmentId, SegmentState, StoragePolicy, StoredObject, WalCodecId, type_id::builtin,
-            },
-            stream::{Retention, Schema},
-        },
         infra::{
             intake::{BufferPool, dataset_resolver::test_support::StubFileCatalog},
             storage::{
@@ -393,7 +393,6 @@ mod tests {
                 parquet::writer::ParquetWriter,
             },
         },
-        shared::ids::Id,
     };
 
     const NOW: i64 = 1_800_000_000_000_000;

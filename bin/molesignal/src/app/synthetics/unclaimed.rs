@@ -10,13 +10,12 @@
 
 use std::collections::BTreeMap;
 
-use super::{PROBE_PROTOCOL_VERSION, SyntheticService, dispatch::AGENT_SILENCE_MICROS};
-use crate::{
-    domain::synthetics::{
-        AgentStatus, ProbeAgent, ProbeCapability, ProbeOutcome, ProbeTask, SyntheticResult,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+use domain::synthetics::{
+    AgentStatus, ProbeAgent, ProbeCapability, ProbeOutcome, ProbeTask, SyntheticResult,
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+
+use super::{PROBE_PROTOCOL_VERSION, SyntheticService, dispatch::AGENT_SILENCE_MICROS};
 
 /// Why no Agent took a task. The words are what the result's `skip_reason` says.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,14 +130,13 @@ fn skipped_result(task: &ProbeTask, reason: SkipReason, now: TimestampMicros) ->
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::{SkipReason, skip_reason};
-    use crate::{
-        domain::synthetics::{
-            AgentCapacity, AgentStatus, IcmpSpec, MonitorSpec, ProbeAgent, ProbeCapability,
-            ProbeTask, ProbeTaskState,
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use domain::synthetics::{
+        AgentCapacity, AgentStatus, IcmpSpec, MonitorSpec, ProbeAgent, ProbeCapability, ProbeTask,
+        ProbeTaskState,
     };
+    use kernel::{ids::Id, time::TimestampMicros};
+
+    use super::{SkipReason, skip_reason};
 
     const NOW: TimestampMicros = TimestampMicros(1_000_000_000_000);
 

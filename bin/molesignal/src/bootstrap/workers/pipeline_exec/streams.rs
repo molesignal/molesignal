@@ -11,17 +11,15 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use domain::intake::{IntakeBatch, RawEvent};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{
     DeadLetter, Ledger, PipelineOutput, PipelineSpec, WriteFailure, is_configuration_error,
     summaries,
 };
-use crate::{
-    domain::intake::{IntakeBatch, RawEvent},
-    infra::pipeline::exec::processing::ProcessedEvent,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::infra::pipeline::exec::processing::ProcessedEvent;
 
 /// Writes `rows` to their streams. A stream that already took a source's rows in an earlier attempt
 /// is left out for that source. Returns what each stream that took none of its events said.

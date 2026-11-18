@@ -5,6 +5,8 @@
 
 use std::collections::HashSet;
 
+use domain::{rum::event::RumStream, stream::FieldType};
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{
@@ -15,10 +17,6 @@ use super::{
     },
     answer::{Aggregate, MeasureInfo, Row, group_of},
     measure::{Measure, MeasureSpec, named},
-};
-use crate::{
-    domain::{rum::event::RumStream, stream::FieldType},
-    shared::{Error, Result},
 };
 
 /// Most measures one request asks for.

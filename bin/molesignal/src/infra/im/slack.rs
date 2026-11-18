@@ -12,24 +12,20 @@
 
 use std::time::Duration;
 
+use agent::im::{CardAction, CardAnswer, ConversationKind, Inbound, NoticeKind, Sender};
+use domain::notify::buttons::AlertButtonValue;
 use futures::{SinkExt, StreamExt};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use tokio::time::{Instant, interval_at};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
 
 use super::{Listener, ws};
-use crate::{
-    agent::im::{CardAction, CardAnswer, ConversationKind, Inbound, NoticeKind, Sender},
-    domain::notify::buttons::AlertButtonValue,
-    infra::notify::adapters::{
-        SLACK_ALERT_BLOCK_ID, SLACK_SITES, mrkdwn, slack_card, truncate_chars,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
+use crate::infra::notify::adapters::{
+    SLACK_ALERT_BLOCK_ID, SLACK_SITES, mrkdwn, slack_card, truncate_chars,
 };
 
 /// 多久发一次 WebSocket ping；这么久的三倍没听到任何东西就重连。

@@ -1,21 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::model::ApprovalRequest;
+use domain::iam::{IamContext, IamScope, access::IamPrincipalType, api_token::ApiTokenKind};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::{
-        AppState,
-        http::routes::api_tokens::{
-            RequestedScope, TokenSpec, expires_at, issue_scope, new_token, validate_name,
-        },
+use crate::api::{
+    AppState,
+    http::routes::api_tokens::{
+        RequestedScope, TokenSpec, expires_at, issue_scope, new_token, validate_name,
     },
-    app::iam::IamContext,
-    domain::iam::{IamScope, access::IamPrincipalType, api_token::ApiTokenKind},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) async fn execute(

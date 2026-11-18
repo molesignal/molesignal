@@ -4,13 +4,12 @@
 //! 读一个选择器的样本：持有其指标的流里，时间窗内的样本文件同时读几个，只读该指标所在的页；
 //! 再在内存里按指标名与 matchers 过滤、按 label 分组成 series。
 
+use domain::metrics::METRIC_NAME_FIELD;
 use futures::{StreamExt, TryStreamExt, stream};
+use kernel::time::TimestampMicros;
 
 use super::*;
-use crate::{
-    domain::metrics::METRIC_NAME_FIELD, infra::query::scan_limit::ensure_within_scan_limit,
-    shared::time::TimestampMicros,
-};
+use crate::infra::query::scan_limit::ensure_within_scan_limit;
 
 /// 同时读的样本文件数。对象存储上每个文件至少一次往返，一个接一个读时延迟随文件数相加。
 const CONCURRENT_FILE_READS: usize = 8;

@@ -3,17 +3,15 @@
 
 use std::sync::Arc;
 
+use kernel::{Error, Result};
 use object_store::{
     ObjectStore, aws::AmazonS3Builder, azure::MicrosoftAzureBuilder,
     gcp::GoogleCloudStorageBuilder, local::LocalFileSystem,
 };
+use settings::ObjectStoreSettings;
 use url::Url;
 
 use self::credentials::ResolvedCredentials;
-use crate::{
-    config::ObjectStoreSettings,
-    shared::{Error, Result},
-};
 
 pub mod credentials;
 pub mod production;

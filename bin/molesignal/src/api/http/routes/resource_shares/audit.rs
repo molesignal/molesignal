@@ -9,13 +9,11 @@ use axum::{
     extract::{ConnectInfo, FromRequestParts},
     http::{header::USER_AGENT, request::Parts},
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::{audit_events::AuditEvent, resource_shares::ResourceShare};
 use serde_json::Value;
 
-use crate::{
-    api::{AppState, http::client_ip::ClientIpResolverHandle},
-    infra::persistence::repositories::{audit_events::AuditEvent, resource_shares::ResourceShare},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::client_ip::ClientIpResolverHandle};
 
 /// 公开访问者。地址按「客户端 IP 识别」解析，转发请求头只有连接对端是可信代理时才算数：否则谁都能
 /// 在审计里留一个假地址，或者用超过列宽的内容让这条审计写不进去。
@@ -80,9 +78,9 @@ pub(super) async fn record_audit(
 #[cfg(test)]
 mod tests {
     use axum::http::Request;
+    use domain::iam::{ClientIpMode, ClientIpResolverSettings};
 
     use super::*;
-    use crate::domain::iam::{ClientIpMode, ClientIpResolverSettings};
 
     async fn visitor_from(
         resolver: ClientIpResolverHandle,

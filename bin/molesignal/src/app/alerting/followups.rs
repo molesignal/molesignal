@@ -6,10 +6,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use kernel::time::TimestampMicros;
 use tokio::{task::JoinHandle, time::MissedTickBehavior};
 
 use super::{RuleEvaluator, remediation::RemediationService, tickets::TicketService};
-use crate::{app::cluster::WorkOwnership, shared::time::TimestampMicros};
+use crate::app::cluster::WorkOwnership;
 
 /// 归属里这项工作的名字。
 const WORK: &str = "alert_followups";

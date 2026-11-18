@@ -9,11 +9,11 @@
 //! stream's name.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// How many keys one user keeps for one purpose in one organization. Past it
 /// the least recently written are dropped, so the table is bounded by its users.

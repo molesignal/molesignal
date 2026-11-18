@@ -3,15 +3,13 @@
 
 //! 组织允许团队成员与个人连的内网主机与网段，存在 `org_settings` 的 `agent.network` 一节。
 
+use agent::network::{MemberNetworkPolicy, NetworkPolicyStore};
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use super::super::org_settings::{self, sections::AGENT_NETWORK};
-use crate::{
-    agent::network::{MemberNetworkPolicy, NetworkPolicyStore},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// `agent.network` 一节的值。
 #[derive(Serialize, Deserialize)]

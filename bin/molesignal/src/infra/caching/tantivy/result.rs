@@ -19,11 +19,8 @@ use std::{
 
 use moka::future::Cache;
 use prometheus::{Gauge, IntCounter, Opts};
-
-use crate::{
-    config::TantivyResultCacheSettings,
-    shared::metrics::{global_registry, register_int_counter},
-};
+use settings::TantivyResultCacheSettings;
+use signals::metrics::{global_registry, register_int_counter};
 
 /// Cache key 元组：必须便宜 Clone（被 moka 持久持有）。
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]

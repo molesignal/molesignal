@@ -8,13 +8,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{iam::OrganizationRepository, rum::RumApplicationRepository};
+use kernel::drain::DrainController;
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::dashboard::{DashboardService, builtin::Installed},
-    domain::{iam::OrganizationRepository, rum::RumApplicationRepository},
-    shared::drain::DrainController,
-};
+use crate::app::dashboard::{DashboardService, builtin::Installed};
 
 /// Long enough for the node to be serving, so the sweep does not compete with the start.
 const STARTUP_DELAY: Duration = Duration::from_secs(30);

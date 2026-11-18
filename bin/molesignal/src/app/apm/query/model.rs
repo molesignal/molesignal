@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::apm::{
+    DataQuality, DependencyIdentity, ErrorIdentity, ErrorIssue, ErrorIssueStatus, HistogramBucket,
+    QueryResolution, ServiceIdentity, TraceExemplar, TransactionIdentity,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{ApmQueryRange, ServiceProfile};
-use crate::{
-    domain::apm::{
-        DataQuality, DependencyIdentity, ErrorIdentity, ErrorIssue, ErrorIssueStatus,
-        HistogramBucket, QueryResolution, ServiceIdentity, TraceExemplar, TransactionIdentity,
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

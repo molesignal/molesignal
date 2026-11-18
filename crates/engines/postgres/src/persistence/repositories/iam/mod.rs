@@ -10,23 +10,21 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use async_trait::async_trait;
+use domain::iam::{
+    IamAssignedRole,
+    access::{
+        IamCrossOrgGrant, IamCrossOrgGrantQuery, IamCrossOrgGrantStatus, IamPlatformGrant,
+        IamPrincipalType, IamRelationshipQuery, IamRepository, IamResourceRelationship,
+        IamRoleBinding, IamTokenGrant, ResolvedIamResourceRelationship, ResolvedIamRoleBinding,
+    },
+    catalog::{IamPermissionCatalog, IamPermissionDefinition, IamPermissionScope},
+    navigation::{IamRouteCatalog, IamRouteDefinition, IamRoutePermissionMode, IamRouteScope},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::iam::{
-        IamAssignedRole,
-        access::{
-            IamCrossOrgGrant, IamCrossOrgGrantQuery, IamCrossOrgGrantStatus, IamPlatformGrant,
-            IamPrincipalType, IamRelationshipQuery, IamRepository, IamResourceRelationship,
-            IamRoleBinding, IamTokenGrant, ResolvedIamResourceRelationship, ResolvedIamRoleBinding,
-        },
-        catalog::{IamPermissionCatalog, IamPermissionDefinition, IamPermissionScope},
-        navigation::{IamRouteCatalog, IamRouteDefinition, IamRoutePermissionMode, IamRouteScope},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub mod memberships;
 mod platform_access;

@@ -7,14 +7,12 @@
 //! payload **必须**排除明文密钥、超限 prompt body、原始 tool 结果行、完整 transcript；
 //! 只留稳定 id / target_kind / status / 版本 / hash / object_key / masked 元数据。
 
+use domain::iam::IamContext;
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEvent;
 use serde_json::Value;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 /// 审计 payload 大小软上限（字节）；超限字段（如完整 prompt body）应替换为 hash/摘要。
 pub const AUDIT_PAYLOAD_LIMIT: usize = 8 * 1024;

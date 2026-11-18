@@ -16,18 +16,15 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::{
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::regex_patterns::RegexPattern;
 use serde::Deserialize;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        federation::{CudAction, ResourceKind},
-        iam::permission,
-    },
-    infra::persistence::repositories::regex_patterns::RegexPattern,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

@@ -13,14 +13,14 @@ use axum::{
     },
     response::Response,
 };
+use domain::{
+    iam::{IamContext, permission},
+    status_page::StatusPage,
+};
+use kernel::{Error, Result, ids::Id};
 use object_store::{ObjectStoreExt, PutPayload, path::Path as ObjPath};
 
-use crate::{
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::{iam::permission, status_page::StatusPage},
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 const LOGO_MAX_BYTES: usize = 2 * 1024 * 1024;
 const PUBLIC_LOGO_PREFIX: &str = "/api/v1/public/status-pages/";
@@ -264,11 +264,10 @@ fn managed_logo_object_key(page: &StatusPage) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use domain::status_page::{StatusPageLifecycle, StatusPageVisibility};
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{
-        domain::status_page::{StatusPageLifecycle, StatusPageVisibility},
-        shared::time::TimestampMicros,
-    };
 
     fn page(slug: &str, logo_url: Option<&str>) -> StatusPage {
         StatusPage {

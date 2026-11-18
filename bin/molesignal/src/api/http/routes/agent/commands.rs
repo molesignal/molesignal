@@ -9,31 +9,31 @@
 //! 参数提示按读者的界面语言取自 `i18n_language`（`agent.command.*`）。用不了的命令也列出来，
 //! 带上原因。
 
+use agent::{
+    commands::{Argument, BUILTIN_COMMANDS, BuiltinCommand, CommandKind, CommandSource, Suggest},
+    scope::{ChatScope, Scope, Viewer},
+    skills::SkillSource,
+};
 use axum::{
     Extension, Json, Router,
     extract::{Query, State},
     routing::get,
 };
+use domain::{
+    i18n_language::LanguagePack,
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::viewer::{chat_scope, readable_chat, viewer};
 use crate::{
-    agent::{
-        commands::{
-            Argument, BUILTIN_COMMANDS, BuiltinCommand, CommandKind, CommandSource, Suggest,
-        },
-        scope::{ChatScope, Scope, Viewer},
-        skills::SkillSource,
-    },
     api::{AppState, http::interface_language::interface_language_pack},
     app::{
-        iam::IamContext,
         mcp::SessionPrompt,
         skills::{BUNDLED_SKILL_KEY, SessionSkill, bundled_text},
     },
-    domain::{i18n_language::LanguagePack, iam::permission},
-    shared::{Error, Result, ids::Id},
 };
 
 const COMMAND_KEY: &str = "agent.command";
@@ -276,16 +276,15 @@ async fn list_commands(
 mod tests {
     use std::{collections::HashMap, sync::Arc};
 
-    use super::*;
-    use crate::{
-        agent::{
-            commands::find_builtin,
-            skills::{SKILL_FILE, SkillBundle, SkillFile},
-        },
-        app::skills::{SkillLocation, instance::InstanceSkill},
-        domain::iam::IamScope,
-        shared::ids::Id,
+    use agent::{
+        commands::find_builtin,
+        skills::{SKILL_FILE, SkillBundle, SkillFile},
     };
+    use domain::iam::IamScope;
+    use kernel::ids::Id;
+
+    use super::*;
+    use crate::app::skills::{SkillLocation, instance::InstanceSkill};
 
     fn texts() -> LanguagePack {
         LanguagePack::new(HashMap::from([

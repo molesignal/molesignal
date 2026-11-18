@@ -16,10 +16,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use domain::pipeline::scheduled::RetryPolicy;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::domain::pipeline::scheduled::RetryPolicy;
 
 const MICROS_PER_SEC: i64 = 1_000_000;
 /// The least a run reads of a source that is behind, however short the interval.

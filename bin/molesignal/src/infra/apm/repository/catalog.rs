@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::apm::{
+    CatalogQuery, ErrorGroupQuery, ErrorGroupRecord, ErrorIdentity, ErrorSample, ServiceIdentity,
+    ServiceObservation, TransactionKind, VersionObservation,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{Row, types::Json};
 
 use super::PgApmRepository;
-use crate::{
-    domain::apm::{
-        CatalogQuery, ErrorGroupQuery, ErrorGroupRecord, ErrorIdentity, ErrorSample,
-        ServiceIdentity, ServiceObservation, TransactionKind, VersionObservation,
-    },
-    infra::persistence::sqlx_err,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 impl PgApmRepository {
     pub(super) async fn query_services(
@@ -65,7 +63,7 @@ impl PgApmRepository {
                         .try_get("telemetry_sdk_version")
                         .map_err(sqlx_err)?,
                     recent_instance_count: u32::try_from(count)
-                        .map_err(|_| crate::shared::Error::internal("negative instance count"))?,
+                        .map_err(|_| kernel::Error::internal("negative instance count"))?,
                     entry_kinds: kinds
                         .iter()
                         .filter_map(|kind| TransactionKind::parse(kind))
@@ -120,7 +118,7 @@ impl PgApmRepository {
                         .try_get::<TimestampMicros, _>("last_seen_at")
                         .map_err(sqlx_err)?,
                     observation_count: u64::try_from(count).map_err(|_| {
-                        crate::shared::Error::internal("negative version observation count")
+                        kernel::Error::internal("negative version observation count")
                     })?,
                 })
             })
@@ -179,7 +177,7 @@ impl PgApmRepository {
                         .try_get::<TimestampMicros, _>("last_seen_at")
                         .map_err(sqlx_err)?,
                     occurrence_count: u64::try_from(count)
-                        .map_err(|_| crate::shared::Error::internal("negative error count"))?,
+                        .map_err(|_| kernel::Error::internal("negative error count"))?,
                     representative_message: row
                         .try_get("representative_message")
                         .map_err(sqlx_err)?,

@@ -10,18 +10,16 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use domain::iam::IamContext;
+use kernel::{Error, Result};
 
 use super::SessionView;
-use crate::{
-    api::{
-        AppState,
-        http::{
-            routes::mfa,
-            session_cookie::{self, SessionCookies},
-        },
+use crate::api::{
+    AppState,
+    http::{
+        routes::mfa,
+        session_cookie::{self, SessionCookies},
     },
-    app::iam::IamContext,
-    shared::{Error, Result},
 };
 
 pub(super) fn routes() -> Router<AppState> {

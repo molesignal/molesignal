@@ -10,6 +10,8 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::Result;
 use serde::Deserialize;
 
 use super::{
@@ -19,10 +21,7 @@ use super::{
 };
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
     infra::rum::query::{BucketPlan, Filter, Histogram, Scope, histogram_sql},
-    shared::Result,
 };
 
 #[derive(Debug, Default, Deserialize)]

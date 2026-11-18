@@ -3,16 +3,15 @@
 
 //! A visitor asks a page to keep them informed.
 
+use domain::status_page::{
+    PendingStatusPageSubscription, StatusPageSubscriber, StatusPageSubscriberStatus,
+    SubscriptionRequestAction,
+};
+use kernel::{Error, Result, time::TimestampMicros};
+
 use super::{
     super::PgStatusPageRepository, MAX_SUBSCRIBERS_PER_PAGE, SUBSCRIBER_COLS, component_id_strings,
     count_subscribed, lock_page_subscribers,
-};
-use crate::{
-    domain::status_page::{
-        PendingStatusPageSubscription, StatusPageSubscriber, StatusPageSubscriberStatus,
-        SubscriptionRequestAction,
-    },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) async fn upsert_pending(

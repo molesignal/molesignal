@@ -4,13 +4,11 @@
 //! `incident_rca` 表 Pg 实装：AI 根因分析持久化（每 incident 一条，upsert）。
 
 use async_trait::async_trait;
+use domain::alerting::{incident::IncidentRca, repositories::IncidentRcaRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::alerting::{incident::IncidentRca, repositories::IncidentRcaRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgIncidentRcaRepository {
     pool: PgPool,

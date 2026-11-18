@@ -9,12 +9,9 @@
 
 use std::collections::BTreeMap;
 
+use domain::alerting::source::{AlertSource, AlertSourceKind, ExternalAlert};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde_json::Value;
-
-use crate::{
-    domain::alerting::source::{AlertSource, AlertSourceKind, ExternalAlert},
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 mod alertmanager;
 mod aliyun;

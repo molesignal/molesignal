@@ -4,16 +4,14 @@
 //! `alert_intake_requests`：告警来源收到的请求。每次写入时把这个来源超出保留范围的旧记录删掉。
 
 use async_trait::async_trait;
+use domain::alerting::source::{
+    IntakeAlert, IntakeRequest, IntakeRequestRepository, IntakeStatus, KEPT_REQUESTS,
+    KEPT_REQUESTS_MICROS,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::source::{
-        IntakeAlert, IntakeRequest, IntakeRequestRepository, IntakeStatus, KEPT_REQUESTS,
-        KEPT_REQUESTS_MICROS,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgIntakeRequestRepository {
     pool: PgPool,

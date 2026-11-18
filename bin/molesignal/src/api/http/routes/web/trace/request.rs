@@ -6,12 +6,11 @@
 //! 路径里的 trace_id，和 `?from=&to=` 给出的查找窗口（不给时查最近 24h，没有再按摘要行在最长的
 //! 查找窗口里找）。
 
-use serde::Deserialize;
-
-use crate::shared::{
+use kernel::{
     Error,
     time::{TimeRange, TimestampMicros},
 };
+use serde::Deserialize;
 
 /// 默认查询窗口：过去 24h（trace_id 是稀疏键，窗口仅做分区裁剪）。
 const DEFAULT_WINDOW_SECS: i64 = 24 * 3600;

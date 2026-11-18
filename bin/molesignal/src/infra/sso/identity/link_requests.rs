@@ -8,13 +8,10 @@
 //! 服务端对上才算邮件确认，所以别人发起的关联，账号主人点开邮件也不会被关联上。只存摘要。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, types::Json};
-
-use crate::{
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 每个账号同时未过期的请求上限，挡住反复发起的关联。
 pub const MAX_PENDING_PER_USER: i64 = 10;

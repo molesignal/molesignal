@@ -8,10 +8,10 @@
 
 use std::collections::BTreeMap;
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::ServiceIdentity;
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 /// The resource attributes an instance is described by, in the order pages
 /// read them. Each value is the one last reported, bounded in length.

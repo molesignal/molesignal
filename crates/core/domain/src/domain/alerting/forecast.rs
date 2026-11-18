@@ -10,10 +10,10 @@
 //! 序列记在规则的去抖状态里：每轮评估把这一轮的值记成一个点，相邻的点至少隔一个步长；规则刚建好或
 //! 查询改过时，先在回看时间里均匀补一批点。
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use super::rule::ComparisonOp;
-use crate::shared::{Error, Result};
 
 pub const DEFAULT_FORECAST_LOOKBACK_DAYS: u32 = 7;
 pub const MAX_FORECAST_LOOKBACK_DAYS: u32 = 30;

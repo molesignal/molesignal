@@ -8,6 +8,8 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -18,10 +20,7 @@ use super::{
 };
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
     infra::rum::query::{Column, FACET_COUNT, FACET_VALUE, Filter, Scope, Unavailable, facet_sql},
-    shared::{Error, Result},
 };
 
 const DEFAULT_VALUES: usize = 10;

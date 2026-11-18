@@ -8,23 +8,23 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use agent::automations::{
+    Automation, AutomationTrigger, IncidentFacts, KEPT_RUNS_PER_AUTOMATION, MERGE_WINDOW_MICROS,
+    TriggerKind, reasons,
+};
+use domain::alerting::{
+    discovery::{Finding, FindingFilter as Findings},
+    incident::Incident,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use tokio::task::JoinHandle;
 
 use crate::{
-    agent::automations::{
-        Automation, AutomationTrigger, IncidentFacts, KEPT_RUNS_PER_AUTOMATION,
-        MERGE_WINDOW_MICROS, TriggerKind, reasons,
-    },
     api::{
         AppState,
         http::routes::agent::automations::{Start, reconcile, start},
     },
     app::automations::schedule,
-    domain::alerting::{
-        discovery::{Finding, FindingFilter as Findings},
-        incident::Incident,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 /// 多久看一次到点的规则与新事件。
@@ -237,12 +237,12 @@ impl AutomationWorker {
     async fn skip_analyzed(&self, rule: &Automation, incident: &Incident) {
         let now = TimestampMicros::now();
 
-        let record = crate::agent::automations::AutomationRun {
+        let record = agent::automations::AutomationRun {
             id: Id::new(),
             org_id: rule.org_id.clone(),
             automation_id: rule.id.clone(),
             trigger: TriggerKind::Incident,
-            status: crate::agent::automations::AutomationRunStatus::Skipped,
+            status: agent::automations::AutomationRunStatus::Skipped,
             reason: Some(reasons::ALREADY_ANALYZED.into()),
             chat_id: None,
             run_id: None,

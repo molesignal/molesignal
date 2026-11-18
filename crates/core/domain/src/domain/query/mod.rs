@@ -4,15 +4,15 @@
 //! 查询上下文：查询请求、结果、跨节点查询计划元信息。
 
 use async_trait::async_trait;
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::{metrics::PrometheusExemplarQueryResult, storage::DatasetTypeId, stream::StreamType},
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use crate::domain::{
+    metrics::PrometheusExemplarQueryResult, storage::DatasetTypeId, stream::StreamType,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

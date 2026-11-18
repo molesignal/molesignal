@@ -5,14 +5,12 @@
 //! the histogram and the field values of the explorer all select by exactly this, so the bars
 //! count the rows the list pages through.
 
+use domain::rum::event::RumStream;
+use kernel::{Error, Result, time::TimestampMicros};
+
 use super::reader::Span;
-use crate::{
-    domain::rum::event::RumStream,
-    infra::rum::query::{
-        Condition, Filter, asks_about_traffic, conditions, people_only, text_columns,
-        text_conditions,
-    },
-    shared::{Error, Result, time::TimestampMicros},
+use crate::infra::rum::query::{
+    Condition, Filter, asks_about_traffic, conditions, people_only, text_columns, text_conditions,
 };
 
 /// Without a range, the last day.

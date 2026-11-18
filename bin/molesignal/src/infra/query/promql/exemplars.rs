@@ -6,17 +6,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arrow::array::BooleanArray;
+use domain::metrics::{
+    METRIC_NAME_FIELD, MetricLabelSet, PROMETHEUS_EXEMPLAR_LABELS_FIELD,
+    PROMETHEUS_EXEMPLAR_MARKER_FIELD, PROMETHEUS_EXEMPLAR_VALUE_FIELD, PrometheusExemplar,
+    PrometheusExemplarQueryResult, PrometheusExemplarSeries, is_metric_identity_storage_field,
+    is_prometheus_exemplar_storage_field,
+};
+use kernel::time::TimestampMicros;
 
 use super::*;
-use crate::{
-    domain::metrics::{
-        METRIC_NAME_FIELD, MetricLabelSet, PROMETHEUS_EXEMPLAR_LABELS_FIELD,
-        PROMETHEUS_EXEMPLAR_MARKER_FIELD, PROMETHEUS_EXEMPLAR_VALUE_FIELD, PrometheusExemplar,
-        PrometheusExemplarQueryResult, PrometheusExemplarSeries, is_metric_identity_storage_field,
-        is_prometheus_exemplar_storage_field,
-    },
-    shared::time::TimestampMicros,
-};
 
 const MAX_QUERY_EXEMPLARS: usize = 10_000;
 

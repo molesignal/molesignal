@@ -6,13 +6,10 @@
 
 use std::collections::BTreeMap;
 
+use domain::apm::{CatalogQuery, InstanceObservation, ServiceIdentity};
+use kernel::{Result, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{PgPool, Row, types::Json};
-
-use crate::{
-    domain::apm::{CatalogQuery, InstanceObservation, ServiceIdentity},
-    infra::persistence::sqlx_err,
-    shared::{Result, time::TimestampMicros},
-};
 
 pub(super) async fn upsert(pool: &PgPool, instances: &[InstanceObservation]) -> Result<()> {
     if instances.is_empty() {

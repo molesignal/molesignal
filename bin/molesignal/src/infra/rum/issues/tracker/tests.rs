@@ -3,16 +3,14 @@
 
 use std::collections::HashMap;
 
+use domain::rum::{
+    RumApplication, RumApplicationPatch, RumApplicationSettings, RumIssueChange, RumIssueMoment,
+    RumIssueStatus, RumPlatform,
+};
+use kernel::Error;
 use serde_json::json;
 
 use super::*;
-use crate::{
-    domain::rum::{
-        RumApplication, RumApplicationPatch, RumApplicationSettings, RumIssueChange,
-        RumIssueMoment, RumIssueStatus, RumPlatform,
-    },
-    shared::Error,
-};
 
 #[derive(Default)]
 struct Issues {

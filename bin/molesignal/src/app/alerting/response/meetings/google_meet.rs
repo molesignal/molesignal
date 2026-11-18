@@ -12,14 +12,12 @@ use aws_lc_rs::{
     signature::{RSA_PKCS1_SHA256, RsaKeyPair},
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use domain::alerting::meeting::{GoogleMeetSettings, ServiceAccountKey};
+use kernel::{Error, Result};
 use rustls::pki_types::PrivateKeyDer;
 use serde_json::json;
 
 use super::{client, send, unix_seconds};
-use crate::{
-    domain::alerting::meeting::{GoogleMeetSettings, ServiceAccountKey},
-    shared::{Error, Result},
-};
 
 const SCOPE: &str = "https://www.googleapis.com/auth/meetings.space.created";
 const TOKEN_URI: &str = "https://oauth2.googleapis.com/token";

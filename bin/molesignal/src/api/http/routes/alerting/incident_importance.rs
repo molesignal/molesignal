@@ -12,19 +12,16 @@ use axum::{
     extract::{Path, State},
     routing::put,
 };
+use domain::{
+    alerting::{incident::Incident, priority::Priority, urgency::Urgency},
+    iam::{IamContext, resource_permission},
+};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::incident_actions::{actor, incident_json};
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        alerting::{incident::Incident, priority::Priority, urgency::Urgency},
-        iam::resource_permission,
-    },
-    shared::{Result, ids::Id},
-};
+use crate::api::AppState;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

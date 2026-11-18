@@ -10,10 +10,9 @@
 //!
 //! 解析出的明文（bearer token）**绝不能**进日志或任何序列化响应。
 
-use crate::{
-    infra::cluster::cluster_secrets_repo::ClusterSecretRepository,
-    shared::{Error, Result, ids::Id},
-};
+use kernel::{Error, Result, ids::Id};
+
+use crate::infra::cluster::cluster_secrets_repo::ClusterSecretRepository;
 
 /// 把 `secret_ref` 指针解析成明文 secret。
 ///

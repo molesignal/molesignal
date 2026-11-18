@@ -3,15 +3,14 @@
 
 //! Storage-catalog aggregation for the home overview.
 
-use super::{HealthStatus, OverviewBucket, SignalOverview, StreamOverview};
-use crate::{
-    domain::{
-        intake::usage::source::{HOUR_MICROS, IntakeUsageBucket},
-        storage::QueryFile,
-        stream::{StreamDefinition, StreamType},
-    },
-    shared::time::TimeRange,
+use domain::{
+    intake::usage::source::{HOUR_MICROS, IntakeUsageBucket},
+    storage::QueryFile,
+    stream::{StreamDefinition, StreamType},
 };
+use kernel::time::TimeRange;
+
+use super::{HealthStatus, OverviewBucket, SignalOverview, StreamOverview};
 
 pub(super) const HEALTHY_LAG_MICROS: i64 = 15 * 60 * 1_000_000;
 

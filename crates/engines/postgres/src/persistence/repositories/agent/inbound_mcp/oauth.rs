@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::inbound_mcp::{
+    InboundMcpAuthorizationCode, InboundMcpOAuthClient, InboundMcpOAuthConnection,
+    InboundMcpOAuthToken, InboundMcpOAuthTokenKind, NewInboundMcpOAuthClient,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::super::sqlx_err;
-use crate::{
-    agent::inbound_mcp::{
-        InboundMcpAuthorizationCode, InboundMcpOAuthClient, InboundMcpOAuthConnection,
-        InboundMcpOAuthToken, InboundMcpOAuthTokenKind, NewInboundMcpOAuthClient,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const CLIENT_COLS: &str = "client_id,client_name,redirect_uris,grant_types,response_types,\
     token_endpoint_auth_method,scope,client_secret_hash,client_id_issued_at,\

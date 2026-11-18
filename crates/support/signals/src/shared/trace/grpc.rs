@@ -5,12 +5,12 @@
 
 use std::future::Future;
 
+use kernel::ids::Id;
 use tonic::{Code, Request, Response, Status};
 use tracing::{Instrument, field};
 
-use crate::shared::{
-    ids::Id,
-    trace_context::{TraceContext, current_trace_context, with_current_trace_context},
+use crate::shared::trace_context::{
+    TraceContext, current_trace_context, with_current_trace_context,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -4,23 +4,19 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use domain::{
+    alerting::time_window::TimeCondition,
+    notify::{
+        connector::NotifyChannel,
+        policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig, NotifyPolicy},
+        preference::NotifyCategory,
+        repositories::NotifyPolicyRepository,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::{
-        alerting::time_window::TimeCondition,
-        notify::{
-            connector::NotifyChannel,
-            policy::{
-                NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig, NotifyPolicy,
-            },
-            preference::NotifyCategory,
-            repositories::NotifyPolicyRepository,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgNotifyPolicyRepository {
     pool: PgPool,

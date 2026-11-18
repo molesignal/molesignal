@@ -2,6 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 use super::{
     StatusPage, StatusPageComponent, StatusPageComponentStatusEvent, StatusPageDomainCheckUpdate,
@@ -9,7 +10,6 @@ use super::{
     StatusPageHistoryPage, StatusPageHistoryQuery, StatusPageIncident, StatusPageIncidentKind,
     StatusPageIncidentUpdate,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[async_trait]
 pub trait StatusPagePageRepository: Send + Sync {

@@ -5,9 +5,8 @@
 //! Token，只存它的哈希；丢了就重置，旧地址随即失效。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// 订阅的日历从多久以前、到多久以后。
 pub const CALENDAR_PAST_MICROS: i64 = 30 * 86_400_000_000;

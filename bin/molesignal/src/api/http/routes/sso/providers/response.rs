@@ -6,13 +6,13 @@
 
 use std::collections::BTreeMap;
 
-use serde::Serialize;
-
-use super::super::signin_test::TestStanding;
-use crate::domain::iam::{
+use domain::iam::{
     SsoFieldMapping, SsoLdapConfig, SsoOauth2Config, SsoOidcConfig, SsoPlatform, SsoProvider,
     SsoProviderConfig, SsoProviderKind, SsoSamlConfig,
 };
+use serde::Serialize;
+
+use super::super::signin_test::TestStanding;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

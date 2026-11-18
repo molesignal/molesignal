@@ -10,20 +10,16 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::status_page::{
+    StatusPageNotificationMessage, StatusPageNotificationSender, StatusPageSubscriberChannel,
+};
+use kernel::{Error, Result};
 use lettre::message::Mailbox;
 use reqwest::redirect::Policy;
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
 
 use super::EmailSender;
-use crate::{
-    domain::status_page::{
-        StatusPageNotificationMessage, StatusPageNotificationSender, StatusPageSubscriberChannel,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
-};
 
 pub struct StatusPageNotifyAdapter {
     email: Option<Arc<EmailSender>>,

@@ -9,22 +9,18 @@
 //! with what the rule does once it runs.
 
 use axum::{Extension, Json, extract::State};
+use domain::{
+    iam::{IamContext, permission},
+    rum::{RumAlertMetric, RumAlertQuery},
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 
 use super::reader::within_budget;
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        rum::{RumAlertMetric, RumAlertQuery},
-    },
-    infra::rum::query::Unavailable,
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::{api::AppState, infra::rum::query::Unavailable};
 
 const HOUR_MICROS: i64 = 3_600_000_000;
 
@@ -157,8 +153,9 @@ pub(super) async fn preview(
 
 #[cfg(test)]
 mod tests {
+    use domain::rum::RumAlertMetric;
+
     use super::*;
-    use crate::domain::rum::RumAlertMetric;
 
     fn request(from: Option<i64>, to: Option<i64>) -> PreviewRequest {
         PreviewRequest {

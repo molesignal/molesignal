@@ -3,12 +3,9 @@
 
 use std::collections::HashSet;
 
+use contracts::{ContractValidator, canonical_json_bytes, sha256_hex};
+use kernel::{Error, Result};
 use serde_json::{Map, Value};
-
-use crate::shared::{
-    Error, Result,
-    contracts::{ContractValidator, canonical_json_bytes, sha256_hex},
-};
 
 pub(super) const DIALECT_2020_12: &str = "https://json-schema.org/draft/2020-12/schema";
 const MAX_SCHEMA_BYTES: usize = 128 * 1024;

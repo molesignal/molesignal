@@ -3,12 +3,10 @@
 
 use std::collections::BTreeMap;
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::{alerting::incident::Severity, status_page::IncidentImpact},
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::domain::{alerting::incident::Severity, status_page::IncidentImpact};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -2,9 +2,8 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// How every credential starts, except the JWTs of a sign-in session: API tokens of every kind,
 /// alert source, probe, automation, trace debug and OAuth credentials. What one may do is in its

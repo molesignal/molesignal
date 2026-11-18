@@ -10,35 +10,34 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use molesignal::{
-    agent::{
-        model::{AgentProfile, NetworkAccess},
-        tool_control::{ToolExecutionMode, ToolPolicy},
-    },
-    app::dashboard::{
-        authoring::DashboardAuthoringCompiler,
-        contract_registry::{
-            DashboardContractRegistryService, DashboardContractResolver, ResolvedDashboardContracts,
+use agent::{
+    model::{AgentProfile, NetworkAccess},
+    tool_control::ToolPolicy,
+};
+use domain::{
+    dashboard::{
+        Folder,
+        authoring::{
+            DashboardAuthoringSpec, DashboardDraft, DashboardDraftRepository, DashboardDraftStatus,
+            PreflightReport,
         },
     },
-    domain::{
-        dashboard::{
-            Folder,
-            authoring::{
-                DashboardAuthoringSpec, DashboardDraft, DashboardDraftRepository,
-                DashboardDraftStatus, PreflightReport,
-            },
-        },
-        stream::StreamType,
+    stream::StreamType,
+};
+use kernel::{ids::Id, time::TimestampMicros};
+use molesignal::app::dashboard::{
+    authoring::DashboardAuthoringCompiler,
+    contract_registry::{
+        DashboardContractRegistryService, DashboardContractResolver, ResolvedDashboardContracts,
     },
-    infra::persistence::repositories::{
-        agent::toolsets::AgentToolset, dashboard_authoring::PgDashboardDraftRepository,
-        dashboard_contract_registry::PgDashboardContractRepository,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+};
+use postgres::repositories::{
+    agent::toolsets::AgentToolset, dashboard_authoring::PgDashboardDraftRepository,
+    dashboard_contract_registry::PgDashboardContractRepository,
 };
 use serde_json::{Value, json};
 use sqlx::{PgPool, Row};
+use tool_runtime::ToolExecutionMode;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path},
@@ -667,7 +666,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
         .agent
         .model_providers
         .create(
-            molesignal::infra::persistence::repositories::agent::model_providers::ModelProviderInput {
+            postgres::repositories::agent::model_providers::ModelProviderInput {
                 id: Id::new(),
                 org_id: server.root_org_id.clone(),
                 provider: "openai".into(),
@@ -677,7 +676,7 @@ async fn dashboard_authoring_runs_from_chat_intent_to_renderable_dashboard() {
                 enabled: true,
                 timeout_ms: 30_000,
                 max_tokens: Some(2_048),
-                price_currency: molesignal::agent::usage::Currency::USD,
+                price_currency: agent::usage::Currency::USD,
                 input_price_per_mtok: None,
                 cached_input_price_per_mtok: None,
                 output_price_per_mtok: None,

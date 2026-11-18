@@ -9,17 +9,15 @@
 //! it): a funnel of an application that keeps a quarter of its sessions counts each of them for
 //! four.
 
+use domain::{rum::event::field, stream::FieldType};
+use kernel::{Error, Result};
 use serde::Serialize;
 use serde_json::Value;
 
 use super::{
     MAX_STEPS, MIN_STEPS, Step, checked_range, events, label, real, step_conditions, text, whole,
 };
-use crate::{
-    domain::{rum::event::field, stream::FieldType},
-    infra::rum::query::{Filter, WEIGHT, ident},
-    shared::{Error, Result},
-};
+use crate::infra::rum::query::{Filter, WEIGHT, ident};
 
 /// How many groups a funnel broken down by a field keeps: the ones with the most sessions.
 pub const GROUPS: usize = 10;

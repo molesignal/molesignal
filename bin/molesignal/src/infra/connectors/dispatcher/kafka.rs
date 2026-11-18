@@ -9,6 +9,7 @@
 
 use std::{sync::Mutex, time::Duration};
 
+use kernel::{Error, Result};
 use rdkafka::{
     ClientContext,
     config::ClientConfig,
@@ -19,10 +20,7 @@ use rdkafka::{
 };
 use serde_json::Value;
 
-use crate::{
-    infra::connectors::{config::kafka::KafkaSettings, repo::Connector},
-    shared::{Error, Result},
-};
+use crate::infra::connectors::{config::kafka::KafkaSettings, repo::Connector};
 
 /// How long a connection test waits for the brokers to answer.
 const CHECK_TIMEOUT: Duration = Duration::from_secs(10);

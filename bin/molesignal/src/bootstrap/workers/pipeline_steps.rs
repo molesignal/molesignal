@@ -8,13 +8,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::pipeline::limit::{DAY_MICROS, utc_day};
+use kernel::time::TimestampMicros;
 use tokio::{task::JoinHandle, time::MissedTickBehavior};
 
-use crate::{
-    app::intake::{IntakeService, realtime::StepState},
-    domain::pipeline::limit::{DAY_MICROS, utc_day},
-    shared::time::TimestampMicros,
-};
+use crate::app::intake::{IntakeService, realtime::StepState};
 
 /// How often samples are written and counts synced: how far a quota can see past other nodes'
 /// counts, and about what a crash loses of the limits' counts.

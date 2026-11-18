@@ -8,16 +8,15 @@ use std::{
     sync::Arc,
 };
 
-use super::{IamAccessService, IamAttributes, IamCapabilitySnapshot, IamSubject, SnapshotCacheKey};
-use crate::{
-    domain::iam::{
-        IamAssignedRole, IamScope,
-        access::{IamPlatformGrant, IamPrincipalType, IamTokenGrant},
-        catalog::IamPermissionScope,
-        super_administrator,
-    },
-    shared::{Error, Result, time::TimestampMicros},
+use domain::iam::{
+    IamAssignedRole, IamScope,
+    access::{IamPlatformGrant, IamPrincipalType, IamTokenGrant},
+    catalog::IamPermissionScope,
+    super_administrator,
 };
+use kernel::{Error, Result, time::TimestampMicros};
+
+use super::{IamAccessService, IamAttributes, IamCapabilitySnapshot, IamSubject, SnapshotCacheKey};
 
 impl IamAccessService {
     pub async fn capabilities(&self, subject: &IamSubject) -> Result<IamCapabilitySnapshot> {

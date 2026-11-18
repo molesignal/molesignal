@@ -8,10 +8,8 @@
 //! `LIKE` 与 `cidr_match`。别的函数、`NOT` 与证明不了的类型组合一律当作可能成立。统计只决定一个
 //! Parquet 文件是否可能命中，最终行级语义仍由 DataFusion 执行。
 
-use crate::{
-    domain::{storage::QueryFile, stream::Schema},
-    infra::query::parser::{Refuted, WhereTree, atom_bit},
-};
+use domain::{storage::QueryFile, stream::Schema};
+use query_language::{Refuted, WhereTree, atom_bit};
 
 mod condition;
 mod evidence;

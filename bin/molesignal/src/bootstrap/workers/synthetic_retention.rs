@@ -10,14 +10,12 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{iam::InstanceSettingsRepository, synthetics::SyntheticRepository};
+use kernel::{Result, drain::DrainController, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt as _, path::Path as ObjectPath};
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::cluster::WorkOwnership,
-    domain::{iam::InstanceSettingsRepository, synthetics::SyntheticRepository},
-    shared::{Result, drain::DrainController, time::TimestampMicros},
-};
+use crate::app::cluster::WorkOwnership;
 
 /// 两轮清理的间隔。
 const SWEEP_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);

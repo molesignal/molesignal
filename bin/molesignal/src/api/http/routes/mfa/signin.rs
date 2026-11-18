@@ -19,6 +19,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::iam::User;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -41,12 +43,10 @@ use crate::{
         },
         signin_policy::Admission,
     },
-    domain::iam::User,
     infra::{
         mfa::{MfaChallenge, MfaChallengePurpose},
         sso::LinkedIdentity,
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {

@@ -4,10 +4,10 @@
 //! The public postmortem of a resolved incident.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{StatusPageIncident, StatusPagePublicationState};
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// What the customers of a resolved incident are told about why it happened
 /// and what changes because of it. The body is Markdown.

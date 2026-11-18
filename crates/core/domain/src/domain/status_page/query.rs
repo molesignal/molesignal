@@ -3,10 +3,10 @@
 
 //! Bounded management queries for growing Status Page datasets.
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{PublicIncidentStatus, StatusPageIncident, StatusPageIncidentKind};
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

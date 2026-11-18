@@ -9,9 +9,11 @@
 //!   纯 querier 等无 intake 角色的节点停在 `draining`（无待 flush 数据）即「可下线」。
 
 use axum::{Extension, Json, Router, extract::State, routing::post};
+use domain::iam::{IamContext, permission};
+use kernel::Result;
 use serde::Serialize;
 
-use crate::{api::AppState, app::iam::IamContext, domain::iam::permission, shared::Result};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/node/drain", post(begin_drain).get(drain_status))

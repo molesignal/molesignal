@@ -2,12 +2,10 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 use super::{DashboardDraft, DraftConsumption};
-use crate::{
-    domain::dashboard::Dashboard,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::dashboard::Dashboard;
 
 pub struct ConsumeDashboardDraft {
     pub org_id: Id,

@@ -7,15 +7,15 @@
 
 use std::sync::Arc;
 
+use kernel::{ids::Id, time::TimestampMicros};
+use protocol::alerting::v1::{
+    RealtimeServiceCountsRequest, RealtimeServiceCountsResponse, RuleCount,
+    realtime_service_server::{RealtimeService, RealtimeServiceServer},
+};
 use tonic::{Request, Response, Status};
 
-use crate::{
-    app::alerting::realtime::{INTERNAL_ORIGIN_HEADER, REALTIME_COUNTS_ORIGIN, RealtimeAlerts},
-    protocol::alerting::v1::{
-        RealtimeServiceCountsRequest, RealtimeServiceCountsResponse, RuleCount,
-        realtime_service_server::{RealtimeService, RealtimeServiceServer},
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use crate::app::alerting::realtime::{
+    INTERNAL_ORIGIN_HEADER, REALTIME_COUNTS_ORIGIN, RealtimeAlerts,
 };
 
 /// 一次最多问几条规则。

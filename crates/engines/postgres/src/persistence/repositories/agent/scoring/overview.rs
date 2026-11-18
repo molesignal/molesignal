@@ -4,16 +4,14 @@
 //! 一段时间里的质量：合计、每天、规则打分的各个维度，以及按来源、Prompt 版本、Skill 与模型
 //! 分组。一个对象的规则打分一行，评审每个一行：对象数按规则打分的行数，评审评过的按对象去重。
 
+use agent::scoring::{
+    DailyQuality, DimensionMean, GroupQuality, OverviewFilter, QualityOverview, RULES_SCORER,
+    RuleDimension,
+};
+use kernel::{Result, ids::Id};
 use sqlx::{PgPool, Row, postgres::PgRow};
 
 use super::{optional_text, sqlx_err, text};
-use crate::{
-    agent::scoring::{
-        DailyQuality, DimensionMean, GroupQuality, OverviewFilter, QualityOverview, RULES_SCORER,
-        RuleDimension,
-    },
-    shared::{Result, ids::Id},
-};
 
 /// 每种分组最多列这么多个。
 const GROUP_LIMIT: i64 = 10;

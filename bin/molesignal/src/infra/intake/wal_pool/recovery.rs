@@ -16,18 +16,16 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow};
+use domain::storage::{DatasetTypeId, PhysicalDatasetId};
+use kernel::ids::Id;
 
 use super::{
     CURRENT_FILE, EPOCH_IDENTITY_FORMAT_VERSION, EpochIdentity, IDENTITY_FILE, QUARANTINE_DIR,
     WAL_ENC_MAGIC, WalPool, wal_decrypt_body,
 };
-use crate::{
-    domain::storage::{DatasetTypeId, PhysicalDatasetId},
-    infra::{
-        intake::metrics::{inc_wal_recovery_quarantined, inc_wal_recovery_tail_truncated},
-        segment_wal::{SegmentWal, WalRecord, scan_segment_file_readonly},
-    },
-    shared::ids::Id,
+use crate::infra::{
+    intake::metrics::{inc_wal_recovery_quarantined, inc_wal_recovery_tail_truncated},
+    segment_wal::{SegmentWal, WalRecord, scan_segment_file_readonly},
 };
 
 /// 一个待回放的 epoch 目录。

@@ -22,11 +22,10 @@
 
 use std::{sync::Arc, time::Duration};
 
-use crate::{
-    api::AppState,
-    config::{Role, Settings},
-    shared::drain::{DrainController, DrainPhase},
-};
+use kernel::drain::{DrainController, DrainPhase};
+use settings::{Role, Settings};
+
+use crate::api::AppState;
 
 pub mod alert;
 pub mod compactor;
@@ -304,8 +303,9 @@ async fn run_shutdown(
 
 #[cfg(test)]
 mod tests {
+    use settings::Role;
+
     use super::{HttpKind, ServerPlan, plan_servers};
-    use crate::config::Role;
 
     fn plan(
         http: HttpKind,

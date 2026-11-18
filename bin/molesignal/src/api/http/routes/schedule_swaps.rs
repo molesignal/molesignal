@@ -17,6 +17,12 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::{
+    alerting::{schedule::Schedule, swap::SwapRequest},
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission, resource_permission},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -25,16 +31,7 @@ use crate::{
         AppState,
         http::{federation::emit_cud, routes::activity_audit},
     },
-    app::{
-        alerting::oncall::{NewSwap, SwapOutcome},
-        iam::IamContext,
-    },
-    domain::{
-        alerting::{schedule::Schedule, swap::SwapRequest},
-        federation::{CudAction, ResourceKind},
-        iam::{permission, resource_permission},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    app::alerting::oncall::{NewSwap, SwapOutcome},
 };
 
 pub(super) fn routes() -> Router<AppState> {

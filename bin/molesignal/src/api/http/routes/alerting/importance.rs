@@ -8,20 +8,17 @@
 //! - `PUT /api/v1/alerts/importance`（`alerts.importance.manage`）：`{priorities, urgencies}`，整份换掉。
 
 use axum::{Extension, Json, Router, extract::State, routing::get};
+use domain::{
+    alerting::{
+        importance::{ImportanceLevels, StoredImportance},
+        rule::AlertTrigger,
+    },
+    iam::{IamContext, permission},
+};
+use kernel::{Result, ids::Id};
 use serde_json::json;
 
-use crate::{
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::{
-        alerting::{
-            importance::{ImportanceLevels, StoredImportance},
-            rule::AlertTrigger,
-        },
-        iam::permission,
-    },
-    shared::{Result, ids::Id},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new().route(

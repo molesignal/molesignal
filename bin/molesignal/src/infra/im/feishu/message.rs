@@ -4,13 +4,11 @@
 //! 「接收消息」事件里的用户消息：文本与富文本，去掉对机器人的 @。「卡片回传交互」里点的告警
 //! 按钮。
 
+use agent::im::{CardAction, ConversationKind, Inbound, Sender};
+use domain::notify::buttons::AlertButtonValue;
 use serde_json::{Value, json};
 
-use crate::{
-    agent::im::{CardAction, ConversationKind, Inbound, Sender},
-    domain::notify::buttons::AlertButtonValue,
-    infra::notify::adapters::LARK_ALERT_VALUE_KEY,
-};
+use crate::infra::notify::adapters::LARK_ALERT_VALUE_KEY;
 
 /// 飞书的身份：按 open_id、user_id、union_id 的顺序，去掉空的。
 fn identities(id: &Value) -> Vec<String> {

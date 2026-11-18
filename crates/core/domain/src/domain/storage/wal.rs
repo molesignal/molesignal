@@ -7,10 +7,10 @@
 //! 正常查询不扫 WAL。身份统一落在 `(org, dataset, node, epoch)`，
 //! 不再使用 stream name / stream type / dataset type 作为路径或键。
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use super::ids::{FlushId, PhysicalDatasetId, SequenceRange, WriterEpoch, WriterNodeId};
-use crate::shared::ids::Id;
 
 /// 一条 WAL 流的完整身份。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -13,25 +13,22 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    intake::usage::{
+        budget::{BudgetPeriod, IntakeBudget},
+        source::{
+            IntakeUsageBucket, SourceUsage, UsageDimension, UsageSelection, budgetable,
+            hour_bucket_start, parse_stream_key,
+        },
+    },
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        intake::usage::{BudgetStanding, SourceLabel, budget_standings},
-    },
-    domain::{
-        iam::permission,
-        intake::usage::{
-            budget::{BudgetPeriod, IntakeBudget},
-            source::{
-                IntakeUsageBucket, SourceUsage, UsageDimension, UsageSelection, budgetable,
-                hour_bucket_start, parse_stream_key,
-            },
-        },
-    },
-    shared::{Error, Result, time::TimestampMicros},
+    app::intake::usage::{BudgetStanding, SourceLabel, budget_standings},
 };
 
 pub(super) mod budgets;
@@ -601,16 +598,16 @@ mod tests {
         };
 
         let budget = IntakeBudget {
-            id: crate::shared::ids::Id::from_string("b"),
-            org_id: crate::shared::ids::Id::from_string("o"),
+            id: kernel::ids::Id::from_string("b"),
+            org_id: kernel::ids::Id::from_string("o"),
             dimension: UsageDimension::Service,
             source_key: "last".into(),
             period: BudgetPeriod::Day,
             limit_size: 1,
             warn_percent: 80,
             notify_user_ids: Vec::new(),
-            created_by: crate::shared::ids::Id::from_string("u"),
-            updated_by: crate::shared::ids::Id::from_string("u"),
+            created_by: kernel::ids::Id::from_string("u"),
+            updated_by: kernel::ids::Id::from_string("u"),
             created_at: TimestampMicros(0),
             updated_at: TimestampMicros(0),
         };

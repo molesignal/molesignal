@@ -3,12 +3,11 @@
 
 use std::sync::Arc;
 
-use crate::{
-    api::{
-        AppState, http,
-        http::{client_ip::ClientIpResolverHandle, middleware::RouterRateLimits},
-    },
-    config::{Role, Settings},
+use settings::{Role, Settings};
+
+use crate::api::{
+    AppState,
+    http::{self, client_ip::ClientIpResolverHandle, middleware::RouterRateLimits},
 };
 
 /// 启动完整的 HTTP API 与 Web UI（axum）。standalone 与 router 角色走这条路径；

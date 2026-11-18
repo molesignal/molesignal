@@ -24,28 +24,26 @@ use axum::{
     http::{HeaderMap, StatusCode},
     routing::post,
 };
+use domain::{
+    iam::{IamContext, permission},
+    intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
+    metrics::{
+        METRIC_NAME_FIELD, PROMETHEUS_EXEMPLAR_LABELS_FIELD, PROMETHEUS_EXEMPLAR_MARKER_FIELD,
+        PROMETHEUS_EXEMPLAR_VALUE_FIELD, is_metric_identity_storage_field,
+        is_prometheus_exemplar_storage_field,
+    },
+    stream::StreamType,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use prost::Message;
 use serde_json::{Map, Number, Value};
+use settings::PrometheusIntakeSettings;
+use signals::metrics::register_int_counter_vec;
 
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        intake::usage::{IntakeReceipt, ServiceTally},
-    },
-    config::PrometheusIntakeSettings,
-    domain::{
-        iam::permission,
-        intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
-        metrics::{
-            METRIC_NAME_FIELD, PROMETHEUS_EXEMPLAR_LABELS_FIELD, PROMETHEUS_EXEMPLAR_MARKER_FIELD,
-            PROMETHEUS_EXEMPLAR_VALUE_FIELD, is_metric_identity_storage_field,
-            is_prometheus_exemplar_storage_field,
-        },
-        stream::StreamType,
-    },
+    app::intake::usage::{IntakeReceipt, ServiceTally},
     infra::intake::SeriesIdentity,
-    shared::{Error, Result, ids::Id, metrics::register_int_counter_vec, time::TimestampMicros},
 };
 
 static STRUCTURAL_REJECTIONS: OnceLock<IntCounterVec> = OnceLock::new();
@@ -120,7 +118,7 @@ async fn remote_write(
     let req = PromWriteRequest::decode(raw.as_slice())
         .map_err(|e| Error::invalid(format!("protobuf decode failed: {e}")))?;
 
-    let settings = &crate::config::get().intake.prometheus;
+    let settings = &settings::get().intake.prometheus;
 
     let identities = preflight(&req, settings).map_err(|violation| {
         inc_structural_rejection(violation.reason());
@@ -474,11 +472,10 @@ fn float_to_json(v: f64) -> Value {
 
 #[cfg(test)]
 mod tests {
+    use settings::PrometheusCardinalitySettings;
+
     use super::*;
-    use crate::{
-        config::PrometheusCardinalitySettings,
-        infra::intake::{PrometheusSeriesAdmission, SeriesLimitReason},
-    };
+    use crate::infra::intake::{PrometheusSeriesAdmission, SeriesLimitReason};
 
     fn settings() -> PrometheusIntakeSettings {
         PrometheusIntakeSettings::default()

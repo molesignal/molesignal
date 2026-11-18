@@ -7,18 +7,15 @@ use axum::{
     http::{HeaderMap, HeaderValue, StatusCode, header::CACHE_CONTROL},
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    synthetics::{ProbeAgentToken, ProbeAgentTokenInstructions},
+};
+use kernel::{Result, ids::Id};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{
-        iam::IamContext,
-        synthetics::{CreateAgentTokenInput, RotateAgentTokenInput},
-    },
-    domain::{
-        iam::permission,
-        synthetics::{ProbeAgentToken, ProbeAgentTokenInstructions},
-    },
-    shared::{Result, ids::Id},
+    app::synthetics::{CreateAgentTokenInput, RotateAgentTokenInput},
 };
 
 pub(super) fn routes() -> Router<AppState> {

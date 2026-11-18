@@ -2,15 +2,13 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::status_page::{
+    PublicIncidentStatus, StatusPageIncident, StatusPageIncidentUpdate,
+    StatusPageIncidentWriteRepository, StatusPagePublicationState,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::{PgStatusPageRepository, event_queries::fetch_incident, touch_page};
-use crate::{
-    domain::status_page::{
-        PublicIncidentStatus, StatusPageIncident, StatusPageIncidentUpdate,
-        StatusPageIncidentWriteRepository, StatusPagePublicationState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 #[async_trait]
 impl StatusPageIncidentWriteRepository for PgStatusPageRepository {

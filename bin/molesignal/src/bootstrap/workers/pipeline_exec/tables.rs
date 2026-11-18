@@ -14,16 +14,14 @@
 
 use std::collections::BTreeSet;
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::{Map, Value};
 
 use super::{
     DeadLetter, Ledger, PipelineOutput, PipelineSpec, WriteFailure, is_configuration_error,
 };
-use crate::{
-    infra::pipeline::{
-        ExtendRow, ExtendTableSummary, ExtendValueField, exec::processing::ProcessedEvent,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use crate::infra::pipeline::{
+    ExtendRow, ExtendTableSummary, ExtendValueField, exec::processing::ProcessedEvent,
 };
 
 /// The key under which a source's rows count as written to an extend table.
@@ -43,7 +41,7 @@ pub(super) async fn write(
 
     let definitions = match &output.tables {
         Some(store) => store.list_tables(pipeline.org_id).await,
-        None => Err(crate::shared::Error::unavailable(
+        None => Err(kernel::Error::unavailable(
             "extend tables cannot be written on this node",
         )),
     };

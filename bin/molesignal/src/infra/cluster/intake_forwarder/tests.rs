@@ -3,20 +3,18 @@
 
 use std::sync::Arc;
 
+use domain::intake::RawEvent;
+use kernel::time::TimestampMicros;
 use parking_lot::Mutex;
+use protocol::intake::v1::{
+    IntakeError as ProtoIntakeError,
+    intake_service_server::{IntakeService, IntakeServiceServer},
+};
 use serde_json::json;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{Request, Response, transport::Server};
 
 use super::*;
-use crate::{
-    domain::intake::RawEvent,
-    protocol::intake::v1::{
-        IntakeError as ProtoIntakeError,
-        intake_service_server::{IntakeService, IntakeServiceServer},
-    },
-    shared::time::TimestampMicros,
-};
 
 /// 记录收到的请求，并按配置应答的 intake 节点。
 struct FakeIntake {

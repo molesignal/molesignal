@@ -7,13 +7,11 @@
 //! 按平台选编码；用户信息（`authen/v1/user_info`）包在 `{code, msg, data}` 里，`code`
 //! 非 0 表示失败，字段映射按 `data.*` 路径取值。
 
+use domain::iam::SsoFieldMapping;
+use kernel::{Error, Result};
 use serde_json::Value;
 
-use crate::{
-    domain::iam::SsoFieldMapping,
-    infra::sso::claims::{ExternalIdentity, map_identity},
-    shared::{Error, Result},
-};
+use crate::infra::sso::claims::{ExternalIdentity, map_identity};
 
 pub(super) fn identity(user: &Value, mapping: &SsoFieldMapping) -> Result<ExternalIdentity> {
     let code = user.get("code").and_then(Value::as_i64).unwrap_or(0);

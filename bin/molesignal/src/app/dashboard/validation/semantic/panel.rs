@@ -3,10 +3,10 @@
 
 use std::collections::HashSet;
 
+use domain::dashboard::authoring::VisualizationCapability;
 use serde_json::{Map, Value};
 
 use super::{SemanticState, references::collect_variable_references};
-use crate::domain::dashboard::authoring::VisualizationCapability;
 
 pub(super) fn validate_panel(
     panel: &Map<String, Value>,

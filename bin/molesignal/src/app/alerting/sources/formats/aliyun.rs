@@ -12,13 +12,11 @@
 
 use std::collections::BTreeMap;
 
+use domain::alerting::source::{ExternalAction, ExternalAlert, severity_from_word};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{Parsed, epoch, field, json, strings};
-use crate::{
-    domain::alerting::source::{ExternalAction, ExternalAlert, severity_from_word},
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 pub(super) fn parse(content_type: Option<&str>, body: &[u8]) -> Result<Parsed> {
     let first = body.iter().find(|byte| !byte.is_ascii_whitespace());
@@ -273,8 +271,9 @@ fn event_time(value: &str) -> Option<TimestampMicros> {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::incident::Severity;
+
     use super::*;
-    use crate::domain::alerting::incident::Severity;
 
     /// 帮助中心《使用阈值的报警回调》里的表单样例。
     const FORM: &str = "alertName=CPU%E4%BD%BF%E7%94%A8%E7%8E%87&alertState=ALERT&curValue=97.39\

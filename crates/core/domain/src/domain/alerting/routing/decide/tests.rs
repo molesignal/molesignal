@@ -3,13 +3,12 @@
 
 use std::collections::BTreeMap;
 
+use kernel::time::TimestampMicros;
+
 use super::*;
-use crate::{
-    domain::alerting::{
-        incident::{EXTERNAL_SOURCE, SOURCE_LABEL},
-        routing::{IncidentOrigin, RoutingRule, RoutingTarget, TeamPolicy},
-    },
-    shared::time::TimestampMicros,
+use crate::domain::alerting::{
+    incident::{EXTERNAL_SOURCE, SOURCE_LABEL},
+    routing::{IncidentOrigin, RoutingRule, RoutingTarget, TeamPolicy},
 };
 
 fn id(value: &str) -> Id {

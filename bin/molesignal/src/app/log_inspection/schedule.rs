@@ -7,11 +7,8 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Datelike, Days, LocalResult, NaiveDate, TimeDelta, TimeZone, Utc};
 use chrono_tz::Tz;
-
-use crate::{
-    domain::log_inspection::InspectionSchedule,
-    shared::{Error, Result, time::TimestampMicros},
-};
+use domain::log_inspection::InspectionSchedule;
+use kernel::{Error, Result, time::TimestampMicros};
 
 /// 间隔周期最长一周；再长的用每周的固定时刻。
 const MAX_INTERVAL_MINUTES: u32 = 7 * 24 * 60;

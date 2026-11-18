@@ -5,12 +5,13 @@
 //! (`audit.read`, as on the audit pages). Another caller finds it neither in the list nor in the
 //! runtime figures, and cannot read, change or delete it by its ID.
 
-use crate::{
-    app::iam::IamContext,
-    domain::stream::{AUDIT_STREAM, StreamDefinition},
-    infra::query::grants::AUDIT_READ,
-    shared::{Error, Result},
+use domain::{
+    iam::IamContext,
+    stream::{AUDIT_STREAM, StreamDefinition},
 };
+use kernel::{Error, Result};
+
+use crate::infra::query::grants::AUDIT_READ;
 
 /// Whether the caller sees the stream of this name.
 pub(super) fn shows(ctx: &IamContext, name: &str) -> bool {

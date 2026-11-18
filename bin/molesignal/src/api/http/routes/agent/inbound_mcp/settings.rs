@@ -1,23 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::inbound_mcp::{HARD_MAX_SIZE, InboundMcpSettings};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use url::Url;
 
 use super::runtime::InboundMcpAdapterRuntime;
-use crate::{
-    agent::inbound_mcp::{HARD_MAX_SIZE, InboundMcpSettings},
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

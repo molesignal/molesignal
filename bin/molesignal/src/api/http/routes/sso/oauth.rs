@@ -14,6 +14,8 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::get,
 };
+use domain::iam::{SsoProvider, SsoProviderConfig, SsoProviderKind};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use url::Url;
 
@@ -24,9 +26,7 @@ use super::{
 };
 use crate::{
     api::AppState,
-    domain::iam::{SsoProvider, SsoProviderConfig, SsoProviderKind},
     infra::sso::{OAuth2LoginFlow, OidcLoginFlow, SsoStateEntry},
-    shared::{Error, Result},
 };
 
 const KINDS: [SsoProviderKind; 2] = [SsoProviderKind::Oidc, SsoProviderKind::Oauth2];

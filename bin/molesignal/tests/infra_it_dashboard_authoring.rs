@@ -5,32 +5,30 @@ mod common;
 
 use std::sync::Arc;
 
-use molesignal::{
-    app::dashboard::{
-        authoring::DashboardAuthoringCompiler,
-        contract_registry::{
-            DashboardContractRegistryService, DashboardContractResolver, ResolvedDashboardContracts,
-        },
-        validation::{DashboardValidationMode, validate_dashboard_model},
+use domain::dashboard::{
+    Dashboard,
+    authoring::{
+        ConsumeDashboardDraft, DashboardAuthoringSpec, DashboardDraft, DashboardDraftRepository,
+        DashboardDraftStatus, DraftConsumption, PreflightReport,
     },
-    config::MetaDatabaseSettings,
-    domain::dashboard::{
-        Dashboard,
-        authoring::{
-            ConsumeDashboardDraft, DashboardAuthoringSpec, DashboardDraft,
-            DashboardDraftRepository, DashboardDraftStatus, DraftConsumption, PreflightReport,
-        },
-        contract_registry::DASHBOARD_AUTHORING_CAPABILITY,
-    },
-    infra::persistence::{
-        MetaStore,
-        repositories::{
-            dashboard_authoring::PgDashboardDraftRepository,
-            dashboard_contract_registry::PgDashboardContractRepository,
-        },
-    },
-    shared::{Error, ids::Id, time::TimestampMicros},
+    contract_registry::DASHBOARD_AUTHORING_CAPABILITY,
 };
+use kernel::{Error, ids::Id, time::TimestampMicros};
+use molesignal::app::dashboard::{
+    authoring::DashboardAuthoringCompiler,
+    contract_registry::{
+        DashboardContractRegistryService, DashboardContractResolver, ResolvedDashboardContracts,
+    },
+    validation::{DashboardValidationMode, validate_dashboard_model},
+};
+use postgres::{
+    MetaStore,
+    repositories::{
+        dashboard_authoring::PgDashboardDraftRepository,
+        dashboard_contract_registry::PgDashboardContractRepository,
+    },
+};
+use settings::MetaDatabaseSettings;
 use sqlx::Row;
 
 const VALID_AUTHORING: &str = include_str!(concat!(

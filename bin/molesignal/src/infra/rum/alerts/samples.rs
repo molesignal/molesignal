@@ -6,19 +6,16 @@
 
 use std::collections::HashSet;
 
+use domain::{
+    query::QueryResult,
+    rum::{RumAlertMetric, RumAlertSample, event::RumStream},
+};
+use kernel::{Result, time::TimestampMicros};
 use serde_json::Value;
 
 use super::groups::calls;
-use crate::{
-    domain::{
-        query::QueryResult,
-        rum::{RumAlertMetric, RumAlertSample, event::RumStream},
-    },
-    infra::rum::query::{
-        Condition, ListRequest, Scope, TS_COLUMN, conditions as filter_conditions, list_sql,
-        ranked_sql,
-    },
-    shared::{Result, time::TimestampMicros},
+use crate::infra::rum::query::{
+    Condition, ListRequest, Scope, TS_COLUMN, conditions as filter_conditions, list_sql, ranked_sql,
 };
 
 /// How many sessions an incident is told by.
@@ -369,7 +366,7 @@ mod tests {
 
     fn scoped() -> Vec<Condition> {
         scope::conditions(
-            &crate::domain::rum::RumAlertQuery {
+            &domain::rum::RumAlertQuery {
                 application_id: "shop-web".into(),
                 environment: Some("prod".into()),
                 page: None,
@@ -380,7 +377,7 @@ mod tests {
                 statistic: None,
                 search: None,
             },
-            crate::domain::rum::RumPlatform::Browser,
+            domain::rum::RumPlatform::Browser,
         )
         .unwrap()
     }

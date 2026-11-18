@@ -6,17 +6,14 @@ use std::{
     time::Duration,
 };
 
+use agent::inbound_mcp::InboundMcpOAuthClient;
 use futures::StreamExt;
+use kernel::{Error, Result};
 use reqwest::redirect::Policy;
 use serde::Deserialize;
 use url::Url;
 
-use crate::{
-    agent::inbound_mcp::InboundMcpOAuthClient,
-    api::AppState,
-    app::iam::verify_password,
-    shared::{Error, Result},
-};
+use crate::{api::AppState, app::iam::verify_password};
 
 const MAX_CLIENT_METADATA_BYTES: usize = 64 * 1024;
 
@@ -297,12 +294,12 @@ async fn fetch_client_metadata(client_id: &str) -> Result<ResolvedOAuthClient> {
         .build()
         .map_err(|error| Error::internal(format!("client metadata HTTP client: {error}")))?;
 
-    let response = crate::shared::http_trace::send(
+    let response = signals::http_trace::send(
         &client,
         client
             .get(url)
             .header(http::header::ACCEPT, "application/json"),
-        crate::shared::http_trace::HttpTarget::ThirdParty,
+        signals::http_trace::HttpTarget::ThirdParty,
     )
     .await
     .map_err(|error| Error::unavailable(format!("client metadata request: {error}")))?;

@@ -3,17 +3,15 @@
 
 //! 转派与增派。
 
+use domain::alerting::{
+    escalation::EscalationPolicy, handling::EscalationReason, incident::Incident,
+    timeline::TimelineKind,
+};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::{Actor, IncidentActions, check_actionable, reopen};
-use crate::{
-    domain::alerting::{
-        escalation::EscalationPolicy, handling::EscalationReason, incident::Incident,
-        timeline::TimelineKind,
-    },
-    shared::{Error, Result, ids::Id},
-};
 
 /// 一次最多指定几个人。
 pub const MAX_ASSIGNEES: usize = 10;

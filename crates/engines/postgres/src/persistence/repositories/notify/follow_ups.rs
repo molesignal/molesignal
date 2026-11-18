@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::notify::{follow_up::NotifyFollowUp, repositories::NotifyFollowUpRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{super::sqlx_err, like_prefix};
-use crate::{
-    domain::notify::{follow_up::NotifyFollowUp, repositories::NotifyFollowUpRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgNotifyFollowUpRepository {
     pool: PgPool,

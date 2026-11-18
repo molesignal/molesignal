@@ -6,22 +6,16 @@
 
 use std::{collections::BTreeMap, sync::OnceLock};
 
+use domain::apm::{
+    APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanFact, ApmSpanKind, DependencyCategory,
+    DependencyIdentity, ErrorIdentity, InstrumentationMetadata, ProtocolStatus, SanitizedException,
+    ServiceIdentity, TransactionIdentity, TransactionKind,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use regex::Regex;
 use serde_json::Value;
-
-use crate::{
-    domain::apm::{
-        APM_FACT_SCHEMA_VERSION, ApmOutcome, ApmSpanFact, ApmSpanKind, DependencyCategory,
-        DependencyIdentity, ErrorIdentity, InstrumentationMetadata, ProtocolStatus,
-        SanitizedException, ServiceIdentity, TransactionIdentity, TransactionKind,
-    },
-    shared::{
-        ids::Id,
-        time::TimestampMicros,
-        trace_normalization::{
-            CanonicalEvent, CanonicalSpan, effective_service_name, optional_hmac_fingerprint,
-        },
-    },
+use signals::trace_normalization::{
+    CanonicalEvent, CanonicalSpan, effective_service_name, optional_hmac_fingerprint,
 };
 
 const MAX_DIMENSION_BYTES: usize = 192;
@@ -268,14 +262,14 @@ fn dependency_identity(span: &CanonicalSpan, kind: ApmSpanKind) -> Option<Depend
     {
         return Some(DependencyIdentity {
             category: DependencyCategory::ExternalHttp,
-            target: host.unwrap_or_else(|| crate::domain::apm::OTHER_DIMENSION.to_owned()),
+            target: host.unwrap_or_else(|| domain::apm::OTHER_DIMENSION.to_owned()),
             operation: safe_attr(span, &["http.request.method", "http.method"]),
         });
     }
 
     Some(DependencyIdentity {
         category: DependencyCategory::Other,
-        target: crate::domain::apm::OTHER_DIMENSION.to_owned(),
+        target: domain::apm::OTHER_DIMENSION.to_owned(),
         operation: safe_low_cardinality_name(&span.name),
     })
 }

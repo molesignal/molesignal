@@ -10,6 +10,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::Deserialize;
 
 use super::super::request_hostname;
@@ -18,7 +19,6 @@ use crate::{
     app::status_page::{
         StatusPageAccessMetadata, StatusPageAccessRequestOutcome, StatusPageAccessSessionOutcome,
     },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {
@@ -92,7 +92,7 @@ async fn consume_access(
 async fn resolve_page(
     state: &AppState,
     headers: &HeaderMap,
-) -> Result<crate::domain::status_page::StatusPage> {
+) -> Result<domain::status_page::StatusPage> {
     let hostname = request_hostname(headers)
         .ok_or_else(|| Error::not_found("custom-domain status page was not found"))?;
 

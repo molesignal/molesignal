@@ -7,27 +7,25 @@
 
 use std::sync::Arc;
 
+use domain::{
+    alerting::{incident::Severity, priority::Priority, urgency::Urgency},
+    notify::{
+        connector::NotifyMessage,
+        delivery::{DeliveryCompletion, DeliveryStage, DeliveryStatus, NotifyDelivery},
+        policy::{NotifyEvent, NotifyPolicy},
+    },
+    pipeline::alert::AlertFields,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{NotifyEngine, context::complete_importance};
-use crate::{
-    app::{
-        alerting::event_pipelines::{
-            AlertPipelines,
-            notify::{BeforeNotify, NotifyFacts},
-        },
-        notify::{config::truncate_error, events::retold_by_pipeline},
+use crate::app::{
+    alerting::event_pipelines::{
+        AlertPipelines,
+        notify::{BeforeNotify, NotifyFacts},
     },
-    domain::{
-        alerting::{incident::Severity, priority::Priority, urgency::Urgency},
-        notify::{
-            connector::NotifyMessage,
-            delivery::{DeliveryCompletion, DeliveryStage, DeliveryStatus, NotifyDelivery},
-            policy::{NotifyEvent, NotifyPolicy},
-        },
-        pipeline::alert::AlertFields,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+    notify::{config::truncate_error, events::retold_by_pipeline},
 };
 
 /// A delivery record's `error_code` when a pipeline kept a policy from sending.

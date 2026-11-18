@@ -6,6 +6,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use agent::model::ToolCallRecord;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use regex::Regex;
 use rmcp::{
     ErrorData, RoleServer,
@@ -18,11 +20,7 @@ use tokio_util::sync::CancellationToken;
 use tool_runtime::{ToolAccess, ToolContent, ToolResult};
 
 use super::{ResolvedTool, catalog, visible_error};
-use crate::{
-    agent::model::ToolCallRecord,
-    api::http::routes::agent::{builtin_execution, tool_dispatcher::redact_sensitive_value},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::http::routes::agent::{builtin_execution, tool_dispatcher::redact_sensitive_value};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

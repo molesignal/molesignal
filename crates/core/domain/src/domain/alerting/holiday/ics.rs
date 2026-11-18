@@ -7,9 +7,9 @@
 //! 只是给导入预览用：结果先给人看、能改，确认后才存成日历。
 
 use chrono::{Duration, NaiveDate};
+use kernel::{Error, Result};
 
 use super::{DayKind, HolidayDay, MAX_CALENDAR_DAYS, MAX_DAY_NAME_CHARS};
-use crate::shared::{Error, Result};
 
 /// 一个事件最多连着几天：再长多半是读错了。
 const MAX_EVENT_DAYS: i64 = 31;

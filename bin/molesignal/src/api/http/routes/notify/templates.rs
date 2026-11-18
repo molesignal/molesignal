@@ -10,6 +10,22 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::{
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission},
+    notify::{
+        connector::NotifyChannel,
+        policy::NotifyPolicy,
+        preference::NotifyCategory,
+        template::{
+            NOTIFY_TEMPLATE_PRESET_LANGUAGE_PREFIX, NotifyCard, NotifyTemplateField,
+            NotifyTemplatePreset, ProviderTemplate, notify_template_field_catalog,
+            notify_template_preset_catalog,
+        },
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::notify::NotifyTemplateRecord;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -20,23 +36,7 @@ use crate::{
             interface_language::interface_language_pack,
         },
     },
-    app::{iam::IamContext, notify::validate_notify_template},
-    domain::{
-        federation::{CudAction, ResourceKind},
-        iam::permission,
-        notify::{
-            connector::NotifyChannel,
-            policy::NotifyPolicy,
-            preference::NotifyCategory,
-            template::{
-                NOTIFY_TEMPLATE_PRESET_LANGUAGE_PREFIX, NotifyCard, NotifyTemplateField,
-                NotifyTemplatePreset, ProviderTemplate, notify_template_field_catalog,
-                notify_template_preset_catalog,
-            },
-        },
-    },
-    infra::persistence::repositories::notify::NotifyTemplateRecord,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::notify::validate_notify_template,
 };
 
 pub(super) fn routes() -> Router<AppState> {

@@ -6,11 +6,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-
-use crate::{
-    domain::query::{PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult},
-    shared::Result,
-};
+use domain::query::{PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, QueryResult};
+use kernel::Result;
 
 /// SQL 请求交给 SQL 引擎，PromQL 请求交给 PromQL 引擎。
 ///
@@ -39,11 +36,12 @@ impl QueryEngine for LanguageRoutedEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::shared::{
+    use kernel::{
         ids::Id,
         time::{TimeRange, TimestampMicros},
     };
+
+    use super::*;
 
     /// 两个引擎都返回一行，用 `columns` 标明是谁处理的。
     struct Tagged(&'static str);

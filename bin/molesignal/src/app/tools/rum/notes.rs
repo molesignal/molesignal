@@ -4,17 +4,13 @@
 //! What is kept about a recorded session besides its events: what people said about moments of it,
 //! and the summary a model wrote of it, if anyone asked for one.
 
+use domain::iam::IamContext;
+use kernel::Result;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::ToolResult;
 
-use crate::{
-    app::{
-        iam::IamContext,
-        tools::{ToolRuntime, common::parse_args},
-    },
-    shared::Result,
-};
+use crate::app::tools::{ToolRuntime, common::parse_args};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

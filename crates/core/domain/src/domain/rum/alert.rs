@@ -11,11 +11,11 @@
 
 mod search;
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 pub use self::search::{RumAlertFilter, RumAlertMeasure, RumAlertSearch};
 use super::validate_application_id;
-use crate::shared::{Error, Result};
 
 /// The longest environment, page or version name a rule names.
 const MAX_NAME_BYTES: usize = 255;

@@ -8,12 +8,9 @@
 
 use std::collections::HashSet;
 
+use domain::alerting::incident::{Incident, IncidentStatus, Severity};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Serialize;
-
-use crate::{
-    domain::alerting::incident::{Incident, IncidentStatus, Severity},
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 /// 往回找多久。
 pub const LOOKBACK_MICROS: i64 = 90 * 86_400_000_000;

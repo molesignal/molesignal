@@ -16,6 +16,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -23,10 +24,7 @@ use super::{
     incident::Severity,
     rule::{AlertRule, AlertRuleKind, ComparisonOp, SeverityThreshold},
 };
-use crate::{
-    domain::query::QueryLanguage,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::query::QueryLanguage;
 
 /// 连续几轮没看到就算结束。
 pub const ENDS_AFTER_MISSED_ROUNDS: u32 = 3;
@@ -260,7 +258,7 @@ impl DiscoveryQuery {
         if self.subjects.len() > MAX_DISCOVERY_SUBJECTS
             || self.environments.len() > MAX_DISCOVERY_SUBJECTS
         {
-            return Err(crate::shared::Error::invalid(format!(
+            return Err(kernel::Error::invalid(format!(
                 "a discovery rule names at most {MAX_DISCOVERY_SUBJECTS} services and environments"
             )));
         }

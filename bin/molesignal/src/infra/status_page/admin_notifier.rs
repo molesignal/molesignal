@@ -4,21 +4,17 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::{
+    i18n_language::{I18nLanguageRepository, LanguagePack},
+    status_page::{StatusPageDomainHealthAlert, StatusPageDomainHealthNotifier},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::workspace_preference_defaults::{
+    PgWorkspacePreferenceDefaultsRepository, WorkspacePreferenceDefaultsRepository,
+};
 use sqlx::PgPool;
 
-use crate::{
-    domain::{
-        i18n_language::{I18nLanguageRepository, LanguagePack},
-        status_page::{StatusPageDomainHealthAlert, StatusPageDomainHealthNotifier},
-    },
-    infra::{
-        notify::EmailSender,
-        persistence::repositories::workspace_preference_defaults::{
-            PgWorkspacePreferenceDefaultsRepository, WorkspacePreferenceDefaultsRepository,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::infra::notify::EmailSender;
 
 /// The alert and the domain state names it uses sit under this key prefix.
 const LANGUAGE_KEY_PREFIX: &str = "status_page.";
@@ -142,10 +138,10 @@ fn written(
 
 #[cfg(test)]
 mod tests {
+    use domain::status_page::StatusPageDomainState;
+
     use super::*;
-    use crate::{
-        domain::status_page::StatusPageDomainState, shared::i18n_language_seed::seeded_pack,
-    };
+    use crate::i18n_language_seed::seeded_pack;
 
     fn alert(error: Option<&str>) -> StatusPageDomainHealthAlert {
         StatusPageDomainHealthAlert {

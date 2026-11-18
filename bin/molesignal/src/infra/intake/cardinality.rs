@@ -18,11 +18,12 @@ use std::{
 };
 
 use dashmap::DashMap;
+use kernel::ids::Id;
 use parking_lot::Mutex;
+use settings::PrometheusCardinalitySettings;
 use sha2::{Digest, Sha256};
 
 use super::metrics::{add_active_series, inc_series_rejection};
-use crate::{config::PrometheusCardinalitySettings, shared::ids::Id};
 
 const RATE_WINDOW: Duration = Duration::from_secs(60);
 

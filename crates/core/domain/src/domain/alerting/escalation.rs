@@ -7,10 +7,10 @@
 //! 每一步只指定接收人和 ack 超时；实际连接器、用户偏好与兜底由 Notify
 //! Policy 统一解析。Incident 触发后从 step 0 开始，超时未 ack 则前进。
 
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use super::{incident::Severity, urgency::UrgencyRule};
-use crate::shared::{Error, Result, ids::Id};
 
 /// 规则不指定升级策略时的取值。它不是真实的策略 id，而是别名：解析时落到所在组织里
 /// 名为 `default` 的策略，见 [`EscalationPolicy::resolve`]。

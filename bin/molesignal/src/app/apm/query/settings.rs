@@ -10,12 +10,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use domain::apm::{ApmCatalogRepository, ApmOrgSettings};
+use kernel::ids::Id;
 use parking_lot::RwLock;
-
-use crate::{
-    domain::apm::{ApmCatalogRepository, ApmOrgSettings},
-    shared::ids::Id,
-};
 
 /// How long settings saved on another node take at most to be read here.
 const FRESH_FOR: Duration = Duration::from_secs(30);

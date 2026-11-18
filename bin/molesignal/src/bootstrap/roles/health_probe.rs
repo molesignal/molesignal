@@ -13,18 +13,16 @@ use std::{
     time::{Duration, Instant},
 };
 
+use kernel::{Error, Result, health::Probe};
 use object_store::{ObjectStore, ObjectStoreExt, PutPayload, path::Path};
 use tokio::task::JoinHandle;
 
-use crate::{
-    bootstrap::roles::intake::IntakeWorker,
-    shared::{Error, Result, health::Probe},
-}; // unused import to keep file compile
+use crate::bootstrap::roles::intake::IntakeWorker; // unused import to keep file compile
 
 const PROBE_PAYLOAD: &[u8] = &[0xAB; 128];
 
 pub async fn startup_ping(store: &dyn ObjectStore) -> Result<()> {
-    let key = format!("_health/{}.probe", crate::shared::ids::Id::new());
+    let key = format!("_health/{}.probe", kernel::ids::Id::new());
     let path = Path::from(key.as_str());
     let started = Instant::now();
 
@@ -69,7 +67,7 @@ pub fn spawn_probe(
         loop {
             ticker.tick().await;
             let started = Instant::now();
-            let key = format!("_health/{}.probe", crate::shared::ids::Id::new());
+            let key = format!("_health/{}.probe", kernel::ids::Id::new());
             let path = Path::from(key.as_str());
 
             let attempt = async {

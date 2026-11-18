@@ -12,18 +12,16 @@
 
 use std::collections::BTreeMap;
 
+use domain::alerting::{
+    incident::Severity,
+    priority::Priority,
+    source::{ExternalAction, ExternalAlert, severity_from_word},
+    urgency::Urgency,
+};
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{Parsed, field, host_of, json, rfc3339, web_address};
-use crate::{
-    domain::alerting::{
-        incident::Severity,
-        priority::Priority,
-        source::{ExternalAction, ExternalAlert, severity_from_word},
-        urgency::Urgency,
-    },
-    shared::{Error, Result},
-};
 
 pub(super) fn parse(body: &[u8]) -> Result<Parsed> {
     let payload = json(body)?;

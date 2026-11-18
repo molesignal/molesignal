@@ -4,13 +4,11 @@
 //! `realtime_count_snapshots` 表：各节点实时规则窗口计数的快照，一个节点一条规则一行。
 
 use async_trait::async_trait;
+use domain::alerting::realtime_snapshot::{CountSnapshot, RealtimeSnapshotRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::realtime_snapshot::{CountSnapshot, RealtimeSnapshotRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgRealtimeSnapshotRepository {
     pool: PgPool,

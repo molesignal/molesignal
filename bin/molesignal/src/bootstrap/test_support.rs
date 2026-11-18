@@ -4,14 +4,11 @@
 //! 后台循环单测共用的只读仓储：固定的组织与数据流列表。
 
 use async_trait::async_trait;
-
-use crate::{
-    domain::{
-        iam::{Organization, OrganizationRepository},
-        stream::{Schema, StreamDefinition, StreamRepository, StreamType},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::{
+    iam::{Organization, OrganizationRepository},
+    stream::{Schema, StreamDefinition, StreamRepository, StreamType},
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 pub(crate) struct FixedOrganizations(pub(crate) Vec<Organization>);
 

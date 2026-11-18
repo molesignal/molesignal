@@ -9,17 +9,16 @@
 
 use std::collections::HashMap;
 
+use domain::apm::{
+    BucketDimension, BucketKind, BucketMeasurements, HistogramSchema, MergedBucket,
+    ServiceIdentity, VersionObservation,
+};
+use kernel::Result;
+
 use super::{
     ApmQueryContext, ApmQueryService, RedSummary, VersionSummary, VersionVerdict,
     aggregate::red_from_measurements, apdex::ApdexThresholds, overview::version_summary,
     versions::red_delta,
-};
-use crate::{
-    domain::apm::{
-        BucketDimension, BucketKind, BucketMeasurements, HistogramSchema, MergedBucket,
-        ServiceIdentity, VersionObservation,
-    },
-    shared::Result,
 };
 
 /// How far an error rate rises, in points and as a ratio, to be worse.
@@ -267,11 +266,11 @@ mod tests {
         let service = ServiceIdentity::new(Some("shop"), Some("checkout"), Some("prod"), None);
         let other = ServiceIdentity::new(Some("shop"), Some("cart"), Some("prod"), None);
         let observed = |service: &ServiceIdentity, version: &str, first: i64| VersionObservation {
-            org_id: crate::shared::ids::Id::from_string("org"),
+            org_id: kernel::ids::Id::from_string("org"),
             service: service.clone(),
             version: version.to_owned(),
-            first_seen_at: crate::shared::time::TimestampMicros(first),
-            last_seen_at: crate::shared::time::TimestampMicros(first + 10),
+            first_seen_at: kernel::time::TimestampMicros(first),
+            last_seen_at: kernel::time::TimestampMicros(first + 10),
             observation_count: 1,
         };
         let seen = vec![

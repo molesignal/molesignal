@@ -9,8 +9,9 @@
 
 use std::collections::BTreeSet;
 
+use domain::rum::event::{RumStream, Versioned};
+
 use super::filter::Condition;
-use crate::domain::rum::event::{RumStream, Versioned};
 
 /// The column that holds the time of a row as microseconds, in the relation of a versioned stream.
 pub(super) const TS: &str = "__ts";

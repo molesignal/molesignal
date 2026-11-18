@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::domain::alerting::time_window::{ClockTime, EVERY_DAY, MINUTES_PER_DAY, WeeklyRange};
+use domain::alerting::time_window::{ClockTime, EVERY_DAY, MINUTES_PER_DAY, WeeklyRange};
 
 const DAY: usize = MINUTES_PER_DAY as usize;
 pub(super) const WEEK: usize = 7 * DAY;

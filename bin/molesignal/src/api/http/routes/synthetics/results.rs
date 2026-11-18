@@ -6,19 +6,14 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    synthetics::{ProbeOutcome, SyntheticResult, SyntheticResultListQuery, SyntheticResultPage},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        synthetics::{
-            ProbeOutcome, SyntheticResult, SyntheticResultListQuery, SyntheticResultPage,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new().route("/synthetics/results", get(list))

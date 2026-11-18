@@ -8,17 +8,15 @@
 use std::{collections::HashMap, hash::Hash, sync::Arc};
 
 use async_trait::async_trait;
+use domain::apm::{
+    ApmQueryRepository, BucketQuery, CatalogQuery, ErrorGroupQuery, ErrorGroupRecord, ErrorSample,
+    InstanceObservation, MergedBucket, ProjectionGap, ProjectionState, ServiceAlias,
+    ServiceIdentity, ServiceObservation, VersionObservation,
+};
 use futures::future::try_join_all;
+use kernel::{Result, ids::Id, time::TimeRange};
 
 use super::settings::OrgSettingsCache;
-use crate::{
-    domain::apm::{
-        ApmQueryRepository, BucketQuery, CatalogQuery, ErrorGroupQuery, ErrorGroupRecord,
-        ErrorSample, InstanceObservation, MergedBucket, ProjectionGap, ProjectionState,
-        ServiceAlias, ServiceIdentity, ServiceObservation, VersionObservation,
-    },
-    shared::{Result, ids::Id, time::TimeRange},
-};
 
 pub(super) struct AliasedRepository {
     inner: Arc<dyn ApmQueryRepository>,

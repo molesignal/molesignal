@@ -8,16 +8,13 @@
 
 use std::ops::Range;
 
+use domain::query::QueryLanguage;
+use kernel::{Error, Result};
 use sqlparser::{
     ast::Statement,
     dialect::GenericDialect,
     parser::Parser,
     tokenizer::{Token, Tokenizer},
-};
-
-use crate::{
-    domain::query::QueryLanguage,
-    shared::{Error, Result},
 };
 
 /// One placeholder in a statement.

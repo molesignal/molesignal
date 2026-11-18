@@ -8,14 +8,11 @@
 //! scrubs and the reader may see, like anything else read from the streams. A long session is told
 //! by what matters most: the pages and what went wrong always, the rest as far as there is room.
 
+use domain::rum::RumSummaryChapter;
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
-
-use crate::{
-    domain::rum::RumSummaryChapter,
-    shared::{Error, Result},
-};
 
 /// The most lines a model is told of one session.
 const MAX_LINES: usize = 400;

@@ -5,16 +5,15 @@
 
 use std::{cmp::Ordering, collections::VecDeque};
 
+use domain::{storage::QueryFile, stream::FieldType};
+use kernel::cursor::CursorDirection;
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+    TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
+};
+
 use super::{
     TraceCondition, TraceFilter, TraceListContext, TraceListRow, TraceListSort, effective_cmp,
-};
-use crate::{
-    api::http::pagination::cursor::CursorDirection,
-    domain::{storage::QueryFile, stream::FieldType},
-    shared::trace::summary::{
-        TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-        TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
-    },
 };
 
 pub(super) fn order_files(

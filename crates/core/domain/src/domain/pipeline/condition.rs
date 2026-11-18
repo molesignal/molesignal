@@ -9,11 +9,10 @@
 //! event (`name` inside `service`).
 use std::cmp::Ordering;
 
+use kernel::{Error, Result};
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value;
-
-use crate::shared::{Error, Result};
 
 /// At most this many tests in one condition.
 pub const MAX_TESTS: usize = 16;

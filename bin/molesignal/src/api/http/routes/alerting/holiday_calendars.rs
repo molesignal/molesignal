@@ -14,6 +14,12 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::{
+    alerting::holiday::{CalendarReference, HolidayCalendar, HolidayDay, parse_ics},
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -25,13 +31,7 @@ use crate::{
             routes::activity_audit,
         },
     },
-    app::{alerting::holidays::CalendarInput, iam::IamContext},
-    domain::{
-        alerting::holiday::{CalendarReference, HolidayCalendar, HolidayDay, parse_ics},
-        federation::{CudAction, ResourceKind},
-        iam::permission,
-    },
-    shared::{Error, Result, ids::Id},
+    app::alerting::holidays::CalendarInput,
 };
 
 /// 一次最多读多大的 ICS。

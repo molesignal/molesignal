@@ -11,14 +11,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::iam::{IamContext, IamScope, User};
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::scheduled_reports::ScheduledReport;
 
 use super::render_session::{ReportRenderSession, render_session};
-use crate::{
-    app::iam::{IamAccessRequest, IamAccessService, IamContext, IamService, IamTarget},
-    domain::iam::{IamScope, User},
-    infra::persistence::repositories::scheduled_reports::ScheduledReport,
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::iam::{IamAccessRequest, IamAccessService, IamService, IamTarget};
 
 /// 报表以谁的身份运行：保存它的登录用户。
 ///
@@ -215,10 +213,11 @@ impl RenderIdentityDirectory for IamDirectory {
 mod tests {
     use std::{collections::BTreeSet, sync::Mutex};
 
+    use domain::iam::UserStatus;
+    use kernel::time::TimestampMicros;
     use serde_json::json;
 
     use super::*;
-    use crate::{domain::iam::UserStatus, shared::time::TimestampMicros};
 
     /// IAM 对「这位用户此刻在组织里的身份」的回答。
     enum Access {

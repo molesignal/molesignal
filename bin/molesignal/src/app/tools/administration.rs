@@ -3,18 +3,15 @@
 
 use std::collections::HashMap;
 
+use domain::iam::{IamAssignedRole, IamContext, access::IamPrincipalType};
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::audit_events::AuditQuery;
 use serde::Deserialize;
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{
     ToolRuntime,
     common::{bounded, json_result, parse_args, redact_credentials},
-};
-use crate::{
-    app::iam::IamContext,
-    domain::iam::{IamAssignedRole, access::IamPrincipalType},
-    infra::persistence::repositories::audit_events::AuditQuery,
-    shared::{Error, Result, ids::Id},
 };
 
 #[derive(Debug, Deserialize)]
@@ -239,7 +236,7 @@ pub(super) async fn execute(
             let safe = serde_json::to_value(events)
                 .map(|value| redact_credentials(&value))
                 .map_err(|error| {
-                    crate::shared::Error::internal(format!("serialize audit events: {error}"))
+                    kernel::Error::internal(format!("serialize audit events: {error}"))
                 })?;
 
             Ok(ToolResult::json(safe))
@@ -367,7 +364,7 @@ pub(super) async fn execute(
 }
 
 fn service_account_json(
-    account: crate::domain::iam::service_account::ServiceAccount,
+    account: domain::iam::service_account::ServiceAccount,
     role: IamAssignedRole,
 ) -> serde_json::Value {
     serde_json::json!({
@@ -385,7 +382,7 @@ fn service_account_json(
 async fn resolve_service_account_json(
     runtime: &ToolRuntime,
     auth: &IamContext,
-    account: crate::domain::iam::service_account::ServiceAccount,
+    account: domain::iam::service_account::ServiceAccount,
 ) -> Result<serde_json::Value> {
     let role = runtime
         .administration
@@ -453,8 +450,9 @@ fn requested_user_id(auth: &IamContext, target_user_id: Option<String>) -> Resul
 #[cfg(test)]
 mod tests {
 
+    use domain::iam::IamScope;
+
     use super::*;
-    use crate::domain::iam::IamScope;
 
     fn auth(permissions: &[&str]) -> IamContext {
         IamContext {

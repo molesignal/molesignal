@@ -2,19 +2,17 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::notify::{
+    delivery::{
+        DeliveryClaim, DeliveryCompletion, DeliveryFilter, DeliveryStage, DeliveryStatus,
+        NotifyDelivery, PageRecord,
+    },
+    repositories::NotifyDeliveryRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{super::sqlx_err, like_prefix};
-use crate::{
-    domain::notify::{
-        delivery::{
-            DeliveryClaim, DeliveryCompletion, DeliveryFilter, DeliveryStage, DeliveryStatus,
-            NotifyDelivery, PageRecord,
-        },
-        repositories::NotifyDeliveryRepository,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgNotifyDeliveryRepository {
     pool: PgPool,

@@ -12,17 +12,19 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    saved_view::SavedView,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::{iam::permission, saved_view::SavedView},
     infra::pipeline::{
         ExtendRow, ExtendTableDefinition, ExtendTableSummary, ExtendValueField, ScheduledPipeline,
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub fn routes() -> Router<AppState> {

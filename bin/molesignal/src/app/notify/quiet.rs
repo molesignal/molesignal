@@ -2,10 +2,9 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use chrono::{NaiveTime, Timelike};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
-
-use crate::shared::{Error, Result, time::TimestampMicros};
 
 #[derive(Debug, Deserialize)]
 struct QuietHoursConfig {

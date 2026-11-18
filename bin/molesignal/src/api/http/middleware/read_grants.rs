@@ -7,11 +7,9 @@
 //! the request already carries its [`IamContext`].
 
 use axum::{extract::Request, middleware::Next, response::Response};
+use domain::iam::IamContext;
 
-use crate::{
-    app::iam::IamContext,
-    infra::query::grants::{AUDIT_READ, ReadGrants, scope},
-};
+use crate::infra::query::grants::{AUDIT_READ, ReadGrants, scope};
 
 pub async fn read_grants_layer(req: Request, next: Next) -> Response {
     let grants = req

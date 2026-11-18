@@ -13,18 +13,17 @@
 
 use std::{collections::HashSet, sync::Arc};
 
+use agent::{
+    scope::{ChatScope, Scope, Viewer},
+    tools::ToolAuthContext,
+};
+use kernel::{Error, Result, ids::Id};
 use parking_lot::Mutex;
 use serde_json::Value;
+use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::session::RunInteraction;
-use crate::{
-    agent::{
-        scope::{ChatScope, Scope, Viewer},
-        tools::{BuiltinToolKind, ToolAuthContext, ToolResult},
-    },
-    api::AppState,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 mod insights;
 mod investigation;

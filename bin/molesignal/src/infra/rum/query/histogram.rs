@@ -7,11 +7,11 @@
 //! the first begins; the server counts into exactly those bars, so the two never disagree about
 //! where a bar lies. The answer has the shape the other explorers answer with.
 
+use kernel::{Error, Result};
 use serde::Serialize;
 use serde_json::Value;
 
 use super::statements::{BUCKET_COLUMN, TOTAL_COLUMN, TROUBLE_COLUMN};
-use crate::shared::{Error, Result};
 
 /// More bars than a plot is wide enough to draw.
 pub(super) const MAX_BUCKETS: i64 = 512;

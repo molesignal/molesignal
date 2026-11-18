@@ -3,14 +3,13 @@
 
 //! 写给工单的内容：一张单的标题与描述，和工作区默认语言的文字（`alerting.ticket.*`）。
 
-use super::TicketService;
-use crate::{
-    domain::{
-        alerting::incident::Incident,
-        i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack},
-    },
-    shared::ids::Id,
+use domain::{
+    alerting::incident::Incident,
+    i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack},
 };
+use kernel::ids::Id;
+
+use super::TicketService;
 
 /// 根因摘要最多写多少字进工单。
 const MAX_ROOT_CAUSE_CHARS: usize = 1_000;

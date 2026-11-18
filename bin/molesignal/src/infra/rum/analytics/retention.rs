@@ -6,15 +6,13 @@
 //! anonymous id the SDK keeps; a period is a day or a week of UTC. Being first seen means first
 //! seen in the range that was asked for: the range is the history that is looked at.
 
+use domain::rum::event::RumStream;
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{checked_range, events, shared_conditions, whole};
-use crate::{
-    domain::rum::event::RumStream,
-    infra::rum::query::{Condition, Filter},
-    shared::{Error, Result},
-};
+use crate::infra::rum::query::{Condition, Filter};
 
 const DAY_MICROS: i64 = 86_400_000_000;
 

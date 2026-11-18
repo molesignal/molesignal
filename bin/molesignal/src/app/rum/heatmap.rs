@@ -6,6 +6,8 @@
 //! The recording is the replay of a session that opened the page, as it stood when the page had
 //! loaded: what is masked in the replay is masked here too.
 
+use domain::rum::event::RumStream;
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -14,16 +16,12 @@ use super::{
     reader::{Reader, Span, within_budget},
     selection::Selection,
 };
-use crate::{
-    domain::rum::event::RumStream,
-    infra::rum::{
-        query::{
-            ClickMap, Condition, Filter, ListRequest, Scope, ScrollMap, clicks_sql, list_sql,
-            read_clicks, read_scroll, rows, scroll_sql,
-        },
-        replay::RumReplayWriter,
+use crate::infra::rum::{
+    query::{
+        ClickMap, Condition, Filter, ListRequest, Scope, ScrollMap, clicks_sql, list_sql,
+        read_clicks, read_scroll, rows, scroll_sql,
     },
-    shared::{Error, Result, ids::Id},
+    replay::RumReplayWriter,
 };
 
 /// How many elements a map tells apart unless the question says.

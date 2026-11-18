@@ -10,17 +10,15 @@
 
 use std::future::Future;
 
+use domain::query::QueryResult;
+use kernel::{Error, Result};
 use serde::Serialize;
 use serde_json::Value;
 
 use super::statements::{
     self, BAR, BUCKET, ERRORS, Grouping, P50, P95, P99, PRESENT, REQUESTS, Source, VALUE,
 };
-use crate::{
-    api::http::routes::web::histogram::BucketPlan,
-    domain::query::QueryResult,
-    shared::{Error, Result},
-};
+use crate::api::http::routes::web::histogram::BucketPlan;
 
 /// How many values of a field a breakdown lists, the commonest.
 pub(super) const GROUP_LIMIT: usize = 50;

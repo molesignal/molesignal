@@ -12,25 +12,22 @@
 //! 能读会话的人能看它的 Run、停止它、回答它的问题；确认只能由发起这一轮的人决定，工具以他的
 //! 身份执行；「授权以继续」也只有他能回，凭据是他自己的。
 
+use agent::{
+    runs::{Pending, QuestionKind, Run, RunResponse},
+    usage::Cost,
+};
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::{chat::run::request::RunRequest, viewer::readable_chat};
-use crate::{
-    agent::{
-        runs::{Pending, QuestionKind, Run, RunResponse},
-        usage::Cost,
-    },
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 mod stream;
 
@@ -341,11 +338,13 @@ async fn respond(
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::IamScope;
+    use tool_runtime::RiskLevel;
+
     use super::*;
-    use crate::{agent::model::RiskLevel, domain::iam::IamScope};
 
     fn ctx(user: &str) -> IamContext {
-        crate::agent::runs::RunPrincipal {
+        agent::runs::RunPrincipal {
             user_id: Id::from_string(user),
             scope: IamScope::Organization,
             credential_token_id: None,

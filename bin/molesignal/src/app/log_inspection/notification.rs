@@ -10,19 +10,17 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono_tz::Tz;
-
-use crate::{
-    app::notify::{DirectSend, NotifyService},
-    domain::{
-        i18n_language::LanguagePack,
-        log_inspection::{
-            InspectionLevel, InspectionNotification, InspectionNotifyRoute, LastInspectionRun,
-            LogInspection, LogInspectionRun, RunFailure,
-        },
-        notify::connector::{NotifyMessage, NotifyTarget},
+use domain::{
+    i18n_language::LanguagePack,
+    log_inspection::{
+        InspectionLevel, InspectionNotification, InspectionNotifyRoute, LastInspectionRun,
+        LogInspection, LogInspectionRun, RunFailure,
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    notify::connector::{NotifyMessage, NotifyTarget},
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+
+use crate::app::notify::{DirectSend, NotifyService};
 
 /// 通知文案的每个条目都在这个前缀下。
 pub const LANGUAGE_KEY_PREFIX: &str = "log_inspection.";
@@ -239,14 +237,13 @@ fn target(route: &InspectionNotifyRoute) -> NotifyTarget {
 
 #[cfg(test)]
 pub(super) mod tests {
-    use super::*;
-    use crate::{
-        domain::{
-            log_inspection::{InspectionSchedule, NotifyWhen, RunStatus, RunTrigger},
-            notify::connector::NotifyTargetType,
-        },
-        shared::i18n_language_seed::seeded_pack,
+    use domain::{
+        log_inspection::{InspectionSchedule, NotifyWhen, RunStatus, RunTrigger},
+        notify::connector::NotifyTargetType,
     };
+
+    use super::*;
+    use crate::i18n_language_seed::seeded_pack;
 
     pub(in crate::app::log_inspection) fn route() -> InspectionNotifyRoute {
         InspectionNotifyRoute {

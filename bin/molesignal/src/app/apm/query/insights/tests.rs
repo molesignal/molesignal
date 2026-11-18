@@ -3,21 +3,19 @@
 
 use std::collections::{HashMap, HashSet};
 
+use domain::apm::{
+    BucketMeasurements, ChangeKind, DependencyIdentity, DeploymentStatus, HealthLines,
+    HistogramSchema, LatencyHistogram, TransactionIdentity, TransactionKind, VersionObservation,
+};
+use kernel::ids::Id;
+
 use super::{
     detect::{ServiceFigures, Stretch, anomalies},
     model::{ChangeSource, InsightKind},
     suggest::{Served, suggestions},
     *,
 };
-use crate::{
-    app::apm::ServiceHealth,
-    domain::apm::{
-        BucketMeasurements, ChangeKind, DependencyIdentity, DeploymentStatus, HealthLines,
-        HistogramSchema, LatencyHistogram, TransactionIdentity, TransactionKind,
-        VersionObservation,
-    },
-    shared::ids::Id,
-};
+use crate::app::apm::ServiceHealth;
 
 const MINUTE: i64 = 60_000_000;
 

@@ -17,6 +17,12 @@ use axum::{
     extract::{Path, Query, State},
     response::Json,
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::{StreamDefinition, StreamType},
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -31,14 +37,7 @@ use crate::{
         AppState,
         http::routes::web::{histogram::within_budget, trace::red::RedScope},
     },
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::{StreamDefinition, StreamType},
-    },
     infra::query::{escape_sql_ident, scan_limit::is_over_scan_limit},
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 /// The most linking Spans one answer lists.
@@ -278,10 +277,11 @@ fn literal(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use kernel::ids::Id;
     use serde_json::json;
+    use signals::trace::normalization::canonical_trace_schema;
 
     use super::*;
-    use crate::shared::{ids::Id, trace::normalization::canonical_trace_schema};
 
     fn definition() -> StreamDefinition {
         StreamDefinition {

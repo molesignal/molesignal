@@ -16,19 +16,19 @@ use axum::{
     Extension, Json,
     extract::{Path, State},
 };
+use domain::{
+    iam::{IamContext, api_token::ApiTokenKind, permission},
+    rum::{
+        RumApplication, RumApplicationPatch, RumApplicationSettings, RumPlatform, RumSdkSettings,
+        resolve_id, validate_name,
+    },
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     api::{AppState, http::middleware::Permission},
-    app::{dashboard::builtin::RumDashboard, iam::IamContext},
-    domain::{
-        iam::{api_token::ApiTokenKind, permission},
-        rum::{
-            RumApplication, RumApplicationPatch, RumApplicationSettings, RumPlatform,
-            RumSdkSettings, resolve_id, validate_name,
-        },
-    },
-    shared::{Error, Result, time::TimestampMicros},
+    app::dashboard::builtin::RumDashboard,
 };
 
 /// What the settings of its application decide for an SDK that asks at start. A client token reads
@@ -252,8 +252,9 @@ fn require_manage(ctx: &IamContext) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::ids::Id;
+
     use super::*;
-    use crate::shared::ids::Id;
 
     #[test]
     fn an_application_is_shown_with_its_times_in_microseconds() {

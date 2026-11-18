@@ -10,12 +10,12 @@
 //! 非 S3 路径的令牌存储。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

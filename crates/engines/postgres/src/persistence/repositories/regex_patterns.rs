@@ -6,11 +6,11 @@
 //! Org-scoped VRL regex pattern shortcuts。pattern 体 round-trip 字节级一致。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -132,7 +132,7 @@ impl RegexPatternRepository for PgRegexPatternRepository {
         .map_err(sqlx_err)?;
 
         if res.rows_affected() == 0 {
-            return Err(crate::shared::Error::not_found("regex pattern"));
+            return Err(kernel::Error::not_found("regex pattern"));
         }
 
         Ok(p)

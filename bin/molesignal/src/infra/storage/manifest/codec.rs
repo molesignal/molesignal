@@ -8,16 +8,14 @@ use arrow::{
     datatypes::{DataType, Field, Schema},
 };
 use bytes::Bytes;
+use domain::storage::PartitionManifest;
+use kernel::{Error, Result};
 use parquet::{
     arrow::{ArrowWriter, arrow_reader::ParquetRecordBatchReaderBuilder},
     file::properties::WriterProperties,
 };
 
-use crate::{
-    domain::storage::PartitionManifest,
-    infra::storage::parquet::writer::compression,
-    shared::{Error, Result},
-};
+use crate::infra::storage::parquet::writer::compression;
 
 const SCHEMA_VERSION: u32 = 1;
 
@@ -115,18 +113,17 @@ pub(super) fn decode(bytes: Bytes) -> Result<PartitionManifest> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::storage::{
-            Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ColumnStats,
-            DataSegment, ObjectChecksum, ObjectKey, Partition, PhysicalDatasetId, SegmentId,
-            SegmentState, StoredObject, type_id,
-        },
-        shared::{
-            ids::Id,
-            time::{TimeRange, TimestampMicros},
-        },
+    use domain::storage::{
+        Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ColumnStats,
+        DataSegment, ObjectChecksum, ObjectKey, Partition, PhysicalDatasetId, SegmentId,
+        SegmentState, StoredObject, type_id,
     };
+    use kernel::{
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    };
+
+    use super::*;
 
     #[test]
     fn parquet_round_trip() {

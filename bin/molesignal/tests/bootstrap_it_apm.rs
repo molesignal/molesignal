@@ -5,7 +5,8 @@
 
 mod common;
 
-use molesignal::{api::grpc::otlp_server::OtlpGrpc, shared::time::TimestampMicros};
+use kernel::time::TimestampMicros;
+use molesignal::api::grpc::otlp_server::OtlpGrpc;
 use opentelemetry_proto::tonic::{
     collector::trace::v1::{
         ExportTraceServiceRequest, trace_service_client::TraceServiceClient,

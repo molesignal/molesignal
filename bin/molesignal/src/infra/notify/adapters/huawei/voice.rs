@@ -13,24 +13,20 @@ use std::time::Instant;
 use async_trait::async_trait;
 use aws_lc_rs::hmac;
 use base64::Engine;
+use domain::notify::{
+    connector::{
+        ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
+        NotifyMessage, NotifyTarget,
+    },
+    reply::REPLY_REF_KEY,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 
 use super::{
     Application, PROVIDER, approved_template, common, created_now, nonce, phone, template_params,
-};
-use crate::{
-    domain::notify::{
-        connector::{
-            ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
-            NotifyMessage, NotifyTarget,
-        },
-        reply::REPLY_REF_KEY,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
 };
 
 pub const HUAWEI_VOICE_CONNECTOR_TYPE: &str = "huawei_voice";
@@ -219,13 +215,13 @@ impl ConnectorAdapter for HuaweiVoiceConnectorAdapter {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::{connector::NotifyTargetType, template::ProviderTemplate};
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{body_json, header_regex, method, path},
     };
 
     use super::*;
-    use crate::domain::notify::{connector::NotifyTargetType, template::ProviderTemplate};
 
     fn config(base: &str) -> Value {
         json!({

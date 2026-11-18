@@ -5,19 +5,16 @@
 //! organization (the `apm` section of `org_settings`): what people and their
 //! pipelines keep, never rebuilt from spans.
 
-use sqlx::{PgPool, Row, postgres::PgRow};
-
-use crate::{
-    domain::apm::{
-        ApmOrgSettings, ChangeKind, DEPLOYMENTS_LISTED_MAX, DeploymentEvent, DeploymentQuery,
-        DeploymentStatus,
-    },
-    infra::persistence::{
-        repositories::org_settings::{self, sections::APM},
-        sqlx_err,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::apm::{
+    ApmOrgSettings, ChangeKind, DEPLOYMENTS_LISTED_MAX, DeploymentEvent, DeploymentQuery,
+    DeploymentStatus,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::{
+    repositories::org_settings::{self, sections::APM},
+    sqlx_err,
+};
+use sqlx::{PgPool, Row, postgres::PgRow};
 
 pub(super) async fn save_deployment(
     pool: &PgPool,

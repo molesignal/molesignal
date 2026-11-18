@@ -19,7 +19,7 @@ mod tasks;
 use sqlx::PgPool;
 
 pub(crate) use super::sqlx_err;
-use crate::infra::cipher::CipherRootKey;
+use crate::cipher::CipherRootKey;
 
 pub struct PgSyntheticRepository {
     pub(crate) pool: PgPool,

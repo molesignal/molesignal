@@ -3,7 +3,7 @@
 
 //! 联邦分片的编码。
 
-use crate::domain::stream::StreamType;
+use domain::stream::StreamType;
 
 pub(super) fn stream_type_to_proto(stream_type: StreamType) -> String {
     stream_type.external_name().to_owned()

@@ -5,7 +5,8 @@
 
 mod common;
 
-use molesignal::{domain::iam::IamMembership, shared::time::TimestampMicros};
+use domain::iam::IamMembership;
+use kernel::time::TimestampMicros;
 use serde_json::Value;
 
 #[tokio::test]

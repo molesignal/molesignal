@@ -3,6 +3,9 @@
 
 use std::collections::{BTreeSet, HashMap};
 
+use domain::apm::{BucketDimension, BucketKind, MergedBucket, TransactionKind};
+use kernel::{Error, Result};
+
 use super::{
     ApmQueryContext, ApmQueryService, DependencySummary, PagedResponse, TransactionDetailResponse,
     TransactionSummary,
@@ -14,10 +17,6 @@ use super::{
     errors::error_summaries,
     overview::version_summary,
     pagination::paginate,
-};
-use crate::{
-    domain::apm::{BucketDimension, BucketKind, MergedBucket, TransactionKind},
-    shared::{Error, Result},
 };
 
 impl ApmQueryService {
@@ -246,7 +245,7 @@ impl ApmQueryService {
 pub(super) fn transaction_summaries(
     context: &ApmQueryContext,
     buckets: &[MergedBucket],
-    histogram: &crate::domain::apm::HistogramSchema,
+    histogram: &domain::apm::HistogramSchema,
     thresholds: &ApdexThresholds,
 ) -> Result<Vec<TransactionSummary>> {
     let mut grouped = HashMap::new();
@@ -294,7 +293,7 @@ pub(super) fn transaction_summaries(
 pub(super) fn dependency_summaries(
     context: &ApmQueryContext,
     buckets: &[MergedBucket],
-    histogram: &crate::domain::apm::HistogramSchema,
+    histogram: &domain::apm::HistogramSchema,
 ) -> Result<Vec<DependencySummary>> {
     let mut grouped = HashMap::new();
 

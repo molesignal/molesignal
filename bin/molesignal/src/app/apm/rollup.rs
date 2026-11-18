@@ -3,11 +3,9 @@
 
 use std::sync::Arc;
 
-use crate::{
-    config::ApmSettings,
-    domain::apm::{ApmMaintenanceRepository, RollupRequest, RollupStats},
-    shared::{Result, time::TimestampMicros},
-};
+use domain::apm::{ApmMaintenanceRepository, RollupRequest, RollupStats};
+use kernel::{Result, time::TimestampMicros};
+use settings::ApmSettings;
 
 const HOUR_MICROS: i64 = 3_600 * 1_000_000;
 const DAY_MICROS: i64 = 24 * HOUR_MICROS;

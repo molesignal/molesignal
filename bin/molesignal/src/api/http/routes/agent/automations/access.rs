@@ -9,16 +9,14 @@
 //!   能改；团队的要是成员或 `agent.manage` 持有人；个人的只有本人。
 //! - 停用、删除：能改的人，以及 `agent.manage` 持有人。
 
-use crate::{
-    agent::{
-        automations::Automation,
-        scope::{Scope, Viewer},
-    },
-    api::{AppState, http::routes::agent::viewer::viewer},
-    app::iam::IamContext,
-    domain::iam::IamScope,
-    shared::{Error, Result, ids::Id},
+use agent::{
+    automations::Automation,
+    scope::{Scope, Viewer},
 };
+use domain::iam::{IamContext, IamScope};
+use kernel::{Error, Result, ids::Id};
+
+use crate::api::{AppState, http::routes::agent::viewer::viewer};
 
 pub(super) const MANAGE: &str = "agent.automations.manage";
 
@@ -87,8 +85,9 @@ pub(super) fn run_as(ctx: &IamContext) -> Result<Id> {
 mod tests {
     use std::collections::HashSet;
 
+    use agent::runs::RunPrincipal;
+
     use super::*;
-    use crate::agent::runs::RunPrincipal;
 
     fn ctx(user: &str, permissions: &[&str]) -> IamContext {
         let mut context = RunPrincipal {

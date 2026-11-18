@@ -13,6 +13,7 @@
 //! 低组、warning 和 info）。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -20,7 +21,6 @@ use super::{
     priority::{MAX_PRIORITY_LEVELS, Priority},
     urgency::Urgency,
 };
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// 紧急度最多几档。
 pub const MAX_URGENCY_LEVELS: usize = 5;

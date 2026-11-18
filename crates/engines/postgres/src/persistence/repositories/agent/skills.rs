@@ -9,7 +9,15 @@
 
 use std::collections::HashMap;
 
+use agent::{
+    scope::Scope,
+    skills::{
+        FileEntry, RepositoryStatus, SkillManifest, SkillRepository, SkillSource, SkillStore,
+        StoredSkill, TokenChange,
+    },
+};
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
@@ -17,17 +25,7 @@ use super::super::{
     org_settings::{self, sections::AGENT_SKILLS},
     sqlx_err,
 };
-use crate::{
-    agent::{
-        scope::Scope,
-        skills::{
-            FileEntry, RepositoryStatus, SkillManifest, SkillRepository, SkillSource, SkillStore,
-            StoredSkill, TokenChange,
-        },
-    },
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
 
 mod repositories;
 

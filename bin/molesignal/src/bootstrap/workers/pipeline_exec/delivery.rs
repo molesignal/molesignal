@@ -12,13 +12,11 @@
 
 use std::time::Duration;
 
+use kernel::{Error, ids::Id};
 use serde_json::Value;
 
 use super::{DeadLetter, Ledger, PipelineOutput, PipelineSpec};
-use crate::{
-    infra::{connectors::Connector, pipeline::exec::processing::ProcessedEvent},
-    shared::{Error, ids::Id},
-};
+use crate::infra::{connectors::Connector, pipeline::exec::processing::ProcessedEvent};
 
 /// The longest wait between two attempts at a delivery.
 const MAX_BACKOFF: Duration = Duration::from_secs(30);

@@ -7,13 +7,11 @@
 //! 「周五 22:00–06:00」到周六早上都不算。补班日按周一的时段算。
 
 use chrono::{Datelike, Duration, NaiveDate, Timelike};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{WeeklyRange, local_date, local_instant, range_transitions, ranges_contain};
-use crate::{
-    domain::alerting::holiday::{self, DayKind},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::alerting::holiday::{self, DayKind};
 
 /// 补班日按星期几的时段算：周一。
 const WORKDAY_COUNTS_AS: u8 = 1;

@@ -3,9 +3,8 @@
 
 //! `[node]` —— 节点身份与承担的角色。
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
-
-use crate::shared::ids::Id;
 
 const MAX_NODE_ID_CHARS: usize = 64;
 const HOSTNAME_HASH_CHARS: usize = 16;

@@ -4,10 +4,10 @@
 //! 合并来电：同一个连接器拨同一个号码是一条线路，一个窗口里只拨一次；其间的通知排在线路上，窗口结束
 //! 时合并成一通电话。
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::connector::{NotifyMessage, NotifyTarget};
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 /// 一条电话线路。`key` 是号码的摘要：线路记录里不存号码本身。
 #[derive(Debug, Clone, PartialEq, Eq)]

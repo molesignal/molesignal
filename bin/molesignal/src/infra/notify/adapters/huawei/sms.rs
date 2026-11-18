@@ -10,21 +10,17 @@ use std::time::Instant;
 use async_trait::async_trait;
 use aws_lc_rs::digest;
 use base64::Engine;
+use domain::notify::connector::{
+    ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel, NotifyMessage,
+    NotifyTarget,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
+use signals::http_trace::{self, HttpTarget};
 
 use super::{
     Application, PROVIDER, approved_template, common, created_now, nonce, phone, template_params,
-};
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
-        NotifyMessage, NotifyTarget,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
 };
 
 pub const HUAWEI_SMS_CONNECTOR_TYPE: &str = "huawei_sms";
@@ -211,6 +207,7 @@ impl ConnectorAdapter for HuaweiSmsConnectorAdapter {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::{connector::NotifyTargetType, template::ProviderTemplate};
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -218,7 +215,6 @@ mod tests {
     };
 
     use super::*;
-    use crate::domain::notify::{connector::NotifyTargetType, template::ProviderTemplate};
 
     fn config(base: &str) -> Value {
         json!({

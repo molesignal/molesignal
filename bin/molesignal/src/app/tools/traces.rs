@@ -3,22 +3,19 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
+use domain::{iam::IamContext, query::QueryLanguage, stream::StreamType};
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{ToolRuntime, common::*};
 use crate::{
-    app::{
-        iam::IamContext,
-        web::trace::view::{TraceResponse, rows_to_spans},
-    },
-    domain::{query::QueryLanguage, stream::StreamType},
+    app::web::trace::view::{TraceResponse, rows_to_spans},
     infra::traces::summary_reader::{SummaryOrder, TraceSummaryQuery, TraceSummaryReader},
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 const TRACE_LOOKBACK_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
@@ -217,7 +214,7 @@ async fn trace_query(
     runtime: &ToolRuntime,
     auth: &IamContext,
     args: &GetTraceArgs,
-) -> Result<Option<(crate::domain::query::QueryResult, usize)>> {
+) -> Result<Option<(domain::query::QueryResult, usize)>> {
     validate_trace_id(&args.trace_id)?;
 
     let Some(stream) = resolve_traces_stream(runtime, &auth.org_id).await? else {

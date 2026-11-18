@@ -9,11 +9,10 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use agent::skills::{CatalogEntry, SkillManifest, SkillSource, StoredSkill};
+use kernel::ids::Id;
+
 use super::instance::InstanceSkill;
-use crate::{
-    agent::skills::{CatalogEntry, SkillManifest, SkillSource, StoredSkill},
-    shared::ids::Id,
-};
 
 /// Skill 的内容在哪。
 #[derive(Debug, Clone)]
@@ -181,8 +180,9 @@ impl SessionSkills {
 
 #[cfg(test)]
 mod tests {
+    use agent::skills::{SKILL_FILE, SkillBundle, SkillFile};
+
     use super::*;
-    use crate::agent::skills::{SKILL_FILE, SkillBundle, SkillFile};
 
     fn skill(name: &str, source: SkillSource, team: Option<&str>) -> SessionSkill {
         let bundle = SkillBundle::from_files(vec![SkillFile {

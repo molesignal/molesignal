@@ -11,18 +11,14 @@ use arrow::{
     datatypes::SchemaRef,
 };
 use datafusion::{datasource::MemTable, prelude::SessionContext};
+use domain::rum::event::{RumStream, stream_schema};
 use serde_json::{Value, json};
 
 use super::*;
-use crate::{
-    domain::rum::event::{RumStream, stream_schema},
-    infra::{
-        query::{
-            analyzer::session_context, arrow_json::batches_to_json, current_views::CURRENT_VIEWS,
-        },
-        rum::query::{BucketPlan, Filter, PanelRole, Scope},
-        storage::arrow_schema::{align_batch_to_schema, to_arrow},
-    },
+use crate::infra::{
+    query::{analyzer::session_context, arrow_json::batches_to_json, current_views::CURRENT_VIEWS},
+    rum::query::{BucketPlan, Filter, PanelRole, Scope},
+    storage::arrow_schema::{align_batch_to_schema, to_arrow},
 };
 
 const HOUR: i64 = 3_600_000_000;

@@ -11,6 +11,8 @@
 pub mod read;
 pub mod select;
 
+use domain::rum::{RumIssue, RumIssueRepository, event::RumStream};
+use kernel::{Error, Result};
 use serde::Serialize;
 
 use self::{
@@ -21,11 +23,7 @@ use super::{
     reader::{Reader, within_budget},
     selection::Selection,
 };
-use crate::{
-    domain::rum::{RumIssue, RumIssueRepository, event::RumStream},
-    infra::rum::query::{Filter, Scope, Unavailable},
-    shared::{Error, Result},
-};
+use crate::infra::rum::query::{Filter, Scope, Unavailable};
 
 /// How many issues a list shows unless it asks for fewer or more.
 pub const DEFAULT_LIMIT: usize = 50;

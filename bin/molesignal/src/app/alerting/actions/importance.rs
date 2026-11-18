@@ -3,19 +3,17 @@
 
 //! 改优先级与紧急度。
 
+use domain::alerting::{
+    handling::EscalationReason,
+    incident::{Incident, IncidentStatus},
+    priority::Priority,
+    timeline::TimelineKind,
+    urgency::Urgency,
+};
+use kernel::{Result, ids::Id};
 use serde_json::json;
 
 use super::{Actor, IncidentActions, check_actionable};
-use crate::{
-    domain::alerting::{
-        handling::EscalationReason,
-        incident::{Incident, IncidentStatus},
-        priority::Priority,
-        timeline::TimelineKind,
-        urgency::Urgency,
-    },
-    shared::{Result, ids::Id},
-};
 
 impl IncidentActions {
     /// 改优先级（`None` 是不设）。只改优先级，不重新通知。

@@ -15,11 +15,9 @@
 use std::sync::OnceLock;
 
 use prometheus::{HistogramVec, IntCounterVec, IntGauge, IntGaugeVec};
+use signals::metrics::{register_histogram_vec, register_int_counter_vec, register_int_gauge_vec};
 
 use super::rotation::RotationReason;
-use crate::shared::metrics::{
-    register_histogram_vec, register_int_counter_vec, register_int_gauge_vec,
-};
 
 static FLUSH_ERRORS: OnceLock<IntCounterVec> = OnceLock::new();
 static ROTATIONS: OnceLock<IntCounterVec> = OnceLock::new();
@@ -111,7 +109,7 @@ pub(super) fn inc_series_rejection(reason: &'static str) {
 
 fn active_series_gauge() -> &'static IntGauge {
     ACTIVE_SERIES.get_or_init(|| {
-        crate::shared::metrics::register_int_gauge(
+        signals::metrics::register_int_gauge(
             "prometheus_active_series",
             "Active hashed Prometheus series tracked by this process",
         )
@@ -140,7 +138,7 @@ pub(super) fn inc_memory_rejection(stream_type: &str) {
 
 fn reserved_buffer_bytes_gauge() -> &'static IntGauge {
     RESERVED_BUFFER_BYTES.get_or_init(|| {
-        crate::shared::metrics::register_int_gauge(
+        signals::metrics::register_int_gauge(
             "intake_buffer_reserved_bytes",
             "Raw payload bytes reserved until a full intake flush transaction succeeds",
         )
@@ -252,7 +250,7 @@ fn wal_recovery_quarantined() -> &'static prometheus::IntCounter {
     static C: OnceLock<prometheus::IntCounter> = OnceLock::new();
 
     C.get_or_init(|| {
-        crate::shared::metrics::register_int_counter(
+        signals::metrics::register_int_counter(
             "wal_recovery_quarantined_total",
             "WAL segments or epoch dirs moved to quarantine during recovery",
         )
@@ -263,7 +261,7 @@ fn wal_recovery_tail_truncated() -> &'static prometheus::IntCounter {
     static C: OnceLock<prometheus::IntCounter> = OnceLock::new();
 
     C.get_or_init(|| {
-        crate::shared::metrics::register_int_counter(
+        signals::metrics::register_int_counter(
             "wal_recovery_tail_truncated_total",
             "Active WAL segments whose incomplete tail was truncated during recovery",
         )

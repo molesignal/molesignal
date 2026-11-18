@@ -7,14 +7,12 @@
 //! 域名或允许登录的组圈定范围，并且只认身份源确认过的邮箱，否则任何人都能开号进
 //! 组织。判断看端点的主机，手工配置的通用接入同样适用。
 
+use domain::iam::{SsoProvider, SsoProviderConfig};
+use kernel::{Error, Result, ids::Id};
 use url::Url;
 
 use super::provision::FederatedIdentity;
-use crate::{
-    api::AppState,
-    domain::iam::{SsoProvider, SsoProviderConfig},
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 /// 谁都能注册账号的身份源主机。
 const PUBLIC_HOSTS: [&str; 3] = ["accounts.google.com", "github.com", "gitlab.com"];
@@ -123,14 +121,13 @@ pub(super) async fn ensure_identity_allowed(
 
 #[cfg(test)]
 mod tests {
-    use super::accepts_public_accounts;
-    use crate::{
-        domain::iam::{
-            SsoLdapConfig, SsoOauth2Config, SsoOidcConfig, SsoPlatform, SsoProvider,
-            SsoProviderConfig, SsoProviderKind,
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use domain::iam::{
+        SsoLdapConfig, SsoOauth2Config, SsoOidcConfig, SsoPlatform, SsoProvider, SsoProviderConfig,
+        SsoProviderKind,
     };
+    use kernel::{ids::Id, time::TimestampMicros};
+
+    use super::accepts_public_accounts;
 
     fn provider(config: SsoProviderConfig) -> SsoProvider {
         SsoProvider {

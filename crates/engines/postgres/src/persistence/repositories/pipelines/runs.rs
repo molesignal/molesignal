@@ -7,11 +7,11 @@
 //! 一次运行读入的事件，结束时各落在写出、丢弃、失败三者之一。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

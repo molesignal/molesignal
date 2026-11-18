@@ -9,17 +9,15 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use domain::apm::{
+    BucketDimension, BucketKind, InstanceObservation, MergedBucket, ServiceIdentity,
+};
+use kernel::{Error, Result};
 use serde::Serialize;
 
 use super::{
     ApmQueryContext, ApmQueryService, RedSparkPoint, RedSummary,
     aggregate::{red_from_buckets_at, sparkline_from_buckets},
-};
-use crate::{
-    domain::apm::{
-        BucketDimension, BucketKind, InstanceObservation, MergedBucket, ServiceIdentity,
-    },
-    shared::{Error, Result},
 };
 
 /// The most instances a service's list holds.

@@ -20,10 +20,10 @@ use base64::{
     Engine as _, alphabet,
     engine::{GeneralPurpose, GeneralPurposeConfig, general_purpose::STANDARD},
 };
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::WecomAppConfig;
-use crate::shared::{Error, Result};
 
 /// 企业微信按 32 字节补齐。
 const PADDING_BLOCK: usize = 32;

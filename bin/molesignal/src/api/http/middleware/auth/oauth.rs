@@ -3,16 +3,13 @@
 
 use std::collections::BTreeSet;
 
+use agent::inbound_mcp::InboundMcpOAuthTokenKind;
+use domain::iam::{IamContext, IamScope};
+use kernel::{Error, Result, time::TimestampMicros};
 use sha2::{Digest, Sha256};
 
 use super::AuthenticatedCredential;
-use crate::{
-    agent::inbound_mcp::InboundMcpOAuthTokenKind,
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::IamScope,
-    shared::{Error, Result, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub(crate) fn token_hash(token: &str) -> String {
     hex::encode(Sha256::digest(token.as_bytes()))

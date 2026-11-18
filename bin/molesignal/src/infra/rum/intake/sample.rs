@@ -6,7 +6,7 @@
 //! and the sessions that are kept have all they did. What share a session is kept with is for
 //! [`super::retention`] to say.
 
-use crate::domain::rum::MAX_SESSION_SAMPLE_RATE;
+use domain::rum::MAX_SESSION_SAMPLE_RATE;
 
 /// A number from 0 to 99 that the session id decides and every node agrees on: FNV-1a over the
 /// id, mixed so that ids that differ only in their last digits still spread over the range.

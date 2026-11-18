@@ -11,24 +11,22 @@
 
 use std::collections::BTreeMap;
 
+use domain::alerting::{
+    escalation::DEFAULT_POLICY_ID,
+    handling::{EscalationReason, IncidentHandling},
+    incident::{
+        CREATED_BY_ANNOTATION, DESCRIPTION_ANNOTATION, Incident, IncidentStatus, MANUAL_RULE_ID,
+        MANUAL_SOURCE, SOURCE_LABEL, Severity,
+    },
+    priority::Priority,
+    routing::{IncidentRouting, RoutingReason},
+    urgency::Urgency,
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
 use super::{Actor, IncidentActions, assign::MAX_ASSIGNEES};
-use crate::{
-    app::notify::{ALERT_TRIGGERED_EVENT, alert_dispatch},
-    domain::alerting::{
-        escalation::DEFAULT_POLICY_ID,
-        handling::{EscalationReason, IncidentHandling},
-        incident::{
-            CREATED_BY_ANNOTATION, DESCRIPTION_ANNOTATION, Incident, IncidentStatus,
-            MANUAL_RULE_ID, MANUAL_SOURCE, SOURCE_LABEL, Severity,
-        },
-        priority::Priority,
-        routing::{IncidentRouting, RoutingReason},
-        urgency::Urgency,
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::app::notify::{ALERT_TRIGGERED_EVENT, alert_dispatch};
 
 /// 标题最长几个字符。
 const MAX_TITLE_CHARS: usize = 200;
@@ -292,8 +290,10 @@ impl IncidentActions {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::timeline::ActionVia;
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{domain::alerting::timeline::ActionVia, shared::time::TimestampMicros};
 
     fn actor() -> Actor {
         Actor {

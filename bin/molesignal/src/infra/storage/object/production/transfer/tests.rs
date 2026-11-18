@@ -10,9 +10,9 @@ use futures::stream::BoxStream;
 use object_store::{
     CopyOptions, Error as OsError, ListResult, ObjectStoreExt, UploadPart, memory::InMemory,
 };
+use settings::ObjectStoreSettings;
 
 use super::*;
-use crate::config::ObjectStoreSettings;
 
 const KIB: usize = 1024;
 const MIB_USIZE: usize = 1024 * 1024;

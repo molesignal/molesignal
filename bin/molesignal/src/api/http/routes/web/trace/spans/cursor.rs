@@ -3,19 +3,19 @@
 
 //! Signed keyset cursors for the Span list.
 
+use kernel::{Error, Result, cursor::CursorDirection, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use super::{SpanListContext, SpanListItem, SpanListSort};
 use crate::{
     api::http::{
-        pagination::cursor::{CursorDirection, decode_signed_cursor, encode_signed_cursor},
+        pagination::cursor::{decode_signed_cursor, encode_signed_cursor},
         routes::web::trace::{
             filter::{TraceCondition, TraceFilter},
             list::MAX_TRACE_PAGE_SIZE,
         },
     },
     app::iam::IamService,
-    shared::{Error, Result, ids::Id},
 };
 
 const CURSOR_VERSION: u8 = 1;

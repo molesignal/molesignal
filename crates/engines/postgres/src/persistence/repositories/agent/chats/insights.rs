@@ -6,14 +6,12 @@
 
 use std::collections::BTreeMap;
 
+use agent::insights::{AutomationUse, InsightScope, Insights, ToolUse, ranked};
+use kernel::{Result, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::super::sqlx_err;
-use crate::{
-    agent::insights::{AutomationUse, InsightScope, Insights, ToolUse, ranked},
-    shared::{Result, time::TimestampMicros},
-};
 
 /// 范围里的会话：$1 组织，$2 个人会话的主人（可空），$3 团队。
 const SCOPE_CHATS: &str = "WITH scope_chats AS (

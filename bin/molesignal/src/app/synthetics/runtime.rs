@@ -2,18 +2,16 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::synthetics::{
+    MonitorLifecycle, MonitorRevision, MonitorState, ProbeOutcome, ProbeTask, ProbeTaskState,
+    StateObservation, SyntheticMonitor, SyntheticResult, SyntheticResultListQuery,
+    SyntheticResultPage, SyntheticStateTransition,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{
     NoDataChange, SyntheticService, aggregate_locations, next_due_at, no_data::missing_threshold,
-};
-use crate::{
-    domain::synthetics::{
-        MonitorLifecycle, MonitorRevision, MonitorState, ProbeOutcome, ProbeTask, ProbeTaskState,
-        StateObservation, SyntheticMonitor, SyntheticResult, SyntheticResultListQuery,
-        SyntheticResultPage, SyntheticStateTransition,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[derive(Debug, Clone, Serialize)]

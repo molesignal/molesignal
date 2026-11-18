@@ -12,6 +12,8 @@
 //! no-op（返回 0 条）。
 
 use async_trait::async_trait;
+use domain::intake::RawEvent;
+use kernel::{Error, Result, time::TimestampMicros};
 use object_store::aws::AwsCredentialProvider;
 use serde_json::{Map, Value};
 
@@ -21,10 +23,6 @@ use super::{
         self,
         sigv4::{self, SigningKey},
     },
-};
-use crate::{
-    domain::intake::RawEvent,
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 /// 默认回溯窗口（首次运行、无 last_run 时）：5 分钟。
@@ -154,10 +152,10 @@ impl CloudWatchLogsConnector {
             req = req.header("x-amz-security-token", tok);
         }
 
-        let resp = crate::shared::http_trace::send(
+        let resp = signals::http_trace::send(
             client,
             req.body(body),
-            crate::shared::http_trace::HttpTarget::ThirdParty,
+            signals::http_trace::HttpTarget::ThirdParty,
         )
         .await
         .map_err(|e| Error::unavailable(format!("cloudwatch request: {e}")))?;

@@ -10,23 +10,20 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    metrics::{
+        PrometheusExemplar as DomainExemplar, PrometheusExemplarSeries as DomainExemplarSeries,
+    },
+    query::{QueryLanguage, QueryRequest},
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        metrics::{
-            PrometheusExemplar as DomainExemplar, PrometheusExemplarSeries as DomainExemplarSeries,
-        },
-        query::{QueryLanguage, QueryRequest},
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::api::AppState;
 
 const MAX_EXEMPLARS_PER_QUERY: usize = 10_000;
 
@@ -184,8 +181,9 @@ impl From<DomainExemplar> for Exemplar {
 
 #[cfg(test)]
 mod tests {
+    use domain::metrics::{MetricLabelSet, PrometheusExemplarSeries};
+
     use super::*;
-    use crate::domain::metrics::{MetricLabelSet, PrometheusExemplarSeries};
 
     #[test]
     fn parses_epoch_seconds_and_rfc3339() {

@@ -12,6 +12,7 @@
 //! 改变文件集合。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimeRange};
 
 use super::{
     artifact::{Artifact, StoredObject},
@@ -24,7 +25,6 @@ use super::{
     segment::{DataSegment, Partition},
     wal::FlushProvenance,
 };
-use crate::shared::{Error, Result, ids::Id, time::TimeRange};
 
 /// 僵尸 writer 栅栏拒绝 flush 时，冲突信息的固定前缀。
 const STALE_WRITER_EPOCH: &str = "stale writer epoch";
@@ -301,7 +301,7 @@ pub trait FileCatalog: Send + Sync {
         _scope: &OrganizationScope,
         _command: PublishDatasetTransform,
     ) -> Result<DatasetTransformResult> {
-        Err(crate::shared::Error::unavailable(
+        Err(kernel::Error::unavailable(
             "cross-dataset transforms are not supported by this FileCatalog",
         ))
     }
@@ -355,7 +355,7 @@ pub trait FileCatalog: Send + Sync {
         _scope: &OrganizationScope,
         _command: PublishPartitionManifest,
     ) -> Result<u64> {
-        Err(crate::shared::Error::unavailable(
+        Err(kernel::Error::unavailable(
             "partition manifests are not supported by this FileCatalog",
         ))
     }

@@ -4,17 +4,16 @@
 //! 开事件之前交给告警流水线（[`crate::app::alerting::event_pipelines`]），事件写库后把流水线改了什么
 //! 记进它的时间线，以及来源重新报严重度时经流水线再定一次。没有接上流水线的评估器原样放行。
 
-use super::RuleEvaluator;
-use crate::{
-    app::alerting::event_pipelines::{AlertOrigin, PipelineTrace, Processed},
-    domain::{
-        alerting::{
-            incident::{Incident, Severity},
-            timeline::{TimelineEntry, TimelineKind},
-        },
-        pipeline::alert::AlertEventSource,
+use domain::{
+    alerting::{
+        incident::{Incident, Severity},
+        timeline::{TimelineEntry, TimelineKind},
     },
+    pipeline::alert::AlertEventSource,
 };
+
+use super::RuleEvaluator;
+use crate::app::alerting::event_pipelines::{AlertOrigin, PipelineTrace, Processed};
 
 impl RuleEvaluator {
     /// 交给告警流水线：改过的事件，或丢弃的原因。规则要开的事件被丢掉时记下规则，这一轮写回规则

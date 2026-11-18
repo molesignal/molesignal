@@ -8,22 +8,19 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::{
+    function::{Function, FunctionLanguage, FunctionOutcome},
+    i18n_language::LanguagePack,
+    iam::{IamContext, permission, resource_permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::functions::precheck_compile;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    api::{
-        AppState,
-        http::{interface_language::interface_language_pack, middleware::ProtectedResource},
-    },
-    app::iam::IamContext,
-    domain::{
-        function::{Function, FunctionLanguage, FunctionOutcome},
-        i18n_language::LanguagePack,
-        iam::{permission, resource_permission},
-    },
-    infra::persistence::repositories::functions::precheck_compile,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::api::{
+    AppState,
+    http::{interface_language::interface_language_pack, middleware::ProtectedResource},
 };
 
 /// What each built-in function does is in the `i18n_language` table under
@@ -355,7 +352,7 @@ mod reader_language_tests {
     use serde_json::json;
 
     use super::*;
-    use crate::shared::i18n_language_seed::seeded_pack;
+    use crate::i18n_language_seed::seeded_pack;
 
     fn function(org_id: &str, name: &str, params_schema: Value) -> Function {
         Function {

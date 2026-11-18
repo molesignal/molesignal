@@ -8,12 +8,10 @@
 //! 多因素认证会影响账号所在的每个组织，所以只对只属于当前组织的账号开放；也在别的组织的
 //! 账号，管理员只能把它从当前组织移除。平台管理员不受这一条限制。
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::IamMembership,
-    shared::{Error, Result, ids::Id},
-};
+use domain::iam::{IamContext, IamMembership};
+use kernel::{Error, Result, ids::Id};
+
+use crate::api::AppState;
 
 /// 一个账号和当前组织的关系。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,8 +99,9 @@ pub(crate) async fn account_of_current_org(
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn membership(org_id: &str) -> IamMembership {
         IamMembership {

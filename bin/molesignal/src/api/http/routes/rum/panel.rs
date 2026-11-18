@@ -8,21 +8,18 @@
 //! reader picks, and the page that adds the panel puts it into a dashboard.
 
 use axum::{Extension, Json, extract::State};
+use domain::iam::{IamContext, permission};
+use kernel::Result;
 use serde::Deserialize;
 
 use super::selection::Selection;
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        rum::{
-            aggregate::descending,
-            panel::{self, Chart, Panel},
-        },
+    app::rum::{
+        aggregate::descending,
+        panel::{self, Chart, Panel},
     },
-    domain::iam::permission,
     infra::rum::query::{Filter, MeasureSpec},
-    shared::Result,
 };
 
 #[derive(Debug, Deserialize)]

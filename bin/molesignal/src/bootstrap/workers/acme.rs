@@ -15,12 +15,10 @@ use std::{
 };
 
 use dashmap::DashMap;
+use kernel::time::TimestampMicros;
+use postgres::repositories::domains::{DomainRepository, DomainRow};
 
-use crate::{
-    bootstrap::{acme::AcmeClient, tls::SniCertResolver},
-    infra::persistence::repositories::domains::{DomainRepository, DomainRow},
-    shared::time::TimestampMicros,
-};
+use crate::bootstrap::{acme::AcmeClient, tls::SniCertResolver};
 
 const COOLDOWN: Duration = Duration::from_secs(60);
 const RENEWAL_LEAD_MICROS: i64 = 30 * 24 * 3600 * 1_000_000;
@@ -200,8 +198,9 @@ pub fn due_for_renewal(rows: &[DomainRow], now_micros: i64) -> Vec<&DomainRow> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn mk_row(hostname: &str, not_after: Option<i64>) -> DomainRow {
         DomainRow {

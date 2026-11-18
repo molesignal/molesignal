@@ -5,10 +5,10 @@
 //! kept.
 
 use contracts::rum_event_validator;
+use domain::rum::event::RumEventType;
 use serde_json::{Map, Value};
 
 use super::convert::integral;
-use crate::domain::rum::event::RumEventType;
 
 /// How far ahead of the server clock an event may claim to have begun. A device clock that is a
 /// little fast is common; one that is days ahead would put the event in the wrong partition.

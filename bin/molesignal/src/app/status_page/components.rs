@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::{
+    ComponentKind, ComponentLifecycle, ComponentStatus, ComponentVisibility, StatusPageComponent,
+    StatusPageComponentStatusEvent, StatusPageLifecycle, group_members,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     MAX_COMPONENTS_PER_PAGE, StatusPageComponentInput, StatusPageService,
     validation::validate_component_input,
-};
-use crate::{
-    domain::status_page::{
-        ComponentKind, ComponentLifecycle, ComponentStatus, ComponentVisibility,
-        StatusPageComponent, StatusPageComponentStatusEvent, StatusPageLifecycle, group_members,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 impl StatusPageService {

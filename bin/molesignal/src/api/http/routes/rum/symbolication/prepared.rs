@@ -3,13 +3,12 @@
 
 //! Parsed debug artifacts reused across every matching frame in one intake request.
 
+use domain::rum::DebugArtifactKind;
+use kernel::Result;
+
 use super::frame::FramePlan;
-use crate::{
-    domain::rum::DebugArtifactKind,
-    infra::rum::symbolication::{
-        AndroidMapping, JavascriptSourceMap, NativeSymbolicator, OriginalFrame,
-    },
-    shared::Result,
+use crate::infra::rum::symbolication::{
+    AndroidMapping, JavascriptSourceMap, NativeSymbolicator, OriginalFrame,
 };
 
 pub(super) enum PreparedArtifact {

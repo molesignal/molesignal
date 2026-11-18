@@ -6,18 +6,16 @@
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::connector::{
+    ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+    ConnectorRegion, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{Account, needs_the_connector, regions, send_message};
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-        ConnectorRegion, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
-    },
-    infra::notify::adapters::{common, phone},
-    shared::{Error, Result},
-};
+use crate::infra::notify::adapters::{common, phone};
 
 pub const AWS_VOICE_CONNECTOR_TYPE: &str = "aws_voice";
 
@@ -195,6 +193,7 @@ impl ConnectorAdapter for AwsVoiceConnectorAdapter {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::connector::NotifyTargetType;
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -205,7 +204,6 @@ mod tests {
         super::tests::{connector, key},
         *,
     };
-    use crate::domain::notify::connector::NotifyTargetType;
 
     #[tokio::test]
     async fn a_call_is_read_twice_by_the_chosen_voice() {

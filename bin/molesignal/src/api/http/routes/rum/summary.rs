@@ -9,10 +9,22 @@
 
 use std::sync::Arc;
 
+use agent::{
+    chat::{
+        ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider, ToolChoice,
+        TransportOptions, adapter_from_parts, observed_complete,
+    },
+    usage::UsageOrigin,
+};
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    rum::{RumSessionSummary, RumSummaryChapter},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -22,13 +34,6 @@ use super::{
     timeline::{self, Timeline},
 };
 use crate::{
-    agent::{
-        chat::{
-            ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider, ToolChoice,
-            TransportOptions, adapter_from_parts, observed_complete,
-        },
-        usage::UsageOrigin,
-    },
     api::{
         AppState,
         http::interface_language::{interface_language, interface_language_pack},
@@ -36,14 +41,8 @@ use crate::{
     },
     app::{
         agent_usage::{BudgetGate, UsageScope},
-        iam::IamContext,
         rum::summary::{digest_of, input_of, read_answer},
     },
-    domain::{
-        iam::permission,
-        rum::{RumSessionSummary, RumSummaryChapter},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// What the model is given to answer in, unless its settings say less.

@@ -6,19 +6,17 @@
 
 use std::collections::HashMap;
 
+use domain::{
+    storage::{
+        DataSegment, DatasetSelection, DatasetSnapshot, DatasetState, OrganizationScope,
+        PhysicalDataset, PhysicalDatasetId,
+    },
+    stream::StreamDefinition,
+};
 use futures::{StreamExt, TryStreamExt};
+use kernel::{Result, ids::Id, time::TimeRange};
 
 use super::CatalogQuerySource;
-use crate::{
-    domain::{
-        storage::{
-            DataSegment, DatasetSelection, DatasetSnapshot, DatasetState, OrganizationScope,
-            PhysicalDataset, PhysicalDatasetId,
-        },
-        stream::StreamDefinition,
-    },
-    shared::{Result, ids::Id, time::TimeRange},
-};
 
 /// Sealed manifests of one dataset read at once. They are small objects, most of them cached.
 const MANIFEST_READS: usize = 8;

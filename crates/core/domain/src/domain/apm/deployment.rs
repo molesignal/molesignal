@@ -8,10 +8,10 @@
 //! sees in spans are told apart from these; the deployments page puts the two
 //! side by side, and insights name the changes near a move.
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::masked_repository_address;
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// The most deployments a list answers.
 pub const DEPLOYMENTS_LISTED_MAX: usize = 200;

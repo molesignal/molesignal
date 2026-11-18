@@ -4,21 +4,19 @@
 //! `alert_routing_rules`（路由规则）与 `alert_team_policies`（团队的值班策略）的 Pg 实装。
 
 use async_trait::async_trait;
+use domain::alerting::{
+    incident::Severity,
+    priority::Priority,
+    routing::{
+        IncidentOrigin, LabelCondition, RoutingRule, RoutingRuleRepository, RoutingTarget,
+        TeamPolicy, TeamPolicyRepository,
+    },
+    time_window::TimeCondition,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::{
-        incident::Severity,
-        priority::Priority,
-        routing::{
-            IncidentOrigin, LabelCondition, RoutingRule, RoutingRuleRepository, RoutingTarget,
-            TeamPolicy, TeamPolicyRepository,
-        },
-        time_window::TimeCondition,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgRoutingRuleRepository {
     pool: PgPool,

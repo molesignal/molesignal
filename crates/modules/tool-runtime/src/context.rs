@@ -247,10 +247,8 @@ pub trait ToolDispatcher: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use domain::{
-        iam::{IamContext, IamScope, access::IamPrincipalType},
-        shared::ids::Id,
-    };
+    use domain::iam::{IamContext, IamScope, access::IamPrincipalType};
+    use kernel::ids::Id;
 
     use super::*;
 

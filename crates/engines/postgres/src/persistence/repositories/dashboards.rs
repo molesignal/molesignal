@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::dashboard::{Dashboard, repositories::DashboardRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::dashboard::{Dashboard, repositories::DashboardRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgDashboardRepository {
     pool: PgPool,

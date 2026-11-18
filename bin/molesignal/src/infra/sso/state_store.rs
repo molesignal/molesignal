@@ -18,14 +18,11 @@
 //! 「只允许单点登录」的组织只有这一个入口，撑满表的请求只会让别人等着的登录早点过期，挡不住登录。
 //! 上限按发放顺序算（`one_time_tokens.seq`，各类一次性令牌共用），不用数行数，开销不随表的大小增长。
 
+use kernel::{Error, Result, time::TimestampMicros};
+use postgres::{cipher::CipherRootKey, sqlx_err};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
-
-use crate::{
-    infra::{cipher::CipherRootKey, persistence::sqlx_err},
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 /// 条目数的上限：只留最近发放的这么多个。
 pub const MAX_ENTRIES: i64 = 50_000;

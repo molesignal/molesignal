@@ -21,24 +21,21 @@ use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    rum::{RumIssue, RumIssueChange, RumIssueStatus},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Deserializer};
 
 use super::{address::json_list, reader::Reader};
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{
-        iam::IamContext,
-        rum::issues::{
-            self, DEFAULT_LIMIT, Detail, Listing, checked_id, descending, present,
-            select::{Holder, Sort, StatusFilter},
-        },
-    },
-    domain::{
-        iam::permission,
-        rum::{RumIssue, RumIssueChange, RumIssueStatus},
+    app::rum::issues::{
+        self, DEFAULT_LIMIT, Detail, Listing, checked_id, descending, present,
+        select::{Holder, Sort, StatusFilter},
     },
     infra::rum::query::Filter,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[derive(Debug, Default, Deserialize)]

@@ -4,15 +4,13 @@
 //! 钉钉卡片：即时通讯模板有卡片时，应用机器人发 `sampleActionCard` 系列，群机器人发 `actionCard`；
 //! 链接是卡片下面的按钮，没有链接时是 Markdown。
 
+use domain::notify::{connector::NotifyMessage, template::NotifyCard};
 use serde_json::{Value, json};
 
 use super::MAX_TEXT_CHARS;
-use crate::{
-    domain::notify::{connector::NotifyMessage, template::NotifyCard},
-    infra::notify::adapters::{
-        card::{card_color, card_title},
-        common::{body, truncate_chars},
-    },
+use crate::infra::notify::adapters::{
+    card::{card_color, card_title},
+    common::{body, truncate_chars},
 };
 
 /// 一张卡片的标题与 Markdown 正文：标题按颜色上色，再是正文，字段一行一个，页脚是灰字。
@@ -114,13 +112,13 @@ mod tests {
     fn card_with_links(count: usize) -> (NotifyMessage, NotifyCard) {
         let card = NotifyCard {
             title: "Disk full on db-1".into(),
-            color: crate::domain::notify::template::NotifyCardColor::Red,
-            fields: vec![crate::domain::notify::template::NotifyCardField {
+            color: domain::notify::template::NotifyCardColor::Red,
+            fields: vec![domain::notify::template::NotifyCardField {
                 label: "Host".into(),
                 value: "db-1".into(),
             }],
             links: (1..=count)
-                .map(|index| crate::domain::notify::template::NotifyCardLink {
+                .map(|index| domain::notify::template::NotifyCardLink {
                     label: format!("Link {index}"),
                     url: format!("https://example.com/{index}"),
                 })

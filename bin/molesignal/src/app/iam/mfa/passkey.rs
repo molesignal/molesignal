@@ -12,6 +12,8 @@
 //! 其余照库的默认：attestation 只要 none，不限验证器类型，要求用户验证，同步型 Passkey 的备份
 //! 标志和恒为 0 的签名计数都照常接受。凭据仍由库校验。
 
+use domain::iam::User;
+use kernel::{Error, Result, ids::Id};
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
 use webauthn_rs::prelude::{
@@ -19,11 +21,6 @@ use webauthn_rs::prelude::{
     Uuid, Webauthn, WebauthnBuilder,
 };
 use webauthn_rs_proto::ResidentKeyRequirement;
-
-use crate::{
-    domain::iam::User,
-    shared::{Error, Result, ids::Id},
-};
 
 /// Passkey 为什么不可用。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -151,6 +148,8 @@ mod tests {
     };
     use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
     use ciborium::Value;
+    use domain::iam::UserStatus;
+    use kernel::time::TimestampMicros;
     use serde_json::json;
     use webauthn_rs::prelude::{
         DiscoverableAuthentication, DiscoverableKey, Passkey, PasskeyAuthentication,
@@ -158,7 +157,6 @@ mod tests {
     };
 
     use super::*;
-    use crate::{domain::iam::UserStatus, shared::time::TimestampMicros};
 
     const ORIGIN: &str = "https://ops.example.com";
     /// iCloud 钥匙串的 AAGUID。

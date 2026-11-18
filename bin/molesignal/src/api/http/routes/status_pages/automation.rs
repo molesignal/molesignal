@@ -9,27 +9,24 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
+use domain::{
+    alerting::incident::Severity,
+    iam::{IamContext, permission},
+    status_page::{
+        ActiveAutomationRule, AutomationCandidate, AutomationCandidateDetail,
+        AutomationCandidateState, AutomationSourceKind, AutomationSourceObservation,
+        StatusAutomationRevision, StatusAutomationRule,
+    },
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{
-        iam::IamContext,
-        status_page::{
-            AutomationApprovalInput, AutomationLifecycleInput, AutomationRuleInput,
-            AutomationRuleOrderInput, AutomationSettingsInput,
-        },
+    app::status_page::{
+        AutomationApprovalInput, AutomationLifecycleInput, AutomationRuleInput,
+        AutomationRuleOrderInput, AutomationSettingsInput,
     },
-    domain::{
-        alerting::incident::Severity,
-        iam::permission,
-        status_page::{
-            ActiveAutomationRule, AutomationCandidate, AutomationCandidateDetail,
-            AutomationCandidateState, AutomationSourceKind, AutomationSourceObservation,
-            StatusAutomationRevision, StatusAutomationRule,
-        },
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {

@@ -3,18 +3,16 @@
 
 use std::sync::{Arc, Mutex};
 
+use agent::im::{AlertCard, CardAction, CardAnswer, NoticeKind};
 use async_trait::async_trait;
+use domain::notify::{
+    buttons::{AlertAction, AlertButtonValue, AlertButtons},
+    connector::{NotifyConnector, NotifyMessage},
+};
+use kernel::time::TimestampMicros;
 use tokio::net::TcpListener;
 
 use super::*;
-use crate::{
-    agent::im::{AlertCard, CardAction, CardAnswer, NoticeKind},
-    domain::notify::{
-        buttons::{AlertAction, AlertButtonValue, AlertButtons},
-        connector::{NotifyConnector, NotifyMessage},
-    },
-    shared::time::TimestampMicros,
-};
 
 fn callback(body: Value) -> Value {
     json!({ "cmd": "aibot_msg_callback", "headers": { "req_id": "req-1" }, "body": body })

@@ -4,12 +4,10 @@
 //! The postmortem of an incident, kept on the incident row.
 
 use async_trait::async_trait;
+use domain::status_page::{PostmortemWrite, StatusPageIncident, StatusPagePostmortemRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::{PgStatusPageRepository, event_queries::fetch_incident, touch_page};
-use crate::{
-    domain::status_page::{PostmortemWrite, StatusPageIncident, StatusPagePostmortemRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 #[async_trait]
 impl StatusPagePostmortemRepository for PgStatusPageRepository {

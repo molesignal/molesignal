@@ -6,10 +6,10 @@
 //! 空名单 = 不限制；邀请 / SSO 自助开户时校验邮箱域是否准入。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id};
 use sqlx::PgPool;
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id};
 
 #[async_trait]
 pub trait EmailDomainRepository: Send + Sync {

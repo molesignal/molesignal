@@ -4,19 +4,16 @@
 use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    iam::{Team, TeamRepository},
+    notify::{
+        policy::NotifyEvent,
+        recipient::{NotifyRecipient, RecipientResolver},
+    },
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::Value;
-
-use crate::{
-    domain::{
-        iam::{Team, TeamRepository},
-        notify::{
-            policy::NotifyEvent,
-            recipient::{NotifyRecipient, RecipientResolver},
-        },
-    },
-    shared::{Error, Result, ids::Id},
-};
 
 pub const TEAM_MEMBERS_RESOLVER: &str = "team_members";
 pub const TEAM_LEAD_RESOLVER: &str = "team_lead";

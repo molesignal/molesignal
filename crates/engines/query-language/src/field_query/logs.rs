@@ -8,11 +8,11 @@
 
 use std::sync::LazyLock;
 
+use kernel::{Error, Result};
 use regex::Regex;
 use serde::Serialize;
 
 use super::expression::{FieldExpression, parse_field_expression, quoted_text};
-use crate::shared::{Error, Result};
 
 /// One comparison or search function of a log query.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

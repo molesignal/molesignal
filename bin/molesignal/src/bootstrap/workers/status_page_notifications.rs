@@ -3,10 +3,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use kernel::Result;
 use tokio::task::JoinHandle;
 
 use super::polling::PollingBackoff;
-use crate::{app::status_page::StatusPageService, shared::Result};
+use crate::app::status_page::StatusPageService;
 
 pub struct StatusPageNotificationWorker {
     service: Arc<StatusPageService>,

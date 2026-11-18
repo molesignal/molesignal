@@ -9,13 +9,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use kernel::{Result, time::TimestampMicros};
+use postgres::repositories::search::admission_load::SearchAdmissionLoadRepository;
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::search::AdmissionController,
-    infra::persistence::repositories::search::admission_load::SearchAdmissionLoadRepository,
-    shared::{Result, time::TimestampMicros},
-};
+use crate::app::search::AdmissionController;
 
 pub struct AdmissionLoadSync {
     node_id: String,

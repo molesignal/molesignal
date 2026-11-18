@@ -9,10 +9,9 @@ pub mod authoring;
 pub mod contract_registry;
 pub mod repositories;
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::shared::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

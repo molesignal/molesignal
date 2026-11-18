@@ -7,18 +7,18 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use domain::{
+    iam::IamContext,
+    notify::{connector::NotifyMessage, endpoint::UserNotifyEndpoint},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::ensure_user_scope;
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        notify::{CreateUserNotifyEndpoint, UpdateUserNotifyEndpoint},
-    },
-    domain::notify::{connector::NotifyMessage, endpoint::UserNotifyEndpoint},
-    shared::{Error, Result, ids::Id},
+    app::notify::{CreateUserNotifyEndpoint, UpdateUserNotifyEndpoint},
 };
 
 pub(super) fn routes() -> Router<AppState> {

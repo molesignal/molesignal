@@ -10,8 +10,7 @@
 use std::sync::OnceLock;
 
 use prometheus::IntCounterVec;
-
-use crate::shared::metrics::register_int_counter_vec;
+use signals::metrics::register_int_counter_vec;
 
 static FSYNC_ERRORS: OnceLock<IntCounterVec> = OnceLock::new();
 

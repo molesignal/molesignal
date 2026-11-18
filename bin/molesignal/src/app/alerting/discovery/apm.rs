@@ -6,16 +6,14 @@
 
 use std::sync::Arc;
 
+use domain::alerting::{
+    discovery::{Detection, FindingKind},
+    incident::Severity,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::json;
 
-use crate::{
-    app::apm::{ApmQueryRequest, ApmQueryService, Insight, InsightKind, InsightSeverity},
-    domain::alerting::{
-        discovery::{Detection, FindingKind},
-        incident::Severity,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::apm::{ApmQueryRequest, ApmQueryService, Insight, InsightKind, InsightSeverity};
 
 /// 看最近多久。
 const LOOKBACK_MICROS: i64 = 30 * 60 * 1_000_000;

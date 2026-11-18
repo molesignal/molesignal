@@ -20,10 +20,9 @@
 
 use std::collections::BTreeSet;
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::shared::{Error, Result};
 
 /// The version of the policy language a document is written in.
 pub const POLICY_VERSION: &str = "1";

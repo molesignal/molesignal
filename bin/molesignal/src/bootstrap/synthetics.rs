@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use crate::config::Settings;
+use settings::Settings;
 
 pub(super) fn artifact_base_url(settings: &Settings) -> String {
     let external = settings.http.external_url.trim();

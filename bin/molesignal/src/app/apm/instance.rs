@@ -11,12 +11,9 @@ use std::{
 };
 
 use dashmap::DashMap;
+use domain::apm::{ApmSpanFact, INSTANCE_ATTRIBUTES, INSTANCE_ENTRY_SCOPE, InstanceSighting};
 use serde_json::Value;
-
-use crate::{
-    domain::apm::{ApmSpanFact, INSTANCE_ATTRIBUTES, INSTANCE_ENTRY_SCOPE, InstanceSighting},
-    shared::trace_normalization::CanonicalSpan,
-};
+use signals::trace_normalization::CanonicalSpan;
 
 /// How long, in event time, before an instance is looked at again.
 const LOOK_EVERY_MICROS: i64 = 60_000_000;
@@ -254,7 +251,7 @@ mod tests {
         );
         let fact_at = |micros: i64| {
             let mut fact = crate::app::apm::extract_apm_fact("org", &span).expect("fact");
-            fact.event_time = crate::shared::time::TimestampMicros(micros);
+            fact.event_time = kernel::time::TimestampMicros(micros);
             fact
         };
 

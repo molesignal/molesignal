@@ -10,15 +10,13 @@ use std::{
 };
 
 use axum::http::{HeaderMap, HeaderName};
+use domain::iam::{ClientIpMode, ClientIpResolverSettings};
 use ipnet::IpNet;
+use kernel::{Error, Result};
 use parking_lot::RwLock;
 use serde::Serialize;
 
-use crate::{
-    api::AppState,
-    domain::iam::{ClientIpMode, ClientIpResolverSettings},
-    shared::{Error, Result},
-};
+use crate::api::AppState;
 
 const CLIENT_IP_SETTINGS_REFRESH_SECS: u64 = 30;
 const MAX_TRUSTED_PROXY_CIDRS: usize = 64;

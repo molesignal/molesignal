@@ -4,10 +4,10 @@
 use std::io::Write;
 
 use addr2line::Loader;
+use kernel::{Error, Result};
 use tempfile::NamedTempFile;
 
 use super::OriginalFrame;
-use crate::shared::{Error, Result};
 
 pub struct NativeSymbolicator {
     _file: NamedTempFile,

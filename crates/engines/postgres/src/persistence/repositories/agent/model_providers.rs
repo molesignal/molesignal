@@ -9,16 +9,14 @@
 //!
 //! `ModelProvider` 结构不含密钥字段，可安全 `Serialize` 直接回前端。
 
+use agent::usage::{Currency, ModelPrices};
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
-use crate::{
-    agent::usage::{Currency, ModelPrices},
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
 
 /// Provider 元数据行。**不含**任何 key 明文/密文字段——可安全序列化回前端。
 #[derive(Debug, Clone, Serialize)]

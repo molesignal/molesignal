@@ -8,11 +8,11 @@
 //! 历史数据）。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
 use self::root::CipherRootKey;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 pub mod root;
 
@@ -46,8 +46,8 @@ pub trait CipherKeyRepository: Send + Sync {
     async fn delete(&self, org_id: &Id, name: &str) -> Result<()>;
 }
 
-fn key_not_found(name: &str) -> crate::shared::Error {
-    crate::shared::Error::not_found(format!("cipher key `{name}` does not exist"))
+fn key_not_found(name: &str) -> kernel::Error {
+    kernel::Error::not_found(format!("cipher key `{name}` does not exist"))
 }
 
 pub struct PgCipherKeyRepository {
@@ -62,7 +62,7 @@ impl PgCipherKeyRepository {
 }
 
 fn row_to(r: sqlx::postgres::PgRow, mk: &CipherRootKey) -> Result<CipherKey> {
-    use crate::shared::Error;
+    use kernel::Error;
 
     let enc: Vec<u8> = r
         .try_get("key_material_enc")
@@ -98,7 +98,7 @@ const COLS: &str = "id, org_id, name, alg, version, key_material_enc, nonce,
 #[async_trait]
 impl CipherKeyRepository for PgCipherKeyRepository {
     async fn create(&self, org_id: &Id, name: &str, raw_key: &[u8]) -> Result<CipherKey> {
-        use crate::shared::Error;
+        use kernel::Error;
 
         if raw_key.len() != 32 {
             return Err(Error::invalid("cipher key material must be 32 bytes"));
@@ -146,7 +146,7 @@ impl CipherKeyRepository for PgCipherKeyRepository {
     }
 
     async fn rotate(&self, org_id: &Id, name: &str, raw_key: &[u8]) -> Result<CipherKey> {
-        use crate::shared::Error;
+        use kernel::Error;
 
         if raw_key.len() != 32 {
             return Err(Error::invalid("cipher key material must be 32 bytes"));

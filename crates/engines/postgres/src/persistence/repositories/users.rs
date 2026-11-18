@@ -4,13 +4,11 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
+use domain::iam::{User, UserRepository, UserStatus};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::iam::{User, UserRepository, UserStatus},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgUserRepository {
     pool: PgPool,

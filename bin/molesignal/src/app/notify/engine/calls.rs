@@ -10,23 +10,20 @@
 //!   通讯与邮件合成的一条：标题是第一条的标题加「(+N)」，正文逐条列出，能链到事件的写成链接。
 //! - Webhook 不合并：机器要一个事件一个请求。
 //!
-//! [`ConnectorAdapter::merge_window_secs`]: crate::domain::notify::connector::ConnectorAdapter::merge_window_secs
+//! [`ConnectorAdapter::merge_window_secs`]: domain::notify::connector::ConnectorAdapter::merge_window_secs
 
 use std::time::Instant;
 
-use super::NotifyEngine;
-use crate::{
-    app::notify::config::truncate_error,
-    domain::notify::{
-        call::{CallLine, QueuedCall},
-        connector::{
-            ConnectorAdapter, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
-        },
-        delivery::{DeliveryCompletion, DeliveryStatus, NotifyDelivery},
-        policy::{NotifyEvent, NotifyPolicy},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::notify::{
+    call::{CallLine, QueuedCall},
+    connector::{ConnectorAdapter, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget},
+    delivery::{DeliveryCompletion, DeliveryStatus, NotifyDelivery},
+    policy::{NotifyEvent, NotifyPolicy},
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use super::NotifyEngine;
+use crate::app::notify::config::truncate_error;
 
 /// 这条通知在线路上合并的窗口：连接器自己的（电话），与告警类策略设的取较大者；Webhook 不合并。
 pub(super) fn merge_window(
@@ -341,7 +338,7 @@ impl NotifyEngine {
     async fn recipient_of(&self, calls: &[QueuedCall], target: &NotifyTarget) -> Option<Id> {
         let first = calls.first()?;
 
-        if target.target_type != crate::domain::notify::connector::NotifyTargetType::DirectUser {
+        if target.target_type != domain::notify::connector::NotifyTargetType::DirectUser {
             return None;
         }
 

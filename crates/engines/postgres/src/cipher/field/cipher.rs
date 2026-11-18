@@ -15,8 +15,9 @@
 
 use std::collections::HashMap;
 
+use kernel::Result;
+
 use super::super::payload::{decrypt_with_raw, encrypt_with_raw, payload_decode};
-use crate::shared::Result;
 
 /// 解析出的 org 字段 DEK 句柄（明文 raw key，仅驻内存、不出库）。
 #[derive(Debug, Clone)]

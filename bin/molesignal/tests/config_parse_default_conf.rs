@@ -2,7 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! 校验仓库内置配置样例能被 Settings 解析。
-use molesignal::config::Settings;
+use settings::Settings;
 
 #[test]
 fn repo_default_conf_parses() {

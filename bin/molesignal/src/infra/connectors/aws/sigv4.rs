@@ -9,9 +9,8 @@
 //! signature。运行期由 AWS 端最终校验；单测覆盖 HMAC/SHA256 已知向量与签名结构。
 
 use aws_lc_rs::hmac;
+use kernel::time::TimestampMicros;
 use sha2::{Digest, Sha256};
-
-use crate::shared::time::TimestampMicros;
 
 fn hex_lower(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);

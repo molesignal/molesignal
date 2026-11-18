@@ -16,13 +16,14 @@ use std::{
 
 use base64::Engine as _;
 use common::TestServer;
-use molesignal::{api::grpc::serve_probe_grpc, config::ProbeGrpcSettings};
+use molesignal::api::grpc::serve_probe_grpc;
 use probe_agent::{
     executor::FEATURE_LEVEL,
     identity::AgentIdentity,
     runtime::{RegisterOptions, RunOptions, register, run},
 };
 use serde_json::{Value, json};
+use settings::ProbeGrpcSettings;
 use tempfile::TempDir;
 use tonic::{Code, Status};
 

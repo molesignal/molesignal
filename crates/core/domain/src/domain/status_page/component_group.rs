@@ -8,10 +8,10 @@
 
 use std::collections::{HashMap, HashSet};
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use super::{ComponentLifecycle, ComponentStatus, StatusPageComponent};
-use crate::shared::ids::Id;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -103,8 +103,10 @@ pub fn settle_component_groups(components: &mut Vec<StatusPageComponent>) {
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{domain::status_page::ComponentVisibility, shared::time::TimestampMicros};
+    use crate::domain::status_page::ComponentVisibility;
 
     fn component(
         id: &str,

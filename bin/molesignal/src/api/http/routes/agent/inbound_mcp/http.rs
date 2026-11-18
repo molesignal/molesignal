@@ -3,6 +3,7 @@
 
 use std::{sync::Arc, time::Duration};
 
+use agent::inbound_mcp::{InboundMcpSettings, hard_max_bytes};
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -11,25 +12,23 @@ use axum::{
     middleware::{self, Next},
     response::{IntoResponse, Response},
 };
+use domain::iam::api_token::{ApiTokenKind, has_token_marker};
+use kernel::Error;
 use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
 };
 use serde_json::json;
+use signals::trace_context::update_current_trace_context;
 use url::Url;
 
 use super::{
     admission::AdmissionRejection, handler::InboundMcpHandler, runtime::InboundMcpAdapterRuntime,
 };
-use crate::{
-    agent::inbound_mcp::{InboundMcpSettings, hard_max_bytes},
-    api::{
-        AppState,
-        http::middleware::auth::{
-            AuthenticatedCredential, authenticate_api_token_identity_with_metadata,
-        },
+use crate::api::{
+    AppState,
+    http::middleware::auth::{
+        AuthenticatedCredential, authenticate_api_token_identity_with_metadata,
     },
-    domain::iam::api_token::{ApiTokenKind, has_token_marker},
-    shared::{Error, trace_context::update_current_trace_context},
 };
 
 pub(super) fn routes(state: AppState, runtime: Arc<InboundMcpAdapterRuntime>) -> Router<AppState> {
@@ -198,7 +197,7 @@ async fn prepare_request(
 
     if let Some(trace_context) = request
         .extensions_mut()
-        .get_mut::<crate::shared::trace_context::TraceContext>()
+        .get_mut::<signals::trace_context::TraceContext>()
     {
         trace_context.set_authenticated_org(iam.org_id.as_str());
     }

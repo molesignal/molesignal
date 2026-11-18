@@ -4,13 +4,10 @@
 //! `pipeline_limit_usage`：配额与限流步骤每个 UTC 日、每个桶放行了多少、超出了多少。各节点每隔
 //! 几秒把自己新数的加上去（同一行的加法在库里做，几个节点同时写也不会丢），再读回所有节点的合计。
 use async_trait::async_trait;
+use domain::pipeline::limit::{LimitKey, LimitUsage, LimitUsageLedger, LimitUsageRow};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{PgPool, Row, postgres::PgRow};
-
-use crate::{
-    domain::pipeline::limit::{LimitKey, LimitUsage, LimitUsageLedger, LimitUsageRow},
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 一条语句最多写这么多行。
 const CHUNK: usize = 1_000;

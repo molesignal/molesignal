@@ -9,14 +9,13 @@
 //! statement reads it with `json_text`. Everything after the name of the column is the key, dots
 //! and all, since an SDK takes a key as it is given.
 
-use super::sql::{ident, literal};
-use crate::{
-    domain::{
-        rum::event::{RumField, RumStream, field},
-        stream::FieldType,
-    },
-    shared::{Error, Result},
+use domain::{
+    rum::event::{RumField, RumStream, field},
+    stream::FieldType,
 };
+use kernel::{Error, Result};
+
+use super::sql::{ident, literal};
 
 /// The JSON columns whose keys can be asked for.
 pub const MEMBER_COLUMNS: [&str; 4] = [

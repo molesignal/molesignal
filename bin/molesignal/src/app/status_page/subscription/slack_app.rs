@@ -7,20 +7,18 @@
 
 use std::sync::Arc;
 
+use domain::status_page::{
+    SlackAppCompletion, SlackAppConnectorChoice, SlackIncomingWebhook, StatusPage,
+    StatusPageLifecycle, StatusPageSlackApp, StatusPageSlackApps, StatusPageSubscriber,
+    StatusPageSubscriberChannel, StatusPageSubscriberOrigin, StatusPageSubscriberStatus,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
 use super::{
     super::StatusPageService,
     links::{page_action_url, slack_welcome_message},
     subscription_token, token_hash, validate_token,
-};
-use crate::{
-    domain::status_page::{
-        SlackAppCompletion, SlackAppConnectorChoice, SlackIncomingWebhook, StatusPage,
-        StatusPageLifecycle, StatusPageSlackApp, StatusPageSlackApps, StatusPageSubscriber,
-        StatusPageSubscriberChannel, StatusPageSubscriberOrigin, StatusPageSubscriberStatus,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// How long a visitor has to choose a channel in Slack.

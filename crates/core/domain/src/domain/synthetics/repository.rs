@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 use super::{
     ActiveMonitorRevision, LocationStateUpdate, MissedRun, MonitorLifecycle, MonitorLocationState,
@@ -12,7 +13,6 @@ use super::{
     SyntheticMonitor, SyntheticResult, SyntheticResultListQuery, SyntheticResultPage,
     SyntheticSecret, SyntheticSecretVersion, SyntheticStateTransition,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[async_trait]
 pub trait SyntheticLocationRepository: Send + Sync {

@@ -3,9 +3,8 @@
 
 //! JSON values read as the type of the column they go to.
 
+use domain::stream::FieldType;
 use serde_json::{Number, Value};
-
-use crate::domain::stream::FieldType;
 
 /// Largest serialized size a JSON column keeps. A larger value is replaced by a marker that says
 /// how large it was, so a runaway `context` cannot fill a row.

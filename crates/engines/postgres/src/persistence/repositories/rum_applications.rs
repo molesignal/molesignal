@@ -4,17 +4,14 @@
 //! PostgreSQL adapter for the applications that send RUM data.
 
 use async_trait::async_trait;
+use domain::rum::{
+    DEFAULT_ISSUES_PER_HOUR, MAX_SESSION_SAMPLE_RATE, RetentionFilter, RumApplication,
+    RumApplicationPatch, RumApplicationRepository, RumApplicationSettings, RumPlatform, ScrubKind,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::rum::{
-        DEFAULT_ISSUES_PER_HOUR, MAX_SESSION_SAMPLE_RATE, RetentionFilter, RumApplication,
-        RumApplicationPatch, RumApplicationRepository, RumApplicationSettings, RumPlatform,
-        ScrubKind,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgRumApplicationRepository {
     pool: PgPool,

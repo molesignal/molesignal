@@ -6,11 +6,10 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use crate::{
-    domain::stream::StreamType,
-    infra::intake::metrics::{add_reserved_buffer_bytes, inc_memory_rejection},
-    shared::{Error, Result},
-};
+use domain::stream::StreamType;
+use kernel::{Error, Result};
+
+use crate::infra::intake::metrics::{add_reserved_buffer_bytes, inc_memory_rejection};
 
 /// 进程级 buffer 内存预算。计费单位使用序列化后的原始 WAL payload 字节。
 pub(super) struct MemoryBudget {

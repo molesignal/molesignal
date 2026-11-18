@@ -6,10 +6,8 @@
 //! 启动期由 `bootstrap::core` 解析一次：结果交给 [`super::build`] 构造 S3 / Azure 客户端，
 //! 并 emit `object_store_credentials_source` info log。
 
-use crate::{
-    config::ObjectStoreSettings,
-    shared::{Error, Result},
-};
+use kernel::{Error, Result};
+use settings::ObjectStoreSettings;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CredentialsSource {

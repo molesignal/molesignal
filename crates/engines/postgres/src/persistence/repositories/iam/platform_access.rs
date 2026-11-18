@@ -9,13 +9,11 @@
 
 use std::collections::BTreeSet;
 
+use domain::iam::{IamAssignedRole, access::IamPlatformGrant};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::iam::{IamAssignedRole, access::IamPlatformGrant},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// What a user was granted: every binding in force, across the platform or narrowed to an
 /// organization. A binding with conditions gives nothing: nothing about a platform session could

@@ -11,6 +11,20 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use domain::{
+    query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    rum::{
+        RumAlertMetric, RumAlertPoint, RumAlertQuery, RumAlertReading, RumAlertSample,
+        RumAlertSearch, RumAlertSource, RumAlertStatistic, RumApplicationRepository,
+        RumIssueMoment, RumIssueRepository, RumPlatform, event::RumStream,
+    },
+    stream::StreamType,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use moka::sync::Cache;
 
 use super::{
@@ -18,23 +32,7 @@ use super::{
     samples::{self, SAMPLES},
     scope,
 };
-use crate::{
-    domain::{
-        query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        rum::{
-            RumAlertMetric, RumAlertPoint, RumAlertQuery, RumAlertReading, RumAlertSample,
-            RumAlertSearch, RumAlertSource, RumAlertStatistic, RumApplicationRepository,
-            RumIssueMoment, RumIssueRepository, RumPlatform, event::RumStream,
-        },
-        stream::StreamType,
-    },
-    infra::rum::query::{AggregateSpec, BucketPlan, MeasureSpec, Plan, Scope},
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::infra::rum::query::{AggregateSpec, BucketPlan, MeasureSpec, Plan, Scope};
 
 /// How long the read of a window that is still going on is shared.
 const RECENT_FOR: Duration = Duration::from_secs(30);

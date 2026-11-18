@@ -14,17 +14,14 @@ use axum::{
     Extension, Json,
     extract::{Path, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    rum::{RumReplayComment, validate_application_id, validate_comment_body},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        rum::{RumReplayComment, validate_application_id, validate_comment_body},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

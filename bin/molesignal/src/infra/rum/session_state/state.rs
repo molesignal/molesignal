@@ -10,10 +10,10 @@
 
 use std::collections::BTreeMap;
 
+use domain::intake::RawEvent;
+use kernel::time::TimestampMicros;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-
-use crate::{domain::intake::RawEvent, shared::time::TimestampMicros};
 
 /// Views tracked one by one. A session that goes on beyond this folds its oldest views into
 /// totals.

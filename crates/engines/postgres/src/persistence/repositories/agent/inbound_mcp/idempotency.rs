@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::inbound_mcp::{
+    InboundMcpIdempotencyInput, InboundMcpIdempotencyRecord, InboundMcpIdempotencyReservation,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::super::sqlx_err;
-use crate::{
-    agent::inbound_mcp::{
-        InboundMcpIdempotencyInput, InboundMcpIdempotencyRecord, InboundMcpIdempotencyReservation,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const COLS: &str = "org_id,principal_type,principal_id,idempotency_key,tool_name,request_hash,\
     status,approval_id,result,lease_expires_at,created_at,updated_at";

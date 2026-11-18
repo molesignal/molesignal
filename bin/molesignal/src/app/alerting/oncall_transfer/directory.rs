@@ -8,9 +8,8 @@
 
 use std::collections::HashMap;
 
+use kernel::{Error, Result, ids::Id};
 use serde_json::{Map, Value};
-
-use crate::shared::{Error, Result, ids::Id};
 
 /// 一类东西的 id 与名字。
 #[derive(Debug, Default, Clone)]

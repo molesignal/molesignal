@@ -46,11 +46,9 @@ async fn scheduled_pipelines_crud_roundtrip() {
     let id = created["id"].as_str().unwrap().to_string();
 
     // 写入一条真实运行记录，列表端点应在同一响应返回最近状态与 24h 汇总。
-    use molesignal::{
-        infra::persistence::repositories::pipelines::runs::{
-            PipelineRun, PipelineRunFinish, PipelineRunState,
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use kernel::{ids::Id, time::TimestampMicros};
+    use postgres::repositories::pipelines::runs::{
+        PipelineRun, PipelineRunFinish, PipelineRunState,
     };
     let started = TimestampMicros::now();
     let run_id = Id::new();

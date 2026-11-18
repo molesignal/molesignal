@@ -7,6 +7,9 @@
 //! 自建应用不是 Mole Agent 的机器人：按这个连接器上验证过的通知方式认人，认不出时告诉他先把这个企业微信
 //! 账号加成通知方式。做完换掉他眼前的那张卡片，没做成的那句话由应用发给他。
 
+use agent::im::{CardAction, CardAnswer, ConversationKind, ImPlatform, NoticeKind, Sender};
+use domain::notify::{buttons::AlertButtonValue, connector::NotifyConnector};
+use kernel::Result;
 use serde_json::json;
 
 use super::{
@@ -15,13 +18,10 @@ use super::{
     texts::Texts,
 };
 use crate::{
-    agent::im::{CardAction, CardAnswer, ConversationKind, ImPlatform, NoticeKind, Sender},
     api::AppState,
-    domain::notify::{buttons::AlertButtonValue, connector::NotifyConnector},
     infra::notify::adapters::{
         WecomCardEvent, tell_wecom_member, update_wecom_card, wecom_template_card,
     },
-    shared::Result,
 };
 
 /// 点了自建应用发的模板卡片上的一个按钮。不是告警按钮（处理完的「✓」）时不理。

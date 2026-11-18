@@ -7,17 +7,15 @@
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::connector::{
+    ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+    ConnectorRegion, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::{Account, PROVIDER, approved_template, call, common, phone, regions, template_param};
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-        ConnectorRegion, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
-    },
-    shared::{Error, Result},
-};
 
 pub const ALIYUN_SMS_CONNECTOR_TYPE: &str = "aliyun_sms";
 
@@ -186,6 +184,7 @@ impl ConnectorAdapter for AliyunSmsConnectorAdapter {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::{connector::NotifyTargetType, template::ProviderTemplate};
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -193,7 +192,6 @@ mod tests {
     };
 
     use super::{super::tests::draft, *};
-    use crate::domain::notify::{connector::NotifyTargetType, template::ProviderTemplate};
 
     fn target(target_type: NotifyTargetType, value: &str) -> NotifyTarget {
         NotifyTarget {

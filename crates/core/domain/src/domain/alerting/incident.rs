@@ -3,13 +3,11 @@
 
 use std::collections::BTreeMap;
 
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{handling::IncidentHandling, routing::IncidentRouting};
-use crate::{
-    domain::query::QueryLanguage,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::domain::query::QueryLanguage;
 
 /// 告警事件 — 规则触发后产生的实例，是排班升级机制的主对象。
 #[derive(Debug, Clone, Serialize, Deserialize)]

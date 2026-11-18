@@ -41,7 +41,7 @@ impl ArtifactRole {
 }
 
 impl std::str::FromStr for ArtifactRole {
-    type Err = crate::shared::Error;
+    type Err = kernel::Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
@@ -49,7 +49,7 @@ impl std::str::FromStr for ArtifactRole {
             "index" => Ok(Self::Index),
             "statistics" => Ok(Self::Statistics),
             "dictionary" => Ok(Self::Dictionary),
-            other => Err(crate::shared::Error::invalid(format!(
+            other => Err(kernel::Error::invalid(format!(
                 "unknown artifact role `{other}`"
             ))),
         }
@@ -99,7 +99,7 @@ impl ArtifactState {
 }
 
 impl std::str::FromStr for ArtifactState {
-    type Err = crate::shared::Error;
+    type Err = kernel::Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
@@ -107,7 +107,7 @@ impl std::str::FromStr for ArtifactState {
             "ready" => Ok(Self::Ready),
             "failed" => Ok(Self::Failed),
             "tombstoned" => Ok(Self::Tombstoned),
-            other => Err(crate::shared::Error::invalid(format!(
+            other => Err(kernel::Error::invalid(format!(
                 "unknown artifact state `{other}`"
             ))),
         }

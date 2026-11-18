@@ -17,32 +17,24 @@
 
 mod common;
 
-use molesignal::{
-    config::MetaDatabaseSettings,
-    infra::{
-        cipher::CipherRootKey,
-        persistence::{
-            MetaStore,
-            repositories::{
-                agent::{
-                    chat_archives::{ChatArchive, ChatArchiveRepository, PgChatArchiveRepository},
-                    chats::{Chat, ChatRepository, PgChatRepository},
-                    model_providers::{
-                        ModelProviderInput, ModelProviderRepository, PgModelProviderRepository,
-                    },
-                    prompts::{
-                        AgentPromptRepository, AgentPromptTemplate, PgAgentPromptRepository,
-                    },
-                },
-                audit_events::{
-                    AuditEvent, AuditEventRepository, AuditQuery, PgAuditEventRepository,
-                },
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::{
+    MetaStore,
+    cipher::CipherRootKey,
+    repositories::{
+        agent::{
+            chat_archives::{ChatArchive, ChatArchiveRepository, PgChatArchiveRepository},
+            chats::{Chat, ChatRepository, PgChatRepository},
+            model_providers::{
+                ModelProviderInput, ModelProviderRepository, PgModelProviderRepository,
             },
+            prompts::{AgentPromptRepository, AgentPromptTemplate, PgAgentPromptRepository},
         },
+        audit_events::{AuditEvent, AuditEventRepository, AuditQuery, PgAuditEventRepository},
     },
-    shared::{ids::Id, time::TimestampMicros},
 };
 use serde_json::json;
+use settings::MetaDatabaseSettings;
 use sqlx::Row;
 
 fn skip_unless_enabled() -> bool {
@@ -75,7 +67,7 @@ fn provider_input(id: &Id, org: &Id) -> ModelProviderInput {
         enabled: true,
         timeout_ms: 30_000,
         max_tokens: Some(4096),
-        price_currency: molesignal::agent::usage::Currency::USD,
+        price_currency: agent::usage::Currency::USD,
         input_price_per_mtok: None,
         cached_input_price_per_mtok: None,
         output_price_per_mtok: None,

@@ -4,13 +4,11 @@
 //! 组织的优先级与紧急度档位，存在 `org_settings` 的 `incident.importance` 一节；没有这一节时用内置的。
 
 use async_trait::async_trait;
+use domain::alerting::importance::{ImportanceLevels, ImportanceRepository, StoredImportance};
+use kernel::{Result, ids::Id};
 use sqlx::PgPool;
 
 use super::org_settings::{self, sections::INCIDENT_IMPORTANCE};
-use crate::{
-    domain::alerting::importance::{ImportanceLevels, ImportanceRepository, StoredImportance},
-    shared::{Result, ids::Id},
-};
 
 pub struct PgImportanceRepository {
     pool: PgPool,

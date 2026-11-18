@@ -6,13 +6,11 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::query::{QueryLanguage, QueryRequest, QueryResult};
 use moka::future::Cache;
+use settings::CacheLayerSettings;
 
 use super::metrics::CacheMetrics;
-use crate::{
-    config::CacheLayerSettings,
-    domain::query::{QueryLanguage, QueryRequest, QueryResult},
-};
 
 /// `QueryResultCache` 直通窗口：`time_range.end > now - 5min` 时不缓存。
 pub const QUERY_FRESH_WINDOW_MICROS: i64 = 5 * 60 * 1_000_000;
@@ -131,7 +129,7 @@ impl QueryResultCache {
 }
 
 #[async_trait::async_trait]
-impl crate::domain::query::QueryResultCachePort for QueryResultCache {
+impl domain::query::QueryResultCachePort for QueryResultCache {
     async fn get(
         &self,
         req: &QueryRequest,
@@ -177,16 +175,17 @@ impl crate::domain::query::QueryResultCachePort for QueryResultCache {
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use super::*;
-    use crate::shared::{
+    use kernel::{
         ids::Id,
         time::{TimeRange, TimestampMicros},
     };
 
+    use super::*;
+
     /// 键必须区分每一个会改变结果的输入。少任何一项 = 两条本应不同的查询共享一份结果。
     #[test]
     fn key_covers_limit_step_stream_and_federation() {
-        use crate::domain::{query::StreamHint, stream::StreamType};
+        use domain::{query::StreamHint, stream::StreamType};
 
         let base = QueryRequest {
             org_id: Id::from_string("org-x"),

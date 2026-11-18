@@ -11,18 +11,15 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
+use domain::iam::{IamContext, UserStatus};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
 use super::{
     super::grant_limit, UserView, account_of_current_org, approval_emails::notify_user_decision,
     ensure_user_removable, is_root_user, member_of_current_org, require_key,
 };
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::UserStatus,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 /// 审批自助注册的 pending 用户 → active（Owner/Admin）。
 pub(super) async fn approve_user(

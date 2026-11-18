@@ -8,11 +8,9 @@ mod common;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use molesignal::{
-    domain::rum::{RumIssue, RumIssueChange, RumIssueStatus},
-    infra::rum::issues::identity::{issue_id, overflow_id},
-    shared::time::TimestampMicros,
-};
+use domain::rum::{RumIssue, RumIssueChange, RumIssueStatus};
+use kernel::time::TimestampMicros;
+use molesignal::infra::rum::issues::identity::{issue_id, overflow_id};
 use serde_json::{Map, Value, json};
 
 fn now_ms() -> i64 {

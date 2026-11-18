@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::model::{ApprovalRequest, Execution};
 use axum::{
     Json,
     http::header::{CACHE_CONTROL, PRAGMA},
@@ -10,7 +11,6 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::OperationExecution;
-use crate::agent::model::{ApprovalRequest, Execution};
 
 const ONE_TIME_RESULT_KEY: &str = "__one_time_result";
 
@@ -76,13 +76,11 @@ pub(super) fn review_response(
 
 #[cfg(test)]
 mod tests {
+    use agent::model::ExecutionStatus;
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        agent::model::ExecutionStatus,
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     #[test]
     fn one_time_result_is_removed_before_persistence() {

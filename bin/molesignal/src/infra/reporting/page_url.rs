@@ -11,12 +11,9 @@ use chrono::{
     DateTime, Datelike, Days, NaiveDate, NaiveDateTime, NaiveTime, TimeDelta, TimeZone, Utc,
 };
 use chrono_tz::Tz;
+use kernel::{Error, Result};
+use postgres::repositories::scheduled_reports::ScheduledReport;
 use serde_json::Value;
-
-use crate::{
-    infra::persistence::repositories::scheduled_reports::ScheduledReport,
-    shared::{Error, Result},
-};
 
 /// 报表在 `now` 这一刻要渲染的页面。
 ///
@@ -183,10 +180,10 @@ fn instant(at: DateTime<Utc>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn report(time_range: Value) -> ScheduledReport {
         ScheduledReport {

@@ -16,13 +16,13 @@
 //! A session a test drove is kept unless a filter names the kind of session: a run has to be found
 //! from the check that made it, and no figure of real users counts it anyway.
 
-use serde_json::{Map, Value};
-
-use super::sample::keeps;
-use crate::domain::rum::{
+use domain::rum::{
     DEFAULT_FILTER, ERRORS_FILTER, MAX_SESSION_SAMPLE_RATE, RetentionCondition, RetentionFilter,
     RetentionOp, RumApplicationSettings,
 };
+use serde_json::{Map, Value};
+
+use super::sample::keeps;
 
 /// What becomes of one event.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -233,10 +233,10 @@ fn same(pattern: &str, text: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use domain::rum::normalize_filters;
     use serde_json::json;
 
     use super::*;
-    use crate::domain::rum::normalize_filters;
 
     fn row(fields: Value) -> Map<String, Value> {
         fields.as_object().unwrap().clone()

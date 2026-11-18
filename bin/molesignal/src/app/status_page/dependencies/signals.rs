@@ -12,13 +12,11 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{alerting::incident::Incident, synthetics::SyntheticStateTransition};
+use kernel::{Result, ids::Id};
 use tokio::sync::Notify;
 
-use crate::{
-    app::{alerting::AlertIncidentLifecycleSink, synthetics::SyntheticTransitionSink},
-    domain::{alerting::incident::Incident, synthetics::SyntheticStateTransition},
-    shared::{Result, ids::Id},
-};
+use crate::app::{alerting::AlertIncidentLifecycleSink, synthetics::SyntheticTransitionSink};
 
 #[derive(Default)]
 pub struct DependencySignalQueue {

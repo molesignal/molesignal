@@ -13,27 +13,20 @@ use arrow::{
     array::{Array, Int64Array, RecordBatch, StringArray, UInt64Array},
     datatypes::DataType,
 };
+use domain::{
+    storage::{DatasetTypeId, QueryFileSource, type_id::builtin},
+    stream::StreamType,
+};
 use futures::StreamExt;
+use kernel::{Error, Result, ids::Id, time::TimeRange};
 use object_store::ObjectStore;
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
+};
 
-use crate::{
-    domain::{
-        storage::{DatasetTypeId, QueryFileSource, type_id::builtin},
-        stream::StreamType,
-    },
-    infra::{
-        query::catalog_source::CatalogQuerySource,
-        storage::parquet::reader::{ParquetReader, ReadOptions},
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::TimeRange,
-        trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD,
-            TRACE_SUMMARY_START_NS_FIELD,
-        },
-    },
+use crate::infra::{
+    query::catalog_source::CatalogQuerySource,
+    storage::parquet::reader::{ParquetReader, ReadOptions},
 };
 
 const COLUMNS: &[&str] = &[
@@ -352,7 +345,7 @@ fn push_top_k(
 }
 
 fn file_cannot_beat(
-    file: &crate::domain::storage::QueryFile,
+    file: &domain::storage::QueryFile,
     rows: &[TraceSummaryRecord],
     order: SummaryOrder,
 ) -> bool {

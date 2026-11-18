@@ -6,9 +6,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// SSO 接入类型 — 决定运行时实例化的认证 flow。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -19,24 +19,19 @@
 use std::{net::SocketAddr, time::Duration};
 
 use aws_lc_rs::hmac;
+use kernel::{Error, Result, time::TimestampMicros};
 use reqwest::{
     Method,
     header::{CONTENT_TYPE, USER_AGENT},
     redirect::Policy,
 };
 use serde_json::{Map, Value, json};
+use signals::http_trace::{self, HttpTarget};
 
 use super::to_json_lines;
-use crate::{
-    infra::connectors::{
-        config::http::{BodyFormat, HttpAuth, HttpMethod, HttpSettings, is_metadata_address},
-        repo::Connector,
-    },
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-        time::TimestampMicros,
-    },
+use crate::infra::connectors::{
+    config::http::{BodyFormat, HttpAuth, HttpMethod, HttpSettings, is_metadata_address},
+    repo::Connector,
 };
 
 /// A larger batch is sent in several requests, each at most this large (unless one event alone
@@ -351,8 +346,8 @@ mod tests {
     #[tokio::test]
     async fn an_enrich_call_never_reaches_a_metadata_address() {
         let connector = Connector {
-            id: crate::shared::ids::Id::new(),
-            org_id: crate::shared::ids::Id::new(),
+            id: kernel::ids::Id::new(),
+            org_id: kernel::ids::Id::new(),
             name: "cmdb".into(),
             kind: "http".into(),
             config_json: json!({ "url": "http://169.254.169.254/latest/meta-data/" }),

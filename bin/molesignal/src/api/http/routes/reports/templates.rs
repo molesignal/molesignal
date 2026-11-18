@@ -8,16 +8,13 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::report_templates::ReportTemplate;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::report_templates::ReportTemplate,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

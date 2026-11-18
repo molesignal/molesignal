@@ -10,24 +10,19 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use serde::Deserialize;
-use serde_json::Value;
-use url::Url;
-
-use crate::{
-    domain::{
-        notify::repositories::NotifyConnectorRepository,
-        status_page::{
-            SlackAppConnectorChoice, SlackIncomingWebhook, StatusPageSlackApp, StatusPageSlackApps,
-        },
-    },
-    infra::notify::adapters::{SLACK_APP_CONNECTOR_TYPE, SLACK_SITES},
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-        ids::Id,
+use domain::{
+    notify::repositories::NotifyConnectorRepository,
+    status_page::{
+        SlackAppConnectorChoice, SlackIncomingWebhook, StatusPageSlackApp, StatusPageSlackApps,
     },
 };
+use kernel::{Error, Result, ids::Id};
+use serde::Deserialize;
+use serde_json::Value;
+use signals::http_trace::{self, HttpTarget};
+use url::Url;
+
+use crate::infra::notify::adapters::{SLACK_APP_CONNECTOR_TYPE, SLACK_SITES};
 
 pub const SLACK_CALLBACK_PATH: &str = "/api/v1/public/slack/callback";
 
@@ -270,15 +265,13 @@ fn incoming_webhook(access: AccessResponse) -> Result<SlackIncomingWebhook> {
 
 #[cfg(test)]
 mod tests {
+    use domain::notify::connector::{
+        ConnectorCapabilities, ConnectorStatus, ConnectorTestStatus, NotifyConnector,
+    };
+    use kernel::time::TimestampMicros;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::notify::connector::{
-            ConnectorCapabilities, ConnectorStatus, ConnectorTestStatus, NotifyConnector,
-        },
-        shared::time::TimestampMicros,
-    };
 
     struct Connectors(Vec<NotifyConnector>);
 

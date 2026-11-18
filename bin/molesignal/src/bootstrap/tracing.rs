@@ -5,6 +5,20 @@
 
 use std::sync::Arc;
 
+use domain::{
+    iam::{OrganizationRepository, SYSTEM_ORG_SLUG},
+    stream::{
+        MOLESIGNAL_SYSTEM_STREAM, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::rum_replay_notes::{
+    PgRumReplayCommentRepository, PgRumSessionSummaryRepository,
+};
+use service_graph::{PgServiceGraphRepository, ServiceGraphRepository};
+use settings::{SelfCollectSettings, Settings};
+use signals::{tail_sampling::TailSampler, trace_normalization::TraceLimits};
+
 use super::{core::Core, iam::IamRuntime, query::QueryRuntime, storage::StorageRuntime};
 use crate::{
     api::AppState,
@@ -17,25 +31,9 @@ use crate::{
             export::ExternalOtlpTraceSink,
         },
     },
-    config::{SelfCollectSettings, Settings},
-    domain::{
-        iam::{OrganizationRepository, SYSTEM_ORG_SLUG},
-        stream::{
-            MOLESIGNAL_SYSTEM_STREAM, Retention, Schema, StreamDefinition, StreamRepository,
-            StreamType,
-        },
-    },
     infra::{
         apm::PgApmRepository,
-        persistence::repositories::rum_replay_notes::{
-            PgRumReplayCommentRepository, PgRumSessionSummaryRepository,
-        },
         rum::replay::{PgRumReplayMetaRepository, RumReplayWriter},
-        traces::{PgServiceGraphRepository, ServiceGraphRepository},
-    },
-    shared::{
-        Error, Result, ids::Id, tail_sampling::TailSampler, time::TimestampMicros,
-        trace_normalization::TraceLimits,
     },
 };
 
@@ -50,7 +48,7 @@ pub(super) struct TracingRuntime {
     pub(super) service_graph: Arc<dyn ServiceGraphRepository>,
     pub(super) rum_replay: Arc<RumReplayWriter>,
     pub(super) apm_query: Arc<ApmQueryService>,
-    pub(super) apm_catalog: Arc<dyn crate::domain::apm::ApmCatalogRepository>,
+    pub(super) apm_catalog: Arc<dyn domain::apm::ApmCatalogRepository>,
     pub(super) apm_runtime: Option<Arc<ApmRuntime>>,
 }
 
@@ -106,7 +104,7 @@ impl TracingRuntime {
             }
         };
 
-        crate::shared::trace_metrics::set_system_load("trace_policy", policy_loaded);
+        signals::trace_metrics::set_system_load("trace_policy", policy_loaded);
 
         let trace_limits = TraceLimits {
             max_attributes_per_span: settings.telemetry.trace.max_attributes_per_span,
@@ -153,12 +151,11 @@ impl TracingRuntime {
 
         let apm_repository = Arc::new(PgApmRepository::new(core.pool.clone()));
 
-        let apm_catalog =
-            apm_repository.clone() as Arc<dyn crate::domain::apm::ApmCatalogRepository>;
+        let apm_catalog = apm_repository.clone() as Arc<dyn domain::apm::ApmCatalogRepository>;
 
         let apm_query = Arc::new(
             ApmQueryService::new(
-                apm_repository.clone() as Arc<dyn crate::domain::apm::ApmQueryRepository>,
+                apm_repository.clone() as Arc<dyn domain::apm::ApmQueryRepository>,
                 ApmQueryConfig::from_settings(&settings.apm),
             )
             .with_catalog(apm_catalog.clone()),
@@ -311,7 +308,7 @@ impl TracingRuntime {
 pub fn activate_self_telemetry(
     state: &mut AppState,
     settings: &Settings,
-    hub: Arc<crate::shared::self_telemetry::SelfTelemetryHub>,
+    hub: Arc<signals::self_telemetry::SelfTelemetryHub>,
 ) -> Result<()> {
     let self_telemetry_enabled = settings.telemetry.self_collect.enabled;
     let trace_capture_enabled = settings.telemetry.trace.effective_enabled();
@@ -336,11 +333,8 @@ pub fn activate_self_telemetry(
     hub.resource().set_node_id(state.cluster.node_id.clone());
     state.telemetry.self_telemetry_resource = Some(hub.resource().clone());
 
-    let has_local_intake = settings
-        .node
-        .roles
-        .contains(&crate::config::Role::Standalone)
-        || settings.node.roles.contains(&crate::config::Role::Intake);
+    let has_local_intake = settings.node.roles.contains(&settings::Role::Standalone)
+        || settings.node.roles.contains(&settings::Role::Intake);
 
     let profile_context = (self_telemetry_enabled
         && settings.telemetry.self_collect.profiles_enabled)
@@ -459,7 +453,7 @@ pub(super) async fn prepare_self_telemetry_streams(
                         name: MOLESIGNAL_SYSTEM_STREAM.into(),
                         stream_type,
                         schema: if stream_type == StreamType::TRACES {
-                            crate::shared::trace_normalization::canonical_trace_schema()
+                            signals::trace_normalization::canonical_trace_schema()
                         } else {
                             Schema { fields: Vec::new() }
                         },

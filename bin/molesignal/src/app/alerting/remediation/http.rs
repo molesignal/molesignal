@@ -6,16 +6,14 @@
 
 use std::{collections::BTreeMap, time::Duration};
 
+use domain::alerting::remediation::{Escape, HttpRemediation, HttpVerb, render_template};
+use kernel::{Error, Result, time::TimestampMicros};
 use reqwest::{
     Method,
     header::{CONTENT_TYPE, HeaderName, HeaderValue, USER_AGENT},
 };
 
-use crate::{
-    domain::alerting::remediation::{Escape, HttpRemediation, HttpVerb, render_template},
-    infra::connectors::dispatcher::http::{pinned_client, signature},
-    shared::{Error, Result, time::TimestampMicros},
-};
+use crate::infra::connectors::dispatcher::http::{pinned_client, signature};
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 

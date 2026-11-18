@@ -2,24 +2,22 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::apm::{
+    ApmAlertMetric, ApmAlertQuery, ApmQueryRepository, BucketDimension, BucketKind,
+    BucketMeasurements, BucketQuery, CatalogQuery, ErrorGroupQuery, ErrorGroupRecord,
+    ErrorIdentity, ErrorSample, LatencyHistogram, MergedBucket, ProjectionGap, ProjectionGapReason,
+    ProjectionState, QueryResolution, ServiceIdentity, ServiceObservation, TransactionIdentity,
+    TransactionKind, VersionObservation,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use parking_lot::Mutex;
 
 use super::*;
-use crate::{
-    app::alerting::ApmAlertSource,
-    domain::apm::{
-        ApmAlertMetric, ApmAlertQuery, ApmQueryRepository, BucketDimension, BucketKind,
-        BucketMeasurements, BucketQuery, CatalogQuery, ErrorGroupQuery, ErrorGroupRecord,
-        ErrorIdentity, ErrorSample, LatencyHistogram, MergedBucket, ProjectionGap,
-        ProjectionGapReason, ProjectionState, QueryResolution, ServiceIdentity, ServiceObservation,
-        TransactionIdentity, TransactionKind, VersionObservation,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::app::alerting::ApmAlertSource;
 
 struct FixtureRepository {
     org_id: Id,
@@ -425,7 +423,7 @@ async fn stable_cursor_advances_without_repeating_a_service() {
                 from: 0,
                 to: 1_000,
                 sort: Some("name".into()),
-                direction: Some(crate::domain::apm::SortDirection::Asc),
+                direction: Some(domain::apm::SortDirection::Asc),
                 limit: Some(1),
                 ..ApmQueryRequest::default()
             },
@@ -442,7 +440,7 @@ async fn stable_cursor_advances_without_repeating_a_service() {
                 from: 0,
                 to: 1_000,
                 sort: Some("name".into()),
-                direction: Some(crate::domain::apm::SortDirection::Asc),
+                direction: Some(domain::apm::SortDirection::Asc),
                 limit: Some(1),
                 cursor: Some(cursor),
                 ..ApmQueryRequest::default()
@@ -467,7 +465,7 @@ async fn stable_cursor_advances_without_repeating_a_service() {
                 from: 0,
                 to: 1_000,
                 sort: Some("name".into()),
-                direction: Some(crate::domain::apm::SortDirection::Asc),
+                direction: Some(domain::apm::SortDirection::Asc),
                 limit: Some(1),
                 cursor: Some(previous_cursor),
                 ..ApmQueryRequest::default()

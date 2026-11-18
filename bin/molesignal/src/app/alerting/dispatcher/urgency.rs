@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 紧急度在升级里的两件事（见 [`crate::domain::alerting::importance`]）：
+//! 紧急度在升级里的两件事（见 [`domain::alerting::importance`]）：
 //!
 //! - 不往下升的那几档（内置的低）只通知升级策略的第一级，不往下升、不整轮重复；策略开了
 //!   `escalate_low_urgency` 时照常。
@@ -9,22 +9,20 @@
 //!   是按策略定的、又比时段内那一档不急，就升到那一档，从第一级重新通知（新一轮，原因
 //!   `urgency_raised`），时间线记一笔。
 
+use domain::alerting::{
+    escalation::EscalationPolicy,
+    handling::EscalationReason,
+    importance::ImportanceLevels,
+    incident::{Incident, IncidentStatus},
+    timeline::TimelineKind,
+};
+use kernel::{Result, time::TimestampMicros};
 use serde_json::json;
 
 use super::{
     EscalationDispatcher,
     assignees::{ScheduleCache, apply_assignees},
     enqueue_step, next_applicable_step,
-};
-use crate::{
-    domain::alerting::{
-        escalation::EscalationPolicy,
-        handling::EscalationReason,
-        importance::ImportanceLevels,
-        incident::{Incident, IncidentStatus},
-        timeline::TimelineKind,
-    },
-    shared::{Result, time::TimestampMicros},
 };
 
 /// 这一档不往下升、策略又不让它照常升级：停在这一级。

@@ -9,10 +9,10 @@
 //! window without introducing another configured secret.
 
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use super::{IamService, JWT_ISSUER};
-use crate::shared::{Error, Result, ids::Id};
 
 const MAX_SCOPED_TOKEN_TTL_SECS: u64 = 24 * 60 * 60;
 

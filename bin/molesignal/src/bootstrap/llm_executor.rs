@@ -16,25 +16,22 @@
 
 use std::sync::Arc;
 
+use agent::{
+    chat::{
+        ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider, TransportOptions,
+        adapter_from_parts, observed_complete,
+    },
+    usage::UsageOrigin,
+};
 use async_trait::async_trait;
+use domain::function::{Function, FunctionExecutor, FunctionOutcome};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::model_providers::ModelProviderRepository;
 use serde_json::Value;
 
 use crate::{
-    agent::{
-        chat::{
-            ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider,
-            TransportOptions, adapter_from_parts, observed_complete,
-        },
-        usage::UsageOrigin,
-    },
     api::rca::pick_provider,
-    app::{
-        agent_usage::{AgentUsage, BudgetGate, UsageScope},
-        intake::FunctionExecutor,
-    },
-    domain::function::{Function, FunctionOutcome},
-    infra::persistence::repositories::agent::model_providers::ModelProviderRepository,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::agent_usage::{AgentUsage, BudgetGate, UsageScope},
 };
 
 /// 模型结果默认写回的事件字段。
@@ -111,7 +108,7 @@ impl FunctionExecutor for LlmFunctionExecutor {
                 msg(MessageRole::User, input, now),
             ],
             tools: None,
-            tool_choice: crate::agent::chat::ToolChoice::None,
+            tool_choice: agent::chat::ToolChoice::None,
             max_tokens: provider
                 .max_tokens
                 .map(|m| m as i32)

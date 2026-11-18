@@ -5,10 +5,10 @@
 //! 7 天）。用在静默的维护窗口上，例如「每月第一个周日 02:00 起 4 小时」。
 
 use chrono::{Datelike, Duration, NaiveDate, Weekday};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{ClockTime, local_instant, parse_timezone, timezone_or_utc};
-use crate::shared::{Error, Result, time::TimestampMicros};
 
 /// 一次最长持续多久：7 天。
 pub const MAX_MONTHLY_DURATION_MINUTES: u32 = 7 * 24 * 60;

@@ -3,12 +3,9 @@
 
 use std::collections::{HashMap, HashSet};
 
+use contracts::ContractIssue;
+use domain::dashboard::authoring::{VisualizationManifest, visualization_manifest};
 use serde_json::{Map, Value};
-
-use crate::{
-    domain::dashboard::authoring::{VisualizationManifest, visualization_manifest},
-    shared::contracts::ContractIssue,
-};
 
 mod panel;
 mod references;

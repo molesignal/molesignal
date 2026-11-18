@@ -11,6 +11,8 @@
 //! - `GET /v2/schedules/{id}/timeline` 的结果放在文件顶层的 `timelines` 里，预演拿它对照。
 
 use chrono_tz::Tz;
+use domain::alerting::schedule::Rotation;
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -22,11 +24,7 @@ use super::{
     Draft, ForeignImport, ForeignSchedule, OPSGENIE_FORMAT, kind_of_period, local_text,
     overlap::check_overlaps, parse_time, rendered, weekly::WeekMinutes,
 };
-use crate::{
-    app::alerting::oncall_transfer::{Directory, Finding},
-    domain::alerting::schedule::Rotation,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::app::alerting::oncall_transfer::{Directory, Finding};
 
 mod restrictions;
 mod timeline;

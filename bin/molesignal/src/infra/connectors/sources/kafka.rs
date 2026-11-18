@@ -19,6 +19,8 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::intake::RawEvent;
+use kernel::{Error, Result, time::TimestampMicros};
 use rdkafka::{
     ClientContext, Message, Offset, TopicPartitionList,
     config::ClientConfig,
@@ -28,14 +30,10 @@ use rdkafka::{
 };
 use serde_json::{Map, Value, json};
 
-use crate::{
-    domain::intake::RawEvent,
-    infra::connectors::{
-        PullBatch, PullConnector, PullContext,
-        config::{self, StartFrom, kafka::KafkaSettings},
-        repo::Connector,
-    },
-    shared::{Error, Result, time::TimestampMicros},
+use crate::infra::connectors::{
+    PullBatch, PullConnector, PullContext,
+    config::{self, StartFrom, kafka::KafkaSettings},
+    repo::Connector,
 };
 
 /// A pull stops at this many messages or bytes, and the next one goes on from there.
@@ -349,6 +347,7 @@ fn fields_event(
 
 #[cfg(test)]
 mod tests {
+    use kernel::ids::Id;
     use rdkafka::{
         mocking::MockCluster,
         producer::{BaseProducer, BaseRecord, DefaultProducerContext, Producer},
@@ -356,7 +355,6 @@ mod tests {
     };
 
     use super::*;
-    use crate::shared::ids::Id;
 
     const TOPIC: &str = "orders";
 

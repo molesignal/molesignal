@@ -26,6 +26,11 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
+use domain::iam::{
+    IamContext, IamScope, SsoProvider, SsoProviderConfig, SsoProviderKind, permission,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEvent;
 use serde::{Deserialize, Serialize};
 
 pub(crate) use self::standing::has_passing_test;
@@ -40,19 +45,11 @@ use super::{
 };
 use crate::{
     api::{AppState, http::signin_limit::SigninSource},
-    app::iam::{
-        IamContext,
-        signin_limit::{SigninAccount, SigninError},
+    app::iam::signin_limit::{SigninAccount, SigninError},
+    infra::sso::{
+        LdapLoginFlow, SsoSigninTest, SsoSigninTestReport, SsoSigninTestStatus, SsoStateEntry,
+        TestedFailure, TestedIdentity, config_hash,
     },
-    domain::iam::{IamScope, SsoProvider, SsoProviderConfig, SsoProviderKind, permission},
-    infra::{
-        persistence::repositories::audit_events::AuditEvent,
-        sso::{
-            LdapLoginFlow, SsoSigninTest, SsoSigninTestReport, SsoSigninTestStatus, SsoStateEntry,
-            TestedFailure, TestedIdentity, config_hash,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 前端的服务列表和结果页。

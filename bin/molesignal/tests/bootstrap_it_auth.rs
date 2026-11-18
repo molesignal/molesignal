@@ -8,7 +8,7 @@
 mod common;
 
 use common::{TestServer, session_cookie, set_cookie, skip_unless_enabled};
-use molesignal::shared::time::TimestampMicros;
+use kernel::time::TimestampMicros;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 

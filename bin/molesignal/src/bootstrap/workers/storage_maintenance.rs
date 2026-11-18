@@ -12,21 +12,21 @@ use std::{
     time::Duration,
 };
 
+use domain::{
+    iam::{InstanceSettingsRepository, OrganizationRepository},
+    storage::OrganizationScope,
+    stream::{StreamDefinition, StreamRepository},
+};
+use kernel::{Result, drain::DrainController};
 use prometheus::IntGaugeVec;
 use tokio::task::JoinHandle;
 
 use crate::{
     app::cluster::WorkOwnership,
-    domain::{
-        iam::{InstanceSettingsRepository, OrganizationRepository},
-        storage::OrganizationScope,
-        stream::{StreamDefinition, StreamRepository},
-    },
     infra::storage::{
         index_rebuild::IndexRebuildWorker, manifest::PartitionManifestManager,
         object_gc::ObjectGcWorker, reconciler::StorageReconciler,
     },
-    shared::{Result, drain::DrainController},
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -308,7 +308,7 @@ fn worker_health() -> &'static IntGaugeVec {
     static METRIC: OnceLock<IntGaugeVec> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_int_gauge_vec(
+        signals::metrics::register_int_gauge_vec(
             "storage_worker_healthy",
             "Last storage maintenance tick status",
             &["worker"],
@@ -318,9 +318,11 @@ fn worker_health() -> &'static IntGaugeVec {
 
 #[cfg(test)]
 mod tests {
+    use domain::cluster::PeerRole;
+
     use super::*;
     use crate::{
-        app::cluster::{PeerRole, ownership::test_support::Nodes},
+        app::cluster::ownership::test_support::Nodes,
         bootstrap::test_support::{FixedOrganizations, FixedStreams, tenants},
     };
 

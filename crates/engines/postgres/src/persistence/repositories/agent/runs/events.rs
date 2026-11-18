@@ -3,15 +3,13 @@
 
 //! Run 的事件：追加、续读、随结束一起写下的最后几条，以及过期 Run 的中断与旧事件的清理。
 
+use agent::runs::{NewRunEvent, Run, RunEvent, RunEventKind, RunOutcome};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 use sqlx::{PgConnection, PgPool, Row, types::Json};
 
 use super::{LIVE, PENDING_CHANNEL, PgRunRepository, RUN_COLS, SIGNAL_CHANNEL, TERMINAL, run_row};
-use crate::{
-    agent::runs::{NewRunEvent, Run, RunEvent, RunEventKind, RunOutcome},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-    sqlx_err,
-};
+use crate::sqlx_err;
 
 /// 节点没了时写给 Run 的原因。
 const INTERRUPTED: &str = "the server running this answer stopped before it finished";

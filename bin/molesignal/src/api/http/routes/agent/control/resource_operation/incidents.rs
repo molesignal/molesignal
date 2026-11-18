@@ -4,18 +4,15 @@
 //! Mole Agent 提议、人批准之后手动建事件：以批准执行的人的身份建，参数同
 //! `POST /api/v1/alerts/incidents`。
 
+use agent::model::ApprovalRequest;
+use domain::{alerting::timeline::ActionVia, iam::IamContext};
+use kernel::{Error, Result};
 use serde_json::json;
 
 use super::super::OperationOutcome;
 use crate::{
-    agent::model::ApprovalRequest,
     api::AppState,
-    app::{
-        alerting::{Actor, actions::NewIncident},
-        iam::IamContext,
-    },
-    domain::alerting::timeline::ActionVia,
-    shared::{Error, Result},
+    app::alerting::{Actor, actions::NewIncident},
 };
 
 pub(super) async fn create(

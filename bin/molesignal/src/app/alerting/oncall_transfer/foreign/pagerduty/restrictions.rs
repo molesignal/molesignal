@@ -5,6 +5,7 @@
 //! 排班自己的时区渲染的。
 
 use chrono_tz::Tz;
+use domain::alerting::time_window::MINUTES_PER_DAY;
 use serde::Deserialize;
 
 use super::{
@@ -14,9 +15,7 @@ use super::{
     },
     Layer,
 };
-use crate::{
-    app::alerting::oncall_transfer::Finding, domain::alerting::time_window::MINUTES_PER_DAY,
-};
+use crate::app::alerting::oncall_transfer::Finding;
 
 #[derive(Deserialize)]
 pub(super) struct Restriction {

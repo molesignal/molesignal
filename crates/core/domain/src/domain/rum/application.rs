@@ -5,6 +5,7 @@
 //! client token; an event can only be written to the application its token is bound to.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -12,7 +13,6 @@ use super::{
     segment::{RumSegment, normalize_segments},
     validate_application_id,
 };
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 const MAX_NAME_LEN: usize = 128;
 const MAX_ID_LEN: usize = 64;

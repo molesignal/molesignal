@@ -2,9 +2,8 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// Build artifact used to restore minified, obfuscated, or native RUM stacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

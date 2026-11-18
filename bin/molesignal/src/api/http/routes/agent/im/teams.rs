@@ -15,6 +15,7 @@
 //! 验过的消息另起任务处理，马上回 200：Bot Framework 只等 15 秒。点了告警卡片上的按钮
 //! （`adaptiveCard/action`）最多等 [`im::ANSWER_WITHIN`]，结果放进回应（[`pressed`]）。
 
+use agent::im::{CardAction, ImBot, ImPlatform};
 use axum::{
     Json, Router,
     body::Bytes,
@@ -23,14 +24,14 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::notify::connector::NotifyConnector;
+use kernel::{Error, Result, ids::Id};
 use serde_json::Value;
 use tokio::sync::oneshot;
 
 use super::{alerts::act, handle};
 use crate::{
-    agent::im::{CardAction, ImBot, ImPlatform},
     api::AppState,
-    domain::notify::connector::NotifyConnector,
     infra::{
         im::{
             self,
@@ -38,7 +39,6 @@ use crate::{
         },
         notify::adapters::TeamsApp,
     },
-    shared::{Error, Result, ids::Id},
 };
 
 const MAX_BODY_BYTES: usize = 256 * 1024;

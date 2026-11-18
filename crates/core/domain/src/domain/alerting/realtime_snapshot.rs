@@ -8,9 +8,8 @@
 //!   这些格子出了窗口。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// 一个节点上一条规则的窗口计数。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

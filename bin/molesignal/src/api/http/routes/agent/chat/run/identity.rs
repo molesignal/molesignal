@@ -4,12 +4,11 @@
 //! Run 以谁的身份执行：发起这一轮的人。执行时按 Run 记下的身份重新核对，与请求进来时的鉴权是
 //! 同一套：账号与组织还能用，再解析成员关系与权限。排队这段时间里被收回的权限不会被用上。
 
-use crate::{
-    agent::runs::{Run, RunPrincipal},
-    api::AppState,
-    app::iam::IamContext,
-    shared::{Error, Result, ids::Id},
-};
+use agent::runs::{Run, RunPrincipal};
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
+
+use crate::api::AppState;
 
 pub(super) async fn resolve(state: &AppState, run: &Run) -> Result<IamContext> {
     resolve_principal(state, &run.org_id, &run.principal).await

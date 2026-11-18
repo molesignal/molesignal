@@ -13,18 +13,16 @@
 
 use std::collections::BTreeSet;
 
+use domain::{
+    intake::{IntakeBatch, IntakeError, IntakeResult, RawEvent},
+    pipeline::protected::Guard,
+    stream::StreamType,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::{Map, Value};
 
 use super::{Arrival, Passage, functions};
-use crate::{
-    app::intake::IntakeService,
-    domain::{
-        intake::{IntakeBatch, IntakeError, IntakeResult, RawEvent},
-        pipeline::protected::Guard,
-        stream::StreamType,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::intake::IntakeService;
 
 /// span 行上不是属性的列。步骤新添的字段不在其中时算作 span 的属性。
 const SPAN_COLUMNS: &[&str] = &[

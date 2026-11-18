@@ -3,7 +3,7 @@
 
 //! 查询能不能解析：SQL 用 query-language 的 sqlparser 解析，PromQL 用 PromQL 解析器。
 
-use crate::agent::scoring::rules::QuerySyntax;
+use agent::scoring::rules::QuerySyntax;
 
 pub struct ParserSyntax;
 

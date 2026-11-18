@@ -10,16 +10,14 @@
 //! sessions that were seen are counted as they were, and the sessions are then scaled by the
 //! mean share of the rows they are told from.
 
+use domain::{rum::event::RumStream, stream::FieldType};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use super::super::{
     filter::{Condition, Filter, conditions},
     member::{Column, resolved},
     sql::{WEIGHT, WEIGHT_COLUMN},
-};
-use crate::{
-    domain::{rum::event::RumStream, stream::FieldType},
-    shared::{Error, Result},
 };
 
 /// Longest name a request gives a measure.

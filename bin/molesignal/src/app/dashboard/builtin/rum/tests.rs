@@ -3,15 +3,13 @@
 
 use std::collections::HashSet;
 
+use domain::rum::event::RumStream;
 use serde_json::Value;
 
 use super::*;
-use crate::{
-    app::dashboard::{
-        contract_registry::builtin_dashboard_contract_resolver,
-        validation::{DashboardValidationMode, ensure_dashboard_model_with},
-    },
-    domain::rum::event::RumStream,
+use crate::app::dashboard::{
+    contract_registry::builtin_dashboard_contract_resolver,
+    validation::{DashboardValidationMode, ensure_dashboard_model_with},
 };
 
 fn models() -> Vec<(RumDashboard, Value)> {
@@ -307,20 +305,17 @@ mod sql {
         datatypes::SchemaRef,
     };
     use datafusion::{datasource::MemTable, prelude::SessionContext};
+    use domain::rum::event::{RumStream, stream_schema};
+    use kernel::ids::Id;
     use serde_json::{Value, json};
 
     use super::*;
-    use crate::{
-        domain::rum::event::{RumStream, stream_schema},
-        infra::{
-            query::{
-                analyzer::session_context, arrow_json::batches_to_json,
-                current_views::CURRENT_VIEWS,
-            },
-            rum::query::{AggregateSpec, Condition, Filter, MeasureSpec, Plan, Scope},
-            storage::arrow_schema::{align_batch_to_schema, to_arrow},
+    use crate::infra::{
+        query::{
+            analyzer::session_context, arrow_json::batches_to_json, current_views::CURRENT_VIEWS,
         },
-        shared::ids::Id,
+        rum::query::{AggregateSpec, Condition, Filter, MeasureSpec, Plan, Scope},
+        storage::arrow_schema::{align_batch_to_schema, to_arrow},
     };
 
     const HOUR: i64 = 3_600_000_000;

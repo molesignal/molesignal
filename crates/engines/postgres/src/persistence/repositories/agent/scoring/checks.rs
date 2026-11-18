@@ -3,13 +3,11 @@
 
 //! Prompt 晋级检查：排着的由一个节点领走，做的时候按样本记下进度并续上租约。
 
+use agent::scoring::check::{CheckStatus, CheckVerdict, PromptCheck};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::{json, micros, optional_micros, optional_text, sqlx_err, text};
-use crate::{
-    agent::scoring::check::{CheckStatus, CheckVerdict, PromptCheck},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 fn check_row(row: PgRow) -> Result<PromptCheck> {
     Ok(PromptCheck {

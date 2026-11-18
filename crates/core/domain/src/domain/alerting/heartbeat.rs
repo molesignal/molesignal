@@ -5,9 +5,8 @@
 //! 打卡时报了失败马上触发；再次正常打卡就恢复。地址里的 Token 只存哈希。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 pub const MIN_HEARTBEAT_PERIOD_SECS: u32 = 60;
 pub const MAX_HEARTBEAT_PERIOD_SECS: u32 = 7 * 86_400;

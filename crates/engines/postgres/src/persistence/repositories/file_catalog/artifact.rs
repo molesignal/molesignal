@@ -7,19 +7,17 @@
 //! tombstone 旧行、入 GC 队列、插入新行，靠 partial unique 槽位约束保证同一
 //! (segment, role, artifact_type) 只有一个存活 Artifact。
 
+use domain::storage::{
+    ArtifactState, ArtifactUpdate, GcReason, ObjectChecksum, ObjectKey, OrganizationScope,
+    UpdateArtifact,
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use sqlx::{PgConnection, PgPool, Row};
 
 use super::{
     rows::to_i64,
     sqlx_err,
     writes::{enqueue_object_gc, insert_artifact},
-};
-use crate::{
-    domain::storage::{
-        ArtifactState, ArtifactUpdate, GcReason, ObjectChecksum, ObjectKey, OrganizationScope,
-        UpdateArtifact,
-    },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 struct CurrentArtifact {

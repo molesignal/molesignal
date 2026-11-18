@@ -8,28 +8,25 @@
 //! `/api/v1/agent/telemetry/*`：经 `QueryService::run` 跑 SQL
 //! over `agent_model_traces` stream。
 
+use agent::telemetry::{AGENT_STREAM, AgentStatsQuery, OptionalColumns};
 use axum::{
     Extension, Json, Router,
     extract::{Query, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::StreamType,
+};
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{
-    agent::telemetry::{AGENT_STREAM, AgentStatsQuery, OptionalColumns},
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::StreamType,
-    },
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

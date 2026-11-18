@@ -15,11 +15,11 @@ use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use jsonwebtoken::{DecodingKey, Validation, decode, errors::ErrorKind};
+use kernel::{Error, Result};
 use serde::de::IgnoredAny;
 use tokio::{sync::Mutex, time::Instant};
 
 use super::IamService;
-use crate::shared::{Error, Result};
 
 /// 两次读库至少隔这么久。
 const MIN_READ_GAP: Duration = Duration::from_millis(500);
@@ -173,16 +173,14 @@ fn unreadable() -> Error {
 mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+    use domain::iam::IamScope;
     use futures::future::join_all;
+    use kernel::ids::Id;
     use parking_lot::Mutex as SyncMutex;
     use tokio::sync::Notify;
 
     use super::*;
-    use crate::{
-        app::iam::{SignInMethod, SignInSession, test_support::iam_service},
-        domain::iam::IamScope,
-        shared::ids::Id,
-    };
+    use crate::app::iam::{SignInMethod, SignInSession, test_support::iam_service};
 
     const OLD: &[u8] = b"secret-before-the-rotation";
     const NEW: &[u8] = b"secret-after-the-rotation";

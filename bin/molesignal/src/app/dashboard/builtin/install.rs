@@ -4,14 +4,12 @@
 //! Putting a built-in dashboard in an organization, and bringing it up to the version this build
 //! ships.
 
+use domain::{dashboard::Dashboard, rum::RumApplicationRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::rum::{AUTHOR, RumDashboard, VERSION, installed_version};
-use crate::{
-    app::dashboard::{DashboardService, apply_server_model_fields},
-    domain::{dashboard::Dashboard, rum::RumApplicationRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::dashboard::{DashboardService, apply_server_model_fields};
 
 /// What installing a dashboard did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

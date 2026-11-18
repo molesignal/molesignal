@@ -7,9 +7,8 @@
 
 use std::collections::BTreeMap;
 
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result, ids::Id};
 
 /// 一条组合规则最多组合几条规则。
 pub const MAX_COMPOSITE_RULES: usize = 10;

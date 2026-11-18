@@ -13,13 +13,11 @@
 
 use std::collections::BTreeMap;
 
+use domain::alerting::source::{ExternalAction, ExternalAlert};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{Parsed, field, json, rfc3339};
-use crate::{
-    domain::alerting::source::{ExternalAction, ExternalAlert},
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 pub(super) fn parse(body: &[u8]) -> Result<Parsed> {
     let notice = json(body)?;

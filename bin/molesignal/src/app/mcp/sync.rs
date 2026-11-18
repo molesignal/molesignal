@@ -10,19 +10,17 @@
 
 use std::collections::{HashMap, HashSet};
 
+use agent::{
+    mcp::{McpPrompt, McpPromptArgument, tool_registry_name},
+    scope::Viewer,
+    tool_control::{ManagedToolStatus, McpServer, McpTool},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use tool_runtime::{RiskLevel, ToolExecutionMode};
 
 use super::{McpService, schema, transport::Session};
-use crate::{
-    agent::{
-        mcp::{McpPrompt, McpPromptArgument, tool_registry_name},
-        model::RiskLevel,
-        scope::Viewer,
-        tool_control::{ManagedToolStatus, McpServer, McpTool, ToolExecutionMode},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 一次最多翻几页 `tools/list`、`prompts/list`。
 const MAX_PAGES: usize = 20;
@@ -129,9 +127,8 @@ fn unavailable_schema(
     error: &Error,
 ) -> (Value, String, String, Option<String>) {
     let diagnostic = error.to_string().chars().take(500).collect::<String>();
-    let raw = crate::shared::contracts::canonical_json(schema_value);
-    let hash =
-        crate::shared::contracts::sha256_hex(crate::shared::contracts::canonical_json_bytes(&raw));
+    let raw = contracts::canonical_json(schema_value);
+    let hash = contracts::sha256_hex(contracts::canonical_json_bytes(&raw));
 
     let dialect = schema_value
         .get("$schema")

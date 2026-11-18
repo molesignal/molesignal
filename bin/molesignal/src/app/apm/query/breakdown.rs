@@ -7,11 +7,10 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use serde::Serialize;
-
-use crate::domain::apm::{
+use domain::apm::{
     BucketDimension, MergedBucket, OTHER_DIMENSION, ServiceIdentity, ServiceObservation,
 };
+use serde::Serialize;
 
 /// The most values a breakdown names; the rest are counted together.
 const MOST_VALUES: usize = 8;

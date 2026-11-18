@@ -3,11 +3,11 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use kernel::Error;
 use parking_lot::Mutex as SyncMutex;
 use serde_json::json;
 
 use super::*;
-use crate::shared::Error;
 
 const NOW: i64 = 1_760_000_000_000;
 

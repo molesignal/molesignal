@@ -135,7 +135,7 @@ fn activity(channel: &str, service: &str) -> Value {
 /// 只属于这次的路径，免得读到别的测试缓存的密钥。
 async fn bot_framework(keys: Vec<Value>) -> (MockServer, Trust) {
     let server = MockServer::start().await;
-    let root = format!("/{}", crate::shared::ids::Id::new().0);
+    let root = format!("/{}", kernel::ids::Id::new().0);
 
     Mock::given(method("GET"))
         .and(path(format!("{root}/v1/.well-known/openidconfiguration")))

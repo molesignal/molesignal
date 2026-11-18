@@ -10,13 +10,11 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::{cipher::CipherRootKey, sqlx_err};
 use sqlx::{PgPool, Row, TracedTransaction};
 
 use super::lockouts;
-use crate::{
-    infra::{cipher::CipherRootKey, persistence::sqlx_err},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 /// 关掉身份验证器。
 const CLEAR_TOTP: &str = "UPDATE users_ext

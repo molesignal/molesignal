@@ -8,9 +8,8 @@
 
 use std::{borrow::Cow, sync::LazyLock};
 
+use domain::rum::ScrubKind;
 use regex::{Captures, Regex};
-
-use crate::domain::rum::ScrubKind;
 
 const SECRET: &str = "[secret]";
 const EMAIL: &str = "[email]";

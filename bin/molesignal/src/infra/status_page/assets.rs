@@ -5,13 +5,10 @@
 
 use std::sync::Arc;
 
+use domain::status_page::StatusPage;
 use futures::StreamExt as _;
+use kernel::{Error, Result};
 use object_store::{ObjectStore, ObjectStoreExt as _, path::Path as ObjPath};
-
-use crate::{
-    domain::status_page::StatusPage,
-    shared::{Error, Result},
-};
 
 pub struct StatusPageAssetCleaner {
     object_store: Arc<dyn ObjectStore>,
@@ -45,13 +42,11 @@ impl StatusPageAssetCleaner {
 
 #[cfg(test)]
 mod tests {
+    use domain::status_page::{StatusPageLifecycle, StatusPageVisibility};
+    use kernel::{ids::Id, time::TimestampMicros};
     use object_store::{ObjectStoreExt as _, PutPayload, memory::InMemory};
 
     use super::*;
-    use crate::{
-        domain::status_page::{StatusPageLifecycle, StatusPageVisibility},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn page() -> StatusPage {
         StatusPage {

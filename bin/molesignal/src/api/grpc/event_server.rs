@@ -18,27 +18,25 @@
 
 use std::sync::OnceLock;
 
+use domain::{
+    alerting::{
+        escalation::EscalationPolicy, rule::AlertRule, schedule::Schedule,
+        semantic_group::SemanticGroup,
+    },
+    dashboard::Dashboard,
+    federation::{CloudEvent, CudAction, ResourceKind, parse_event_type, parse_subject, wins},
+};
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::{log_patterns::LogPattern, regex_patterns::RegexPattern};
+use protocol::cluster::v1::{
+    CancelQueryRequest, CancelQueryResponse, ClusterRef, EventServiceGossipClustersRequest,
+    EventServiceGossipClustersResponse, ForwardAlertsRequest, ForwardAlertsResponse,
+    PushEventsRequest, PushEventsResponse, RealtimeCountsRequest, RealtimeCountsResponse,
+    event_service_server::{EventService, EventServiceServer},
+};
 use tonic::{Request, Response, Status};
 
-use crate::{
-    api::{AppState, http::middleware::auth::authenticate_api_token},
-    domain::{
-        alerting::{
-            escalation::EscalationPolicy, rule::AlertRule, schedule::Schedule,
-            semantic_group::SemanticGroup,
-        },
-        dashboard::Dashboard,
-        federation::{CloudEvent, CudAction, ResourceKind, parse_event_type, parse_subject, wins},
-    },
-    infra::persistence::repositories::{log_patterns::LogPattern, regex_patterns::RegexPattern},
-    protocol::cluster::v1::{
-        CancelQueryRequest, CancelQueryResponse, ClusterRef, EventServiceGossipClustersRequest,
-        EventServiceGossipClustersResponse, ForwardAlertsRequest, ForwardAlertsResponse,
-        PushEventsRequest, PushEventsResponse, RealtimeCountsRequest, RealtimeCountsResponse,
-        event_service_server::{EventService, EventServiceServer},
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::middleware::auth::authenticate_api_token};
 
 static APPLIED: OnceLock<prometheus::IntCounterVec> = OnceLock::new();
 
@@ -56,7 +54,7 @@ fn is_transient(e: &Error) -> bool {
 /// （`applied` 落地 / `skipped` 去重或旧版本 / `rejected` 终态拒绝 / `retry` 瞬时待重投）。
 fn applied_vec() -> &'static prometheus::IntCounterVec {
     APPLIED.get_or_init(|| {
-        crate::shared::metrics::register_int_counter_vec(
+        signals::metrics::register_int_counter_vec(
             "federation_events_applied_total",
             "cross-cluster events processed by the receiver, by result",
             &["result"],
@@ -445,7 +443,7 @@ async fn apply_resource(
         }
         ResourceKind::MuteRule => apply_id_scoped!(
             &state.alerting.mute_rules,
-            crate::domain::alerting::mute::MuteRule,
+            domain::alerting::mute::MuteRule,
             action,
             local_org,
             resource_id,
@@ -453,7 +451,7 @@ async fn apply_resource(
         ),
         ResourceKind::InhibitRule => apply_id_scoped!(
             state.alerting.inhibitions.rules(),
-            crate::domain::alerting::inhibit::InhibitRule,
+            domain::alerting::inhibit::InhibitRule,
             action,
             local_org,
             resource_id,
@@ -468,7 +466,7 @@ async fn apply_resource(
         ResourceKind::HolidayCalendar => {
             let applied: Result<()> = apply_id_scoped!(
                 state.alerting.holidays.repository(),
-                crate::domain::alerting::holiday::HolidayCalendar,
+                domain::alerting::holiday::HolidayCalendar,
                 action,
                 local_org,
                 resource_id,
@@ -535,8 +533,7 @@ async fn apply_notify_template(
             repo.delete(local_org, &Id(resource_id.to_string())).await?;
         }
         CudAction::Created | CudAction::Updated => {
-            let mut template:
-                crate::infra::persistence::repositories::notify::NotifyTemplateRecord =
+            let mut template: postgres::repositories::notify::NotifyTemplateRecord =
                 serde_json::from_value(data.clone())
                     .map_err(|e| Error::invalid(format!("federation payload: {e}")))?;
 
@@ -614,7 +611,7 @@ async fn apply_regex_pattern(
 /// upsert 语义：先 update，缺失则 create（apply 与发送端 create/update 解耦，幂等覆盖）。
 async fn upsert_regex_pattern(
     state: &AppState,
-    p: crate::infra::persistence::repositories::regex_patterns::RegexPattern,
+    p: postgres::repositories::regex_patterns::RegexPattern,
 ) -> Result<()> {
     match state.storage.regex_patterns.update(p.clone()).await {
         Ok(_) => Ok(()),

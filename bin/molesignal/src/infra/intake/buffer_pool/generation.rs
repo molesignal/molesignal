@@ -13,15 +13,13 @@ use arrow::{
     compute::filter_record_batch,
     datatypes::{DataType, Schema as ArrowSchema, TimeUnit},
 };
+use domain::storage::{
+    FlushId, FlushProvenance, SequenceRange, WalSequence, WriterEpoch, WriterNodeId,
+};
+use kernel::time::TimeRange;
 
 use super::{ColumnBuilder, RecordBuilder};
-use crate::{
-    domain::storage::{
-        FlushId, FlushProvenance, SequenceRange, WalSequence, WriterEpoch, WriterNodeId,
-    },
-    infra::storage::arrow_schema::TS_COL,
-    shared::time::TimeRange,
-};
+use crate::infra::storage::arrow_schema::TS_COL;
 
 /// WAL sequence namespace carried by one buffer generation.
 #[derive(Debug, Clone, PartialEq, Eq)]

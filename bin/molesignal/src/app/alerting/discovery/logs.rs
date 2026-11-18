@@ -13,23 +13,20 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use serde_json::{Value, json};
-
-use crate::{
-    domain::{
-        alerting::{
-            discovery::{Detection, FindingKind},
-            incident::Severity,
-        },
-        query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::{StreamDefinition, StreamRepository, StreamType},
+use domain::{
+    alerting::{
+        discovery::{Detection, FindingKind},
+        incident::Severity,
     },
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+    query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::{StreamDefinition, StreamRepository, StreamType},
 };
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use serde_json::{Value, json};
 
 /// 每个组织最多看几个日志流。
 pub const MAX_STREAMS: usize = 20;

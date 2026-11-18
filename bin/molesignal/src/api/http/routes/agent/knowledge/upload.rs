@@ -7,20 +7,17 @@
 //! 不是 UTF-8 文本的、以 `.` 开头的、太大的文件跳过并说明原因；其余的一起写，超出这份知识的
 //! 份额时一个都不写。
 
+use agent::knowledge::{MAX_FILE_BYTES, normalize_path};
 use axum::{
     Extension, Json,
     extract::{Multipart, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
 use serde_json::{Value, json};
 
 use super::{audit, editable, knowledge_scope};
-use crate::{
-    agent::knowledge::{MAX_FILE_BYTES, normalize_path},
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result},
-};
+use crate::api::AppState;
 
 #[permission("agent.knowledge.manage")]
 pub(super) async fn upload(

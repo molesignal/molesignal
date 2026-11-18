@@ -17,16 +17,13 @@
 
 mod common;
 
-use molesignal::{
-    config::MetaDatabaseSettings,
-    infra::{
-        cipher::CipherRootKey,
-        cluster::{ClusterSecretRepository, PgClusterSecretRepository},
-        persistence::MetaStore,
-        secret::resolve_secret_ref,
-    },
-    shared::ids::Id,
+use kernel::ids::Id;
+use molesignal::infra::{
+    cluster::{ClusterSecretRepository, PgClusterSecretRepository},
+    secret::resolve_secret_ref,
 };
+use postgres::{MetaStore, cipher::CipherRootKey};
+use settings::MetaDatabaseSettings;
 use sqlx::Row;
 
 fn skip_unless_enabled() -> bool {

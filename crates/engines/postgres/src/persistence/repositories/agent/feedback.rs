@@ -3,17 +3,15 @@
 
 //! `agent_feedback`：对 Mole Agent 产出的评价，每人对每个对象一行。
 
+use agent::feedback::{
+    AgentFeedback, AgentFeedbackRepository, FeedbackRating, FeedbackReason, FeedbackTarget,
+};
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    agent::feedback::{
-        AgentFeedback, AgentFeedbackRepository, FeedbackRating, FeedbackReason, FeedbackTarget,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 const COLS: &str = "id, org_id, target_kind, target_id, user_id, rating, reasons, comment, \
     provenance, created_at, updated_at";

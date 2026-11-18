@@ -2,20 +2,18 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::notify::{
+    preference::NotifyCategory,
+    repositories::{
+        NotifyRouteReferenceRepository, OrganizationNotifyDefaultRepository,
+        TeamNotifyDefaultRepository,
+    },
+    routing::{NotifyDefaultRoute, OrganizationNotifyDefault, TeamNotifyDefault},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::notify::{
-        preference::NotifyCategory,
-        repositories::{
-            NotifyRouteReferenceRepository, OrganizationNotifyDefaultRepository,
-            TeamNotifyDefaultRepository,
-        },
-        routing::{NotifyDefaultRoute, OrganizationNotifyDefault, TeamNotifyDefault},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgTeamNotifyDefaultRepository {
     pool: PgPool,

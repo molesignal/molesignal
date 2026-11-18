@@ -8,12 +8,9 @@
 //! with an explicit clock and a cap on groups, which `governor`'s keyed limiter has no way to say.
 use std::collections::HashMap;
 
+use domain::pipeline::limit::{MAX_THROTTLE_GROUPS, OTHER_BUCKET, ThrottleSpec};
+use kernel::ids::Id;
 use parking_lot::Mutex;
-
-use crate::{
-    domain::pipeline::limit::{MAX_THROTTLE_GROUPS, OTHER_BUCKET, ThrottleSpec},
-    shared::ids::Id,
-};
 
 /// One throttle step's groups, for the settings they were made with.
 struct Throttle {

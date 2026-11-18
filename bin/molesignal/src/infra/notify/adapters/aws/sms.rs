@@ -6,17 +6,15 @@
 use std::time::Instant;
 
 use async_trait::async_trait;
+use domain::notify::connector::{
+    ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
+    ConnectorRegion, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
+};
+use kernel::Result;
 use serde_json::{Value, json};
 
 use super::{Account, needs_the_connector, regions, send_message};
-use crate::{
-    domain::notify::connector::{
-        ConnectorAdapter, ConnectorAddress, ConnectorCapabilities, ConnectorDeliveryResult,
-        ConnectorRegion, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
-    },
-    infra::notify::adapters::{common, phone},
-    shared::Result,
-};
+use crate::infra::notify::adapters::{common, phone};
 
 pub const AWS_SMS_CONNECTOR_TYPE: &str = "aws_sms";
 
@@ -137,6 +135,7 @@ impl ConnectorAdapter for AwsSmsConnectorAdapter {
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::connector::NotifyTargetType;
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -147,7 +146,6 @@ mod tests {
         super::tests::{connector, key},
         *,
     };
-    use crate::domain::notify::connector::NotifyTargetType;
 
     fn target() -> NotifyTarget {
         NotifyTarget {

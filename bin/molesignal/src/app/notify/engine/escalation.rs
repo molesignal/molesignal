@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::notify::{
+    delivery::{DeliveryStage, NotifyDelivery},
+    policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig, NotifyPolicy},
+    preference::NotifyCategory,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::{NotifyEngine, model::NotifyPolicyInput, silences::OrgSilences};
-use crate::{
-    app::notify::events::{escalated_event_prefix, triggered_event_id},
-    domain::notify::{
-        delivery::{DeliveryStage, NotifyDelivery},
-        policy::{NotifyDeliveryConfig, NotifyDeliveryMode, NotifyFallbackConfig, NotifyPolicy},
-        preference::NotifyCategory,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::notify::events::{escalated_event_prefix, triggered_event_id};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

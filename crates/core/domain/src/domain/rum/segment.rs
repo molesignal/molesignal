@@ -9,10 +9,10 @@
 
 use std::collections::HashSet;
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use super::retention::{RetentionCondition, free_id};
-use crate::shared::{Error, Result};
 
 /// Most segments an application has.
 pub const MAX_SEGMENTS: usize = 20;

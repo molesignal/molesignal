@@ -26,22 +26,20 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    intake::RawEvent,
+    rum::{
+        DEFAULT_ISSUES_PER_HOUR, RumApplicationRepository, RumIssue, RumIssueEnvironment,
+        RumIssueRepository, RumIssueSighting, RumIssueTracker, RumVersionRepository,
+    },
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use moka::sync::Cache;
 use parking_lot::Mutex;
 use serde_json::Value;
 
 use self::seen::{Seen, gather, merged, opening};
 use super::identity::overflow_id;
-use crate::{
-    domain::{
-        intake::RawEvent,
-        rum::{
-            DEFAULT_ISSUES_PER_HOUR, RumApplicationRepository, RumIssue, RumIssueEnvironment,
-            RumIssueRepository, RumIssueSighting, RumIssueTracker, RumVersionRepository,
-        },
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// Issues remembered, and for how long. What a person changes on another node reaches this one
 /// within it.

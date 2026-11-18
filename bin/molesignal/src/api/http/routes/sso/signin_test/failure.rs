@@ -8,13 +8,11 @@
 
 use std::sync::LazyLock;
 
+use domain::iam::{SsoProvider, SsoProviderConfig};
+use kernel::Error;
 use regex::Regex;
 
-use crate::{
-    domain::iam::{SsoProvider, SsoProviderConfig},
-    infra::sso::{TestedFailure, ldap::LdapFailure},
-    shared::Error,
-};
+use crate::infra::sso::{TestedFailure, ldap::LdapFailure};
 
 /// 发起测试之后服务配置改了。
 pub(super) const SETTINGS_CHANGED: &str =
@@ -362,19 +360,17 @@ impl Redactor {
 #[cfg(test)]
 mod tests {
     use base64::Engine as _;
+    use domain::iam::{
+        SsoFieldMapping, SsoLdapConfig, SsoOidcConfig, SsoPlatform, SsoProviderKind,
+    };
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::iam::{
-            SsoFieldMapping, SsoLdapConfig, SsoOidcConfig, SsoPlatform, SsoProviderKind,
-        },
-        infra::sso::{
-            OAuth2LoginFlow, OidcLoginFlow, SamlConfig, SamlLoginFlow,
-            claims::map_identity,
-            oidc::id_token::{Expected, verify},
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use crate::infra::sso::{
+        OAuth2LoginFlow, OidcLoginFlow, SamlConfig, SamlLoginFlow,
+        claims::map_identity,
+        oidc::id_token::{Expected, verify},
     };
 
     fn provider(config: SsoProviderConfig) -> SsoProvider {
@@ -527,13 +523,13 @@ mod tests {
         assert_eq!(code_of(&error), FailureCode::Network);
 
         let flow = OAuth2LoginFlow::new(
-            &crate::domain::iam::SsoOauth2Config {
+            &domain::iam::SsoOauth2Config {
                 authorize_url: "not a url".into(),
                 token_url: "not a url".into(),
                 userinfo_url: "not a url".into(),
                 client_id: "molesignal".into(),
                 redirect_uri: "not a url".into(),
-                ..crate::domain::iam::SsoOauth2Config::default()
+                ..domain::iam::SsoOauth2Config::default()
             },
             SsoPlatform::Custom,
         )

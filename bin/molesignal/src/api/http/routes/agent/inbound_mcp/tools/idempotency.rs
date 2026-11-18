@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::{
+    inbound_mcp::{InboundMcpIdempotencyInput, InboundMcpIdempotencyReservation},
+    model::ApprovalStatus,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use rmcp::{
     ErrorData, RoleServer,
     model::{
@@ -15,13 +20,6 @@ use sha2::{Digest, Sha256};
 use tool_runtime::{ToolAccess, ToolResult};
 
 use super::{ResolvedTool, catalog, execution, visible_error};
-use crate::{
-    agent::{
-        inbound_mcp::{InboundMcpIdempotencyInput, InboundMcpIdempotencyReservation},
-        model::ApprovalStatus,
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 const IDEMPOTENCY_LEASE_MICROS: i64 = 5 * 60 * 1_000_000;
 const CONFIRMATION_TTL_MICROS: i64 = 10 * 60 * 1_000_000;
@@ -183,7 +181,7 @@ fn supports_form_mrtr(context: &RequestContext<RoleServer>) -> bool {
 fn confirmation_required(
     handler: &super::super::handler::InboundMcpHandler,
     data: &super::super::handler::InboundRequestData,
-    approval: &crate::agent::model::ApprovalRequest,
+    approval: &agent::model::ApprovalRequest,
     args: &ExecuteApprovalArgs,
 ) -> Result<CallToolResponse, ErrorData> {
     let now = TimestampMicros::now();
@@ -364,7 +362,7 @@ async fn execute_reserved(
 }
 
 fn replay(
-    record: crate::agent::inbound_mcp::InboundMcpIdempotencyRecord,
+    record: agent::inbound_mcp::InboundMcpIdempotencyRecord,
     max_response_bytes: usize,
 ) -> CallToolResponse {
     if let Some(result) = record.result

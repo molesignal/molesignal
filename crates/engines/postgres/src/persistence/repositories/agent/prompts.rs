@@ -12,12 +12,12 @@
 //! 显式 `prompt_template_id` 由调用方先走 [`AgentPromptRepository::get`]。
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

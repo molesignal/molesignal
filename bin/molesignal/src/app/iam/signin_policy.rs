@@ -9,8 +9,10 @@
 //! 登录、切换组织、刷新会话时都按这里判断；普通请求不查，所以要求打开后，最迟一个 access token
 //! 的有效期（15 分钟）对所有会话生效。
 
+use kernel::ids::Id;
+
 use super::SignInMethod;
-use crate::{infra::mfa::SigninPolicy, shared::ids::Id};
+use crate::infra::mfa::SigninPolicy;
 
 /// 一次登录能不能进入一个组织。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

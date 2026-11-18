@@ -7,14 +7,14 @@ use std::net::IpAddr;
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
 use base64::Engine as _;
+use domain::{i18n_language::LanguagePack, iam::UserStatus};
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
     api::{AppState, http::signin_limit::SigninSource},
     app::iam::hash_password_off_thread,
-    domain::{i18n_language::LanguagePack, iam::UserStatus},
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 const PASSWORD_RESET_TTL_MICROS: i64 = 30 * 60 * 1_000_000;
@@ -54,7 +54,7 @@ async fn forgot_password(
     let email = req.email.trim().to_owned();
 
     if !email.is_empty() {
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
+        signals::trace_context::spawn_with_current_trace_context(async move {
             send_reset_email(&state, &email, req.locale.as_deref(), source).await;
         });
     }
@@ -308,7 +308,7 @@ mod password_reset_tests {
 
     #[test]
     fn reset_email_is_written_in_the_requested_language() {
-        use crate::shared::i18n_language_seed::seeded_pack;
+        use crate::i18n_language_seed::seeded_pack;
 
         assert_eq!(link_language(Some("zh-CN")), "zh-cn");
         assert_eq!(link_language(Some("en-US")), "en-us");

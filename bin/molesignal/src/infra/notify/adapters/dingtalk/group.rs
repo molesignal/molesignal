@@ -3,16 +3,12 @@
 
 //! 钉钉建群：重大事件的作战室用应用的凭证建一个内部群。
 
+use kernel::{Error, Result};
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 
 use super::DingTalkApp;
-use crate::{
-    infra::notify::adapters::common::{provider_message, truncate_chars},
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
-};
+use crate::infra::notify::adapters::common::{provider_message, truncate_chars};
 
 impl DingTalkApp {
     /// 建一个内部群：`owner` 当群主，`members`（userId）拉进来，群名最多 20 个字；返回群的

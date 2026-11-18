@@ -12,30 +12,31 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::apm::{
+    APM_FACT_SCHEMA_VERSION, APM_PERSISTENCE_SCHEMA_VERSION, ApmLimits, ApmMaintenanceRepository,
+    ApmOutcome, ApmQueryRepository, ApmSpanFact, ApmSpanKind, ApmWriteRepository, BucketDimension,
+    BucketKind, BucketMeasurements, BucketQuery, DependencyCategory, DependencyIdentity,
+    ErrorGroupRecord, ErrorIdentity, ErrorSample, HistogramSchema, InstrumentationMetadata,
+    LatencyHistogram, OwnerSnapshot, ProjectionGap, ProjectionState, QueryResolution,
+    RollupRequest, ServiceIdentity, ServiceObservation, SnapshotWriteStats, TransactionIdentity,
+    TransactionKind, VersionObservation,
+};
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use molesignal::{
     app::apm::{
         ApmAggregator, ApmCandidateProjector, ApmCardinalityLimiter, ApmLimitsHandle,
         ApmProjectorConfig, ApmQueryConfig, ApmQueryRequest, ApmQueryService, BufferedApmProjector,
     },
-    config::{ApmSettings, MetaDatabaseSettings},
-    domain::apm::{
-        APM_FACT_SCHEMA_VERSION, APM_PERSISTENCE_SCHEMA_VERSION, ApmLimits,
-        ApmMaintenanceRepository, ApmOutcome, ApmQueryRepository, ApmSpanFact, ApmSpanKind,
-        ApmWriteRepository, BucketDimension, BucketKind, BucketMeasurements, BucketQuery,
-        DependencyCategory, DependencyIdentity, ErrorGroupRecord, ErrorIdentity, ErrorSample,
-        HistogramSchema, InstrumentationMetadata, LatencyHistogram, OwnerSnapshot, ProjectionGap,
-        ProjectionState, QueryResolution, RollupRequest, ServiceIdentity, ServiceObservation,
-        SnapshotWriteStats, TransactionIdentity, TransactionKind, VersionObservation,
-    },
-    infra::{apm::PgApmRepository, persistence::MetaStore},
-    shared::{
-        Result,
-        ids::Id,
-        tail_sampling::CandidateDisposition,
-        time::{TimeRange, TimestampMicros},
-    },
+    infra::apm::PgApmRepository,
 };
+use postgres::MetaStore;
 use serde_json::json;
+use settings::{ApmSettings, MetaDatabaseSettings};
+use signals::tail_sampling::CandidateDisposition;
 use sqlx::PgPool;
 
 const SERVICE_COUNT: usize = 50;

@@ -5,13 +5,13 @@
 //! section of `org_settings` with the same shape as `users_ext.preferences`.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::PgPool;
 
 use super::{
     org_settings::{self, sections::WORKSPACE_PREFERENCES},
     user_preferences::UserPreferences,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[async_trait]
 pub trait WorkspacePreferenceDefaultsRepository: Send + Sync {

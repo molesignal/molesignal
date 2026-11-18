@@ -8,9 +8,11 @@
 //! 回答（`infra::im::teams`）用消息带来的 `serviceUrl`，令牌只发给 Bot Framework 的地址
 //! （[`TeamsApp::trusts`]）。
 
+use kernel::{Error, Result};
 use reqwest::Method;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
 
 use super::{
@@ -19,10 +21,6 @@ use super::{
         validate_http_url, validate_timeout,
     },
     TEAMS_APP_CONNECTOR_TYPE,
-};
-use crate::shared::{
-    Error, Result,
-    http_trace::{self, HttpTarget},
 };
 
 const BOT_FRAMEWORK_SCOPE: &str = "https://api.botframework.com/.default";

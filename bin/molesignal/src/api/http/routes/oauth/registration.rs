@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::inbound_mcp::NewInboundMcpOAuthClient;
 use axum::{
     Json, Router,
     extract::State,
@@ -8,16 +9,14 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use postgres::repositories::api_tokens::generate_token;
 use serde::{Deserialize, Serialize};
 
 use super::{
     OAuthError, OAuthResult,
     client::{validate_client_uri, validate_redirect_uris},
 };
-use crate::{
-    agent::inbound_mcp::NewInboundMcpOAuthClient, api::AppState, app::iam::hash_password,
-    infra::persistence::repositories::api_tokens::generate_token,
-};
+use crate::{api::AppState, app::iam::hash_password};
 
 #[derive(Debug, Deserialize)]
 struct RegistrationRequest {

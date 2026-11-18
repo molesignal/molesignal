@@ -13,25 +13,22 @@
 
 use std::collections::HashMap;
 
+use agent::{
+    memory::{Memory, MemoryDraft, MemoryKind},
+    scope::Scope,
+};
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
     routing::{get, patch, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::viewer::{requested_scope, viewer};
-use crate::{
-    agent::{
-        memory::{Memory, MemoryDraft, MemoryKind},
-        scope::Scope,
-    },
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

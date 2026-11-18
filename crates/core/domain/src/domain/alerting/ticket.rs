@@ -13,6 +13,7 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -20,7 +21,6 @@ use super::{
     incident::{Incident, Severity},
     routing::{LabelCondition, conditions_hold, validate_label_conditions},
 };
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// 关联中的工单多久同步一次。
 pub const TICKET_SYNC_INTERVAL_MICROS: i64 = 5 * 60 * 1_000_000;

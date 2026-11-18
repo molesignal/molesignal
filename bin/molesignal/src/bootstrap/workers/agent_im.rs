@@ -11,19 +11,19 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use agent::im::{BotStatus, CardAction, CardAnswer, ImBot, ImPlatform, Inbound};
 use async_trait::async_trait;
+use domain::notify::connector::NotifyConnector;
+use kernel::{ids::Id, time::TimestampMicros};
 use tokio::{sync::oneshot, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    agent::im::{BotStatus, CardAction, CardAnswer, ImBot, ImPlatform, Inbound},
     api::{
         AppState,
         http::routes::agent::im::{act, drain, handle, reconcile},
     },
-    domain::notify::connector::NotifyConnector,
     infra::im::{self, Listener},
-    shared::{ids::Id, time::TimestampMicros},
 };
 
 /// 多久看一次机器人、续一次租。

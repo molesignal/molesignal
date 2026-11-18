@@ -4,20 +4,14 @@
 //! The order a Span-filter statement lists traces in, and where a page after
 //! the first begins: the keys of the sort, compared with the cursor's.
 
-use super::{qualified, sql_literal};
-use crate::{
-    api::http::{
-        pagination::cursor::CursorDirection,
-        routes::web::trace::list::{TraceListContext, TraceListSort},
-    },
-    shared::{
-        cursor::{CursorSortDirection, CursorValue, lexicographic_seek},
-        trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-            TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
-        },
-    },
+use kernel::cursor::{CursorDirection, CursorSortDirection, CursorValue, lexicographic_seek};
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+    TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
 };
+
+use super::{qualified, sql_literal};
+use crate::api::http::routes::web::trace::list::{TraceListContext, TraceListSort};
 
 pub(super) fn cursor_predicate(context: &TraceListContext, direction: CursorDirection) -> String {
     let position = &context

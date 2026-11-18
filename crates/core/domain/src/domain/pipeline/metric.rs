@@ -15,6 +15,7 @@
 //! carry, not by when they arrive. Counts and histograms are deltas (`metric_temporality` is
 //! `delta`), so `increase` and `rate` add up the samples of a window, also those that two nodes,
 //! or a late event, wrote for the same interval.
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -23,10 +24,7 @@ use super::{
     protected::{PROTECTED_METRIC_LABELS, PROTECTED_METRIC_VALUES},
     realtime::writable_stream,
 };
-use crate::{
-    domain::metrics::is_metric_label_name,
-    shared::{Error, Result},
-};
+use crate::domain::metrics::is_metric_label_name;
 
 /// The lengths of the intervals a metric may count over.
 pub const INTERVALS_SECS: &[u32] = &[10, 30, 60, 300];

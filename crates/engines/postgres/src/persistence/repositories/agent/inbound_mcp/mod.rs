@@ -3,18 +3,15 @@
 
 //! PostgreSQL adapter for the Inbound MCP control plane.
 
+use agent::inbound_mcp::{
+    InboundMcpAuthorizationCode, InboundMcpIdempotencyInput, InboundMcpIdempotencyReservation,
+    InboundMcpOAuthClient, InboundMcpOAuthConnection, InboundMcpOAuthToken, InboundMcpRepository,
+    InboundMcpSettings, InboundMcpTask, NewInboundMcpOAuthClient,
+};
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::PgPool;
-
-use crate::{
-    agent::inbound_mcp::{
-        InboundMcpAuthorizationCode, InboundMcpIdempotencyInput, InboundMcpIdempotencyReservation,
-        InboundMcpOAuthClient, InboundMcpOAuthConnection, InboundMcpOAuthToken,
-        InboundMcpRepository, InboundMcpSettings, InboundMcpTask, NewInboundMcpOAuthClient,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 mod idempotency;
 mod oauth;

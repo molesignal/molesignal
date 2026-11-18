@@ -6,16 +6,13 @@
 //! Every event goes through the steps in order. A VRL step changes it, or drops it on purpose
 //! (`abort`), or fails on it; a routing step picks the stream it goes to. A step reads the stream
 //! the event was read from as `%source_stream`, which never becomes part of the event.
-use serde_json::{Map, Value};
-
-use crate::{
-    domain::{
-        function::FunctionOutcome,
-        pipeline::processing::{ProcessingKind, parse_processing_steps},
-    },
-    infra::runtime::VrlRuntime,
-    shared::{Error, Result, ids::Id},
+use domain::{
+    function::FunctionOutcome,
+    pipeline::processing::{ProcessingKind, parse_processing_steps},
 };
+use function_runtime::VrlRuntime;
+use kernel::{Error, Result, ids::Id};
+use serde_json::{Map, Value};
 
 /// The VRL metadata key that holds the stream an event was read from.
 pub const SOURCE_STREAM_METADATA: &str = "source_stream";

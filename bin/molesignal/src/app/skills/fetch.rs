@@ -9,15 +9,13 @@
 
 use std::time::Duration;
 
+use agent::skills::ArchiveRequest;
 use futures::StreamExt;
+use kernel::{Error, Result};
 use reqwest::{Client, StatusCode, redirect::Policy};
 use url::Url;
 
-use crate::{
-    agent::skills::ArchiveRequest,
-    app::egress::{TargetPolicy, resolve_target},
-    shared::{Error, Result},
-};
+use crate::app::egress::{TargetPolicy, resolve_target};
 
 /// 最多跟随几次重定向。
 const MAX_REDIRECTS: usize = 4;
@@ -62,10 +60,10 @@ pub(super) async fn download(
             builder = builder.header(name, value);
         }
 
-        let response = crate::shared::http_trace::send(
+        let response = signals::http_trace::send(
             &client,
             builder,
-            crate::shared::http_trace::HttpTarget::ThirdParty,
+            signals::http_trace::HttpTarget::ThirdParty,
         )
         .await
         .map_err(|error| Error::unavailable(format!("repository download failed: {error}")))?;

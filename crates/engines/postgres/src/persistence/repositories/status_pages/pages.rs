@@ -2,14 +2,12 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::status_page::{StatusPage, StatusPagePageRepository, StatusPageVisibility};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::{
     PgStatusPageRepository,
     codec::{PAGE_COLS, row_to_page},
-};
-use crate::{
-    domain::status_page::{StatusPage, StatusPagePageRepository, StatusPageVisibility},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const PAGE_JOIN_COLS: &str = "page.id AS id, page.org_id AS org_id, page.name AS name,

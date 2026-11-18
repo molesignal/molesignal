@@ -3,13 +3,13 @@
 
 use std::collections::{BTreeMap, HashSet};
 
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{
     ApmOutcome, ApmSpanFact, DependencyIdentity, ErrorIdentity, HistogramSchema, LatencyHistogram,
     ServiceIdentity, TransactionIdentity, TransactionKind,
 };
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 pub const APM_PERSISTENCE_SCHEMA_VERSION: u16 = 1;
 

@@ -15,9 +15,8 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 /// 标签匹配算子。`eq`/`neq` 精确比较；`re`/`nre` 整串正则（必须匹配整个值）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

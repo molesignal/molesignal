@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    domain::status_page::{
-        AutomationAction, AutomationMatchers, AutomationRuleLifecycle, IncidentImpact,
-    },
-    shared::{Error, Result, ids::Id},
+use domain::status_page::{
+    AutomationAction, AutomationMatchers, AutomationRuleLifecycle, IncidentImpact,
 };
+use kernel::{Error, Result, ids::Id};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationRuleInput {
@@ -21,8 +18,8 @@ pub struct AutomationRuleInput {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationSimulation {
-    pub matched_rule_id: Option<crate::shared::ids::Id>,
-    pub matched_revision_id: Option<crate::shared::ids::Id>,
+    pub matched_rule_id: Option<kernel::ids::Id>,
+    pub matched_revision_id: Option<kernel::ids::Id>,
     pub reason: String,
 }
 

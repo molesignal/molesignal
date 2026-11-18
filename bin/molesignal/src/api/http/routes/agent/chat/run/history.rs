@@ -9,33 +9,29 @@
 
 use std::sync::Arc;
 
+use agent::{
+    chat::{
+        ChatMessage as ExternalChatMessage, CompletionRequest, MessageRole, ModelCallObserver,
+        ToolChoice, observed_complete,
+    },
+    commands::text_for_model,
+    runs::{
+        COMPACTION_INSTRUCTION, COMPACTION_KEEP_TURNS, RunEventKind, TranscriptStep,
+        compaction_due, compaction_split, estimate_tokens, language_instruction, summary_text,
+        transcript_messages,
+    },
+    usage::UsageOrigin,
+};
+use domain::iam::IamContext;
+use kernel::{Error, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::{Chat, ChatMessage};
 use serde_json::{Value, json};
 
 use super::{
     super::{messages::command_of, provider::ResolvedProvider},
     Ending, RunControl,
 };
-use crate::{
-    agent::{
-        chat::{
-            ChatMessage as ExternalChatMessage, CompletionRequest, MessageRole, ModelCallObserver,
-            ToolChoice, observed_complete,
-        },
-        commands::text_for_model,
-        runs::{
-            COMPACTION_INSTRUCTION, COMPACTION_KEEP_TURNS, RunEventKind, TranscriptStep,
-            compaction_due, compaction_split, estimate_tokens, language_instruction, summary_text,
-            transcript_messages,
-        },
-        usage::UsageOrigin,
-    },
-    app::{
-        agent_usage::{UsageRecorder, UsageScope},
-        iam::IamContext,
-    },
-    infra::persistence::repositories::agent::chats::{Chat, ChatMessage},
-    shared::{Error, ids::Id, time::TimestampMicros},
-};
+use crate::app::agent_usage::{UsageRecorder, UsageScope};
 
 /// 摘要最多写这么多 token。
 const SUMMARY_MAX_TOKENS: i32 = 2_048;

@@ -15,12 +15,12 @@ use axum::{
     routing::get,
 };
 use chrono::DateTime;
+use domain::iam::{IamContext, permission};
+use kernel::Error;
 use serde::{Deserialize, Serialize};
+use service_graph::EdgeSnapshot;
 
-use crate::{
-    api::AppState, app::iam::IamContext, domain::iam::permission, infra::traces::EdgeSnapshot,
-    shared::Error,
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/topology", get(topology))
@@ -177,8 +177,9 @@ fn aggregate(snapshots: &[EdgeSnapshot], window_micros: i64) -> TopologyResponse
 
 #[cfg(test)]
 mod tests {
+    use kernel::ids::Id;
+
     use super::*;
-    use crate::shared::ids::Id;
 
     fn snap(client: &str, server: &str, req: u64, err: u64, p95: Option<i64>) -> EdgeSnapshot {
         EdgeSnapshot {

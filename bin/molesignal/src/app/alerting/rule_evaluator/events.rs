@@ -3,12 +3,11 @@
 
 use std::sync::Arc;
 
-use crate::{
-    app::{
-        alerting::AlertIncidentLifecycleSink,
-        notify::{ALERT_RESOLVED_EVENT, NotifyEngine, alert_dispatch},
-    },
-    domain::alerting::incident::Incident,
+use domain::alerting::incident::Incident;
+
+use crate::app::{
+    alerting::AlertIncidentLifecycleSink,
+    notify::{ALERT_RESOLVED_EVENT, NotifyEngine, alert_dispatch},
 };
 
 pub(super) async fn enqueue_notify_event(

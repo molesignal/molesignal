@@ -3,15 +3,14 @@
 
 //! Opsgenie 的时段限制（`timeRestriction`）铺成一周的分钟。
 
+use domain::alerting::time_window::MINUTES_PER_DAY;
 use serde::Deserialize;
 
 use super::super::{
     MAX_RESTRICTIONS,
     weekly::{WEEK, WeekMinutes},
 };
-use crate::{
-    app::alerting::oncall_transfer::Finding, domain::alerting::time_window::MINUTES_PER_DAY,
-};
+use crate::app::alerting::oncall_transfer::Finding;
 
 #[derive(Deserialize)]
 pub(super) struct TimeRestriction {

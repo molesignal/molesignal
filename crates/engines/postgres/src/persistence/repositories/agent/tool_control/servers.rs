@@ -3,6 +3,11 @@
 
 //! MCP 服务器的读写。密文在 [`super::server_secrets`]。
 
+use agent::{
+    mcp::last4,
+    tool_control::{McpServer, McpServerInput, McpServerRuntime},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::types::Json;
 
 use super::{
@@ -10,13 +15,6 @@ use super::{
     PgToolControlRepository,
     rows::{SERVER_COLS, named_values, server_row},
     server_secrets::{CREDENTIAL_SLOT, remove_server_secrets, stored_values},
-};
-use crate::{
-    agent::{
-        mcp::last4,
-        tool_control::{McpServer, McpServerInput, McpServerRuntime},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 名称或前缀撞上唯一约束时说清楚是哪一个。

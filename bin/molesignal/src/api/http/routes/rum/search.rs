@@ -10,6 +10,11 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{
+    Error, Result,
+    cursor::{CursorDirection, CursorPage, trim_cursor_page},
+};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -19,14 +24,8 @@ use super::{
     selection::Selection,
 };
 use crate::{
-    api::{
-        AppState,
-        http::pagination::cursor::{CursorDirection, CursorPage, trim_cursor_page},
-    },
-    app::iam::IamContext,
-    domain::iam::permission,
+    api::AppState,
     infra::rum::query::{Filter, ListRequest, Scope, Seek, list_sql, requested_columns},
-    shared::{Error, Result},
 };
 
 const DEFAULT_PAGE_SIZE: usize = 100;

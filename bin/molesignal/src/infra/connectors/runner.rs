@@ -20,6 +20,15 @@ use std::{
     time::{Duration, Instant},
 };
 
+use domain::{
+    intake::{
+        IntakeBatch, RawEvent,
+        usage::{event_bytes, source::IntakeCredential},
+    },
+    run_claim::{OpenGate, RunGate},
+    stream::StreamType,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 
@@ -31,20 +40,9 @@ use super::{
     repo::{Connector, ConnectorRepository},
     sources::{kafka::KafkaSource, s3::S3Source},
 };
-use crate::{
-    app::intake::{
-        IntakeService,
-        usage::{IntakeReceipt, IntakeUsageMeter},
-    },
-    domain::{
-        intake::{
-            IntakeBatch, RawEvent,
-            usage::{event_bytes, source::IntakeCredential},
-        },
-        run_claim::{OpenGate, RunGate},
-        stream::StreamType,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+use crate::app::intake::{
+    IntakeService,
+    usage::{IntakeReceipt, IntakeUsageMeter},
 };
 
 /// 运行租约里这类工作的名字。
@@ -397,17 +395,18 @@ mod tests {
     };
 
     use async_trait::async_trait;
+    use domain::{
+        cluster::PeerRole,
+        run_claim::MemoryRunClaims,
+        stream::{Schema, StreamDefinition, StreamRepository},
+    };
+    use kernel::Error;
 
     use super::*;
     use crate::{
-        app::cluster::{PeerRole, ShardedRunGate, WorkOwnership, ownership::test_support::Nodes},
+        app::cluster::{ShardedRunGate, WorkOwnership, ownership::test_support::Nodes},
         bootstrap::test_support::FixedStreams,
-        domain::{
-            run_claim::MemoryRunClaims,
-            stream::{Schema, StreamDefinition, StreamRepository},
-        },
         infra::intake_sink::MemoryIntakeSink,
-        shared::Error,
     };
 
     /// 只记录游标推进的 connector 仓储：`list_enabled` 返回调用方给定的（可能过期的）快照，
@@ -659,7 +658,7 @@ mod tests {
         let (runner, script) = scripted(
             repo.clone(),
             vec![
-                Err(crate::shared::Error::unavailable("the broker is down")),
+                Err(kernel::Error::unavailable("the broker is down")),
                 Ok(PullBatch {
                     position: Some(json!({ "offset": 8 })),
                     ..PullBatch::default()

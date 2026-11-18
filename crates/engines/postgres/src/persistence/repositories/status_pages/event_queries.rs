@@ -4,19 +4,17 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use domain::status_page::{
+    StatusPageEventList, StatusPageEventView, StatusPageHistoryPage, StatusPageHistoryQuery,
+    StatusPageIncident, StatusPageIncidentKind, StatusPageIncidentQueryRepository,
+    StatusPageIncidentUpdate,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::PgPool;
 
 use super::{
     PgStatusPageRepository,
     codec::{INCIDENT_COLS, UPDATE_COLS, row_to_incident, row_to_update},
-};
-use crate::{
-    domain::status_page::{
-        StatusPageEventList, StatusPageEventView, StatusPageHistoryPage, StatusPageHistoryQuery,
-        StatusPageIncident, StatusPageIncidentKind, StatusPageIncidentQueryRepository,
-        StatusPageIncidentUpdate,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 #[async_trait]

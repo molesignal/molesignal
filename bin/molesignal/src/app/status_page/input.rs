@@ -3,15 +3,12 @@
 
 //! Inputs accepted by status-page use cases.
 
-use crate::{
-    domain::status_page::{
-        ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus,
-        ComponentVisibility, DependencyMode, IncidentImpact, PublicIncidentStatus,
-        StatusPageAccessRuleKind, StatusPageIncident, StatusPageIncidentKind,
-        StatusPagePublicationState, StatusPageVisibility,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use domain::status_page::{
+    ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus, ComponentVisibility,
+    DependencyMode, IncidentImpact, PublicIncidentStatus, StatusPageAccessRuleKind,
+    StatusPageIncident, StatusPageIncidentKind, StatusPagePublicationState, StatusPageVisibility,
 };
+use kernel::{ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone)]
 pub struct StatusPageInput {

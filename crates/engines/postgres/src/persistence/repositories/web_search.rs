@@ -8,11 +8,11 @@
 //! 每张表都要求 `gin_trgm_ops` 索引就绪（见初始 schema）。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id};
 use serde::Serialize;
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WebSearchHit {

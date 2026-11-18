@@ -4,14 +4,12 @@
 //! `agent_profiles`：Agent Profile 的读写。同一组织最多一个默认配置，设新的默认时在同一个
 //! 事务里取消旧的。
 
+use agent::model::{AgentProfile, NetworkAccess};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, types::Json};
 
 use super::{enum_string, parse_enum, sqlx_err};
-use crate::{
-    agent::model::{AgentProfile, NetworkAccess},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 fn profile_row(row: sqlx::postgres::PgRow) -> Result<AgentProfile> {
     let allowed_tools: Json<Vec<String>> = row.try_get("allowed_tools").map_err(sqlx_err)?;

@@ -8,22 +8,20 @@
 
 mod runs;
 
+use agent::{
+    automations::{
+        Automation, AutomationRepository, AutomationRun, AutomationRunStatus, LastAutomationRun,
+        RunEnding,
+    },
+    scope::Scope,
+};
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    agent::{
-        automations::{
-            Automation, AutomationRepository, AutomationRun, AutomationRunStatus,
-            LastAutomationRun, RunEnding,
-        },
-        scope::Scope,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgAutomationRepository {
     pool: PgPool,
@@ -94,7 +92,7 @@ fn automation_row(row: PgRow) -> Result<Automation> {
             .try_get::<i32, _>("timeout_secs")
             .map_err(sqlx_err)?
             .try_into()
-            .unwrap_or(crate::agent::automations::DEFAULT_TIMEOUT_SECS),
+            .unwrap_or(agent::automations::DEFAULT_TIMEOUT_SECS),
         template: row.try_get("template").map_err(sqlx_err)?,
         api_token_prefix: row.try_get("api_token_prefix").map_err(sqlx_err)?,
         next_run_at: micros("next_run_at")?,

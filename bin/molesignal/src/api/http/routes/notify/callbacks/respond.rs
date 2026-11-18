@@ -3,20 +3,18 @@
 
 //! 认出回复的是哪条短信或哪通电话之后：以接收人的身份确认或解决里面的告警。
 
-use crate::{
-    agent::runs::RunPrincipal,
-    api::{AppState, http::middleware::authorize_resource},
-    app::iam::IamContext,
-    domain::{
-        alerting::{incident::Incident, timeline::ActionVia},
-        iam::IamScope,
-        notify::{
-            connector::NotifyConnector,
-            reply::{ReplyAction, ReplyRef},
-        },
+use agent::runs::RunPrincipal;
+use domain::{
+    alerting::{incident::Incident, timeline::ActionVia},
+    iam::{IamContext, IamScope},
+    notify::{
+        connector::NotifyConnector,
+        reply::{ReplyAction, ReplyRef},
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+
+use crate::api::{AppState, http::middleware::authorize_resource};
 
 pub(super) async fn sms_reply(
     state: &AppState,

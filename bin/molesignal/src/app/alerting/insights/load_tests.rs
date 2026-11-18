@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::alerting::schedule::{Rotation, RotationKind};
+
 use super::*;
-use crate::domain::alerting::schedule::{Rotation, RotationKind};
 
 fn ts(value: &str) -> TimestampMicros {
     TimestampMicros::from_datetime(

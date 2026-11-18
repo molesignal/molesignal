@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 告警抑制的运行：规则在 [`crate::domain::alerting::inhibit`]，这里读规则和事件，把结果写回事件。
+//! 告警抑制的运行：规则在 [`domain::alerting::inhibit`]，这里读规则和事件，把结果写回事件。
 //!
 //! - 开事件时只定「先等到什么时候」（[`Inhibitions::hold_new`]），不查别的事件：开事件的路径不该为抑制
 //!   多读一遍全组织的事件。
@@ -10,18 +10,15 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use serde_json::json;
-
-use crate::{
-    domain::alerting::{
-        incident::Incident,
-        inhibit::{self, InhibitPair, InhibitRule, InhibitRuleRepository, InhibitionChange},
-        mute::{MuteRule, MuteRuleRepository, match_labels_for_incident},
-        repositories::IncidentRepository,
-        timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+use domain::alerting::{
+    incident::Incident,
+    inhibit::{self, InhibitPair, InhibitRule, InhibitRuleRepository, InhibitionChange},
+    mute::{MuteRule, MuteRuleRepository, match_labels_for_incident},
+    repositories::IncidentRepository,
+    timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use serde_json::json;
 
 pub struct Inhibitions {
     rules: Arc<dyn InhibitRuleRepository>,
@@ -203,17 +200,15 @@ mod tests {
     use std::{collections::BTreeMap, sync::Mutex};
 
     use async_trait::async_trait;
+    use domain::alerting::{
+        incident::{IncidentStatus, Severity},
+        inhibit::{InhibitSource, InhibitTarget},
+        mute::MuteWindow,
+        semantic_group::{LabelMatcher, MatchOp},
+    };
+    use kernel::Error;
 
     use super::*;
-    use crate::{
-        domain::alerting::{
-            incident::{IncidentStatus, Severity},
-            inhibit::{InhibitSource, InhibitTarget},
-            mute::MuteWindow,
-            semantic_group::{LabelMatcher, MatchOp},
-        },
-        shared::Error,
-    };
 
     #[derive(Default)]
     struct Rules {
@@ -515,7 +510,7 @@ mod tests {
             name: "db".into(),
             enabled: true,
             matchers: vec![LabelMatcher {
-                label: crate::domain::alerting::mute::INCIDENT_ID_MATCHER_LABEL.into(),
+                label: domain::alerting::mute::INCIDENT_ID_MATCHER_LABEL.into(),
                 op: MatchOp::Eq,
                 value: "db".into(),
             }],

@@ -14,21 +14,18 @@
 
 mod common;
 
-use molesignal::{
-    config::MetaDatabaseSettings,
-    domain::alerting::{
-        incident_group::IncidentGroupRepository,
-        semantic_group::{LabelMatcher, MatchOp, SemanticGroup, SemanticGroupRepository},
-    },
-    infra::persistence::{
-        MetaStore,
-        repositories::{
-            incidents::groups::PgIncidentGroupRepository,
-            semantic_groups::PgSemanticGroupRepository,
-        },
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use domain::alerting::{
+    incident_group::IncidentGroupRepository,
+    semantic_group::{LabelMatcher, MatchOp, SemanticGroup, SemanticGroupRepository},
 };
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::{
+    MetaStore,
+    repositories::{
+        incidents::groups::PgIncidentGroupRepository, semantic_groups::PgSemanticGroupRepository,
+    },
+};
+use settings::MetaDatabaseSettings;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")

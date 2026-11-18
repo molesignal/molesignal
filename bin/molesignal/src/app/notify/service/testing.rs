@@ -3,20 +3,19 @@
 
 use std::time::Instant;
 
+use domain::notify::{
+    connector::{
+        ConnectorAdapter, ConnectorTestStatus, NotifyConnector, NotifyMessage, NotifyTarget,
+        NotifyTargetType,
+    },
+    delivery::{DeliveryCompletion, DeliveryStage, DeliveryStatus, NotifyDelivery},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{ConnectorTestOutcome, NotifyService};
-use crate::{
-    app::notify::{
-        config::{mask_target, truncate_error},
-        engine::render_sample,
-    },
-    domain::notify::{
-        connector::{
-            ConnectorAdapter, ConnectorTestStatus, NotifyConnector, NotifyMessage, NotifyTarget,
-            NotifyTargetType,
-        },
-        delivery::{DeliveryCompletion, DeliveryStage, DeliveryStatus, NotifyDelivery},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::notify::{
+    config::{mask_target, truncate_error},
+    engine::render_sample,
 };
 
 impl NotifyService {
@@ -212,7 +211,7 @@ impl NotifyService {
 }
 
 pub(super) fn completion_from_result(
-    result: Result<crate::domain::notify::connector::ConnectorDeliveryResult>,
+    result: Result<domain::notify::connector::ConnectorDeliveryResult>,
     started: Instant,
     finished_at: TimestampMicros,
 ) -> (
@@ -295,20 +294,18 @@ mod tests {
     };
 
     use async_trait::async_trait;
+    use domain::notify::{
+        connector::{ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel},
+        preference::NotifyCategory,
+        repositories::{NotifyConnectorRepository, NotifyRouteReferenceRepository},
+        template::{NotifyTemplate, ProviderTemplate},
+    };
     use serde_json::Value;
 
     use super::*;
-    use crate::{
-        app::notify::{
-            ConnectorRegistry,
-            engine::tests::{MemoryStore, connector},
-        },
-        domain::notify::{
-            connector::{ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel},
-            preference::NotifyCategory,
-            repositories::{NotifyConnectorRepository, NotifyRouteReferenceRepository},
-            template::{NotifyTemplate, ProviderTemplate},
-        },
+    use crate::app::notify::{
+        ConnectorRegistry,
+        engine::tests::{MemoryStore, connector},
     };
 
     #[test]

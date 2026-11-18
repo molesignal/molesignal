@@ -4,14 +4,13 @@
 //! 预算对有人在等的请求的两种表达：用完时的 429 应答，接近或超过时随回答发出的提醒。
 //! 两者都只给数字和一个固定的错误码，说明文字由前端按读者语言写。
 
+use agent::usage::BudgetStatus;
 use axum::{
     Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use serde_json::{Value, json};
-
-use crate::agent::usage::BudgetStatus;
 
 /// 前端据此认出"今天的预算用完了"。
 pub(crate) const BUDGET_EXHAUSTED: &str = "agent_budget_exhausted";
@@ -46,8 +45,9 @@ pub(crate) fn notice(status: &BudgetStatus) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
+    use agent::usage::{BudgetStatus, InteractiveBudgetMode, UsageDay};
+
     use super::*;
-    use crate::agent::usage::{BudgetStatus, InteractiveBudgetMode, UsageDay};
 
     #[test]
     fn a_notice_appears_from_the_warning_threshold_on() {

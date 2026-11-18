@@ -10,16 +10,12 @@ use std::{
 };
 
 use async_trait::async_trait;
+use function_runtime::vrl::VrlLookups;
+use kernel::{Result, ids::Id};
 use serde_json::{Map, Value};
 
 use super::ExtendTable;
-use crate::{
-    infra::{
-        enrichment::{GeoIp, GeoLocation, GeoLookup},
-        runtime::vrl::VrlLookups,
-    },
-    shared::{Result, ids::Id},
-};
+use crate::infra::enrichment::{GeoIp, GeoLocation, GeoLookup};
 
 /// DB-IP 库：本节点启动时就加载了的那份，或者第一次有程序查地理位置时才读的。
 pub enum GeoSource {
@@ -108,18 +104,13 @@ fn place(location: GeoLocation) -> Value {
 mod tests {
     use std::sync::Mutex;
 
+    use function_runtime::VrlRuntime;
+    use kernel::time::TimestampMicros;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        infra::{
-            pipeline::{
-                ExtendKvRepository, ExtendRow, ExtendTableDefinition, ExtendTableSummary,
-                ExtendValueField,
-            },
-            runtime::VrlRuntime,
-        },
-        shared::time::TimestampMicros,
+    use crate::infra::pipeline::{
+        ExtendKvRepository, ExtendRow, ExtendTableDefinition, ExtendTableSummary, ExtendValueField,
     };
 
     struct Beijing;

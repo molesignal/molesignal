@@ -7,17 +7,15 @@
 //! ([`StepState::finish`]).
 use std::sync::Arc;
 
+use domain::{intake::IntakeBatch, pipeline::limit::LimitUsageLedger, stream::StreamType};
+use kernel::{ids::Id, time::TimestampMicros};
 use tokio::sync::Mutex;
 
 use super::{
     generated::{GeneratedMetrics, MetricBatch},
     limits::Limits,
 };
-use crate::{
-    app::intake::IntakeService,
-    domain::{intake::IntakeBatch, pipeline::limit::LimitUsageLedger, stream::StreamType},
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::app::intake::IntakeService;
 
 /// A batch of samples whose write failed is tried this many times in all.
 const WRITE_ATTEMPTS: u32 = 3;

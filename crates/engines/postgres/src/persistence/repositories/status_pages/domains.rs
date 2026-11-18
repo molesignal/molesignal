@@ -2,16 +2,14 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::status_page::{
+    StatusPageDomainCheckUpdate, StatusPageDomainConfig, StatusPageDomainRepository,
+    StatusPageDomainState,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::Row;
 
 use super::PgStatusPageRepository;
-use crate::{
-    domain::status_page::{
-        StatusPageDomainCheckUpdate, StatusPageDomainConfig, StatusPageDomainRepository,
-        StatusPageDomainState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const DOMAIN_CONFIG_COLS: &str = "config.org_id, config.status_page_id, config.hostname,
     config.verification_token,

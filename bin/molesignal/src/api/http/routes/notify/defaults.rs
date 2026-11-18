@@ -7,18 +7,15 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    notify::routing::{NotifyDefaultRoute, OrganizationNotifyDefault, TeamNotifyDefault},
+};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
 use super::parse_category;
-use crate::{
-    api::AppState,
-    app::{iam::IamContext, notify::NotifyDefaultInput},
-    domain::{
-        iam::permission,
-        notify::routing::{NotifyDefaultRoute, OrganizationNotifyDefault, TeamNotifyDefault},
-    },
-    shared::{Error, Result, ids::Id},
-};
+use crate::{api::AppState, app::notify::NotifyDefaultInput};
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()

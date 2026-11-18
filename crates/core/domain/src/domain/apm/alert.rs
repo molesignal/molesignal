@@ -4,10 +4,10 @@
 //! What an alert rule reads from APM: a service, or one of its endpoints,
 //! and the figure it watches, in the unit people set thresholds in.
 
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use super::TransactionIdentity;
-use crate::shared::{Error, Result, ids::Id};
 
 /// The longest service, namespace or environment name an APM rule names.
 const MAX_NAME_BYTES: usize = 255;

@@ -4,6 +4,18 @@
 //! 无数据事件：`no_data = alert` 的规则（或按列拆分的一组）连续一段没有值时另开一个事件，有值后
 //! 自动解决。它带 `alert.condition = no_data` 标签，指纹与按阈值开的事件分开，两者可以同时开着。
 
+use domain::{
+    alerting::{
+        incident::{
+            CONDITION_LABEL, Incident, IncidentStatus, NO_DATA_CONDITION, TriggeringQuery,
+            resolve_incident_severity,
+        },
+        rule::AlertRule,
+    },
+    pipeline::alert::AlertEventSource,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
+
 use super::{
     RuleEvaluator,
     decision::Decision,
@@ -11,20 +23,7 @@ use super::{
     groups::Subject,
     incident_flow::{group_title, in_silence},
 };
-use crate::{
-    app::{alerting::event_pipelines::Processed, notify::ALERT_TRIGGERED_EVENT},
-    domain::{
-        alerting::{
-            incident::{
-                CONDITION_LABEL, Incident, IncidentStatus, NO_DATA_CONDITION, TriggeringQuery,
-                resolve_incident_severity,
-            },
-            rule::AlertRule,
-        },
-        pipeline::alert::AlertEventSource,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::{alerting::event_pipelines::Processed, notify::ALERT_TRIGGERED_EVENT};
 
 impl RuleEvaluator {
     /// 有值了就解决开着的无数据事件；没有值连续够了轮数就开一个。返回这一段没有值期间开的无数据
@@ -140,7 +139,7 @@ impl RuleEvaluator {
             resolved_by: None,
             team_id: None,
             routing: None,
-            handling: crate::domain::alerting::handling::IncidentHandling {
+            handling: domain::alerting::handling::IncidentHandling {
                 urgency: rule.trigger.urgency.clone(),
                 priority: rule.trigger.priority,
                 ..Default::default()

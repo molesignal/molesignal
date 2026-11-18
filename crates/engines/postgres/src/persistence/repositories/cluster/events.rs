@@ -5,13 +5,11 @@
 //! + 接收端去重。trait + Pg 实装（与 remote_clusters / regex_patterns 一样 trait 落 infra）。
 
 use async_trait::async_trait;
+use domain::federation::CloudEvent;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::federation::CloudEvent,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 // ===== 发送端 outbox + 投递游标 =====
 

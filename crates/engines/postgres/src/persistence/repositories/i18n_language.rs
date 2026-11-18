@@ -4,13 +4,11 @@
 //! `i18n_language`: the text the backend writes itself, by key and language code.
 
 use async_trait::async_trait;
+use domain::i18n_language::{FALLBACK_LANGUAGE_CODE, I18nLanguageRepository, LanguagePack};
+use kernel::Result;
 use sqlx::PgPool;
 
 use super::sqlx_err;
-use crate::{
-    domain::i18n_language::{FALLBACK_LANGUAGE_CODE, I18nLanguageRepository, LanguagePack},
-    shared::Result,
-};
 
 pub struct PgI18nLanguageRepository {
     pool: PgPool,

@@ -10,10 +10,10 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use kernel::{Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
-use crate::shared::{Result, time::TimestampMicros};
 
 #[async_trait]
 pub trait SearchAdmissionLoadRepository: Send + Sync {

@@ -16,17 +16,15 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::iam::OrganizationRepository;
+use kernel::time::TimestampMicros;
+use settings::AlertSettings;
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::{
-        alerting::{EscalationDispatcher, RuleEvaluator},
-        cluster::WorkOwnership,
-        notify::{NotifyEngine, OncallEventProducer},
-    },
-    config::AlertSettings,
-    domain::iam::OrganizationRepository,
-    shared::time::TimestampMicros,
+use crate::app::{
+    alerting::{EscalationDispatcher, RuleEvaluator},
+    cluster::WorkOwnership,
+    notify::{NotifyEngine, OncallEventProducer},
 };
 
 /// 归属指标里升级派发这项工作的名字。

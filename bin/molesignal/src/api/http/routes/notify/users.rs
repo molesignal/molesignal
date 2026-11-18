@@ -4,17 +4,14 @@
 use std::collections::{HashMap, HashSet};
 
 use axum::{Extension, Json, Router, extract::State, routing::get};
+use domain::{
+    iam::{IamContext, UserStatus, permission},
+    notify::{endpoint::UserNotifyEndpoint, preference::UserNotifyPreference},
+};
+use kernel::{Result, ids::Id};
 use serde::Serialize;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::{UserStatus, permission},
-        notify::{endpoint::UserNotifyEndpoint, preference::UserNotifyPreference},
-    },
-    shared::{Result, ids::Id},
-};
+use crate::api::AppState;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new().route("/notify/users", get(list))

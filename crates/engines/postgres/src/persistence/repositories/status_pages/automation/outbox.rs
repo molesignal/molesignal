@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::{AutomationCandidate, AutomationOutboxItem};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     super::PgStatusPageRepository,
     codec::{OUTBOX_COLS, row_to_outbox},
-};
-use crate::{
-    domain::status_page::{AutomationCandidate, AutomationOutboxItem},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) async fn enqueue(

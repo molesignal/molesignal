@@ -4,13 +4,11 @@
 //! `slow_queries` 表 Pg 实装：慢查询采集（按 (org, fingerprint) 去重累计）。
 
 use async_trait::async_trait;
+use domain::query::{QueryLanguage, SlowQuery, SlowQueryRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::query::{QueryLanguage, SlowQuery, SlowQueryRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgSlowQueryRepository {
     pool: PgPool,

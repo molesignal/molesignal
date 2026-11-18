@@ -12,12 +12,9 @@ use std::{
 };
 
 use aws_lc_rs::digest;
+use domain::notify::connector::{ConnectorDeliveryResult, NotifyMessage};
+use kernel::{Error, Result};
 use url::Url;
-
-use crate::{
-    domain::notify::connector::{ConnectorDeliveryResult, NotifyMessage},
-    shared::{Error, Result},
-};
 
 pub(super) fn default_timeout_secs() -> u64 {
     10

@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::iam::{Team, TeamRepository};
+use kernel::{Error, Result, ids::Id};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::iam::{Team, TeamRepository},
-    shared::{Error, Result, ids::Id},
-};
 
 pub struct PgTeamRepository {
     pool: PgPool,

@@ -3,14 +3,12 @@
 
 //! 对外 MCP Server 的组织设置，存在 `org_settings` 的 `inbound_mcp` 一节。取值范围由设置接口校验。
 
+use agent::inbound_mcp::InboundMcpSettings;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use super::super::super::org_settings::{self, Section, sections::INBOUND_MCP};
-use crate::{
-    agent::inbound_mcp::InboundMcpSettings,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// `inbound_mcp` 一节的值。`created_at` 是第一次保存的时间。
 #[derive(Serialize, Deserialize)]

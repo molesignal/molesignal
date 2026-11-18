@@ -19,6 +19,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -27,7 +28,6 @@ use super::{
     metric::{cut, label_value},
     realtime::writable_stream,
 };
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 pub const MAX_PARTITION_FIELDS: usize = 5;
 /// At most this many buckets a quota keeps apart in a day; the events of the others share

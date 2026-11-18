@@ -8,19 +8,14 @@
 //! 授权卡写进对话并等回答。没有时清单只回一句已记下，问题让模型自己判断并说明假设，「确认」
 //! 模式的工具照旧不能直接执行，缺的凭据请用户去设置里填写。
 
+use agent::runs::QuestionKind;
 use async_trait::async_trait;
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::{RiskLevel, ToolResult, catalog::BuiltinToolKind};
 
-use crate::{
-    agent::{
-        model::RiskLevel,
-        runs::QuestionKind,
-        tools::{BuiltinToolKind, ToolResult},
-    },
-    app::mcp::CredentialNeed,
-    shared::{Error, Result},
-};
+use crate::app::mcp::CredentialNeed;
 
 /// 没有人可问时交给模型的结果。
 const NO_ONE_TO_ASK: &str = "No one can answer questions here. Continue with your best judgment and say which assumption you made.";
@@ -356,7 +351,7 @@ mod tests {
 
     fn need() -> CredentialNeed {
         CredentialNeed {
-            server_id: crate::shared::ids::Id::from_string("server-1"),
+            server_id: kernel::ids::Id::from_string("server-1"),
             server: "Linear".into(),
             header: "authorization".into(),
             bearer: true,

@@ -5,18 +5,16 @@
 
 use std::sync::Arc;
 
+use domain::{
+    intake::IntakeBatch,
+    stream::{DEFAULT_PROFILE_STREAM, StreamType},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use object_store::ObjectStore;
 use profiles::{self, NormalizedProfile};
 use serde_json::Value;
 
-use crate::{
-    app::intake::IntakeService,
-    domain::{
-        intake::IntakeBatch,
-        stream::{DEFAULT_PROFILE_STREAM, StreamType},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::intake::IntakeService;
 
 pub struct ProfileStorageService {
     object_store: Arc<dyn ObjectStore>,
@@ -62,7 +60,7 @@ impl ProfileStorageService {
         org_id: &Id,
         normalized: &NormalizedProfile,
         raw_pprof: &[u8],
-    ) -> Result<crate::domain::intake::RawEvent> {
+    ) -> Result<domain::intake::RawEvent> {
         let timestamp = if normalized.start_time_micros > 0 {
             TimestampMicros(normalized.start_time_micros)
         } else {
@@ -95,9 +93,6 @@ mod tests {
     #[test]
     fn public_and_internal_profile_streams_are_distinct() {
         assert_eq!(super::DEFAULT_PROFILE_STREAM, "default");
-        assert_eq!(
-            crate::domain::stream::MOLESIGNAL_SYSTEM_STREAM,
-            "_molesignal"
-        );
+        assert_eq!(domain::stream::MOLESIGNAL_SYSTEM_STREAM, "_molesignal");
     }
 }

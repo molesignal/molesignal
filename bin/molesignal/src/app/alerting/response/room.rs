@@ -5,21 +5,19 @@
 
 use std::collections::HashMap;
 
+use domain::{
+    alerting::{
+        incident::Incident,
+        meeting::MeetingMode,
+        response::{IncidentResponse, ResponseRole, ResponseSettings},
+        timeline::TimelineKind,
+    },
+    notify::connector::NotifyConnector,
+};
+use kernel::{Error, Result, ids::Id};
 use serde_json::json;
 
 use super::{IncidentResponseService, meetings, war_room};
-use crate::{
-    domain::{
-        alerting::{
-            incident::Incident,
-            meeting::MeetingMode,
-            response::{IncidentResponse, ResponseRole, ResponseSettings},
-            timeline::TimelineKind,
-        },
-        notify::connector::NotifyConnector,
-    },
-    shared::{Error, Result, ids::Id},
-};
 
 impl IncidentResponseService {
     /// 先开会（入会链接写进开场白），再建作战室。

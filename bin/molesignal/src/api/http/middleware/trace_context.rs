@@ -7,11 +7,10 @@ use axum::{
     response::Response,
 };
 use http::{HeaderName, HeaderValue, StatusCode};
-use tracing::{Instrument, field};
-
-use crate::shared::trace_context::{
+use signals::trace_context::{
     REQUEST_ID, TRACE_ID, TraceContext, TraceTrust, with_current_trace_context,
 };
+use tracing::{Instrument, field};
 
 const PROBE_PATHS: &[&str] = &["/api/v1/healthz", "/healthz", "/readyz"];
 

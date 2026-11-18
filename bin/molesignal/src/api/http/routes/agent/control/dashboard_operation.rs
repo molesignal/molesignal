@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use agent::model::ApprovalRequest;
+use domain::{
+    dashboard::authoring::DraftConsumption,
+    federation::{CudAction, ResourceKind},
+    iam::IamContext,
+};
+use kernel::{Error, Result, ids::Id};
 use serde_json::{Value, json};
 
 use super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::{
-        AppState,
-        http::{federation::emit_cud, routes::activity_audit},
-    },
-    app::iam::IamContext,
-    domain::{
-        dashboard::authoring::DraftConsumption,
-        federation::{CudAction, ResourceKind},
-    },
-    shared::{Error, Result, ids::Id},
+use crate::api::{
+    AppState,
+    http::{federation::emit_cud, routes::activity_audit},
 };
 
 pub(super) async fn execute(

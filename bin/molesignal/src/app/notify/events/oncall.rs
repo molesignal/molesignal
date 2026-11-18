@@ -3,20 +3,18 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use domain::{
+    alerting::{
+        repositories::ScheduleRepository,
+        schedule::{Schedule, ScheduleOverride},
+        swap::{SwapRequest, SwapStatus},
+    },
+    notify::{connector::NotifyMessage, policy::NotifyEvent},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::{Map, Value};
 
-use crate::{
-    app::notify::{NotifyDispatch, NotifyEngine, Reachability},
-    domain::{
-        alerting::{
-            repositories::ScheduleRepository,
-            schedule::{Schedule, ScheduleOverride},
-            swap::{SwapRequest, SwapStatus},
-        },
-        notify::{connector::NotifyMessage, policy::NotifyEvent},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::notify::{NotifyDispatch, NotifyEngine, Reachability};
 
 pub const ONCALL_SHIFT_STARTING_EVENT: &str = "oncall.shift.starting";
 pub const ONCALL_SHIFT_STARTED_EVENT: &str = "oncall.shift.started";
@@ -478,8 +476,9 @@ fn floor_minute(value: TimestampMicros) -> TimestampMicros {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::schedule::{Rotation, RotationKind};
+
     use super::*;
-    use crate::domain::alerting::schedule::{Rotation, RotationKind};
 
     fn schedule() -> Schedule {
         Schedule {

@@ -3,19 +3,18 @@
 
 use std::collections::BTreeMap;
 
+use domain::notify::{
+    delivery::{DeliveryFilter, DeliveryStage, DeliveryStatus, NotifyDelivery},
+    event::{NotifyEventRecord, NotifyEventStatus},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     NotifyEngine,
     model::{NotifyDispatch, NotifyEventOutcome, NotifyPolicyOutcome, NotifyRecipientOutcome},
     silences::Verdict,
 };
-use crate::{
-    app::notify::config::truncate_error,
-    domain::notify::{
-        delivery::{DeliveryFilter, DeliveryStage, DeliveryStatus, NotifyDelivery},
-        event::{NotifyEventRecord, NotifyEventStatus},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::notify::config::truncate_error;
 
 const MAX_EVENT_ATTEMPTS: i32 = 5;
 type RecipientDeliveries = BTreeMap<String, (Id, Vec<NotifyDelivery>)>;

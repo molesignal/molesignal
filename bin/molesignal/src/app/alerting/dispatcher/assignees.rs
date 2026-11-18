@@ -5,15 +5,13 @@
 
 use std::collections::HashMap;
 
-use crate::{
-    domain::alerting::{
-        escalation::{EscalationStep, EscalationTarget},
-        incident::Incident,
-        repositories::ScheduleRepository,
-        schedule::Schedule,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use domain::alerting::{
+    escalation::{EscalationStep, EscalationTarget},
+    incident::Incident,
+    repositories::ScheduleRepository,
+    schedule::Schedule,
 };
+use kernel::{ids::Id, time::TimestampMicros};
 
 /// 一轮 tick 内的排班缓存：同一个排班只读一次库。没有注入排班仓库时，排班目标不产生负责人。
 pub(super) struct ScheduleCache<'a> {
@@ -94,15 +92,13 @@ pub(super) async fn apply_assignees(
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use domain::alerting::{
+        incident::{IncidentStatus, Severity},
+        schedule::{Rotation, RotationKind},
+    };
+    use kernel::{Error, Result};
 
     use super::*;
-    use crate::{
-        domain::alerting::{
-            incident::{IncidentStatus, Severity},
-            schedule::{Rotation, RotationKind},
-        },
-        shared::{Error, Result},
-    };
 
     struct Schedules(HashMap<Id, Schedule>);
 

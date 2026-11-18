@@ -21,6 +21,8 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
+use domain::iam::{SsoProvider, SsoProviderConfig, SsoProviderKind, SsoSamlConfig};
+use kernel::{Error, Result};
 use serde::Deserialize;
 
 use super::{
@@ -30,9 +32,7 @@ use super::{
 };
 use crate::{
     api::AppState,
-    domain::iam::{SsoProvider, SsoProviderConfig, SsoProviderKind, SsoSamlConfig},
     infra::sso::{SamlConfig, SamlLoginFlow, SsoStateEntry},
-    shared::{Error, Result},
 };
 
 pub(super) fn routes() -> Router<AppState> {

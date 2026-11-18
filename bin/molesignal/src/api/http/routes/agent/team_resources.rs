@@ -4,13 +4,11 @@
 //! 一个团队名下的 Mole Agent 资源。删除团队前要先移交或删除它们，免得团队私有的内容被并入
 //! 组织或无人能管。
 
+use agent::scope::Scope;
+use kernel::{Result, ids::Id};
 use serde::Serialize;
 
-use crate::{
-    agent::scope::Scope,
-    api::AppState,
-    shared::{Result, ids::Id},
-};
+use crate::api::AppState;
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct TeamResource {

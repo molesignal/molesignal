@@ -3,9 +3,8 @@
 
 //! 设置身份验证器时扫的二维码，画成 SVG：页面用 `<img>` 显示，不需要前端的二维码库。
 
+use kernel::{Error, Result};
 use qrcode::{EcLevel, QrCode, render::svg};
-
-use crate::shared::{Error, Result};
 
 /// `text` 的二维码。黑码白底，留出静区，深色界面里也能扫。
 pub fn svg(text: &str) -> Result<String> {

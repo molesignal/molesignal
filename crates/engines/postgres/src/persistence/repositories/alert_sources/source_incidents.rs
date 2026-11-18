@@ -7,13 +7,11 @@
 //! 处理；持锁的节点挂了，连接断开锁就放开。等锁最多 10 秒，等不到报错，发送方会重试。
 
 use async_trait::async_trait;
+use domain::alerting::source::{AlertMember, KeyLock, SourceIncident, SourceIncidentRepository};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, TracedTransaction, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::source::{AlertMember, KeyLock, SourceIncident, SourceIncidentRepository},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgSourceIncidentRepository {
     pool: PgPool,

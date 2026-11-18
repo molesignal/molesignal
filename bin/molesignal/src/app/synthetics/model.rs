@@ -3,15 +3,13 @@
 
 use std::collections::BTreeMap;
 
+use domain::synthetics::{
+    EgressPolicy, MonitorRevision, MonitorSchedule, MonitorSpec, MultiLocationPolicy,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::validate_revision;
-use crate::{
-    domain::synthetics::{
-        EgressPolicy, MonitorRevision, MonitorSchedule, MonitorSpec, MultiLocationPolicy,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -12,35 +12,32 @@
 //! 核对能读它，建一条调查记录；会话之后的回答把步骤、证据、假设与结论记到它上面，「调查」页签列出
 //! 这些会话。事件 RCA 只写回从事件开始的会话。
 
+use agent::{
+    answer::{Headings, StructuredAnswer},
+    model::{Investigation, InvestigationStatus},
+    scope::Scope,
+};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::{
+    alerting::{
+        escalation::{EscalationPolicy, EscalationTarget},
+        incident::{Incident, IncidentRca},
+    },
+    iam::{IamContext, Team, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::Chat;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::viewer::{readable_chat, viewer};
-use crate::{
-    agent::{
-        answer::{Headings, StructuredAnswer},
-        model::{Investigation, InvestigationStatus},
-        scope::Scope,
-    },
-    api::{
-        AppState,
-        http::{middleware::authorize_resource, routes::activity_audit},
-    },
-    app::iam::IamContext,
-    domain::{
-        alerting::{
-            escalation::{EscalationPolicy, EscalationTarget},
-            incident::{Incident, IncidentRca},
-        },
-        iam::{Team, permission},
-    },
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::api::{
+    AppState,
+    http::{middleware::authorize_resource, routes::activity_audit},
 };
 
 pub fn routes() -> Router<AppState> {

@@ -26,7 +26,9 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use agent::im::{ConversationKind, Inbound, Sender};
 use futures::{SinkExt, StreamExt};
+use kernel::{Error, Result, ids::Id};
 use serde_json::{Value, json};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -39,11 +41,7 @@ pub(super) use self::cards::answer;
 use self::cards::card_action;
 pub(crate) use self::cards::{deliver, post_notification};
 use super::{Listener, ws};
-use crate::{
-    agent::im::{ConversationKind, Inbound, Sender},
-    infra::notify::adapters::{WecomBot, truncate_bytes},
-    shared::{Error, Result, ids::Id},
-};
+use crate::infra::notify::adapters::{WecomBot, truncate_bytes};
 
 const PING: Duration = Duration::from_secs(30);
 /// 订阅与每一帧都等企业微信回话这么久。

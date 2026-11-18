@@ -2,16 +2,14 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 use super::{
     ActiveAutomationRule, AutomationCandidate, AutomationCandidateDetail, AutomationCandidateState,
     AutomationOutboxItem, AutomationSourceObservation, StatusAutomationRevision,
     StatusAutomationRule,
 };
-use crate::{
-    domain::status_page::StatusPageIncidentUpdate,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::status_page::StatusPageIncidentUpdate;
 
 #[async_trait]
 pub trait StatusPageAutomationRepository: Send + Sync {

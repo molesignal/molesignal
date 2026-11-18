@@ -14,13 +14,13 @@
 //! 交接时刻全年不变，跨夏令时的那一班长一小时或短一小时。生效时段也按本地时间判断，精确到分钟。
 
 use chrono::Duration;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::time_window::{
     ALL_DAY, CalendarUse, WeeklyRange, local_instant, parse_timezone, timezone_or_utc,
     validate_ranges, windows_contain, windows_transitions,
 };
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// 求覆盖时段时，一条轮值最多列出多少次交接；周期极短的轮值不会因此列出几十万个点。
 const MAX_HANDOFFS: usize = 10_000;

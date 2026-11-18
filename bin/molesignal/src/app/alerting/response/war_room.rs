@@ -15,19 +15,17 @@
 
 use std::time::Duration;
 
+use domain::{alerting::response::WarRoom, notify::connector::NotifyConnector};
+use kernel::{Error, Result, time::TimestampMicros};
 use reqwest::header::USER_AGENT;
 use serde_json::{Value, json};
 
-use crate::{
-    domain::{alerting::response::WarRoom, notify::connector::NotifyConnector},
-    infra::{
-        connectors::dispatcher::http::pinned_client,
-        notify::adapters::{
-            DINGTALK_APP_CONNECTOR_TYPE, DingTalkApp, DingTalkRecipient, WECOM_APP_CONNECTOR_TYPE,
-            create_wecom_chat, post_wecom_chat,
-        },
+use crate::infra::{
+    connectors::dispatcher::http::pinned_client,
+    notify::adapters::{
+        DINGTALK_APP_CONNECTOR_TYPE, DingTalkApp, DingTalkRecipient, WECOM_APP_CONNECTOR_TYPE,
+        create_wecom_chat, post_wecom_chat,
     },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 const TIMEOUT: Duration = Duration::from_secs(15);

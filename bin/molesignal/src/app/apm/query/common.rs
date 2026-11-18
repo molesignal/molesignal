@@ -3,17 +3,16 @@
 
 use std::collections::HashSet;
 
-use super::{ApmQueryContext, ApmQueryRange, ApmQueryService, ApmResponseMeta, SignalFilterHandle};
-use crate::{
-    domain::apm::{
-        BucketKind, BucketQuery, CatalogQuery, DataQuality, ErrorGroupQuery, QueryResolution,
-        TraceExemplar,
-    },
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-    },
+use domain::apm::{
+    BucketKind, BucketQuery, CatalogQuery, DataQuality, ErrorGroupQuery, QueryResolution,
+    TraceExemplar,
 };
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
+
+use super::{ApmQueryContext, ApmQueryRange, ApmQueryService, ApmResponseMeta, SignalFilterHandle};
 
 const HOUR_MICROS: i64 = 3_600_000_000;
 
@@ -153,7 +152,7 @@ impl ApmQueryService {
 
 pub(super) fn signal_handle(
     context: &ApmQueryContext,
-    service: &crate::domain::apm::ServiceIdentity,
+    service: &domain::apm::ServiceIdentity,
     version: Option<String>,
     transaction: Option<String>,
     dependency: Option<String>,
@@ -172,7 +171,7 @@ pub(super) fn signal_handle(
     }
 }
 
-pub(super) fn overflow_dimensions(buckets: &[crate::domain::apm::MergedBucket]) -> Vec<String> {
+pub(super) fn overflow_dimensions(buckets: &[domain::apm::MergedBucket]) -> Vec<String> {
     let mut dimensions = buckets
         .iter()
         .filter(|bucket| bucket.measurements.overflow_count > 0)

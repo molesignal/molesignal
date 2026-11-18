@@ -12,17 +12,15 @@
 
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
+use domain::alerting::{
+    schedule::{Rotation, RotationKind},
+    time_window::parse_timezone,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::{Map, Value, json};
 
 use super::{Directory, Finding, TransferItem};
-use crate::{
-    app::alerting::rule_transfer::ImportAction,
-    domain::alerting::{
-        schedule::{Rotation, RotationKind},
-        time_window::parse_timezone,
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::app::alerting::rule_transfer::ImportAction;
 
 mod opsgenie;
 mod overlap;

@@ -3,17 +3,14 @@
 
 //! Explicit public projection for anonymous status-page responses.
 
-use serde::Serialize;
-
-use crate::{
-    domain::status_page::{
-        ComponentKind, ComponentStatus, IncidentImpact, PublicIncidentStatus, StatusPageComponent,
-        StatusPageComponentStatusEvent, StatusPageIncident, StatusPageIncidentKind,
-        StatusPageIncidentUpdate, StatusPagePostmortem, StatusPagePublicationState,
-        StatusPageSnapshot, StatusPageVisibility,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use domain::status_page::{
+    ComponentKind, ComponentStatus, IncidentImpact, PublicIncidentStatus, StatusPageComponent,
+    StatusPageComponentStatusEvent, StatusPageIncident, StatusPageIncidentKind,
+    StatusPageIncidentUpdate, StatusPagePostmortem, StatusPagePublicationState, StatusPageSnapshot,
+    StatusPageVisibility,
 };
+use kernel::{ids::Id, time::TimestampMicros};
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -240,11 +237,12 @@ fn project_incidents(incidents: Vec<StatusPageIncident>) -> Vec<PublicStatusPage
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::status_page::{
+    use domain::status_page::{
         ComponentLifecycle, ComponentVisibility, StatusPage, StatusPageLifecycle,
         StatusPagePublicationState, StatusPageVisibility,
     };
+
+    use super::*;
 
     #[test]
     fn anonymous_projection_omits_tenant_and_internal_incident_identifiers() {

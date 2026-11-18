@@ -13,6 +13,21 @@
 use std::collections::{BTreeMap, HashSet};
 
 use chrono::{TimeZone, Utc};
+use domain::{
+    alerting::{
+        forecast::{
+            FORECAST_BACKFILL_POINTS, ForecastParams, ForecastSeries, SeriesPoint,
+            forecast_crossing,
+        },
+        heartbeat::{HeartbeatStatus, MAX_HEARTBEAT_MESSAGE_CHARS},
+        incident::Incident,
+        outlier::outlier_scores,
+        repositories::AlertRuleEvalState,
+        rule::{AlertRule, AlertRuleKind},
+    },
+    query::{QueryResult, StreamHint},
+};
+use kernel::{Result, time::TimestampMicros};
 
 use super::{
     RuleEvaluator, WORK,
@@ -21,24 +36,7 @@ use super::{
     groups::{Group, Subject},
     round::{Reading, advance},
 };
-use crate::{
-    app::cluster::record_overlap_skipped,
-    domain::{
-        alerting::{
-            forecast::{
-                FORECAST_BACKFILL_POINTS, ForecastParams, ForecastSeries, SeriesPoint,
-                forecast_crossing,
-            },
-            heartbeat::{HeartbeatStatus, MAX_HEARTBEAT_MESSAGE_CHARS},
-            incident::Incident,
-            outlier::outlier_scores,
-            repositories::AlertRuleEvalState,
-            rule::{AlertRule, AlertRuleKind},
-        },
-        query::{QueryResult, StreamHint},
-    },
-    shared::{Result, time::TimestampMicros},
-};
+use crate::app::cluster::record_overlap_skipped;
 
 /// 时间写成 UTC 的 RFC 3339。
 fn utc(at: i64) -> String {

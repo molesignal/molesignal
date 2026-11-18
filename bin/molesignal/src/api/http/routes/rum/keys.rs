@@ -9,6 +9,11 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    rum::event::field,
+};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -19,12 +24,9 @@ use super::{
 };
 use crate::{
     api::AppState,
-    app::iam::IamContext,
-    domain::{iam::permission, rum::event::field},
     infra::rum::query::{
         Filter, KEY_COLUMN, KEY_COUNT, MEMBER_COLUMNS, Scope, Unavailable, keys_sql,
     },
-    shared::{Error, Result},
 };
 
 const DEFAULT_KEYS: usize = 100;

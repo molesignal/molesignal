@@ -7,9 +7,8 @@
 //! 导入先预演：每一条按名称对上已有的规则——没有就新建，正好一条就比较字段（不变或更新），同名
 //! 的有几条就报冲突；也可以只新建（已有的跳过）。整包都说得通才写，一个事务写进去。
 
+use kernel::{Error, Result, ids::Id};
 use serde::Serialize;
-
-use crate::shared::{Error, Result, ids::Id};
 
 pub mod bundle;
 pub mod prometheus;

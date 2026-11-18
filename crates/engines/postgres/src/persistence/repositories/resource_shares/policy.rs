@@ -5,11 +5,11 @@
 //! `org_settings`. Without one, sharing stays closed ([`ResourceSharePolicy::secure_default`]).
 //! The expiry range is checked by the settings endpoint.
 
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use super::super::org_settings::{self, sections::RESOURCE_SHARING};
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

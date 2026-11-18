@@ -3,11 +3,9 @@
 
 //! Trace-list projection availability check.
 
-use crate::{
-    api::AppState,
-    app::{iam::IamContext, trace::summary::carries_summaries},
-    domain::stream::StreamType,
-};
+use domain::{iam::IamContext, stream::StreamType};
+
+use crate::{api::AppState, app::trace::summary::carries_summaries};
 
 pub(super) async fn available(state: &AppState, ctx: &IamContext, stream: &str) -> bool {
     state

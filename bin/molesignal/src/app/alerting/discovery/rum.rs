@@ -6,18 +6,15 @@
 
 use std::sync::Arc;
 
-use serde_json::json;
-
-use crate::{
-    domain::{
-        alerting::{
-            discovery::{Detection, FindingKind},
-            incident::Severity,
-        },
-        rum::{RumApplicationRepository, RumIssueMoment, RumIssueRepository, RumIssueStatus},
+use domain::{
+    alerting::{
+        discovery::{Detection, FindingKind},
+        incident::Severity,
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    rum::{RumApplicationRepository, RumIssueMoment, RumIssueRepository, RumIssueStatus},
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use serde_json::json;
 
 /// 看最近多久。
 const LOOKBACK_MICROS: i64 = 30 * 60 * 1_000_000;

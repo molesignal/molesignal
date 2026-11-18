@@ -7,16 +7,13 @@ use axum::{
     Extension, Json,
     extract::{Path, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::viewer::viewer;
-use crate::{
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Result, ids::Id},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

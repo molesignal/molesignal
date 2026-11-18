@@ -6,15 +6,14 @@
 //! 邮件用账号主人读界面的语言：本人的设置，没设时用当时所在组织的默认语言。没配 SMTP 时不发，
 //! 发送失败只记日志，不挡住操作本身。
 
-use crate::{
-    api::AppState,
-    domain::{
-        i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack},
-        iam::User,
-    },
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::{Result, ids::Id, time::TimestampMicros},
+use domain::{
+    i18n_language::{FALLBACK_LANGUAGE_CODE, LanguagePack},
+    iam::User,
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEvent;
+
+use crate::api::AppState;
 
 /// 邮件主题与正文在 `i18n_language` 表里的键前缀。
 const EMAIL_KEY: &str = "auth.email.mfa";
@@ -96,7 +95,7 @@ pub(super) async fn tell_owner(state: &AppState, user: &User, org_id: &Id, notic
 
     let to = user.email.clone();
 
-    crate::shared::trace_context::spawn_with_current_trace_context(async move {
+    signals::trace_context::spawn_with_current_trace_context(async move {
         if let Err(error) = sender.send_text(&[to], &subject, &body).await {
             tracing::warn!(error = %error, "mfa notice: email send failed");
         }
@@ -171,7 +170,7 @@ pub(super) async fn audit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shared::i18n_language_seed::seeded_pack;
+    use crate::i18n_language_seed::seeded_pack;
 
     #[test]
     fn every_notice_is_written_in_both_languages() {

@@ -5,11 +5,10 @@
 //! carries. The token in the link is the only proof needed: whoever can read
 //! the subscriber's messages can manage the subscription.
 
+use domain::status_page::{StatusPageLifecycle, StatusPageSubscriber};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{super::StatusPageService, token_hash, validate_token};
-use crate::{
-    domain::status_page::{StatusPageLifecycle, StatusPageSubscriber},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 impl StatusPageService {
     /// The pending or active subscription the token belongs to.

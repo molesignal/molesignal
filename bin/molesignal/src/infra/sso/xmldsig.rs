@@ -29,11 +29,10 @@
 use std::io::Cursor;
 
 use aws_lc_rs::signature::{RSA_PKCS1_2048_8192_SHA256, UnparsedPublicKey};
+use kernel::{Error, Result};
 use quick_xml::{Reader, events::Event};
 use roxmltree::{Document, Node, NodeId};
 use sha2::Digest;
-
-use crate::shared::{Error, Result};
 
 /// 入口：验 SAML Response 里 Assertion 的 XMLDSig enveloped signature。
 ///

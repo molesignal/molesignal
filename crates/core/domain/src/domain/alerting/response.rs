@@ -8,6 +8,7 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 pub use super::meeting::MeetingMode;
@@ -17,7 +18,6 @@ use super::{
     priority::Priority,
     routing::{LabelCondition, conditions_hold, validate_label_conditions},
 };
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 pub const MAX_TASKS: usize = 50;
 pub const MAX_TASK_TITLE_CHARS: usize = 200;

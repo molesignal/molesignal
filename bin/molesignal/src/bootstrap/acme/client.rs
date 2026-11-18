@@ -19,11 +19,8 @@ use instant_acme::{
     Account, AccountCredentials, AuthorizationStatus, ChallengeType, Identifier, NewAccount,
     NewOrder, RetryPolicy,
 };
-
-use crate::{
-    infra::persistence::repositories::domains::{AcmeChallenge, DomainRepository},
-    shared::{ids::Id, time::TimestampMicros},
-};
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::repositories::domains::{AcmeChallenge, DomainRepository};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AcmeError {
@@ -42,7 +39,7 @@ pub enum AcmeError {
     #[error("acme: certificate not yet available after polling")]
     CertNotReady,
     #[error("acme: db error: {0}")]
-    Repo(#[from] crate::shared::Error),
+    Repo(#[from] kernel::Error),
 }
 
 /// 单次签发出来的产物。`cert_pem` 落 DB，`key_pem` 落本地磁盘。

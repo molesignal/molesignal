@@ -3,14 +3,13 @@
 
 use std::collections::BTreeMap;
 
-use super::{RedSparkPoint, RedSummary, RedTrendPoint};
-use crate::{
-    domain::apm::{
-        BucketMeasurements, HistogramBucket, HistogramSchema, LatencyHistogram, MergedBucket,
-        count_status,
-    },
-    shared::{Result, time::TimestampMicros},
+use domain::apm::{
+    BucketMeasurements, HistogramBucket, HistogramSchema, LatencyHistogram, MergedBucket,
+    count_status,
 };
+use kernel::{Result, time::TimestampMicros};
+
+use super::{RedSparkPoint, RedSummary, RedTrendPoint};
 
 /// The Apdex threshold T until a service sets its own: a request within T
 /// satisfies, one within 4T is tolerated.
@@ -168,7 +167,7 @@ pub(super) fn red_from_measurements<'a>(
         for exemplar in &measurement.exemplars {
             if !exemplars
                 .iter()
-                .any(|current: &crate::domain::apm::TraceExemplar| {
+                .any(|current: &domain::apm::TraceExemplar| {
                     current.trace_id == exemplar.trace_id && current.span_id == exemplar.span_id
                 })
             {

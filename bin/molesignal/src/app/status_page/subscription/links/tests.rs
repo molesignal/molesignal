@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::status_page::{
+    StatusPageDeliveryStatus, StatusPageSubscriberOrigin, StatusPageSubscriberStatus,
+};
 use serde_json::{Value, json};
 
 use super::*;
-use crate::{
-    app::status_page::notification_copy::tests::seeded_pack,
-    domain::status_page::{
-        StatusPageDeliveryStatus, StatusPageSubscriberOrigin, StatusPageSubscriberStatus,
-    },
-};
+use crate::app::status_page::notification_copy::tests::seeded_pack;
 
 /// 2026-05-25 10:00 UTC.
 const PLANNED_START: i64 = 1_779_703_200_000_000;
@@ -388,8 +386,8 @@ fn status_page() -> StatusPage {
         history_days: 90,
         delivery_retention_days: 90,
         private_session_days: 7,
-        visibility: crate::domain::status_page::StatusPageVisibility::Public,
-        lifecycle: crate::domain::status_page::StatusPageLifecycle::Active,
+        visibility: domain::status_page::StatusPageVisibility::Public,
+        lifecycle: domain::status_page::StatusPageLifecycle::Active,
         archived_at: None,
         purge_after: None,
         created_at: TimestampMicros(0),

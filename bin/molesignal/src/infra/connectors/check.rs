@@ -14,6 +14,7 @@
 
 use std::time::{Duration, Instant};
 
+use kernel::{Error, Result};
 use serde::Serialize;
 
 use super::{
@@ -23,7 +24,6 @@ use super::{
     repo::Connector,
     runner, sources,
 };
-use crate::shared::{Error, Result};
 
 /// Longer than any one step takes before giving up on its own.
 const TIMEOUT: Duration = Duration::from_secs(25);
@@ -207,10 +207,10 @@ fn detail(error: &Error) -> String {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn connector(kind: &str, config: serde_json::Value) -> Connector {
         Connector {

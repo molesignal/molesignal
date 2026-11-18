@@ -11,19 +11,16 @@
 
 use std::sync::Arc;
 
-use super::NotifyEngine;
-use crate::{
-    domain::notify::{
-        connector::{
-            ConnectorAdapter, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget,
-        },
-        reply::{
-            NotifyReplyRepository, REPLY_KEYPRESS_URL_KEY, REPLY_REF_KEY, REPLY_TTL_MICROS,
-            REPLY_VOICE_HINT_KEY, ReplyRef, new_reply_ref_id,
-        },
+use domain::notify::{
+    connector::{ConnectorAdapter, NotifyChannel, NotifyConnector, NotifyMessage, NotifyTarget},
+    reply::{
+        NotifyReplyRepository, REPLY_KEYPRESS_URL_KEY, REPLY_REF_KEY, REPLY_TTL_MICROS,
+        REPLY_VOICE_HINT_KEY, ReplyRef, new_reply_ref_id,
     },
-    shared::{ids::Id, time::TimestampMicros},
 };
+use kernel::{ids::Id, time::TimestampMicros};
+
+use super::NotifyEngine;
 
 /// 号码的摘要：只看最后 11 位数字，同一个号码写成 `+8613800138000` 还是 `13800138000` 都一样。
 pub fn reply_line_key(number: &str) -> String {
@@ -179,8 +176,9 @@ fn fill_codes(
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::notify::template::ProviderTemplate;
+
     use super::*;
-    use crate::domain::notify::template::ProviderTemplate;
 
     fn message(text: &str) -> NotifyMessage {
         NotifyMessage {

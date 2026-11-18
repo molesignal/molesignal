@@ -7,6 +7,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use domain::rum::{ERRORS_FILTER, event::RumStream};
+use kernel::Result;
 use serde::Serialize;
 use serde_json::{Map, Value};
 
@@ -16,7 +18,6 @@ use crate::{
         aggregate::number,
         reader::{Reader, Span},
     },
-    domain::rum::{ERRORS_FILTER, event::RumStream},
     infra::rum::{
         issues::identity::{FrameView, frame_views},
         query::{
@@ -24,7 +25,6 @@ use crate::{
             rows,
         },
     },
-    shared::Result,
 };
 
 /// How many issues are read to be filtered, ordered and cut to a page.

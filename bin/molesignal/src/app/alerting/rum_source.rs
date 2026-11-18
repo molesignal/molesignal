@@ -5,13 +5,12 @@
 //! holds a [`RumAlertSource`]; what it reads comes back as a query result so that the rest of the
 //! evaluation, thresholds and baselines and incidents, needs not know where a number came from.
 
-use serde_json::{Value, json};
-
-use crate::domain::{
+use domain::{
     query::{QueryResult, StreamHint},
     rum::{RumAlertReading, RumAlertSample},
     stream::StreamType,
 };
+use serde_json::{Value, json};
 
 /// The stream a RUM rule stands for where the evaluator asks for one.
 pub fn rum_stream_hint() -> StreamHint {
@@ -93,8 +92,9 @@ pub fn with_samples(result: QueryResult, samples: &[RumAlertSample]) -> QueryRes
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     #[test]
     fn a_reading_is_a_one_row_result_and_no_reading_has_no_rows() {

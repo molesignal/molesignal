@@ -14,30 +14,28 @@ use prometheus::{Histogram, IntCounter};
 
 mod reindex;
 
+use domain::{
+    storage::{
+        Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ArtifactUpdate,
+        DataSegment, FileCatalog, IndexRebuildTask, OrganizationScope, PhysicalDatasetId,
+        UpdateArtifact, type_id,
+    },
+    stream::{StreamDefinition, StreamRepository},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 pub(crate) use reindex::reindex_segment;
+use settings::{GarbageCollectionSettings, IndexMaintenanceSettings};
 
-use crate::{
-    config::{GarbageCollectionSettings, IndexMaintenanceSettings},
-    domain::{
-        storage::{
-            Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ArtifactUpdate,
-            DataSegment, FileCatalog, IndexRebuildTask, OrganizationScope, PhysicalDatasetId,
-            UpdateArtifact, type_id,
-        },
-        stream::{StreamDefinition, StreamRepository},
-    },
-    infra::{
-        search::tantivy_index::{self, TIMESTAMP_FIELD, TantivyArchiveBuilder},
-        storage::{
-            layout::StorageLayout,
-            object_reader::ObjectReader,
-            parquet::{
-                reader::{ParquetReader, ReadOptions},
-                writer::{add_batch_docs, upload_tantivy_archive},
-            },
+use crate::infra::{
+    search::tantivy_index::{self, TIMESTAMP_FIELD, TantivyArchiveBuilder},
+    storage::{
+        layout::StorageLayout,
+        object_reader::ObjectReader,
+        parquet::{
+            reader::{ParquetReader, ReadOptions},
+            writer::{add_batch_docs, upload_tantivy_archive},
         },
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// Stale indexes whose rebuild failed are remembered at most this many at once.
@@ -390,7 +388,7 @@ fn build_duration() -> &'static Histogram {
     static METRIC: OnceLock<Histogram> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_histogram(
+        signals::metrics::register_histogram(
             "index_build_duration_seconds",
             "Background index rebuild duration",
             vec![0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 15.0, 60.0],
@@ -402,7 +400,7 @@ fn built_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_int_counter(
+        signals::metrics::register_int_counter(
             "index_rebuilt_total",
             "Optional index artifacts rebuilt successfully",
         )
@@ -413,7 +411,7 @@ fn failed_total() -> &'static IntCounter {
     static METRIC: OnceLock<IntCounter> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_int_counter(
+        signals::metrics::register_int_counter(
             "index_rebuild_failed_total",
             "Optional index artifact rebuild failures",
         )

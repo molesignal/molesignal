@@ -5,6 +5,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use kernel::{ids::Id, time::TimestampMicros};
 use regex::Regex;
 use serde::Serialize;
 
@@ -12,12 +13,9 @@ use super::{
     ConditionOperator, IncidentOrigin, IncidentRouting, LabelCondition, RoutingReason, RoutingRule,
     RoutingTarget, SERVICE_LABELS, SERVICE_NAMESPACE_LABEL, TEAM_ID_LABEL, TEAM_LABEL, TeamPolicy,
 };
-use crate::{
-    domain::{
-        alerting::{escalation::DEFAULT_POLICY_ID, incident::Severity, priority::Priority},
-        apm::DEFAULT_SERVICE_NAMESPACE,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use crate::domain::{
+    alerting::{escalation::DEFAULT_POLICY_ID, incident::Severity, priority::Priority},
+    apm::DEFAULT_SERVICE_NAMESPACE,
 };
 
 /// 正则要匹配整个值。

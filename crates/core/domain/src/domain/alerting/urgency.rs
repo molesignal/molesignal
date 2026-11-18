@@ -14,6 +14,7 @@
 
 use std::fmt;
 
+use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::{
@@ -21,7 +22,6 @@ use super::{
     incident::Severity,
     time_window::{CalendarUse, WeeklyWindows},
 };
-use crate::shared::{Error, Result, time::TimestampMicros};
 
 /// 档的键最长几个字符。
 pub const MAX_URGENCY_KEY_CHARS: usize = 32;

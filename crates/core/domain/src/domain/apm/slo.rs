@@ -4,10 +4,10 @@
 //! Service level objectives over APM's aggregates: the share of good requests
 //! a service, or one of its endpoints, promises over a rolling window.
 
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::TransactionIdentity;
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 /// The windows an objective can be held over, in days.
 pub const SLO_WINDOW_DAYS: [u16; 3] = [7, 28, 30];

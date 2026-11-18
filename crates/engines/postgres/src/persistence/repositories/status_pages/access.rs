@@ -2,16 +2,14 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::status_page::{
+    ConsumedStatusPageMagicLink, StatusPageAccessRepository, StatusPageAccessRule,
+    StatusPageAccessSession, StatusPageMagicLink, StatusPageMagicLinkExchange,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::Row;
 
 use super::PgStatusPageRepository;
-use crate::{
-    domain::status_page::{
-        ConsumedStatusPageMagicLink, StatusPageAccessRepository, StatusPageAccessRule,
-        StatusPageAccessSession, StatusPageMagicLink, StatusPageMagicLinkExchange,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const RULE_COLS: &str = "id, org_id, status_page_id, kind, value_ciphertext,
     value_nonce, created_at, updated_at";

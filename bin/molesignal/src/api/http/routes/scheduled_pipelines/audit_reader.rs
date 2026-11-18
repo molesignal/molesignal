@@ -4,8 +4,10 @@
 //! Who a pipeline reads the audit trail as, by name. It comes from the user record: whoever may read
 //! a pipeline sees whose access it uses, whether or not they may list the organization's members.
 
+use kernel::ids::Id;
+
 use super::Resp;
-use crate::{api::AppState, app::reporting::run_as_profiles, shared::ids::Id};
+use crate::{api::AppState, app::reporting::run_as_profiles};
 
 /// Fills in who these pipelines read the audit trail as. They come back with the id alone when the
 /// user table cannot be read, and without a name when the user is gone.

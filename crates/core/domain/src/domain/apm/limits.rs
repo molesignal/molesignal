@@ -7,9 +7,8 @@
 //! node that reads spans; past a limit the value is counted as `__other__`
 //! (a service is not recorded at all).
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Error, Result};
 
 /// The most any limit may be.
 pub const APM_LIMIT_MAX: usize = 100_000;

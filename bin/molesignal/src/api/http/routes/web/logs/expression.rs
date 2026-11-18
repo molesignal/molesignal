@@ -5,11 +5,11 @@
 //! sends as text: the text is read as the Logs page reads it, into the same
 //! filters, words to find and condition tree.
 
+use kernel::{Error, Result};
 use query_language::field_query::{LogClause, read_log_query};
 use serde_json::Value;
 
 use super::{LogCondition, LogFilter, normalize_filters, normalize_free_text, read_condition};
-use crate::shared::{Error, Result};
 
 /// The longest field query a read takes, in bytes.
 const MAX_EXPRESSION_LENGTH: usize = 8 * 1024;

@@ -4,15 +4,13 @@
 //! 分区域的连接器（阿里云、AWS）能用的区域：由它的适配器向厂商查，不写死。要凭证的用还在填的
 //! 配置；编辑已有连接器时，配置里 `"***"` 的敏感字段取存着的值。
 
+use domain::notify::connector::{ConnectorRegion, ConnectorStatus, NotifyConnector};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::{
     super::config::{merge_masked_config, normalize_object},
     NotifyService,
-};
-use crate::{
-    domain::notify::connector::{ConnectorRegion, ConnectorStatus, NotifyConnector},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// 列一种连接器能用的区域：还在填的配置，编辑已有连接器时是它的 ID，以及区域名称的语言。
@@ -87,21 +85,19 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
+    use domain::notify::{
+        connector::{
+            ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
+            NotifyMessage, NotifyTarget,
+        },
+        repositories::{NotifyConnectorRepository, NotifyRouteReferenceRepository},
+    };
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        app::notify::{
-            ConnectorRegistry,
-            engine::tests::{MemoryStore, connector},
-        },
-        domain::notify::{
-            connector::{
-                ConnectorAdapter, ConnectorCapabilities, ConnectorDeliveryResult, NotifyChannel,
-                NotifyMessage, NotifyTarget,
-            },
-            repositories::{NotifyConnectorRepository, NotifyRouteReferenceRepository},
-        },
+    use crate::app::notify::{
+        ConnectorRegistry,
+        engine::tests::{MemoryStore, connector},
     };
 
     /// 记下拿到的配置与语言，列出一个区域。

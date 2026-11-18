@@ -15,19 +15,17 @@
 
 pub(crate) mod auth;
 
+use agent::im::{CardAction, CardAnswer, ConversationKind, Inbound, Sender};
+use domain::notify::buttons::AlertButtonValue;
+use kernel::{Error, Result};
 use reqwest::Method;
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 
 use super::Listener;
-use crate::{
-    agent::im::{CardAction, CardAnswer, ConversationKind, Inbound, Sender},
-    domain::notify::buttons::AlertButtonValue,
-    infra::notify::adapters::{
-        TEAMS_ALERT_VALUE_KEY, TEAMS_ALERT_VERB, TEAMS_MAX_TEXT_CHARS, TeamsApp, teams_card,
-        teams_card_message, teams_encode, truncate_chars,
-    },
-    shared::{Error, Result},
+use crate::infra::notify::adapters::{
+    TEAMS_ALERT_VALUE_KEY, TEAMS_ALERT_VERB, TEAMS_MAX_TEXT_CHARS, TeamsApp, teams_card,
+    teams_card_message, teams_encode, truncate_chars,
 };
 
 pub(super) async fn listen(

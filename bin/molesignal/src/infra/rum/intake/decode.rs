@@ -7,9 +7,8 @@
 use std::io::Read;
 
 use flate2::read::GzDecoder;
+use kernel::{Error, Result};
 use serde_json::Value;
-
-use crate::shared::{Error, Result};
 
 /// Most events one request may carry.
 pub const MAX_EVENTS_PER_REQUEST: usize = 5000;

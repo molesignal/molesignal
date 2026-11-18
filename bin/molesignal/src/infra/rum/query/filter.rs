@@ -7,16 +7,14 @@
 //! operator and a value. The column decides what the value is read as and which operators make
 //! sense for it.
 
+use domain::{rum::event::RumStream, stream::FieldType};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{
     member::{Column, resolved},
     sql::{ident, literal},
-};
-use crate::{
-    domain::{rum::event::RumStream, stream::FieldType},
-    shared::{Error, Result},
 };
 
 const MAX_FILTERS: usize = 32;

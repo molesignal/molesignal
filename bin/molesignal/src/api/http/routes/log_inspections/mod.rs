@@ -12,16 +12,16 @@ use axum::{
     extract::{Path, Query, State},
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    log_inspection::LogInspection,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use self::model::{InspectionResp, LimitsResp, RunResp, SaveReq, profiles};
-use crate::{
-    api::{AppState, http::middleware::Permission},
-    app::iam::IamContext,
-    domain::{iam::permission, log_inspection::LogInspection},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::middleware::Permission};
 
 mod model;
 

@@ -6,8 +6,7 @@
 use std::{sync::OnceLock, time::Duration};
 
 use prometheus::{Histogram, HistogramVec, IntCounterVec, IntGaugeVec};
-
-use crate::shared::metrics::{
+use signals::metrics::{
     register_histogram, register_histogram_vec, register_int_counter_vec, register_int_gauge_vec,
 };
 

@@ -6,8 +6,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-
-use crate::shared::ids::Id;
+use kernel::ids::Id;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PeerRole {

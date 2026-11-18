@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::storage::{GcQueueEntry, GcReason, ObjectChecksum, ObjectKey, OrganizationScope};
+use kernel::{Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{maintenance, sqlx_err};
-use crate::{
-    domain::storage::{GcQueueEntry, GcReason, ObjectChecksum, ObjectKey, OrganizationScope},
-    shared::{Result, time::TimestampMicros},
-};
 
 pub(super) async fn claim_entries(
     pool: &PgPool,
@@ -114,7 +112,7 @@ pub(super) async fn complete_entry(
     )
     .bind(scope.organization_id.as_str())
     .bind(object_key.as_str())
-    .bind(crate::shared::time::TimestampMicros::now())
+    .bind(kernel::time::TimestampMicros::now())
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
@@ -138,7 +136,7 @@ pub(super) async fn retry_entry(
     .bind(object_key.as_str())
     .bind(error)
     .bind(TimestampMicros(not_before_micros))
-    .bind(crate::shared::time::TimestampMicros::now())
+    .bind(kernel::time::TimestampMicros::now())
     .execute(pool)
     .await
     .map_err(sqlx_err)?;
@@ -152,7 +150,7 @@ fn parse_reason(value: &str) -> Result<GcReason> {
         "tombstoned" => Ok(GcReason::Tombstoned),
         "index_rebuilt" => Ok(GcReason::IndexRebuilt),
         "orphan" => Ok(GcReason::Orphan),
-        other => Err(crate::shared::Error::internal(format!(
+        other => Err(kernel::Error::internal(format!(
             "unknown GC reason {other}"
         ))),
     }

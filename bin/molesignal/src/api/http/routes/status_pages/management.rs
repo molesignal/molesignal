@@ -7,24 +7,21 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    status_page::{
+        ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus,
+        ComponentVisibility, DependencyMode, StatusPage, StatusPageComponent, StatusPageLifecycle,
+        StatusPageSnapshot, StatusPageVisibility,
+    },
+};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 
 use super::logo;
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{
-        iam::IamContext,
-        status_page::{StatusPageComponentInput, StatusPageInput},
-    },
-    domain::{
-        iam::permission,
-        status_page::{
-            ComponentDependency, ComponentKind, ComponentLifecycle, ComponentStatus,
-            ComponentVisibility, DependencyMode, StatusPage, StatusPageComponent,
-            StatusPageLifecycle, StatusPageSnapshot, StatusPageVisibility,
-        },
-    },
-    shared::{Result, ids::Id},
+    app::status_page::{StatusPageComponentInput, StatusPageInput},
 };
 
 pub(super) fn routes() -> Router<AppState> {

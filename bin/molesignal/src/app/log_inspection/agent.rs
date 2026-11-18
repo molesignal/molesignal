@@ -7,12 +7,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::{iam::IamContext, log_inspection::InspectionToolCall};
+use kernel::ids::Id;
 use parking_lot::Mutex;
-
-use crate::{
-    domain::{iam::IamContext, log_inspection::InspectionToolCall},
-    shared::ids::Id,
-};
 
 /// 巡检过程中调用过的工具，按调用顺序。
 ///

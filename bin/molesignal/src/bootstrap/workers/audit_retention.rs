@@ -9,14 +9,12 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::iam::InstanceSettingsRepository;
+use kernel::{Result, drain::DrainController, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEventRepository;
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::cluster::WorkOwnership,
-    domain::iam::InstanceSettingsRepository,
-    infra::persistence::repositories::audit_events::AuditEventRepository,
-    shared::{Result, drain::DrainController, time::TimestampMicros},
-};
+use crate::app::cluster::WorkOwnership;
 
 /// 两轮清理的间隔。
 const SWEEP_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -122,17 +120,15 @@ impl AuditRetentionWorker {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use domain::{
+        cluster::PeerRole,
+        iam::{ClientIpResolverSettings, InstanceSettings},
+    };
+    use kernel::ids::Id;
     use parking_lot::Mutex;
+    use postgres::repositories::audit_events::{AuditEvent, AuditQuery, AuditRangeSummary};
 
     use super::*;
-    use crate::{
-        app::cluster::PeerRole,
-        domain::iam::{ClientIpResolverSettings, InstanceSettings},
-        infra::persistence::repositories::audit_events::{
-            AuditEvent, AuditQuery, AuditRangeSummary,
-        },
-        shared::ids::Id,
-    };
 
     const DAY: i64 = 86_400 * 1_000_000;
 

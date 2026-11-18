@@ -12,15 +12,13 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use molesignal::{
-    config::CacheLayerSettings,
-    domain::query::{QueryLanguage, QueryRequest, QueryResult},
-    infra::caching::QueryResultCache,
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use domain::query::{QueryLanguage, QueryRequest, QueryResult};
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
 };
+use molesignal::infra::caching::QueryResultCache;
+use settings::CacheLayerSettings;
 
 fn req(now: i64, lookback_us: i64, end_off_us: i64, stmt: &str) -> QueryRequest {
     QueryRequest {

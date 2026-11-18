@@ -7,13 +7,11 @@
 //! 重新算一次（评价是其中一个维度），评这个来源的评审都评。个人对话只有规则。抽样由对象与评审
 //! 决定，同一个对象排几次都抽到同样的结果。
 
-use crate::{
-    agent::scoring::{
-        Evaluator, JobReason, NewJob, RULES_SCORER, ScoreTarget, ScoringRepository, TargetSource,
-        sampled,
-    },
-    shared::{Result, ids::Id},
+use agent::scoring::{
+    Evaluator, JobReason, NewJob, RULES_SCORER, ScoreTarget, ScoringRepository, TargetSource,
+    sampled,
 };
+use kernel::{Result, ids::Id};
 
 /// 新的回答或 RCA 要排的打分。
 pub fn plan_answered(
@@ -135,8 +133,9 @@ pub async fn enqueue_rated(
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn evaluator(
         id: &str,

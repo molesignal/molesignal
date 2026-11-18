@@ -2,11 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::policy::NotifyEvent;
-use crate::shared::{Result, ids::Id};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

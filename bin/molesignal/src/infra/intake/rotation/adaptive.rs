@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use dashmap::DashMap;
+use settings::ParquetRotationSettings;
 
-use crate::{
-    config::ParquetRotationSettings,
-    infra::intake::{
-        BufferKey,
-        metrics::{observe_adaptive_target, observe_parquet_ratio},
-    },
+use crate::infra::intake::{
+    BufferKey,
+    metrics::{observe_adaptive_target, observe_parquet_ratio},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -96,8 +94,9 @@ fn mb_to_bytes(value: u32) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use domain::storage::PhysicalDatasetId;
+
     use super::*;
-    use crate::domain::storage::PhysicalDatasetId;
 
     fn key() -> BufferKey {
         PhysicalDatasetId::from_string("dataset-a")

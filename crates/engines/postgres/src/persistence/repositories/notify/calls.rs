@@ -2,17 +2,15 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::notify::{
+    call::{CallLine, QueuedCall},
+    connector::{NotifyMessage, NotifyTarget},
+    repositories::NotifyCallRepository,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::notify::{
-        call::{CallLine, QueuedCall},
-        connector::{NotifyMessage, NotifyTarget},
-        repositories::NotifyCallRepository,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgNotifyCallRepository {
     pool: PgPool,

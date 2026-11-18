@@ -13,15 +13,13 @@
 
 use std::collections::BTreeMap;
 
+use domain::alerting::source::{
+    AlertMember, ExternalAction, ExternalAlert, MemberStatus, severity_from_word,
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 
 use super::{Parsed, rfc3339, web_address};
-use crate::{
-    domain::alerting::source::{
-        AlertMember, ExternalAction, ExternalAlert, MemberStatus, severity_from_word,
-    },
-    shared::{Error, Result},
-};
 
 /// 谁发来的：两家格式一样，链接与身份略有不同。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -303,8 +301,10 @@ fn member(alert: &Alert) -> AlertMember {
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::incident::Severity;
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{domain::alerting::incident::Severity, shared::time::TimestampMicros};
 
     /// 一个分组里最晚的开始时间。
     fn latest_start(alert: &ExternalAlert) -> Option<TimestampMicros> {

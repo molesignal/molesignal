@@ -5,14 +5,12 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::{
-    domain::apm::{
-        APM_PERSISTENCE_SCHEMA_VERSION, ApmSpanFact, BucketDimension, BucketMeasurements,
-        ErrorGroupRecord, ErrorSample, HistogramSchema, InstanceObservation, OTHER_DIMENSION,
-        OwnerSnapshot, ServiceIdentity, ServiceObservation, TraceExemplar, VersionObservation,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+use domain::apm::{
+    APM_PERSISTENCE_SCHEMA_VERSION, ApmSpanFact, BucketDimension, BucketMeasurements,
+    ErrorGroupRecord, ErrorSample, HistogramSchema, InstanceObservation, OTHER_DIMENSION,
+    OwnerSnapshot, ServiceIdentity, ServiceObservation, TraceExemplar, VersionObservation,
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 mod instances;
 mod support;
@@ -490,7 +488,7 @@ impl ApmAggregator {
     fn observe_error(
         &mut self,
         fact: &ApmSpanFact,
-        error: crate::domain::apm::ErrorIdentity,
+        error: domain::apm::ErrorIdentity,
         trace_available: bool,
     ) {
         let exception = fact.exception.as_ref();

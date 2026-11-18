@@ -8,18 +8,15 @@
 
 use std::sync::Arc;
 
-use tonic::{Request, Response, Status};
-
-use crate::{
-    app::cluster::PeerRole,
-    infra::persistence::repositories::cluster::nodes::ClusterNodesRepository,
-    protocol::cluster::v1::{
-        HeartbeatRequest, HeartbeatResponse, NodeInfo, NodeRole, NodeServiceListRequest,
-        NodeServiceListResponse,
-        node_service_server::{NodeService, NodeServiceServer},
-    },
-    shared::time::TimestampMicros,
+use domain::cluster::PeerRole;
+use kernel::time::TimestampMicros;
+use postgres::repositories::cluster::nodes::ClusterNodesRepository;
+use protocol::cluster::v1::{
+    HeartbeatRequest, HeartbeatResponse, NodeInfo, NodeRole, NodeServiceListRequest,
+    NodeServiceListResponse,
+    node_service_server::{NodeService, NodeServiceServer},
 };
+use tonic::{Request, Response, Status};
 
 pub struct ClusterGrpc {
     repo: Arc<dyn ClusterNodesRepository>,

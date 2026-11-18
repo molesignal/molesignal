@@ -29,15 +29,12 @@ use axum::{
     http::StatusCode,
     routing::{delete, get, post},
 };
+use domain::iam::{IamAssignedRole, IamContext, IamMembership, User, UserStatus};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::grant_limit;
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{IamAssignedRole, IamMembership, User, UserStatus},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 mod accounts;
 mod approval_emails;
@@ -145,7 +142,7 @@ impl UserView {
     }
 }
 
-fn teams_by_user(teams: Vec<crate::domain::iam::Team>) -> HashMap<String, Vec<String>> {
+fn teams_by_user(teams: Vec<domain::iam::Team>) -> HashMap<String, Vec<String>> {
     let mut by_user = HashMap::<String, Vec<String>>::new();
 
     for team in teams {
@@ -425,8 +422,9 @@ fn ensure_user_removable(user: &User, configured_root_email: &str) -> Result<()>
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::Team;
+
     use super::*;
-    use crate::domain::iam::Team;
 
     #[test]
     fn groups_and_sorts_team_names_by_user() {

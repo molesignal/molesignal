@@ -4,14 +4,12 @@
 //! `agent_chats` 与 `agent_messages` 的列，以及行到 [`Chat`] / [`ChatMessage`] 的对应。读不出的
 //! 可选列当作空。
 
+use agent::usage::Cost;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgExecutor, Row, types::Json};
 
 use super::{super::super::sqlx_err, Chat, ChatMessage};
-use crate::{
-    agent::usage::Cost,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub(super) const CHAT_COLS: &str = "id, org_id, user_id, provider, model, title, provider_id, \
     analysis_mode, time_range_start, time_range_end, archive_object_key, \

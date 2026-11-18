@@ -4,19 +4,17 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use domain::notify::{
+    connector::NotifyChannel,
+    preference::NotifyCategory,
+    repositories::NotifyTemplateRepository,
+    template::{NotifyCard, NotifyTemplate, ProviderTemplate},
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
-use crate::{
-    domain::notify::{
-        connector::NotifyChannel,
-        preference::NotifyCategory,
-        repositories::NotifyTemplateRepository,
-        template::{NotifyCard, NotifyTemplate, ProviderTemplate},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -7,15 +7,12 @@
 
 use std::time::Duration;
 
+use kernel::{Error, Result};
 use reqwest::Client;
 use roxmltree::{Document, Node};
 use serde::Serialize;
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
-
-use crate::shared::{
-    Error, Result,
-    http_trace::{self, HttpTarget},
-};
 
 const METADATA_NS: &str = "urn:oasis:names:tc:SAML:2.0:metadata";
 const DSIG_NS: &str = "http://www.w3.org/2000/09/xmldsig#";

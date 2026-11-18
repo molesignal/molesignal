@@ -4,14 +4,12 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use domain::synthetics::{AgentCapacity, ProbeAgent, ProbeCapability, SyntheticAgentRepository};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 use super::{
     PgSyntheticRepository,
     codec::{AGENT_COLS, CONFIGURED_AGENT_COLS, row_to_agent},
-};
-use crate::{
-    domain::synthetics::{AgentCapacity, ProbeAgent, ProbeCapability, SyntheticAgentRepository},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub const BUILTIN_LOCAL_AGENT_ID: &str = "builtin-local-runner";

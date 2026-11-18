@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::domain::{
+use domain::{
     alerting::rule::{AlertRule, ComparisonOp},
     query::QueryResult,
 };

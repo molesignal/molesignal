@@ -3,7 +3,7 @@
 
 //! 拨测失败开告警事件：监控项的整体状态变成失败，或打开了开关的降级、不稳定时，开一个告警事件，
 //! 按监控项的升级策略升级、按通知策略通知；状态回到不用告警时解决它。口径与状态页自动化相同
-//! （[`MonitorState::alert_activation`](crate::domain::synthetics::MonitorState::alert_activation)）。
+//! （[`MonitorState::alert_activation`](domain::synthetics::MonitorState::alert_activation)）。
 //!
 //! 一个监控项同时最多一个状态事件：它的 `rule_id` 是监控项的 id，带标签 `alert.source = synthetic`。
 //! 不关联升级策略的监控项照常开事件、照常通知，只是没有可升级的对象。
@@ -15,29 +15,27 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::{
+    alerting::incident::{IncidentStatus, SYNTHETIC_STATE_LABEL, Severity},
+    i18n_language::{FALLBACK_LANGUAGE_CODE, I18nLanguageRepository, LanguagePack},
+    pipeline::alert::AlertEventSource,
+    synthetics::{
+        MonitorLifecycle, MonitorRevision, SyntheticMonitor, SyntheticMonitorRepository,
+        SyntheticStateTransition,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository;
 
 use super::{
     RuleEvaluator,
     events::{emit_lifecycle, enqueue_notify_event},
     synthetic_incident::{Opening, synthetic_incident},
 };
-use crate::{
-    app::{
-        alerting::event_pipelines::Processed,
-        notify::ALERT_TRIGGERED_EVENT,
-        synthetics::{NoDataChange, SyntheticTransitionSink},
-    },
-    domain::{
-        alerting::incident::{IncidentStatus, SYNTHETIC_STATE_LABEL, Severity},
-        i18n_language::{FALLBACK_LANGUAGE_CODE, I18nLanguageRepository, LanguagePack},
-        pipeline::alert::AlertEventSource,
-        synthetics::{
-            MonitorLifecycle, MonitorRevision, SyntheticMonitor, SyntheticMonitorRepository,
-            SyntheticStateTransition,
-        },
-    },
-    infra::persistence::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::{
+    alerting::event_pipelines::Processed,
+    notify::ALERT_TRIGGERED_EVENT,
+    synthetics::{NoDataChange, SyntheticTransitionSink},
 };
 
 /// 拨测状态的变化交给告警：要告警就开事件或调整严重度，不用告警就解决。只看监控项的整体状态，
@@ -407,7 +405,7 @@ impl RuleEvaluator {
 #[cfg(test)]
 mod tests {
     use super::no_data_text;
-    use crate::shared::i18n_language_seed::seeded_pack;
+    use crate::i18n_language_seed::seeded_pack;
 
     #[test]
     fn a_check_without_results_says_where_and_why_in_the_workspace_language() {

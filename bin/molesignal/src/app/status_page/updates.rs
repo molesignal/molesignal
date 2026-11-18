@@ -4,16 +4,15 @@
 //! Updates on a published event: what changed, by when the next one comes,
 //! and whether subscribers are told.
 
+use domain::status_page::{
+    PublicIncidentStatus, StatusPageIncident, StatusPageIncidentKind, StatusPageIncidentUpdate,
+    StatusPageLifecycle, StatusPagePublicationState,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     StatusPageIncidentUpdateInput, StatusPageService,
     validation::{validate_message, validate_transition},
-};
-use crate::{
-    domain::status_page::{
-        PublicIncidentStatus, StatusPageIncident, StatusPageIncidentKind, StatusPageIncidentUpdate,
-        StatusPageLifecycle, StatusPagePublicationState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 /// The nearest a promised next update can be.

@@ -19,6 +19,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::iam::User;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use webauthn_rs::prelude::{CreationChallengeResponse, RegisterPublicKeyCredential};
 
@@ -33,9 +35,7 @@ use crate::{
     app::iam::mfa::{
         SETUP_CHALLENGE_TTL_MICROS, challenge_code, challenge_digest, passkey as rules,
     },
-    domain::iam::User,
     infra::mfa::{MfaChallenge, MfaChallengePurpose},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) fn routes() -> Router<AppState> {

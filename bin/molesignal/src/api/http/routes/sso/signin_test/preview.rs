@@ -8,6 +8,9 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use domain::iam::{SsoProvider, SsoProviderKind, User};
+use kernel::{Error, Result, ids::Id};
+
 use super::{
     super::{
         linking::mask_email,
@@ -22,9 +25,7 @@ use crate::{
         SignInMethod,
         signin_policy::{self, Admission},
     },
-    domain::iam::{SsoProvider, SsoProviderKind, User},
     infra::sso::{TestedAccount, TestedMapping, TestedRole, TestedRoleSource},
-    shared::{Error, Result, ids::Id},
 };
 
 /// 通过了也值得看一眼的事（`sso_providers.test.notes.<code>`）。
@@ -317,11 +318,10 @@ fn roles_differ(left: &[TestedRole], right: &[TestedRole]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::{SsoOidcConfig, SsoPlatform, SsoProviderConfig};
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{
-        domain::iam::{SsoOidcConfig, SsoPlatform, SsoProviderConfig},
-        shared::time::TimestampMicros,
-    };
 
     fn provider_with(mapping: &[(&str, &str)]) -> SsoProvider {
         SsoProvider {

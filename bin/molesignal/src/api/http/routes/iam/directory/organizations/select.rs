@@ -10,6 +10,9 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::iam::{IamAssignedRole, IamContext, IamScope, Organization, super_administrator};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEvent;
 use serde::{Deserialize, Serialize};
 
 use super::{caller_roles, has_platform_access, is_root};
@@ -25,10 +28,7 @@ use crate::{
             session_cookie::{self, SessionCookies},
         },
     },
-    app::iam::{IamContext, SignInSession, signin_policy::Admission},
-    domain::iam::{IamAssignedRole, IamScope, Organization, super_administrator},
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::iam::{SignInSession, signin_policy::Admission},
 };
 
 pub(super) fn routes() -> Router<AppState> {

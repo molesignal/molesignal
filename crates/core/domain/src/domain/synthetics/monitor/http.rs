@@ -3,10 +3,10 @@
 
 use std::fmt;
 
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use super::{Extraction, MonitorAssertion, ValueSource};
-use crate::shared::ids::Id;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HeaderValue {

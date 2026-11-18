@@ -12,27 +12,25 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use domain::{
+    alerting::{
+        incident::IncidentStatus,
+        mute::{MuteRule, MuteRuleRepository, match_labels_for_incident},
+        repositories::IncidentRepository,
+    },
+    notify::{
+        delivery::{DeliveryFilter, DeliveryStatus},
+        event::{NotifyEventRecord, NotifyEventStatus},
+        policy::NotifyEvent,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
 use super::NotifyEngine;
-use crate::{
-    app::notify::{
-        ALERT_ACKNOWLEDGED_EVENT, ALERT_ESCALATED_EVENT, ALERT_RESOLVED_EVENT,
-        ALERT_TRIGGERED_EVENT, triggered_event_id,
-    },
-    domain::{
-        alerting::{
-            incident::IncidentStatus,
-            mute::{MuteRule, MuteRuleRepository, match_labels_for_incident},
-            repositories::IncidentRepository,
-        },
-        notify::{
-            delivery::{DeliveryFilter, DeliveryStatus},
-            event::{NotifyEventRecord, NotifyEventStatus},
-            policy::NotifyEvent,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::notify::{
+    ALERT_ACKNOWLEDGED_EVENT, ALERT_ESCALATED_EVENT, ALERT_RESOLVED_EVENT, ALERT_TRIGGERED_EVENT,
+    triggered_event_id,
 };
 
 /// 压着的通知至少隔这么久再看：比升级派发的默认间隔（10 秒）短，静默结束或被删掉后随下一次派发发出。

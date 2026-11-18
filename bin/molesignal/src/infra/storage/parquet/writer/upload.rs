@@ -11,18 +11,15 @@
 use std::{path::Path as FilePath, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
+use domain::storage::{ObjectChecksum, ObjectKey, StoredObject};
 use futures::{FutureExt, future::BoxFuture};
+use kernel::{Error, Result};
 use object_store::{
     Error as OsError, ObjectStore, ObjectStoreExt, PutMode, PutMultipartOptions, PutOptions,
     PutPayload, WriteMultipart, path::Path,
 };
 use parquet::{arrow::async_writer::AsyncFileWriter, errors::ParquetError};
 use tokio::io::AsyncReadExt;
-
-use crate::{
-    domain::storage::{ObjectChecksum, ObjectKey, StoredObject},
-    shared::{Error, Result},
-};
 
 /// Size of one uploaded part. Object stores take parts of at least 5 MiB, and S3 allows 10 000
 /// parts per upload, so one object can reach 160 GiB.

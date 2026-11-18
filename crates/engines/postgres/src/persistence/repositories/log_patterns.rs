@@ -8,11 +8,11 @@
 //! schema 关联）。`vectorscan` 加速也是后续 feature。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -164,7 +164,7 @@ impl LogPatternRepository for PgLogPatternRepository {
 
 /// 编译验证（POST 时同步调用）：`regex::Regex::new` 抛错 → handler 400。
 pub fn compile_check(regex: &str) -> Result<()> {
-    use crate::shared::Error;
+    use kernel::Error;
 
     regex::Regex::new(regex)
         .map(|_| ())

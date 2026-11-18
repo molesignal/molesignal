@@ -8,11 +8,10 @@
 //! permissions the Admin lacks; a role that holds all of them can. Root holds every organization
 //! permission in every organization, so the rule never stops it.
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    shared::{Error, Result, ids::Id},
-};
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
+
+use crate::api::AppState;
 
 /// Refuses to hand out a permission the caller does not hold.
 pub(crate) fn require_held<'a>(
@@ -90,8 +89,9 @@ pub(crate) async fn require_member_within_reach(
 mod tests {
     use std::collections::BTreeSet;
 
+    use domain::iam::IamScope;
+
     use super::*;
-    use crate::domain::iam::IamScope;
 
     fn holding(permissions: &[&str]) -> IamContext {
         IamContext {

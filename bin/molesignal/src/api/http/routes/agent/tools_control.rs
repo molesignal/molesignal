@@ -5,32 +5,30 @@
 
 use std::{collections::HashMap, time::Instant};
 
+use agent::{
+    model::ToolCallRecord,
+    tool_control::{ManagedToolStatus, McpServer, McpTool, ToolPolicy, ToolPolicyDefaults},
+    tools::{ToolAuthContext, ToolDispatcher},
+};
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
     routing::{get, post, put},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::{
+    RiskLevel, ToolCall, ToolExecutionMode,
+    catalog::{builtin_tools, is_builtin_tool},
+};
 
 use super::{
     tool_dispatcher::{RealToolDispatcher, redact_sensitive_value},
     toolsets,
 };
-use crate::{
-    agent::{
-        model::{RiskLevel, ToolCallRecord},
-        tool_control::{
-            ManagedToolStatus, McpServer, McpTool, ToolExecutionMode, ToolPolicy,
-            ToolPolicyDefaults,
-        },
-        tools::{ToolAuthContext, ToolCall, ToolDispatcher, builtin_tools, is_builtin_tool},
-    },
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 const DEFAULT_TIMEOUT_MS: i64 = 30_000;
 const DEFAULT_MAX_CALLS: i32 = 32;

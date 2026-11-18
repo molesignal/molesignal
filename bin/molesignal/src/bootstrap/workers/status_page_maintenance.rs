@@ -3,14 +3,12 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::cluster::PeerRole;
 use tokio::task::JoinHandle;
 
 use super::polling::PollingBackoff;
 use crate::{
-    app::{
-        cluster::{PeerRole, WorkOwnership},
-        status_page::StatusPageService,
-    },
+    app::{cluster::WorkOwnership, status_page::StatusPageService},
     infra::status_page::StatusPageAssetCleaner,
 };
 

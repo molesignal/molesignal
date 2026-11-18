@@ -24,8 +24,9 @@ use datafusion::{
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
     },
 };
-
-use crate::{domain::masking::Masker, infra::cipher::decrypt_field, shared::Result};
+use domain::masking::Masker;
+use kernel::Result;
+use postgres::cipher::decrypt_field;
 
 /// 输入：DB 行里的 `(regex_source, category, priority)`。
 /// 真正的 `Regex::new` 在 UDF 实例化时一次完成；Hash/Eq 走源串避免 Regex 不可哈希。
@@ -413,7 +414,7 @@ mod tests {
 
     #[test]
     fn decrypt_udf_restores_ciphertext_and_passes_through_plain() {
-        use crate::infra::cipher::{OrgFieldKey, encrypt_field};
+        use postgres::cipher::{OrgFieldKey, encrypt_field};
 
         let dek = OrgFieldKey {
             key_id: "key-1".into(),

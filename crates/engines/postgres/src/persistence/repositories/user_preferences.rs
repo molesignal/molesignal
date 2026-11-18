@@ -4,11 +4,11 @@
 //! 每个用户的界面偏好，存在 `users_ext.preferences`；`preferences_updated_at` 为空表示本人还没保存过。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 fn default_theme() -> String {
     "system".into()

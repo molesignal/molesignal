@@ -8,12 +8,9 @@
 
 use std::collections::HashMap;
 
+use domain::rum::{RumIssue, RumIssueStatus};
+use kernel::{Error, Result, ids::Id};
 use serde::Serialize;
-
-use crate::{
-    domain::rum::{RumIssue, RumIssueStatus},
-    shared::{Error, Result, ids::Id},
-};
 
 /// What the errors of one issue come to in the range.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -233,8 +230,9 @@ pub fn select(
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn issue(id: &str, status: RumIssueStatus, first: i64) -> RumIssue {
         RumIssue {

@@ -10,15 +10,11 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use kernel::Result;
+use postgres::repositories::signing_secrets::{SigningSecretRepository, load_active_jwt_secrets};
 use tokio::task::JoinHandle;
 
-use crate::{
-    app::iam::{IamService, JwtSecretSource},
-    infra::persistence::repositories::signing_secrets::{
-        SigningSecretRepository, load_active_jwt_secrets,
-    },
-    shared::Result,
-};
+use crate::app::iam::{IamService, JwtSecretSource};
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -54,13 +50,11 @@ fn refresh_every(iam: Arc<IamService>, interval: Duration) -> JoinHandle<()> {
 mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
 
+    use kernel::{Error, ids::Id};
     use parking_lot::Mutex;
 
     use super::*;
-    use crate::{
-        app::iam::test_support::iam_service,
-        shared::{Error, ids::Id},
-    };
+    use crate::app::iam::test_support::iam_service;
 
     struct Table {
         secrets: Mutex<Vec<Vec<u8>>>,

@@ -9,22 +9,18 @@
 
 use std::{sync::Arc, time::Duration};
 
+use agent::runs::{NewRunEvent, Pending, QuestionKind, RunEventKind, RunResponse};
 use async_trait::async_trait;
+use kernel::ids::Id;
 use serde_json::{Value, json};
 use tokio::time::Instant;
+use tool_runtime::RiskLevel;
 
 use super::{
     super::super::tool_dispatcher::{Reply, RunInteraction},
     RunControl,
 };
-use crate::{
-    agent::{
-        model::RiskLevel,
-        runs::{NewRunEvent, Pending, QuestionKind, RunEventKind, RunResponse},
-    },
-    app::mcp::CredentialNeed,
-    shared::ids::Id,
-};
+use crate::app::mcp::CredentialNeed;
 
 /// 最多等提问人这么久。
 pub(super) const RESPONSE_TIMEOUT: Duration = Duration::from_secs(60 * 60);

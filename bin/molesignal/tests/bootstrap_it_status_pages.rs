@@ -5,7 +5,7 @@
 
 mod common;
 
-use molesignal::shared::time::TimestampMicros;
+use kernel::time::TimestampMicros;
 use reqwest::StatusCode;
 use serde_json::{Value, json};
 
@@ -178,8 +178,8 @@ async fn custom_domain_routes_only_after_dns_and_tls_activation() {
     let pool = sqlx::PgPool::connect(&server.settings.meta_database.dsn)
         .await
         .expect("connect status-page test pool");
-    let domain_id = molesignal::shared::ids::Id::new();
-    let now = molesignal::shared::time::TimestampMicros::now().0;
+    let domain_id = kernel::ids::Id::new();
+    let now = kernel::time::TimestampMicros::now().0;
     sqlx::query(
         "INSERT INTO domains
             (id, org_id, hostname, state, cert_pem, cert_not_after,
@@ -546,8 +546,7 @@ async fn subscriber_notifications_skip_hidden_components_and_carry_event_times()
     assert_eq!(payloads[0]["componentName"], "API");
     assert_eq!(payloads[0]["status"], "degraded_performance");
 
-    let planned_start =
-        molesignal::shared::time::TimestampMicros::now().0 + 2 * 24 * 60 * 60 * 1_000_000_i64;
+    let planned_start = kernel::time::TimestampMicros::now().0 + 2 * 24 * 60 * 60 * 1_000_000_i64;
     let announce = server
         .client
         .post(format!(
@@ -668,7 +667,7 @@ async fn confirm_email_subscriber(
          WHERE status_page_id = $1 AND status = 'pending'",
     )
     .bind(page_id)
-    .bind(molesignal::shared::time::TimestampMicros::now())
+    .bind(kernel::time::TimestampMicros::now())
     .execute(pool)
     .await
     .expect("confirm the pending subscriber")
@@ -739,10 +738,8 @@ async fn queued_payloads(pool: &sqlx::PgPool, page_id: &str) -> Vec<Value> {
 
 #[tokio::test]
 async fn backend_language_table_serves_the_page_language_and_falls_back_to_english() {
-    use molesignal::{
-        domain::i18n_language::I18nLanguageRepository,
-        infra::persistence::repositories::i18n_language::PgI18nLanguageRepository,
-    };
+    use domain::i18n_language::I18nLanguageRepository;
+    use postgres::repositories::i18n_language::PgI18nLanguageRepository;
 
     if common::skip_unless_enabled() {
         return;
@@ -842,7 +839,7 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
         .expect("connect status-page test pool");
     confirm_email_subscriber(&server, &pool, "acme-planned", page_id).await;
 
-    let announced_at = molesignal::shared::time::TimestampMicros::now().0;
+    let announced_at = kernel::time::TimestampMicros::now().0;
     let announce = |title: &'static str, options: Value| {
         let mut body = json!({
             "kind": "maintenance",
@@ -899,7 +896,7 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
     assert!(reminders(&pool, page_id).await.is_empty());
 
     // Two hours pass: both were announced two hours ago and start in 30 minutes.
-    let soon = molesignal::shared::time::TimestampMicros::now().0 + 30 * MINUTE;
+    let soon = kernel::time::TimestampMicros::now().0 + 30 * MINUTE;
     sqlx::query(
         "UPDATE status_page_incident_updates
          SET created_at = created_at - $2 * INTERVAL '1 microsecond'
@@ -930,7 +927,7 @@ async fn planned_maintenance_reminds_subscribers_and_starts_at_its_planned_time(
     assert!(sent[0]["occurredAt"].as_i64().expect("reminder time") < soon);
 
     // The planned start arrives.
-    let due = molesignal::shared::time::TimestampMicros::now().0 - 1_000_000;
+    let due = kernel::time::TimestampMicros::now().0 - 1_000_000;
     set_planned_start(&pool, page_id, due).await;
     for _ in 0..2 {
         server

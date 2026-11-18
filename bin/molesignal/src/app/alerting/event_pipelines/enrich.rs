@@ -11,23 +11,21 @@
 
 use std::time::Duration;
 
+use domain::{
+    pipeline::alert::{
+        AlertFields, AlertPipeline, EnrichQuery,
+        fields::merge_answer,
+        query::{placeholder_value, rows_text},
+    },
+    query::QueryRequest,
+};
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde_json::{Map, Value, json};
 
 use super::AlertPipelines;
-use crate::{
-    domain::{
-        pipeline::alert::{
-            AlertFields, AlertPipeline, EnrichQuery,
-            fields::merge_answer,
-            query::{placeholder_value, rows_text},
-        },
-        query::QueryRequest,
-    },
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
 
 /// How long a connector has to answer.
 const CALL_TIMEOUT: Duration = Duration::from_secs(5);
@@ -129,6 +127,6 @@ impl AlertPipelines {
     }
 }
 
-fn reason(error: &crate::shared::Error) -> String {
+fn reason(error: &kernel::Error) -> String {
     error.to_string().chars().take(MAX_REASON_CHARS).collect()
 }

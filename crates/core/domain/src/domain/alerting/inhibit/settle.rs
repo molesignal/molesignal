@@ -3,13 +3,12 @@
 
 //! 按这一轮算出的结果改事件上的抑制状态。
 
+use kernel::{ids::Id, time::TimestampMicros};
+
 use super::{InhibitRule, resolve::Inhibited};
-use crate::{
-    domain::alerting::{
-        handling::{IncidentHandling, Inhibition},
-        incident::Incident,
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use crate::domain::alerting::{
+    handling::{IncidentHandling, Inhibition},
+    incident::Incident,
 };
 
 /// 抑制状态怎么变了。

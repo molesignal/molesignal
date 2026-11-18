@@ -12,18 +12,14 @@ mod github;
 
 use std::{collections::BTreeMap, time::Duration};
 
+use domain::iam::{SsoOauth2Config, SsoPlatform};
+use kernel::{Error, Result};
 use reqwest::{Client, header};
 use serde_json::Value;
+use signals::http_trace::{self, HttpTarget};
 use url::Url;
 
 use super::claims::{ExternalIdentity, map_identity};
-use crate::{
-    domain::iam::{SsoOauth2Config, SsoPlatform},
-    shared::{
-        Error, Result,
-        http_trace::{self, HttpTarget},
-    },
-};
 
 /// GitHub 的 API 拒绝没有 User-Agent 的请求。
 const USER_AGENT: &str = concat!("MoleSignal/", env!("CARGO_PKG_VERSION"));

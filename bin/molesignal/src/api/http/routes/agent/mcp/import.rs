@@ -7,16 +7,13 @@
 //! Runner 上运行。
 
 use axum::{Extension, Json, extract::State};
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::viewer::{requested_scope, viewer};
-use crate::{
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Error, Result},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 /// 粘贴内容的上限。
 const MAX_CONFIG_BYTES: usize = 256 * 1024;

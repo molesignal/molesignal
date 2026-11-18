@@ -13,15 +13,13 @@
 
 mod common;
 
-use molesignal::{
-    config::MetaDatabaseSettings,
-    domain::iam::{Organization, OrganizationRepository, User, UserRepository},
-    infra::persistence::{
-        MetaStore,
-        repositories::{organizations::PgOrganizationRepository, users::PgUserRepository},
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use domain::iam::{Organization, OrganizationRepository, User, UserRepository};
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::{
+    MetaStore,
+    repositories::{organizations::PgOrganizationRepository, users::PgUserRepository},
 };
+use settings::MetaDatabaseSettings;
 
 fn skip_unless_enabled() -> bool {
     std::env::var("MS_RUN_IT").ok().as_deref() != Some("1")
@@ -132,7 +130,7 @@ async fn custom_migration_table_and_repository_roundtrip() {
             bio: String::new(),
             password_hash: "$argon2id$dummy".into(),
             disabled: false,
-            status: molesignal::domain::iam::UserStatus::Active,
+            status: domain::iam::UserStatus::Active,
             created_at: TimestampMicros::now(),
             sessions_valid_after: TimestampMicros(0),
         })

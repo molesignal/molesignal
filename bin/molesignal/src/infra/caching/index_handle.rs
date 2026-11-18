@@ -6,9 +6,9 @@
 use std::{sync::Arc, time::Duration};
 
 use moka::future::Cache;
+use settings::CacheLayerSettings;
 
 use super::metrics::CacheMetrics;
-use crate::config::CacheLayerSettings;
 
 pub struct IndexHandleCache<V>
 where

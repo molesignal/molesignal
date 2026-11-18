@@ -7,16 +7,14 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{
+    iam::InstanceSettingsRepository,
+    rum::{RumReplayCommentRepository, RumSessionSummaryRepository},
+};
+use kernel::{drain::DrainController, time::TimestampMicros};
 use tokio::task::JoinHandle;
 
-use crate::{
-    domain::{
-        iam::InstanceSettingsRepository,
-        rum::{RumReplayCommentRepository, RumSessionSummaryRepository},
-    },
-    infra::rum::replay::RumReplayWriter,
-    shared::{drain::DrainController, time::TimestampMicros},
-};
+use crate::infra::rum::replay::RumReplayWriter;
 
 const SWEEP_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 const STARTUP_DELAY: Duration = Duration::from_secs(60);

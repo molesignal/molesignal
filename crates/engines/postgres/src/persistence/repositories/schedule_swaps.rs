@@ -2,13 +2,11 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::alerting::swap::{SwapRequest, SwapRequestRepository, SwapStatus};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::swap::{SwapRequest, SwapRequestRepository, SwapStatus},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgSwapRequestRepository {
     pool: PgPool,

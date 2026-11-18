@@ -7,13 +7,11 @@
 
 use chrono::{Duration, Offset, TimeZone};
 use chrono_tz::Tz;
+use domain::alerting::schedule::Schedule;
+use kernel::{ids::Id, time::TimestampMicros};
 
 use super::Draft;
-use crate::{
-    app::alerting::oncall_transfer::Finding,
-    domain::alerting::schedule::Schedule,
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::app::alerting::oncall_transfer::Finding;
 
 /// 最多列出几段对不上的。
 const MAX_MISMATCHES: usize = 3;

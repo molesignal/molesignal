@@ -4,13 +4,11 @@
 //! 接入留下的记录：收到的每次请求，以及外部来源开的事件在来源这一侧的状态。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::alert::{AlertMember, ExternalAction};
-use crate::{
-    domain::alerting::incident::Severity,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::domain::alerting::incident::Severity;
 
 /// 一次请求最多记几条告警的结果。
 pub const MAX_RECORDED_ALERTS: usize = 100;

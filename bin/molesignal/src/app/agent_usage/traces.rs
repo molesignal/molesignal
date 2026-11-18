@@ -6,14 +6,12 @@
 //! 写入走 intake，而写入管道里的 LLM 函数自己也要记用量：直接在调用路径上写会让 intake
 //! 等待它自己。排队还让对话不必等这条记录写完。队列满时丢弃并记一条日志，用量计数不受影响。
 
+use agent::{chat::ModelCall, usage::Cost};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde_json::{Map, Value, json};
 use tokio::sync::mpsc;
 
 use super::UsageScope;
-use crate::{
-    agent::{chat::ModelCall, usage::Cost},
-    shared::{ids::Id, time::TimestampMicros},
-};
 
 /// 排队等写入的记录最多这么多条。
 const QUEUE_CAPACITY: usize = 1024;

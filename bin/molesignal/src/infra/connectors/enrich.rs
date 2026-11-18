@@ -7,13 +7,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::pipeline::alert::AlertEnricher;
+use kernel::{Error, Result, ids::Id};
 use serde_json::{Map, Value};
 
 use super::{ConnectorKind, ConnectorRepository, dispatcher::http};
-use crate::{
-    domain::pipeline::alert::AlertEnricher,
-    shared::{Error, Result, ids::Id},
-};
 
 pub struct ConnectorEnricher {
     connectors: Arc<dyn ConnectorRepository>,

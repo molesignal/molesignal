@@ -11,20 +11,17 @@ use std::{
     time::Duration,
 };
 
+use domain::{
+    intake::RawEvent,
+    metrics::{
+        METRIC_KIND_FIELD, METRIC_NAME_FIELD, MetricDirectory, MetricObservation,
+        is_metric_label_name,
+    },
+    stream::StreamDefinition,
+};
+use kernel::time::TimestampMicros;
 use moka::sync::Cache;
 use serde_json::Value;
-
-use crate::{
-    domain::{
-        intake::RawEvent,
-        metrics::{
-            METRIC_KIND_FIELD, METRIC_NAME_FIELD, MetricDirectory, MetricObservation,
-            is_metric_label_name,
-        },
-        stream::StreamDefinition,
-    },
-    shared::time::TimestampMicros,
-};
 
 const HOUR_MICROS: i64 = 3_600 * 1_000_000;
 
@@ -210,16 +207,14 @@ fn hour_key(stream: &StreamDefinition, metric: &str, hour: i64) -> u64 {
 
 #[cfg(test)]
 mod tests {
+    use domain::{
+        metrics::MemoryMetricDirectory,
+        stream::{Schema, StreamType},
+    };
+    use kernel::ids::Id;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::{
-            metrics::MemoryMetricDirectory,
-            stream::{Schema, StreamType},
-        },
-        shared::ids::Id,
-    };
 
     fn stream() -> StreamDefinition {
         StreamDefinition {

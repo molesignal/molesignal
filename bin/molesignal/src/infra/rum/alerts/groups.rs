@@ -13,13 +13,12 @@
 
 use std::collections::HashMap;
 
-use crate::{
-    domain::rum::{
-        RumAlertMetric, RumAlertQuery, RumAlertReading, RumAlertSearch, RumAlertStatistic,
-        event::RumStream,
-    },
-    infra::rum::query::{Aggregate, Filter, MeasureSpec},
+use domain::rum::{
+    RumAlertMetric, RumAlertQuery, RumAlertReading, RumAlertSearch, RumAlertStatistic,
+    event::RumStream,
 };
+
+use crate::infra::rum::query::{Aggregate, Filter, MeasureSpec};
 
 /// The SDKs send durations in nanoseconds; rules and pages say milliseconds.
 const NANOSECONDS_PER_MILLISECOND: f64 = 1_000_000.0;

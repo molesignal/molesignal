@@ -6,19 +6,16 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 
 use super::record_access_audit;
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        status_page::{
-            StatusPageDomainCapability, StatusPageDomainInput, StatusPageDomainInstructions,
-        },
+    app::status_page::{
+        StatusPageDomainCapability, StatusPageDomainInput, StatusPageDomainInstructions,
     },
-    domain::iam::permission,
-    shared::{Result, ids::Id},
 };
 
 pub(super) fn routes() -> Router<AppState> {

@@ -4,17 +4,14 @@
 //! `GET / PUT /api/v1/agent/network-policy`：团队成员与个人建的连接（Skill 仓库、MCP 服务器）
 //! 默认只能连公网，这里列出组织允许他们连的内网主机与网段。只有 `agent.manage` 能看能改。
 
+use agent::network::MemberNetworkPolicy;
 use axum::{Extension, Json, Router, extract::State, routing::get};
+use domain::iam::{IamContext, permission};
+use kernel::{Result, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{
-    agent::network::MemberNetworkPolicy,
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Result, time::TimestampMicros},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/agent/network-policy", get(get_policy).put(put_policy))

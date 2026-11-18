@@ -9,12 +9,8 @@
 //!
 //! 只有登录会话有这个待遇。API token 没有权限时照旧拒绝：公开的 RUM token 不能列出组织里的人。
 
+use domain::iam::{IamContext, IamScope, User, UserStatus};
 use serde::Serialize;
-
-use crate::{
-    app::iam::IamContext,
-    domain::iam::{IamScope, User, UserStatus},
-};
 
 /// 组织里每个人都能看到的一个成员。
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -66,10 +62,10 @@ fn name_of(user: &User) -> String {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn context(scope: IamScope, permissions: &[&str]) -> IamContext {
         IamContext {

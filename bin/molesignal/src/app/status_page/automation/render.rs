@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use crate::{
-    domain::{
-        alerting::incident::Severity,
-        status_page::{
-            ActiveAutomationRule, AutomationCandidate, AutomationCandidateState,
-            AutomationPublicationMode, AutomationSourceObservation, IncidentImpact,
-        },
+use domain::{
+    alerting::incident::Severity,
+    status_page::{
+        ActiveAutomationRule, AutomationCandidate, AutomationCandidateState,
+        AutomationPublicationMode, AutomationSourceObservation, IncidentImpact,
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 
 pub(super) fn materialize_candidate(
     rule: &ActiveAutomationRule,

@@ -3,14 +3,12 @@
 
 //! 话题对应的会话、收到的消息，以及一次性的绑定链接。
 
+use agent::im::{ImLink, ImMessage, ImThread, MessageStatus};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::{micros, optional_micros, optional_text, sqlx_err, text};
-use crate::{
-    agent::im::{ImLink, ImMessage, ImThread, MessageStatus},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 const THREAD_COLUMNS: &str = "id, org_id, connector_id, conversation_id, thread_key, chat_id, \
                               created_by, created_at, updated_at";

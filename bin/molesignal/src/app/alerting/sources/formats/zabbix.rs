@@ -13,16 +13,14 @@
 
 use std::collections::BTreeMap;
 
+use domain::alerting::{
+    incident::Severity,
+    source::{ExternalAction, ExternalAlert, severity_from_word},
+};
+use kernel::{Error, Result};
 use serde_json::Value;
 
 use super::{Parsed, epoch, host_of, json, text, web_address};
-use crate::{
-    domain::alerting::{
-        incident::Severity,
-        source::{ExternalAction, ExternalAlert, severity_from_word},
-    },
-    shared::{Error, Result},
-};
 
 pub(super) fn parse(body: &[u8]) -> Result<Parsed> {
     let payload = json(body)?;
@@ -200,10 +198,10 @@ fn tags(value: Option<&Value>) -> BTreeMap<String, String> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
     use serde_json::{Value, json};
 
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn payload(overrides: &[(&str, &str)]) -> Vec<u8> {
         let mut payload = json!({

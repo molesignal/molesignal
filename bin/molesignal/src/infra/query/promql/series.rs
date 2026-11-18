@@ -5,12 +5,12 @@ use arrow::{
     array::{BooleanArray, Int64Array},
     datatypes::Field,
 };
-
-use super::*;
-use crate::domain::metrics::{
+use domain::metrics::{
     METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD,
     METRIC_TEMPORALITY_FIELD, is_metric_identity_storage_field,
 };
+
+use super::*;
 
 /// 把 record batches 按 (指标名 + matchers 过滤) + (labels 分组) 转 Vec<Series>。
 ///

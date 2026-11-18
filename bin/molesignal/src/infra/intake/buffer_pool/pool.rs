@@ -7,20 +7,18 @@ use std::sync::{
 };
 
 use dashmap::{DashMap, mapref::entry::Entry};
+use domain::{
+    storage::{PhysicalDatasetId, WriterEpoch},
+    stream::{StreamDefinition, StreamType},
+};
+use kernel::{Error, Result, ids::Id};
 use tokio::sync::Mutex;
 
 use super::{
     BufferKey, BufferedRecordBatch, RecordBuilder,
     memory::{MemoryBudget, MemoryReservation},
 };
-use crate::{
-    domain::{
-        storage::{PhysicalDatasetId, WriterEpoch},
-        stream::{StreamDefinition, StreamType},
-    },
-    infra::intake::{dataset_resolver::ResolvedDataset, physical_schema},
-    shared::{Error, Result, ids::Id},
-};
+use crate::infra::intake::{dataset_resolver::ResolvedDataset, physical_schema};
 
 /// Immutable dataset metadata plus the one mutex that orders WAL append/push against rotation.
 pub struct DatasetBuffer {
@@ -171,8 +169,9 @@ impl BufferPool {
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::StreamType;
+
     use super::*;
-    use crate::domain::stream::StreamType;
 
     #[test]
     fn reservation_is_atomic_and_drop_releases_capacity() {

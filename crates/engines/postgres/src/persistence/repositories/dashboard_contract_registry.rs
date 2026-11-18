@@ -4,17 +4,15 @@
 //! PostgreSQL-backed immutable Dashboard contract publications and active binding.
 
 use async_trait::async_trait;
+use domain::dashboard::contract_registry::{
+    DashboardContractBinding, DashboardContractBundle, DashboardContractDocuments,
+    DashboardContractKind, DashboardContractRef, DashboardContractRepository,
+    DashboardContractSelection, DashboardContractStatus, DashboardContractVersion,
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::dashboard::contract_registry::{
-        DashboardContractBinding, DashboardContractBundle, DashboardContractDocuments,
-        DashboardContractKind, DashboardContractRef, DashboardContractRepository,
-        DashboardContractSelection, DashboardContractStatus, DashboardContractVersion,
-    },
-    shared::{Error, Result, time::TimestampMicros},
-};
 
 const BINDING_COLUMNS: &str = "capability_key, revision,
     model_contract_key, model_contract_version, model_schema_hash,

@@ -4,13 +4,10 @@
 use std::{collections::HashSet, time::Duration};
 
 use async_trait::async_trait;
+use domain::status_page::{StatusPageDomainCheck, StatusPageDomainVerifier};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use url::Url;
-
-use crate::{
-    domain::status_page::{StatusPageDomainCheck, StatusPageDomainVerifier},
-    shared::{Error, Result},
-};
 
 const DNS_GOOGLE_RESOLVE: &str = "https://dns.google/resolve";
 

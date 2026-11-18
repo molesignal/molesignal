@@ -11,14 +11,13 @@
 
 use std::{collections::BTreeMap, sync::OnceLock};
 
+use kernel::{Error, Result};
+
 use super::{
     dataset::{IndexPolicy, PartitionPolicy, PhysicalDatasetSpec, StoragePolicy},
     type_id::{ArtifactTypeId, DatasetTypeId, IndexTypeId, StreamTypeId, WalCodecId, builtin},
 };
-use crate::{
-    domain::stream::StreamType,
-    shared::{Error, Result},
-};
+use crate::domain::stream::StreamType;
 
 /// 一种物理数据集类型的静态描述。
 #[derive(Debug, Clone)]

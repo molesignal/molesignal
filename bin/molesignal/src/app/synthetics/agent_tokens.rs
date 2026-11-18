@@ -2,15 +2,13 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use base64::Engine as _;
+use domain::synthetics::{ProbeAgentToken, ProbeAgentTokenInstructions, ProbeAgentTokenStatus};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::api_tokens::{generate_token, shown_prefix};
 use serde::Deserialize;
 use sha2::{Digest as _, Sha256};
 
 use super::{SyntheticService, model::validate_name};
-use crate::{
-    domain::synthetics::{ProbeAgentToken, ProbeAgentTokenInstructions, ProbeAgentTokenStatus},
-    infra::persistence::repositories::api_tokens::{generate_token, shown_prefix},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -166,8 +164,9 @@ fn expires_at(now: TimestampMicros, days: u32) -> Option<TimestampMicros> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::{expires_at, validate_expiry_days};
-    use crate::shared::time::TimestampMicros;
 
     #[test]
     fn expiry_supports_bounded_and_non_expiring_tokens() {

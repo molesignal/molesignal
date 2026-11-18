@@ -7,17 +7,13 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
 use dashmap::DashMap;
-use serde::{Deserialize, Serialize};
-
-use super::IamContext;
-use crate::{
-    domain::iam::{
-        IamAssignedRole, IamPlatformAdministratorRepository, IamScope,
-        access::{IamPlatformGrant, IamRepository},
-        navigation::IamRouteAccess,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+use domain::iam::{
+    IamAssignedRole, IamContext, IamPlatformAdministratorRepository, IamScope,
+    access::{IamPlatformGrant, IamRepository},
+    navigation::IamRouteAccess,
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use serde::{Deserialize, Serialize};
 
 mod capabilities;
 mod evaluation;
@@ -243,13 +239,11 @@ impl IamAccessService {
 
 #[cfg(test)]
 mod tests {
+    use domain::iam::access::{IamPrincipalType, IamRoleBinding};
+    use kernel::time::TimestampMicros;
     use serde_json::Value;
 
     use super::*;
-    use crate::{
-        domain::iam::access::{IamPrincipalType, IamRoleBinding},
-        shared::time::TimestampMicros,
-    };
 
     #[test]
     fn bounded_conditions_reject_unknown_keys_and_match_environment_and_labels() {

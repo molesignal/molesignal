@@ -4,14 +4,12 @@
 //! 等连着机器人的节点发出去的回复与通知：`agent_im_outbox`。取走即删除，`SKIP LOCKED` 让两个节点
 //! 不会取到同一条。
 
+use agent::im::ImOutgoing;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 use sqlx::{PgPool, Row, postgres::PgRow, types::Json};
 
 use super::{micros, optional_text, sqlx_err, text};
-use crate::{
-    agent::im::ImOutgoing,
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 const COLUMNS: &str = "id, org_id, connector_id, message_id, reply, working, markdown, \
                        notification, created_at";

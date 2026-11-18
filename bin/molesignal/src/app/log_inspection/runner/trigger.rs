@@ -6,14 +6,13 @@
 
 use std::time::Duration;
 
+use domain::log_inspection::{LogInspection, LogInspectionRun, RunStatus, RunTrigger};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::InspectionRunner;
-use crate::{
-    app::log_inspection::{
-        schedule,
-        service::{new_run, window_start},
-    },
-    domain::log_inspection::{LogInspection, LogInspectionRun, RunStatus, RunTrigger},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::log_inspection::{
+    schedule,
+    service::{new_run, window_start},
 };
 
 /// 超过总超时这么久还标着「执行中」的记录，执行它的节点已经不在了。

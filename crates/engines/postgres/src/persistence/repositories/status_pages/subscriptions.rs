@@ -9,18 +9,16 @@ mod requests;
 mod slack_app;
 
 use async_trait::async_trait;
+use domain::status_page::{
+    PendingStatusPageSubscription, StatusPageSubscriber, StatusPageSubscriberChannel,
+    StatusPageSubscriberImport, StatusPageSubscriberImportOutcome, StatusPageSubscriberOrigin,
+    StatusPageSubscriberPage, StatusPageSubscriberRepository, StatusPageSubscriberStatus,
+    SubscriberComponentScope, SubscriberComponents,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::Row;
 
 use super::PgStatusPageRepository;
-use crate::{
-    domain::status_page::{
-        PendingStatusPageSubscription, StatusPageSubscriber, StatusPageSubscriberChannel,
-        StatusPageSubscriberImport, StatusPageSubscriberImportOutcome, StatusPageSubscriberOrigin,
-        StatusPageSubscriberPage, StatusPageSubscriberRepository, StatusPageSubscriberStatus,
-        SubscriberComponentScope, SubscriberComponents,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub(super) const SUBSCRIBER_COLS: &str = "id, org_id, status_page_id, channel,
     target_ciphertext, target_nonce, target_label, status, token_hash,
@@ -483,7 +481,7 @@ mod tests {
     use base64::Engine as _;
 
     use super::*;
-    use crate::infra::cipher::CipherRootKey;
+    use crate::cipher::CipherRootKey;
 
     #[tokio::test]
     async fn subscriber_targets_are_encrypted_and_hashed_per_organization() {

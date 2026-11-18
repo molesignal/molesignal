@@ -10,16 +10,14 @@
 use std::sync::Arc;
 
 use aws_lc_rs::{constant_time, hmac};
+use domain::notify::{
+    connector::NotifyConnector,
+    reply::{NotifyReplyRepository, ReplyAction, ReplyRef, parse_sms_reply},
+    repositories::NotifyConnectorRepository,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 
 use super::reply_line_key;
-use crate::{
-    domain::notify::{
-        connector::NotifyConnector,
-        reply::{NotifyReplyRepository, ReplyAction, ReplyRef, parse_sms_reply},
-        repositories::NotifyConnectorRepository,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
 
 /// 回调 Token 取 HMAC 的前多少个十六进制字符。
 const TOKEN_CHARS: usize = 32;
@@ -231,7 +229,7 @@ mod tests {
         }
 
         async fn get(&self, _: &Id, _: &Id) -> Result<NotifyConnector> {
-            Err(crate::shared::Error::not_found("connector"))
+            Err(kernel::Error::not_found("connector"))
         }
 
         async fn list(&self, _: &Id) -> Result<Vec<NotifyConnector>> {
@@ -243,10 +241,10 @@ mod tests {
             _: &Id,
             _: &Id,
             _: TimestampMicros,
-            _: crate::domain::notify::connector::ConnectorTestStatus,
+            _: domain::notify::connector::ConnectorTestStatus,
             _: Option<String>,
         ) -> Result<NotifyConnector> {
-            Err(crate::shared::Error::not_found("connector"))
+            Err(kernel::Error::not_found("connector"))
         }
 
         async fn delete(&self, _: &Id, _: &Id) -> Result<()> {

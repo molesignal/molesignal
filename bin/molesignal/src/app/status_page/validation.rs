@@ -3,17 +3,15 @@
 
 use std::collections::HashSet;
 
+use domain::status_page::{
+    IncidentImpact, PublicIncidentStatus, StatusPageIncidentKind, StatusPagePublicationState,
+};
+use kernel::{Error, Result};
 use url::Url;
 
 use super::{
     MAX_STATUS_PAGE_HISTORY_DAYS, StatusPageComponentInput, StatusPageIncidentInput,
     StatusPageInput,
-};
-use crate::{
-    domain::status_page::{
-        IncidentImpact, PublicIncidentStatus, StatusPageIncidentKind, StatusPagePublicationState,
-    },
-    shared::{Error, Result},
 };
 
 const MAX_NAME_LEN: usize = 120;
@@ -181,7 +179,7 @@ pub(super) fn normalize_custom_domain(value: Option<String>) -> Result<Option<St
 pub(super) fn normalize_domain_lookup(value: &str) -> Option<String> {
     let value = value.trim().trim_end_matches('.').to_ascii_lowercase();
 
-    crate::domain_management::hostname_valid(&value)
+    domain_management::hostname_valid(&value)
         .ok()
         .map(|()| value)
 }
@@ -377,8 +375,9 @@ pub(super) fn validate_transition(
 
 #[cfg(test)]
 mod tests {
+    use domain::status_page::StatusPageVisibility;
+
     use super::*;
-    use crate::domain::status_page::StatusPageVisibility;
 
     fn page_input(language: &str, languages: &[&str]) -> StatusPageInput {
         StatusPageInput {

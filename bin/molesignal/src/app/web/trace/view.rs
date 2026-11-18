@@ -13,15 +13,12 @@
 
 use std::collections::HashSet;
 
+use domain::query::QueryResult;
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
-
-use crate::{
-    domain::query::QueryResult,
-    shared::trace_normalization::{
-        CANONICAL_SPAN_SCHEMA_VERSION, CanonicalLink, CanonicalResource, CanonicalScope,
-        PartialReason, SEMCONV_VERSION, SamplingReason,
-    },
+use signals::trace_normalization::{
+    CANONICAL_SPAN_SCHEMA_VERSION, CanonicalLink, CanonicalResource, CanonicalScope, PartialReason,
+    SEMCONV_VERSION, SamplingReason,
 };
 
 #[derive(Debug, Serialize)]

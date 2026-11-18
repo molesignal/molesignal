@@ -3,16 +3,14 @@
 
 //! 实时规则的事件入口：写入路径上的匹配器判定后，复用与周期评估相同的事件流程。
 
+use domain::{
+    alerting::{incident::Severity, rule::AlertRule},
+    query::QueryResult,
+};
+use kernel::{Result, time::TimestampMicros};
 use serde_json::json;
 
 use super::{RuleEvaluator, decision::Decision, groups::Subject};
-use crate::{
-    domain::{
-        alerting::{incident::Severity, rule::AlertRule},
-        query::QueryResult,
-    },
-    shared::{Result, time::TimestampMicros},
-};
 
 impl RuleEvaluator {
     /// 实时规则的窗口计数满足触发条件：开事件，或把已开事件升到更高一档。

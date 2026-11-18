@@ -10,29 +10,26 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::StreamType,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 
 use crate::{
     api::AppState,
-    app::{
-        iam::IamContext,
-        synthetics::{
-            RESULT_STREAM,
-            availability::{
-                Availability, AvailabilityQuery, Bucket, CheckSummary, LocationBucket,
-                LocationSummary, bucket_start, summaries, text,
-            },
+    app::synthetics::{
+        RESULT_STREAM,
+        availability::{
+            Availability, AvailabilityQuery, Bucket, CheckSummary, LocationBucket, LocationSummary,
+            bucket_start, summaries, text,
         },
-    },
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::StreamType,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
     },
 };
 

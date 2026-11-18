@@ -12,16 +12,16 @@ use std::{
 };
 
 use anyhow::{Context as _, Result};
+use domain::synthetics::{MonitorSpec, ProbeAgent, ProbeCapability, ProbeTask};
+use kernel::time::TimestampMicros;
 use prost::Message as _;
+use protocol::probe::v1 as wire;
 use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::super::polling::PollingBackoff;
 use crate::{
     api::grpc::probe::{result::result_from_wire, task::task_to_wire},
     app::synthetics::SyntheticService,
-    domain::synthetics::{MonitorSpec, ProbeAgent, ProbeCapability, ProbeTask},
-    protocol::probe::v1 as wire,
-    shared::time::TimestampMicros,
 };
 
 const POLL_INTERVAL: Duration = Duration::from_millis(500);

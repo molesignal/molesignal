@@ -6,24 +6,21 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::{
+    dashboard::Dashboard,
+    federation::{CudAction, ResourceKind},
+    iam::{IamContext, permission, resource_permission},
+};
+use kernel::{Result, ids::Id};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{
-    api::{
-        AppState,
-        http::{
-            federation::{delete_payload, emit_cud},
-            middleware::ProtectedResource,
-        },
+use crate::api::{
+    AppState,
+    http::{
+        federation::{delete_payload, emit_cud},
+        middleware::ProtectedResource,
     },
-    app::iam::IamContext,
-    domain::{
-        dashboard::Dashboard,
-        federation::{CudAction, ResourceKind},
-        iam::{permission, resource_permission},
-    },
-    shared::{Result, ids::Id},
 };
 
 mod panels;

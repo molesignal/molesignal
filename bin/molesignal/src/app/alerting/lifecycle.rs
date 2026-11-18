@@ -2,8 +2,8 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
-
-use crate::{domain::alerting::incident::Incident, shared::Result};
+use domain::alerting::incident::Incident;
+use kernel::Result;
 
 #[async_trait]
 pub trait AlertIncidentLifecycleSink: Send + Sync {

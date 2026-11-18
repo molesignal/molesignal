@@ -7,19 +7,17 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
+use domain::alerting::{
+    schedule::Schedule,
+    time_window::{ClockTime, EVERY_DAY},
+};
+use kernel::{Result, ids::Id};
 use serde_json::{Value, json};
 
 use super::*;
-use crate::{
-    app::alerting::oncall_transfer::{
-        Directory, Existing, Names, TransferItem, Write, plan, portable_of,
-        schedules::{SCHEDULE_DROP, ScheduleScope, schedule_from_item},
-    },
-    domain::alerting::{
-        schedule::Schedule,
-        time_window::{ClockTime, EVERY_DAY},
-    },
-    shared::{Result, ids::Id},
+use crate::app::alerting::oncall_transfer::{
+    Directory, Existing, Names, TransferItem, Write, plan, portable_of,
+    schedules::{SCHEDULE_DROP, ScheduleScope, schedule_from_item},
 };
 
 const PAGERDUTY_LAYERS: &str = include_str!("fixtures/pagerduty_layers.json");
@@ -2017,7 +2015,7 @@ fn importing_the_same_file_again_changes_nothing_and_keeps_local_settings() {
     saved.id = Id::from_string("saved");
     saved.enabled = false;
     saved.swap_needs_approval = true;
-    saved.overrides = vec![crate::domain::alerting::schedule::ScheduleOverride {
+    saved.overrides = vec![domain::alerting::schedule::ScheduleOverride {
         id: Id::from_string("cover"),
         user_id: Id::from_string("id-dan"),
         start_at: at("2026-10-28T09:00:00-04:00"),

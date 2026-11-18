@@ -5,6 +5,12 @@
 
 use std::collections::HashMap;
 
+use domain::log_inspection::{
+    InspectionLevel, InspectionNotification, InspectionNotifyRoute, InspectionSchedule,
+    InspectionToolCall, LogInspection, LogInspectionRun, NotifyWhen, RunFailure, RunStatus,
+    RunTrigger,
+};
+use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,12 +19,6 @@ use crate::{
         log_inspection::{InspectionInput, InspectionLimits},
         reporting::{RunAsProfile, run_as_profiles},
     },
-    domain::log_inspection::{
-        InspectionLevel, InspectionNotification, InspectionNotifyRoute, InspectionSchedule,
-        InspectionToolCall, LogInspection, LogInspectionRun, NotifyWhen, RunFailure, RunStatus,
-        RunTrigger,
-    },
-    shared::ids::Id,
 };
 
 /// 创建和修改用同一个请求体：每次保存都是完整的定义。
@@ -268,13 +268,11 @@ pub(super) async fn profiles<'a>(
 
 #[cfg(test)]
 mod tests {
+    use domain::{log_inspection::LastInspectionRun, notify::connector::NotifyTargetType};
+    use kernel::time::TimestampMicros;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::{log_inspection::LastInspectionRun, notify::connector::NotifyTargetType},
-        shared::time::TimestampMicros,
-    };
 
     fn inspection() -> LogInspection {
         LogInspection {

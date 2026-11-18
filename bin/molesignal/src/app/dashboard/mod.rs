@@ -3,20 +3,18 @@
 
 use std::sync::Arc;
 
+use domain::dashboard::{
+    Dashboard,
+    authoring::{
+        ConsumeDashboardDraft, DashboardDraft, DashboardDraftRepository, DraftConsumption,
+    },
+    repositories::{DashboardRepository, FolderRepository},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::Value;
 
-use crate::{
-    app::dashboard::contract_registry::{
-        DashboardContractResolver, ResolvedDashboardContracts, builtin_dashboard_contract_resolver,
-    },
-    domain::dashboard::{
-        Dashboard,
-        authoring::{
-            ConsumeDashboardDraft, DashboardDraft, DashboardDraftRepository, DraftConsumption,
-        },
-        repositories::{DashboardRepository, FolderRepository},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use crate::app::dashboard::contract_registry::{
+    DashboardContractResolver, ResolvedDashboardContracts, builtin_dashboard_contract_resolver,
 };
 
 pub mod authoring;
@@ -352,7 +350,7 @@ fn validate_executable_draft(
 fn draft_validation_error(code: &str, message: &str) -> Error {
     Error::validation(
         "Dashboard draft cannot be executed",
-        vec![crate::shared::contracts::ContractIssue::new(
+        vec![contracts::ContractIssue::new(
             code,
             "/draft_id",
             message,
@@ -371,7 +369,7 @@ fn apply_server_model_fields(
     let object = model.as_object_mut().ok_or_else(|| {
         Error::validation(
             "dashboard model is invalid",
-            vec![crate::shared::contracts::ContractIssue::new(
+            vec![contracts::ContractIssue::new(
                 "CONTRACT_TYPE",
                 "",
                 "dashboard model must be an object",
@@ -455,7 +453,7 @@ fn dashboard_model_metadata(model: &Value) -> Result<(String, String, Vec<String
         .ok_or_else(|| {
             Error::validation(
                 "dashboard model is invalid",
-                vec![crate::shared::contracts::ContractIssue::new(
+                vec![contracts::ContractIssue::new(
                     "EMPTY_DASHBOARD_TITLE",
                     "/title",
                     "dashboard model title must not be empty",

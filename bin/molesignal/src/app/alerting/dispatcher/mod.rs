@@ -15,14 +15,8 @@
 
 use std::sync::Arc;
 
-use serde_json::{Value, json};
-
-use crate::{
-    app::{
-        cluster::{OwnershipView, PeerRole, WorkOwnership},
-        notify::{NotifyEngine, alert_escalation_dispatch, alert_page_dispatch},
-    },
-    domain::alerting::{
+use domain::{
+    alerting::{
         escalation::EscalationPolicy,
         handling::{EscalationReason, IncidentHandling},
         importance::ImportanceLevels,
@@ -31,7 +25,14 @@ use crate::{
         repositories::{EscalationPolicyRepository, IncidentRepository, ScheduleRepository},
         timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    cluster::PeerRole,
+};
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use serde_json::{Value, json};
+
+use crate::app::{
+    cluster::{OwnershipView, WorkOwnership},
+    notify::{NotifyEngine, alert_escalation_dispatch, alert_page_dispatch},
 };
 
 mod assignees;

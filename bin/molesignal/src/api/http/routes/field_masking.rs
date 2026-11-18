@@ -8,20 +8,17 @@ use axum::{
     extract::{Path, State},
     routing::{get, put},
 };
+use domain::{
+    iam::{IamContext, permission, resource_permission},
+    masking::{
+        EffectiveFieldMasking, FieldMaskingAlgorithm, FieldMaskingProvider, FieldMaskingRule,
+    },
+    stream::{StreamDefinition, StreamType},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::{permission, resource_permission},
-        masking::{
-            EffectiveFieldMasking, FieldMaskingAlgorithm, FieldMaskingProvider, FieldMaskingRule,
-        },
-        stream::{StreamDefinition, StreamType},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

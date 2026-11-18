@@ -13,7 +13,7 @@ use axum::{
     routing::{get, post},
 };
 use common::{TestServer, skip_unless_enabled};
-use molesignal::shared::{Error, ids::Id};
+use kernel::{Error, ids::Id};
 use reqwest::{StatusCode, header, redirect::Policy};
 use serde_json::{Value, json};
 use url::Url;

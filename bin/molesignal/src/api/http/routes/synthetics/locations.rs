@@ -7,15 +7,15 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    synthetics::{LocationLifecycle, ProbeAgent, ProbeLocation, ProbeRegisterInstructions},
+};
+use kernel::{Result, ids::Id};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{iam::IamContext, synthetics::CreateLocationInput},
-    domain::{
-        iam::permission,
-        synthetics::{LocationLifecycle, ProbeAgent, ProbeLocation, ProbeRegisterInstructions},
-    },
-    shared::{Result, ids::Id},
+    app::synthetics::CreateLocationInput,
 };
 
 pub(super) fn routes() -> Router<AppState> {

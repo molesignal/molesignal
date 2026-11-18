@@ -7,13 +7,11 @@
 //!
 //! 接收端 apply 在 [`crate::api::grpc::event_server`]——走 repo 层、不经本 helper，故不回环。
 
+use domain::federation::{CloudEvent, CudAction, ResourceKind};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::Serialize;
 
-use crate::{
-    api::AppState,
-    domain::federation::{CloudEvent, CudAction, ResourceKind},
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 /// CUD 成功后发一条跨集群事件。`resource` 序列化进 `data`（delete 传 `{"id": ...}` 即可）。
 pub async fn emit_cud<T: Serialize>(

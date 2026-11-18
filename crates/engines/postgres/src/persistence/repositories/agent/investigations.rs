@@ -5,18 +5,16 @@
 //!
 //! 步骤、证据、假设存在调查这一行的 JSONB 数组里；追加或改写时锁住这一行，读出数组，改完写回。
 
+use agent::model::{
+    ConfidenceLevel, FactStatus, HypothesisStatus, Investigation, InvestigationDetail,
+    InvestigationEvidence, InvestigationHypothesis, InvestigationStep, StepStatus,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use sqlx::{Row, postgres::PgRow, types::Json};
 
 use super::{super::sqlx_err, PgAgentRepository, enum_string, parse_enum};
-use crate::{
-    agent::model::{
-        ConfidenceLevel, FactStatus, HypothesisStatus, Investigation, InvestigationDetail,
-        InvestigationEvidence, InvestigationHypothesis, InvestigationStep, StepStatus,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const INVESTIGATION_COLS: &str = "id, org_id, created_by, chat_id, title, status, context, \
     summary, confidence, current_step, started_at, completed_at, created_at, updated_at";

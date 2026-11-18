@@ -17,25 +17,25 @@ use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    rum::event::RumStream,
+    stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use moka::future::Cache;
 use serde::Serialize;
 
 use super::QueryParams;
 use crate::{
     api::{AppState, http::routes::profiles::profiles_stream},
-    app::{apm::record_apm_query_latency, iam::IamContext},
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        rum::event::RumStream,
-        stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
-    },
+    app::apm::record_apm_query_latency,
     infra::query::escape_sql_ident,
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 /// How far back each look goes from the end of the range in view.
@@ -429,7 +429,7 @@ async fn run(
     (language, statement, limit): Statement,
     range: TimeRange,
     stream: Option<(&str, StreamType)>,
-) -> Result<crate::domain::query::QueryResult> {
+) -> Result<domain::query::QueryResult> {
     state
         .query
         .run(QueryRequest {

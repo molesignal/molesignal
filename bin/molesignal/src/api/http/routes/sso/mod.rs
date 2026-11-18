@@ -22,13 +22,11 @@
 //! 且只有一个启用的同类服务时自动选它。
 
 use axum::Router;
+use domain::iam::{SsoProvider, SsoProviderKind};
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 
-use crate::{
-    api::AppState,
-    domain::iam::{SsoProvider, SsoProviderKind},
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 mod handoff;
 mod identities;

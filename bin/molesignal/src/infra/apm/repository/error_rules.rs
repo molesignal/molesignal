@@ -3,13 +3,10 @@
 
 //! The rules people set for grouping errors, read whole by the projector.
 
+use domain::apm::{ErrorRule, ErrorRuleAction};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{PgPool, Row, postgres::PgRow};
-
-use crate::{
-    domain::apm::{ErrorRule, ErrorRuleAction},
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const COLUMNS: &str = "id, org_id, name, service_namespace, service_name, error_type, message,
     frame, endpoint, action, enabled, position, updated_by, updated_at";

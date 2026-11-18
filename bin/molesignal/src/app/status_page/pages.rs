@@ -3,17 +3,15 @@
 
 use std::collections::HashSet;
 
+use domain::status_page::{
+    ComponentLifecycle, ComponentVisibility, StatusPage, StatusPageLifecycle, StatusPageSnapshot,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
 use super::{
     MAX_STATUS_PAGES_PER_ORG, MICROS_PER_DAY, StatusPageDomainInput, StatusPageInput,
     StatusPageService,
     validation::{normalize_domain_lookup, normalize_logo_url, normalize_page_input},
-};
-use crate::{
-    domain::status_page::{
-        ComponentLifecycle, ComponentVisibility, StatusPage, StatusPageLifecycle,
-        StatusPageSnapshot,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const ARCHIVE_RETENTION_DAYS: i64 = 30;
@@ -313,7 +311,7 @@ impl StatusPageService {
 
                 for component in &mut snapshot.components {
                     if incident.component_ids.contains(&component.id) {
-                        component.status = crate::domain::status_page::ComponentStatus::worst(
+                        component.status = domain::status_page::ComponentStatus::worst(
                             component.status,
                             incident_status,
                         );
@@ -323,7 +321,7 @@ impl StatusPageService {
 
             // A group has no status of its own: it shows its components' worst,
             // and only while one of them is shown.
-            crate::domain::status_page::settle_component_groups(&mut snapshot.components);
+            domain::status_page::settle_component_groups(&mut snapshot.components);
 
             let groups: HashSet<String> = snapshot
                 .components
@@ -337,9 +335,9 @@ impl StatusPageService {
                 .retain(|event| !groups.contains(event.component_id.as_str()));
 
             snapshot.overall_status = snapshot.components.iter().fold(
-                crate::domain::status_page::ComponentStatus::Operational,
+                domain::status_page::ComponentStatus::Operational,
                 |current, component| {
-                    crate::domain::status_page::ComponentStatus::worst(current, component.status)
+                    domain::status_page::ComponentStatus::worst(current, component.status)
                 },
             );
         }

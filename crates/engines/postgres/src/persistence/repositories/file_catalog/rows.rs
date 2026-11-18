@@ -6,22 +6,20 @@
 //! Segment 与 Artifact 分表存储；快照读取后按 `segment_id` 归并，
 //! 主数据 Artifact 缺失视为不变量破坏直接报内部错误。
 
+use domain::storage::{
+    Artifact, ArtifactId, ArtifactRole, ArtifactState, ColumnStats, DataSegment, DatasetState,
+    FlushId, IndexPolicy, ObjectChecksum, ObjectKey, Partition, PartitionPolicy, PhysicalDataset,
+    PhysicalDatasetId, SchemaFingerprint, SegmentId, SegmentState, SequenceRange, StoragePolicy,
+    StoredObject, WalSequence,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use sqlx::{Row, postgres::PgRow, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::storage::{
-        Artifact, ArtifactId, ArtifactRole, ArtifactState, ColumnStats, DataSegment, DatasetState,
-        FlushId, IndexPolicy, ObjectChecksum, ObjectKey, Partition, PartitionPolicy,
-        PhysicalDataset, PhysicalDatasetId, SchemaFingerprint, SegmentId, SegmentState,
-        SequenceRange, StoragePolicy, StoredObject, WalSequence,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
 
 pub(super) const DATASET_COLS: &str = "org_id, id, logical_stream_id, dataset_type, \
      dataset_type_version, partition_policy, storage_policy, index_policy, catalog_version, \

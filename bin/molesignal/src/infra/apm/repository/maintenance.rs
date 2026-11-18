@@ -2,6 +2,12 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::apm::{
+    APM_PERSISTENCE_SCHEMA_VERSION, ApmMaintenanceRepository, BucketKind, RollupCandidate,
+    RollupRequest, RollupStats,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{Row, types::Json};
 
 use super::{
@@ -10,14 +16,6 @@ use super::{
         HOUR_MICROS, PersistedBucketRow, RollupBucket, as_i16, kind_name, rollup_rows,
         row_to_bucket,
     },
-};
-use crate::{
-    domain::apm::{
-        APM_PERSISTENCE_SCHEMA_VERSION, ApmMaintenanceRepository, BucketKind, RollupCandidate,
-        RollupRequest, RollupStats,
-    },
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const BUCKET_KINDS: [BucketKind; 5] = [

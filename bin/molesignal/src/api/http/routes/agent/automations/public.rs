@@ -8,6 +8,7 @@
 //! 用规则自己的令牌鉴权；令牌不对、规则不存在都一样回 401，不透露哪条规则存在。同一条规则
 //! 十秒内只开始一次。
 
+use agent::automations::{AutomationTrigger, MAX_INPUT_CHARS, TriggerKind};
 use axum::{
     Json, Router,
     body::Bytes,
@@ -15,17 +16,13 @@ use axum::{
     http::{HeaderMap, StatusCode, header::AUTHORIZATION},
     routing::post,
 };
+use domain::iam::api_token::has_token_marker;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::start::{Start, start};
-use crate::{
-    agent::automations::{AutomationTrigger, MAX_INPUT_CHARS, TriggerKind},
-    api::AppState,
-    app::automations::token,
-    domain::iam::api_token::has_token_marker,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::{api::AppState, app::automations::token};
 
 /// 同一条规则两次 API 触发之间至少隔这么久。
 const MIN_INTERVAL_MICROS: i64 = 10_000_000;

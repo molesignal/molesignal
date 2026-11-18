@@ -8,16 +8,13 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::iam::{IamContext, IamScope, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::iam::roles::{IamRole, RoleUsage};
 use serde::{Deserialize, Serialize};
 
 use super::iam::grant_limit;
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{IamScope, permission},
-    infra::persistence::repositories::iam::roles::{IamRole, RoleUsage},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()

@@ -21,13 +21,13 @@ use axum::{
     response::{IntoResponse, Response},
     routing::post,
 };
+use domain::alerting::source::AlertSourceKind;
+use kernel::Result;
 use serde_json::Value;
 
 use crate::{
     api::{AppState, http::routes::notify::callback_auth::sns_checked},
     app::alerting::sources::IntakeReply,
-    domain::alerting::source::AlertSourceKind,
-    shared::Result,
 };
 
 /// 接入地址的路径。
@@ -119,9 +119,9 @@ fn query_token(query: Option<&str>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use axum::http::HeaderValue;
+    use kernel::Error;
 
     use super::*;
-    use crate::shared::Error;
 
     #[tokio::test]
     async fn an_sns_message_needs_its_signature_and_anything_else_is_left_to_the_format() {

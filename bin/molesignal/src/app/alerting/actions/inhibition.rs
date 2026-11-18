@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 照常通知：人看了觉得这个事件不该被压（[`crate::domain::alerting::inhibit`]）。立即升级、转派、增派也算
+//! 照常通知：人看了觉得这个事件不该被压（[`domain::alerting::inhibit`]）。立即升级、转派、增派也算
 //! 人要叫人，顺带放开。放开之后这个事件不再被抑制；压着的通知由通知引擎下一次看时发出。
 
+use domain::alerting::{incident::Incident, timeline::TimelineKind};
+use kernel::{Result, ids::Id};
 use serde_json::json;
 
 use super::{Actor, IncidentActions, check_actionable};
-use crate::{
-    domain::alerting::{incident::Incident, timeline::TimelineKind},
-    shared::{Result, ids::Id},
-};
 
 impl IncidentActions {
     /// 放开被抑制的事件。没压着时什么也不做。

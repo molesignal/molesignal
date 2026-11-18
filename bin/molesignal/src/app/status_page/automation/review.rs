@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use super::{AutomationApprovalInput, model::validate_decision_note};
-use crate::{
-    app::status_page::{StatusPageIncidentInput, StatusPageService},
-    domain::status_page::{
-        AutomationCandidate, AutomationCandidateState, StatusPagePublicationState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use domain::status_page::{
+    AutomationCandidate, AutomationCandidateState, StatusPagePublicationState,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+
+use super::{AutomationApprovalInput, model::validate_decision_note};
+use crate::app::status_page::{StatusPageIncidentInput, StatusPageService};
 
 impl StatusPageService {
     pub async fn approve_automation_candidate(

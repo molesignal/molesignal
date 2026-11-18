@@ -5,13 +5,11 @@
 
 use std::collections::HashSet;
 
+use kernel::{Error, Result};
 use serde::Deserialize;
 
 use super::normalize_field;
-use crate::{
-    infra::pipeline::{ExtendTableSummary, ExtendValueField},
-    shared::{Error, Result},
-};
+use crate::infra::pipeline::{ExtendTableSummary, ExtendValueField};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -80,11 +78,10 @@ pub(super) fn validate_field_update(
 
 #[cfg(test)]
 mod tests {
+    use kernel::{Error, time::TimestampMicros};
+
     use super::validate_field_update;
-    use crate::{
-        infra::pipeline::{ExtendTableSummary, ExtendValueField},
-        shared::{Error, time::TimestampMicros},
-    };
+    use crate::infra::pipeline::{ExtendTableSummary, ExtendValueField};
 
     fn field(name: &str, field_type: &str, required: bool, description: &str) -> ExtendValueField {
         ExtendValueField {

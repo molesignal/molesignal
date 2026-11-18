@@ -3,6 +3,8 @@
 
 use std::collections::BTreeMap;
 
+use domain::iam::IamContext;
+use kernel::Result;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{
@@ -11,7 +13,6 @@ use tool_runtime::{
 };
 
 use super::{ToolRuntime, common::parse_args};
-use crate::{app::iam::IamContext, shared::Result};
 
 pub(super) async fn execute(
     _runtime: &ToolRuntime,

@@ -15,14 +15,14 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{iam::IamContext, status_page::StatusPageSlackAppSetting},
-    domain::iam::permission,
+    app::status_page::StatusPageSlackAppSetting,
     infra::status_page::SLACK_CALLBACK_PATH,
-    shared::{Error, Result, ids::Id},
 };
 
 pub(super) fn routes() -> Router<AppState> {

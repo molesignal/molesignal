@@ -7,14 +7,12 @@
 //! A run that passed, flapped or slowed was available; one that failed was not; one that could
 //! not be judged or never ran (unknown, skipped) counts toward neither.
 
+use domain::query::QueryResult;
+use kernel::{Error, Result, ids::Id};
 use serde::Serialize;
 use serde_json::Value;
 
 use super::RESULT_STREAM;
-use crate::{
-    domain::query::QueryResult,
-    shared::{Error, Result, ids::Id},
-};
 
 const MINUTE: i64 = 60 * 1_000_000;
 

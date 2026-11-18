@@ -4,19 +4,17 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use domain::synthetics::{
+    PurgedResults, SyntheticResult, SyntheticResultArtifact, SyntheticResultListQuery,
+    SyntheticResultPage, SyntheticResultRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgConnection, Row};
 
 use super::{
     PgSyntheticRepository,
     codec::{RESULT_COLS, row_to_result},
     retention,
-};
-use crate::{
-    domain::synthetics::{
-        PurgedResults, SyntheticResult, SyntheticResultArtifact, SyntheticResultListQuery,
-        SyntheticResultPage, SyntheticResultRepository,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 const RESULT_PAGE_FILTERS: &str = "organization_id = $1

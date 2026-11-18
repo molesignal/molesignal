@@ -6,6 +6,12 @@
 
 use std::sync::Arc;
 
+use postgres::repositories::alert_sources::{
+    PgAlertSourceRepository, PgIntakeRequestRepository, PgMailboxRepository,
+    PgSourceIncidentRepository,
+};
+use settings::Settings;
+
 use super::{alerting::AlertingRuntime, core::Core, iam::IamRuntime, query::QueryRuntime};
 use crate::{
     app::alerting::{
@@ -15,15 +21,7 @@ use crate::{
             MailboxPoller,
         },
     },
-    config::Settings,
-    infra::{
-        cluster::GrpcAlertForwarder,
-        mailbox::ImapMailboxClient,
-        persistence::repositories::alert_sources::{
-            PgAlertSourceRepository, PgIntakeRequestRepository, PgMailboxRepository,
-            PgSourceIncidentRepository,
-        },
-    },
+    infra::{cluster::GrpcAlertForwarder, mailbox::ImapMailboxClient},
 };
 
 pub(super) fn build(
@@ -40,7 +38,7 @@ pub(super) fn build(
         (settings.grpc.max_message_size as usize).saturating_mul(1024 * 1024),
     ));
 
-    let mailboxes: Arc<dyn crate::domain::alerting::source::MailboxRepository> = Arc::new(
+    let mailboxes: Arc<dyn domain::alerting::source::MailboxRepository> = Arc::new(
         PgMailboxRepository::new(core.pool.clone(), core.cipher_root_key.clone()),
     );
     let mail_client: Arc<dyn MailboxClient> = Arc::new(ImapMailboxClient);

@@ -8,11 +8,10 @@
 
 use std::collections::HashSet;
 
+use domain::apm::{ChangeKind, DeploymentEvent, DeploymentStatus, VersionObservation};
+use kernel::time::TimestampMicros;
+
 use super::model::{ChangeSource, Insight, NearbyChange};
-use crate::{
-    domain::apm::{ChangeKind, DeploymentEvent, DeploymentStatus, VersionObservation},
-    shared::time::TimestampMicros,
-};
 
 /// How long before a move a change may have caused it, and how long after
 /// its first sign a change is still near: buckets close a little late.

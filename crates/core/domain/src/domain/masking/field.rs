@@ -4,15 +4,13 @@
 //! 查询返回边界的字段遮掩策略与端口。
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::{
-        metrics::PrometheusExemplarQueryResult,
-        query::{QueryRequest, QueryResult},
-        stream::StreamType,
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+use crate::domain::{
+    metrics::PrometheusExemplarQueryResult,
+    query::{QueryRequest, QueryResult},
+    stream::StreamType,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -84,13 +82,13 @@ impl FieldMaskingAlgorithm {
         if let Some((start, end)) = range
             && start >= end
         {
-            return Err(crate::shared::Error::invalid(
+            return Err(kernel::Error::invalid(
                 "masking range start must be less than end",
             ));
         }
 
         if replacement.is_some_and(|value| value.len() > 1024) {
-            return Err(crate::shared::Error::invalid(
+            return Err(kernel::Error::invalid(
                 "masking replacement must not exceed 1024 bytes",
             ));
         }

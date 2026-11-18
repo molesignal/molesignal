@@ -7,16 +7,19 @@
 //! 对不上人时私下发绑定链接；对上多个人、账号不能用 Mole Agent、接不了这个会话时直接说明，
 //! 不排回答。
 
+use agent::{
+    im::{ImBot, ImMessage, ImPlatform, Inbound, MessageStatus, Sender},
+    runs::RunPrincipal,
+};
+use domain::{iam::IamScope, notify::connector::NotifyConnector};
+use kernel::{Error, Result, ids::Id};
+
 use super::{
     commands, links,
     texts::Texts,
     threads::{self, Refusal},
 };
 use crate::{
-    agent::{
-        im::{ImBot, ImMessage, ImPlatform, Inbound, MessageStatus, Sender},
-        runs::RunPrincipal,
-    },
     api::{
         AppState,
         http::routes::agent::{
@@ -24,9 +27,7 @@ use crate::{
             viewer::viewer,
         },
     },
-    domain::{iam::IamScope, notify::connector::NotifyConnector},
     infra::im,
-    shared::{Error, Result, ids::Id},
 };
 
 /// 一轮 IM 回答最多跑多久。
@@ -261,7 +262,7 @@ async fn process(
 
     let viewer = viewer(state, &ctx).await?;
 
-    if let Some(command) = crate::agent::im::commands::parse(&inbound.text) {
+    if let Some(command) = agent::im::commands::parse(&inbound.text) {
         let answer =
             commands::answer(&place, &ctx, &viewer, thread.as_ref(), command, &texts).await?;
         place.say(&answer).await;

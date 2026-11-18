@@ -14,17 +14,18 @@ use axum::{
     extract::{Query, State},
     routing::get,
 };
+use domain::{
+    iam::{IamContext, permission},
+    metrics::MetricDirectoryEntry,
+    stream::MOLESIGNAL_SYSTEM_STREAM,
+};
+use kernel::{
+    Result,
+    cursor::{CursorDirection, CursorPage, trim_cursor_page},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::{
-        AppState,
-        http::pagination::cursor::{CursorDirection, CursorPage, trim_cursor_page},
-    },
-    app::iam::IamContext,
-    domain::{iam::permission, metrics::MetricDirectoryEntry, stream::MOLESIGNAL_SYSTEM_STREAM},
-    shared::Result,
-};
+use crate::api::AppState;
 
 const DEFAULT_PAGE_SIZE: usize = 20;
 pub(super) const MAX_PAGE_SIZE: usize = 100;
@@ -166,7 +167,7 @@ fn resolve_page_context(
                 .limit
                 .is_some_and(|limit| limit.clamp(1, MAX_PAGE_SIZE) != payload.page_size)
         {
-            return Err(crate::shared::Error::invalid(
+            return Err(kernel::Error::invalid(
                 "metric catalog cursor does not match active query",
             ));
         }
@@ -288,8 +289,9 @@ fn infer_metric_type(name: &str, kind: Option<&str>, metric_names: &HashSet<&str
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn entry(
         stream: &str,

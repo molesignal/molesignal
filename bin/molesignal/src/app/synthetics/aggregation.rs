@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use crate::domain::synthetics::{MonitorState, MultiLocationPolicy};
+use domain::synthetics::{MonitorState, MultiLocationPolicy};
 
 /// Aggregates stable per-Location states without treating missing evidence as healthy.
 pub fn aggregate_locations(

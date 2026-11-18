@@ -6,16 +6,16 @@
 
 use std::cmp::Reverse;
 
+use agent::tools::{ToolAuthContext, ToolDispatcher};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tool_runtime::{
+    ToolCall, ToolResult,
+    catalog::{builtin_tools, is_meta_tool},
+};
 
 use super::RealToolDispatcher;
-use crate::{
-    agent::tools::{
-        ToolAuthContext, ToolCall, ToolDispatcher, ToolResult, builtin_tools, is_meta_tool,
-    },
-    shared::{Error, Result},
-};
 
 impl RealToolDispatcher {
     pub(super) fn tool_search(&self, arguments: Value) -> Result<ToolResult> {

@@ -3,6 +3,11 @@
 
 //! Signed, query-bound cursor transport for APM ranking lists.
 
+use domain::{
+    apm::{QueryResolution, SortDirection},
+    iam::IamContext,
+};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 use super::QueryParams;
@@ -11,12 +16,7 @@ use crate::{
         AppState,
         http::pagination::cursor::{decode_signed_cursor, encode_signed_cursor},
     },
-    app::{
-        apm::{ApmQueryContext, ApmQueryRequest, PagedResponse},
-        iam::IamContext,
-    },
-    domain::apm::{QueryResolution, SortDirection},
-    shared::{Error, Result},
+    app::apm::{ApmQueryContext, ApmQueryRequest, PagedResponse},
 };
 
 pub(super) const SERVICES: &str = "apm.services.v1";

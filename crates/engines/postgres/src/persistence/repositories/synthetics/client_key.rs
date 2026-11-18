@@ -4,14 +4,12 @@
 //! The private key of an HTTP check's client certificate, sealed into the revision that holds it.
 //! A spec only says which revision that is, so no spec, task or response carries the key.
 
+use domain::synthetics::{ClientKey, MonitorRevision, MonitorSpec, SecretMaterial};
+use kernel::{Error, Result, ids::Id};
 use sqlx::Row;
 
 use super::PgSyntheticRepository;
-use crate::{
-    domain::synthetics::{ClientKey, MonitorRevision, MonitorSpec, SecretMaterial},
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id},
-};
+use crate::cipher::CipherRootKey;
 
 /// A sealed key, as `(nonce, ciphertext)`.
 pub(super) type SealedKey = (Vec<u8>, Vec<u8>);

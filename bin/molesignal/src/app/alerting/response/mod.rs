@@ -12,26 +12,24 @@ pub mod war_room;
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_trait::async_trait;
+use domain::{
+    alerting::{
+        incident::{Incident, IncidentStatus},
+        meeting::MEETING_SECRET_KEYS,
+        repositories::IncidentRepository,
+        response::{
+            IncidentResponse, IncidentResponseRepository, IncidentTask, MeetingMode, ResponseRole,
+            ResponseSettings, StatusUpdate,
+        },
+        timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
+    },
+    notify::repositories::{NotifyConnectorRepository, UserNotifyEndpointRepository},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 
 use super::{AlertIncidentLifecycleSink, tickets::TicketService};
-use crate::{
-    app::notify::{NotifyEngine, alert_dispatch},
-    domain::{
-        alerting::{
-            incident::{Incident, IncidentStatus},
-            meeting::MEETING_SECRET_KEYS,
-            repositories::IncidentRepository,
-            response::{
-                IncidentResponse, IncidentResponseRepository, IncidentTask, MeetingMode,
-                ResponseRole, ResponseSettings, StatusUpdate,
-            },
-            timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
-        },
-        notify::repositories::{NotifyConnectorRepository, UserNotifyEndpointRepository},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::notify::{NotifyEngine, alert_dispatch};
 
 /// 进展的通知事件。
 pub const INCIDENT_STATUS_UPDATE_EVENT: &str = "incident.status_update";
