@@ -28,10 +28,10 @@ import guard  # noqa: E402
 from proc import (  # noqa: E402
     Slot,
     artifacts_dir,
-    cargo_env,
     clone_tree,
     install_signal_handlers,
     run,
+    run_cargo,
     say,
     slot_status,
     web_env,
@@ -209,8 +209,7 @@ def run_passthrough(command: list[str]) -> int:
 
     kinds = {f.kind for f in findings}
     if "rust" in kinds:
-        with Slot("rust", shlex.join(command)[:120]):
-            return run(command, Path.cwd(), cargo_env(this_checkout=is_this_checkout(Path.cwd())))
+        return run_cargo(command, Path.cwd(), shlex.join(command)[:120], this_checkout=is_this_checkout(Path.cwd()))
 
     if "e2e" in kinds:
         joined = " ".join(command)

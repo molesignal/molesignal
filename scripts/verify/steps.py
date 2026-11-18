@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from proc import Slot, artifacts_dir, cargo_env, clone_tree, new_log, run, say, web_env, web_tool
+from proc import Slot, artifacts_dir, clone_tree, new_log, run, run_cargo, say, web_env, web_tool
 from repo import ROOT, ROOT_MANIFESTS, WEB, Workspace, common_dir, dirty_files, exists, file_hash
 from store import Store, salt_for
 
@@ -283,8 +283,7 @@ def _cargo(step: str, args: list[str], crates: set[str], ctx: Context) -> Result
         return Result(False, note="web/dist 不存在且构建失败：make web-build")
 
     log = new_log(step)
-    with Slot("rust", "cargo " + " ".join(args)):
-        rc = run(["cargo", *args], ROOT, cargo_env(), log)
+    rc = run_cargo(["cargo", *args], ROOT, "cargo " + " ".join(args), log)
     return Result(True, log) if rc == 0 else _rust_failure(ctx, log)
 
 

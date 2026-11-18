@@ -35,7 +35,7 @@ VITEST = re.compile(r"^(?:\S*/)?vitest(?:\s+run)?(?=\s|$)")
 PACKAGE_TEST = re.compile(r"^(?:pnpm|npm)(?:\s+(?:-C|--dir|--prefix)\s+\S+)?(?:\s+run)?\s+(?:test:run|test)(?=\s|$)")
 PACKAGE_LINT = re.compile(r"^(?:pnpm|npm)(?:\s+(?:-C|--dir|--prefix)\s+\S+)?(?:\s+run)?\s+(?:lint|lint:fix)(?=\s|$)")
 ESLINT_TREE = re.compile(r"^(?:\S*/)?eslint\b.*\s(?:\.|src|src/|playwright|playwright/|scripts|scripts/)(?:\s|$)")
-VERIFY_ALL = re.compile(r"^(?:python3?\s+)?\S*verify\.py\b.*\s--all\b")
+VERIFY_ALL = re.compile(r"^(?:python3?\s+)?\S*verify\.py\b.*\s--all(?=\s|$)")
 TSC = re.compile(r"^(?:(?:\S*/)?tsc(?=\s|$)|(?:pnpm|npm)(?:\s+(?:-C|--dir|--prefix)\s+\S+)?(?:\s+run)?\s+typecheck(?=\s|$))")
 ESLINT = re.compile(r"^(?:\S*/)?eslint(?=\s|$)")
 

@@ -76,6 +76,11 @@ DOCKER_TAG       ?= $(VERSION)
 CARGO_FLAGS_BASE := --frozen --locked
 WORKSPACE_PKGS   := -p $(BIN_PKG)
 
+# Every recompile leaves its old rustc objects in target/debug/deps; build-debug and run
+# delete the ones nothing reads any more with scripts/verify/prune.py.
+DEBUG_PROFILE_DIR   := $(or $(CARGO_TARGET_DIR),target)/debug
+PRUNE_DEBUG_OBJECTS := python3 scripts/verify/prune.py $(DEBUG_PROFILE_DIR)
+
 # 附加 Cargo feature；molesignal 默认已包含 js-runtime。使用：make build FEATURES=
 ifdef FEATURES
   CARGO_FEATURE_FLAGS := --features $(FEATURES)
@@ -108,6 +113,7 @@ build:
 
 build-debug: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
+	-@$(PRUNE_DEBUG_OBJECTS)
 
 build-release: web-build
 	BUILD_ID="$(BUILD_ID)" cargo build $(CARGO_FLAGS_BASE) --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS)
@@ -165,8 +171,10 @@ OUTPUT_DIR = target/$(TARGET)/release
 .PHONY: run run-debug run-release
 run: run-debug
 
+# The prune waits in the background until cargo has built, so the server starts no later.
 run-debug:
-	RELEASE_CHANNEL="$(RELEASE_CHANNEL)" BUILD_ID="$(BUILD_ID)" cargo run $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
+	@$(PRUNE_DEBUG_OBJECTS) --wait &
+	BUILD_ID="$(BUILD_ID)" cargo run $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml
 
 run-release: web-build
 	BUILD_ID="$(BUILD_ID)" cargo run --release $(WORKSPACE_PKGS) $(CARGO_FEATURE_FLAGS) -- --config $(CONFIG_DIR)/config.toml

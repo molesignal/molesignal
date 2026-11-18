@@ -14,8 +14,10 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from prune import prune_objects
 from repo import ROOT, WEB, common_dir, git_dir
 
+VERIFY_TARGET = ROOT / "target" / "verify"
 STEP_TIMEOUT_SECONDS = 2 * 60 * 60
 ARTIFACT_KEEP_SECONDS = 3 * 24 * 60 * 60
 QUEUE_NOTICE_SECONDS = 60
@@ -210,10 +212,27 @@ def cargo_env(*, this_checkout: bool = True) -> dict[str, str]:
     env = dict(os.environ)
     env["CARGO_BUILD_JOBS"] = build_jobs()
     if this_checkout and "CARGO_TARGET_DIR" not in env:
-        target = ROOT / "target" / "verify"
-        _bootstrap_verify_target(target)
-        env["CARGO_TARGET_DIR"] = str(target)
+        _bootstrap_verify_target(VERIFY_TARGET)
+        env["CARGO_TARGET_DIR"] = str(VERIFY_TARGET)
     return env
+
+
+def run_cargo(cmd: list[str], cwd: Path, label: str, log: Path | None = None, *, this_checkout: bool = True) -> int:
+    """Run cargo in the rust slot, then delete the object files in target/verify that nothing reads any more.
+
+    Each recompile of a workspace unit leaves a full set of old objects in deps/ (see prune.py).
+    While the slot is held no other verify run compiles; prune_objects also spares recent objects.
+    A CARGO_TARGET_DIR set by the caller is left alone.
+    """
+    with Slot("rust", label):
+        env = cargo_env(this_checkout=this_checkout)
+        rc = run(cmd, cwd, env, log)
+        if env.get("CARGO_TARGET_DIR") == str(VERIFY_TARGET):
+            pruned = prune_objects(VERIFY_TARGET)
+            if pruned.files:
+                freed = pruned.bytes / 2**30
+                say(f"deleted {pruned.files} stale object files in {VERIFY_TARGET}, {freed:.1f} GiB freed")
+    return rc
 
 
 def web_env() -> dict[str, str]:

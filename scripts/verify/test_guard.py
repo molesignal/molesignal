@@ -23,6 +23,7 @@ FULL = [
     "make test",
     "scripts/verify/verify.py --all",
     "python3 scripts/verify/verify.py --all --fresh",
+    "scripts/verify/verify.py --run -- cargo clippy --all --all-targets",
     "bash -lc 'cd web && npx playwright test'",
     "for i in 1 2; do cargo test --workspace; done",
 ]
@@ -44,6 +45,7 @@ HEAVY = [
 ALLOWED = [
     "scripts/verify/verify.py web/src/a.tsx --specs foo.spec.ts",
     "scripts/verify/verify.py --run -- cargo test -p signals --lib",
+    "scripts/verify/verify.py --run -- cargo clippy -p signals --all-targets --all-features -- -D warnings",
     "python3 /abs/scripts/verify/verify.py --status",
     "cargo fmt --all",
     "cargo +nightly fmt --all -- --check",
