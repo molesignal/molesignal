@@ -85,6 +85,20 @@ describe('stream settings draft', () => {
     expect(payloadForDraft({ ...draft, partitions: [] }).settings?.partitions).toEqual([]);
   });
 
+  it('keeps the clustering fields and slice, without the field still being picked', () => {
+    const stream = metrics();
+    stream.settings.clustering = { fields: ['service', 'level'], interval: 300_000_000 };
+    const draft = toDraft(stream);
+
+    expect(draft.clusteringFields).toEqual(['service', 'level']);
+    expect(payloadForDraft(draft).settings?.clustering).toEqual(stream.settings.clustering);
+    expect(
+      payloadForDraft({ ...draft, clusteringFields: ['service', ''] }).settings?.clustering,
+    ).toEqual({ fields: ['service'], interval: 300_000_000 });
+    expect(toDraft(metrics()).clusteringFields).toEqual([]);
+    expect(toDraft(metrics()).clusteringInterval).toBe(60_000_000);
+  });
+
   it('gives a new partition field as many hash shards as the cap leaves, at most 8', () => {
     expect(newPartition('service', [])).toEqual({ field: 'service', scheme: 'hash', buckets: 8 });
     expect(newPartition('service', [{ field: 'pod', scheme: 'prefix', buckets: 8 }]).buckets).toBe(4);

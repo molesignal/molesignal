@@ -5,11 +5,36 @@
 
 use std::{sync::Arc, time::Duration};
 
+use domain::{
+    cluster::PeerRole,
+    iam::{
+        DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC, DEFAULT_MAX_ACTIVE_SERIES_PER_ORG,
+        InstanceSettingsRepository, OrganizationRepository,
+    },
+    intake::usage::source::IntakeUsageRepository,
+    storage::{FileCatalog, QueryFileSource, builtin_registry},
+    stream::StreamRepository,
+};
+use kernel::{Error, Result, health::Probe, ids::Id};
+use postgres::repositories::{
+    agent::model_providers::ModelProviderRepository,
+    audit_events::PgAuditEventRepository,
+    file_catalog::{PgDatasetPurge, PgFileCatalog},
+    instance_settings::PgInstanceSettingsRepository,
+    organizations::PgOrganizationPurge,
+    rum_applications::PgRumApplicationRepository,
+    rum_issues::{PgRumIssueRepository, PgRumVersionRepository},
+    synthetics::PgSyntheticRepository,
+    usage::PgIntakeUsageRepository,
+};
+use service_graph::{ServiceGraphAggregator, ServiceGraphObserverImpl};
+use settings::{Settings, WalFlushStrategy, WalSettings, WalSyncLevel};
+
 use super::core::Core;
 use crate::{
     app::{
         agent_usage::AgentUsage,
-        cluster::{PeerRole, WorkOwnership},
+        cluster::WorkOwnership,
         intake::{
             IntakeService,
             realtime::StepState,
@@ -21,32 +46,13 @@ use crate::{
     bootstrap::{
         roles::{compactor::spawn_compactor_loop, intake::IntakeWorker},
         workers::{
-            audit_retention::AuditRetentionWorker, intake_usage, pipeline_steps, series_limits,
-            storage_maintenance, synthetic_retention::SyntheticRetentionWorker,
+            audit_retention::AuditRetentionWorker, intake_usage, pipeline_steps,
+            purge::PurgeWorker, series_limits, storage_maintenance,
+            synthetic_retention::SyntheticRetentionWorker,
         },
-    },
-    config::{Settings, WalFlushStrategy, WalSettings, WalSyncLevel},
-    domain::{
-        iam::{
-            DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC, DEFAULT_MAX_ACTIVE_SERIES_PER_ORG,
-            InstanceSettingsRepository, OrganizationRepository,
-        },
-        intake::usage::source::IntakeUsageRepository,
-        storage::{FileCatalog, QueryFileSource, builtin_registry},
-        stream::StreamRepository,
     },
     infra::{
         intake::{BufferPool, DatasetResolver, PrometheusSeriesAdmission, WalPool},
-        persistence::repositories::{
-            agent::model_providers::ModelProviderRepository,
-            audit_events::PgAuditEventRepository,
-            file_catalog::PgFileCatalog,
-            instance_settings::PgInstanceSettingsRepository,
-            rum_applications::PgRumApplicationRepository,
-            rum_issues::{PgRumIssueRepository, PgRumVersionRepository},
-            synthetics::PgSyntheticRepository,
-            usage::PgIntakeUsageRepository,
-        },
         pipeline::realtime::limit_usage::PgLimitUsageLedger,
         query::catalog_source::CatalogQuerySource,
         rum::{issues::IssueTracker, session_state::SessionMerger},
@@ -59,9 +65,7 @@ use crate::{
             parquet::writer::ParquetWriter,
             reconciler::StorageReconciler,
         },
-        traces::{ServiceGraphAggregator, ServiceGraphObserverImpl},
     },
-    shared::{Error, Result, health::Probe, ids::Id},
 };
 
 pub(super) struct StorageRuntime {
@@ -70,16 +74,15 @@ pub(super) struct StorageRuntime {
     pub(super) profile_storage: Arc<ProfileStorageService>,
     pub(super) profiling_service: Arc<ProfilingService>,
     pub(super) prometheus_series_admission: Arc<PrometheusSeriesAdmission>,
-    pub(super) function_executor: Arc<dyn crate::app::intake::FunctionExecutor>,
+    pub(super) function_executor: Arc<dyn domain::function::FunctionExecutor>,
     pub(super) functions_js_runtime_enabled: bool,
     pub(super) service_graph_aggregator: Arc<ServiceGraphAggregator>,
     pub(super) usage: Arc<dyn IntakeUsageRepository>,
     pub(super) intake_meter: Arc<IntakeUsageMeter>,
     /// What realtime pipelines' metric, quota and throttle steps hold between events.
     pub(super) pipeline_steps: Arc<StepState>,
-    pub(super) investigation_blobs: Arc<
-        dyn crate::infra::persistence::repositories::investigation_blobs::InvestigationBlobRepository,
-    >,
+    pub(super) investigation_blobs:
+        Arc<dyn postgres::repositories::investigation_blobs::InvestigationBlobRepository>,
     pub(super) catalog_query: Arc<CatalogQuerySource>,
     pub(super) catalog_files: Arc<dyn QueryFileSource>,
     /// Filled with the query service once it is built: sessions are rebuilt by reading back.
@@ -199,15 +202,15 @@ impl StorageRuntime {
             settings.object_store.health_probe_interval_secs,
         );
 
-        let vrl_executor = Arc::new(crate::infra::runtime::VrlFunctionExecutor::new());
+        let vrl_executor = Arc::new(function_runtime::VrlFunctionExecutor::new());
 
-        let js_executor: Option<Arc<dyn crate::app::intake::FunctionExecutor>> = {
+        let js_executor: Option<Arc<dyn domain::function::FunctionExecutor>> = {
             #[cfg(feature = "js-runtime")]
             {
                 tracing::info!("JS function runtime enabled (deno_core compiled in)");
 
                 Some(Arc::new(
-                    crate::infra::runtime::JsFunctionExecutor::with_defaults(),
+                    function_runtime::JsFunctionExecutor::with_defaults(),
                 ))
             }
 
@@ -217,7 +220,7 @@ impl StorageRuntime {
             }
         };
 
-        let llm_executor: Option<Arc<dyn crate::app::intake::FunctionExecutor>> =
+        let llm_executor: Option<Arc<dyn domain::function::FunctionExecutor>> =
             if settings.functions.llm_eval_enabled {
                 tracing::info!("LLM eval function runtime enabled");
 
@@ -231,12 +234,9 @@ impl StorageRuntime {
                 None
             };
 
-        let function_executor: Arc<dyn crate::app::intake::FunctionExecutor> =
-            Arc::new(crate::infra::runtime::ChainedFunctionExecutor::new(
-                vrl_executor,
-                js_executor,
-                llm_executor,
-            ));
+        let function_executor: Arc<dyn domain::function::FunctionExecutor> = Arc::new(
+            function_runtime::ChainedFunctionExecutor::new(vrl_executor, js_executor, llm_executor),
+        );
 
         let functions_js_runtime_enabled = cfg!(feature = "js-runtime");
 
@@ -297,7 +297,7 @@ impl StorageRuntime {
 
         // 没有 intake 角色的节点（router、alert 等）把公共入口收到的写入转发给 intake 节点。
         let intake_service = if core.roles.run_intake {
-            intake_service
+            intake_service.with_columnar_sink(worker.clone())
         } else {
             intake_service.with_forwarder(Arc::new(
                 crate::infra::cluster::GrpcIntakeForwarder::new(core.registry.clone()),
@@ -325,9 +325,9 @@ impl StorageRuntime {
         ));
 
         let investigation_blobs: Arc<
-            dyn crate::infra::persistence::repositories::investigation_blobs::InvestigationBlobRepository,
+            dyn postgres::repositories::investigation_blobs::InvestigationBlobRepository,
         > = Arc::new(
-            crate::infra::persistence::repositories::investigation_blobs::PgInvestigationBlobRepository::new(
+            postgres::repositories::investigation_blobs::PgInvestigationBlobRepository::new(
                 core.pool.clone(),
             ),
         );
@@ -371,6 +371,18 @@ impl StorageRuntime {
             AuditRetentionWorker::new(
                 Arc::new(PgAuditEventRepository::new(core.pool.clone())),
                 Arc::new(PgInstanceSettingsRepository::new(core.pool.clone())),
+                ownership,
+                core.drain_controller.clone(),
+            )
+            .spawn()
+        });
+
+        // Deleted streams and organizations: the compactor primary removes what they leave.
+        let _purge_handle = compactor_ownership.clone().map(|ownership| {
+            PurgeWorker::new(
+                Arc::new(PgDatasetPurge::new(core.pool.clone())),
+                Arc::new(PgOrganizationPurge::new(core.pool.clone())),
+                core.store.clone(),
                 ownership,
                 core.drain_controller.clone(),
             )

@@ -5,22 +5,20 @@
 
 use std::collections::{HashMap, HashSet};
 
+use domain::storage::{
+    ArtifactState, DatasetTransformResult, GcReason, OrganizationScope, PublishDatasetTransform,
+    SegmentState,
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::super::{
-    manifest::bloom_key,
+    manifest::{bloom_key, minute_counts_key},
     rows::{to_i64, to_u64},
     sqlx_err,
     writes::{
         bump_dataset_version, enqueue_object_gc, insert_segment, tombstone_segment_artifacts,
     },
-};
-use crate::{
-    domain::storage::{
-        ArtifactState, DatasetTransformResult, GcReason, OrganizationScope,
-        PublishDatasetTransform, SegmentState,
-    },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(crate) async fn publish_dataset_transform(
@@ -93,15 +91,19 @@ pub(crate) async fn publish_dataset_transform(
         )
         .await?;
 
-        enqueue_object_gc(
-            &mut tx,
-            scope,
-            &bloom_key(pointer.object.key.as_str()),
-            None,
-            GcReason::Replaced,
-            command.gc_not_before_micros,
-        )
-        .await?;
+        let manifest_key = pointer.object.key.as_str();
+
+        for beside in [bloom_key(manifest_key), minute_counts_key(manifest_key)] {
+            enqueue_object_gc(
+                &mut tx,
+                scope,
+                &beside,
+                None,
+                GcReason::Replaced,
+                command.gc_not_before_micros,
+            )
+            .await?;
+        }
     }
 
     sqlx::query(

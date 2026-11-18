@@ -11,20 +11,23 @@
 //!
 //! A `bloom` field's filter holds its whole values; an `ngram` field's holds the byte trigrams of
 //! its values, lower-cased, so that a `LIKE` / `ILIKE` literal whose trigrams are not all present
-//! cannot occur in the file (see [`grams`]).
+//! cannot occur in the file (see [`grams`]). A segment's own filter artifact also holds an `ngram`
+//! field's longer grams block by block, so a query reads only the rows that may hold the literal
+//! (see [`blocks`]).
 
 use std::collections::HashMap;
 
 use bytes::{BufMut, Bytes, BytesMut};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{Error, Result};
-
+mod blocks;
 mod build;
 mod grams;
 
+pub use blocks::{BLOCK_ROWS, GramBlocks};
 pub use build::SegmentFilters;
-pub use grams::{Gram, literal_grams};
+pub use grams::{Gram, LiteralGrams, literal_grams};
 
 const MAGIC: &[u8; 4] = b"MSPB";
 /// Bits per value: with [`HASHES`] probes about one value in a hundred is let through.
@@ -65,10 +68,15 @@ impl Bloom {
     pub(crate) fn for_values(values: usize) -> Option<Self> {
         let bits = values.max(1).checked_mul(BITS_PER_VALUE)?;
 
-        (bits <= MAX_BITS).then(|| Self {
-            words: vec![0; bits.div_ceil(64)],
-            hashes: HASHES,
-        })
+        (bits <= MAX_BITS).then(|| Self::with_bits(values, BITS_PER_VALUE, HASHES))
+    }
+
+    /// A filter of `bits_per_value` bits for each of `values` values, read with `hashes` probes.
+    fn with_bits(values: usize, bits_per_value: usize, hashes: u32) -> Self {
+        Self {
+            words: vec![0; (values.max(1) * bits_per_value).div_ceil(64)],
+            hashes,
+        }
     }
 
     pub(crate) fn insert(&mut self, value: &[u8]) {
@@ -83,7 +91,11 @@ impl Bloom {
 
     /// `false` only when `value` is certainly absent.
     pub fn may_contain(&self, value: &[u8]) -> bool {
-        Probe::of(value)
+        self.may_contain_probe(Probe::of(value))
+    }
+
+    fn may_contain_probe(&self, probe: Probe) -> bool {
+        probe
             .bits(self.words.len(), self.hashes)
             .all(|bit| self.words[bit / 64] & (1 << (bit % 64)) != 0)
     }
@@ -121,6 +133,8 @@ impl Probe {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Filters {
     fields: HashMap<(FilterKind, String), HashMap<String, Bloom>>,
+    /// Block filters of `ngram` fields, by field then segment id; see [`blocks`].
+    blocks: blocks::Blocks,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -155,17 +169,30 @@ impl Filters {
         Some(grams.iter().all(|gram| bloom.may_contain(gram)))
     }
 
+    /// The block filters of `segment` in the `ngram` field `field`, if it has them.
+    pub fn gram_blocks(&self, field: &str, segment: &str) -> Option<&GramBlocks> {
+        self.blocks.get(field)?.get(segment)
+    }
+
     pub fn is_empty(&self) -> bool {
-        self.fields.values().all(HashMap::is_empty)
+        self.fields.values().all(HashMap::is_empty) && self.blocks.values().all(HashMap::is_empty)
     }
 
     /// Bytes the filters hold in memory.
     pub fn weight(&self) -> usize {
+        let blocks = self
+            .blocks
+            .values()
+            .flat_map(HashMap::values)
+            .map(GramBlocks::weight)
+            .sum::<usize>();
+
         self.fields
             .values()
             .flat_map(HashMap::values)
             .map(|bloom| bloom.words.len() * 8)
-            .sum()
+            .sum::<usize>()
+            + blocks
     }
 
     pub(crate) fn insert(&mut self, kind: FilterKind, field: &str, segment: &str, bloom: Bloom) {
@@ -175,7 +202,15 @@ impl Filters {
             .insert(segment.to_owned(), bloom);
     }
 
-    /// Every filter of `segment`, of any kind and field.
+    fn insert_blocks(&mut self, field: &str, segment: &str, blocks: GramBlocks) {
+        self.blocks
+            .entry(field.to_owned())
+            .or_default()
+            .insert(segment.to_owned(), blocks);
+    }
+
+    /// Every whole-segment filter of `segment`, of any kind and field. Its block filters are left
+    /// out: the filters of a sealed partition do not copy them.
     pub(crate) fn of_segment(&self, segment: &str) -> Vec<(FilterKind, String, Bloom)> {
         self.fields
             .iter()
@@ -187,7 +222,8 @@ impl Filters {
             .collect()
     }
 
-    /// The object: magic, header length, a JSON header of the entries, then their words.
+    /// The object: magic, header length, a JSON header of the entries, then their words; then the
+    /// section of block filters, if there are any.
     pub fn encode(&self) -> Result<Bytes> {
         let mut entries = Vec::new();
         let mut words = Vec::new();
@@ -218,6 +254,7 @@ impl Filters {
             out.put_u64_le(word);
         }
 
+        blocks::encode(&self.blocks, &mut out)?;
         Ok(out.freeze())
     }
 
@@ -269,6 +306,7 @@ impl Filters {
             offset = end;
         }
 
+        filters.blocks = blocks::decode(bytes, offset)?;
         Ok(filters)
     }
 }

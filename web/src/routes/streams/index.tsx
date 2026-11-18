@@ -471,7 +471,7 @@ export function Streams() {
           <>
             <IntakeUsageEntry />
             <SearchJobsEntry />
-            <TableExportButton name="molesignal-streams" columns={columns} rows={sortedRows} size="md" />
+            <TableExportButton name="molesignal-streams" columns={columns} rows={sortedRows} />
             <ChromeButton onClick={refresh} disabled={listQuery.isFetching || runtimeQuery.isFetching}>
               <RefreshCw className="h-3 w-3" /> {t('list.refresh')}
             </ChromeButton>
@@ -638,7 +638,7 @@ function StreamDrawer({
         name: field,
         dataType: 'utf8' as const,
         nullable: true,
-        indexed: false,
+        indexType: 'none' as const,
         encrypted: true,
       })),
       settings: {

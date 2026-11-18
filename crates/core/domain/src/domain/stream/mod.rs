@@ -7,21 +7,21 @@
 //! 既是写入路径上的分桶单位，也是查询时的"表"。
 
 use async_trait::async_trait;
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::{masking::FieldMaskingOverride, storage::StreamTypeId},
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::domain::{masking::FieldMaskingOverride, storage::StreamTypeId};
 
 mod address;
+mod clustering;
 mod partition;
 
 pub use address::{address_key, address_number, cidr_range, parse_address_key};
+pub use clustering::{Clustering, DEFAULT_CLUSTERING_INTERVAL};
 pub use partition::{FieldPartition, FieldPartitions, PartitionScheme};
 
 /// MoleSignal 自身遥测使用的精确保留流名。仅该名字保留，其他 `_` 前缀不受影响。
@@ -118,51 +118,13 @@ pub struct FieldDef {
     pub name: String,
     pub data_type: FieldType,
     pub nullable: bool,
-    /// 规范化后的字段索引类型。`None` 表示该 schema 来自旧版本，需要由
-    /// [`Self::effective_index_type`] 从 `indexed/exact` 兼容推导；`Some(None)` 才表示
-    /// API 明确关闭索引。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub index_type: Option<StreamIndexType>,
-    /// 旧 schema/API 的兼容投影：新写入保持为 `index_type != none`。
-    pub indexed: bool,
+    /// The index the field has; `none` when it has none.
+    #[serde(default)]
+    pub index_type: StreamIndexType,
     /// 字段级静态加密：为 true 时该字段在写入 parquet 前用 `CipherRootKey` 加密，
     /// 列以密文（Utf8）落盘；查询端用 `decrypt(col)` UDF 还原明文。默认 false。
     #[serde(default)]
     pub encrypted: bool,
-    /// 旧 schema/API 的兼容投影：新写入仅在 `index_type == exact` 时为 `true`。
-    #[serde(default)]
-    pub exact: bool,
-}
-
-impl FieldDef {
-    /// 返回实际索引类型，并兼容尚未持久化 `index_type` 的历史 schema。
-    ///
-    /// 历史非文本 `indexed && !exact` 字段没有 Tantivy TEXT 索引，只生成 min/max 元数据，
-    /// 因而兼容映射为 `skip`；历史文本字段保持原有 `full_text` 行为。
-    pub fn effective_index_type(&self) -> StreamIndexType {
-        match self.index_type {
-            Some(index_type) => index_type,
-            None if !self.indexed => StreamIndexType::None,
-            None if self.exact => StreamIndexType::Exact,
-            None if matches!(self.data_type, FieldType::Utf8 | FieldType::Json) => {
-                StreamIndexType::FullText
-            }
-            None => StreamIndexType::Skip,
-        }
-    }
-
-    /// 原子更新规范索引类型与两个旧兼容字段，避免三者出现互相矛盾的组合。
-    pub fn configure_index(&mut self, enabled: bool, index_type: StreamIndexType) {
-        let index_type = if enabled {
-            index_type
-        } else {
-            StreamIndexType::None
-        };
-
-        self.index_type = Some(index_type);
-        self.indexed = index_type != StreamIndexType::None;
-        self.exact = index_type == StreamIndexType::Exact;
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -215,7 +177,8 @@ pub enum StreamIndexType {
     /// 不创建字段级辅助索引。
     #[default]
     None,
-    /// 精确匹配：文本使用未分词倒排索引，并启用 Parquet Bloom。
+    /// Exact match: text fields get an inverted index of whole values, other fields a Parquet
+    /// Bloom filter.
     Exact,
     /// 全文匹配：文本使用分词倒排索引。
     FullText,
@@ -230,100 +193,25 @@ pub enum StreamIndexType {
     /// JSON 字段第一层的键与值：`json_text(字段, 'key') = '值'`、`IN` 与 `IS NOT NULL`（JSON
     /// 字段）。
     KeyValue,
+    /// Numeric ranges: the numbers of an `int64`, `float64` or `timestamp` field are indexed, so
+    /// that a count with `>=`, `>`, `<` or `<=` on it is answered from the index, and a file
+    /// outside the range is skipped by its minimum and maximum.
+    Range,
 }
 
 impl StreamIndexType {
     /// `data_type` 的字段能建这种索引：`full_text`、`ngram`、`ip` 只用于文本字段，`key_value` 只
-    /// 用于 JSON 字段。
+    /// 用于 JSON 字段，`range` 只用于 `int64`、`float64` 与 `timestamp` 字段。
     pub fn suits(self, data_type: FieldType) -> bool {
         match self {
             Self::FullText | Self::Ngram | Self::Ip => data_type == FieldType::Utf8,
             Self::KeyValue => data_type == FieldType::Json,
+            Self::Range => matches!(
+                data_type,
+                FieldType::Int64 | FieldType::Float64 | FieldType::Timestamp
+            ),
             Self::None | Self::Exact | Self::Bloom | Self::Skip => true,
         }
-    }
-
-    /// 兼容只提交 `indexed=true`、未提交 `index_type` 的旧创建请求。
-    pub fn legacy_default(data_type: FieldType) -> Self {
-        if matches!(data_type, FieldType::Utf8 | FieldType::Json) {
-            Self::FullText
-        } else {
-            Self::Skip
-        }
-    }
-}
-
-#[cfg(test)]
-mod index_type_tests {
-    use super::*;
-
-    fn field(data_type: FieldType, indexed: bool, exact: bool) -> FieldDef {
-        FieldDef {
-            name: "value".into(),
-            data_type,
-            nullable: true,
-            index_type: None,
-            indexed,
-            encrypted: false,
-            exact,
-        }
-    }
-
-    #[test]
-    fn legacy_schema_maps_to_the_previous_effective_indexes() {
-        assert_eq!(
-            field(FieldType::Utf8, true, false).effective_index_type(),
-            StreamIndexType::FullText
-        );
-        assert_eq!(
-            field(FieldType::Int64, true, false).effective_index_type(),
-            StreamIndexType::Skip
-        );
-        assert_eq!(
-            field(FieldType::Utf8, true, true).effective_index_type(),
-            StreamIndexType::Exact
-        );
-        assert_eq!(
-            field(FieldType::Utf8, false, false).effective_index_type(),
-            StreamIndexType::None
-        );
-    }
-
-    #[test]
-    fn explicit_index_type_is_not_collapsed_to_indexed_and_exact() {
-        let mut value = field(FieldType::Utf8, false, false);
-        value.configure_index(true, StreamIndexType::Bloom);
-        assert_eq!(value.effective_index_type(), StreamIndexType::Bloom);
-        assert!(value.indexed);
-        assert!(!value.exact);
-
-        value.configure_index(true, StreamIndexType::Skip);
-        assert_eq!(value.effective_index_type(), StreamIndexType::Skip);
-
-        value.configure_index(false, StreamIndexType::FullText);
-        assert_eq!(value.effective_index_type(), StreamIndexType::None);
-        assert!(!value.indexed);
-    }
-
-    #[test]
-    fn serde_reads_legacy_schema_and_persists_the_explicit_type() {
-        let mut value: FieldDef = serde_json::from_value(serde_json::json!({
-            "name": "message",
-            "dataType": "utf8",
-            "nullable": true,
-            "indexed": true,
-            "encrypted": false,
-            "exact": false
-        }))
-        .expect("legacy field schema");
-        assert_eq!(value.index_type, None);
-        assert_eq!(value.effective_index_type(), StreamIndexType::FullText);
-
-        value.configure_index(true, StreamIndexType::Bloom);
-        let serialized = serde_json::to_value(value).expect("serialize field schema");
-        assert_eq!(serialized["indexType"], "bloom");
-        assert_eq!(serialized["indexed"], true);
-        assert_eq!(serialized["exact"], false);
     }
 }
 
@@ -421,6 +309,10 @@ pub struct StreamSettings {
     /// 不分。
     #[serde(default, skip_serializing_if = "FieldPartitions::is_empty")]
     pub partitions: FieldPartitions,
+    /// Logs: the order of the rows inside each newly written file, see [`Clustering`]. None by
+    /// default: rows in time order.
+    #[serde(default, skip_serializing_if = "Clustering::is_empty")]
+    pub clustering: Clustering,
     /// 最近一次改已有字段索引的时刻（微秒），由服务端在保存设置时记下。在这之前建索引的段（见
     /// [`crate::domain::storage::ColumnStats::indexed_at_micros`]）由后台按新设置重建。
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -439,6 +331,7 @@ impl Default for StreamSettings {
             daily_merge: true,
             downsample: Downsample::default(),
             partitions: FieldPartitions::default(),
+            clustering: Clustering::default(),
             index_changed_at: None,
         }
     }

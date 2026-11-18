@@ -600,7 +600,8 @@ max_context_tokens = 128000
 # === FileCatalog 生命周期与后台维护 ===
 [storage.catalog]
 # 分区结束超过该小时数后封存：写入 immutable manifest 与精确字段的 Bloom 过滤器，此后不再合并；
-# 0 表示不封存。留两天让各小时先合并成整天。
+# 只封存写入也超过该小时数的段，晚到的数据（补写、重放）同样先合并。0 表示不封存。
+# 留两天让各小时先合并成整天。
 seal_after_hours = 48
 # 清单缓存的内存大小，单位 MiB。
 manifest_cache_size = 256

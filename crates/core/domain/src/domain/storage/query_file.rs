@@ -4,13 +4,11 @@
 //! Catalog-native query projection.
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimeRange};
 use serde::{Deserialize, Serialize};
 
 use super::{DatasetTypeId, ObjectChecksum, ObjectKey, StoredObject};
-use crate::{
-    domain::stream::{FieldPartitions, StreamType},
-    shared::{Result, ids::Id, time::TimeRange},
-};
+use crate::domain::stream::{Clustering, FieldPartitions, StreamType};
 
 /// Immutable primary Artifact projected for query planning.
 ///
@@ -51,6 +49,10 @@ pub struct QueryFile {
     /// 文件按字段分片写入时，它的分片方式与分片。
     #[serde(default)]
     pub shard: Option<FileShard>,
+    /// The clustering the file's rows were written in, see [`Clustering`]. Clustered rows are not
+    /// in time order; without one they are in the storage order of the dataset.
+    #[serde(default)]
+    pub clustering: Clustering,
 }
 
 /// 按字段分片写入的文件：文件里每一行都落在 `shard` 这个分片里。

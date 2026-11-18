@@ -17,16 +17,13 @@ use std::{
     time::Duration,
 };
 
-use moka::future::Cache;
-use prometheus::{Gauge, IntCounter, Opts};
-
 // `TantivyFooter` 经 `search::tantivy_index` 转出口暴露；底层类型来自
 // `molesignal_tantivy`，只保存 Puffin footer payload、metadata、object size 与 schema。
-use crate::infra::search::tantivy_index::TantivyFooter;
-use crate::{
-    config::TantivyFooterCacheSettings,
-    shared::metrics::{global_registry, register_int_counter},
-};
+use index_format::TantivyFooter;
+use moka::future::Cache;
+use prometheus::{Gauge, IntCounter, Opts};
+use settings::TantivyFooterCacheSettings;
+use signals::metrics::{global_registry, register_int_counter};
 
 pub struct TantivyFooterCache {
     inner: Option<Cache<String, Arc<TantivyFooter>>>,
@@ -189,7 +186,7 @@ mod tests {
     fn dummy_footer() -> Arc<TantivyFooter> {
         let mut sb = TSchema::builder();
         sb.add_text_field("f", TEXT);
-        let puffin_meta = crate::tantivy::PuffinMeta {
+        let puffin_meta = index_format::PuffinMeta {
             blobs: Vec::new(),
             properties: Default::default(),
         };

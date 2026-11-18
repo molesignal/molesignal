@@ -9,19 +9,17 @@
 //! 子表通过 `(org_id, ...)` 复合外键关联，杜绝跨租户串行。
 
 use async_trait::async_trait;
+use domain::storage::{
+    ArtifactId, CatalogInvariantIssue, CatalogObject, CatalogSnapshot, CommitFlush,
+    DatasetSelection, DatasetTransformResult, FileCatalog, FlushCommitResult, GcQueueEntry,
+    IndexRebuildTask, ObjectKey, OrganizationScope, PhysicalDataset, PhysicalDatasetId,
+    PhysicalDatasetSpec, PublishDatasetTransform, PublishPartitionManifest, ReplaceSegments,
+    TombstoneSegments, UpdateArtifact, WalCheckpointView,
+};
+use kernel::{Result, ids::Id};
 use sqlx::PgPool;
 
 use super::sqlx_err;
-use crate::{
-    domain::storage::{
-        ArtifactId, CatalogInvariantIssue, CatalogObject, CatalogSnapshot, CommitFlush,
-        DatasetSelection, DatasetTransformResult, FileCatalog, FlushCommitResult, GcQueueEntry,
-        IndexRebuildTask, ObjectKey, OrganizationScope, PhysicalDataset, PhysicalDatasetId,
-        PhysicalDatasetSpec, PublishDatasetTransform, PublishPartitionManifest, ReplaceSegments,
-        TombstoneSegments, UpdateArtifact, WalCheckpointView,
-    },
-    shared::{Result, ids::Id},
-};
 
 mod artifact;
 mod datasets;
@@ -30,10 +28,13 @@ mod gc;
 mod intake_usage;
 mod maintenance;
 mod manifest;
+mod purge;
 mod replacement;
 mod rows;
 mod snapshot;
 mod writes;
+
+pub use purge::{DatasetPurgeRepository, PgDatasetPurge};
 
 pub struct PgFileCatalog {
     pool: PgPool,
@@ -50,7 +51,7 @@ impl FileCatalog for PgFileCatalog {
     async fn intake_usage(
         &self,
         scope: &OrganizationScope,
-    ) -> Result<Vec<crate::domain::storage::DatasetIntakeUsage>> {
+    ) -> Result<Vec<domain::storage::DatasetIntakeUsage>> {
         intake_usage::read(&self.pool, scope).await
     }
 

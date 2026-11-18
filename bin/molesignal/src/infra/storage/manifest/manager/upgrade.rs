@@ -11,24 +11,23 @@
 
 use std::collections::HashMap;
 
-use super::{PartitionManifestManager, PartitionWork, bloom_key};
-use crate::{
-    domain::{
-        storage::{
-            ArtifactReplacement, ArtifactRole, ArtifactState, DataSegment, ObjectKey,
-            OrganizationScope, PartitionManifestPointer, PhysicalDataset, PublishPartitionManifest,
-            type_id,
-        },
-        stream::StreamDefinition,
+use domain::{
+    storage::{
+        ArtifactReplacement, ArtifactRole, ArtifactState, DataSegment, ObjectKey,
+        OrganizationScope, PartitionManifestPointer, PhysicalDataset, PublishPartitionManifest,
+        type_id,
     },
-    infra::{
-        search::tantivy_index,
-        storage::{
-            filters::Filters,
-            index_rebuild::{build_index_artifact, reindex_segment},
-        },
+    stream::StreamDefinition,
+};
+use kernel::{Error, Result, time::TimestampMicros};
+
+use super::{PartitionManifestManager, PartitionWork, bloom_key, minute_counts, minute_counts_key};
+use crate::infra::{
+    search::tantivy_index,
+    storage::{
+        filters::Filters,
+        index_rebuild::{build_index_artifact, reindex_segment},
     },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 /// What a sealed segment needs rebuilt, by its position among the partition's segments.
@@ -195,6 +194,13 @@ impl PartitionManifestManager {
         self.write_blooms(stream, &new_pointer, &segments, Some(pointer), &reindexed)
             .await;
 
+        minute_counts::write(
+            self.object_store.as_ref(),
+            &new_pointer.object.key,
+            &segments,
+        )
+        .await;
+
         let not_before = TimestampMicros::now()
             .0
             .saturating_add(self.gc_grace_micros);
@@ -228,6 +234,7 @@ impl PartitionManifestManager {
             let orphans = rebuilt_keys.into_iter().chain([
                 new_pointer.object.key.clone(),
                 ObjectKey::from_string(bloom_key(&new_pointer.object.key)),
+                ObjectKey::from_string(minute_counts_key(&new_pointer.object.key)),
             ]);
 
             for key in orphans {
@@ -286,17 +293,16 @@ fn ready_archive(segment: &DataSegment) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::storage::{
-            Artifact, ArtifactId, ArtifactTypeId, ColumnStats, ObjectChecksum, Partition,
-            PhysicalDatasetId, SegmentId, SegmentState, StoredObject,
-        },
-        shared::{
-            ids::Id,
-            time::{TimeRange, TimestampMicros},
-        },
+    use domain::storage::{
+        Artifact, ArtifactId, ArtifactTypeId, ColumnStats, ObjectChecksum, Partition,
+        PhysicalDatasetId, SegmentId, SegmentState, StoredObject,
     };
+    use kernel::{
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    };
+
+    use super::*;
 
     fn artifact(
         id: &str,

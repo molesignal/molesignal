@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 数据流设置的校验：保留天数、字段索引规则、查询时间范围上限与指标的降采样。
+//! 数据流设置的校验：保留天数、字段索引规则、查询时间范围上限、指标的降采样，以及日志与链路文件的
+//! 分片和日志文件的聚簇。
 
 use std::collections::HashSet;
 
-use crate::{
-    domain::{
-        iam::MAX_STREAM_RETENTION_DAYS,
-        stream::{FieldType, Schema, StreamIndexType, StreamSettings, StreamType},
-    },
-    shared::{Error, Result},
+use domain::{
+    iam::MAX_STREAM_RETENTION_DAYS,
+    stream::{FieldType, Schema, StreamIndexType, StreamSettings, StreamType},
 };
+use kernel::{Error, Result};
 
 /// 新字段的索引模式最多几条、每条最长几个字符。
 const MAX_INDEX_PATTERNS: usize = 32;
@@ -48,6 +47,7 @@ pub(super) fn validate_index_data_type(
 
     let (name, kind) = match index_type {
         StreamIndexType::KeyValue => ("key_value", "json"),
+        StreamIndexType::Range => ("range", "int64, float64 or timestamp"),
         StreamIndexType::FullText => ("full_text", "string (utf8)"),
         StreamIndexType::Ngram => ("ngram", "string (utf8)"),
         _ => ("ip", "string (utf8)"),
@@ -93,6 +93,14 @@ pub(super) fn validate_settings(settings: &StreamSettings, stream_type: StreamTy
             return Err(Error::invalid(
                 "field partitioning applies to logs and traces streams only",
             ));
+        }
+    }
+
+    if !settings.clustering.is_empty() {
+        settings.clustering.validate()?;
+
+        if stream_type != StreamType::LOGS {
+            return Err(Error::invalid("clustering applies to logs streams only"));
         }
     }
 
@@ -147,6 +155,33 @@ pub(super) fn validate_partition_fields(settings: &StreamSettings, schema: &Sche
     Ok(())
 }
 
+/// A clustering field already in the schema must be an unencrypted string, integer or boolean
+/// field: rows are ordered by its plain values. A field that has not turned up yet can be named
+/// first.
+pub(super) fn validate_clustering_fields(settings: &StreamSettings, schema: &Schema) -> Result<()> {
+    for name in &settings.clustering.fields {
+        if let Some(field) = schema
+            .fields
+            .iter()
+            .find(|field| field.name == *name)
+            .filter(|field| {
+                field.encrypted
+                    || !matches!(
+                        field.data_type,
+                        FieldType::Utf8 | FieldType::Int64 | FieldType::Bool
+                    )
+            })
+        {
+            return Err(Error::invalid(format!(
+                "clustering field `{}` must be an unencrypted string, integer or boolean field",
+                field.name
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 /// 降采样只用于指标流；样本保留的天数不超过保留天数的上限，时间桶至少一分钟、整除一天。
 fn validate_downsample(settings: &StreamSettings, stream_type: StreamType) -> Result<()> {
     let downsample = settings.downsample;
@@ -182,8 +217,12 @@ fn validate_downsample(settings: &StreamSettings, stream_type: StreamType) -> Re
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{
+        Clustering, DEFAULT_CLUSTERING_INTERVAL, Downsample, FieldPartition, FieldPartitions,
+        PartitionScheme,
+    };
+
     use super::*;
-    use crate::domain::stream::{Downsample, FieldPartition, FieldPartitions, PartitionScheme};
 
     fn downsampled(after_days: u32, interval_secs: u32) -> StreamSettings {
         StreamSettings {
@@ -274,16 +313,13 @@ mod tests {
 
     #[test]
     fn a_partition_field_already_in_the_schema_must_be_plain_text() {
-        let field =
-            |name: &str, data_type: FieldType, encrypted: bool| crate::domain::stream::FieldDef {
-                name: name.into(),
-                data_type,
-                nullable: true,
-                index_type: None,
-                indexed: false,
-                encrypted,
-                exact: false,
-            };
+        let field = |name: &str, data_type: FieldType, encrypted: bool| domain::stream::FieldDef {
+            name: name.into(),
+            data_type,
+            nullable: true,
+            index_type: StreamIndexType::None,
+            encrypted,
+        };
 
         let schema = Schema {
             fields: vec![
@@ -314,5 +350,58 @@ mod tests {
         };
 
         assert!(validate_partition_fields(&second_encrypted, &schema).is_err());
+    }
+
+    fn clustered(fields: &[&str]) -> StreamSettings {
+        StreamSettings {
+            clustering: Clustering::new(
+                fields.iter().map(|field| field.to_string()).collect(),
+                DEFAULT_CLUSTERING_INTERVAL,
+            ),
+            ..StreamSettings::default()
+        }
+    }
+
+    #[test]
+    fn clustering_is_for_logs_with_at_most_two_fields() {
+        assert!(validate_settings(&clustered(&["service", "level"]), StreamType::LOGS).is_ok());
+        assert!(validate_settings(&clustered(&["service"]), StreamType::TRACES).is_err());
+        assert!(validate_settings(&clustered(&["service"]), StreamType::METRICS).is_err());
+        assert!(validate_settings(&clustered(&["a", "b", "c"]), StreamType::LOGS).is_err());
+        assert!(validate_settings(&clustered(&[]), StreamType::METRICS).is_ok());
+    }
+
+    #[test]
+    fn a_clustering_field_already_in_the_schema_must_be_plain_text_or_a_number() {
+        let field = |name: &str, data_type: FieldType, encrypted: bool| domain::stream::FieldDef {
+            name: name.into(),
+            data_type,
+            nullable: true,
+            index_type: StreamIndexType::None,
+            encrypted,
+        };
+
+        let schema = Schema {
+            fields: vec![
+                field("service", FieldType::Utf8, false),
+                field("status", FieldType::Int64, false),
+                field("payload", FieldType::Json, false),
+                field("user", FieldType::Utf8, true),
+            ],
+        };
+
+        for ok in ["service", "status", "not_yet"] {
+            assert!(
+                validate_clustering_fields(&clustered(&[ok]), &schema).is_ok(),
+                "{ok}"
+            );
+        }
+
+        for refused in ["payload", "user"] {
+            assert!(
+                validate_clustering_fields(&clustered(&[refused]), &schema).is_err(),
+                "{refused}"
+            );
+        }
     }
 }

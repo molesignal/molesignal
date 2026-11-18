@@ -30,6 +30,7 @@ use futures::{
     future::BoxFuture,
     stream::{self, BoxStream},
 };
+use kernel::{Error, Result};
 use object_store::{Error as OsError, ObjectStore, ObjectStoreExt, path::Path};
 use parquet::{
     arrow::{
@@ -41,11 +42,11 @@ use parquet::{
     file::metadata::{PageIndexPolicy, ParquetMetaData, ParquetMetaDataReader},
 };
 
-use crate::shared::{Error, Result};
-
 mod pages;
 
 use pages::RowTest;
+
+use super::stored_text::read_schema;
 
 /// Footer bytes fetched with the first request: the Thrift footer and the page index before it
 /// usually fit, so the metadata loads in one request.
@@ -249,7 +250,7 @@ impl ParquetReader {
             .await
             .map_err(|error| Error::internal(format!("parquet schema footer: {error}")))?;
 
-        Ok(builder.schema().clone())
+        Ok(read_schema(builder.schema()).unwrap_or_else(|| builder.schema().clone()))
     }
 
     /// 核心读取路径：时间窗裁剪与列投影在同一次读里生效。
@@ -292,7 +293,7 @@ impl ParquetReader {
             }
         };
 
-        let reader = ObjectFileReader::new(store.clone(), location, size);
+        let mut reader = ObjectFileReader::new(store.clone(), location, size);
 
         // 页索引说明哪些页可能含要找的值；它通常和 footer 在同一次读里。
         let options = if opts.equals.is_some() {
@@ -301,9 +302,8 @@ impl ParquetReader {
             ArrowReaderOptions::new()
         };
 
-        let mut builder = ParquetRecordBatchStreamBuilder::new_with_options(reader, options)
-            .await
-            .map_err(|e| Error::internal(format!("parquet builder: {e}")))?;
+        let metadata = text_metadata(&mut reader, options).await?;
+        let mut builder = ParquetRecordBatchStreamBuilder::new_with_metadata(reader, metadata);
 
         // arrow field 下标 == parquet leaf 下标仅对平铺 schema 成立（molesignal 的流 schema 均为
         // 平铺）；不成立时不裁剪。
@@ -379,10 +379,7 @@ impl ParquetReader {
 
         let mut reader = ObjectFileReader::new(store, meta.location, meta.size);
         let options = ArrowReaderOptions::new().with_offset_index_policy(PageIndexPolicy::Optional);
-
-        let metadata = ArrowReaderMetadata::load_async(&mut reader, options)
-            .await
-            .map_err(|e| Error::internal(format!("parquet metadata: {e}")))?;
+        let metadata = text_metadata(&mut reader, options).await?;
 
         let windows = row_windows(metadata.metadata(), window_bytes);
 
@@ -406,6 +403,25 @@ impl ParquetReader {
             .try_flatten();
 
         Ok(batches.boxed())
+    }
+}
+
+/// The file's metadata, read so that its stored text columns decode as text, without the UTF-8
+/// validation a text annotation would cost (see [`stored_text`](super::stored_text)).
+async fn text_metadata(
+    reader: &mut ObjectFileReader,
+    options: ArrowReaderOptions,
+) -> Result<ArrowReaderMetadata> {
+    let metadata = ArrowReaderMetadata::load_async(reader, options.clone())
+        .await
+        .map_err(|e| Error::internal(format!("parquet metadata: {e}")))?;
+
+    match read_schema(metadata.schema()) {
+        Some(schema) => {
+            ArrowReaderMetadata::try_new(metadata.metadata().clone(), options.with_schema(schema))
+                .map_err(|e| Error::internal(format!("parquet text columns: {e}")))
+        }
+        None => Ok(metadata),
     }
 }
 
@@ -460,14 +476,14 @@ fn row_windows(
 #[cfg(test)]
 mod tests {
     use arrow::array::{Int64Array, StringArray, TimestampMicrosecondArray};
+    use domain::stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType, StreamType,
+    };
+    use kernel::{ids::Id, time::TimestampMicros};
     use object_store::{ObjectStoreExt, PutPayload, local::LocalFileSystem, path::Path};
 
     use super::*;
-    use crate::{
-        domain::stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
-        infra::storage::{arrow_schema::to_arrow, parquet::writer::encode_parquet},
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use crate::infra::storage::{arrow_schema::to_arrow, parquet::writer::encode_parquet};
 
     fn sample() -> (StreamDefinition, RecordBatch) {
         let stream = StreamDefinition {
@@ -480,10 +496,8 @@ mod tests {
                     name: "msg".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 }],
             },
             retention: Some(Retention { days: 30 }),

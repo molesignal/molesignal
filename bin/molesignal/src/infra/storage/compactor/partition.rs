@@ -2,23 +2,36 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! Partition-local greedy compaction grouping. Only segments written with the same field partition
-//! (or none) are merged: the merged segment records that partition for every one of its rows.
+//! (or none) are merged: the merged segment records that partition for every one of its rows. The
+//! same holds for the clustering of their rows: a merge keeps the order its inputs share.
 
 use std::collections::BTreeMap;
 
-use crate::{
-    domain::{
-        storage::{DataSegment, Partition, PhysicalDatasetId},
-        stream::FieldPartitions,
-    },
-    shared::{Error, Result},
+use domain::{
+    storage::{DataSegment, Partition, PhysicalDatasetId},
+    stream::{Clustering, FieldPartitions},
 };
+use kernel::{Error, Result};
 
-type PartitionKey = (i64, i64, u16, FieldPartitions);
+type PartitionKey = (i64, i64, u16, FieldPartitions, Clustering);
 
-/// Most inputs one merge reads. A merge holds a window of every input at once; the segments
-/// past this many are merged with the result in a later round.
-const MAX_GROUP_SEGMENTS: usize = 64;
+/// Most inputs one merge reads. A merge holds a window of every input at once (see
+/// [`input_window_bytes`]); the segments past this many are merged with the result in a later
+/// round, which writes the rows of the first round again.
+const MAX_GROUP_SEGMENTS: usize = 128;
+
+/// Compressed bytes a merge reads at once, shared by its inputs.
+const INPUT_WINDOWS_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Most compressed bytes of one input read at a time.
+const MAX_INPUT_WINDOW_BYTES: u64 = 4 * 1024 * 1024;
+
+/// Compressed bytes of each input read at a time by a merge of `inputs` segments: their share of
+/// [`INPUT_WINDOWS_BYTES`], at most [`MAX_INPUT_WINDOW_BYTES`]. A merge of many small flushed
+/// files holds no more than one of a few large ones, so an hour's files are merged in one round.
+pub(super) fn input_window_bytes(inputs: usize) -> u64 {
+    (INPUT_WINDOWS_BYTES / inputs.max(1) as u64).min(MAX_INPUT_WINDOW_BYTES)
+}
 
 const DAY_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
 
@@ -46,6 +59,7 @@ pub(super) fn build_groups(
                 partition.end_micros,
                 partition.shard,
                 segment.column_stats.partitions.clone(),
+                segment.column_stats.clustering.clone(),
             ))
             .or_default()
             .push(segment);
@@ -71,12 +85,7 @@ pub(super) fn build_groups(
                 || size.saturating_add(segment_size) > target_bytes;
 
             if !current.is_empty() && full {
-                if current.len() >= 2 {
-                    groups.push(std::mem::take(&mut current));
-                } else {
-                    current.clear();
-                }
-
+                groups.extend(worth_merging(std::mem::take(&mut current)));
                 size = 0;
             }
 
@@ -84,12 +93,31 @@ pub(super) fn build_groups(
             current.push(segment);
         }
 
-        if current.len() >= 2 {
-            groups.push(current);
-        }
+        groups.extend(worth_merging(current));
     }
 
     (groups, invalid)
+}
+
+/// The part of `group` worth merging: all of it, unless its largest segment outweighs the others
+/// together. Merging it then would write it again to add a little to it, at every sweep while its
+/// partition fills, so the others are merged on their own; a row is written again only when its
+/// segment at least doubles. `None` when fewer than two segments are left.
+fn worth_merging(mut group: Vec<DataSegment>) -> Option<Vec<DataSegment>> {
+    let size = |segment: &DataSegment| segment.primary.object.size_bytes;
+    let total = group.iter().map(size).fold(0_u64, u64::saturating_add);
+
+    let (largest, largest_size) = group
+        .iter()
+        .map(size)
+        .enumerate()
+        .max_by_key(|(_, size)| *size)?;
+
+    if largest_size > total - largest_size {
+        group.remove(largest);
+    }
+
+    (group.len() >= 2).then_some(group)
 }
 
 pub(super) fn validate_group(
@@ -105,10 +133,12 @@ pub(super) fn validate_group(
             || segment.organization_id != first.organization_id
             || segment.partition != first.partition
             || segment.column_stats.partitions != first.column_stats.partitions
+            || segment.column_stats.clustering != first.column_stats.clustering
             || !time_range_within_partition(segment)
         {
             return Err(Error::invalid(
-                "compactor refuses a group spanning dataset, organization, partition, or field partition",
+                "compactor refuses a group spanning dataset, organization, partition, field \
+                 partition or clustering",
             ));
         }
     }
@@ -134,6 +164,24 @@ pub(super) fn common_partitions(group: &[DataSegment]) -> FieldPartitions {
     }
 }
 
+/// The clustering every segment of `group` was written in; none unless they share it.
+pub(super) fn common_clustering(group: &[DataSegment]) -> Clustering {
+    let Some(first) = group.first() else {
+        return Clustering::default();
+    };
+
+    let clustering = &first.column_stats.clustering;
+
+    if group
+        .iter()
+        .all(|segment| segment.column_stats.clustering == *clustering)
+    {
+        clustering.clone()
+    } else {
+        Clustering::default()
+    }
+}
+
 /// The days to merge into one segment each, with the segments of each: a day that ended at least
 /// [`DAY_SETTLE_MICROS`] before `now`, whose segments lie in more than one partition inside it
 /// and together fit in `target_bytes`. A stream that writes little then keeps one file a day
@@ -143,7 +191,8 @@ pub(super) fn daily_groups(
     target_bytes: u64,
     now: i64,
 ) -> Vec<(Partition, Vec<DataSegment>)> {
-    let mut days: BTreeMap<(i64, u16, FieldPartitions), Vec<DataSegment>> = BTreeMap::new();
+    let mut days: BTreeMap<(i64, u16, FieldPartitions, Clustering), Vec<DataSegment>> =
+        BTreeMap::new();
 
     for segment in segments {
         let day = segment.partition.start_micros.div_euclid(DAY_MICROS) * DAY_MICROS;
@@ -157,6 +206,7 @@ pub(super) fn daily_groups(
                 day,
                 segment.partition.shard,
                 segment.column_stats.partitions.clone(),
+                segment.column_stats.clustering.clone(),
             ))
             .or_default()
             .push(segment);
@@ -164,7 +214,7 @@ pub(super) fn daily_groups(
     }
 
     days.into_iter()
-        .filter_map(|((day, shard, _), mut segments)| {
+        .filter_map(|((day, shard, _, _), mut segments)| {
             let partitions = segments
                 .iter()
                 .map(|segment| segment.partition)
@@ -215,6 +265,7 @@ pub(super) fn validate_day(
             && segment.organization_id == first.organization_id
             && segment.partition.shard == day.shard
             && segment.column_stats.partitions == first.column_stats.partitions
+            && segment.column_stats.clustering == first.column_stats.clustering
             && day.start_micros <= segment.partition.start_micros
             && segment.partition.end_micros <= day.end_micros
             && time_range_within_partition(segment)
@@ -237,21 +288,20 @@ fn time_range_within_partition(segment: &DataSegment) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::{
-            storage::{
-                Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ColumnStats,
-                ObjectChecksum, ObjectKey, SchemaFingerprint, SegmentId, SegmentState,
-                StoredObject, type_id,
-            },
-            stream::{FieldPartition, PartitionScheme},
+    use domain::{
+        storage::{
+            Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ColumnStats,
+            ObjectChecksum, ObjectKey, SchemaFingerprint, SegmentId, SegmentState, StoredObject,
+            type_id,
         },
-        shared::{
-            ids::Id,
-            time::{TimeRange, TimestampMicros},
-        },
+        stream::{FieldPartition, PartitionScheme},
     };
+    use kernel::{
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    };
+
+    use super::*;
 
     fn segment(
         id: &str,
@@ -418,6 +468,61 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    /// A segment that outweighs the others of its group is not written again to add them to it:
+    /// they are merged on their own until together they outweigh it.
+    #[test]
+    fn a_large_segment_is_merged_again_only_with_as_much_new_data() {
+        let dataset = PhysicalDatasetId::from_string("dataset");
+
+        let grouped = |sizes: &[u64]| {
+            let segments = sizes
+                .iter()
+                .enumerate()
+                .map(|(index, size)| segment(&format!("s{index:02}"), &dataset, 0, *size))
+                .collect::<Vec<_>>();
+
+            build_groups(segments, 512)
+                .0
+                .iter()
+                .map(|group| {
+                    group
+                        .iter()
+                        .map(|segment| segment.id.as_str().to_owned())
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(grouped(&[300, 30, 30, 30]), [["s01", "s02", "s03"]]);
+        assert_eq!(grouped(&[300, 30]), Vec::<Vec<String>>::new());
+        assert_eq!(
+            grouped(&[200, 150, 100]),
+            [["s00".to_owned(), "s01".to_owned(), "s02".to_owned()]]
+        );
+
+        // The first group fills the target: the large one waits, the others merge.
+        assert_eq!(
+            grouped(&[300, 100, 100, 100, 100]),
+            [
+                vec!["s01".to_owned(), "s02".to_owned()],
+                vec!["s03".to_owned(), "s04".to_owned()],
+            ]
+        );
+    }
+
+    /// The windows of a merge stay within one budget however many inputs it reads, and an input
+    /// of a merge of a few is read in the largest windows.
+    #[test]
+    fn a_merge_of_many_inputs_reads_each_in_smaller_windows() {
+        assert_eq!(input_window_bytes(2), MAX_INPUT_WINDOW_BYTES);
+        assert_eq!(input_window_bytes(64), MAX_INPUT_WINDOW_BYTES);
+        assert_eq!(input_window_bytes(MAX_GROUP_SEGMENTS), 2 * 1024 * 1024);
+
+        for inputs in [1, 63, 64, 65, 100, MAX_GROUP_SEGMENTS] {
+            assert!(input_window_bytes(inputs) * inputs as u64 <= INPUT_WINDOWS_BYTES);
+        }
     }
 
     #[test]

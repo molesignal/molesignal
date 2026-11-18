@@ -160,11 +160,13 @@ impl ProductionObjectStore {
                 }
             }
 
-            let permit = self.acquire_permit().await?;
+            // 许可在分片自己的 future 里拿：若在这里等，已经拿到许可的分片等待期间不会被 poll，
+            // 许可还不回来，几个上传就可能互相等到超时。
             let sending = upload.put_part(part);
+            let permits = self.permits.clone();
 
             in_flight.push(async move {
-                let _permit = permit;
+                let _permit = permits.acquire("multipart_part", timeout).await?;
 
                 tokio::time::timeout(timeout, sending)
                     .await
@@ -176,7 +178,7 @@ impl ProductionObjectStore {
             result?;
         }
 
-        let _permit = self.acquire_permit().await?;
+        let _permit = self.permits.acquire("multipart_complete", timeout).await?;
 
         tokio::time::timeout(timeout, upload.complete())
             .await

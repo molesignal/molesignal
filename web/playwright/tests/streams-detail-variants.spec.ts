@@ -20,8 +20,8 @@ const STREAMS = [
     streamType: 'logs',
     schema: {
       fields: [
-        { name: 'body', dataType: 'utf8', nullable: true, indexed: false },
-        { name: 'line', dataType: 'int64', nullable: true, indexed: false },
+        { name: 'body', dataType: 'utf8', nullable: true, indexType: 'none' },
+        { name: 'line', dataType: 'int64', nullable: true, indexType: 'none' },
       ],
     },
     retention: { days: 7 },
@@ -36,8 +36,8 @@ const STREAMS = [
     streamType: 'metrics',
     schema: {
       fields: [
-        { name: 'metric_name', dataType: 'utf8', nullable: true, indexed: false },
-        { name: 'value', dataType: 'float64', nullable: true, indexed: false },
+        { name: 'metric_name', dataType: 'utf8', nullable: true, indexType: 'none' },
+        { name: 'value', dataType: 'float64', nullable: true, indexType: 'none' },
       ],
     },
     retention: { days: 7 },
@@ -52,8 +52,8 @@ const STREAMS = [
     streamType: 'traces',
     schema: {
       fields: [
-        { name: 'trace_id', dataType: 'utf8', nullable: true, indexed: true },
-        { name: 'duration_ns', dataType: 'int64', nullable: true, indexed: false },
+        { name: 'trace_id', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+        { name: 'duration_ns', dataType: 'int64', nullable: true, indexType: 'none' },
       ],
     },
     retention: { days: 7 },

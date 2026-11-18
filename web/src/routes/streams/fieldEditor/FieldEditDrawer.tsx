@@ -77,7 +77,6 @@ export function FieldEditDrawer({
                 onChange={(value) => setEditing((current) => current ? {
                   ...current,
                   indexType: value as streamsApi.StreamIndexType,
-                  indexed: value !== 'none',
                 } : current)}
                 options={indexOptionsFor(editing.dataType).map((option) => ({
                   value: option.value,

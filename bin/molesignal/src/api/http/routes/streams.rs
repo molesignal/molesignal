@@ -6,20 +6,17 @@ use axum::{
     extract::{Path, State},
     routing::{get, put},
 };
+use domain::{
+    iam::{IamContext, permission, resource_permission},
+    stream::{
+        FieldDef, FieldIndexRule, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamSettings, StreamType, is_reserved_system_stream,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    api::{AppState, http::middleware::ProtectedResource},
-    app::iam::IamContext,
-    domain::{
-        iam::{permission, resource_permission},
-        stream::{
-            FieldDef, FieldIndexRule, FieldType, Retention, Schema, StreamDefinition,
-            StreamIndexType, StreamSettings, StreamType, is_reserved_system_stream,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::middleware::ProtectedResource};
 
 mod audit;
 mod field_settings;
@@ -29,7 +26,8 @@ mod validation;
 
 use field_settings::{validate_field_masking, validate_system_settings_update};
 use validation::{
-    validate_days, validate_index_data_type, validate_partition_fields, validate_settings,
+    validate_clustering_fields, validate_days, validate_index_data_type, validate_partition_fields,
+    validate_settings,
 };
 
 pub fn routes() -> Router<AppState> {
@@ -127,10 +125,7 @@ struct CreateFieldRequest {
     data_type: FieldType,
     #[serde(default = "default_true")]
     nullable: bool,
-    #[serde(default)]
-    indexed: bool,
-    /// 规范索引类型；仅在 `indexed = true` 时有意义。缺省兼容旧请求：文本字段映射为
-    /// `full_text`，非文本字段映射为 `skip`。
+    /// The index of the field; `none` when left out.
     #[serde(default)]
     index_type: StreamIndexType,
     /// 字段级静态加密：写入前用 cipher root key 加密、密文落盘；查询用 `decrypt(col)` 还原。
@@ -161,8 +156,6 @@ enum RetentionDaysUpdate {
 struct FieldSettingRequest {
     name: String,
     #[serde(default)]
-    indexed: bool,
-    #[serde(default)]
     index_type: StreamIndexType,
 }
 
@@ -175,22 +168,8 @@ fn index_types(schema: &Schema) -> Vec<(String, StreamIndexType)> {
     schema
         .fields
         .iter()
-        .map(|field| (field.name.clone(), field.effective_index_type()))
+        .map(|field| (field.name.clone(), field.index_type))
         .collect()
-}
-
-fn resolve_create_index_type(
-    indexed: bool,
-    data_type: FieldType,
-    requested: StreamIndexType,
-) -> StreamIndexType {
-    if !indexed {
-        StreamIndexType::None
-    } else if requested == StreamIndexType::None {
-        StreamIndexType::legacy_default(data_type)
-    } else {
-        requested
-    }
 }
 
 async fn response_for(
@@ -214,7 +193,7 @@ async fn default_retention_days(state: &AppState) -> Result<u32> {
 }
 
 fn validate_public_stream_name(name: &str) -> Result<()> {
-    crate::domain::stream::validate_stream_name(name)?;
+    domain::stream::validate_stream_name(name)?;
 
     if is_reserved_system_stream(name) {
         return Err(Error::forbidden(
@@ -223,7 +202,7 @@ fn validate_public_stream_name(name: &str) -> Result<()> {
     }
 
     // The platform makes its own streams the first time it writes them.
-    crate::domain::stream::refuse_platform_stream(name)
+    domain::stream::refuse_platform_stream(name)
 }
 
 fn ensure_stream_mutable(def: &StreamDefinition) -> Result<()> {
@@ -338,21 +317,15 @@ async fn create(
                     let index_type = match rule {
                         Some(rule) if rule.enabled => rule.index_type,
                         Some(_) => StreamIndexType::None,
-                        None => resolve_create_index_type(
-                            field.indexed,
-                            field.data_type,
-                            field.index_type,
-                        ),
+                        None => field.index_type,
                     };
 
                     Ok(FieldDef {
                         name: field.name,
                         data_type: field.data_type,
                         nullable: field.nullable,
-                        index_type: Some(index_type),
-                        indexed: index_type != StreamIndexType::None,
+                        index_type,
                         encrypted: field.encrypted,
-                        exact: index_type == StreamIndexType::Exact,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
@@ -364,6 +337,7 @@ async fn create(
 
     validate_field_masking(&settings, &def.schema, def.stream_type)?;
     validate_partition_fields(&settings, &def.schema)?;
+    validate_clustering_fields(&settings, &def.schema)?;
     let created = state.telemetry.streams.create(def).await?;
 
     let settings = state
@@ -424,7 +398,7 @@ async fn update_settings(
             .into_iter()
             .map(|setting| FieldIndexRule {
                 field: setting.name,
-                enabled: setting.indexed && setting.index_type != StreamIndexType::None,
+                enabled: setting.index_type != StreamIndexType::None,
                 index_type: setting.index_type,
             })
             .collect();
@@ -446,13 +420,18 @@ async fn update_settings(
                 .find(|field| field.name == rule.field)
             {
                 validate_index_data_type(&field.name, field.data_type, rule.index_type)?;
-                field.configure_index(rule.enabled, rule.index_type);
+                field.index_type = if rule.enabled {
+                    rule.index_type
+                } else {
+                    StreamIndexType::None
+                };
             }
         }
     }
 
     validate_field_masking(&settings, &def.schema, def.stream_type)?;
     validate_partition_fields(&settings, &def.schema)?;
+    validate_clustering_fields(&settings, &def.schema)?;
 
     // 服务端记下的：改了已有字段的索引就是现在，否则照旧。已经写下的数据由后台按新设置重建索引。
     settings.index_changed_at = match index_types(&def.schema) != indexes_before {
@@ -618,33 +597,6 @@ mod index_data_type_tests {
         assert!(
             validate_index_data_type("trace_id", FieldType::Utf8, StreamIndexType::Exact).is_ok(),
             "utf8 + exact 应放行"
-        );
-    }
-
-    #[test]
-    fn create_request_preserves_explicit_types_and_maps_legacy_indexed_fields() {
-        assert_eq!(
-            resolve_create_index_type(true, FieldType::Utf8, StreamIndexType::None),
-            StreamIndexType::FullText
-        );
-        assert_eq!(
-            resolve_create_index_type(true, FieldType::Int64, StreamIndexType::None),
-            StreamIndexType::Skip
-        );
-        for index_type in [
-            StreamIndexType::Exact,
-            StreamIndexType::FullText,
-            StreamIndexType::Bloom,
-            StreamIndexType::Skip,
-        ] {
-            assert_eq!(
-                resolve_create_index_type(true, FieldType::Utf8, index_type),
-                index_type
-            );
-        }
-        assert_eq!(
-            resolve_create_index_type(false, FieldType::Utf8, StreamIndexType::FullText),
-            StreamIndexType::None
         );
     }
 }

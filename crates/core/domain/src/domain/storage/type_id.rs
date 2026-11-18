@@ -12,9 +12,8 @@
 
 use std::fmt;
 
+use kernel::{Error, Result};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::shared::{Error, Result};
 
 /// 校验开放类型 ID：小写 ASCII，仅 `a-z 0-9 . - _`，`.` 分段且段非空，
 /// 段首必须是字母，总长 3..=96。
@@ -275,6 +274,8 @@ pub mod builtin {
     pub const ARTIFACT_TANTIVY: &str = "builtin.tantivy";
     /// 一个段的文件级过滤器：`bloom` 字段的整值、`ngram` 字段的三元组。
     pub const ARTIFACT_BLOOM: &str = "builtin.bloom";
+    /// A segment's rows in each minute, by the values of its clustering fields.
+    pub const ARTIFACT_MINUTE_COUNTS: &str = "builtin.minute_counts";
     pub const ARTIFACT_PARTITION_MANIFEST: &str = "builtin.partition_manifest";
 
     // Index types
@@ -346,6 +347,7 @@ mod tests {
             builtin::ARTIFACT_PARQUET,
             builtin::ARTIFACT_TANTIVY,
             builtin::ARTIFACT_BLOOM,
+            builtin::ARTIFACT_MINUTE_COUNTS,
             builtin::ARTIFACT_PARTITION_MANIFEST,
             builtin::INDEX_TANTIVY,
             builtin::WAL_CODEC_ROW_BATCH,

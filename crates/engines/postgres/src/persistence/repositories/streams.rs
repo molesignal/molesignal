@@ -4,16 +4,14 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use domain::stream::{
+    MOLESIGNAL_SYSTEM_STREAM, Retention, Schema, StreamDefinition, StreamMutationObserver,
+    StreamRepository, StreamSettings, StreamType,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::stream::{
-        MOLESIGNAL_SYSTEM_STREAM, Retention, Schema, StreamDefinition, StreamMutationObserver,
-        StreamRepository, StreamSettings, StreamType,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 pub struct PgStreamRepository {
     pool: PgPool,
@@ -375,11 +373,29 @@ impl StreamRepository for PgStreamRepository {
             return Err(Error::forbidden("system stream cannot be deleted"));
         }
 
+        // The stream goes at once; its datasets stay in state 'deleting' until the purge has
+        // removed their catalog rows.
+        let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
+        sqlx::query(
+            "UPDATE physical_datasets
+                SET state = 'deleting', updated_at = $2
+              WHERE (org_id, logical_stream_id) =
+                    (SELECT org_id, id FROM logical_streams WHERE id = $1)",
+        )
+        .bind(&id.0)
+        .bind(TimestampMicros::now())
+        .execute(&mut *tx)
+        .await
+        .map_err(sqlx_err)?;
+
         sqlx::query("DELETE FROM logical_streams WHERE id = $1")
             .bind(&id.0)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(sqlx_err)?;
+
+        tx.commit().await.map_err(sqlx_err)?;
 
         if let Some(r) = row {
             let org_id: String = r.try_get("org_id").unwrap_or_default();

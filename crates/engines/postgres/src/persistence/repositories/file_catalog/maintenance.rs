@@ -3,6 +3,11 @@
 
 use std::collections::HashMap;
 
+use domain::storage::{
+    Artifact, ArtifactId, CatalogInvariant, CatalogInvariantIssue, CatalogObject, IndexRebuildTask,
+    ObjectChecksum, ObjectKey, OrganizationScope, PhysicalDatasetId, StoredObject,
+};
+use kernel::{Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{
@@ -11,14 +16,6 @@ use super::{
         segment_from_row,
     },
     sqlx_err,
-};
-use crate::{
-    domain::storage::{
-        Artifact, ArtifactId, CatalogInvariant, CatalogInvariantIssue, CatalogObject,
-        IndexRebuildTask, ObjectChecksum, ObjectKey, OrganizationScope, PhysicalDatasetId,
-        StoredObject,
-    },
-    shared::{Result, time::TimestampMicros},
 };
 
 pub(super) async fn index_rebuild_tasks(
@@ -30,9 +27,10 @@ pub(super) async fn index_rebuild_tasks(
     let candidates = sqlx::query(
         "SELECT a.id, a.segment_id, s.dataset_id FROM catalog_artifacts a \
          JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
+         JOIN physical_datasets d ON d.org_id = s.org_id AND d.id = s.dataset_id \
          WHERE a.org_id = $1 AND a.role = 'index' \
            AND (a.state = 'pending' OR (a.state = 'failed' AND a.updated_at <= $2)) \
-           AND s.state = 'active' \
+           AND s.state = 'active' AND d.state <> 'deleting' \
          ORDER BY a.updated_at, a.id LIMIT $3",
     )
     .bind(scope.organization_id.as_str())
@@ -62,9 +60,10 @@ pub(super) async fn stale_index_tasks(
     let candidates = sqlx::query(
         "SELECT a.id, a.segment_id, s.dataset_id FROM catalog_artifacts a \
          JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
+         JOIN physical_datasets d ON d.org_id = s.org_id AND d.id = s.dataset_id \
          WHERE a.org_id = $1 AND a.role = 'index' AND a.state = 'ready' \
            AND a.artifact_type = $2 AND a.format_version < $3 \
-           AND NOT (a.id = ANY($4)) AND s.state = 'active' \
+           AND NOT (a.id = ANY($4)) AND s.state = 'active' AND d.state <> 'deleting' \
          ORDER BY a.updated_at, a.id LIMIT $5",
     )
     .bind(scope.organization_id.as_str())
@@ -197,8 +196,10 @@ pub(super) async fn catalog_objects(
         "SELECT s.dataset_id, a.segment_id, a.id, a.role, a.state, a.object_key, \
                 a.size_bytes, a.checksum, a.etag \
          FROM catalog_artifacts a JOIN catalog_segments s ON s.org_id = a.org_id AND s.id = a.segment_id \
+         JOIN physical_datasets d ON d.org_id = s.org_id AND d.id = s.dataset_id \
          WHERE a.org_id = $1 AND ($2::TEXT IS NULL OR a.object_key > $2) \
            AND s.state IN ('active', 'sealed') AND a.state <> 'tombstoned' \
+           AND d.state <> 'deleting' \
          ORDER BY a.object_key LIMIT $3",
     )
     .bind(scope.organization_id.as_str())
@@ -215,10 +216,10 @@ pub(super) async fn catalog_objects(
             dataset_id: PhysicalDatasetId::from_string(
                 row.try_get::<String, _>("dataset_id").map_err(sqlx_err)?,
             ),
-            segment_id: Some(crate::domain::storage::SegmentId::from_string(
+            segment_id: Some(domain::storage::SegmentId::from_string(
                 row.try_get::<String, _>("segment_id").map_err(sqlx_err)?,
             )),
-            artifact_id: Some(crate::domain::storage::ArtifactId::from_string(
+            artifact_id: Some(domain::storage::ArtifactId::from_string(
                 row.try_get::<String, _>("id").map_err(sqlx_err)?,
             )),
             role: Some(
@@ -253,8 +254,11 @@ pub(super) async fn catalog_objects(
             "SELECT dataset_id, partition_start, partition_end, partition_shard, \
                     generation, object_key, size_bytes, checksum, etag, segment_count, \
                     created_at \
-             FROM partition_manifests WHERE org_id = $1 AND state = 'active' \
+             FROM partition_manifests m WHERE org_id = $1 AND state = 'active' \
                AND ($2::TEXT IS NULL OR object_key > $2) \
+               AND NOT EXISTS (SELECT 1 FROM physical_datasets d \
+                                WHERE d.org_id = m.org_id AND d.id = m.dataset_id \
+                                  AND d.state = 'deleting') \
              ORDER BY object_key LIMIT $3",
         )
         .bind(scope.organization_id.as_str())
@@ -290,10 +294,10 @@ pub(super) async fn catalog_objects(
                 role: None,
                 state: None,
                 object: object.clone(),
-                manifest: Some(crate::domain::storage::PartitionManifestPointer {
+                manifest: Some(domain::storage::PartitionManifestPointer {
                     organization_id: scope.organization_id.clone(),
                     dataset_id,
-                    partition: crate::domain::storage::Partition {
+                    partition: domain::storage::Partition {
                         start_micros: row
                             .try_get::<TimestampMicros, _>("partition_start")
                             .map_err(sqlx_err)?
@@ -339,6 +343,8 @@ pub(super) async fn object_is_referenced(
                      WHERE org_id = $1 AND object_key = $2 AND state = 'active') \
            OR (right($2, 6) = '.bloom' AND EXISTS(SELECT 1 FROM partition_manifests \
                      WHERE org_id = $1 AND object_key = left($2, -6) AND state = 'active')) \
+           OR (right($2, 14) = '.minute_counts' AND EXISTS(SELECT 1 FROM partition_manifests \
+                     WHERE org_id = $1 AND object_key = left($2, -14) AND state = 'active')) \
            OR EXISTS(SELECT 1 FROM catalog_artifacts source JOIN catalog_artifacts derived \
                      ON derived.org_id = source.org_id AND derived.source_artifact_id = source.id \
                      WHERE source.org_id = $1 AND source.object_key = $2 \
@@ -359,7 +365,7 @@ pub(super) async fn enqueue_orphan(
     object_key: &ObjectKey,
     not_before_micros: i64,
 ) -> Result<()> {
-    let now = crate::shared::time::TimestampMicros::now().0;
+    let now = kernel::time::TimestampMicros::now().0;
 
     sqlx::query(
         "INSERT INTO object_gc_queue (org_id, object_key, checksum, reason, not_before, \
@@ -448,9 +454,8 @@ pub(super) async fn catalog_invariant_issues(
         .map(|(invariant, count)| {
             Ok(CatalogInvariantIssue {
                 invariant,
-                occurrences: u64::try_from(count).map_err(|_| {
-                    crate::shared::Error::internal("negative Catalog invariant count")
-                })?,
+                occurrences: u64::try_from(count)
+                    .map_err(|_| kernel::Error::internal("negative Catalog invariant count"))?,
             })
         })
         .collect()

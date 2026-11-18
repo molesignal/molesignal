@@ -10,19 +10,17 @@ use std::cmp::Ordering;
 use arrow::array::{
     Array, BooleanArray, Int64Array, RecordBatch, StringArray, TimestampMicrosecondArray,
 };
+use domain::{
+    storage::ColumnStats,
+    stream::{
+        Clustering, FieldPartitions, FieldType, StreamDefinition, StreamIndexType, address_key,
+        address_number,
+    },
+};
+use kernel::time::TimestampMicros;
 use serde_json::{Map, Value};
 
 use super::metadata::{SORT_FIELDS, merge_zone_maps, shorten_bounds, zone_maps};
-use crate::{
-    domain::{
-        storage::ColumnStats,
-        stream::{
-            FieldPartitions, FieldType, StreamDefinition, StreamIndexType, address_key,
-            address_number,
-        },
-    },
-    shared::time::TimestampMicros,
-};
 
 /// Most distinct values a segment's value set holds.
 const MAX_SET_VALUES: usize = 32;
@@ -43,12 +41,13 @@ pub(crate) struct ColumnStatsBuilder {
 
 impl ColumnStatsBuilder {
     pub(crate) fn new(stream: &StreamDefinition) -> Self {
-        let fields =
-            |index_type: StreamIndexType| {
-                stream.schema.fields.iter().filter(move |field| {
-                    !field.encrypted && field.effective_index_type() == index_type
-                })
-            };
+        let fields = |index_type: StreamIndexType| {
+            stream
+                .schema
+                .fields
+                .iter()
+                .filter(move |field| !field.encrypted && field.index_type == index_type)
+        };
 
         Self {
             minimums: Map::new(),
@@ -70,9 +69,7 @@ impl ColumnStatsBuilder {
                 .schema
                 .fields
                 .iter()
-                .filter(|field| {
-                    !field.encrypted && field.effective_index_type() != StreamIndexType::None
-                })
+                .filter(|field| !field.encrypted && field.index_type != StreamIndexType::None)
                 .map(|field| (field.name.clone(), 0))
                 .collect(),
         }
@@ -158,6 +155,7 @@ impl ColumnStatsBuilder {
             null_counts,
             indexed_at_micros: Some(TimestampMicros::now().0),
             partitions: FieldPartitions::default(),
+            clustering: Clustering::default(),
         }
     }
 }
@@ -170,8 +168,7 @@ pub(crate) fn stats_columns(stream: &StreamDefinition) -> Vec<String> {
         .fields
         .iter()
         .filter(|field| {
-            field.effective_index_type() != StreamIndexType::None
-                || SORT_FIELDS.contains(&field.name.as_str())
+            field.index_type != StreamIndexType::None || SORT_FIELDS.contains(&field.name.as_str())
         })
         .map(|field| field.name.clone())
         .collect()
@@ -254,13 +251,11 @@ mod tests {
     use std::sync::Arc;
 
     use arrow::datatypes::{DataType, Field, Schema as ArrowSchema};
+    use domain::stream::{FieldDef, Schema, StreamType};
+    use kernel::{ids::Id, time::TimestampMicros};
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::stream::{FieldDef, Schema, StreamType},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn stream() -> StreamDefinition {
         let field = |name: &str, data_type: FieldType, index_type: StreamIndexType| {
@@ -268,13 +263,11 @@ mod tests {
                 name: name.into(),
                 data_type,
                 nullable: true,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             };
 
-            field.configure_index(true, index_type);
+            field.index_type = index_type;
             field
         };
 

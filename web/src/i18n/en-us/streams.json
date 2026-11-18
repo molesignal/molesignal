@@ -176,7 +176,8 @@
       "skip": "Skip index",
       "ngram": "N-gram substring",
       "ip": "IP address",
-      "key_value": "JSON keys"
+      "key_value": "JSON keys",
+      "range": "Numeric range"
     },
     "kpis": {
       "events_24h": "Rows written in 24h",
@@ -318,6 +319,17 @@
         "prefix": "First character · {{count}} shards"
       },
       "partition_too_many": "Multiplied by the other field's shards this passes {{max}}.",
+      "clustering_field": "Cluster by field",
+      "clustering_field_hint": "In newly written log files rows sit in time slices, and inside a slice by the values of these fields. A query with an equality on one of them, such as service = 'checkout', then reads only the few pages of each slice that hold the value. Suits fields that queries often name and that take few values, such as a service or level. Each file also counts its rows by minute and by these fields, so counts and minute histograms that filter or group by them read no data. At most two fields. Wider slices skip more pages, and reading the newest rows sorts one more slice.",
+      "clustering_none": "In time order",
+      "clustering_slices": "{{interval}} slices",
+      "clustering_add": "Add a field",
+      "clustering_remove": "Remove this field",
+      "clustering_interval": "Time slice",
+      "clustering_minutes_one": "{{count}} minute",
+      "clustering_minutes_other": "{{count}} minutes",
+      "clustering_seconds_one": "{{count}} second",
+      "clustering_seconds_other": "{{count}} seconds",
       "field_indexes": "Field indexes",
       "field_indexes_hint": "Fields that first appear in this stream get an index by their name.",
       "index_pattern": "Index of new fields",
@@ -335,7 +347,8 @@
       "retention_risk": "Retention will be reduced to {{days}} days and expired data may be deleted.",
       "query_risk": "After query access is disabled, this stream still accepts data but queries and searches are rejected.",
       "downsample_risk": "Original samples older than {{days}} days will be rolled up into time buckets and deleted. This cannot be undone.",
-      "partition_risk": "The split applies to new data only; existing files stay as they are."
+      "partition_risk": "The split applies to new data only; existing files stay as they are.",
+      "clustering_risk": "Clustering applies to new data only; existing files stay as they are."
     },
     "validation": {
       "retention_days": "Data retention must be a whole number of days from 1 to {{max}}.",

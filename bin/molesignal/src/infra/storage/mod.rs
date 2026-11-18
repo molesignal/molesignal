@@ -10,15 +10,18 @@
 //! - [`org_scoped_store`]：把共享读存储限定到单个组织前缀的只读视图（存储层隔离）
 
 pub mod arrow_schema;
+pub(crate) mod background;
 pub mod compactor;
 pub mod downsample;
 pub mod filters;
 pub mod index_rebuild;
 pub mod layout;
 pub mod manifest;
+pub mod minute_counts;
 pub mod object;
 pub mod object_gc;
 pub mod object_reader;
 pub mod org_scoped_store;
 pub mod parquet;
 pub mod reconciler;
+pub mod write_metrics;

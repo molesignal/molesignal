@@ -6,21 +6,19 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use domain::storage::{
+    ArtifactRole, ArtifactState, CatalogInvariant, CatalogObject, FileCatalog, ObjectKey,
+    OrganizationScope,
+};
 use futures::{StreamExt, TryStreamExt};
+use kernel::{Result, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt, path::Path};
 use parking_lot::Mutex;
 use prometheus::IntCounterVec;
+use settings::ReconcilerSettings;
 
-use crate::{
-    config::ReconcilerSettings,
-    domain::storage::{
-        ArtifactRole, ArtifactState, CatalogInvariant, CatalogObject, FileCatalog, ObjectKey,
-        OrganizationScope,
-    },
-    infra::storage::{
-        layout::StorageLayout, manifest::PartitionManifestReader, object_reader::ObjectReader,
-    },
-    shared::{Result, time::TimestampMicros},
+use crate::infra::storage::{
+    layout::StorageLayout, manifest::PartitionManifestReader, object_reader::ObjectReader,
 };
 
 pub struct StorageReconciler {
@@ -176,7 +174,7 @@ impl StorageReconciler {
             Ok(result) => result
                 .bytes()
                 .await
-                .map_err(|error| crate::shared::Error::internal(error.to_string()))?,
+                .map_err(|error| kernel::Error::internal(error.to_string()))?,
             Err(error) => {
                 tracing::warn!(error = %error, "reconciler object read failed");
                 issue(object_kind(catalog_object), "read_failed");
@@ -184,9 +182,16 @@ impl StorageReconciler {
             }
         };
 
-        if let Some(expected) = catalog_object.object.checksum.as_str().strip_prefix("b3:")
-            && blake3::hash(&bytes).to_hex().as_str() != expected
-        {
+        let Some(expected) = catalog_object.object.checksum.as_str().strip_prefix("b3:") else {
+            return Ok(0);
+        };
+
+        // 合并后的对象有几百 MB，在阻塞线程上算哈希，不占 runtime 的工作线程。
+        let actual = tokio::task::spawn_blocking(move || blake3::hash(&bytes))
+            .await
+            .map_err(|error| kernel::Error::internal(error.to_string()))?;
+
+        if actual.to_hex().as_str() != expected {
             issue(object_kind(catalog_object), "checksum_mismatch");
             return Ok(1);
         }
@@ -215,7 +220,7 @@ impl StorageReconciler {
                 .try_collect::<Vec<_>>()
                 .await
                 .map_err(|error| {
-                    crate::shared::Error::internal(format!("list catalog objects: {error}"))
+                    kernel::Error::internal(format!("list catalog objects: {error}"))
                 })?;
 
             for object in &objects {
@@ -291,7 +296,7 @@ fn issues_total() -> &'static IntCounterVec {
     static METRIC: OnceLock<IntCounterVec> = OnceLock::new();
 
     METRIC.get_or_init(|| {
-        crate::shared::metrics::register_int_counter_vec(
+        signals::metrics::register_int_counter_vec(
             "storage_reconciler_issues_total",
             "Storage reconciliation issues by bounded kind and reason",
             &["kind", "reason"],

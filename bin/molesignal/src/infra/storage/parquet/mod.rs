@@ -3,6 +3,8 @@
 
 //! Parquet read and write adapters.
 
+pub mod clustering;
 pub mod partition;
 pub mod reader;
+pub(crate) mod stored_text;
 pub mod writer;

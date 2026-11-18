@@ -6,16 +6,14 @@
 //! 一个 Segment 由一个主数据 Artifact 和若干辅助 Artifact（索引、统计）组成；
 //! Parquet 与索引之间的关系只由 Catalog 行描述，不做路径推导。
 
+use kernel::{ids::Id, time::TimeRange};
 use serde::{Deserialize, Serialize};
 
 use super::{
     artifact::{Artifact, ArtifactRole},
     ids::{FlushId, PhysicalDatasetId, SchemaFingerprint, SegmentId, SequenceRange},
 };
-use crate::{
-    domain::stream::FieldPartitions,
-    shared::{ids::Id, time::TimeRange},
-};
+use crate::domain::stream::{Clustering, FieldPartitions};
 
 /// Segment 可见性状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -43,7 +41,7 @@ impl SegmentState {
 }
 
 impl std::str::FromStr for SegmentState {
-    type Err = crate::shared::Error;
+    type Err = kernel::Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
@@ -51,7 +49,7 @@ impl std::str::FromStr for SegmentState {
             "replaced" => Ok(Self::Replaced),
             "tombstoned" => Ok(Self::Tombstoned),
             "sealed" => Ok(Self::Sealed),
-            other => Err(crate::shared::Error::invalid(format!(
+            other => Err(kernel::Error::invalid(format!(
                 "unknown segment state `{other}`"
             ))),
         }
@@ -98,6 +96,10 @@ pub struct ColumnStats {
     /// 什么。
     #[serde(default, skip_serializing_if = "FieldPartitions::is_empty")]
     pub partitions: FieldPartitions,
+    /// The clustering the segment's rows were written in, see [`Clustering`]. Without one the rows
+    /// are in time order.
+    #[serde(default, skip_serializing_if = "Clustering::is_empty")]
+    pub clustering: Clustering,
 }
 
 impl ColumnStats {
@@ -109,6 +111,7 @@ impl ColumnStats {
             && self.null_counts.is_empty()
             && self.indexed_at_micros.is_none()
             && self.partitions.is_empty()
+            && self.clustering.is_empty()
     }
 }
 
@@ -152,9 +155,9 @@ impl DataSegment {
     }
 
     /// 校验结构不变量：主 Artifact 角色必须是 PrimaryData，辅助不允许再有主数据。
-    pub fn validate(&self) -> crate::shared::Result<()> {
+    pub fn validate(&self) -> kernel::Result<()> {
         if self.primary.role != ArtifactRole::PrimaryData {
-            return Err(crate::shared::Error::invalid(format!(
+            return Err(kernel::Error::invalid(format!(
                 "segment {} primary artifact must have role primary_data, got {}",
                 self.id,
                 self.primary.role.as_str()
@@ -162,7 +165,7 @@ impl DataSegment {
         }
 
         if self.primary.source_artifact_id.is_some() || self.primary.source_checksum.is_some() {
-            return Err(crate::shared::Error::invalid(format!(
+            return Err(kernel::Error::invalid(format!(
                 "segment {} primary artifact must not declare a source",
                 self.id
             )));
@@ -173,7 +176,7 @@ impl DataSegment {
             .iter()
             .find(|a| a.role == ArtifactRole::PrimaryData)
         {
-            return Err(crate::shared::Error::invalid(format!(
+            return Err(kernel::Error::invalid(format!(
                 "segment {} auxiliary artifact {} must not have role primary_data",
                 self.id, aux.id
             )));
@@ -184,14 +187,14 @@ impl DataSegment {
                 && (artifact.source_artifact_id.as_ref() != Some(&self.primary.id)
                     || artifact.source_checksum.as_ref() != Some(&self.primary.object.checksum))
         }) {
-            return Err(crate::shared::Error::invalid(format!(
+            return Err(kernel::Error::invalid(format!(
                 "segment {} index artifact {} is not bound to the primary artifact identity",
                 self.id, index.id
             )));
         }
 
         if self.time_range.start.0 > self.time_range.end.0 {
-            return Err(crate::shared::Error::invalid(format!(
+            return Err(kernel::Error::invalid(format!(
                 "segment {} has inverted time range",
                 self.id
             )));
@@ -203,14 +206,13 @@ impl DataSegment {
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::{
-        domain::storage::{
-            artifact::{ArtifactState, StoredObject},
-            ids::{ArtifactId, ObjectChecksum, ObjectKey},
-            type_id::{ArtifactTypeId, builtin},
-        },
-        shared::time::TimestampMicros,
+    use crate::domain::storage::{
+        artifact::{ArtifactState, StoredObject},
+        ids::{ArtifactId, ObjectChecksum, ObjectKey},
+        type_id::{ArtifactTypeId, builtin},
     };
 
     fn artifact(role: ArtifactRole) -> Artifact {

@@ -4,7 +4,7 @@
 //! 把 tantivy 的 `Directory` 接口适配到 Puffin v1 文件。
 //!
 //! 写路径：[`PuffinDirWriter`] 内部走 tempdir + MmapDirectory，tantivy 正常 IO；
-//! `to_puffin_bytes()` 把每个产出的 tantivy 文件作为一个 Puffin blob 拼接。
+//! `to_puffin_bytes()` 把提交的索引用到的每个 tantivy 文件作为一个 Puffin blob 拼接。
 //!
 //! 读路径：[`PuffinDirReader`] 持有 `PuffinBytesReader`（即 `ObjectStore` + `Path` + `size`），
 //! tantivy 的每次读先查 [`HotCache`]，未命中才对单个 blob 发 sub-range `get_range`。
@@ -25,21 +25,6 @@ use tantivy::schema::Schema;
 pub use writer::PuffinDirWriter;
 
 use crate::puffin::PuffinMeta;
-
-/// 允许进 puffin 的 tantivy 文件扩展名。
-/// 沿用既有约定：`{term,idx,pos,store,fast,fieldnorm,del,json,lock}`，
-/// 外加我们自己写入的 footer-cache blob 走的虚拟文件名常量 [`FOOTER_CACHE_BLOB_TAG`]。
-pub const ALLOWED_FILE_EXT: &[&str] = &[
-    "term",
-    "idx",
-    "pos",
-    "store",
-    "fast",
-    "fieldnorm",
-    "del",
-    "json",
-    "lock",
-];
 
 /// `tantivy::meta.json` 的固定文件名。
 pub const META_JSON: &str = "meta.json";

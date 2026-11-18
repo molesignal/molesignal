@@ -22,6 +22,7 @@ export const INDEX_OPTIONS: Array<{
   { value: 'ngram', labelKey: 'explore.index_options.ngram' },
   { value: 'ip', labelKey: 'explore.index_options.ip' },
   { value: 'key_value', labelKey: 'explore.index_options.key_value' },
+  { value: 'range', labelKey: 'explore.index_options.range' },
 ];
 
 /** 只用于文本字段的索引类型。 */
@@ -30,19 +31,17 @@ const TEXT_ONLY_INDEXES: ReadonlySet<streamsApi.StreamIndexType> = new Set(['ful
 /** 只用于 JSON 字段的索引类型。 */
 const JSON_ONLY_INDEXES: ReadonlySet<streamsApi.StreamIndexType> = new Set(['key_value']);
 
+/** Index types for numbers and times only. */
+const NUMERIC_ONLY_INDEXES: ReadonlySet<streamsApi.StreamIndexType> = new Set(['range']);
+const NUMERIC_TYPES: ReadonlySet<streamsApi.FieldType> = new Set(['int64', 'float64', 'timestamp']);
+
 export function indexOptionsFor(dataType: streamsApi.FieldType) {
   return INDEX_OPTIONS.filter(
     (option) =>
       (dataType === 'utf8' || !TEXT_ONLY_INDEXES.has(option.value)) &&
-      (dataType === 'json' || !JSON_ONLY_INDEXES.has(option.value)),
+      (dataType === 'json' || !JSON_ONLY_INDEXES.has(option.value)) &&
+      (NUMERIC_TYPES.has(dataType) || !NUMERIC_ONLY_INDEXES.has(option.value)),
   );
-}
-
-/** 旧 schema 没有 indexType：与后端的推导一致，文本字段是全文、其余是跳过索引。 */
-function defaultIndexType(field: streamsApi.StreamField): streamsApi.StreamIndexType {
-  if (field.indexType) return field.indexType;
-  if (!field.indexed) return 'none';
-  return field.dataType === 'utf8' || field.dataType === 'json' ? 'full_text' : 'skip';
 }
 
 export function toFieldDrafts(stream: streamsApi.StreamSummary): FieldDraft[] {
@@ -53,7 +52,7 @@ export function toFieldDrafts(stream: streamsApi.StreamSummary): FieldDraft[] {
       : (stream.settings.fieldMasking ?? []).find((item) => item.field === field.name);
     return {
       ...field,
-      indexType: indexRule?.indexType ?? defaultIndexType(field),
+      indexType: indexRule?.indexType ?? field.indexType,
       masking_mode: !masking ? 'inherit' : masking.algorithm ? 'custom' : 'none',
       masking_algorithm: masking?.algorithm ?? defaultAlgorithm('full'),
     };

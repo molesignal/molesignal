@@ -13,27 +13,26 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use common::write_parquet_fixture;
-use molesignal::{
-    domain::{
-        intake::RawEvent,
-        query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{QueryFile, QueryFileSource},
-        stream::{FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamType},
+use domain::{
+    intake::RawEvent,
+    query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
+    storage::{QueryFile, QueryFileSource},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType, StreamType,
     },
-    infra::{
-        cipher::{CipherKey, CipherKeyRepository, FieldKeyService},
-        intake::RecordBuilder,
-        search::datafusion_engine::DataFusionEngine,
-        storage::parquet::writer::ParquetWriter,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::{
+    intake::RecordBuilder, search::datafusion_engine::DataFusionEngine,
+    storage::parquet::writer::ParquetWriter,
 };
 use object_store::{ObjectStore, local::LocalFileSystem};
 use parking_lot::Mutex;
+use postgres::cipher::{CipherKey, CipherKeyRepository, FieldKeyService};
 use serde_json::json;
 
 // ---- in-mem QueryFileSource ----
@@ -177,19 +176,15 @@ fn users_stream(org: &Id) -> StreamDefinition {
                     name: "email".into(),
                     data_type: FieldType::Utf8,
                     nullable: true,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: true,
-                    exact: false,
                 },
                 FieldDef {
                     name: "name".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 },
             ],
         },
@@ -226,23 +221,33 @@ async fn encrypted_field_round_trips_through_intake_and_query() {
     let key_repo: Arc<dyn CipherKeyRepository> = Arc::new(MemCipherKeys::default());
     let field_keys = Arc::new(FieldKeyService::new(key_repo.clone()));
 
-    // intake：解析 org DEK（首次自动 provision）→ 注入 RecordBuilder → 加密 email。
+    // intake：解析 org DEK（首次自动 provision）→ 事件变成列时加密 email → 进 RecordBuilder。
     let dek = field_keys.current(&org).await.expect("provision DEK");
-    let mut rb = RecordBuilder::new(&stream);
-    rb.set_field_key(dek);
-    for (email, name) in [("alice@example.com", "alice"), ("bob@example.com", "bob")] {
-        let mut fields = serde_json::Map::new();
-        fields.insert("email".into(), json!(email));
-        fields.insert("name".into(), json!(name));
-        rb.push(
-            &RawEvent {
+    let events: Vec<RawEvent> = [("alice@example.com", "alice"), ("bob@example.com", "bob")]
+        .into_iter()
+        .map(|(email, name)| {
+            let mut fields = serde_json::Map::new();
+            fields.insert("email".into(), json!(email));
+            fields.insert("name".into(), json!(name));
+            RawEvent {
                 timestamp: TimestampMicros(1_000_000),
                 fields,
-            },
-            1,
-        )
-        .unwrap();
-    }
+            }
+        })
+        .collect();
+    let columns =
+        molesignal::infra::intake::row_columns::rows_to_columns(&stream, &events, Some(&dek))
+            .unwrap();
+    let mut rb = RecordBuilder::new(&stream);
+    rb.push_batch(
+        &columns,
+        &molesignal::infra::intake::BufferWriter::new(
+            domain::storage::WriterNodeId::new("test-node"),
+            domain::storage::WriterEpoch(1),
+        ),
+        domain::storage::WalSequence(1),
+    )
+    .unwrap();
     let batch = rb.begin_flush().unwrap().unwrap().batch;
     let writer = ParquetWriter::new(store.clone());
     let meta = write_parquet_fixture(&writer, &stream, batch).await;

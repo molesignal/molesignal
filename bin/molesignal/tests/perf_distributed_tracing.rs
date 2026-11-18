@@ -15,27 +15,23 @@ use std::{
 };
 
 use bytes::Bytes;
-use molesignal::{
-    config::ObjectStoreSettings,
-    domain::{
-        intake::RawEvent,
-        stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamType},
-    },
-    infra::{
-        intake::RecordBuilder,
-        query::promql::{LabelSet, Series, apply_rate_like},
-        storage::object::production::ProductionObjectStore,
-    },
-    shared::{
-        ids::Id,
-        self_telemetry::{
-            ResourceIdentity, SelfTelemetryHub, SelfTelemetryInit, SelfTelemetryLayer,
-        },
-        time::TimestampMicros,
-    },
+use domain::{
+    intake::RawEvent,
+    storage::{WalSequence, WriterEpoch, WriterNodeId},
+    stream::{FieldDef, FieldType, Schema, StreamDefinition, StreamIndexType, StreamType},
+};
+use kernel::{ids::Id, time::TimestampMicros};
+use molesignal::infra::{
+    intake::{BufferWriter, RecordBuilder, row_columns::rows_to_columns},
+    query::promql::{LabelSet, RangeWindow, Series, apply_rate_like},
+    storage::object::production::ProductionObjectStore,
 };
 use object_store::{ObjectStoreExt, PutPayload, memory::InMemory, path::Path};
 use serde_json::json;
+use settings::ObjectStoreSettings;
+use signals::self_telemetry::{
+    ResourceIdentity, SelfTelemetryHub, SelfTelemetryInit, SelfTelemetryLayer,
+};
 use tracing::{Dispatch, Instrument, instrument::WithSubscriber};
 use tracing_subscriber::{layer::SubscriberExt, registry};
 
@@ -117,11 +113,15 @@ impl Workload {
         );
         async {
             let mut builder = RecordBuilder::new(&self.stream);
-            for (sequence, event) in self.events.iter().enumerate() {
-                builder
-                    .push(event, sequence as u64)
-                    .expect("benchmark event");
-            }
+            let columns =
+                rows_to_columns(&self.stream, &self.events, None).expect("benchmark events");
+            builder
+                .push_batch(
+                    &columns,
+                    &BufferWriter::new(WriterNodeId::new("benchmark"), WriterEpoch(1)),
+                    WalSequence(1),
+                )
+                .expect("benchmark batch");
             std::hint::black_box(
                 builder
                     .begin_flush()
@@ -139,10 +139,11 @@ impl Workload {
             molesignal.query.language = "promql",
         );
         async {
+            // One sample a second from 0 to 99,999 s, all inside the window.
             std::hint::black_box(apply_rate_like(
                 "rate",
                 self.query_series.clone(),
-                Duration::from_secs(300),
+                RangeWindow::new(99_999_000_000, Duration::from_secs(100_000)),
             ));
         }
         .instrument(query)
@@ -172,10 +173,8 @@ fn field(name: &str, data_type: FieldType) -> FieldDef {
         name: name.into(),
         data_type,
         nullable: true,
-        index_type: None,
-        indexed: false,
+        index_type: StreamIndexType::None,
         encrypted: false,
-        exact: false,
     }
 }
 

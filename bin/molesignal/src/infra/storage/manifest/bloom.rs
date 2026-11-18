@@ -13,18 +13,17 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use domain::{
+    storage::{ArtifactRole, ArtifactState, DataSegment, ObjectKey, type_id},
+    stream::{FieldType, StreamDefinition, StreamIndexType},
+};
+use kernel::{Error, Result};
 use object_store::{ObjectStore, ObjectStoreExt, path::Path};
+use query_language::key_value_field;
 
-use crate::{
-    domain::{
-        storage::{ArtifactRole, ArtifactState, DataSegment, ObjectKey, type_id},
-        stream::{FieldType, StreamDefinition, StreamIndexType},
-    },
-    infra::{
-        search::tantivy_index::{TantivyArchiveOpener, key_value_field},
-        storage::filters::{Bloom, FilterKind, Filters},
-    },
-    shared::{Error, Result},
+use crate::infra::{
+    search::tantivy_index::TantivyArchiveOpener,
+    storage::filters::{Bloom, FilterKind, Filters},
 };
 
 /// The key of the filters of a manifest: beside it, so it shares its prefix and is collected with
@@ -50,15 +49,11 @@ pub(crate) async fn build(
         .fields
         .iter()
         .filter(|field| !field.encrypted)
-        .filter_map(
-            |field| match (field.data_type, field.effective_index_type()) {
-                (FieldType::Utf8 | FieldType::Json, StreamIndexType::Exact) => {
-                    Some(field.name.clone())
-                }
-                (FieldType::Json, StreamIndexType::KeyValue) => Some(key_value_field(&field.name)),
-                _ => None,
-            },
-        )
+        .filter_map(|field| match (field.data_type, field.index_type) {
+            (FieldType::Utf8 | FieldType::Json, StreamIndexType::Exact) => Some(field.name.clone()),
+            (FieldType::Json, StreamIndexType::KeyValue) => Some(key_value_field(&field.name)),
+            _ => None,
+        })
         .collect::<Vec<_>>();
 
     let mut filters = Filters::default();
@@ -214,34 +209,27 @@ mod tests {
         array::{RecordBatch, StringArray, TimestampMicrosecondArray},
         datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
     };
+    use domain::{
+        storage::{
+            DatasetState, IndexPolicy, IndexTypeId, PartitionPolicy, PhysicalDataset,
+            PhysicalDatasetId, StoragePolicy, primary_dataset_type,
+        },
+        stream::{FieldDef, Schema, StreamType},
+    };
+    use kernel::{ids::Id, time::TimestampMicros};
     use object_store::memory::InMemory;
 
     use super::*;
-    use crate::{
-        domain::{
-            storage::{
-                DatasetState, IndexPolicy, IndexTypeId, PartitionPolicy, PhysicalDataset,
-                PhysicalDatasetId, StoragePolicy, primary_dataset_type,
-            },
-            stream::{FieldDef, Schema, StreamType},
-        },
-        infra::storage::parquet::writer::ParquetWriter,
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use crate::infra::storage::parquet::writer::ParquetWriter;
 
     fn stream() -> StreamDefinition {
-        let field = |name: &str, exact: bool| FieldDef {
+        let field = |name: &str, index_type: StreamIndexType| FieldDef {
             name: name.into(),
             data_type: FieldType::Utf8,
             nullable: false,
-            index_type: None,
-            indexed: true,
+            index_type,
             encrypted: false,
-            exact,
         };
-
-        let mut request_id = field("request_id", false);
-        request_id.configure_index(true, StreamIndexType::Bloom);
 
         StreamDefinition {
             id: Id::new(),
@@ -249,7 +237,11 @@ mod tests {
             name: "logs".into(),
             stream_type: StreamType::LOGS,
             schema: Schema {
-                fields: vec![field("trace_id", true), field("message", false), request_id],
+                fields: vec![
+                    field("trace_id", StreamIndexType::Exact),
+                    field("message", StreamIndexType::FullText),
+                    field("request_id", StreamIndexType::Bloom),
+                ],
             },
             retention: None,
             created_at: TimestampMicros(0),

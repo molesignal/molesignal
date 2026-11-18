@@ -6,29 +6,27 @@
 
 use std::sync::Arc;
 
+use domain::{
+    storage::{Artifact, ColumnStats, DataSegment, PhysicalDatasetId},
+    stream::StreamDefinition,
+};
 use futures::StreamExt;
+use kernel::{Error, Result, ids::Id};
 use object_store::ObjectStore;
 
 use super::upload_archive;
-use crate::{
-    domain::{
-        storage::{Artifact, ColumnStats, DataSegment, PhysicalDatasetId},
-        stream::StreamDefinition,
-    },
-    infra::{
-        search::tantivy_index::{TIMESTAMP_FIELD, TantivyArchiveBuilder},
-        storage::{
-            filters::{Filters, SegmentFilters},
-            parquet::{
-                reader::{ParquetReader, ReadOptions},
-                writer::{
-                    add_batch_docs,
-                    column_stats::{ColumnStatsBuilder, stats_columns},
-                },
+use crate::infra::{
+    search::tantivy_index::{TIMESTAMP_FIELD, TantivyArchiveBuilder},
+    storage::{
+        filters::{Filters, SegmentFilters},
+        parquet::{
+            reader::{ParquetReader, ReadOptions},
+            writer::{
+                add_batch_docs,
+                column_stats::{ColumnStatsBuilder, stats_columns},
             },
         },
     },
-    shared::{Error, Result, ids::Id},
 };
 
 /// 一个段按数据流现在的索引设置重建出的产物。
@@ -104,6 +102,7 @@ pub(crate) async fn reindex_segment(
 
     let mut stats = stats.finish();
     stats.partitions = segment.column_stats.partitions.clone();
+    stats.clustering = segment.column_stats.clustering.clone();
 
     let archive = match builder {
         Some(builder) => Some(

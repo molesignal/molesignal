@@ -10,27 +10,31 @@
 use std::sync::{Arc, OnceLock};
 
 use arrow::array::RecordBatch;
+use domain::{
+    storage::{
+        ArtifactRole, ArtifactState, DataSegment, DatasetSelection, DatasetState, FileCatalog,
+        OrganizationScope, Partition, PhysicalDataset, ReplaceSegments, SegmentId,
+        TombstoneSegments, type_id,
+    },
+    stream::{Downsample, StreamDefinition, StreamType},
+};
 use futures::stream::BoxStream;
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use object_store::ObjectStore;
 use prometheus::{IntCounter, IntCounterVec};
+use settings::CompactorSettings;
+use signals::metrics::{register_int_counter, register_int_counter_vec};
 
-use super::parquet::{partition::storage_ordering, reader::ParquetReader, writer::ParquetWriter};
-use crate::{
-    config::CompactorSettings,
-    domain::{
-        storage::{
-            ArtifactRole, ArtifactState, DataSegment, DatasetSelection, DatasetState, FileCatalog,
-            OrganizationScope, Partition, PhysicalDataset, ReplaceSegments, SegmentId,
-            TombstoneSegments, type_id,
-        },
-        stream::{Downsample, StreamDefinition, StreamType},
-    },
-    infra::storage::{manifest::PartitionManifestReader, object_reader::ObjectReader},
-    shared::{
-        Error, Result,
-        metrics::{register_int_counter, register_int_counter_vec},
-        time::{TimeRange, TimestampMicros},
-    },
+use super::parquet::{
+    clustering::clustered_ordering, reader::ParquetReader, writer::ParquetWriter,
+};
+use crate::infra::storage::{
+    manifest::PartitionManifestReader,
+    object_reader::ObjectReader,
+    write_metrics::{WriteStage, record_written},
 };
 
 mod dedup;
@@ -38,14 +42,15 @@ mod downsample;
 mod partition;
 mod sorted;
 
-use partition::{build_groups, common_partitions, daily_groups, validate_day, validate_group};
+use partition::{
+    build_groups, common_clustering, common_partitions, daily_groups, input_window_bytes,
+    validate_day, validate_group,
+};
 
 static FAILURES: OnceLock<IntCounterVec> = OnceLock::new();
 static MERGED: OnceLock<IntCounter> = OnceLock::new();
 static RETENTION_DELETED: OnceLock<IntCounter> = OnceLock::new();
 const DAY_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
-/// Compressed bytes of one merge input read at a time.
-const INPUT_WINDOW_BYTES: u64 = 4 * 1024 * 1024;
 
 fn failures() -> &'static IntCounterVec {
     FAILURES.get_or_init(|| {
@@ -270,9 +275,9 @@ impl Compactor {
     }
 
     /// Merges `group` into one Segment of `partition`. Each input is read a window of rows at a
-    /// time and the output is written as it is merged, so a merge holds about
-    /// [`INPUT_WINDOW_BYTES`] per input, one output row group and a few upload parts, however
-    /// large `target_size` is.
+    /// time and the output is written as it is merged, so a merge holds a window of each input
+    /// (see [`input_window_bytes`]), one output row group and a few upload parts, however large
+    /// `target_size` is.
     #[tracing::instrument(
         name = "compactor.merge",
         skip_all,
@@ -292,12 +297,24 @@ impl Compactor {
             crate::infra::intake::physical_schema::project(stream, &dataset.dataset_type);
         let schema = crate::infra::storage::arrow_schema::to_arrow(&physical_stream.schema);
 
-        let ordering = storage_ordering(schema.as_ref(), Some(&dataset.dataset_type))
-            .ok_or_else(|| Error::internal("a physical dataset has a storage order"))?;
+        // Inputs share their clustering (see `partition::validate_group`); the merge keeps it.
+        let clustering = common_clustering(group);
 
-        let opened =
-            futures::future::join_all(group.iter().map(|segment| self.open_input(stream, segment)))
-                .await;
+        let ordering = clustered_ordering(
+            schema.as_ref(),
+            Some(&dataset.dataset_type),
+            Some(&clustering),
+        )
+        .ok_or_else(|| Error::internal("a physical dataset has a storage order"))?;
+
+        let window_bytes = input_window_bytes(group.len());
+
+        let opened = futures::future::join_all(
+            group
+                .iter()
+                .map(|segment| self.open_input(stream, segment, window_bytes)),
+        )
+        .await;
 
         let mut inputs = Vec::with_capacity(group.len());
         let mut missing = Vec::new();
@@ -334,12 +351,27 @@ impl Compactor {
             dedup::entity_columns(&schema),
         )?;
 
+        let clustered = Some(&clustering).filter(|clustering| !clustering.is_empty());
+
         let mut replacement = self
             .writer
-            .write_sorted_segment(&physical_stream, dataset, partition, schema, rows)
+            .write_sorted_segment(
+                &physical_stream,
+                dataset,
+                partition,
+                schema,
+                clustered,
+                rows,
+            )
             .await?;
 
         replacement.column_stats.partitions = common_partitions(group);
+
+        record_written(
+            &stream.stream_type,
+            WriteStage::Compaction,
+            std::slice::from_ref(&replacement),
+        );
 
         let scope = OrganizationScope::new(stream.org_id.clone());
 
@@ -365,6 +397,7 @@ impl Compactor {
         &self,
         stream: &StreamDefinition,
         segment: &DataSegment,
+        window_bytes: u64,
     ) -> Result<BoxStream<'static, Result<RecordBatch>>> {
         self.object_reader
             .register_segment(&stream.org_id, segment)?;
@@ -373,7 +406,7 @@ impl Compactor {
             .stream_windows_from_store(
                 self.object_reader.store(),
                 segment.primary.object.key.as_str(),
-                INPUT_WINDOW_BYTES,
+                window_bytes,
             )
             .await
     }
@@ -414,7 +447,7 @@ impl Compactor {
             now.saturating_sub(i64::from(stream_retention).saturating_mul(DAY_MICROS));
 
         if stream.stream_type == StreamType::PROFILES {
-            match crate::infra::profiles::sweep_expired_archives(
+            match profiles::sweep_expired_archives(
                 &self.object_store,
                 &stream.org_id,
                 profile_cutoff,
@@ -546,27 +579,25 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arrow::array::{Int64Array, RecordBatch, StringArray, TimestampMicrosecondArray};
+    use domain::{
+        storage::{
+            ArtifactRole, ArtifactState, CommitFlush, FlushProvenance, SequenceRange, WalSequence,
+            WriterEpoch, WriterNodeId, primary_dataset_type, type_id,
+        },
+        stream::{Clustering, FieldDef, FieldType, Schema, StreamIndexType},
+    };
     use futures::StreamExt;
+    use kernel::ids::Id;
     use object_store::{ObjectStoreExt, memory::InMemory, path::Path};
 
     use super::*;
-    use crate::{
-        domain::{
-            storage::{
-                ArtifactRole, ArtifactState, CommitFlush, FlushProvenance, SequenceRange,
-                WalSequence, WriterEpoch, WriterNodeId, primary_dataset_type, type_id,
-            },
-            stream::{FieldDef, FieldType, Schema, StreamIndexType},
+    use crate::infra::{
+        intake::{
+            ResolvedDataset,
+            dataset_resolver::test_support::{StubFileCatalog, test_catalog_and_resolver},
         },
-        infra::{
-            intake::{
-                ResolvedDataset,
-                dataset_resolver::test_support::{StubFileCatalog, test_catalog_and_resolver},
-            },
-            search::tantivy_index::{BarQuery, BarTally, TantivyArchiveOpener},
-            storage::arrow_schema,
-        },
-        shared::ids::Id,
+        search::tantivy_index::{BarQuery, BarTally, TantivyArchiveOpener},
+        storage::{arrow_schema, minute_counts::MinuteCounts},
     };
 
     fn stream() -> StreamDefinition {
@@ -580,10 +611,8 @@ mod tests {
                     name: "value".into(),
                     data_type: FieldType::Int64,
                     nullable: false,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 }],
             },
             retention: None,
@@ -673,7 +702,7 @@ mod tests {
         let object_reader = ObjectReader::build(
             store.clone(),
             "local",
-            &crate::config::ObjectCacheSettings::default(),
+            &settings::ObjectCacheSettings::default(),
         )
         .unwrap();
         Compactor::new(
@@ -833,10 +862,8 @@ mod tests {
             name: "level".into(),
             data_type: FieldType::Utf8,
             nullable: true,
-            index_type: Some(StreamIndexType::Exact),
-            indexed: true,
+            index_type: StreamIndexType::Exact,
             encrypted: false,
-            exact: true,
         });
 
         let (catalog, resolver) = test_catalog_and_resolver();
@@ -961,6 +988,137 @@ mod tests {
         }
 
         assert_eq!(bars, Some(expected));
+    }
+
+    /// Files clustered alike merge into one clustered the same way, which counts its rows by minute
+    /// and by the clustering field as the rows themselves would be counted.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_clustered_merge_keeps_its_clustering_and_counts_its_rows_by_minute() {
+        const SECOND: i64 = 1_000_000;
+
+        let mut stream = stream();
+
+        stream.schema.fields.push(FieldDef {
+            name: "level".into(),
+            data_type: FieldType::Utf8,
+            nullable: true,
+            index_type: StreamIndexType::None,
+            encrypted: false,
+        });
+
+        let (catalog, resolver) = test_catalog_and_resolver();
+        let dataset = resolver
+            .resolve(&stream, primary_dataset_type(stream.stream_type).unwrap())
+            .await
+            .unwrap();
+        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let writer = Arc::new(ParquetWriter::new(store.clone()));
+        let scope = OrganizationScope::new(stream.org_id.clone());
+        let clustering = Clustering::new(vec!["level".into()], 60 * SECOND);
+        let mut all_times = Vec::new();
+
+        // Three inputs whose times interleave over three minutes, two seconds apart.
+        for input in 0..3_u64 {
+            let times = (0..30)
+                .map(|step| (1 + input as i64 + 3 * step) * 2 * SECOND)
+                .collect::<Vec<_>>();
+
+            all_times.extend_from_slice(&times);
+
+            let provenance = FlushProvenance::derive(
+                WriterNodeId::new("node-a"),
+                WriterEpoch(1),
+                SequenceRange::new(WalSequence(input * 2 + 1), WalSequence(input * 2 + 2)),
+            );
+
+            let segments = writer
+                .flush_catalog_clustered(
+                    &stream,
+                    &dataset.dataset,
+                    &provenance,
+                    level_batch(&stream, &times),
+                    None,
+                    Some(&clustering),
+                )
+                .await
+                .unwrap();
+
+            catalog
+                .commit_flush(
+                    &scope,
+                    CommitFlush {
+                        dataset_id: dataset.dataset.id.clone(),
+                        provenance,
+                        segments,
+                    },
+                )
+                .await
+                .unwrap();
+        }
+
+        let compactor = compactor(catalog.clone(), writer, store.clone());
+        let hour = TimeRange::new(TimestampMicros(0), TimestampMicros(3_600 * SECOND));
+
+        assert_eq!(compactor.sweep_one(&stream, hour, true).await.unwrap(), 1);
+
+        let mut segments = catalog
+            .snapshot(
+                &scope,
+                DatasetSelection {
+                    dataset_ids: vec![dataset.dataset.id.clone()],
+                    time_range: hour,
+                    partition_shard: None,
+                },
+            )
+            .await
+            .unwrap()
+            .datasets
+            .remove(0)
+            .segments;
+
+        assert_eq!(segments.len(), 1);
+
+        let merged = segments.remove(0);
+
+        assert_eq!(merged.column_stats.clustering, clustering);
+
+        let artifact = merged
+            .auxiliaries
+            .iter()
+            .find(|artifact| {
+                artifact.artifact_type.as_str() == type_id::builtin::ARTIFACT_MINUTE_COUNTS
+            })
+            .expect("a clustered merge counts its rows by minute");
+
+        let bytes = store
+            .get(&Path::from(artifact.object.key.as_str()))
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+
+        let counts = MinuteCounts::decode(&bytes).unwrap();
+        let level = counts.field("level").unwrap();
+        let mut expected: BTreeMap<(i64, String), u64> = BTreeMap::new();
+
+        for time in &all_times {
+            let value = if time % 3 == 0 { "error" } else { "info" };
+            *expected
+                .entry((time.div_euclid(60 * SECOND), value.to_owned()))
+                .or_default() += 1;
+        }
+
+        let counted = counts
+            .entries(i64::MIN..=i64::MAX, &[])
+            .map(|entry| {
+                let value = counts.value(level, entry).unwrap_or_default().to_owned();
+                ((counts.minute(entry), value), counts.rows(entry))
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        assert_eq!(counted, expected);
+        assert_eq!(counts.total(), merged.row_count);
     }
 
     /// A finished day whose hours hold one small file each becomes one file for the whole day.

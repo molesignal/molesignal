@@ -4,13 +4,11 @@
 use std::sync::OnceLock;
 
 use object_store::{Error as OsError, path::Path as ObjPath};
-use prometheus::{HistogramVec, IntCounterVec};
+use prometheus::{HistogramVec, IntCounterVec, IntGaugeVec};
+use signals::metrics::{register_histogram_vec, register_int_counter_vec, register_int_gauge_vec};
 use tracing::field;
 
-use crate::{
-    infra::storage::layout::StorageLayout,
-    shared::metrics::{register_histogram_vec, register_int_counter_vec},
-};
+use crate::infra::storage::layout::StorageLayout;
 
 pub(super) fn operation_span(
     backend: &'static str,
@@ -19,9 +17,8 @@ pub(super) fn operation_span(
 ) -> tracing::Span {
     let category = location.map(object_category).unwrap_or("collection");
 
-    let fingerprint = location.and_then(|path| {
-        crate::shared::trace_normalization::optional_hmac_fingerprint(path.as_ref())
-    });
+    let fingerprint = location
+        .and_then(|path| signals::trace_normalization::optional_hmac_fingerprint(path.as_ref()));
 
     tracing::info_span!(
         "object_store.operation",
@@ -99,6 +96,15 @@ static BYTES_TOTAL: OnceLock<IntCounterVec> = OnceLock::new();
 static ERRORS_TOTAL: OnceLock<IntCounterVec> = OnceLock::new();
 static OP_DUR: OnceLock<HistogramVec> = OnceLock::new();
 static HEALTH_DUR: OnceLock<HistogramVec> = OnceLock::new();
+static PERMIT_WAIT: OnceLock<HistogramVec> = OnceLock::new();
+static PERMIT_HOLD: OnceLock<HistogramVec> = OnceLock::new();
+static PERMITS_WAITING: OnceLock<IntGaugeVec> = OnceLock::new();
+static PERMITS_IN_USE: OnceLock<IntGaugeVec> = OnceLock::new();
+
+/// 许可等待与占用时长的桶：多数请求不等，等满 `op_timeout_secs`（默认 30 秒）的落在最后几个桶。
+const PERMIT_BUCKETS: [f64; 11] = [
+    0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0,
+];
 
 pub(super) fn ops_total() -> &'static IntCounterVec {
     OPS_TOTAL.get_or_init(|| {
@@ -148,6 +154,48 @@ pub fn health_dur() -> &'static HistogramVec {
             "health probe round-trip",
             &["backend"],
             vec![0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0],
+        )
+    })
+}
+
+pub(super) fn permit_wait() -> &'static HistogramVec {
+    PERMIT_WAIT.get_or_init(|| {
+        register_histogram_vec(
+            "object_store_permit_wait_seconds",
+            "time a request waited for a concurrency permit",
+            &["backend", "op"],
+            PERMIT_BUCKETS.to_vec(),
+        )
+    })
+}
+
+pub(super) fn permit_hold() -> &'static HistogramVec {
+    PERMIT_HOLD.get_or_init(|| {
+        register_histogram_vec(
+            "object_store_permit_hold_seconds",
+            "time a request held its concurrency permit, retries included",
+            &["backend", "op"],
+            PERMIT_BUCKETS.to_vec(),
+        )
+    })
+}
+
+pub(super) fn permits_waiting() -> &'static IntGaugeVec {
+    PERMITS_WAITING.get_or_init(|| {
+        register_int_gauge_vec(
+            "object_store_permits_waiting",
+            "requests waiting for a concurrency permit",
+            &["backend"],
+        )
+    })
+}
+
+pub(super) fn permits_in_use() -> &'static IntGaugeVec {
+    PERMITS_IN_USE.get_or_init(|| {
+        register_int_gauge_vec(
+            "object_store_permits_in_use",
+            "concurrency permits held by requests",
+            &["backend"],
         )
     })
 }

@@ -176,7 +176,8 @@
       "skip": "跳过索引",
       "ngram": "N-gram 子串",
       "ip": "IP 地址",
-      "key_value": "JSON 键值"
+      "key_value": "JSON 键值",
+      "range": "数值范围"
     },
     "kpis": {
       "events_24h": "24h 写入行数",
@@ -318,6 +319,17 @@
         "prefix": "首字符 · {{count}} 片"
       },
       "partition_too_many": "和另一个字段的分片数相乘会超过 {{max}}。",
+      "clustering_field": "按字段聚簇",
+      "clustering_field_hint": "新写入的日志文件里，行先按时间片排列，片内再按这些字段的值排列。带这些字段等值条件的查询（如 service = 'checkout'）在每个时间片里只读这个值所在的几页，适合查询常带、取值不多的字段，如服务、级别。每个文件还按分钟、按这些字段计好行数，按它们过滤或分组的计数和整分钟直方图不用读数据。最多两个字段；时间片越宽，跳过的页越多，取最新几行时也要多排一片。",
+      "clustering_none": "按时间排列",
+      "clustering_slices": "每 {{interval}} 一片",
+      "clustering_add": "添加聚簇字段",
+      "clustering_remove": "删除这个聚簇字段",
+      "clustering_interval": "时间片",
+      "clustering_minutes_one": "{{count}} 分钟",
+      "clustering_minutes_other": "{{count}} 分钟",
+      "clustering_seconds_one": "{{count}} 秒",
+      "clustering_seconds_other": "{{count}} 秒",
       "field_indexes": "字段索引",
       "field_indexes_hint": "数据流里第一次出现的字段按名字自动选索引。",
       "index_pattern": "新字段的索引",
@@ -335,7 +347,8 @@
       "retention_risk": "保留期将缩短为 {{days}} 天，超期数据可能被删除。",
       "query_risk": "关闭查询后，该数据流仍接收数据，但查询和搜索会被拒绝。",
       "downsample_risk": "早于 {{days}} 天的原始样本将被聚合成时间桶并删除，无法恢复。",
-      "partition_risk": "分片设置只影响新写入的数据，已有文件保持原样。"
+      "partition_risk": "分片设置只影响新写入的数据，已有文件保持原样。",
+      "clustering_risk": "聚簇只影响新写入的数据，已有文件保持原样。"
     },
     "validation": {
       "retention_days": "数据保留期必须是 1 到 {{max}} 之间的整数天。",

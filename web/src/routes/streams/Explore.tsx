@@ -70,6 +70,7 @@ import { INDEX_OPTIONS, type FieldDraft } from './fieldEditor/model';
 import { logicalFieldType, streamVariantsForDetail } from './model';
 import { RetentionPanel } from './RetentionPanel';
 import {
+  clusteringForDraft,
   draftSignature,
   parseOptionalNumber,
   partitionsForDraft,
@@ -680,6 +681,7 @@ export function StreamExplore() {
                 <SettingsPanel
                   draft={draft}
                   mergesByDay={stream.streamType === 'logs' || stream.streamType === 'traces'}
+                  clusters={stream.streamType === 'logs'}
                   onChange={(patch) => {
                     if (!mutableSettingsAccess.allowed) return;
                     setDraft((current) =>
@@ -791,6 +793,11 @@ function changeRisks(
   if (partitionChanged) {
     risks.push(t('explore.changes.partition_risk'));
   }
+  const clusteringChanged =
+    JSON.stringify(clusteringForDraft(original)) !== JSON.stringify(clusteringForDraft(draft));
+  if (clusteringChanged) {
+    risks.push(t('explore.changes.clustering_risk'));
+  }
   return risks;
 }
 
@@ -851,7 +858,7 @@ function OverviewPanel({
   onStatsRefresh: () => void;
 }) {
   const { t } = useTranslation('streams');
-  const indexedFields = stream.schema.fields.filter((field) => field.indexed).length;
+  const indexedFields = stream.schema.fields.filter((field) => field.indexType !== 'none').length;
   const totalFields = stream.schema.fields.length;
   const noData =
     !runtimeError &&
@@ -1101,11 +1108,11 @@ function SchemaPanel({
   const visibleFields = needle
     ? fields.filter((field) => field.name.toLowerCase().includes(needle))
     : fields;
-  const indexed = fields.filter((field) => field.indexed).length;
+  const indexed = fields.filter((field) => field.indexType !== 'none').length;
   const encrypted = fields.filter((field) => field.encrypted).length;
   const suggestedField =
-    fields.find((field) => field.dataType === 'utf8' && !field.indexed) ??
-    fields.find((field) => !field.indexed);
+    fields.find((field) => field.dataType === 'utf8' && field.indexType === 'none') ??
+    fields.find((field) => field.indexType === 'none');
 
   return (
     <div className="space-y-4">
@@ -1188,7 +1195,7 @@ function SchemaPanel({
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <Pill tone={field.indexed ? 'indigo' : 'dim'}>
+                    <Pill tone={field.indexType !== 'none' ? 'indigo' : 'dim'}>
                       {t(
                         INDEX_OPTIONS.find((option) => option.value === field.indexType)
                           ?.labelKey ?? 'explore.index_options.none',

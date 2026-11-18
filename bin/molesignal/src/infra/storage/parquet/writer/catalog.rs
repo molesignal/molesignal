@@ -5,49 +5,29 @@
 
 use arrow::array::RecordBatch;
 use bytes::Bytes;
+use domain::{
+    storage::{
+        Artifact, ArtifactRole, ArtifactState, ArtifactTypeId, DataSegment, FlushProvenance,
+        ObjectChecksum, ObjectKey, PhysicalDataset, SchemaFingerprint, SegmentState, StoredObject,
+        type_id,
+    },
+    stream::{Clustering, FieldPartitions, StreamDefinition},
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt, PutMode, PutOptions, PutPayload, path::Path};
 
-use super::{
-    ParquetWriter, build_tantivy_bytes_for_batch, column_stats::ColumnStatsBuilder, encode_parquet,
-    filter_artifact::publish_filters, metadata::timestamp_range,
-};
-use crate::{
-    domain::{
-        storage::{
-            Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, DataSegment,
-            FlushProvenance, IndexTypeId, ObjectChecksum, ObjectKey, Partition, PhysicalDataset,
-            SchemaFingerprint, SegmentId, SegmentState, StoredObject, type_id,
-        },
-        stream::{FieldPartitions, StreamDefinition},
-    },
-    infra::{
-        search::tantivy_index,
-        storage::{
-            filters::SegmentFilters,
-            layout::StorageLayout,
-            parquet::partition::{sort_for_storage, split_by_partition, split_by_shard},
-        },
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
+use super::{ParquetWriter, index_objects::SegmentObjects};
+use crate::infra::{
+    search::tantivy_index,
+    storage::{
+        parquet::partition::{split_by_partition, split_by_shard},
+        write_metrics::{WriteStage, record_written},
     },
 };
 
-enum IndexBuild {
-    Ready {
-        artifact_id: ArtifactId,
-        artifact_type: ArtifactTypeId,
-        key: ObjectKey,
-        bytes: Vec<u8>,
-    },
-    Failed {
-        artifact_id: ArtifactId,
-        artifact_type: ArtifactTypeId,
-        key: ObjectKey,
-        reason: String,
-    },
-}
+mod encode;
+
+use encode::{EncodedPiece, IndexBuild, encode_piece};
 
 /// The rows of one segment: a time partition, or one shard of it.
 struct Piece {
@@ -55,6 +35,8 @@ struct Piece {
     shard: u16,
     /// The partition fields every row's shard follows; `None` when the rows were not sharded.
     sharding: Option<FieldPartitions>,
+    /// The order of the rows inside the segment's file, see [`Clustering`].
+    clustering: Option<Clustering>,
 }
 
 impl ParquetWriter {
@@ -90,8 +72,39 @@ impl ParquetWriter {
         batch: RecordBatch,
         sharding: Option<&FieldPartitions>,
     ) -> Result<Vec<DataSegment>> {
-        self.write_catalog_to_store(store, stream, dataset, Some(provenance), batch, sharding)
-            .await
+        self.write_catalog_to_store(
+            store,
+            stream,
+            dataset,
+            Some(provenance),
+            batch,
+            sharding,
+            None,
+        )
+        .await
+    }
+
+    /// [`Self::flush_catalog`], with the rows of each file in the order `clustering` gives them
+    /// where it applies (see [`Clustering`]).
+    pub async fn flush_catalog_clustered(
+        &self,
+        stream: &StreamDefinition,
+        dataset: &PhysicalDataset,
+        provenance: &FlushProvenance,
+        batch: RecordBatch,
+        sharding: Option<&FieldPartitions>,
+        clustering: Option<&Clustering>,
+    ) -> Result<Vec<DataSegment>> {
+        self.write_catalog_to_store(
+            self.object_store.as_ref(),
+            stream,
+            dataset,
+            Some(provenance),
+            batch,
+            sharding,
+            clustering,
+        )
+        .await
     }
 
     /// Encode immutable compaction replacements. These segments carry no WAL sequence or flush
@@ -109,10 +122,12 @@ impl ParquetWriter {
             None,
             batch,
             None,
+            None,
         )
         .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn write_catalog_to_store(
         &self,
         store: &dyn ObjectStore,
@@ -121,6 +136,7 @@ impl ParquetWriter {
         provenance: Option<&FlushProvenance>,
         batch: RecordBatch,
         sharding: Option<&FieldPartitions>,
+        clustering: Option<&Clustering>,
     ) -> Result<Vec<DataSegment>> {
         if dataset.organization_id != stream.org_id || dataset.logical_stream_id != stream.id {
             return Err(Error::invalid(format!(
@@ -151,12 +167,14 @@ impl ParquetWriter {
                         batch,
                         shard,
                         sharding: Some(partitions.clone()),
+                        clustering: clustering.cloned(),
                     }));
                 }
                 None => pieces.push(Piece {
                     batch,
                     shard: 0,
                     sharding: None,
+                    clustering: clustering.cloned(),
                 }),
             }
         }
@@ -178,6 +196,12 @@ impl ParquetWriter {
             }
         }
 
+        let stage = match provenance {
+            Some(_) => WriteStage::Flush,
+            None => WriteStage::Compaction,
+        };
+
+        record_written(&stream.stream_type, stage, &segments);
         Ok(segments)
     }
 
@@ -191,108 +215,32 @@ impl ParquetWriter {
         output_ordinal: u32,
         piece: Piece,
     ) -> Result<DataSegment> {
-        let Piece {
-            batch,
-            shard,
-            sharding,
-        } = piece;
+        let EncodedPiece {
+            partition,
+            time_range,
+            segment_id,
+            primary_id,
+            primary_key,
+            parquet,
+            parquet_checksum,
+            schema_fingerprint,
+            index,
+            filters,
+            minute_counts,
+            column_stats,
+            row_count,
+        } = encode_piece(stream, dataset, piece).await?;
 
-        let batch = sort_for_storage(batch, &dataset.dataset_type)?;
-        let (start_micros, end_micros) = timestamp_range(&batch)?;
-        let partition_start = dataset.partition_policy.bucket_start_micros(start_micros);
-
-        let partition = Partition {
-            start_micros: partition_start,
-            end_micros: partition_start
-                .checked_add(dataset.partition_policy.granularity.micros())
-                .ok_or_else(|| Error::invalid("partition end overflows i64"))?,
-            shard,
-        };
-
-        let segment_id = SegmentId::generate();
-        let primary_id = ArtifactId::generate();
-        let parquet_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_PARQUET);
-
-        let primary_key = StorageLayout::artifact_key(
-            &dataset.organization_id,
-            stream.stream_type,
-            &dataset.id,
-            &partition,
-            &segment_id,
-            &primary_id,
-            &parquet_type,
-        );
-
-        let parquet_bytes = encode_parquet(stream, &batch)?;
-        let parquet_size_bytes = parquet_bytes.len() as u64;
-        let parquet_checksum = checksum(&parquet_bytes);
-        let schema_fingerprint = schema_fingerprint(batch.schema().as_ref());
-
-        let wants_tantivy = dataset
-            .index_policy
-            .indexers
-            .iter()
-            .any(|index| index == &IndexTypeId::builtin(type_id::builtin::INDEX_TANTIVY));
-
-        let index_output = if wants_tantivy {
-            match build_tantivy_bytes_for_batch(stream, &batch) {
-                Ok(Some(bytes)) => {
-                    let artifact_id = ArtifactId::generate();
-                    let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
-
-                    let key = StorageLayout::artifact_key(
-                        &dataset.organization_id,
-                        stream.stream_type,
-                        &dataset.id,
-                        &partition,
-                        &segment_id,
-                        &artifact_id,
-                        &artifact_type,
-                    );
-
-                    Some(IndexBuild::Ready {
-                        artifact_id,
-                        artifact_type,
-                        key,
-                        bytes,
-                    })
-                }
-                Ok(None) => None,
-                Err(error) => {
-                    let artifact_id = ArtifactId::generate();
-                    let artifact_type = ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_TANTIVY);
-
-                    let key = StorageLayout::artifact_key(
-                        &dataset.organization_id,
-                        stream.stream_type,
-                        &dataset.id,
-                        &partition,
-                        &segment_id,
-                        &artifact_id,
-                        &artifact_type,
-                    );
-
-                    Some(IndexBuild::Failed {
-                        artifact_id,
-                        artifact_type,
-                        key,
-                        reason: truncate_failure(&error.to_string()),
-                    })
-                }
-            }
-        } else {
-            None
-        };
-
-        let primary_put = put_immutable(store, &primary_key, parquet_bytes).await?;
+        let parquet_size_bytes = parquet.len() as u64;
+        let primary_put = put_immutable(store, &primary_key, parquet).await?;
 
         let primary = Artifact {
             id: primary_id.clone(),
             role: ArtifactRole::PrimaryData,
-            artifact_type: parquet_type,
+            artifact_type: ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_PARQUET),
             format_version: 1,
             object: StoredObject {
-                key: primary_key.clone(),
+                key: primary_key,
                 size_bytes: parquet_size_bytes,
                 checksum: parquet_checksum,
                 etag: primary_put.e_tag,
@@ -304,20 +252,20 @@ impl ParquetWriter {
             failure_reason: None,
         };
 
-        let mut auxiliaries = Vec::with_capacity(usize::from(index_output.is_some()));
+        let mut auxiliaries = Vec::with_capacity(usize::from(index.is_some()));
 
-        if let Some(index_output) = index_output {
-            let (artifact_id, artifact_type, object, state, failure_reason) = match index_output {
+        if let Some(index) = index {
+            let (artifact_id, artifact_type, object, state, failure_reason) = match index {
                 IndexBuild::Ready {
                     artifact_id,
                     artifact_type,
                     key,
                     bytes,
+                    checksum: object_checksum,
                 } => {
                     let size_bytes = bytes.len() as u64;
-                    let object_checksum = checksum(&bytes);
 
-                    match put_immutable(store, &key, Bytes::from(bytes)).await {
+                    match put_immutable(store, &key, bytes).await {
                         Ok(put) => (
                             artifact_id,
                             artifact_type,
@@ -367,37 +315,31 @@ impl ParquetWriter {
             });
         }
 
-        if let Some(mut filters) = SegmentFilters::new(stream) {
-            filters.add(&batch);
+        let objects = SegmentObjects {
+            store,
+            stream,
+            dataset,
+            partition: &partition,
+            segment_id: &segment_id,
+            primary: &primary,
+        };
 
-            auxiliaries.extend(
-                publish_filters(
-                    store,
-                    stream,
-                    dataset,
-                    &partition,
-                    &segment_id,
-                    &primary,
-                    filters,
-                )
-                .await,
-            );
+        if let Some(filters) = filters {
+            auxiliaries.extend(objects.publish_filters(filters).await);
         }
 
-        let mut column_stats = ColumnStatsBuilder::new(stream);
-        column_stats.add(stream, &batch);
-
-        let mut column_stats = column_stats.finish();
-        column_stats.partitions = sharding.unwrap_or_default();
+        if let Some(counts) = minute_counts {
+            auxiliaries.extend(objects.publish_minute_counts(counts).await);
+        }
 
         Ok(DataSegment {
             id: segment_id,
             organization_id: dataset.organization_id.clone(),
             dataset_id: dataset.id.clone(),
             partition,
-            time_range: TimeRange::new(TimestampMicros(start_micros), TimestampMicros(end_micros)),
+            time_range,
             sequence_range: provenance.map(|value| value.sequence),
-            row_count: batch.num_rows() as u64,
+            row_count,
             schema_fingerprint: Some(schema_fingerprint),
             column_stats,
             flush_id: provenance.map(|value| value.flush_id.clone()),
@@ -492,21 +434,19 @@ pub(super) fn schema_fingerprint(schema: &arrow::datatypes::Schema) -> SchemaFin
 mod tests {
     use std::sync::Arc;
 
+    use domain::{
+        intake::RawEvent,
+        storage::{WalSequence, WriterEpoch, WriterNodeId, primary_dataset_type},
+        stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamType},
+    };
     use futures::StreamExt;
+    use kernel::{ids::Id, time::TimestampMicros};
     use object_store::{ObjectStore, memory::InMemory};
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::{
-            intake::RawEvent,
-            storage::{WalSequence, WriterEpoch, WriterNodeId, primary_dataset_type},
-            stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamType},
-        },
-        infra::intake::{
-            BufferWriter, RecordBuilder, dataset_resolver::test_support::test_catalog_and_resolver,
-        },
-        shared::{ids::Id, time::TimestampMicros},
+    use crate::infra::intake::{
+        BufferWriter, RecordBuilder, dataset_resolver::test_support::test_catalog_and_resolver,
     };
 
     fn stream() -> StreamDefinition {
@@ -520,10 +460,8 @@ mod tests {
                     name: "message".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: Some(StreamIndexType::FullText),
-                    indexed: true,
+                    index_type: StreamIndexType::FullText,
                     encrypted: false,
-                    exact: false,
                 }],
             },
             retention: None,

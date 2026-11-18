@@ -29,6 +29,12 @@ export const MAX_PARTITION_SHARDS = 256;
 /** 新加一个按哈希分片的字段时，分片数至多取这么多。 */
 const DEFAULT_PARTITION_BUCKETS = 8;
 
+/** Clustering fields at most, as the backend allows. */
+export const MAX_CLUSTERING_FIELDS = 2;
+
+/** Time slices a clustering offers, in microseconds: one, five and ten minutes. */
+export const CLUSTERING_INTERVALS = [60_000_000, 300_000_000, 600_000_000] as const;
+
 /** 新字段的索引模式最多几条、每条最长几个字符，与后端一致。 */
 export const MAX_INDEX_PATTERNS = 32;
 const MAX_INDEX_PATTERN_CHARS = 128;
@@ -54,6 +60,9 @@ export interface StreamDraft {
   downsampleInterval: number;
   /** 日志与链路：按这些字段分片，最多两个；没有时不分。 */
   partitions: PartitionDraft[];
+  /** Logs: the fields rows are clustered by, at most two, and the time slice in microseconds. */
+  clusteringFields: string[];
+  clusteringInterval: number;
   /** 写入时第一次出现的字段按名字定索引，按次序第一条匹配的生效。 */
   indexPatterns: streamsApi.StreamIndexPattern[];
 }
@@ -78,6 +87,9 @@ export function toDraft(stream: streamsApi.StreamSummary): StreamDraft {
       scheme: partition.type,
       buckets: partition.type === 'hash' ? partition.buckets : DEFAULT_PARTITION_BUCKETS,
     })),
+    clusteringFields: stream.settings.clustering?.fields ?? [],
+    clusteringInterval:
+      stream.settings.clustering?.interval ?? streamsApi.DEFAULT_CLUSTERING_INTERVAL,
     indexPatterns: stream.settings.indexPatterns ?? [],
   };
 }
@@ -110,6 +122,13 @@ export function partitionsForDraft(draft: StreamDraft): streamsApi.StreamFieldPa
     );
 }
 
+/** The clustering a draft saves: its fields without the empty ones, and its time slice. */
+export function clusteringForDraft(draft: StreamDraft): streamsApi.StreamClustering {
+  return {
+    fields: draft.clusteringFields.filter(Boolean),
+    interval: draft.clusteringInterval,
+  };
+}
 
 /** 输入框里的非负数；空着或不是数时为 `null`。 */
 export function parseOptionalNumber(value: string): number | null {
@@ -126,7 +145,7 @@ export function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSett
     description: draft.description.trim() || null,
     indexRules: draft.fields.map((field) => ({
       field: field.name,
-      enabled: field.indexed && field.indexType !== 'none',
+      enabled: field.indexType !== 'none',
       indexType: field.indexType,
     })),
     // 0 与空着一样：不限。
@@ -138,6 +157,7 @@ export function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSett
       intervalSecs: draft.downsampleInterval,
     },
     partitions: partitionsForDraft(draft),
+    clustering: clusteringForDraft(draft),
     indexPatterns: draft.indexPatterns
       .map((pattern) => ({ ...pattern, pattern: pattern.pattern.trim() }))
       .filter((pattern) => pattern.pattern),
@@ -154,7 +174,6 @@ export function payloadForDraft(draft: StreamDraft): streamsApi.UpdateStreamSett
     retentionDays: draft.retentionDays.trim() ? Number(draft.retentionDays) : null,
     fields: draft.fields.map((field) => ({
       name: field.name,
-      indexed: field.indexed,
       indexType: field.indexType,
     })),
     settings,

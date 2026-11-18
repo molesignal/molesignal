@@ -13,8 +13,7 @@ use arrow::{
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
     error::ArrowError,
 };
-
-use crate::domain::stream::{FieldType, Schema as DomainSchema};
+use domain::stream::{FieldType, Schema as DomainSchema};
 
 pub const TS_COL: &str = "_timestamp";
 
@@ -99,8 +98,9 @@ pub fn align_batch_to_schema(
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{FieldDef, StreamIndexType};
+
     use super::*;
-    use crate::domain::stream::FieldDef;
 
     #[test]
     fn ts_is_prepended() {
@@ -109,10 +109,8 @@ mod tests {
                 name: "msg".into(),
                 data_type: FieldType::Utf8,
                 nullable: true,
-                index_type: None,
-                indexed: true,
+                index_type: StreamIndexType::FullText,
                 encrypted: false,
-                exact: false,
             }],
         };
         let a = to_arrow(&s);

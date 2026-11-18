@@ -18,7 +18,7 @@ use arrow::{
 use datafusion::{
     error::DataFusionError,
     execution::memory_pool::{MemoryConsumer, MemoryPool, UnboundedMemoryPool},
-    physical_expr::{LexOrdering, expressions::Column},
+    physical_expr::{LexOrdering, PhysicalSortExpr},
     physical_plan::{
         SendableRecordBatchStream,
         metrics::{BaselineMetrics, ExecutionPlanMetricsSet},
@@ -27,11 +27,9 @@ use datafusion::{
     },
 };
 use futures::{StreamExt, stream::BoxStream};
+use kernel::{Error, Result};
 
-use crate::{
-    infra::storage::{arrow_schema::align_batch_to_schema, parquet::partition::STORAGE_SORT},
-    shared::{Error, Result},
-};
+use crate::infra::storage::arrow_schema::align_batch_to_schema;
 
 /// Rows per merged batch.
 const MERGED_BATCH_ROWS: usize = 8192;
@@ -47,20 +45,12 @@ pub(super) fn merge(
     ordering: &LexOrdering,
     one_row_per: Option<Vec<usize>>,
 ) -> Result<BoxStream<'static, Result<RecordBatch>>> {
-    let columns = ordering
-        .iter()
-        .map(|sort| {
-            sort.expr
-                .downcast_ref::<Column>()
-                .map(Column::index)
-                .ok_or_else(|| Error::internal("the storage order sorts by columns only"))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let keys: Vec<PhysicalSortExpr> = ordering.iter().cloned().collect();
 
     let streams = inputs
         .into_iter()
         .map(|input| {
-            let mut order = OrderCheck::new(&schema, &columns)?;
+            let mut order = OrderCheck::new(&schema, &keys)?;
             let target = schema.clone();
 
             let checked = input.map(move |batch| {
@@ -103,26 +93,31 @@ pub(super) fn merge(
     }
 }
 
-/// Confirms that the rows of one input never go backwards in the storage order.
+/// Confirms that the rows of one input never go backwards in the storage order. The order's keys
+/// are columns, and for a clustered file also the time slice computed from `_timestamp`.
 struct OrderCheck {
     converter: RowConverter,
-    columns: Vec<usize>,
+    keys: Vec<PhysicalSortExpr>,
     last: Option<OwnedRow>,
 }
 
 impl OrderCheck {
-    fn new(schema: &SchemaRef, columns: &[usize]) -> Result<Self> {
-        let fields = columns
-            .iter()
-            .map(|index| {
-                SortField::new_with_options(schema.field(*index).data_type().clone(), STORAGE_SORT)
-            })
-            .collect();
+    fn new(schema: &SchemaRef, keys: &[PhysicalSortExpr]) -> Result<Self> {
+        let fields =
+            keys.iter()
+                .map(|key| {
+                    let data_type = key.expr.data_type(schema.as_ref()).map_err(|error| {
+                        Error::internal(format!("compactor order check: {error}"))
+                    })?;
+
+                    Ok(SortField::new_with_options(data_type, key.options))
+                })
+                .collect::<Result<Vec<_>>>()?;
 
         Ok(Self {
             converter: RowConverter::new(fields)
                 .map_err(|error| Error::internal(format!("compactor order check: {error}")))?,
-            columns: columns.to_vec(),
+            keys: keys.to_vec(),
             last: None,
         })
     }
@@ -132,11 +127,16 @@ impl OrderCheck {
             return Ok(());
         }
 
-        let arrays: Vec<ArrayRef> = self
-            .columns
+        let arrays = self
+            .keys
             .iter()
-            .map(|index| batch.column(*index).clone())
-            .collect();
+            .map(|key| {
+                key.expr
+                    .evaluate(batch)
+                    .and_then(|value| value.into_array(batch.num_rows()))
+            })
+            .collect::<datafusion::error::Result<Vec<ArrayRef>>>()
+            .map_err(|error| Error::internal(format!("compactor order check: {error}")))?;
 
         let rows = self
             .converter
@@ -167,9 +167,19 @@ mod tests {
         datatypes::{DataType, Field, Schema, TimeUnit},
     };
     use datafusion::physical_expr::{PhysicalSortExpr, expressions::col};
+    use domain::{
+        storage::{DatasetTypeId, type_id::builtin},
+        stream::Clustering,
+    };
     use futures::stream;
 
     use super::*;
+    use crate::infra::storage::parquet::{
+        clustering::{clustered_ordering, sort_for_storage_clustered},
+        partition::STORAGE_SORT,
+    };
+
+    const MINUTE: i64 = 60_000_000;
 
     fn schema() -> SchemaRef {
         Arc::new(Schema::new(vec![
@@ -333,5 +343,127 @@ mod tests {
         }
 
         assert_eq!(rows, vec![("b".to_string(), 3), ("a".to_string(), 2)]);
+    }
+
+    fn log_schema() -> SchemaRef {
+        Arc::new(Schema::new(vec![
+            Field::new(
+                "_timestamp",
+                DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
+                false,
+            ),
+            Field::new("service", DataType::Utf8, true),
+        ]))
+    }
+
+    fn log_batch(rows: &[(i64, &str)]) -> RecordBatch {
+        RecordBatch::try_new(
+            log_schema(),
+            vec![
+                Arc::new(
+                    TimestampMicrosecondArray::from(
+                        rows.iter().map(|row| row.0).collect::<Vec<_>>(),
+                    )
+                    .with_timezone("UTC"),
+                ),
+                Arc::new(StringArray::from(
+                    rows.iter().map(|row| row.1).collect::<Vec<_>>(),
+                )),
+            ],
+        )
+        .unwrap()
+    }
+
+    async fn log_rows(
+        stream: BoxStream<'static, Result<RecordBatch>>,
+    ) -> Result<Vec<(i64, String)>> {
+        let mut rows = Vec::new();
+
+        for batch in stream.collect::<Vec<_>>().await {
+            let batch = batch?;
+            let times = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<TimestampMicrosecondArray>()
+                .unwrap();
+            let services = batch
+                .column(1)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap();
+
+            for row in 0..batch.num_rows() {
+                rows.push((times.value(row), services.value(row).to_string()));
+            }
+        }
+
+        Ok(rows)
+    }
+
+    fn by_service() -> (Clustering, LexOrdering, DatasetTypeId) {
+        let clustering = Clustering::new(vec!["service".into()], MINUTE);
+        let logs = DatasetTypeId::builtin(builtin::DATASET_LOG_RECORDS);
+        let ordering =
+            clustered_ordering(log_schema().as_ref(), Some(&logs), Some(&clustering)).unwrap();
+
+        (clustering, ordering, logs)
+    }
+
+    #[tokio::test]
+    async fn merges_clustered_inputs_by_slice_then_field_then_time() {
+        let (clustering, ordering, logs) = by_service();
+
+        let sorted = |rows: &[(i64, &str)]| {
+            sort_for_storage_clustered(log_batch(rows), &logs, Some(&clustering)).unwrap()
+        };
+
+        let merged = merge(
+            vec![
+                input(vec![sorted(&[
+                    (MINUTE + 5, "a"),
+                    (2 * MINUTE + 1, "b"),
+                    (MINUTE + 9, "b"),
+                ])]),
+                input(vec![sorted(&[(2 * MINUTE + 7, "a"), (MINUTE + 1, "a")])]),
+            ],
+            log_schema(),
+            &ordering,
+            None,
+        )
+        .unwrap();
+
+        let expected = [
+            (2 * MINUTE + 1, "b"),
+            (2 * MINUTE + 7, "a"),
+            (MINUTE + 9, "b"),
+            (MINUTE + 5, "a"),
+            (MINUTE + 1, "a"),
+        ];
+
+        assert_eq!(
+            log_rows(merged).await.unwrap(),
+            expected
+                .iter()
+                .map(|(time, service)| (*time, service.to_string()))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn refuses_a_file_in_time_order_where_the_group_is_clustered() {
+        let (_, ordering, _) = by_service();
+
+        let merged = merge(
+            vec![input(vec![log_batch(&[
+                (2 * MINUTE + 7, "a"),
+                (2 * MINUTE + 1, "b"),
+            ])])],
+            log_schema(),
+            &ordering,
+            None,
+        )
+        .unwrap();
+
+        assert!(log_rows(merged).await.is_err());
     }
 }

@@ -11,10 +11,9 @@ use std::sync::Arc;
 use axum::{Router, extract::State, http::StatusCode, middleware::from_fn, routing::get};
 use base64::Engine as _;
 use common::{Credential, TestServer, session_cookie, skip_unless_enabled, wait_until_async};
-use molesignal::{
-    infra::persistence::repositories::audit_events::AuditEvent, shared::time::TimestampMicros,
-};
+use kernel::time::TimestampMicros;
 use object_store::{ObjectStore, ObjectStoreExt, PutPayload, path::Path as ObjectPath};
+use postgres::repositories::audit_events::AuditEvent;
 use serde_json::{Value, json};
 use sqlx::postgres::PgPoolOptions;
 use tracing::Instrument;
@@ -452,13 +451,9 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         .await
         .expect("connect trace probe pool");
     let first_org_repo =
-        molesignal::infra::persistence::repositories::organizations::PgOrganizationRepository::new(
-            pool.clone(),
-        );
+        postgres::repositories::organizations::PgOrganizationRepository::new(pool.clone());
     let second_org_repo =
-        molesignal::infra::persistence::repositories::organizations::PgOrganizationRepository::new(
-            pool.clone(),
-        );
+        postgres::repositories::organizations::PgOrganizationRepository::new(pool.clone());
     let (first_system_org, second_system_org) = tokio::join!(
         first_org_repo.ensure_system_organization(),
         second_org_repo.ensure_system_organization()
@@ -678,7 +673,7 @@ async fn http_sql_object_store_business_spans_and_logs_are_queryable_in_system_s
         .iam
         .audit_events
         .record(AuditEvent {
-            id: molesignal::shared::ids::Id::new(),
+            id: kernel::ids::Id::new(),
             org_id: server.state.iam.system_org_id.clone(),
             actor_kind: "user".into(),
             actor_id: server.root_user_id.0.clone(),

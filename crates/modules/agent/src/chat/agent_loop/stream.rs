@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 流式运行：把模型写出的文字、工具调用与结果以 [`AgentStreamEvent`] 交给 [`AgentSink`]。
+//! Streaming execution passes model text, tool calls, and results to [`AgentSink`] as
+//! [`AgentStreamEvent`].
 //!
-//! 被停下（接收端说已取消）时，正在进行的模型调用或工具被打断，循环不再调用模型和工具，
-//! 也不再花额度。[`AgentLoop::run_stream`] 把事件放进一个通道，调用方丢掉通道即停下；
-//! [`AgentLoop::run_with_sink`] 在当前任务里跑，供后台执行的 Run 使用。
+//! When stopped (the sink reports cancellation), the ongoing model call or tool is interrupted.
+//! The loop stops calling models and tools and consumes no more budget. [`AgentLoop::run_stream`]
+//! puts events into a channel; dropping the channel stops execution. [`AgentLoop::run_with_sink`]
+//! runs in the current task for background Run execution.
 
 use std::{sync::Arc, time::Instant};
 
@@ -15,19 +17,18 @@ use tokio::sync::mpsc::Sender;
 
 use super::{
     AgentLoop, Budget, Exhaustion, INVALID_FINAL_RESPONSE_FALLBACK_MESSAGE,
-    assistant_with_tool_calls, message, product_answer_or_fallback, tool_failure_result,
-    tool_message,
+    assistant_with_tool_calls, group, message, product_answer_or_fallback, tool_message,
 };
-use crate::agent::{
+use crate::{
     chat::{
         AgentEventStream, AgentSink, AgentStreamEvent, ChatMessage, ChunkOrToolCall,
         CompletionRequest, MessageRole, RequestedToolCall, ToolChoice,
         model_call::{ModelCall, elapsed_ms},
     },
-    tools::{ToolAuthContext, ToolCall},
+    tools::ToolAuthContext,
 };
 
-/// 一次流式调用读完之后的结果。
+/// The result after fully reading one streaming call.
 struct StreamedReply {
     text: String,
     tool_calls: Vec<RequestedToolCall>,
@@ -37,7 +38,7 @@ struct StreamedReply {
     finish_reason: Option<String>,
 }
 
-/// 一轮流式运行怎么结束的。
+/// How a streaming run ends.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunConclusion {
     Answered {
@@ -50,7 +51,7 @@ pub enum RunConclusion {
     Cancelled,
 }
 
-/// 把事件放进通道的接收端：通道被丢掉就算停下。
+/// A sink that puts events into a channel; dropping the channel counts as stopping.
 struct ChannelSink {
     tx: Sender<AgentStreamEvent>,
 }
@@ -71,7 +72,8 @@ impl AgentSink for ChannelSink {
 }
 
 impl AgentLoop {
-    /// 流式运行，事件从返回的流里读；丢掉这个流即停下。
+    /// Runs in streaming mode with events read from the returned stream; dropping it stops
+    /// execution.
     pub fn run_stream(
         self: Arc<Self>,
         ctx: ToolAuthContext,
@@ -101,7 +103,7 @@ impl AgentLoop {
     ) -> AgentEventStream {
         let (tx, rx) = tokio::sync::mpsc::channel::<AgentStreamEvent>(64);
 
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
+        signals::trace_context::spawn_with_current_trace_context(async move {
             let sink = ChannelSink { tx };
 
             self.run_with_sink(
@@ -119,8 +121,8 @@ impl AgentLoop {
         Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))
     }
 
-    /// 在当前任务里流式运行，事件交给 `sink`。最后一个事件是 `Done` 或 `Error`；被停下时
-    /// 不再发事件。
+    /// Runs in streaming mode in the current task, passing events to `sink`.
+    /// The last event is `Done` or `Error`; no more events are sent once stopped.
     #[allow(clippy::too_many_arguments)]
     pub async fn run_with_sink(
         &self,
@@ -186,41 +188,40 @@ impl AgentLoop {
 
             messages.push(assistant_with_tool_calls(reply.text, &reply.tool_calls));
 
-            // 跑 tools 一遍并把结果作为 Tool message 追加；额度不够的调用不执行，但同样回一条
-            // 结果并结束它在界面上的"进行中"。中间轮次的说明只回灌给模型，不进入回答。
-            for tc in &reply.tool_calls {
+            // Runs tools once and appends results as Tool messages; calls with insufficient budget
+            // are skipped but still receive a result and leave the "in progress" state in the UI.
+            // Explanations from intermediate rounds are fed back only to the model, not the answer.
+            // Consecutive calls that only read run together; their results are told in the order
+            // of the calls, and stopping stops the whole group.
+            for range in group::groups(self.dispatcher.as_ref(), &reply.tool_calls) {
                 if sink.is_cancelled() {
                     return RunConclusion::Cancelled;
                 }
 
-                let result = match budget.take() {
-                    Ok(()) => {
-                        let call = ToolCall {
-                            name: tc.name.clone(),
-                            arguments: tc.arguments.clone(),
-                        };
+                let calls = &reply.tool_calls[range];
+                let planned = group::plan(&mut budget, calls);
+                let results = group::run(self.dispatcher.as_ref(), ctx, planned);
+                let mut results = std::pin::pin!(results);
 
-                        let dispatched = tokio::select! {
-                            biased;
-                            () = sink.cancelled() => return RunConclusion::Cancelled,
-                            dispatched = self.dispatcher.dispatch(ctx, call) => dispatched,
-                        };
+                for tc in calls {
+                    let next = tokio::select! {
+                        biased;
+                        () = sink.cancelled() => return RunConclusion::Cancelled,
+                        next = results.next() => next,
+                    };
 
-                        dispatched.unwrap_or_else(tool_failure_result)
-                    }
-                    Err(reason) => reason.skipped_result(),
-                };
+                    let result = next.unwrap_or_else(group::missing_result);
+                    let (tool_result, result_json) = tool_message(&tc.id, &result);
 
-                let (tool_result, result_json) = tool_message(&tc.id, &result);
+                    sink.emit(AgentStreamEvent::ToolEnd {
+                        id: tc.id.clone(),
+                        result: result_json,
+                        is_error: result.is_error,
+                    })
+                    .await;
 
-                sink.emit(AgentStreamEvent::ToolEnd {
-                    id: tc.id.clone(),
-                    result: result_json,
-                    is_error: result.is_error,
-                })
-                .await;
-
-                messages.push(tool_result);
+                    messages.push(tool_result);
+                }
             }
         };
 
@@ -236,7 +237,8 @@ impl AgentLoop {
         .await
     }
 
-    /// 额度用完：不带工具再问一次，让模型用已有结果收尾。
+    /// When the budget runs out, asks once more without tools so the model finishes with
+    /// existing results.
     #[allow(clippy::too_many_arguments)]
     async fn finish(
         &self,
@@ -259,7 +261,8 @@ impl AgentLoop {
 
         let req = self.request(model, messages, None, ToolChoice::None, max_tokens);
 
-        // 收尾失败时用兜底说明代替，不把内部预算错误暴露给用户。
+        // If the final call fails, uses a fallback message without exposing internal budget errors
+        // to the user.
         let final_text = match self.stream_once(req, sink, false).await {
             Ok(reply) => {
                 total_prompt += reply.prompt_tokens;
@@ -282,8 +285,9 @@ impl AgentLoop {
         .await
     }
 
-    /// 流式调用一次模型服务并读完。`report` 时把写出的文字与读到的工具调用立即交给接收端；
-    /// 收尾那次不需要。被停下或读的过程中出错时返回错误文本。
+    /// Makes one streaming model service call and reads it fully.
+    /// When `report` is set, immediately passes emitted text and received tool calls to the sink;
+    /// the final call does not need this. Returns error text if stopped or if reading fails.
     async fn stream_once(
         &self,
         request: CompletionRequest,
@@ -304,7 +308,7 @@ impl AgentLoop {
 
         let opened = tokio::select! {
             biased;
-            () = sink.cancelled() => Err(crate::shared::Error::cancelled("the run was stopped")),
+            () = sink.cancelled() => Err(kernel::Error::cancelled("the run was stopped")),
             opened = self.provider.complete_stream(request) => opened,
         };
 

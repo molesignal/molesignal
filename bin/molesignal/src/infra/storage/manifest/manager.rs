@@ -9,30 +9,32 @@ use super::{
     PartitionManifestReader,
     bloom::{self, bloom_key},
     encode_manifest,
+    minute_counts::{self, minute_counts_key},
 };
 
+mod seal;
 mod upgrade;
-use crate::{
-    config::{CatalogSettings, GarbageCollectionSettings},
-    domain::{
-        storage::{
-            ArtifactState, DatasetSelection, DatasetState, FileCatalog, ObjectChecksum, ObjectKey,
-            OrganizationScope, Partition, PartitionManifest, PartitionManifestPointer,
-            PhysicalDataset, PublishPartitionManifest, SegmentState, StoredObject,
-        },
-        stream::StreamDefinition,
+use domain::{
+    storage::{
+        DatasetSelection, DatasetState, FileCatalog, ObjectChecksum, ObjectKey, OrganizationScope,
+        Partition, PartitionManifest, PartitionManifestPointer, PhysicalDataset,
+        PublishPartitionManifest, SegmentState, StoredObject,
     },
-    infra::storage::layout::StorageLayout,
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
+    stream::StreamDefinition,
 };
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
+use seal::SealPlan;
+use settings::{CatalogSettings, GarbageCollectionSettings};
+
+use crate::infra::storage::layout::StorageLayout;
 
 struct PartitionWork {
     pointer: Option<PartitionManifestPointer>,
-    base: Vec<crate::domain::storage::DataSegment>,
-    overlay: Vec<crate::domain::storage::DataSegment>,
+    base: Vec<domain::storage::DataSegment>,
+    overlay: Vec<domain::storage::DataSegment>,
 }
 
 pub struct PartitionManifestManager {
@@ -192,7 +194,7 @@ impl PartitionManifestManager {
 
     async fn partition_work(
         &self,
-        snapshot: &crate::domain::storage::DatasetSnapshot,
+        snapshot: &domain::storage::DatasetSnapshot,
     ) -> Result<HashMap<Partition, PartitionWork>> {
         let mut work = HashMap::new();
 
@@ -232,51 +234,14 @@ impl PartitionManifestManager {
         seal_cutoff: Option<i64>,
         retention_cutoff: i64,
     ) -> Result<bool> {
-        let is_cold = work.pointer.is_some()
-            || seal_cutoff.is_some_and(|cutoff| {
-                work.overlay
-                    .first()
-                    .is_some_and(|segment| segment.partition.end_micros <= cutoff)
-            });
-
-        if !is_cold {
+        let Some(SealPlan {
+            expired_base,
+            expired_overlay,
+            sealable,
+        }) = SealPlan::of(work, seal_cutoff, retention_cutoff)
+        else {
             return Ok(false);
-        }
-
-        let expired_base = work
-            .base
-            .iter()
-            .filter(|segment| segment.time_range.end.0 <= retention_cutoff)
-            .map(|segment| segment.id.clone())
-            .collect::<Vec<_>>();
-
-        let expired_overlay = work
-            .overlay
-            .iter()
-            .filter(|segment| segment.time_range.end.0 <= retention_cutoff)
-            .map(|segment| segment.id.clone())
-            .collect::<Vec<_>>();
-
-        let sealable = work
-            .overlay
-            .iter()
-            .filter(|segment| {
-                segment.time_range.end.0 > retention_cutoff
-                    && segment.primary.state == ArtifactState::Ready
-                    && segment
-                        .auxiliaries
-                        .iter()
-                        .all(|artifact| artifact.state == ArtifactState::Ready)
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-
-        let changed =
-            !sealable.is_empty() || !expired_base.is_empty() || !expired_overlay.is_empty();
-
-        if !changed {
-            return Ok(false);
-        }
+        };
 
         let mut segments = work
             .base
@@ -315,7 +280,7 @@ impl PartitionManifestManager {
                 .await?;
 
             // Written before the manifest is published, so a query never finds the manifest
-            // without its filters.
+            // without its filters and its minute counts.
             self.write_blooms(
                 stream,
                 &pointer,
@@ -324,6 +289,8 @@ impl PartitionManifestManager {
                 &HashMap::new(),
             )
             .await;
+
+            minute_counts::write(self.object_store.as_ref(), &pointer.object.key, &sealed).await;
 
             Some(pointer)
         };
@@ -365,6 +332,7 @@ impl PartitionManifestManager {
                             for key in [
                                 pointer.object.key.clone(),
                                 ObjectKey::from_string(bloom_key(&pointer.object.key)),
+                                ObjectKey::from_string(minute_counts_key(&pointer.object.key)),
                             ] {
                                 let _ = self.catalog.enqueue_orphan(scope, &key, not_before).await;
                             }
@@ -390,7 +358,7 @@ impl PartitionManifestManager {
         &self,
         stream: &StreamDefinition,
         pointer: &PartitionManifestPointer,
-        segments: &[crate::domain::storage::DataSegment],
+        segments: &[domain::storage::DataSegment],
         previous: Option<&PartitionManifestPointer>,
         rebuilt: &HashMap<String, crate::infra::storage::filters::Filters>,
     ) {
@@ -446,12 +414,12 @@ impl PartitionManifestManager {
 
     async fn write_manifest(
         &self,
-        stream_type: crate::domain::storage::StreamTypeId,
+        stream_type: domain::storage::StreamTypeId,
         scope: &OrganizationScope,
         dataset: &PhysicalDataset,
         partition: Partition,
         generation: u64,
-        segments: Vec<crate::domain::storage::DataSegment>,
+        segments: Vec<domain::storage::DataSegment>,
     ) -> Result<PartitionManifestPointer> {
         let segments = segments
             .into_iter()

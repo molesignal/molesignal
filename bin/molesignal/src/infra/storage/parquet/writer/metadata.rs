@@ -8,18 +8,14 @@ use arrow::{
     compute::{max as array_max, min as array_min},
     datatypes::{DataType, TimeUnit},
 };
-
-use crate::{
-    domain::stream::{StreamDefinition, StreamIndexType},
-    infra::storage::arrow_schema::TS_COL,
-    shared::{
-        Error, Result,
-        trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-            TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
-        },
-    },
+use domain::stream::{StreamDefinition, StreamIndexType};
+use kernel::{Error, Result};
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+    TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
 };
+
+use crate::infra::storage::arrow_schema::TS_COL;
 
 pub(super) fn timestamp_range(batch: &RecordBatch) -> Result<(i64, i64)> {
     let index = batch
@@ -79,8 +75,11 @@ pub(super) fn zone_maps(
     // log lines per file, would only weigh on the catalog.
     for field in stream.schema.fields.iter().filter(|field| {
         matches!(
-            field.effective_index_type(),
-            StreamIndexType::Exact | StreamIndexType::Bloom | StreamIndexType::Skip
+            field.index_type,
+            StreamIndexType::Exact
+                | StreamIndexType::Bloom
+                | StreamIndexType::Skip
+                | StreamIndexType::Range
         ) || SORT_FIELDS.contains(&field.name.as_str())
     }) {
         let Ok(index) = batch.schema().index_of(&field.name) else {

@@ -9,26 +9,24 @@ use std::{
 };
 
 use async_trait::async_trait;
-
-use crate::{
-    domain::{
-        masking::{
-            EffectiveFieldMasking, EffectiveFieldMaskingEntry, FieldMaskingAlgorithm,
-            FieldMaskingProvider, FieldMaskingRule, FieldMaskingRuleRepository, FieldMaskingSource,
-        },
-        metrics::{
-            PROMETHEUS_EXEMPLAR_LABELS_FIELD, PROMETHEUS_EXEMPLAR_VALUE_FIELD,
-            PrometheusExemplarQueryResult,
-        },
-        query::{QueryLanguage, QueryRequest, QueryResult},
-        stream::{StreamDefinition, StreamRepository, StreamType},
+use contracts::canonical_json_bytes;
+use domain::{
+    masking::{
+        EffectiveFieldMasking, EffectiveFieldMaskingEntry, FieldMaskingAlgorithm,
+        FieldMaskingProvider, FieldMaskingRule, FieldMaskingRuleRepository, FieldMaskingSource,
     },
-    infra::{
-        cipher::CipherRootKey,
-        query::{current_views, parser::extract_referenced_tables},
+    metrics::{
+        PROMETHEUS_EXEMPLAR_LABELS_FIELD, PROMETHEUS_EXEMPLAR_VALUE_FIELD,
+        PrometheusExemplarQueryResult,
     },
-    shared::{Result, contracts::canonical_json_bytes, ids::Id},
+    query::{QueryLanguage, QueryRequest, QueryResult},
+    stream::{StreamDefinition, StreamRepository, StreamType},
 };
+use kernel::{Result, ids::Id};
+use postgres::cipher::CipherRootKey;
+use query_language::extract_referenced_tables;
+
+use crate::infra::query::current_views;
 
 mod aliases;
 mod output;
@@ -191,7 +189,7 @@ fn sql_join_stream_type_rank(stream_type: StreamType) -> Option<u8> {
 
 fn resolve_effective(
     definition: &StreamDefinition,
-    stream_overrides: &[crate::domain::masking::FieldMaskingOverride],
+    stream_overrides: &[domain::masking::FieldMaskingOverride],
     rules: &[FieldMaskingRule],
 ) -> EffectiveFieldMasking {
     if definition.stream_type == StreamType::METRICS {
@@ -288,7 +286,7 @@ impl FieldMaskingProvider for FieldMaskingService {
         let definition = self.streams.get_by_id(stream_id).await?;
 
         if &definition.org_id != org_id {
-            return Err(crate::shared::Error::not_found("stream"));
+            return Err(kernel::Error::not_found("stream"));
         }
 
         if definition.stream_type == StreamType::METRICS {
@@ -339,7 +337,7 @@ impl FieldMaskingProvider for FieldMaskingService {
         .iter()
         .any(|field| algorithms.contains_key(*field))
         {
-            return Err(crate::shared::Error::forbidden(
+            return Err(kernel::Error::forbidden(
                 "masked exemplar value, timestamp, or label container cannot be represented by the Prometheus API",
             ));
         }
@@ -370,7 +368,7 @@ fn rule_matches(
     rule: &FieldMaskingRule,
     field: &str,
     stream: &str,
-    stream_type: crate::domain::stream::StreamType,
+    stream_type: domain::stream::StreamType,
 ) -> bool {
     rule.enabled
         && wildcard_matches(&rule.field_pattern, field)
@@ -518,11 +516,12 @@ fn replace_range(chars: &[char], start: usize, end: usize, replacement: &str) ->
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::{
+    use domain::{
         masking::FieldMaskingOverride,
-        stream::{FieldDef, FieldType, Schema},
+        stream::{FieldDef, FieldType, Schema, StreamIndexType},
     };
+
+    use super::*;
 
     fn masking_definition() -> StreamDefinition {
         StreamDefinition {
@@ -537,16 +536,14 @@ mod tests {
                         name: name.into(),
                         data_type: FieldType::Utf8,
                         nullable: true,
-                        index_type: None,
-                        indexed: false,
+                        index_type: StreamIndexType::None,
                         encrypted: false,
-                        exact: false,
                     })
                     .collect(),
             },
             retention: None,
-            created_at: crate::shared::time::TimestampMicros(1),
-            updated_at: crate::shared::time::TimestampMicros(1),
+            created_at: kernel::time::TimestampMicros(1),
+            updated_at: kernel::time::TimestampMicros(1),
         }
     }
 
@@ -566,8 +563,8 @@ mod tests {
             stream_pattern: None,
             stream_type: None,
             algorithm,
-            created_at: crate::shared::time::TimestampMicros(1),
-            updated_at: crate::shared::time::TimestampMicros(1),
+            created_at: kernel::time::TimestampMicros(1),
+            updated_at: kernel::time::TimestampMicros(1),
         }
     }
 
@@ -727,9 +724,9 @@ mod tests {
             statement:
                 "WITH x AS (SELECT LOWER(email) AS normalized FROM users) SELECT normalized FROM x"
                     .into(),
-            time_range: crate::shared::time::TimeRange::new(
-                crate::shared::time::TimestampMicros(0),
-                crate::shared::time::TimestampMicros(1),
+            time_range: kernel::time::TimeRange::new(
+                kernel::time::TimestampMicros(0),
+                kernel::time::TimestampMicros(1),
             ),
             stream: None,
             limit: None,
@@ -748,9 +745,9 @@ mod tests {
             org_id: Id::from_string("org"),
             language: QueryLanguage::Promql,
             statement: r#"label_join(requests_total, "identity", "/", "email", "region")"#.into(),
-            time_range: crate::shared::time::TimeRange::new(
-                crate::shared::time::TimestampMicros(0),
-                crate::shared::time::TimestampMicros(1),
+            time_range: kernel::time::TimeRange::new(
+                kernel::time::TimestampMicros(0),
+                kernel::time::TimestampMicros(1),
             ),
             stream: None,
             limit: None,
@@ -770,7 +767,7 @@ mod tests {
             Ok(definition)
         }
 
-        async fn update_schema(&self, _: &Id, _: crate::domain::stream::Schema) -> Result<()> {
+        async fn update_schema(&self, _: &Id, _: domain::stream::Schema) -> Result<()> {
             Ok(())
         }
 
@@ -784,7 +781,7 @@ mod tests {
                 .iter()
                 .find(|definition| definition.name == name && definition.stream_type == stream_type)
                 .cloned()
-                .ok_or_else(|| crate::shared::Error::not_found("stream"))
+                .ok_or_else(|| kernel::Error::not_found("stream"))
         }
 
         async fn list(&self, _: &Id) -> Result<Vec<StreamDefinition>> {
@@ -816,12 +813,7 @@ mod tests {
             Ok(())
         }
 
-        async fn reorder(
-            &self,
-            _: &Id,
-            _: &[Id],
-            _: crate::shared::time::TimestampMicros,
-        ) -> Result<()> {
+        async fn reorder(&self, _: &Id, _: &[Id], _: kernel::time::TimestampMicros) -> Result<()> {
             Ok(())
         }
     }
@@ -854,11 +846,11 @@ mod tests {
             org_id: Id::from_string("org"),
             language: QueryLanguage::Sql,
             statement: statement.into(),
-            time_range: crate::shared::time::TimeRange::new(
-                crate::shared::time::TimestampMicros(0),
-                crate::shared::time::TimestampMicros(1),
+            time_range: kernel::time::TimeRange::new(
+                kernel::time::TimestampMicros(0),
+                kernel::time::TimestampMicros(1),
             ),
-            stream: Some(crate::domain::query::StreamHint {
+            stream: Some(domain::query::StreamHint {
                 name: hint.into(),
                 stream_type: StreamType::LOGS,
             }),

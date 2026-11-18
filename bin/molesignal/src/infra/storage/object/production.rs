@@ -22,17 +22,17 @@ use object_store::{
     PutMultipartOptions, PutOptions, PutPayload, PutResult, RenameOptions,
     Result as ObjectStoreResult, path::Path as ObjPath,
 };
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use settings::ObjectStoreSettings;
 use tracing::Instrument;
 
-use crate::config::ObjectStoreSettings;
-
 mod multipart;
+mod permit;
 mod retry;
 mod telemetry;
 mod transfer;
 
 use multipart::InstrumentedMultipartUpload;
+use permit::Permits;
 use retry::RetryPolicy;
 pub use telemetry::health_dur;
 use telemetry::{
@@ -44,7 +44,7 @@ pub struct ProductionObjectStore {
     inner: Arc<dyn ObjectStore>,
     backend: &'static str,
     settings: ObjectStoreSettings,
-    semaphore: Arc<Semaphore>,
+    permits: Permits,
 }
 
 impl ProductionObjectStore {
@@ -62,7 +62,7 @@ impl ProductionObjectStore {
         Arc::new(Self {
             inner,
             backend,
-            semaphore: Arc::new(Semaphore::new(permits)),
+            permits: Permits::new(backend, permits),
             settings,
         })
     }
@@ -111,7 +111,7 @@ impl ProductionObjectStore {
 
         let result = async {
             let _permit = match budget {
-                Budget::Request => Some(self.acquire_permit().await?),
+                Budget::Request => Some(self.permits.acquire(operation, self.op_timeout()).await?),
                 Budget::Composite => None,
             };
 
@@ -180,13 +180,6 @@ impl ProductionObjectStore {
             .observe(started.elapsed().as_secs_f64());
 
         result
-    }
-
-    async fn acquire_permit(&self) -> ObjectStoreResult<OwnedSemaphorePermit> {
-        tokio::time::timeout(self.op_timeout(), self.semaphore.clone().acquire_owned())
-            .await
-            .map_err(|_| timeout_error(self.backend, "concurrency_wait"))?
-            .map_err(|_| timeout_error(self.backend, "concurrency_closed"))
     }
 }
 
@@ -464,8 +457,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     async fn decorator_covers_operations_without_recording_complete_keys() {
         use object_store::{PutPayload, memory::InMemory};
-
-        use crate::shared::self_telemetry::{
+        use signals::self_telemetry::{
             ResourceIdentity, SelfTelemetryHub, SelfTelemetryInit, SelfTelemetryLayer,
             SelfTelemetrySignal,
         };

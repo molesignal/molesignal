@@ -11,15 +11,15 @@ export type StreamIndexType =
   | 'skip'
   | 'ngram'
   | 'ip'
-  | 'key_value';
+  | 'key_value'
+  | 'range';
 
 export interface StreamField {
   name: string;
   dataType: FieldType;
   nullable: boolean;
-  indexed: boolean;
-  /** 新版 schema 直接持久化的规范索引类型；旧服务响应可能缺失。 */
-  indexType?: StreamIndexType;
+  /** The index of the field; `none` when it has none. */
+  indexType: StreamIndexType;
   /** 字段级静态加密：写入前用 cipher key 加密、密文落盘；查询用 decrypt(col) 还原。 */
   encrypted?: boolean;
 }
@@ -68,7 +68,22 @@ export interface StreamSettings {
   downsample?: StreamDownsample;
   /** 日志与链路：按一两个文本字段的值把新写入的数据分进几个分片；空表示不分。 */
   partitions?: StreamFieldPartition[];
+  /** Logs: the order of the rows inside newly written files; no fields means time order. */
+  clustering?: StreamClustering;
 }
+
+/**
+ * Rows of a newly written log file sit in time slices `interval` microseconds wide, newest first,
+ * and inside a slice by the values of `fields` (at most two). An equality on one of the fields then
+ * reads only the pages that hold its value.
+ */
+export interface StreamClustering {
+  fields: string[];
+  interval: number;
+}
+
+/** The default time slice of a clustering: one minute, in microseconds. */
+export const DEFAULT_CLUSTERING_INTERVAL = 60_000_000;
 
 export interface StreamIndexPattern {
   pattern: string;
@@ -169,7 +184,7 @@ export interface CreateStreamRequest {
   name: string;
   streamType: StreamType;
   retentionDays?: number | null;
-  fields?: Array<Pick<StreamField, 'name' | 'dataType' | 'nullable' | 'indexed' | 'indexType' | 'encrypted'>>;
+  fields?: Array<Pick<StreamField, 'name' | 'dataType' | 'nullable' | 'indexType' | 'encrypted'>>;
   settings?: Partial<StreamSettings>;
 }
 
@@ -177,7 +192,6 @@ export interface UpdateStreamSettingsRequest {
   retentionDays?: number | null;
   fields?: Array<{
     name: string;
-    indexed: boolean;
     indexType: StreamIndexType;
   }>;
   settings?: StreamSettings;
@@ -197,6 +211,7 @@ export function defaultStreamSettings(settings?: Partial<StreamSettings> | null)
       intervalSecs: DEFAULT_DOWNSAMPLE_INTERVAL_SECS,
     },
     partitions: settings?.partitions ?? [],
+    clustering: settings?.clustering ?? { fields: [], interval: DEFAULT_CLUSTERING_INTERVAL },
   };
 }
 

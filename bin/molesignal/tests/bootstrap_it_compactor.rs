@@ -15,38 +15,35 @@ use std::sync::Arc;
 
 use arrow::array::{Int64Array, RecordBatch, TimestampMicrosecondArray};
 use common::skip_unless_enabled;
-use futures::StreamExt;
-use molesignal::{
-    config::{CompactorSettings, ObjectCacheSettings},
-    domain::{
-        iam::{Organization, OrganizationRepository},
-        storage::{
-            CommitFlush, DatasetSelection, FileCatalog, FlushProvenance, OrganizationScope,
-            SequenceRange, WalSequence, WriterEpoch, WriterNodeId, builtin_registry,
-        },
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
+use domain::{
+    iam::{Organization, OrganizationRepository},
+    storage::{
+        CommitFlush, DatasetSelection, FileCatalog, FlushProvenance, OrganizationScope,
+        SequenceRange, WalSequence, WriterEpoch, WriterNodeId, builtin_registry,
     },
-    infra::{
-        persistence::{
-            MetaStore,
-            repositories::{
-                file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
-                streams::PgStreamRepository,
-            },
-        },
-        storage::{
-            arrow_schema::to_arrow, compactor::Compactor, manifest::PartitionManifestReader,
-            object, object_reader::ObjectReader, parquet::writer::ParquetWriter,
-        },
-    },
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
     },
 };
+use futures::StreamExt;
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::storage::{
+    arrow_schema::to_arrow, compactor::Compactor, manifest::PartitionManifestReader, object,
+    object_reader::ObjectReader, parquet::writer::ParquetWriter,
+};
 use object_store::ObjectStore;
+use postgres::{
+    MetaStore,
+    repositories::{
+        file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
+        streams::PgStreamRepository,
+    },
+};
+use settings::{CompactorSettings, ObjectCacheSettings};
 
 fn sample_stream() -> StreamDefinition {
     StreamDefinition {
@@ -59,10 +56,8 @@ fn sample_stream() -> StreamDefinition {
                 name: "val".into(),
                 data_type: FieldType::Int64,
                 nullable: false,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),
@@ -87,7 +82,7 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
     }
     let (dsn, _pg) = common::test_database().await;
 
-    let meta_cfg = molesignal::config::MetaDatabaseSettings {
+    let meta_cfg = settings::MetaDatabaseSettings {
         dsn,
         min_connections: 1,
         max_connections: 4,
@@ -121,7 +116,7 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
         .remove(0);
 
     let object_root = tempfile::tempdir().unwrap();
-    let object_cfg = molesignal::config::ObjectStoreSettings {
+    let object_cfg = settings::ObjectStoreSettings {
         backend: "local".into(),
         root: object_root.path().to_string_lossy().into(),
         ..Default::default()

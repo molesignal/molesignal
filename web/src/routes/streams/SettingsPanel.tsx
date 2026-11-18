@@ -7,6 +7,8 @@ import { FieldArray, FormField, FormInput, FormSelect, FormTextarea } from '@/sh
 
 import { INDEX_OPTIONS } from './fieldEditor/model';
 import {
+  CLUSTERING_INTERVALS,
+  MAX_CLUSTERING_FIELDS,
   MAX_INDEX_PATTERNS,
   MAX_PARTITION_FIELDS,
   MAX_PARTITION_SHARDS,
@@ -120,6 +122,100 @@ function PartitionFields({
   );
 }
 
+/** Fields rows can be clustered by: unencrypted text, integer and boolean fields, and the ones
+ * already chosen that no data has brought yet. */
+function clusteringFieldOptions(draft: StreamDraft): string[] {
+  const fields = draft.fields
+    .filter((field) => ['utf8', 'int64', 'bool'].includes(field.dataType) && !field.encrypted)
+    .map((field) => field.name);
+  for (const field of draft.clusteringFields) {
+    if (field && !fields.includes(field)) fields.push(field);
+  }
+  return fields;
+}
+
+const MINUTE_MICROS = 60_000_000;
+
+/** One or two clustering fields, one per row, and the width of the time slices. */
+function ClusteringFields({
+  draft,
+  onChange,
+}: {
+  draft: StreamDraft;
+  onChange: (patch: Partial<StreamDraft>) => void;
+}) {
+  const { t } = useTranslation('streams');
+  const labelId = React.useId();
+  const fields = clusteringFieldOptions(draft);
+  const chosen = draft.clusteringFields;
+  const unused = fields.filter((field) => !chosen.includes(field));
+  const intervalLabel = (interval: number) =>
+    interval % MINUTE_MICROS === 0
+      ? t('explore.runtime.clustering_minutes', { count: interval / MINUTE_MICROS })
+      : t('explore.runtime.clustering_seconds', { count: interval / 1_000_000 });
+  // A slice set through the API that the list does not offer stays selectable.
+  const intervals = [...new Set<number>([...CLUSTERING_INTERVALS, draft.clusteringInterval])].sort(
+    (left, right) => left - right,
+  );
+
+  return (
+    <div role="group" aria-labelledby={labelId} className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <span id={labelId} className={uiLabelClass}>
+          {t('explore.runtime.clustering_field')}
+        </span>
+        <span className="ml-auto font-sans text-xs tabular-nums text-tx-3">
+          {chosen.length > 0
+            ? t('explore.runtime.clustering_slices', {
+                interval: intervalLabel(draft.clusteringInterval),
+              })
+            : t('explore.runtime.clustering_none')}
+        </span>
+      </div>
+      <FieldArray<string>
+        items={chosen}
+        onChange={(clusteringFields) => onChange({ clusteringFields })}
+        maxItems={Math.min(MAX_CLUSTERING_FIELDS, chosen.length + unused.length)}
+        newItem={() => unused[0] ?? ''}
+        addLabel={t('explore.runtime.clustering_add')}
+        removeLabel={t('explore.runtime.clustering_remove')}
+        rowClassName="items-center"
+        renderItem={(field, _index, setField) => (
+          <FormSelect
+            ariaLabel={t('explore.runtime.clustering_field')}
+            value={field}
+            onChange={setField}
+            options={fields
+              .filter((option) => option === field || !chosen.includes(option))
+              .map((option) => ({ value: option, label: option }))}
+          />
+        )}
+      />
+      {chosen.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="font-sans text-xs text-tx-2">
+            {t('explore.runtime.clustering_interval')}
+          </span>
+          <div className="ml-auto w-[136px] shrink-0">
+            <FormSelect
+              ariaLabel={t('explore.runtime.clustering_interval')}
+              value={String(draft.clusteringInterval)}
+              onChange={(value) => onChange({ clusteringInterval: Number(value) })}
+              options={intervals.map((interval) => ({
+                value: String(interval),
+                label: intervalLabel(interval),
+              }))}
+            />
+          </div>
+        </div>
+      )}
+      <span className="font-sans text-xs leading-relaxed text-tx-3">
+        {t('explore.runtime.clustering_field_hint')}
+      </span>
+    </div>
+  );
+}
+
 /** 新字段按名字定索引：每行一个名字模式和它的索引类型，按次序第一条匹配的生效。 */
 function IndexPatterns({
   draft,
@@ -186,11 +282,14 @@ function IndexPatterns({
 export function SettingsPanel({
   draft,
   mergesByDay,
+  clusters,
   onChange,
 }: {
   draft: StreamDraft;
   /** 按天合并只用于日志与链路。 */
   mergesByDay: boolean;
+  /** Clustering applies to logs only. */
+  clusters: boolean;
   onChange: (patch: Partial<StreamDraft>) => void;
 }) {
   const { t } = useTranslation('streams');
@@ -247,6 +346,7 @@ export function SettingsPanel({
             onChange={(dailyMerge) => onChange({ dailyMerge })}
           />
           <PartitionFields draft={draft} onChange={onChange} />
+          {clusters && <ClusteringFields draft={draft} onChange={onChange} />}
         </StreamSettingsSection>
       )}
 

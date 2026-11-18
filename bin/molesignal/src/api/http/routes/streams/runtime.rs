@@ -3,27 +3,23 @@
 
 //! Runtime storage summary for logical streams.
 
+use agent::telemetry::AGENT_STREAM;
 use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::{
+    iam::{IamContext, permission},
+    storage::{QueryFile, logical_query_dataset_types},
+    stream::{StreamDefinition, StreamType},
+};
+use kernel::{
+    Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    agent::telemetry::AGENT_STREAM,
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        storage::{QueryFile, logical_query_dataset_types},
-        stream::{StreamDefinition, StreamType},
-    },
-    infra::query::catalog_source::StreamSnapshotSelection,
-    shared::{
-        Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::{api::AppState, infra::query::catalog_source::StreamSnapshotSelection};
 
 const DEFAULT_WINDOW_SECS: i64 = 24 * 60 * 60;
 const MIN_WINDOW_SECS: i64 = 60 * 60;
@@ -185,8 +181,7 @@ pub(super) async fn handle(
                 runtime.stale_index_files =
                     changed_at.map_or(0, |changed_at| stale_index_files(&files, changed_at));
 
-                if let Ok(primary_type) =
-                    crate::domain::storage::primary_dataset_type(runtime.stream_type)
+                if let Ok(primary_type) = domain::storage::primary_dataset_type(runtime.stream_type)
                     && let Some(dataset) = snapshot.dataset(&primary_type)
                     && let Some(usage) = intake_usage.get(&dataset.dataset_id)
                 {
@@ -453,13 +448,11 @@ fn runtime_status_rank(status: RuntimeStatus) -> u8 {
 
 #[cfg(test)]
 mod tests {
+    use domain::{storage::primary_dataset_type, stream::Schema};
+    use kernel::ids::Id;
     use serde_json::Map;
 
     use super::*;
-    use crate::{
-        domain::{storage::primary_dataset_type, stream::Schema},
-        shared::ids::Id,
-    };
 
     fn definition() -> StreamDefinition {
         StreamDefinition {
@@ -494,6 +487,7 @@ mod tests {
             null_counts: Map::new(),
             indexed_at_micros: None,
             shard: None,
+            clustering: Default::default(),
         }
     }
 

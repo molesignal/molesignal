@@ -5,10 +5,8 @@
 
 use std::collections::HashSet;
 
-use crate::{
-    domain::stream::{Schema, StreamSettings, StreamType},
-    shared::{Error, Result},
-};
+use domain::stream::{Schema, StreamSettings, StreamType};
+use kernel::{Error, Result};
 
 pub(super) fn validate_field_masking(
     settings: &StreamSettings,
@@ -72,11 +70,12 @@ pub(super) fn validate_system_settings_update(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::{
+    use domain::{
         masking::{FieldMaskingAlgorithm, FieldMaskingOverride},
-        stream::{FieldDef, FieldType, Schema, StreamSettings},
+        stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamSettings},
     };
+
+    use super::*;
 
     fn schema() -> Schema {
         Schema {
@@ -84,10 +83,8 @@ mod tests {
                 name: "service.name".into(),
                 data_type: FieldType::Utf8,
                 nullable: true,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             }],
         }
     }

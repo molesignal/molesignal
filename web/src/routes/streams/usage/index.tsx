@@ -185,7 +185,7 @@ export function IntakeUsage() {
         subtitle={t('usage.subtitle')}
         toolbar={
           <>
-            <TableExportButton name={`molesignal-intake-usage-${dimension}`} columns={columns} rows={sortedRows} size="md" />
+            <TableExportButton name={`molesignal-intake-usage-${dimension}`} columns={columns} rows={sortedRows} />
             <ChromeButton onClick={() => void refresh()} disabled={query.isFetching}>
               <RefreshCw className="h-3 w-3" /> {t('list.refresh')}
             </ChromeButton>

@@ -3,6 +3,11 @@
 
 use std::collections::HashSet;
 
+use domain::storage::{
+    ArtifactReplacement, ArtifactState, GcReason, ObjectChecksum, ObjectKey, OrganizationScope,
+    PublishPartitionManifest,
+};
+use kernel::{Error, Result, time::TimestampMicros};
 use sqlx::{PgPool, Row};
 
 use super::{
@@ -12,13 +17,6 @@ use super::{
         bump_dataset_version, enqueue_object_gc, insert_artifact, lock_dataset_version,
         tombstone_segment_artifacts,
     },
-};
-use crate::{
-    domain::storage::{
-        ArtifactReplacement, ArtifactState, GcReason, ObjectChecksum, ObjectKey, OrganizationScope,
-        PublishPartitionManifest,
-    },
-    shared::{Error, Result, time::TimestampMicros},
 };
 
 pub(super) async fn publish(
@@ -112,15 +110,17 @@ pub(super) async fn publish(
         )
         .await?;
 
-        enqueue_object_gc(
-            &mut tx,
-            scope,
-            &bloom_key(&retired_key),
-            None,
-            GcReason::Replaced,
-            command.gc_not_before_micros,
-        )
-        .await?;
+        for beside in [bloom_key(&retired_key), minute_counts_key(&retired_key)] {
+            enqueue_object_gc(
+                &mut tx,
+                scope,
+                &beside,
+                None,
+                GcReason::Replaced,
+                command.gc_not_before_micros,
+            )
+            .await?;
+        }
     }
 
     if let Some(pointer) = &command.new_manifest {
@@ -285,6 +285,11 @@ pub(super) fn bloom_key(manifest_key: &str) -> ObjectKey {
     ObjectKey::from_string(format!("{manifest_key}.bloom"))
 }
 
+/// The minute counts written beside a manifest. A partition without clustered segments has none.
+pub(super) fn minute_counts_key(manifest_key: &str) -> ObjectKey {
+    ObjectKey::from_string(format!("{manifest_key}.minute_counts"))
+}
+
 fn validate_command(scope: &OrganizationScope, command: &PublishPartitionManifest) -> Result<()> {
     let seals: HashSet<_> = command.seal_segment_ids.iter().collect();
 
@@ -335,7 +340,7 @@ async fn validate_segment_rows(
     scope: &OrganizationScope,
     command: &PublishPartitionManifest,
     state: &str,
-    ids: &[crate::domain::storage::SegmentId],
+    ids: &[domain::storage::SegmentId],
 ) -> Result<()> {
     if ids.is_empty() {
         return Ok(());
@@ -401,6 +406,6 @@ async fn validate_tombstones(
     Ok(())
 }
 
-fn id_strings(ids: &[crate::domain::storage::SegmentId]) -> Vec<String> {
+fn id_strings(ids: &[domain::storage::SegmentId]) -> Vec<String> {
     ids.iter().map(|id| id.as_str().to_owned()).collect()
 }

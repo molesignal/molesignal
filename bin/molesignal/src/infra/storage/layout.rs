@@ -15,13 +15,11 @@
 //! Search Job 的结果对象不进 Catalog：任务行上记着自己的 key，读取、重试和清理都按那个 key
 //! 进行，孤儿扫描与按组织限定的只读视图都不覆盖 `search_jobs/`。
 
-use crate::{
-    domain::storage::{
-        ArtifactId, ArtifactTypeId, ObjectKey, Partition, PhysicalDatasetId, SegmentId,
-        StreamTypeId, type_id,
-    },
-    shared::ids::Id,
+use domain::storage::{
+    ArtifactId, ArtifactTypeId, ObjectKey, Partition, PhysicalDatasetId, SegmentId, StreamTypeId,
+    type_id,
 };
+use kernel::ids::Id;
 
 /// `v1` 布局。按组织、信号类型和数据集组织对象。
 pub struct StorageLayout;
@@ -35,6 +33,9 @@ impl StorageLayout {
 
     /// Search Job 结果对象的 key 前缀。
     pub const SEARCH_JOB_PREFIX: &'static str = "search_jobs/v1/";
+
+    /// The prefix scheduled reports are exported under, one directory per organization.
+    pub const REPORT_PREFIX: &'static str = "reports/";
 
     /// `key` 是否是 Manifest 对象。Manifest 靠单次条件写实现版本协议。
     pub fn is_manifest_key(key: &str) -> bool {
@@ -99,6 +100,29 @@ impl StorageLayout {
         ))
     }
 
+    /// Where an `s3` report recipient writes `file_name`: under the organization's own prefix,
+    /// in the path the target names after `s3://`. Empty, `.` and `..` segments are dropped, so
+    /// no target reaches outside that prefix.
+    pub fn report_export_key(organization_id: &Id, target: &str, file_name: &str) -> ObjectKey {
+        let path = match target.get(..5) {
+            Some(scheme) if scheme.eq_ignore_ascii_case("s3://") => &target[5..],
+            _ => target,
+        };
+
+        let path = path
+            .split('/')
+            .filter(|segment| !matches!(*segment, "" | "." | ".."))
+            .chain(std::iter::once(file_name))
+            .collect::<Vec<_>>()
+            .join("/");
+
+        ObjectKey::from_string(format!(
+            "{}{}/{path}",
+            Self::REPORT_PREFIX,
+            organization_id.as_str()
+        ))
+    }
+
     /// Reconciler 做 orphan 扫描的合法前缀。object store 里还有 Catalog 之外的
     /// 合法对象（原始归档、会话回放、Search Job 结果等），孤儿判定只允许在这两个前缀内进行。
     pub fn catalog_scan_prefixes() -> [&'static str; 2] {
@@ -109,6 +133,38 @@ impl StorageLayout {
         [
             format!("artifacts/v1/{}/", organization_id.as_str()),
             format!("manifests/v1/{}/", organization_id.as_str()),
+        ]
+    }
+
+    /// Every prefix an organization's objects are written under, so that a deleted
+    /// organization's purge can remove them. Keys made outside this file:
+    ///
+    /// - `blobs/v1/{org}/`: RUM session replays (`infra::rum::replay`) and profile archives
+    ///   (`profiles::archive_object_key`).
+    /// - `agent_skills/v1/{org}/`: skill packages (`app::skills`).
+    /// - `agent/chat/v1/{org}/`: archived chat transcripts.
+    /// - `investigations/{org}/`, `debug-artifacts/{org}/`, `resource-shares/{org}/` and
+    ///   `status-page-logos/{org}/`: investigation blobs, source maps and symbols, share
+    ///   snapshots, status page logos.
+    /// - `{org}/synthetics/`: synthetic check artifacts (`app::synthetics::artifact_object_key`).
+    ///
+    /// A new kind of object keyed by organization needs its prefix here.
+    pub fn organization_prefixes(organization_id: &Id) -> Vec<String> {
+        let org = organization_id.as_str();
+
+        vec![
+            format!("{}{org}/", Self::ARTIFACT_PREFIX),
+            format!("{}{org}/", Self::MANIFEST_PREFIX),
+            format!("{}{org}/", Self::SEARCH_JOB_PREFIX),
+            format!("{}{org}/", Self::REPORT_PREFIX),
+            format!("blobs/v1/{org}/"),
+            format!("agent_skills/v1/{org}/"),
+            format!("agent/chat/v1/{org}/"),
+            format!("investigations/{org}/"),
+            format!("debug-artifacts/{org}/"),
+            format!("resource-shares/{org}/"),
+            format!("status-page-logos/{org}/"),
+            format!("{org}/synthetics/"),
         ]
     }
 
@@ -148,7 +204,7 @@ mod tests {
     fn artifact_key_contains_only_stable_ids() {
         let key = StorageLayout::artifact_key(
             &Id::from_string("org1"),
-            crate::domain::storage::StreamTypeId::LOGS,
+            domain::storage::StreamTypeId::LOGS,
             &PhysicalDatasetId::from_string("ds1"),
             &partition(),
             &SegmentId::from_string("seg1"),
@@ -165,7 +221,7 @@ mod tests {
     fn tantivy_and_unknown_suffixes() {
         let ttv = StorageLayout::artifact_key(
             &Id::from_string("o"),
-            crate::domain::storage::StreamTypeId::LOGS,
+            domain::storage::StreamTypeId::LOGS,
             &PhysicalDatasetId::from_string("d"),
             &partition(),
             &SegmentId::from_string("s"),
@@ -175,7 +231,7 @@ mod tests {
         assert!(ttv.as_str().ends_with("/a.ttv"));
         let custom = StorageLayout::artifact_key(
             &Id::from_string("o"),
-            crate::domain::storage::StreamTypeId::LOGS,
+            domain::storage::StreamTypeId::LOGS,
             &PhysicalDatasetId::from_string("d"),
             &partition(),
             &SegmentId::from_string("s"),
@@ -206,7 +262,7 @@ mod tests {
     fn manifest_key_is_generation_scoped() {
         let key = StorageLayout::manifest_key(
             &Id::from_string("org1"),
-            crate::domain::storage::StreamTypeId::LOGS,
+            domain::storage::StreamTypeId::LOGS,
             &PhysicalDatasetId::from_string("ds1"),
             &partition(),
             7,
@@ -222,7 +278,7 @@ mod tests {
         let key = |end_micros| {
             StorageLayout::manifest_key(
                 &Id::from_string("org1"),
-                crate::domain::storage::StreamTypeId::LOGS,
+                domain::storage::StreamTypeId::LOGS,
                 &PhysicalDatasetId::from_string("ds1"),
                 &Partition {
                     end_micros,
@@ -246,7 +302,7 @@ mod tests {
     fn negative_partition_start_keeps_sign() {
         let key = StorageLayout::manifest_key(
             &Id::from_string("o"),
-            crate::domain::storage::StreamTypeId::LOGS,
+            domain::storage::StreamTypeId::LOGS,
             &PhysicalDatasetId::from_string("d"),
             &Partition {
                 start_micros: -3_600_000_000,
@@ -313,6 +369,71 @@ mod tests {
             "blobs/v1/org/rum/app/session/0000000001-hash.ndjson.zst",
         ] {
             assert!(prefixes.iter().all(|prefix| !key.starts_with(prefix)));
+        }
+    }
+
+    #[test]
+    fn an_organization_purge_reaches_the_keys_made_for_it_and_no_others() {
+        let org = Id::from_string("org");
+        let dataset = PhysicalDatasetId::from_string("dataset");
+
+        let keys = [
+            StorageLayout::artifact_key(
+                &org,
+                StreamTypeId::LOGS,
+                &dataset,
+                &partition(),
+                &SegmentId::from_string("segment"),
+                &ArtifactId::from_string("data"),
+                &ArtifactTypeId::builtin(type_id::builtin::ARTIFACT_PARQUET),
+            )
+            .0,
+            StorageLayout::manifest_key(&org, StreamTypeId::LOGS, &dataset, &partition(), 1).0,
+            StorageLayout::search_job_result_key(&org, &Id::from_string("job"), 0).0,
+            StorageLayout::report_export_key(&org, "s3://bucket/weekly", "r1-20261110.pdf").0,
+            profiles::archive_object_key(
+                &org,
+                "api",
+                "cpu",
+                1_755_302_400_000_000,
+                &Id::from_string("profile"),
+            ),
+        ];
+
+        let own = StorageLayout::organization_prefixes(&org);
+        let other = StorageLayout::organization_prefixes(&Id::from_string("org2"));
+
+        for key in &keys {
+            assert!(
+                own.iter().any(|prefix| key.starts_with(prefix.as_str())),
+                "{key}"
+            );
+            assert!(
+                other.iter().all(|prefix| !key.starts_with(prefix.as_str())),
+                "{key}"
+            );
+        }
+    }
+
+    #[test]
+    fn report_exports_stay_inside_their_organization() {
+        let org = Id::from_string("org");
+
+        for (target, key) in [
+            ("s3://bucket/weekly/", "reports/org/bucket/weekly/r1.pdf"),
+            ("S3://weekly", "reports/org/weekly/r1.pdf"),
+            ("weekly", "reports/org/weekly/r1.pdf"),
+            (
+                "s3://../../artifacts/v1/other",
+                "reports/org/artifacts/v1/other/r1.pdf",
+            ),
+            ("s3://", "reports/org/r1.pdf"),
+        ] {
+            assert_eq!(
+                StorageLayout::report_export_key(&org, target, "r1.pdf").as_str(),
+                key,
+                "{target}"
+            );
         }
     }
 
