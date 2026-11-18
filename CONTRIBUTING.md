@@ -16,15 +16,13 @@ By participating you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Coding conventions](#coding-conventions)
 - [Tests](#tests)
 - [Commit messages](#commit-messages)
-- [Branching & release channels](#branching--release-channels)
+- [Branching & releases](#branching--releases)
 - [Pull request process](#pull-request-process)
 - [Getting help](#getting-help)
 
 ## Where to start
 
 - New contributors: scan the [README](README.md) and skim the [ARCHITECTURE.md](ARCHITECTURE.md) — the DDD layering and the cross-signal correlation idea are load-bearing for most changes.
-- In-flight design work lives under [`openspec/changes/`](openspec/changes); each change has a `tasks.md` you can pick a checked-out item from.
-- The README's "Status" table shows where we want help most (production hardening, demo dataset, real-world cross-signal correlation use cases).
 - Good first issues are labelled `good first issue` on GitHub when available; otherwise small typo fixes and doc improvements are always welcome.
 
 ## Developer Certificate of Origin (DCO)
@@ -115,27 +113,17 @@ A pre-commit hook is installed via `make install-hooks` and checks only the stag
 - Write subject, body, and trailers in English. (The conversational language in issues / PR comments can be either Chinese or English.)
 - Every commit must carry `Signed-off-by:` (see [DCO](#developer-certificate-of-origin-dco)).
 
-## Branching & release channels
+## Branching & releases
 
-We have four release channels driven by branches. Every channel promotes the same Cargo `release` artifact; deployment sets the runtime `RELEASE_CHANNEL` metadata:
-
-| Branch  | Channel | Tagged as          | Promoted from |
-|---------|---------|--------------------|---------------|
-| `alpha` | alpha   | `vX.Y.Z`           | feature PRs   |
-| `beta`  | beta    | `vX.Y.Z`           | `alpha`       |
-| `rc`    | rc      | `vX.Y.Z`           | `beta`        |
-| `main`  | stable  | `vX.Y.Z`           | `rc`          |
-
-`v*` tags carry the *same* semver across channels; the workflow infers the channel from the branch the tag sits on (`main > rc > beta > alpha` if a commit reaches multiple). See [`.github/workflows/release.yml`](.github/workflows/release.yml).
-
-Builds are identified by their Git SHA and CI `BUILD_ID`. Promotion must reuse the immutable binary or image for that build ID rather than recompiling it.
-
-Day-to-day PRs target `alpha` (or `main` if there is no `alpha` branch yet — until promotion process is set up).
+PRs target `main`. Publish four-part product versions with `vX.Y.Z.N` tags from `main`.
+The release workflow builds binaries and Docker images before publishing GitHub Releases.
+Images carry immutable version/build tags and a shared `latest` tag.
+Update checks compare published GitHub Release versions without filtering prereleases.
 
 ## Pull request process
 
 1. Open an issue or discussion first for non-trivial changes — we'd rather align on direction before you spend a weekend on a refactor.
-2. Branch off the target channel, keep PRs small and focused. One logical change per PR.
+2. Branch off `main`, keep PRs small and focused. One logical change per PR.
 3. Update relevant docs (`README.md`, `ARCHITECTURE.md`, in-crate doc comments) when you change observable behaviour.
 4. Make sure the CI required jobs pass locally before pushing:
    - `make fmt-check`
@@ -150,7 +138,7 @@ Day-to-day PRs target `alpha` (or `main` if there is no `alpha` branch yet — u
 
 ## Getting help
 
-- Architecture / design questions: open a GitHub Discussion or comment on the relevant `openspec/changes/` doc.
+- Architecture / design questions: open a GitHub Discussion.
 - Bugs that are not security-sensitive: regular GitHub issues.
 - Security: see [SECURITY.md](SECURITY.md).
 - Conduct concerns: see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

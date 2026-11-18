@@ -11,7 +11,6 @@ cargo --version
 node --version
 pnpm --version
 buf --version 2>/dev/null || echo "(buf optional)"
-openspec --version 2>/dev/null || echo "(openspec optional)"
 
 echo
 echo "==> cargo fetch（预热依赖）"

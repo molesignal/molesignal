@@ -11,7 +11,7 @@ VS Code / Cursor / 任何 [Dev Containers spec](https://containers.dev) 兼容�
 | Node | 20 + pnpm 9（`web/` 前端用） |
 | Proto | `protoc` + `buf` 1.50 |
 | DB tools | `psql` + `sqlx-cli`（postgres feature） |
-| Dev tools | `cargo-watch` + `openspec` CLI + `gh` + `jq` |
+| Dev tools | `cargo-watch` + `gh` + `jq` |
 | Services | Postgres 17 + RustFS（来自 `deploy/docker/docker-compose.yaml`） |
 
 ## 启动
@@ -41,10 +41,6 @@ cd web && pnpm dev
 
 # 集成测试（需要 docker-out-of-docker，已启用）
 MS_RUN_IT=1 cargo test -p molesignal --tests -- --test-threads=1
-
-# openspec 工作流
-openspec list
-openspec validate <change-name> --strict
 ```
 
 ## 转发端口

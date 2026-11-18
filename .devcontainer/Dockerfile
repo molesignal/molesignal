@@ -1,4 +1,4 @@
-# molesignal dev container —— Rust 1.90 + Node 20 + buf + openspec + sqlx-cli + 常用工具
+# molesignal dev container —— Rust 1.90 + Node 20 + buf + sqlx-cli + 常用工具
 #
 # Base：Microsoft devcontainers Rust 镜像（已含 vscode 用户、git、build-essential、lldb 等）
 FROM mcr.microsoft.com/devcontainers/rust:1-1-bookworm
@@ -33,10 +33,6 @@ ARG BUF_VERSION=1.50.0
 RUN curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64" \
         -o /usr/local/bin/buf \
  && chmod +x /usr/local/bin/buf
-
-# openspec CLI —— spec workflow（用户走 /opsx:apply / /opsx:archive 用）
-RUN npm install -g @fungiboletus/openspec || \
-    npm install -g openspec || true
 
 # sqlx-cli —— 数据库 migration 工具（molesignal 用 sqlx）
 RUN cargo install sqlx-cli --no-default-features --features postgres,rustls --locked || true

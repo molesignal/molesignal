@@ -16,15 +16,13 @@
 - [代码约定](#代码约定)
 - [测试](#测试)
 - [Commit 信息](#commit-信息)
-- [分支与发布通道](#分支与发布通道)
+- [分支与发布](#分支与发布)
 - [Pull request 流程](#pull-request-流程)
 - [需要帮助](#需要帮助)
 
 ## 从哪开始
 
 - 新贡献者：先扫一遍 [README](README.md)，然后过一下 [ARCHITECTURE.md](ARCHITECTURE.md) —— DDD 分层与跨信号关联是大多数改动的承重墙。
-- 在做的设计在 [`openspec/changes/`](openspec/changes) 下，每个 change 都有 `tasks.md`，你可以挑一项还没勾选的任务认领。
-- README 的 "Status" 表展示我们最希望得到帮助的方向（生产硬化、demo 数据集、跨信号关联的真实用例）。
 - 有 `good first issue` 标签时优先选它；没有的话，typo / 文档修复永远欢迎。
 
 ## 开发者来源证书（DCO）
@@ -115,27 +113,17 @@ pnpm -C web dev          # vite dev server
 - 标题、正文、trailer 都写英文。（issue / PR 评论的对话可以中文或英文，由你与维护者决定。）
 - 每个 commit 必须带 `Signed-off-by:`（见 [DCO](#开发者来源证书dco)）。
 
-## 分支与发布通道
+## 分支与发布
 
-按分支区分四个发布通道。所有通道逐级晋升同一个 Cargo `release` 制品，部署时通过运行时 `RELEASE_CHANNEL` 标记成熟度：
-
-| 分支    | 通道   | tag 命名   | 来源 |
-|---------|--------|-----------|------|
-| `alpha` | alpha  | `vX.Y.Z`  | feature PR |
-| `beta`  | beta   | `vX.Y.Z`  | 从 `alpha` promote |
-| `rc`    | rc     | `vX.Y.Z`  | 从 `beta` promote |
-| `main`  | stable | `vX.Y.Z`  | 从 `rc` promote |
-
-跨通道用 *同样* 的 semver tag；workflow 根据 tag commit 在哪条分支上推断通道（`main > rc > beta > alpha`，更稳定的优先）。详见 [`.github/workflows/release.yml`](.github/workflows/release.yml)。
-
-制品由 Git SHA 和 CI `BUILD_ID` 共同标识。晋升时必须复用该 build ID 对应的不可变二进制或镜像，不得重新编译。
-
-日常 PR 默认目标分支是 `alpha`（如果 `alpha` 还没建出来，先指 `main`，等通道流程建好再调整）。
+PR 默认合入 `main`，从 `main` 使用 `vX.Y.Z.N` 四段产品版本标签发布。
+发布流程在二进制和 Docker 镜像构建成功后创建 GitHub Release。
+镜像保留不可变的版本、构建标签，并提供统一的 `latest` 标签。
+更新检查比较已发布 GitHub Release 的版本号，不过滤历史预发布。
 
 ## Pull request 流程
 
 1. 非微小变更先开 issue / discussion 确认方向 —— 不希望你周末写完一个大重构才发现方向有分歧。
-2. 从目标通道 fork 分支，PR 保持小而聚焦，一个 PR 只做一件逻辑事。
+2. 从 `main` 创建分支，PR 保持小而聚焦，一个 PR 只做一件逻辑事。
 3. 行为面有变更时同步更新相关文档（`README.md`、`ARCHITECTURE.md`、crate 内 doc comment）。
 4. push 前确保 CI 必跑项本地全绿：
    - `make fmt-check`
@@ -150,7 +138,7 @@ pnpm -C web dev          # vite dev server
 
 ## 需要帮助
 
-- 架构 / 设计问题：开 GitHub Discussion，或者在对应 `openspec/changes/` 文档下评论。
+- 架构 / 设计问题：开 GitHub Discussion。
 - 非安全相关 bug：普通 GitHub issue。
 - 安全相关：[SECURITY.md](SECURITY.md)。
 - 行为规范相关：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。

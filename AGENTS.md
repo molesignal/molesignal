@@ -33,6 +33,10 @@
 - 新的组织级设置写成 `org_settings` 的一节：在 `org_settings::sections` 加一个名字，值的结构与校验放在对应仓库和领域类型里，不再为它单独建一张「一个组织一行」的表。
 - 结构相同、只是用途不同的数据放进同一张表，用 `kind` 一类的列区分（如 `one_time_tokens`、`sealed_secrets`），查找必须带上这一列。
 - 只属于一行、随这一行一起读写的子数据存成这一行的 JSONB 列，不建子表；需要跨行按子数据查询或建索引时再建子表。
+- 不建指向 `organizations` 的外键。删除组织只做标记，后台清理按 `org_id` / `organization_id` 列逐表分批删除，新表带上组织列就会被清理；没有组织列却存放组织数据的表，要在 `crates/engines/postgres/src/persistence/repositories/organizations/purge.rs` 里登记清理语句，或写明它随哪张表级联删除。
+- `created_by`、`updated_by` 这类署名列不建指向 `users` 的外键；只属于用户本人的数据（凭据、身份）用 `ON DELETE CASCADE`。
+- 每个外键的引用列都要有以这些列开头的索引，集成测试会检查。
+- 删除可能连带大量行时不在请求里级联：先标记（如组织的 `deleted_at`、数据集的 `deleting` 状态），再由后台清理分批删除。
 - 接口里的时间字段是微秒整数，名字不带单位后缀：时间点按发生的事命名（`createdAt`、`expiresAt`），只有一个词说不清时加 `Time`（`startTime`）；时长以 `Time` 结尾（`p95Time`），名字本身就是时长的不加（`duration`）。
 
 ## 验证
