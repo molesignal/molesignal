@@ -6,24 +6,22 @@
 
 pub mod http;
 pub mod kubernetes;
+pub mod preapproval;
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use serde_json::{Value, json};
-
-use crate::{
-    domain::alerting::{
-        incident::{Incident, IncidentStatus},
-        remediation::{
-            RemediationAction, RemediationRepository, RemediationRun, RemediationRunStatus,
-            RemediationTarget, VerifyBy, template_vars,
-        },
-        repositories::{AlertRuleRepository, IncidentRepository},
-        rule::RuleState,
-        timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
+use domain::alerting::{
+    incident::{Incident, IncidentStatus},
+    remediation::{
+        RemediationAction, RemediationRepository, RemediationRun, RemediationRunStatus,
+        RemediationTarget, VerifyBy, template_vars,
     },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    repositories::{AlertRuleRepository, IncidentRepository},
+    rule::RuleState,
+    timeline::{IncidentTimelineRepository, TimelineEntry, TimelineKind},
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use serde_json::{Value, json};
 
 /// 一轮最多验证多少次执行。
 const VERIFY_BATCH: i64 = 50;
@@ -128,6 +126,7 @@ impl RemediationService {
                 verification: String::new(),
                 requested_by: requested_by.clone(),
                 executed_by: None,
+                preapproved: false,
                 created_at: now,
                 updated_at: now,
             })

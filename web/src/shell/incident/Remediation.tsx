@@ -118,6 +118,11 @@ export function IncidentRemediation({ incident, surface }: { incident: Incident;
                       <span className={cn('shrink-0 font-strong', STATUS_INK[run.status])}>
                         {t(`remediation.run.status.${run.status}`)}
                       </span>
+                      {run.preapproved && (
+                        <span data-remediation-preapproved className="shrink-0 text-tx-2">
+                          {t('remediation.run.preapproved')}
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 text-tx-2">
                       {[
@@ -184,7 +189,11 @@ function StartDialog({ incident, action, onClose }: { incident: Incident; action
         reason: reason.trim(),
       }),
     onSuccess: (result) => {
-      toast.success(t('remediation.run.requested', { count: result.approval.requiredApprovals }));
+      toast.success(
+        result.preapproved
+          ? t('remediation.run.ran_preapproved')
+          : t('remediation.run.requested', { count: result.approval.requiredApprovals }),
+      );
       void queryClient.invalidateQueries({ queryKey: ['incident-remediations', incident.id] });
       void queryClient.invalidateQueries({ queryKey: ['incident-timeline', incident.id] });
       onClose();

@@ -13,37 +13,43 @@
 
 use std::collections::BTreeMap;
 
+use agent::model::ApprovalStatus;
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::{get, put},
 };
+use domain::{
+    alerting::{
+        incident::Incident,
+        remediation::{
+            RemediationAction, RemediationParameter, RemediationRisk, RemediationRunStatus,
+            RemediationTarget, VerifyBy,
+        },
+    },
+    iam::{IamContext, permission, resource_permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::RiskLevel;
 
 use crate::{
-    agent::model::ApprovalStatus,
-    api::{AppState, http::routes::activity_audit},
+    api::{
+        AppState,
+        http::routes::{activity_audit, agent::control::preapproved},
+    },
     app::{
-        iam::IamContext,
-        tools::dashboard::{CreateApprovalRequest, create_agent_approval},
+        alerting::remediation::preapproval::is_preapproved,
+        tools::approvals::{CreateApprovalRequest, create_agent_approval},
     },
-    domain::{
-        alerting::{
-            incident::Incident,
-            remediation::{
-                RemediationAction, RemediationParameter, RemediationRisk, RemediationRunStatus,
-                RemediationTarget, VerifyBy,
-            },
-        },
-        iam::{permission, resource_permission},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
+
+mod preapproval;
 
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
+        .merge(preapproval::routes())
         .route(
             "/alerts/remediation/actions",
             get(list_actions).post(create_action),
@@ -107,6 +113,7 @@ impl ActionReq {
             verify_by: self.verify_by,
             enabled: self.enabled,
             secrets_set: Vec::new(),
+            preapproval: None,
             created_by: None,
             updated_by: None,
             created_at: now,
@@ -183,6 +190,7 @@ async fn update_action(
     action.validate()?;
 
     let saved = repository.save_action(action).await?;
+    let saved = preapproval::after_update(&state, &existing, saved).await?;
 
     audit(&state, &ctx, "remediation_action.updated", &saved).await;
     Ok(Json(public_action(saved)))
@@ -400,6 +408,39 @@ async fn request_remediation(
         },
     )
     .await?;
+
+    // A pre-approval covered it: its run is already recorded, and it runs now.
+    if approval.status == ApprovalStatus::Approved && is_preapproved(&approval.reviews) {
+        let completed = preapproved::run(&state, &ctx, &approval.id).await?;
+
+        let run = service
+            .repository()
+            .find_run_by_approval(&ctx.org_id, &approval.id)
+            .await?;
+
+        let approval = state
+            .agent
+            .repository
+            .get_approval(&ctx.org_id, &approval.id)
+            .await?;
+
+        activity_audit::record(
+            &state,
+            &ctx,
+            "remediation.requested",
+            "incident",
+            &incident.id.0,
+            json!({ "action": action.name, "approvalId": approval.id, "preapproved": true }),
+        )
+        .await;
+
+        return Ok(Json(json!({
+            "run": run,
+            "approval": approval,
+            "preapproved": true,
+            "execution": completed.execution,
+        })));
+    }
 
     let run = service
         .record_request(

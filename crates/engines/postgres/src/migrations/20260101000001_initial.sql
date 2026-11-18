@@ -1443,10 +1443,14 @@ CREATE TABLE IF NOT EXISTS remediation_actions (
     verify_by           VARCHAR(24)  NOT NULL DEFAULT 'incident_resolved'
                         CHECK (verify_by IN ('incident_resolved', 'rule_healthy')),
     enabled             BOOLEAN      NOT NULL DEFAULT TRUE,
+    -- What lets it run without waiting (`RemediationPreapproval`): services, runs per window,
+    -- expiry, channels, approvers. NULL when it has none.
+    preapproval         JSONB,
     created_by          VARCHAR(64),
     updated_by          VARCHAR(64),
     created_at          TIMESTAMPTZ  NOT NULL,
-    updated_at          TIMESTAMPTZ  NOT NULL
+    updated_at          TIMESTAMPTZ  NOT NULL,
+    CHECK (preapproval IS NULL OR jsonb_typeof(preapproval) = 'object')
 );
 CREATE INDEX IF NOT EXISTS idx_remediation_actions_org ON remediation_actions(org_id);
 
@@ -1482,6 +1486,8 @@ CREATE TABLE IF NOT EXISTS remediation_runs (
     verification        TEXT         NOT NULL DEFAULT '',
     requested_by        VARCHAR(64)  NOT NULL,
     executed_by         VARCHAR(64),
+    -- Approved by a pre-approval, without waiting; counted against its runs per window.
+    preapproved         BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ  NOT NULL,
     updated_at          TIMESTAMPTZ  NOT NULL
 );
@@ -1491,6 +1497,8 @@ CREATE INDEX IF NOT EXISTS idx_remediation_runs_verify
     ON remediation_runs(verify_at) WHERE status = 'verifying';
 CREATE INDEX IF NOT EXISTS idx_remediation_runs_awaiting
     ON remediation_runs(created_at) WHERE status = 'awaiting_approval';
+CREATE INDEX IF NOT EXISTS idx_remediation_runs_preapproved
+    ON remediation_runs(org_id, action_id, created_at) WHERE preapproved;
 
 -- 工单连接器：Jira、ServiceNow 或飞书项目（Meegle）。settings 是站点、项目、类型、映射与流转；凭证与 Webhook 密钥
 -- 用根密钥加密后单独存。

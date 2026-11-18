@@ -1,5 +1,7 @@
 import { http } from '@/lib/http';
 
+import type { NotifyTargetType } from './notify';
+
 export type RemediationRisk = 'l2' | 'l3';
 export type ParameterKind = 'text' | 'number' | 'select';
 export type HttpVerb = 'GET' | 'POST' | 'PUT' | 'PATCH';
@@ -39,6 +41,42 @@ export interface KubernetesTarget {
 
 export type RemediationTarget = HttpTarget | KubernetesTarget;
 
+/** Where the notice after a pre-approved run goes: a connector and a group or address on it. */
+export interface PreapprovalChannel {
+  connectorId: string;
+  targetType: Extract<NotifyTargetType, 'fixed_group' | 'fixed_address'>;
+  target: string;
+}
+
+/**
+ * Lets an action run without waiting on the incidents of some services, a few times in a window,
+ * until an expiry. An L3 action needs a second person to confirm it.
+ */
+export interface RemediationPreapproval {
+  services: string[];
+  maxRuns: number;
+  windowSecs: number;
+  expiresAt: number | null;
+  channels: PreapprovalChannel[];
+  approvers: { userId: string; at: number }[];
+  setBy: string;
+  setAt: number;
+}
+
+export type RemediationPreapprovalInput = Pick<
+  RemediationPreapproval,
+  'services' | 'maxRuns' | 'windowSecs' | 'expiresAt' | 'channels'
+>;
+
+/** Where a pre-approval stands, as the backend reads it now. */
+export type PreapprovalState = 'off' | 'expired' | 'awaiting_approver' | 'used_up' | 'active';
+
+/** The organization's switch, and per action with a pre-approval the runs used in its window. */
+export interface PreapprovalOverview {
+  enabled: boolean;
+  actions: Record<string, { used: number; state: PreapprovalState }>;
+}
+
 /** An action set up beforehand and run on an incident once approved. */
 export interface RemediationAction {
   id: string;
@@ -55,11 +93,16 @@ export interface RemediationAction {
   enabled: boolean;
   /** Which secrets are set: `signing_secret`, `header:<name>`. */
   secretsSet: string[];
+  /** Set on its own route; the action's form leaves it alone. */
+  preapproval?: RemediationPreapproval | null;
   createdAt: number;
   updatedAt: number;
 }
 
-export type RemediationActionInput = Omit<RemediationAction, 'id' | 'secretsSet' | 'createdAt' | 'updatedAt'>;
+export type RemediationActionInput = Omit<
+  RemediationAction,
+  'id' | 'secretsSet' | 'preapproval' | 'createdAt' | 'updatedAt'
+>;
 
 export interface KubernetesCluster {
   id: string;
@@ -102,6 +145,8 @@ export interface RemediationRun {
   verification: string;
   requestedBy: string;
   executedBy: string | null;
+  /** Approved by a pre-approval, without waiting. */
+  preapproved?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -161,14 +206,56 @@ export async function incidentRemediations(
   return data;
 }
 
-/** Starts an action on an incident: it waits for approval, then runs. */
+/**
+ * Starts an action on an incident: it waits for approval, then runs; when a pre-approval covers it,
+ * it runs at once (`preapproved`).
+ */
 export async function requestRemediation(
   incidentId: string,
   input: { actionId: string; inputs: Record<string, string>; reason: string },
-): Promise<{ run: RemediationRun; approval: { id: string; requiredApprovals: number } }> {
-  const { data } = await http.post<{ run: RemediationRun; approval: { id: string; requiredApprovals: number } }>(
-    `/alerts/incidents/${encodeURIComponent(incidentId)}/remediations`,
+): Promise<{
+  run: RemediationRun | null;
+  approval: { id: string; requiredApprovals: number };
+  preapproved?: boolean;
+}> {
+  const { data } = await http.post<{
+    run: RemediationRun | null;
+    approval: { id: string; requiredApprovals: number };
+    preapproved?: boolean;
+  }>(`/alerts/incidents/${encodeURIComponent(incidentId)}/remediations`, input);
+  return data;
+}
+
+export async function preapprovalOverview(): Promise<PreapprovalOverview> {
+  const { data } = await http.get<PreapprovalOverview>('/alerts/remediation/preapproval');
+  return data;
+}
+
+export async function setPreapprovalEnabled(enabled: boolean): Promise<{ enabled: boolean }> {
+  const { data } = await http.put<{ enabled: boolean }>('/alerts/remediation/preapproval', { enabled });
+  return data;
+}
+
+/** Sets an action's pre-approval; whoever sets it is its first approver. */
+export async function setPreapproval(
+  actionId: string,
+  input: RemediationPreapprovalInput,
+): Promise<RemediationPreapproval> {
+  const { data } = await http.put<{ preapproval: RemediationPreapproval }>(
+    `/alerts/remediation/actions/${encodeURIComponent(actionId)}/preapproval`,
     input,
   );
-  return data;
+  return data.preapproval;
+}
+
+export async function clearPreapproval(actionId: string) {
+  await http.delete(`/alerts/remediation/actions/${encodeURIComponent(actionId)}/preapproval`);
+}
+
+/** Another person confirms a pre-approval (an L3 action needs two). */
+export async function confirmPreapproval(actionId: string): Promise<RemediationPreapproval> {
+  const { data } = await http.post<{ preapproval: RemediationPreapproval }>(
+    `/alerts/remediation/actions/${encodeURIComponent(actionId)}/preapproval/confirm`,
+  );
+  return data.preapproval;
 }

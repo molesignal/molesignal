@@ -24,6 +24,7 @@ import { toast } from '@/shell/ui/sonner';
 import { AlertsPage } from '../Frame';
 import { RemediationActionDrawer } from './ActionDrawer';
 import { ACTIONS_KEY, CLUSTERS_KEY, targetSummary } from './model';
+import { PreapprovalCell, PreapprovalSwitch } from './PreapprovalPanel';
 
 /** Remediation actions set up beforehand and run on incidents once approved, and the clusters they act on. */
 export function AlertsRemediation() {
@@ -81,6 +82,7 @@ export function AlertsRemediation() {
         contentSurface={false}
       >
         <div className="flex min-w-0 flex-col gap-[12px]">
+          <PreapprovalSwitch />
           <section data-remediation-actions className="min-w-0">
             <h2 className={`${uiSectionTitleClass} px-[12px] py-2`}>{t('remediation.actions_title')}</h2>
             {(actions.data ?? []).length === 0 ? (
@@ -108,6 +110,7 @@ export function AlertsRemediation() {
                     </span>
                     <span className="w-[120px] shrink-0 text-xs text-tx-1">{t(`remediation.risks.${action.risk}`)}</span>
                     {!action.enabled && <span className="shrink-0 text-xs text-tx-3">{t('remediation.disabled')}</span>}
+                    <PreapprovalCell action={action} />
                     <IconButton
                       aria-label={t('remediation.delete_named', { name: action.name })}
                       disabled={manageAccess.disabled}

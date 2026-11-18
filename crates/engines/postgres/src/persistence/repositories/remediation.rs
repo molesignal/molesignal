@@ -9,18 +9,21 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use domain::alerting::remediation::{
+    KubernetesCluster, RemediationAction, RemediationParameter, RemediationPreapproval,
+    RemediationRepository, RemediationRisk, RemediationRun, RemediationTarget, VerifyBy,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
-use crate::{
-    domain::alerting::remediation::{
-        KubernetesCluster, RemediationAction, RemediationParameter, RemediationRepository,
-        RemediationRisk, RemediationRun, RemediationRunStatus, RemediationTarget, VerifyBy,
-    },
-    infra::cipher::CipherRootKey,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::cipher::CipherRootKey;
+
+mod preapproval;
+mod runs;
+
+use runs::{RUN_COLS, row_to_run};
 
 pub struct PgRemediationRepository {
     pool: PgPool,
@@ -101,8 +104,8 @@ fn secrets_set(target: &RemediationTarget, secrets: Option<&HttpSecrets>) -> Vec
 }
 
 const ACTION_COLS: &str = "id, org_id, name, description, target, secret_nonce, secret_ciphertext,
-     parameters, services, team_ids, risk, verify_after_secs, verify_by, enabled, created_by,
-     updated_by, created_at, updated_at";
+     parameters, services, team_ids, risk, verify_after_secs, verify_by, enabled, preapproval,
+     created_by, updated_by, created_at, updated_at";
 
 impl PgRemediationRepository {
     /// 读出一行动作；`reveal` 时把秘密放回 target。
@@ -137,6 +140,10 @@ impl PgRemediationRepository {
         let risk: String = row.try_get("risk").map_err(sqlx_err)?;
         let verify_by: String = row.try_get("verify_by").map_err(sqlx_err)?;
         let verify_after: i32 = row.try_get("verify_after_secs").map_err(sqlx_err)?;
+        let preapproval = row
+            .try_get::<Option<Json<RemediationPreapproval>>, _>("preapproval")
+            .map_err(sqlx_err)?
+            .map(|Json(preapproval)| preapproval);
 
         Ok(RemediationAction {
             id: Id(row.try_get("id").map_err(sqlx_err)?),
@@ -160,6 +167,7 @@ impl PgRemediationRepository {
             },
             enabled: row.try_get("enabled").map_err(sqlx_err)?,
             secrets_set: set,
+            preapproval,
             created_by: row
                 .try_get::<Option<String>, _>("created_by")
                 .map_err(sqlx_err)?
@@ -180,43 +188,6 @@ impl PgRemediationRepository {
 
 const CLUSTER_COLS: &str = "id, org_id, name, api_server, ca_cert, token_nonce, token_ciphertext,
      created_at, updated_at";
-
-const RUN_COLS: &str =
-    "id, org_id, incident_id, action_id, action_name, approval_id, inputs, status,
-     output, verify_at, verification, requested_by, executed_by, created_at,
-     updated_at";
-
-fn row_to_run(row: &sqlx::postgres::PgRow) -> Result<RemediationRun> {
-    let Json(inputs): Json<BTreeMap<String, String>> = row.try_get("inputs").map_err(sqlx_err)?;
-    let status: String = row.try_get("status").map_err(sqlx_err)?;
-
-    Ok(RemediationRun {
-        id: Id(row.try_get("id").map_err(sqlx_err)?),
-        org_id: Id(row.try_get("org_id").map_err(sqlx_err)?),
-        incident_id: Id(row.try_get("incident_id").map_err(sqlx_err)?),
-        action_id: Id(row.try_get("action_id").map_err(sqlx_err)?),
-        action_name: row.try_get("action_name").map_err(sqlx_err)?,
-        approval_id: Id(row.try_get("approval_id").map_err(sqlx_err)?),
-        inputs,
-        status: RemediationRunStatus::parse(&status),
-        output: row.try_get("output").map_err(sqlx_err)?,
-        verify_at: row
-            .try_get::<Option<TimestampMicros>, _>("verify_at")
-            .map_err(sqlx_err)?,
-        verification: row.try_get("verification").map_err(sqlx_err)?,
-        requested_by: Id(row.try_get("requested_by").map_err(sqlx_err)?),
-        executed_by: row
-            .try_get::<Option<String>, _>("executed_by")
-            .map_err(sqlx_err)?
-            .map(Id),
-        created_at: row
-            .try_get::<TimestampMicros, _>("created_at")
-            .map_err(sqlx_err)?,
-        updated_at: row
-            .try_get::<TimestampMicros, _>("updated_at")
-            .map_err(sqlx_err)?,
-    })
-}
 
 #[async_trait]
 impl RemediationRepository for PgRemediationRepository {
@@ -508,64 +479,13 @@ impl PgRemediationRepository {
                 .map_err(sqlx_err)?,
         })
     }
-
-    async fn write_run(&self, run: &RemediationRun, insert: bool) -> Result<()> {
-        if !insert {
-            sqlx::query(
-                "UPDATE remediation_runs
-                    SET status = $3, output = $4, verify_at = $5, verification = $6,
-                        executed_by = $7, updated_at = $8
-                  WHERE id = $1 AND org_id = $2",
-            )
-            .bind(&run.id.0)
-            .bind(&run.org_id.0)
-            .bind(run.status.as_str())
-            .bind(&run.output)
-            .bind(run.verify_at)
-            .bind(&run.verification)
-            .bind(run.executed_by.as_ref().map(|id| &id.0))
-            .bind(run.updated_at)
-            .execute(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
-
-            return Ok(());
-        }
-
-        sqlx::query(
-            "INSERT INTO remediation_runs
-                (id, org_id, incident_id, action_id, action_name, approval_id, inputs, status,
-                 output, verify_at, verification, requested_by, executed_by,
-                 created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
-        )
-        .bind(&run.id.0)
-        .bind(&run.org_id.0)
-        .bind(&run.incident_id.0)
-        .bind(&run.action_id.0)
-        .bind(&run.action_name)
-        .bind(&run.approval_id.0)
-        .bind(Json(&run.inputs))
-        .bind(run.status.as_str())
-        .bind(&run.output)
-        .bind(run.verify_at)
-        .bind(&run.verification)
-        .bind(&run.requested_by.0)
-        .bind(run.executed_by.as_ref().map(|id| &id.0))
-        .bind(run.created_at)
-        .bind(run.updated_at)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use domain::alerting::remediation::{HttpRemediation, HttpVerb};
+
     use super::*;
-    use crate::domain::alerting::remediation::{HttpRemediation, HttpVerb};
 
     #[test]
     fn header_values_and_the_signing_secret_leave_the_plain_target() {

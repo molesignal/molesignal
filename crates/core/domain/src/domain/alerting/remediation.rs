@@ -13,11 +13,15 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::incident::Incident;
 pub use super::remediation_template::{Escape, reads_as_json, render_template, template_vars};
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
+
+pub mod preapproval;
+
+pub use preapproval::{PreapprovalRepository, PreapprovalState, RemediationPreapproval};
 
 pub const MAX_REMEDIATION_PARAMETERS: usize = 10;
 pub const MAX_REMEDIATION_TEXT_CHARS: usize = 2_000;
@@ -189,6 +193,9 @@ pub struct RemediationAction {
     /// 页面上看哪些秘密已经设了：`signing_secret`、`header:<名字>`。秘密本身不出库。
     #[serde(default)]
     pub secrets_set: Vec<String>,
+    /// Lets it run without waiting on the incidents it covers; set on its own route.
+    #[serde(default)]
+    pub preapproval: Option<RemediationPreapproval>,
     pub created_by: Option<Id>,
     pub updated_by: Option<Id>,
     pub created_at: TimestampMicros,
@@ -518,12 +525,15 @@ pub struct RemediationRun {
     pub verification: String,
     pub requested_by: Id,
     pub executed_by: Option<Id>,
+    /// Approved by a pre-approval, without waiting.
+    #[serde(default)]
+    pub preapproved: bool,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
 }
 
 #[async_trait]
-pub trait RemediationRepository: Send + Sync {
+pub trait RemediationRepository: PreapprovalRepository + Send + Sync {
     async fn list_actions(&self, org_id: &Id) -> Result<Vec<RemediationAction>>;
     /// 带着秘密（请求头、签名密钥）读出，执行时用。
     async fn get_action(&self, org_id: &Id, id: &Id) -> Result<Option<RemediationAction>>;
@@ -594,6 +604,7 @@ mod tests {
             verify_by: VerifyBy::IncidentResolved,
             enabled: true,
             secrets_set: Vec::new(),
+            preapproval: None,
             created_by: None,
             updated_by: None,
             created_at: TimestampMicros(0),
