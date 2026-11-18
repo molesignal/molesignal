@@ -23,6 +23,7 @@ pub mod log_inspection;
 pub mod pipeline_exec;
 pub mod pipeline_steps;
 pub mod polling;
+pub mod purge;
 pub mod rca_sweeper;
 pub mod rum_dashboards;
 pub mod rum_replay_retention;

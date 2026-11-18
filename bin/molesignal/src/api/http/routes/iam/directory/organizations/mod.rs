@@ -15,19 +15,19 @@ use axum::{
     http::StatusCode,
     routing::{get, patch},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 mod select;
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::iam::{
-        IamAssignedRole, IamMembership, IamScope, ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE,
-        Organization, super_administrator,
-    },
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+mod view;
+use domain::iam::{
+    IamAssignedRole, IamContext, IamMembership, IamScope, ORGANIZATION_BOOTSTRAP_ROLE_PURPOSE,
+    Organization, super_administrator,
 };
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEvent;
+use view::{OrgView, with_profile, with_profiles};
+
+use crate::api::AppState;
 
 const ORGANIZATIONS_READ: &str = "sys.organizations.read";
 
@@ -37,42 +37,6 @@ pub(super) fn routes() -> Router<AppState> {
         .route("/orgs/{id}", patch(update_org).delete(delete_org))
         .route("/orgs/{id}/status", patch(set_org_status))
         .merge(select::routes())
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct OrgView {
-    id: String,
-    name: String,
-    slug: String,
-    display_role: Option<String>,
-    roles: Vec<IamAssignedRole>,
-    system: bool,
-    disabled: bool,
-    /// Whether the caller can enter the organization. From the platform organization an owner
-    /// administers organizations they do not belong to: those are listed, and cannot be entered.
-    accessible: bool,
-}
-
-impl OrgView {
-    fn from_org(organization: Organization, roles: Vec<IamAssignedRole>, accessible: bool) -> Self {
-        let display_role = roles
-            .iter()
-            .map(|role| role.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        Self {
-            id: organization.id.0,
-            name: organization.name,
-            slug: organization.slug,
-            display_role: (!display_role.is_empty()).then_some(display_role),
-            roles,
-            system: organization.system,
-            disabled: organization.disabled,
-            accessible,
-        }
-    }
 }
 
 /// A platform permission held across the platform, in a session of the platform organization.
@@ -219,7 +183,7 @@ async fn list_orgs(
             views.push(OrgView::from_org(organization, roles, accessible));
         }
 
-        return Ok(Json(views));
+        return Ok(Json(with_profiles(&state, views).await?));
     }
 
     let mut organizations = Vec::new();
@@ -261,7 +225,7 @@ async fn list_orgs(
         organizations.push(OrgView::from_org(system, roles, true));
     }
 
-    Ok(Json(organizations))
+    Ok(Json(with_profiles(&state, organizations).await?))
 }
 
 #[derive(Deserialize)]
@@ -400,7 +364,9 @@ async fn update_org(
     let roles = caller_roles(&state, &context, root, &organization).await?;
     // No roles here means the caller administers the organization without belonging to it.
     let accessible = root || !roles.is_empty();
-    Ok(Json(OrgView::from_org(organization, roles, accessible)))
+    let view = OrgView::from_org(organization, roles, accessible);
+
+    Ok(Json(with_profile(&state, view).await?))
 }
 
 #[derive(Deserialize)]
@@ -459,7 +425,9 @@ async fn set_org_status(
     let roles = caller_roles(&state, &context, root, &organization).await?;
     // No roles here means the caller administers the organization without belonging to it.
     let accessible = root || !roles.is_empty();
-    Ok(Json(OrgView::from_org(organization, roles, accessible)))
+    let view = OrgView::from_org(organization, roles, accessible);
+
+    Ok(Json(with_profile(&state, view).await?))
 }
 
 async fn delete_org(

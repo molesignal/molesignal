@@ -630,6 +630,8 @@ CREATE INDEX IF NOT EXISTS idx_metric_directory_name
 -- ============================================================
 
 -- 逻辑流下的物理数据集。底层子系统只认 dataset id，不理解信号语义。
+-- Deleting a stream leaves its datasets in state 'deleting'; a background purge
+-- removes their catalog rows, the rows that refer to the dataset first.
 CREATE TABLE IF NOT EXISTS physical_datasets (
     org_id               VARCHAR(64) NOT NULL,
     id                   VARCHAR(64) NOT NULL,
@@ -647,6 +649,8 @@ CREATE TABLE IF NOT EXISTS physical_datasets (
     CONSTRAINT uniq_physical_datasets_dataset_type
         UNIQUE (org_id, logical_stream_id, dataset_type)
 );
+CREATE INDEX IF NOT EXISTS idx_physical_datasets_deleting
+    ON physical_datasets (org_id, id) WHERE state = 'deleting';
 
 -- 一次 flush / compaction 形成的不可变数据单元。
 CREATE TABLE IF NOT EXISTS catalog_segments (

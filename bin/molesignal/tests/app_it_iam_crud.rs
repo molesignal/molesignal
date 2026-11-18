@@ -14,15 +14,13 @@ use std::{
 };
 
 use async_trait::async_trait;
-use molesignal::{
-    app::iam::IamService,
-    config::AuthSettings,
-    domain::iam::{
-        IamAssignedRole, IamMembership, IamMembershipRepository, Organization,
-        OrganizationRepository, User, UserRepository,
-    },
-    shared::{Error, Result, ids::Id},
+use domain::iam::{
+    IamAssignedRole, IamMembership, IamMembershipRepository, Organization, OrganizationRepository,
+    User, UserRepository,
 };
+use kernel::{Error, Result, ids::Id};
+use molesignal::app::iam::IamService;
+use settings::AuthSettings;
 
 #[derive(Default)]
 struct InMemUsers {
@@ -71,7 +69,7 @@ impl UserRepository for InMemUsers {
     async fn list(&self) -> Result<Vec<User>> {
         Ok(self.inner.lock().unwrap().values().cloned().collect())
     }
-    async fn set_status(&self, id: &Id, status: molesignal::domain::iam::UserStatus) -> Result<()> {
+    async fn set_status(&self, id: &Id, status: domain::iam::UserStatus) -> Result<()> {
         if let Some(u) = self.inner.lock().unwrap().get_mut(&id.0) {
             u.status = status;
         }
@@ -239,7 +237,6 @@ fn make_service() -> (
         orgs.clone() as Arc<dyn OrganizationRepository>,
         memberships.clone() as Arc<dyn IamMembershipRepository>,
         AuthSettings {
-            deprecated_jwt_secret: None,
             session_ttl_secs: 3600,
             root_email: String::new(),
             root_password: String::new(),

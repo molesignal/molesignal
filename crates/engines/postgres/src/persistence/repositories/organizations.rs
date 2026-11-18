@@ -2,12 +2,16 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::iam::{Organization, OrganizationRepository, SYSTEM_ORG_NAME, SYSTEM_ORG_SLUG};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgConnection, PgPool, Row};
 
 use super::sqlx_err;
-use crate::{
-    domain::iam::{Organization, OrganizationRepository, SYSTEM_ORG_NAME, SYSTEM_ORG_SLUG},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+
+mod purge;
+
+pub use purge::{
+    DeletedOrganization, OrganizationPurgeRepository, PgOrganizationPurge, PurgeProgress,
 };
 
 pub struct PgOrganizationRepository {
@@ -201,7 +205,9 @@ impl OrganizationRepository for PgOrganizationRepository {
 
     async fn get(&self, id: &Id) -> Result<Organization> {
         let row = sqlx::query(
-            "SELECT id, name, slug, system, disabled, created_at FROM organizations WHERE id = $1",
+            "SELECT id, name, slug, system, disabled, created_at
+               FROM organizations
+              WHERE id = $1 AND deleted_at IS NULL",
         )
         .bind(&id.0)
         .fetch_one(&self.pool)
@@ -213,7 +219,9 @@ impl OrganizationRepository for PgOrganizationRepository {
 
     async fn get_by_slug(&self, slug: &str) -> Result<Organization> {
         let row = sqlx::query(
-            "SELECT id, name, slug, system, disabled, created_at FROM organizations WHERE slug = $1",
+            "SELECT id, name, slug, system, disabled, created_at
+               FROM organizations
+              WHERE slug = $1 AND deleted_at IS NULL",
         )
         .bind(slug)
         .fetch_one(&self.pool)
@@ -224,10 +232,15 @@ impl OrganizationRepository for PgOrganizationRepository {
     }
 
     async fn list(&self) -> Result<Vec<Organization>> {
-        let rows = sqlx::query("SELECT id, name, slug, system, disabled, created_at FROM organizations ORDER BY created_at")
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        let rows = sqlx::query(
+            "SELECT id, name, slug, system, disabled, created_at
+               FROM organizations
+              WHERE deleted_at IS NULL
+              ORDER BY created_at",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
 
         rows.into_iter().map(row_to_org).collect()
     }
@@ -235,7 +248,7 @@ impl OrganizationRepository for PgOrganizationRepository {
     async fn update_name(&self, id: &Id, name: String) -> Result<Organization> {
         self.get(id).await?.ensure_mutable()?;
 
-        sqlx::query("UPDATE organizations SET name = $2 WHERE id = $1")
+        sqlx::query("UPDATE organizations SET name = $2 WHERE id = $1 AND deleted_at IS NULL")
             .bind(&id.0)
             .bind(&name)
             .execute(&self.pool)
@@ -261,7 +274,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         let row = sqlx::query(
             "SELECT id, name, slug, system, disabled, created_at
              FROM organizations
-             WHERE id = $1
+             WHERE id = $1 AND deleted_at IS NULL
              FOR UPDATE",
         )
         .bind(&id.0)
@@ -303,9 +316,45 @@ impl OrganizationRepository for PgOrganizationRepository {
         skip_all,
         fields(db.system.name = "postgresql", db.operation.name = "TRANSACTION", db.collection.name = "organizations")
     )]
+    /// Mark the organization deleted and take away access at once: members, and platform grants
+    /// narrowed to it. It is disabled with it, so the last enabled tenant organization stays.
+    /// [`OrganizationPurgeRepository`] removes its data later, then the row.
     async fn delete(&self, id: &Id) -> Result<()> {
-        self.get(id).await?.ensure_mutable()?;
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
+
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext('molesignal.organization.status'))")
+            .execute(&mut *tx)
+            .await
+            .map_err(sqlx_err)?;
+
+        let row = sqlx::query(
+            "SELECT id, name, slug, system, disabled, created_at
+               FROM organizations
+              WHERE id = $1 AND deleted_at IS NULL
+                FOR UPDATE",
+        )
+        .bind(&id.0)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(sqlx_err)?;
+
+        let current = row_to_org(row)?;
+        current.ensure_mutable()?;
+
+        if !current.disabled {
+            let enabled_tenants = sqlx::query_scalar::<i64>(
+                "SELECT COUNT(*) FROM organizations WHERE NOT system AND NOT disabled",
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(sqlx_err)?;
+
+            if enabled_tenants <= 1 {
+                return Err(Error::invalid(
+                    "cannot delete the last enabled tenant organization",
+                ));
+            }
+        }
 
         sqlx::query("DELETE FROM iam_memberships WHERE org_id = $1")
             .bind(&id.0)
@@ -324,7 +373,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         .await
         .map_err(sqlx_err)?;
 
-        sqlx::query("DELETE FROM organizations WHERE id = $1")
+        sqlx::query("UPDATE organizations SET disabled = TRUE, deleted_at = now() WHERE id = $1")
             .bind(&id.0)
             .execute(&mut *tx)
             .await

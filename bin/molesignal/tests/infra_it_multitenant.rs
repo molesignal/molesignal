@@ -21,20 +21,21 @@ use arrow::{
 };
 use async_trait::async_trait;
 use common::write_parquet_fixture;
-use molesignal::{
-    domain::{
-        query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{QueryFile, QueryFileSource},
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
+use domain::{
+    query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
+    storage::{QueryFile, QueryFileSource},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
     },
-    infra::{search::datafusion_engine::DataFusionEngine, storage::parquet::writer::ParquetWriter},
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::{
+    search::datafusion_engine::DataFusionEngine, storage::parquet::writer::ParquetWriter,
 };
 use object_store::{ObjectStore, local::LocalFileSystem};
 
@@ -116,10 +117,8 @@ fn stream_def(org: &str) -> StreamDefinition {
                 name: "n".into(),
                 data_type: FieldType::Int64,
                 nullable: false,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),
