@@ -4,11 +4,11 @@
 //! 组织级设置的存取：`org_settings` 里一个组织每一节一行，`value` 是这一节的 JSON。各节的含义、默认值
 //! 与校验在各自的仓库和领域类型里，这里只管读写。
 
+use kernel::{Result, time::TimestampMicros};
 use serde::{Serialize, de::DeserializeOwned};
 use sqlx::{PgConnection, PgPool, Row, postgres::PgRow, types::Json};
 
 use super::sqlx_err;
-use crate::shared::{Result, time::TimestampMicros};
 
 /// 各节的名字。
 pub mod sections {
@@ -34,6 +34,10 @@ pub mod sections {
     pub const INCIDENT_IMPORTANCE: &str = "incident.importance";
     /// 重大事件：建群、会议、检查清单、自动宣布；会议密钥放在 `secret_*`。
     pub const INCIDENT_RESPONSE: &str = "incident.response";
+    /// Whether remediation actions run at once when a pre-approval covers them (off until set).
+    pub const REMEDIATION_PREAPPROVAL: &str = "alerting.remediation_preapproval";
+    /// 组织的门面：组织切换里显示的 logo 和描述。
+    pub const ORG_PROFILE: &str = "org.profile";
     /// 登录要求：多因素认证、只允许单点登录。
     pub const SIGNIN: &str = "signin";
     /// 资源分享：公开链接、公开仪表盘、有效期等。

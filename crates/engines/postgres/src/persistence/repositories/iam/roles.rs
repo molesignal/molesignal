@@ -4,11 +4,11 @@
 //! Org-scoped IAM role catalog.
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 
 use super::super::sqlx_err;
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
 
 mod owner_catalog;
 mod queries;
@@ -41,7 +41,9 @@ pub struct IamRole {
 pub struct RoleUsage {
     pub memberships: i64,
     pub service_accounts: i64,
+    /// Invitations not yet answered: accepting one hands out the role.
     pub invitations: i64,
+    /// Role bindings and resource relationships that grant the role.
     pub bindings: i64,
 }
 
@@ -305,6 +307,17 @@ impl IamRoleRepository for PgIamRoleRepository {
     async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
         let mut tx = sqlx::begin(&self.pool).await.map_err(sqlx_err)?;
 
+        // Answered invitations only record which role was offered; a pending one still blocks.
+        sqlx::query(
+            "DELETE FROM invitations
+              WHERE org_id = $1 AND role_id = $2 AND status <> 'pending'",
+        )
+        .bind(&org_id.0)
+        .bind(&id.0)
+        .execute(&mut *tx)
+        .await
+        .map_err(sqlx_err)?;
+
         let result = sqlx::query("DELETE FROM iam_roles WHERE org_id = $1 AND id = $2")
             .bind(&org_id.0)
             .bind(&id.0)
@@ -343,12 +356,18 @@ impl IamRoleRepository for PgIamRoleRepository {
                    JOIN iam_roles r ON r.id = invitation.role_id
                   WHERE invitation.org_id = $1
                     AND r.role_key = $2
-                    AND invitation.status <> 'revoked') AS invitations,
+                    AND invitation.status = 'pending') AS invitations,
                 (SELECT COUNT(*)
                    FROM iam_role_bindings b
                    JOIN iam_roles r ON r.id = b.role_id
                   WHERE b.organization_id = $1
-                    AND r.role_key = $2) AS bindings",
+                    AND r.role_key = $2)
+                + (SELECT COUNT(*)
+                     FROM iam_relationships relationship
+                     JOIN iam_roles r
+                       ON r.org_id = relationship.organization_id AND r.id = relationship.role_id
+                    WHERE relationship.organization_id = $1
+                      AND r.role_key = $2) AS bindings",
         )
         .bind(&org_id.0)
         .bind(role_key)

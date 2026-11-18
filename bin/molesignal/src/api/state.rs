@@ -4,6 +4,52 @@
 use std::sync::Arc;
 
 use object_store::ObjectStore;
+use postgres::{
+    cipher::{CipherKeyRepository, FieldKeyService},
+    repositories::{
+        agent::{
+            chat_archives::ChatArchiveRepository, chats::ChatRepository,
+            model_providers::ModelProviderRepository, prompts::AgentPromptRepository,
+            toolsets::AgentToolsetRepository,
+        },
+        annotations::AnnotationRepository,
+        audit_events::AuditEventRepository,
+        cluster::{
+            events::{
+                ClusterEventOutboxRepository, ClusterOrgLinkRepository,
+                ClusterResourceVersionRepository, SeenEventsRepository,
+            },
+            nodes::ClusterNodesRepository,
+        },
+        domains::DomainRepository,
+        email_domains::EmailDomainRepository,
+        file_download_tokens::FileDownloadTokenRepository,
+        iam::{policies::IamPolicyRepository, roles::IamRoleRepository},
+        investigation_blobs::InvestigationBlobRepository,
+        invitations::InvitationRepository,
+        log_patterns::LogPatternRepository,
+        notify::NotifyTemplateManagementRepository,
+        org_profiles::OrgProfileRepository,
+        password_resets::PasswordResetRepository,
+        pipelines::runs::PipelineRunRepository,
+        regex_patterns::RegexPatternRepository,
+        report_templates::ReportTemplateRepository,
+        resource_shares::ResourceShareRepository,
+        scheduled_reports::ScheduledReportRepository,
+        search::jobs::SearchJobRepository,
+        signing_secrets::SigningSecretRepository,
+        user_preferences::UserPreferencesRepository,
+        user_ui_preference::UserUiPreferenceRepository,
+        web_search::WebSearchRepository,
+        workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
+    },
+};
+use report_renderer::ReportRenderer;
+use service_graph::ServiceGraphRepository;
+use signals::{
+    policy::{TraceDebugTokenRepository, TracePolicyRepository},
+    tail_sampling::TailSampler,
+};
 
 use crate::{
     agent::{
@@ -233,6 +279,8 @@ pub struct IamState {
     pub user_preferences: Arc<dyn UserPreferencesRepository>,
     pub user_ui_preference: Arc<dyn UserUiPreferenceRepository>,
     pub workspace_preference_defaults: Arc<dyn WorkspacePreferenceDefaultsRepository>,
+    /// 组织的门面：组织切换里的 logo 与描述。
+    pub org_profiles: Arc<dyn OrgProfileRepository>,
     pub audit_events: Arc<dyn AuditEventRepository>,
     /// 账号的第二因素：身份验证器与恢复码。
     pub mfa_factors: Arc<dyn MfaFactorRepository>,

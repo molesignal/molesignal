@@ -8,23 +8,19 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use base64::Engine as _;
+use domain::iam::{
+    ClientIpResolverSettings, IamAssignedRole, IamMembership, IamMembershipRepository,
+    InstanceSettings, InstanceSettingsRepository, Organization, OrganizationRepository,
+    SigninLimits, User, UserRepository, UserStatus,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::{
+    AuditEvent, AuditEventRepository, AuditQuery, AuditRangeSummary,
+};
+use settings::AuthSettings;
 
 use super::{IamService, signin_limit::SigninLimiter};
-use crate::{
-    config::AuthSettings,
-    domain::iam::{
-        ClientIpResolverSettings, IamAssignedRole, IamMembership, IamMembershipRepository,
-        InstanceSettings, InstanceSettingsRepository, Organization, OrganizationRepository,
-        SigninLimits, User, UserRepository, UserStatus,
-    },
-    infra::{
-        persistence::repositories::audit_events::{
-            AuditEvent, AuditEventRepository, AuditQuery, AuditRangeSummary,
-        },
-        signin::MemoryAttempts,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::infra::signin::MemoryAttempts;
 
 /// [`signin_limiter`] 的平台组织。
 pub(crate) const SYSTEM_ORG: &str = "system-org";
@@ -36,7 +32,6 @@ pub(crate) fn iam_service(session_ttl_secs: u64) -> IamService {
         Arc::new(NoDirectory),
         Arc::new(NoDirectory),
         AuthSettings {
-            deprecated_jwt_secret: None,
             session_ttl_secs,
             root_email: String::new(),
             root_password: String::new(),
@@ -52,7 +47,6 @@ pub(crate) fn iam_service_with(users: Arc<dyn UserRepository>) -> IamService {
         Arc::new(NoDirectory),
         Arc::new(NoDirectory),
         AuthSettings {
-            deprecated_jwt_secret: None,
             session_ttl_secs: 3600,
             root_email: String::new(),
             root_password: String::new(),

@@ -23,6 +23,10 @@ export interface Org {
    * everything listed could be.
    */
   accessible?: boolean;
+  /** The organization's own logo as a `data:` image, set in its settings. Absent when it has none. */
+  logo?: string | null;
+  /** One or two lines on what the organization is for, set in its settings. */
+  description?: string | null;
 }
 
 /** The organization entered; the session cookies are rewritten for it. */
@@ -91,6 +95,29 @@ export async function setOrgDisabled(id: string, disabled: boolean): Promise<Org
 
 export async function removeOrg(id: string): Promise<void> {
   await http.delete(`/orgs/${encodeURIComponent(id)}`);
+}
+
+/** What the organization is recognised by in the organization switcher. */
+export interface OrgProfile {
+  /** A `data:` image, at most 64 KiB; `null` shows the platform's logo. */
+  logo: string | null;
+  /** One paragraph, at most 120 characters. */
+  description: string;
+}
+
+/** The longest description the organization switcher shows in full. */
+export const ORG_DESCRIPTION_MAX_CHARS = 120;
+/** The most a logo takes once decoded. */
+export const ORG_LOGO_MAX_BYTES = 64 * 1024;
+
+export async function profile(): Promise<OrgProfile> {
+  const { data } = await http.get<OrgProfile>('/workspace/profile');
+  return { logo: data.logo ?? null, description: data.description ?? '' };
+}
+
+export async function updateProfile(input: OrgProfile): Promise<OrgProfile> {
+  const { data } = await http.put<OrgProfile>('/workspace/profile', input);
+  return { logo: data.logo ?? null, description: data.description ?? '' };
 }
 
 export async function preferenceDefaults(): Promise<UserPreferences> {

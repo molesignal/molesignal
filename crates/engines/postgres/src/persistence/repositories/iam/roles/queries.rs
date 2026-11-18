@@ -73,13 +73,18 @@ pub(super) fn list_with_usage_sql() -> String {
          ), invitation_usage AS (
              SELECT org_id, role_id, COUNT(*) AS invitations
                FROM invitations
-              WHERE org_id = $1 AND status <> 'revoked'
+              WHERE org_id = $1 AND status = 'pending'
            GROUP BY org_id, role_id
          ), binding_usage AS (
-             SELECT organization_id AS org_id, role_id, COUNT(*) AS bindings
-               FROM iam_role_bindings
-              WHERE organization_id = $1
-           GROUP BY organization_id, role_id
+             SELECT org_id, role_id, COUNT(*) AS bindings
+               FROM (SELECT organization_id AS org_id, role_id
+                       FROM iam_role_bindings
+                      WHERE organization_id = $1
+                     UNION ALL
+                     SELECT organization_id, role_id
+                       FROM iam_relationships
+                      WHERE organization_id = $1) AS grants
+           GROUP BY org_id, role_id
          )
          SELECT {ROLE_FIELDS},
                 COALESCE(

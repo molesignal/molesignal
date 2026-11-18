@@ -8,7 +8,7 @@ import * as meApi from '@/api/me';
 import { toApiError } from '@/lib/http';
 import { useRoleName } from '@/product/roleName';
 import { AccountSection } from '@/routes/account/AccountSection';
-import { CopyableValue } from '@/routes/settings/_atoms';
+import { CopyableValue, SettingsRow, SettingsSubsection } from '@/routes/settings/_atoms';
 import { Pill } from '@/shell/chrome';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { toast } from '@/shell/ui/sonner';
@@ -138,41 +138,36 @@ export function AccountWorkspaceIdentity() {
             <ChevronDown className="h-4 w-4 text-tx-3 transition-transform group-open:rotate-180" />
             {t('workspace.advanced')}
           </summary>
-          <div className="grid gap-4 pt-4 sm:grid-cols-2">
-            <div>
-              <div className="mb-1.5 font-sans text-xs font-strong text-tx-2">
-                {t('workspace.user_id')}
-              </div>
+          <SettingsSubsection className="pt-4">
+            <SettingsRow label={t('workspace.user_id')} controlClassName="w-full">
               <CopyableValue
+                className="bg-bg-2"
                 value={profile.userId}
                 copyLabel={t('workspace.copy')}
                 copiedLabel={t('workspace.copied')}
               />
-            </div>
-            <div>
-              <div className="mb-1.5 font-sans text-xs font-strong text-tx-2">
-                {t('workspace.org_id')}
-              </div>
+            </SettingsRow>
+            <SettingsRow label={t('workspace.org_id')} controlClassName="w-full">
               <CopyableValue
+                className="bg-bg-2"
                 value={profile.orgId}
                 copyLabel={t('workspace.copy')}
                 copiedLabel={t('workspace.copied')}
               />
-            </div>
-            <div className="sm:col-span-2">
-              <div className="mb-1.5 font-sans text-xs font-strong text-tx-2">
-                {t('workspace.org_slug')}
-              </div>
+            </SettingsRow>
+            <SettingsRow
+              label={t('workspace.org_slug')}
+              description={t('workspace.org_slug_hint')}
+              controlClassName="w-full"
+            >
               <CopyableValue
+                className="bg-bg-2"
                 value={profile.orgSlug}
                 copyLabel={t('workspace.copy')}
                 copiedLabel={t('workspace.copied')}
               />
-              <p className="mt-1.5 font-sans text-xs text-tx-3">
-                {t('workspace.org_slug_hint')}
-              </p>
-            </div>
-          </div>
+            </SettingsRow>
+          </SettingsSubsection>
         </details>
       )}
 

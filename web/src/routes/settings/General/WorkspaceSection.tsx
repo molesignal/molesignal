@@ -15,6 +15,7 @@ import {
   SettingsSection,
   SettingsSubsection,
 } from '../_atoms';
+import { OrgProfileRows } from './OrgProfileRows';
 
 export function WorkspaceSection({
   profile,
@@ -101,6 +102,7 @@ export function WorkspaceSection({
             </div>
           </SettingsRow>
         )}
+        {!state && <OrgProfileRows access={access} />}
       </SettingsSubsection>
 
       <SettingsSubsection

@@ -6,9 +6,8 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
-
-use crate::shared::{Result, ids::Id, time::TimestampMicros};
 
 pub mod access;
 pub mod api_token;
@@ -63,13 +62,13 @@ impl Organization {
         if self.system
             && (self.name != SYSTEM_ORG_NAME || self.slug != SYSTEM_ORG_SLUG || self.disabled)
         {
-            return Err(crate::shared::Error::invalid(
+            return Err(kernel::Error::invalid(
                 "system organization must be enabled and its name and slug must both be `_sys`",
             ));
         }
 
         if !self.system && uses_reserved_system_name {
-            return Err(crate::shared::Error::forbidden(
+            return Err(kernel::Error::forbidden(
                 "`_sys` is reserved for the system organization",
             ));
         }
@@ -79,9 +78,7 @@ impl Organization {
 
     pub fn ensure_mutable(&self) -> Result<()> {
         if self.system {
-            Err(crate::shared::Error::forbidden(
-                "system organization is immutable",
-            ))
+            Err(kernel::Error::forbidden("system organization is immutable"))
         } else {
             Ok(())
         }
@@ -89,7 +86,7 @@ impl Organization {
 
     pub fn ensure_enabled(&self) -> Result<()> {
         if self.disabled {
-            Err(crate::shared::Error::forbidden(
+            Err(kernel::Error::forbidden(
                 "organization is disabled by a platform administrator",
             ))
         } else {
@@ -522,6 +519,9 @@ pub trait OrganizationRepository: Send + Sync {
     /// Enable or disable a tenant organization. Implementations must reject
     /// disabling `_sys` and the final enabled tenant organization.
     async fn set_disabled(&self, id: &Id, disabled: bool) -> Result<Organization>;
+    /// Delete a tenant organization. It is gone for every read at once; its data is removed
+    /// in the background. Implementations must reject `_sys` and the final enabled tenant
+    /// organization.
     async fn delete(&self, id: &Id) -> Result<()>;
 }
 
@@ -618,11 +618,12 @@ pub fn email_domain_allowed(email: &str, allowed: &[String]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::{
         ClientIpResolverSettings, DEFAULT_AUDIT_RETENTION_DAYS, InstanceSettings, Organization,
         SYSTEM_ORG_NAME, SYSTEM_ORG_SLUG, email_domain_allowed,
     };
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn instance_settings(audit_retention_days: u32) -> InstanceSettings {
         InstanceSettings {

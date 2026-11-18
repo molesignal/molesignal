@@ -8,6 +8,29 @@
 
 use std::sync::Arc;
 
+use domain::{
+    rum::{
+        RumApplicationRepository, RumIssueRepository, RumPlaylistRepository,
+        RumReplayCommentRepository, RumSessionSummaryRepository,
+    },
+    stream::StreamRepository,
+};
+use kernel::{Error, Result};
+use postgres::{
+    MetaStore,
+    cipher::CipherRootKey,
+    repositories::{
+        org_profiles::PgOrgProfileRepository,
+        rum_applications::PgRumApplicationRepository,
+        rum_issues::{PgRumIssueRepository, PgRumVersionRepository},
+        rum_playlists::PgRumPlaylistRepository,
+        rum_replay_notes::{PgRumReplayCommentRepository, PgRumSessionSummaryRepository},
+        usage::PgIntakeBudgetRepository,
+        workspace_preference_defaults::PgWorkspacePreferenceDefaultsRepository,
+    },
+};
+use settings::{Role, Settings};
+
 pub use super::tracing::activate_self_telemetry;
 use super::{
     agent::{AgentRuntime, build_agent_usage, build_model_providers},
@@ -794,6 +817,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             user_preferences,
             user_ui_preference,
             workspace_preference_defaults,
+            org_profiles: Arc::new(PgOrgProfileRepository::new(core.pool.clone())),
             audit_events,
             mfa_factors: Arc::new(PgMfaFactorRepository::new(
                 core.pool.clone(),
