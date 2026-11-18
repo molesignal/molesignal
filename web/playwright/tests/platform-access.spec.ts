@@ -238,7 +238,7 @@ test.describe('organizations someone reaches by name', () => {
   });
 });
 
-test.describe('the sidebar of the platform organization', () => {
+test.describe('the main menu of the platform organization', () => {
   test('reaches a settings page from a permission over that page alone', async ({ page, mockServer }) => {
     await mountPlatform(page, mockServer.port, ['sys.settings.retention.read']);
 
@@ -246,10 +246,13 @@ test.describe('the sidebar of the platform organization', () => {
     await page.goto('/home');
     await expect(page.getByTestId('workbench')).toBeVisible();
 
-    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await page.getByTestId('main-menu-trigger').click();
+    const menu = page.getByTestId('main-menu');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('link', { name: 'Identity & Access', exact: true })).toHaveCount(0);
+    await menu.getByRole('link', { name: 'Settings', exact: true }).click();
 
     await expect(page).toHaveURL(/\/settings\/stream_retention$/);
-    await expect(page.getByRole('link', { name: 'Identity & Access', exact: true })).toHaveCount(0);
   });
 
   test('opens organization management for whoever manages organizations', async ({ page, mockServer }) => {
@@ -257,7 +260,10 @@ test.describe('the sidebar of the platform organization', () => {
     await servePlatform(page);
 
     await page.goto('/home');
-    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await page.getByTestId('main-menu-trigger').click();
+    const menu = page.getByTestId('main-menu');
+    await expect(menu).toBeVisible();
+    await menu.getByRole('link', { name: 'Settings', exact: true }).click();
 
     await expect(page).toHaveURL(/\/settings\/organization_management$/);
   });

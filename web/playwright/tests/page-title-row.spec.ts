@@ -33,19 +33,19 @@ test.describe('Page title row', () => {
   });
 
   test('keeps the description where the title has room for it', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/home');
-    await expect(page.getByTestId('page-header').getByText('·')).toBeVisible();
+    await page.setViewportSize({ width: 768, height: 844 });
+    await page.goto('/apm/overview');
+    await expect(page.getByTestId('page-header').locator('p[data-page-title-meta]')).toBeVisible();
   });
 
   test('drops the description rather than show a fragment of it', async ({ page }) => {
     // 360px leaves the title block narrower than 24rem: the title stands alone.
     await page.setViewportSize({ width: 360, height: 800 });
-    await page.goto('/home');
+    await page.goto('/apm/overview');
 
     const header = page.getByTestId('page-header');
     await expect(header.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(header.getByText('·')).toBeHidden();
-    await expect(header.getByText('System status, anomalies, and next actions')).toBeHidden();
+    await expect(header.locator('p[data-page-title-meta]')).toBeHidden();
   });
 });

@@ -49,10 +49,9 @@ test.describe('search jobs', () => {
 
     await expect(page).toHaveURL(/\/streams\/jobs$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Search jobs' })).toBeVisible();
-    // The page belongs to Streams: its entry stays lit and leads back.
-    await expect(
-      page.getByRole('navigation').getByRole('link', { name: 'Streams', exact: true }).first(),
-    ).toHaveAttribute('aria-current', 'page');
+    const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
+    await expect(breadcrumb.getByRole('link', { name: 'Streams', exact: true })).toHaveAttribute('href', '/streams');
+    await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText('Search jobs');
 
     // Most recently submitted first.
     await expect(row(page, MOCK_SEARCH_JOB.running)).toBeVisible();

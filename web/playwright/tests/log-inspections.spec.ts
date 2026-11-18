@@ -65,10 +65,9 @@ test.describe('scheduled log inspections: from the Logs page', () => {
 
     await expect(page).toHaveURL(/\/logs\/inspections$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Scheduled inspections' })).toBeVisible();
-    // The page belongs to Logs: its entry stays lit.
-    await expect(
-      page.getByRole('navigation').getByRole('link', { name: 'Logs', exact: true }).first(),
-    ).toHaveAttribute('aria-current', 'page');
+    const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
+    await expect(breadcrumb.getByRole('link', { name: 'Logs', exact: true })).toHaveAttribute('href', '/logs');
+    await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText('Scheduled inspections');
 
     await expect(row(page, MOCK_INSPECTION.payments)).toBeVisible();
     expect(await listedNames(page)).toEqual([

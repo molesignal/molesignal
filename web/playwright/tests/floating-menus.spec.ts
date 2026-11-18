@@ -40,12 +40,12 @@ test('renders a select of the results as a lightweight menu', async ({
 test('uses the same lightweight surface for action dropdowns', async ({
   page,
 }) => {
-  // The window menu of Home: a menu of radio items, one of them checked.
-  await page.goto('/home');
-  await page.getByTestId('page-header').getByRole('button', { name: 'Last 24 hours' }).click();
+  // Dashboard refresh modes use the shared dropdown radio items.
+  await page.goto('/dashboards/d1');
+  await page.getByRole('button', { name: 'Refresh mode and interval' }).click();
 
   const menu = page.getByRole('menu');
-  const selected = page.getByRole('menuitemradio', { name: 'Last 24 hours' });
+  const selected = menu.getByRole('menuitemradio', { checked: true });
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS('border-top-width', '0px');
   await expect(menu).toHaveCSS('border-radius', '8px');
@@ -60,8 +60,8 @@ test('uses the same lightweight surface for action dropdowns', async ({
   expect(
     await selected.evaluate((element) => getComputedStyle(element).color),
   ).not.toBe(
-    await page
-      .getByRole('menuitemradio', { name: 'Last 7 days' })
+    await menu
+      .getByRole('menuitemradio', { checked: false }).first()
       .evaluate((element) => getComputedStyle(element).color),
   );
 });

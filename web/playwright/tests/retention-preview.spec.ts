@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Page, Request } from '@playwright/test';
 
 import { expect, mountMockRoutes, test } from '../fixtures/mockBackend';
 
@@ -24,10 +24,10 @@ const firstSave = (page: Page) => page.getByRole('button', { name: 'Save changes
 const confirmation = (page: Page) => page.getByRole('dialog');
 const shorten = (page: Page) => confirmation(page).getByRole('button', { name: 'Shorten retention' });
 
+const savesSetting = (request: Request, setting: string) =>
+  request.method() === 'PUT' && new URL(request.url()).pathname === `/api/v1/settings/${setting}`;
 const saved = (page: Page, setting: string) =>
-  page.waitForRequest(
-    (request) => request.method() === 'PUT' && request.url().endsWith(`/settings/${setting}`),
-  );
+  page.waitForRequest((request) => savesSetting(request, setting));
 
 test.describe('retention: what a shorter one would delete', () => {
   test.beforeEach(async ({ page, mockServer }) => {
@@ -42,7 +42,7 @@ test.describe('retention: what a shorter one would delete', () => {
     const writes: string[] = [];
 
     page.on('request', (request) => {
-      if (request.method() === 'PUT') writes.push(request.url());
+      if (savesSetting(request, 'stream_retention')) writes.push(request.url());
     });
 
     await page.goto('/settings/stream_retention');
@@ -132,7 +132,7 @@ test.describe('retention: what a shorter one would delete', () => {
     let writes = 0;
 
     page.on('request', (request) => {
-      if (request.method() === 'PUT') writes += 1;
+      if (savesSetting(request, 'stream_retention')) writes += 1;
     });
 
     await page.goto('/settings/stream_retention');

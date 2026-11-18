@@ -386,7 +386,6 @@ test.describe('Activation — what the reader may read and do', () => {
     '/api/v1/notify/connectors',
     '/api/v1/agent/settings/model-providers',
     '/api/v1/alerts/escalations',
-    '/api/v1/teams',
   ];
 
   test('a reader without the permissions is not asked about the steps nor sends their requests', async ({
@@ -416,7 +415,7 @@ test.describe('Activation — what the reader may read and do', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByText('5 setup steps remaining')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('4 setup steps remaining')).toBeVisible({ timeout: 10_000 });
     // The on-call card has nothing to say to someone who may not read schedules.
     await expect(page.getByText('Could not load the schedules')).toHaveCount(0);
     await expect(page.getByText('No on-call schedule configured')).toHaveCount(0);
@@ -430,7 +429,6 @@ test.describe('Activation — what the reader may read and do', () => {
     await openSetup(page).click();
     await expect(setupDrawer(page).getByRole('listitem')).toHaveText([
       /Connect a datasource/,
-      /Load sample data/,
       /Create a dashboard/,
       /Create an alert/,
       /Automate a pipeline/,
@@ -473,11 +471,10 @@ test.describe('Activation — what the reader may read and do', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByText('2 setup steps remaining')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('1 setup step remaining')).toBeVisible({ timeout: 10_000 });
     await openSetup(page).click();
     await expect(setupDrawer(page).getByRole('listitem')).toHaveText([
       /Connect a datasource/,
-      /Load sample data/,
     ]);
   });
 
