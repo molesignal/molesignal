@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+export const marketplaceCaptures = '**/marketplace*-capture.spec.ts';
+
 export default defineConfig({
   // `./playwright` (not `./playwright/tests`) so the perf suite under
   // `./playwright/perf` is discoverable via `--grep @perf`. The default `pnpm
@@ -9,6 +11,8 @@ export default defineConfig({
   // Only .ts spec files; the .js siblings are leftovers from `tsc -b`
   // before the build script switched to `--noEmit`.
   testMatch: /.*\.spec\.ts$/,
+  // Marketplace screenshots use resources from a separate checkout.
+  testIgnore: marketplaceCaptures,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
