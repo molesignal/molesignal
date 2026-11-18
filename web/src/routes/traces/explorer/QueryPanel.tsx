@@ -121,7 +121,6 @@ export function TraceQueryPanel({
             activeId={tab}
             onChange={onTabChange}
             tone="indigo"
-            selectionStyle="underline"
           />
           {isQueryTab && (
             <>

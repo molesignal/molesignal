@@ -13,12 +13,36 @@
 
 use std::{iter::Peekable, str::CharIndices};
 
-use tantivy::tokenizer::{
-    LowerCaser, RemoveLongFilter, TextAnalyzer, Token, TokenStream, Tokenizer,
+use tantivy::{
+    schema::{IndexRecordOption, TextFieldIndexing, TextOptions},
+    tokenizer::{LowerCaser, RemoveLongFilter, TextAnalyzer, Token, TokenStream, Tokenizer},
 };
 
 /// 分词字段注册的分词器名。
 pub const TEXT_TOKENIZER: &str = "molesignal_text";
+
+/// A tokenized field: split by [`TEXT_TOKENIZER`], documents only. Pruning and counting only ask
+/// which documents hold a word: term frequencies and positions are not kept, and neither are field
+/// norms, which only weigh scores, and no query here scores.
+pub(super) fn text_options() -> TextOptions {
+    TextOptions::default().set_indexing_options(
+        TextFieldIndexing::default()
+            .set_tokenizer(TEXT_TOKENIZER)
+            .set_index_option(IndexRecordOption::Basic)
+            .set_fieldnorms(false),
+    )
+}
+
+/// A field indexed by whole values, each one term (the `raw` tokenizer), documents only and no
+/// field norms, as [`text_options`].
+pub(super) fn whole_value_options() -> TextOptions {
+    TextOptions::default().set_indexing_options(
+        TextFieldIndexing::default()
+            .set_tokenizer("raw")
+            .set_index_option(IndexRecordOption::Basic)
+            .set_fieldnorms(false),
+    )
+}
 
 /// 丢掉的长词的最小字节数，与 Tantivy 的默认分词一致（`RemoveLongFilter::limit(40)` 只留更短
 /// 的词）。

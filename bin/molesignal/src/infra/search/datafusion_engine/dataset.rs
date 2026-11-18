@@ -6,15 +6,16 @@
 use std::{collections::HashMap, sync::Arc};
 
 use arrow::array::RecordBatch;
+use domain::{
+    storage::{DatasetTypeId, QueryFile, QueryFileSource},
+    stream::{StreamDefinition, StreamType},
+};
 use futures::future::try_join_all;
+use kernel::{Result, ids::Id, time::TimeRange};
 
-use crate::{
-    domain::{
-        storage::{DatasetTypeId, QueryFile, QueryFileSource},
-        stream::{StreamDefinition, StreamType},
-    },
-    infra::query::catalog_source::{CatalogQuerySource, StreamStorageSnapshot},
-    shared::{Result, ids::Id, time::TimeRange},
+use crate::infra::{
+    query::catalog_source::{CatalogQuerySource, StreamStorageSnapshot},
+    storage::minute_counts::MinuteCountsKeys,
 };
 
 pub(super) struct LoadedDataset {
@@ -25,6 +26,8 @@ pub(super) struct LoadedDataset {
     pub bloom_keys: HashMap<String, String>,
     /// Segment id → object key of the segment's own filter artifact.
     pub filter_keys: HashMap<String, String>,
+    /// Segment id → where the segment's minute counts are kept.
+    pub minute_count_keys: HashMap<String, MinuteCountsKeys>,
     pub buffered_batches: Vec<RecordBatch>,
 }
 
@@ -55,6 +58,7 @@ impl LoadedDataset {
             tantivy_indexes: snapshot.tantivy_indexes(),
             bloom_keys: snapshot.bloom_keys(),
             filter_keys: snapshot.filter_keys(),
+            minute_count_keys: snapshot.minute_count_keys(),
             buffered_batches: snapshot.buffered_batches(),
         }
     }
@@ -64,6 +68,7 @@ pub(super) async fn load(
     repository: &Arc<dyn QueryFileSource>,
     catalog_source: Option<&Arc<CatalogQuerySource>>,
     explicit_tantivy_indexes: &HashMap<String, String>,
+    explicit_minute_count_keys: &HashMap<String, MinuteCountsKeys>,
     definition: Option<&StreamDefinition>,
     selection: DatasetLoadSelection<'_>,
 ) -> Result<LoadedDataset> {
@@ -78,7 +83,7 @@ pub(super) async fn load(
     if let (Some(source), Some(definition)) = (catalog_source, definition) {
         let dataset_types = match dataset_type.clone() {
             Some(dataset_type) => vec![dataset_type],
-            None => crate::domain::storage::logical_query_dataset_types(stream_type)?,
+            None => domain::storage::logical_query_dataset_types(stream_type)?,
         };
 
         let snapshot = source
@@ -102,7 +107,7 @@ pub(super) async fn load(
             Vec::new(),
         )
     } else {
-        let lookups = crate::domain::storage::logical_query_dataset_types(stream_type)?
+        let lookups = domain::storage::logical_query_dataset_types(stream_type)?
             .into_iter()
             .map(|dataset_type| {
                 repository.find_dataset(
@@ -135,6 +140,7 @@ pub(super) async fn load(
         tantivy_indexes: explicit_tantivy_indexes.clone(),
         bloom_keys: HashMap::new(),
         filter_keys: HashMap::new(),
+        minute_count_keys: explicit_minute_count_keys.clone(),
         buffered_batches,
     })
 }

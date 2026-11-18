@@ -15,32 +15,31 @@ use arrow::{
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
 };
 use async_trait::async_trait;
-use molesignal::{
-    config::CacheLayerSettings,
-    domain::{
-        query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{
-            ArtifactRole, ArtifactState, DataSegment, DatasetState, IndexPolicy, IndexTypeId,
-            PartitionPolicy, PhysicalDataset, PhysicalDatasetId, QueryFile, QueryFileSource,
-            StoragePolicy, primary_dataset_type, type_id,
-        },
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
+use domain::{
+    query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
+    storage::{
+        ArtifactRole, ArtifactState, DataSegment, DatasetState, IndexPolicy, IndexTypeId,
+        PartitionPolicy, PhysicalDataset, PhysicalDatasetId, QueryFile, QueryFileSource,
+        StoragePolicy, primary_dataset_type, type_id,
     },
-    infra::{
-        caching::IndexHandleCache,
-        query::tantivy_pruner::TantivyPruner,
-        search::{datafusion_engine::DataFusionEngine, tantivy_index::IndexHandle},
-        storage::parquet::writer::ParquetWriter,
-    },
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
     },
 };
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::{
+    caching::IndexHandleCache,
+    query::tantivy_pruner::TantivyPruner,
+    search::{datafusion_engine::DataFusionEngine, tantivy_index::IndexHandle},
+    storage::parquet::writer::ParquetWriter,
+};
 use object_store::{ObjectStore, local::LocalFileSystem};
+use settings::CacheLayerSettings;
 
 #[derive(Default)]
 struct InMemQueryFile {
@@ -89,10 +88,8 @@ fn logs_stream() -> StreamDefinition {
                 name: "message".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
-                index_type: None,
-                indexed: true, // tantivy 索引
+                index_type: StreamIndexType::FullText,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),
@@ -172,6 +169,7 @@ async fn write_indexed_fixture(
         null_counts: segment.column_stats.null_counts,
         indexed_at_micros: segment.column_stats.indexed_at_micros,
         shard: None,
+        clustering: Default::default(),
     };
     (meta, (primary_key, index))
 }
@@ -389,10 +387,8 @@ fn traces_stream() -> StreamDefinition {
                 name: "trace_id".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
-                index_type: None,
-                indexed: true,
+                index_type: StreamIndexType::Exact,
                 encrypted: false,
-                exact: true, // 未分词 STRING 索引 → 等值裁剪
             }],
         },
         retention: Some(Retention { days: 7 }),
@@ -402,13 +398,20 @@ fn traces_stream() -> StreamDefinition {
 }
 
 fn build_traces_batch(start_us: i64, trace_ids: &[&str]) -> RecordBatch {
+    let trace_ids = trace_ids.iter().copied().map(Some).collect::<Vec<_>>();
+    build_nullable_traces_batch(start_us, &trace_ids)
+}
+
+/// 每行晚 1 ms；`None` 的行没有 trace_id。没有 `None` 时 trace_id 列不可为空。
+fn build_nullable_traces_batch(start_us: i64, trace_ids: &[Option<&str>]) -> RecordBatch {
+    let nullable = trace_ids.iter().any(Option::is_none);
     let schema = Arc::new(ArrowSchema::new(vec![
         Field::new(
             "_timestamp",
             DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
             false,
         ),
-        Field::new("trace_id", DataType::Utf8, false),
+        Field::new("trace_id", DataType::Utf8, nullable),
     ]));
     let ts = TimestampMicrosecondArray::from(
         (0..trace_ids.len() as i64)
@@ -439,23 +442,36 @@ async fn traces_engine() -> (tempfile::TempDir, DataFusionEngine, StreamDefiniti
 async fn traces_engine_of<'a>(
     files: &[(i64, impl AsRef<[&'a str]>)],
 ) -> (tempfile::TempDir, DataFusionEngine, StreamDefinition) {
+    traces_engine_of_batches(
+        files
+            .iter()
+            .map(|(start, tids)| build_traces_batch(*start, tids.as_ref()))
+            .collect(),
+    )
+    .await
+}
+
+/// 每个批次写成一个主 Artifact，各带显式 Tantivy Artifact。
+async fn traces_engine_of_batches(
+    batches: Vec<RecordBatch>,
+) -> (tempfile::TempDir, DataFusionEngine, StreamDefinition) {
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
         Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
     let writer = ParquetWriter::new(store.clone());
     let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
-    let stream = traces_stream();
+    let mut stream = traces_stream();
     let dataset = indexed_dataset(&stream);
 
+    // 有没有 trace_id 的行时，流里的 trace_id 也可为空。
+    stream.schema.fields[0].nullable = batches
+        .iter()
+        .any(|batch| batch.schema().field(1).is_nullable());
+
     let mut index_keys = HashMap::new();
-    for (start, tids) in files {
-        let (meta, (primary, index)) = write_indexed_fixture(
-            &writer,
-            &stream,
-            &dataset,
-            build_traces_batch(*start, tids.as_ref()),
-        )
-        .await;
+    for batch in batches {
+        let (meta, (primary, index)) =
+            write_indexed_fixture(&writer, &stream, &dataset, batch).await;
         repo.insert(meta).await.unwrap();
         index_keys.insert(primary, index);
     }
@@ -491,7 +507,7 @@ fn whole_range() -> TimeRange {
     TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX))
 }
 
-fn single_count(result: &molesignal::domain::query::QueryResult) -> i64 {
+fn single_count(result: &domain::query::QueryResult) -> i64 {
     assert_eq!(result.rows.len(), 1, "a count returns one row");
     let value = &result.rows[0][0];
     value
@@ -623,7 +639,7 @@ fn histogram_sql((from, to): (i64, i64), errors: bool, filters: &str) -> String 
     )
 }
 
-fn sorted_bars(result: &molesignal::domain::query::QueryResult) -> Vec<Vec<i64>> {
+fn sorted_bars(result: &domain::query::QueryResult) -> Vec<Vec<i64>> {
     let mut bars = result
         .rows
         .iter()
@@ -689,7 +705,7 @@ async fn histogram_bars_come_from_the_index() {
     }
 }
 
-fn trace_rows(result: &molesignal::domain::query::QueryResult) -> Vec<(String, i64)> {
+fn trace_rows(result: &domain::query::QueryResult) -> Vec<(String, i64)> {
     result
         .rows
         .iter()
@@ -819,6 +835,124 @@ async fn top_values_come_from_the_index() {
         assert_eq!(counted.scanned_rows, scanned_rows, "{sql}");
         assert!(scanned.scanned_rows > 0, "{sql}");
     }
+}
+
+/// 按一列的值数行的 `GROUP BY`：整个落在时间窗里、每一行都有着落的文件从索引词典数出每个值的
+/// 行数，不扫描；窗切开的文件（File A）与有空串的文件（File C）照常扫描，与窗不相交的文件不读。
+/// 排序、语句的 LIMIT 与请求的行数上限都与 DataFusion 扫描得到的相同：`AND 1 = 1` 不改变结果，
+/// 却让语句不再能由索引回答。
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn grouped_counts_come_from_the_index() {
+    let (_tmp, engine, stream) = traces_engine_of(&[
+        (1_000_000, ["a", "a"]),
+        (2_000_000, ["b", "a"]),
+        (3_000_000, ["c", ""]),
+    ])
+    .await;
+
+    for ((from, to), order, limit, expected, scanned_rows) in [
+        (
+            (0, 4_000_000),
+            "ORDER BY \"trace_id\" ASC",
+            None,
+            vec![("", 1), ("a", 3), ("b", 1), ("c", 1)],
+            2,
+        ),
+        (
+            (0, 4_000_000),
+            "ORDER BY n DESC, \"trace_id\" ASC LIMIT 2",
+            None,
+            vec![("a", 3), ("", 1)],
+            2,
+        ),
+        (
+            (0, 3_000_000),
+            "ORDER BY n DESC, \"trace_id\" DESC",
+            Some(1),
+            vec![("a", 3)],
+            0,
+        ),
+        (
+            (1_000_500, 3_000_000),
+            "ORDER BY 1",
+            None,
+            vec![("a", 2), ("b", 1)],
+            2,
+        ),
+    ] {
+        let sql = format!(
+            "SELECT \"trace_id\", COUNT(*) AS n FROM \"traces\" \
+             WHERE _timestamp >= {from} AND _timestamp < {to} GROUP BY \"trace_id\" {order}"
+        );
+
+        let range = TimeRange::new(TimestampMicros(from), TimestampMicros(to));
+        let mut counted = traces_request(&stream, &sql, range);
+        counted.limit = limit;
+
+        let mut scanned = counted.clone();
+        scanned.statement = sql.replace(" GROUP BY", " AND 1 = 1 GROUP BY");
+
+        let counted = engine.execute(counted).await.expect("query");
+        let scanned = engine.execute(scanned).await.expect("query");
+
+        let expected = expected
+            .into_iter()
+            .map(|(value, count)| (value.to_owned(), count))
+            .collect::<Vec<_>>();
+
+        assert_eq!(trace_rows(&counted), expected, "{sql}");
+        assert_eq!(trace_rows(&scanned), expected, "{sql}");
+        assert_eq!(counted.scanned_rows, scanned_rows, "{sql}");
+    }
+}
+
+/// 没有值的行也是一组：写入时记下的没有值的行正好补齐词典里数过的值时，文件仍从索引数出，
+/// 降序时没有值的组排在最前，与 DataFusion 一样。
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn rows_without_a_value_are_counted_as_a_group() {
+    let (_tmp, engine, stream) = traces_engine_of_batches(vec![
+        build_nullable_traces_batch(1_000_000, &[Some("a"), None]),
+        build_nullable_traces_batch(2_000_000, &[Some("b"), Some("a")]),
+    ])
+    .await;
+
+    let sql = "SELECT \"trace_id\", COUNT(*) AS n FROM \"traces\" \
+               WHERE _timestamp >= 0 AND _timestamp < 4000000 \
+               GROUP BY \"trace_id\" ORDER BY \"trace_id\" DESC";
+
+    let groups = |result: &domain::query::QueryResult| {
+        result
+            .rows
+            .iter()
+            .map(|row| (row[0].as_str().map(str::to_owned), row[1].as_i64().unwrap()))
+            .collect::<Vec<_>>()
+    };
+
+    let range = TimeRange::new(TimestampMicros(0), TimestampMicros(4_000_000));
+
+    let counted = engine
+        .execute(traces_request(&stream, sql, range))
+        .await
+        .expect("query");
+
+    let scanned = engine
+        .execute(traces_request(
+            &stream,
+            &sql.replace(" GROUP BY", " AND 1 = 1 GROUP BY"),
+            range,
+        ))
+        .await
+        .expect("query");
+
+    let expected = vec![
+        (None, 1),
+        (Some("b".to_owned()), 1),
+        (Some("a".to_owned()), 2),
+    ];
+
+    assert_eq!(groups(&counted), expected);
+    assert_eq!(groups(&scanned), expected);
+    assert_eq!(counted.scanned_rows, 0);
 }
 
 /// 字段分析的汇总：没有其它条件时，整个落在时间窗里的文件从索引词典数出行数、有值的行数与每个

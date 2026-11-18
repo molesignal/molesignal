@@ -5,36 +5,39 @@
 
 use std::{
     collections::{HashMap, HashSet},
+    ops::Range,
     sync::Arc,
 };
 
 use arrow::{array::RecordBatch, datatypes::SchemaRef};
 use async_trait::async_trait;
+use bytes::Bytes;
+use domain::{
+    storage::{
+        ArtifactRole, ArtifactState, CatalogSnapshot, DatasetSelection, DatasetState,
+        DatasetTypeId, FileCatalog, OrganizationScope, PhysicalDataset, PhysicalDatasetId,
+        QueryFile, QueryFileSource, primary_dataset_type, type_id,
+    },
+    stream::{StreamDefinition, StreamRepository, StreamType},
+};
+use kernel::{Error, Result, ids::Id, time::TimeRange};
+use object_store::path::Path;
 
-use crate::{
-    domain::{
-        storage::{
-            ArtifactRole, ArtifactState, CatalogSnapshot, DatasetSelection, DatasetState,
-            DatasetTypeId, FileCatalog, OrganizationScope, PhysicalDataset, PhysicalDatasetId,
-            QueryFile, QueryFileSource, primary_dataset_type, type_id,
-        },
-        stream::{StreamDefinition, StreamRepository, StreamType},
+use crate::infra::{
+    intake::{BufferPool, buffer_pool::align_to_schema, physical_schema},
+    storage::{
+        arrow_schema,
+        filters::Filters,
+        manifest::{PartitionManifestReader, bloom_key, minute_counts_key},
+        minute_counts::MinuteCountsKeys,
+        object_reader::ObjectReader,
     },
-    infra::{
-        intake::{BufferPool, buffer_pool::align_to_schema, physical_schema},
-        search::tantivy_index,
-        storage::{
-            arrow_schema,
-            filters::Filters,
-            manifest::{PartitionManifestReader, bloom_key},
-            object_reader::ObjectReader,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimeRange},
 };
 
+mod artifact_keys;
 mod segment_sizes;
 
+use artifact_keys::{segment_filter_key, segment_minute_counts_keys, segment_tantivy_index};
 pub use segment_sizes::SegmentSize;
 
 #[derive(Debug, Clone)]
@@ -52,6 +55,8 @@ pub struct QueryDatasetSnapshot {
     pub bloom_keys: HashMap<String, String>,
     /// Segment id → object key of the segment's own filter artifact.
     pub filter_keys: HashMap<String, String>,
+    /// Segment id → where the segment's minute counts are kept.
+    pub minute_count_keys: HashMap<String, MinuteCountsKeys>,
     pub buffered_batches: Vec<RecordBatch>,
 }
 
@@ -111,6 +116,13 @@ impl StreamStorageSnapshot {
             .collect()
     }
 
+    pub fn minute_count_keys(&self) -> HashMap<String, MinuteCountsKeys> {
+        self.datasets
+            .iter()
+            .flat_map(|dataset| dataset.minute_count_keys.clone())
+            .collect()
+    }
+
     pub fn dataset(&self, dataset_type: &DatasetTypeId) -> Option<&QueryDatasetSnapshot> {
         self.datasets
             .iter()
@@ -136,10 +148,20 @@ impl CatalogQuerySource {
         self.manifests.blooms(key).await
     }
 
+    /// The bytes of `ranges` of the object at `key`, read from the store itself: the slices of
+    /// block filters are a few hundred bytes each, far smaller than the blocks of the range cache.
+    pub async fn read_ranges(&self, key: &str, ranges: &[Range<u64>]) -> Result<Vec<Bytes>> {
+        self.object_reader
+            .origin()
+            .get_ranges(&Path::from(key), ranges)
+            .await
+            .map_err(|error| Error::internal(format!("read {key}: {error}")))
+    }
+
     pub async fn intake_usage(
         &self,
         organization_id: &Id,
-    ) -> Result<Vec<crate::domain::storage::DatasetIntakeUsage>> {
+    ) -> Result<Vec<domain::storage::DatasetIntakeUsage>> {
         self.catalog
             .intake_usage(&OrganizationScope::new(organization_id.clone()))
             .await
@@ -296,10 +318,12 @@ impl CatalogQuerySource {
         for dataset in &catalog.datasets {
             let mut segments = Vec::new();
             let mut bloom_keys = HashMap::new();
+            let mut counts_keys = HashMap::new();
 
             for pointer in &dataset.manifests {
                 let manifest = self.manifests.load(pointer).await?;
                 let key = bloom_key(&pointer.object.key);
+                let counts_key = minute_counts_key(&pointer.object.key);
 
                 for segment in manifest
                     .segments
@@ -307,11 +331,13 @@ impl CatalogQuerySource {
                     .filter(|segment| segment.time_range.overlaps(time_range))
                 {
                     bloom_keys.insert(segment.id.as_str().to_owned(), key.clone());
+                    counts_keys.insert(segment.id.as_str().to_owned(), counts_key.clone());
                     segments.push(segment.clone());
                 }
             }
 
-            manifest_segments.insert(dataset.dataset_id.clone(), (segments, bloom_keys));
+            let sealed = (segments, bloom_keys, counts_keys);
+            manifest_segments.insert(dataset.dataset_id.clone(), sealed);
         }
 
         let mut output = Vec::with_capacity(selections.len());
@@ -360,8 +386,11 @@ fn select_datasets(
 }
 
 /// Segments of sealed partitions, with the object key of each one's Bloom filters.
+/// A dataset's segments of sealed partitions, with the objects of their partitions by segment id:
+/// the filters and the minute counts.
 type Sealed = (
-    Vec<crate::domain::storage::DataSegment>,
+    Vec<domain::storage::DataSegment>,
+    HashMap<String, String>,
     HashMap<String, String>,
 );
 
@@ -369,7 +398,7 @@ fn build_dataset_snapshot(
     stream: &StreamDefinition,
     dataset: &PhysicalDataset,
     catalog: &CatalogSnapshot,
-    (manifest_segments, bloom_keys): Sealed,
+    (manifest_segments, bloom_keys, counts_keys): Sealed,
     buffer_batches: Vec<crate::infra::intake::BufferedRecordBatch>,
     time_range: TimeRange,
     object_reader: &ObjectReader,
@@ -398,6 +427,10 @@ fn build_dataset_snapshot(
 
     let tantivy_indexes = segments.iter().filter_map(segment_tantivy_index).collect();
     let filter_keys = segments.iter().filter_map(segment_filter_key).collect();
+    let minute_count_keys = segments
+        .iter()
+        .filter_map(|segment| segment_minute_counts_keys(segment, &counts_keys))
+        .collect();
 
     let physical_stream = physical_schema::project(stream, &dataset_type);
     let target_schema = arrow_schema::to_arrow(&physical_stream.schema);
@@ -438,61 +471,15 @@ fn build_dataset_snapshot(
         tantivy_indexes,
         bloom_keys,
         filter_keys,
+        minute_count_keys,
         buffered_batches: visible_buffers,
     })
-}
-
-fn segment_tantivy_index(
-    segment: &crate::domain::storage::DataSegment,
-) -> Option<(String, String)> {
-    segment
-        .auxiliaries
-        .iter()
-        .find(|artifact| {
-            segment.primary.role == ArtifactRole::PrimaryData
-                && segment.primary.state == ArtifactState::Ready
-                && segment.primary.artifact_type.as_str() == type_id::builtin::ARTIFACT_PARQUET
-                && segment.primary.format_version == 1
-                && segment.schema_fingerprint == segment.primary.schema_fingerprint
-                && artifact.role == ArtifactRole::Index
-                && artifact.state == ArtifactState::Ready
-                && artifact.artifact_type.as_str() == type_id::builtin::ARTIFACT_TANTIVY
-                && (1..=tantivy_index::FORMAT_VERSION).contains(&artifact.format_version)
-                && artifact.source_artifact_id.as_ref() == Some(&segment.primary.id)
-                && artifact.source_checksum.as_ref() == Some(&segment.primary.object.checksum)
-                && artifact.schema_fingerprint == segment.primary.schema_fingerprint
-        })
-        .map(|artifact| {
-            (
-                segment.primary.object.key.as_str().to_owned(),
-                artifact.object.key.as_str().to_owned(),
-            )
-        })
-}
-
-/// The segment's own ready filter artifact, built from its primary file: segment id → object key.
-fn segment_filter_key(segment: &crate::domain::storage::DataSegment) -> Option<(String, String)> {
-    segment
-        .auxiliaries
-        .iter()
-        .find(|artifact| {
-            artifact.role == ArtifactRole::Index
-                && artifact.state == ArtifactState::Ready
-                && artifact.artifact_type.as_str() == type_id::builtin::ARTIFACT_BLOOM
-                && artifact.source_artifact_id.as_ref() == Some(&segment.primary.id)
-        })
-        .map(|artifact| {
-            (
-                segment.id.as_str().to_owned(),
-                artifact.object.key.as_str().to_owned(),
-            )
-        })
 }
 
 fn segment_to_query_file(
     stream: &StreamDefinition,
     dataset_type: &DatasetTypeId,
-    segment: &crate::domain::storage::DataSegment,
+    segment: &domain::storage::DataSegment,
 ) -> Result<QueryFile> {
     let primary = &segment.primary;
 
@@ -525,12 +512,11 @@ fn segment_to_query_file(
         address_ranges: segment.column_stats.address_ranges.clone(),
         null_counts: segment.column_stats.null_counts.clone(),
         indexed_at_micros: segment.column_stats.indexed_at_micros,
-        shard: (!segment.column_stats.partitions.is_empty()).then(|| {
-            crate::domain::storage::FileShard {
-                partitions: segment.column_stats.partitions.clone(),
-                shard: segment.partition.shard,
-            }
+        shard: (!segment.column_stats.partitions.is_empty()).then(|| domain::storage::FileShard {
+            partitions: segment.column_stats.partitions.clone(),
+            shard: segment.partition.shard,
         }),
+        clustering: segment.column_stats.clustering.clone(),
     })
 }
 
@@ -577,24 +563,22 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
+    use domain::{
+        intake::RawEvent,
+        storage::{
+            CommitFlush, OrganizationScope, WalSequence, WriterEpoch, WriterNodeId,
+            type_id::builtin,
+        },
+        stream::{FieldDef, FieldType, Schema, StreamIndexType},
+    };
+    use kernel::time::TimestampMicros;
     use object_store::memory::InMemory;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        domain::{
-            intake::RawEvent,
-            storage::{
-                CommitFlush, OrganizationScope, WalSequence, WriterEpoch, WriterNodeId,
-                type_id::builtin,
-            },
-            stream::{FieldDef, FieldType, Schema},
-        },
-        infra::{
-            intake::{BufferWriter, dataset_resolver::test_support::test_catalog_and_resolver},
-            storage::parquet::writer::ParquetWriter,
-        },
-        shared::time::TimestampMicros,
+    use crate::infra::{
+        intake::{BufferWriter, dataset_resolver::test_support::test_catalog_and_resolver},
+        storage::parquet::writer::ParquetWriter,
     };
 
     struct OneStream(StreamDefinition);
@@ -648,10 +632,8 @@ mod tests {
                     name: "value".into(),
                     data_type: FieldType::Float64,
                     nullable: false,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 }],
             },
             retention: None,
@@ -669,12 +651,7 @@ mod tests {
 
     fn local_object_reader() -> Arc<ObjectReader> {
         let store: Arc<dyn object_store::ObjectStore> = Arc::new(InMemory::new());
-        ObjectReader::build(
-            store,
-            "local",
-            &crate::config::ObjectCacheSettings::default(),
-        )
-        .unwrap()
+        ObjectReader::build(store, "local", &settings::ObjectCacheSettings::default()).unwrap()
     }
 
     fn local_manifest_reader(objects: Arc<ObjectReader>) -> Arc<PartitionManifestReader> {

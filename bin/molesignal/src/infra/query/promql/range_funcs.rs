@@ -6,7 +6,7 @@
 //! `holt_winters`（别名 `double_exponential_smoothing`）。
 //!
 //! 与 rate 家族（functions.rs）分开：这些不做 per-second 归一，而是窗口内的
-//! 差值 / 线性回归 / 计数 / 指数平滑。
+//! 差值 / 线性回归 / 计数 / 指数平滑。`delta` 的差值与 `increase` 一样外推到窗口两端。
 
 use super::*;
 
@@ -25,17 +25,20 @@ pub(super) fn is_range_vector_function(name: &str) -> bool {
     )
 }
 
-/// instant 路径：`load_matrix` 已把样本裁到 `[at_us-range, at_us]`，整条 series 即窗口。
+/// instant 路径：`load_matrix` 已把样本裁到 `window`，整条 series 即窗口。`at_us` 是外层的求值
+/// 时刻，与 Prometheus 一样作 `predict_linear` 回归的原点。
 pub(super) fn apply_range_vector_func(
     func: &str,
     series: Vec<Series>,
     at_us: i64,
+    window: RangeWindow,
     params: RangeFuncParams,
 ) -> InstantVector {
     let items = series
         .into_iter()
         .filter_map(|s| {
-            range_vector_value(func, &s.samples, at_us, params).map(|value| (s.labels, value))
+            range_vector_value(func, &s.samples, at_us, window, params)
+                .map(|value| (s.labels, value))
         })
         .collect();
 
@@ -47,17 +50,18 @@ pub(super) fn apply_range_vector_func_range(
     func: &str,
     series: Vec<Series>,
     range: Duration,
-    start_us: i64,
-    end_us: i64,
-    step_us: i64,
+    steps: Steps,
     params: RangeFuncParams,
 ) -> RangeVector {
     let range_us = (range.as_micros() as i64).max(1);
     let mut points = Vec::new();
 
     for s in series {
-        each_step_window(&s.samples, start_us, end_us, step_us, range_us, |t, win| {
-            let Some(value) = range_vector_value(func, win, t, params) else {
+        // `t` 是外层的步点，与 Prometheus 一样作 `predict_linear` 回归的原点；窗口在 `end`。
+        each_step_window(&s.samples, steps, range_us, |t, end, win| {
+            let window = RangeWindow::new(end, range);
+
+            let Some(value) = range_vector_value(func, win, t, window, params) else {
                 return;
             };
 
@@ -76,14 +80,11 @@ pub(super) fn range_vector_value(
     func: &str,
     samples: &[(i64, f64)],
     at_us: i64,
+    window: RangeWindow,
     params: RangeFuncParams,
 ) -> Option<f64> {
     match func {
-        "delta" => {
-            let (_, first) = samples.first()?;
-            let (_, last) = samples.last()?;
-            (samples.len() >= 2).then_some(last - first)
-        }
+        "delta" => extrapolated_delta(samples, window),
         "idelta" => {
             if samples.len() < 2 {
                 return None;

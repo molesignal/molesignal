@@ -9,19 +9,17 @@ use arrow::array::RecordBatch;
 use datafusion::{
     common::TableReference, execution::object_store::ObjectStoreUrl, prelude::SessionContext,
 };
+use domain::{
+    query::{QueryRequest, StreamHint},
+    storage::QueryFileSource,
+    stream::StreamRepository,
+};
+use kernel::{Error, Result};
 use object_store::ObjectStore;
 
-use crate::{
-    domain::{
-        query::{QueryRequest, StreamHint},
-        storage::QueryFileSource,
-        stream::StreamRepository,
-    },
-    infra::{
-        query::{catalog_source::CatalogQuerySource, parquet_table::PrunedParquetTable},
-        storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
-    },
-    shared::{Error, Result},
+use crate::infra::{
+    query::{catalog_source::CatalogQuerySource, executor, parquet_table::PrunedParquetTable},
+    storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
 };
 
 #[tracing::instrument(
@@ -37,7 +35,7 @@ pub(super) async fn run(
     request: &QueryRequest,
     stream: &StreamHint,
 ) -> Result<Vec<RecordBatch>> {
-    let dataset_types = crate::domain::storage::logical_query_dataset_types(stream.stream_type)?;
+    let dataset_types = domain::storage::logical_query_dataset_types(stream.stream_type)?;
 
     let (mut metas, buffered_batches) =
         if let (Some(source), Some(streams)) = (catalog_source, streams) {
@@ -134,14 +132,15 @@ pub(super) async fn run(
         )
         .map_err(|error| Error::internal(format!("federation local register: {error}")))?;
 
-    context
+    let frame = context
         .sql(&format!(
             "SELECT * FROM \"{}\"",
             crate::infra::query::escape_sql_ident(&stream.name)
         ))
         .await
-        .map_err(|error| Error::internal(format!("federation local plan: {error}")))?
-        .collect()
+        .map_err(|error| Error::internal(format!("federation local plan: {error}")))?;
+
+    executor::collect(frame)
         .await
         .map_err(|error| Error::internal(format!("federation local collect: {error}")))
 }

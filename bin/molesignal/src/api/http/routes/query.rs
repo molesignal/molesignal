@@ -12,26 +12,24 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+};
 use futures::stream::{self, StreamExt};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 use serde_json::Value;
+use signals::trace_stream::segmented_result_stream;
 
-use crate::{
-    api::AppState,
-    app::{iam::IamContext, query::ActiveQuerySnapshot},
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-        trace_stream::segmented_result_stream,
-    },
-};
+use crate::{api::AppState, app::query::ActiveQuerySnapshot};
 
 mod address;
+mod admission;
 mod prometheus;
 
 pub fn routes() -> Router<AppState> {
@@ -47,7 +45,7 @@ pub fn routes() -> Router<AppState> {
         .route("/query/slow", get(list_slow_queries))
         .route(
             "/query/admission",
-            get(admission_stats).put(update_admission),
+            get(admission::stats).put(admission::update),
         )
         .route("/query/running", get(list_running))
         .route("/query/{id}/cancel", post(cancel_query))
@@ -147,7 +145,7 @@ async fn inspect_query(
 
 /// 抓取 SQL 中所有 base table 名（UI inspect 用）。
 ///
-/// 走 `crate::infra::query::parser::extract_referenced_tables` 的 sqlparser
+/// 走 `query_language::extract_referenced_tables` 的 sqlparser
 /// AST walker（spec query / sqlparser-join-planner change）：
 /// - CTE alias 不再被误抓
 /// - quoted identifier 自动去引号
@@ -155,7 +153,7 @@ async fn inspect_query(
 ///
 /// 解析失败（用户写了不合法 SQL）→ 返空 vec，让 inspect endpoint 仍能返其它上下文。
 fn parse_from_tables(stmt: &str) -> Vec<String> {
-    crate::infra::query::parser::extract_referenced_tables(stmt)
+    query_language::extract_referenced_tables(stmt)
         .map(|refs| refs.into_iter().map(|r| r.name).collect())
         .unwrap_or_default()
 }
@@ -164,7 +162,7 @@ fn parse_from_tables(stmt: &str) -> Vec<String> {
 /// 0 阈值表示禁用。
 fn should_auto_async(req: &QueryRequest, state: &AppState) -> bool {
     // AppState 暂未保存 QuerierSettings；通过 config 单例读取
-    let cfg = crate::config::get();
+    let cfg = settings::get();
     let threshold = cfg.querier.auto_async_threshold_rows;
 
     if threshold == 0 {
@@ -312,7 +310,7 @@ fn maybe_record_slow_query(
     let repo = state.agent.slow_queries.clone();
     let now = TimestampMicros::now();
 
-    let row = crate::domain::query::SlowQuery {
+    let row = domain::query::SlowQuery {
         id: Id::new(),
         org_id: org_id.clone(),
         fingerprint: crate::app::recommendations::query_fingerprint(language, &statement),
@@ -327,59 +325,11 @@ fn maybe_record_slow_query(
         last_seen: now,
     };
 
-    crate::shared::trace_context::spawn_with_current_trace_context(async move {
+    signals::trace_context::spawn_with_current_trace_context(async move {
         if let Err(e) = repo.record(row).await {
             tracing::warn!(error = %e, "record slow query failed");
         }
     });
-}
-
-/// Search admission 各工作组的并发槽位快照（in-flight / limit / 累计申请/拒绝）。
-#[permission("sys.query.admission.read")]
-async fn admission_stats(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-) -> Result<Json<Value>> {
-    let groups = state.query.admission().stats();
-    Ok(Json(serde_json::json!({ "groups": groups })))
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AdmissionUpdateReq {
-    #[serde(default)]
-    default_max_concurrent: usize,
-    #[serde(default)]
-    groups: std::collections::HashMap<String, usize>,
-    #[serde(default)]
-    role_map: std::collections::HashMap<String, String>,
-    #[serde(default)]
-    cluster_default_max_concurrent: usize,
-    #[serde(default)]
-    cluster_groups: std::collections::HashMap<String, usize>,
-}
-
-/// 热更新 admission 配置（无需重启；仅本节点、不持久化——重启回落配置文件）。
-/// 准入配额是整个节点的，所以是平台权限。
-#[permission("sys.query.admission.manage")]
-async fn update_admission(
-    State(state): State<AppState>,
-    Extension(ctx): Extension<IamContext>,
-    Json(req): Json<AdmissionUpdateReq>,
-) -> Result<Json<Value>> {
-    state
-        .query
-        .admission()
-        .refresh(crate::app::search::AdmissionConfig {
-            default_max_concurrent: req.default_max_concurrent,
-            groups: req.groups,
-            role_map: req.role_map,
-            cluster_default_max_concurrent: req.cluster_default_max_concurrent,
-            cluster_groups: req.cluster_groups,
-        });
-
-    let groups = state.query.admission().stats();
-    Ok(Json(serde_json::json!({ "groups": groups })))
 }
 
 /// 最近慢查询 + 各自的优化建议（按需在读路径用启发式引擎计算）。
@@ -460,7 +410,7 @@ pub struct StreamQuery {
     pub sql: String,
     pub stream: String,
     #[serde(default = "default_stream_type")]
-    pub stream_type: crate::domain::stream::StreamType,
+    pub stream_type: domain::stream::StreamType,
     /// epoch micros
     pub from: i64,
     /// epoch micros
@@ -468,8 +418,8 @@ pub struct StreamQuery {
     pub limit: Option<usize>,
 }
 
-fn default_stream_type() -> crate::domain::stream::StreamType {
-    crate::domain::stream::StreamType::LOGS
+fn default_stream_type() -> domain::stream::StreamType {
+    domain::stream::StreamType::LOGS
 }
 
 #[permission(any("streams.query", "sys.telemetry.read"))]
@@ -564,7 +514,7 @@ async fn cancel_query(
         let org_links = state.cluster.org_link.clone();
         let secrets = state.cluster.secrets.clone();
 
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
+        signals::trace_context::spawn_with_current_trace_context(async move {
             fan_out_cancel(&fed_id, &cluster_ids, remotes, org_links, secrets).await
         });
     }
@@ -579,14 +529,13 @@ async fn fan_out_cancel(
     cluster_ids: &[String],
     remotes: std::sync::Arc<dyn crate::infra::cluster::RemoteClustersRepository>,
     org_links: std::sync::Arc<
-        dyn crate::infra::persistence::repositories::cluster::events::ClusterOrgLinkRepository,
+        dyn postgres::repositories::cluster::events::ClusterOrgLinkRepository,
     >,
     secrets: std::sync::Arc<dyn crate::infra::cluster::ClusterSecretRepository>,
 ) {
-    use crate::{
-        infra::{cluster::grpc_channel, secret::resolve_cluster_control_token},
-        protocol::cluster::v1::{CancelQueryRequest, event_service_client::EventServiceClient},
-    };
+    use protocol::cluster::v1::{CancelQueryRequest, event_service_client::EventServiceClient};
+
+    use crate::infra::secret::resolve_cluster_control_token;
 
     for cid in cluster_ids {
         let Ok(c) = remotes.get(&Id(cid.clone())).await else {
@@ -608,7 +557,7 @@ async fn fan_out_cancel(
             continue;
         };
 
-        let Ok(channel) = grpc_channel::connect(&c.advertise_addr, c.tls_verify).await else {
+        let Ok(channel) = grpc_client::connect(&c.advertise_addr, c.tls_verify).await else {
             continue;
         };
 
@@ -616,17 +565,17 @@ async fn fan_out_cancel(
             federation_query_id: fed_id.to_string(),
         });
 
-        if grpc_channel::with_bearer(&mut req, &token).is_err() {
+        if grpc_client::with_bearer(&mut req, &token).is_err() {
             continue;
         }
 
         let mut client = EventServiceClient::new(channel);
 
-        let _ = crate::shared::grpc_trace::call(
+        let _ = signals::grpc_trace::call(
             req,
             "cluster.v1.EventService",
             "CancelQuery",
-            crate::shared::grpc_trace::GrpcTarget::Internal,
+            signals::grpc_trace::GrpcTarget::Internal,
             |request| client.cancel_query(request),
         )
         .await;
@@ -640,7 +589,7 @@ pub struct SearchAroundReq {
     pub event_timestamp_us: i64,
     pub event_fingerprint: Option<String>,
     pub stream: String,
-    pub stream_type: crate::domain::stream::StreamType,
+    pub stream_type: domain::stream::StreamType,
     #[serde(default = "default_around")]
     pub before: u32,
     #[serde(default = "default_around")]
@@ -693,10 +642,10 @@ async fn search_around(
     // before：order by _timestamp DESC limit before，where _timestamp <= ts
     let mk_req = |sql: String, range: TimeRange| QueryRequest {
         org_id: ctx.org_id.clone(),
-        language: crate::domain::query::QueryLanguage::Sql,
+        language: domain::query::QueryLanguage::Sql,
         statement: sql,
         time_range: range,
-        stream: Some(crate::domain::query::StreamHint {
+        stream: Some(domain::query::StreamHint {
             name: req.stream.clone(),
             stream_type: req.stream_type,
         }),

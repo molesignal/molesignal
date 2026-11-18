@@ -28,30 +28,28 @@ use arrow_flight::{
 };
 use async_trait::async_trait;
 use datafusion::{common::TableReference, datasource::MemTable, prelude::SessionContext};
+use domain::{
+    masking::Masker,
+    query::{FederationMeta, QueryEngine, QueryRequest, QueryResult, StreamHint},
+    storage::{DatasetTypeId, QueryFileSource},
+    stream::StreamRepository,
+};
 use futures::TryStreamExt;
+use kernel::{Error, Result};
 use object_store::ObjectStore;
+use postgres::repositories::{
+    log_patterns::LogPatternRepository, regex_patterns::RegexPatternRepository,
+};
 use prost::Message;
+use protocol::query::v1::QueryShard;
 
-use crate::{
-    domain::{
-        masking::Masker,
-        query::{FederationMeta, QueryEngine, QueryRequest, QueryResult, StreamHint},
-        storage::{DatasetTypeId, QueryFileSource},
-        stream::StreamRepository,
+use crate::infra::{
+    cluster::{
+        cluster_secrets_repo::ClusterSecretRepository,
+        remote_clusters_repo::{RemoteCluster, RemoteClustersRepository},
     },
-    infra::{
-        cluster::{
-            cluster_secrets_repo::ClusterSecretRepository,
-            remote_clusters_repo::{RemoteCluster, RemoteClustersRepository},
-        },
-        persistence::repositories::{
-            log_patterns::LogPatternRepository, regex_patterns::RegexPatternRepository,
-        },
-        query::catalog_source::CatalogQuerySource,
-        secret::resolve_secret_ref,
-    },
-    protocol::query::v1::QueryShard,
-    shared::{Error, Result},
+    query::catalog_source::CatalogQuerySource,
+    secret::resolve_secret_ref,
 };
 
 mod batches;
@@ -71,7 +69,7 @@ pub struct FederatedDistributedEngine {
     object_store: Arc<dyn ObjectStore>,
     secrets: Option<Arc<dyn ClusterSecretRepository>>,
     /// 字段加密 DEK 服务；非空时 coordinator final SQL 按 org 预载 DEK 注册 `decrypt(col)`。
-    field_keys: Option<Arc<crate::infra::cipher::FieldKeyService>>,
+    field_keys: Option<Arc<postgres::cipher::FieldKeyService>>,
     /// 脱敏规则 repo；非空时含 `mask(` 的 final SQL 按 org 加载规则注册 `mask(col)`。
     regex_patterns: Option<Arc<dyn RegexPatternRepository>>,
     /// log-pattern repo；非空时含 `extract_pattern(` 的 final SQL 注册 `extract_pattern(col)`。
@@ -135,7 +133,7 @@ impl FederatedDistributedEngine {
     }
 
     /// 注入字段加密 DEK 服务；非空时联邦 final SQL 注册 `decrypt(col)`。
-    pub fn with_field_keys(mut self, svc: Arc<crate::infra::cipher::FieldKeyService>) -> Self {
+    pub fn with_field_keys(mut self, svc: Arc<postgres::cipher::FieldKeyService>) -> Self {
         self.field_keys = Some(svc);
         self
     }
@@ -216,12 +214,9 @@ impl FederatedDistributedEngine {
         };
 
         // endpoint + 可选 TLS（共用 `grpc_channel` 基元）。
-        let channel = crate::infra::cluster::grpc_channel::connect(
-            &cluster.advertise_addr,
-            cluster.tls_verify,
-        )
-        .await
-        .map_err(|e| (e, false))?;
+        let channel = grpc_client::connect(&cluster.advertise_addr, cluster.tls_verify)
+            .await
+            .map_err(|e| (e, false))?;
 
         // 空 query_files → 远端自解析；带 stream_type 供远端 find()。
         let shard = QueryShard {
@@ -243,16 +238,15 @@ impl FederatedDistributedEngine {
             .map_err(|e| (format!("shard encode: {e}"), false))?;
 
         let mut request = tonic::Request::new(Ticket { ticket: buf.into() });
-        crate::infra::cluster::grpc_channel::with_bearer(&mut request, &token)
-            .map_err(|e| (e, false))?;
+        grpc_client::with_bearer(&mut request, &token).map_err(|e| (e, false))?;
 
         let mut client = FlightServiceClient::new(channel);
 
-        let resp = crate::shared::grpc_trace::call(
+        let resp = signals::grpc_trace::call(
             request,
             "arrow.flight.protocol.FlightService",
             "DoGet",
-            crate::shared::grpc_trace::GrpcTarget::Internal,
+            signals::grpc_trace::GrpcTarget::Internal,
             |request| client.do_get(request),
         )
         .await
@@ -535,8 +529,7 @@ impl FederatedDistributedEngine {
             Error::invalid("query could not be planned: check the SQL syntax and that every referenced field exists in the stream")
         })?;
 
-        let out = df
-            .collect()
+        let out = super::executor::collect(df)
             .await
             .map_err(|e| Error::internal(format!("federated collect: {e}")))?;
 

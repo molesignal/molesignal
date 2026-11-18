@@ -12,20 +12,18 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use super::TraceListRow;
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::{FieldType, Schema, StreamDefinition, StreamType},
-    },
-    infra::query::escape_sql_ident,
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
+use domain::{
+    iam::IamContext,
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::{FieldType, Schema, StreamDefinition, StreamType},
 };
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
+
+use super::TraceListRow;
+use crate::{api::AppState, infra::query::escape_sql_ident};
 
 /// The most fields of the root a page is asked for at once.
 pub(super) const MAX_ROOT_FIELDS: usize = 12;
@@ -200,11 +198,11 @@ fn literal(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{FieldDef, StreamIndexType};
+    use signals::trace::normalization::canonical_trace_schema;
+
     use super::*;
-    use crate::{
-        api::http::routes::web::trace::list::TraceListItem, domain::stream::FieldDef,
-        shared::trace::normalization::canonical_trace_schema,
-    };
+    use crate::api::http::routes::web::trace::list::TraceListItem;
 
     fn schema() -> Schema {
         let mut schema = canonical_trace_schema();
@@ -217,10 +215,8 @@ mod tests {
                 name: name.into(),
                 data_type,
                 nullable: true,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             });
         }
 

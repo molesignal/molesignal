@@ -4,9 +4,8 @@
 //! 基于 `sqlparser` AST 的查询表名提取（change `sqlparser-join-planner`）。
 //!
 //! 用途：multi-stream JOIN planner 在执行前需要知道 SQL 引用了哪些 stream，
-//! 据此决定要 register 到 `SessionContext` 的 Parquet `TableProvider`。这里走真 AST walk，
-//! 替代旧的正则 `planner::parse_from_tables`（CTE / 子查询 / quoted identifier 都会
-//! 误判）。
+//! 据此决定要 register 到 `SessionContext` 的 Parquet `TableProvider`。It walks the real AST,
+//! so CTEs, subqueries and quoted identifiers are read as the grammar has them.
 //!
 //! 解析失败 → `Err(Error::invalid(...))`，由 HTTP 层映射成 400。
 //!
@@ -20,6 +19,8 @@
 
 use std::{collections::BTreeSet, ops::ControlFlow};
 
+use ::domain::stream::StreamType;
+use kernel::{Error, Result};
 use sqlparser::{
     ast::{
         Cte, ObjectName, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins,
@@ -27,11 +28,6 @@ use sqlparser::{
     },
     dialect::GenericDialect,
     parser::Parser,
-};
-
-use crate::{
-    domain::stream::StreamType,
-    shared::{Error, Result},
 };
 
 mod conjuncts;
@@ -46,22 +42,15 @@ pub use conjuncts::{
     reads_one_table,
 };
 pub use count::{
-    BarCounts, FieldSummary, PlainCount, TopValues, bar_counts, column_name, field_summary,
-    plain_count, top_values,
+    BarCounts, BarKey, FieldSummary, GroupKey, GroupOrder, GroupedCounts, Number, NumberRange,
+    PlainCount, RowFilters, TopValues, bar_counts, column_name, field_summary, grouped_counts,
+    plain_count, row_filters, top_values,
 };
 pub use key_value::{
     KEY_VALUE_SUFFIX, json_member, key_term, key_value_field, key_value_term, key_value_terms,
 };
 pub use template::{fill_template, template_sample};
 pub use where_tree::{MAX_ATOMS, Refuted, WhereTree, atom_bit};
-
-pub mod domain {
-    pub use ::domain::*;
-}
-
-pub mod shared {
-    pub use kernel::{Error, Result};
-}
 
 /// 在 SQL 中被引用的一个 base table。
 ///

@@ -5,30 +5,27 @@
 //! 还没封存的段读它自己的过滤器 Artifact。过滤器只会放过不该放过的，不会漏掉含有该值的文件。
 
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, HashMap},
+    future::Future,
     sync::Arc,
 };
 
+use domain::{
+    storage::QueryFile,
+    stream::{FieldType, StreamDefinition, StreamIndexType},
+};
 use futures::{StreamExt, stream};
+use query_language::{
+    Refuted, WhereTree, atom_bit, column_name, equality_atom, key_value_field, key_value_terms,
+    like_atom,
+};
 use sqlparser::ast::{BinaryOperator, Expr, UnaryOperator, Value};
 use tantivy::tokenizer::MAX_TOKEN_LEN;
 
 use super::DataFusionEngine;
-use crate::{
-    domain::{
-        storage::QueryFile,
-        stream::{FieldType, StreamDefinition, StreamIndexType},
-    },
-    infra::{
-        query::{
-            parser::{
-                Refuted, WhereTree, atom_bit, column_name, equality_atom, key_value_field,
-                key_value_terms, like_atom,
-            },
-            refutations::Refutations,
-        },
-        storage::filters::{Filters, Gram, literal_grams},
-    },
+use crate::infra::{
+    query::refutations::Refutations,
+    storage::filters::{Filters, LiteralGrams},
 };
 
 /// 同时读取的过滤器对象数。
@@ -41,9 +38,9 @@ pub(super) struct FilterTerms {
     /// 键值索引的 JSON 字段上 `json_text(字段, 'key')` 的条件，字段是键值索引在归档里的名字，值是
     /// 键值词。
     values: Vec<(usize, String, Vec<String>)>,
-    /// 原子、字段与模式里所有字面量的三元组：`ngram` 字段上的 `LIKE`、`ILIKE`（`MATCH` 改写成
-    /// 的也是）。三元组全部出现它才可能成立。
-    grams: Vec<(usize, String, Vec<Gram>)>,
+    /// The atom, the field, and the grams of every literal of its patterns: `LIKE` and `ILIKE` on
+    /// `ngram` fields (`MATCH` rewritten to them too). It can hold only where all of them occur.
+    grams: Vec<(usize, String, LiteralGrams)>,
 }
 
 impl FilterTerms {
@@ -59,7 +56,7 @@ impl FilterTerms {
                 .fields
                 .iter()
                 .find(|field| field.name == column && !field.encrypted)
-                .map(|field| (field.data_type, field.effective_index_type()))
+                .map(|field| (field.data_type, field.index_type))
         };
 
         let mut terms = Self::default();
@@ -103,17 +100,13 @@ impl FilterTerms {
             } else if let Some(set) = like_atom(expr)
                 && index_of(&set.column) == Some((FieldType::Utf8, StreamIndexType::Ngram))
             {
-                let grams = set
-                    .patterns
-                    .iter()
-                    .flat_map(|pattern| {
-                        pattern
-                            .literals
-                            .iter()
-                            .filter_map(|literal| literal_grams(literal, pattern.case_insensitive))
-                            .flatten()
-                    })
-                    .collect::<Vec<_>>();
+                let mut grams = LiteralGrams::default();
+
+                for pattern in &set.patterns {
+                    for literal in &pattern.literals {
+                        grams.add(literal, pattern.case_insensitive);
+                    }
+                }
 
                 if !grams.is_empty() {
                     terms.grams.push((atom, set.column, grams));
@@ -137,6 +130,21 @@ impl FilterTerms {
             .fold(0, |mask, atom| mask | atom_bit(*atom))
     }
 
+    /// ngram 字段上的 `LIKE` 原子的位：块过滤器能证明它们在一块里不成立。
+    pub(super) fn gram_mask(&self) -> Refuted {
+        self.grams
+            .iter()
+            .fold(0, |mask, (atom, ..)| mask | atom_bit(*atom))
+    }
+
+    /// The `LIKE` atoms on `ngram` fields, their fields, and the grams of their literals: what
+    /// block filters are asked.
+    pub(super) fn gram_atoms(&self) -> impl Iterator<Item = (usize, &str, &LiteralGrams)> {
+        self.grams
+            .iter()
+            .map(|(atom, field, grams)| (*atom, field.as_str(), grams))
+    }
+
     /// `filters` 证明 `segment` 里不成立的原子。
     fn refuted(&self, filters: &Filters, segment: &str) -> Refuted {
         let values = self.values.iter().filter(|(_, field, values)| {
@@ -146,7 +154,7 @@ impl FilterTerms {
         });
 
         let grams = self.grams.iter().filter(|(_, field, grams)| {
-            filters.may_contain_grams(field, segment, grams) == Some(false)
+            filters.may_contain_grams(field, segment, grams.trigrams()) == Some(false)
         });
 
         values
@@ -218,51 +226,108 @@ pub(super) async fn prune(
         return files;
     }
 
-    let keys = files
-        .iter()
-        .flat_map(|file| {
-            [
-                bloom_keys.get(file.id.as_str()),
-                filter_keys.get(file.id.as_str()),
-            ]
-        })
-        .flatten()
-        .cloned()
-        .collect::<BTreeSet<_>>();
+    let segments = files.iter().map(|file| file.id.to_string());
 
-    let loaded: HashMap<String, Arc<Filters>> = stream::iter(keys)
-        .map(|key| async move {
-            match source.partition_blooms(&key).await {
-                Ok(filters) => filters.map(|filters| (key, filters)),
-                Err(error) => {
-                    tracing::warn!(object_key = key, %error, "filters unreadable");
-                    None
-                }
+    let refuted = refuted_segments(segments, terms, bloom_keys, filter_keys, |key| async move {
+        match source.partition_blooms(&key).await {
+            Ok(filters) => filters,
+            Err(error) => {
+                tracing::warn!(object_key = key, %error, "filters unreadable");
+                None
             }
-        })
-        .buffer_unordered(CONCURRENT_READS)
-        .filter_map(std::future::ready)
-        .collect()
-        .await;
+        }
+    })
+    .await;
 
     refutations.retain(files, |file| {
-        let segment = file.id.as_str();
-
-        bloom_keys
-            .get(segment)
-            .and_then(|key| loaded.get(key))
-            .or_else(|| filter_keys.get(segment).and_then(|key| loaded.get(key)))
-            .map_or(0, |filters| terms.refuted(filters, segment))
+        refuted.get(file.id.as_str()).copied().unwrap_or(0)
     })
+}
+
+/// 每个段里过滤器证明不成立的原子，按段 id。封存分区的段只读分区的过滤器对象：这里用得上的，封存
+/// 时都从段自己的过滤器收了进去；分区对象读不出时才读段自己的。对象按 [`CONCURRENT_READS`] 路读，
+/// 读到一个就判完它覆盖的段、随即放掉：同时留在内存里的对象与文件数无关。
+async fn refuted_segments<Load, Loading>(
+    segments: impl IntoIterator<Item = String>,
+    terms: &FilterTerms,
+    bloom_keys: &HashMap<String, String>,
+    filter_keys: &HashMap<String, String>,
+    load: Load,
+) -> HashMap<String, Refuted>
+where
+    Load: Fn(String) -> Loading,
+    Loading: Future<Output = Option<Arc<Filters>>>,
+{
+    let mut refuted = HashMap::new();
+    let mut partitions: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut own = Vec::new();
+
+    for segment in segments {
+        match bloom_keys.get(&segment) {
+            Some(key) => partitions.entry(key.clone()).or_default().push(segment),
+            None => own.push(segment),
+        }
+    }
+
+    own.extend(judge(partitions, terms, &load, &mut refuted).await);
+
+    let mut filters: BTreeMap<String, Vec<String>> = BTreeMap::new();
+
+    for segment in own {
+        if let Some(key) = filter_keys.get(&segment) {
+            filters.entry(key.clone()).or_default().push(segment);
+        }
+    }
+
+    judge(filters, terms, &load, &mut refuted).await;
+    refuted
+}
+
+/// 每个对象读一次，判完它覆盖的段；读不出的对象覆盖的段原样返回。
+async fn judge<Load, Loading>(
+    groups: BTreeMap<String, Vec<String>>,
+    terms: &FilterTerms,
+    load: &Load,
+    refuted: &mut HashMap<String, Refuted>,
+) -> Vec<String>
+where
+    Load: Fn(String) -> Loading,
+    Loading: Future<Output = Option<Arc<Filters>>>,
+{
+    let mut unanswered = Vec::new();
+
+    let mut judged = stream::iter(groups)
+        .map(|(key, segments)| async move {
+            let Some(filters) = load(key).await else {
+                return Err(segments);
+            };
+
+            Ok(segments
+                .into_iter()
+                .map(|segment| {
+                    let atoms = terms.refuted(&filters, &segment);
+                    (segment, atoms)
+                })
+                .collect::<Vec<_>>())
+        })
+        .buffer_unordered(CONCURRENT_READS);
+
+    while let Some(answer) = judged.next().await {
+        match answer {
+            Ok(answers) => refuted.extend(answers),
+            Err(segments) => unanswered.extend(segments),
+        }
+    }
+
+    unanswered
 }
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{FieldDef, Schema, StreamType};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        domain::stream::{FieldDef, Schema, StreamType},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn definition() -> StreamDefinition {
         let field = |name: &str, index_type: StreamIndexType| {
@@ -270,13 +335,11 @@ mod tests {
                 name: name.into(),
                 data_type: FieldType::Utf8,
                 nullable: true,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             };
 
-            field.configure_index(true, index_type);
+            field.index_type = index_type;
             field
         };
 
@@ -427,5 +490,78 @@ mod tests {
             &filters,
             "segment"
         ));
+    }
+
+    /// 封存分区的段只读分区的过滤器对象，分区对象读不出时才读段自己的；每个对象只读一次。
+    #[tokio::test]
+    async fn sealed_segments_read_only_their_partition_filters() {
+        use crate::infra::storage::filters::{Bloom, FilterKind};
+
+        let holding = |segments: &[(&str, bool)]| {
+            let mut filters = Filters::default();
+
+            for (segment, has) in segments {
+                let mut bloom = Bloom::for_values(4).unwrap();
+                bloom.insert(if *has {
+                    b"t".as_slice()
+                } else {
+                    b"u".as_slice()
+                });
+                filters.insert(FilterKind::Value, "trace_id", segment, bloom);
+            }
+
+            Arc::new(filters)
+        };
+
+        let objects = HashMap::from([
+            ("p.bloom", holding(&[("s1", false), ("s2", true)])),
+            ("s3.filter", holding(&[("s3", false)])),
+            ("s4.filter", holding(&[("s4", true)])),
+        ]);
+
+        let keys = |pairs: &[(&str, &str)]| {
+            pairs
+                .iter()
+                .map(|(segment, key)| (segment.to_string(), key.to_string()))
+                .collect::<HashMap<_, _>>()
+        };
+
+        // s3 所在分区的对象不在了；s4 在没封存的分区里。
+        let bloom_keys = keys(&[("s1", "p.bloom"), ("s2", "p.bloom"), ("s3", "q.bloom")]);
+
+        let filter_keys = keys(&[
+            ("s1", "s1.filter"),
+            ("s2", "s2.filter"),
+            ("s3", "s3.filter"),
+            ("s4", "s4.filter"),
+        ]);
+
+        let read = std::sync::Mutex::new(Vec::new());
+        let sql = "SELECT * FROM logs WHERE trace_id = 't'";
+
+        let refuted = refuted_segments(
+            ["s1", "s2", "s3", "s4"].map(String::from),
+            &terms(sql),
+            &bloom_keys,
+            &filter_keys,
+            |key| {
+                read.lock().unwrap().push(key.clone());
+                let found = objects.get(key.as_str()).cloned();
+                async move { found }
+            },
+        )
+        .await;
+
+        let mut read = read.into_inner().unwrap();
+        read.sort();
+        assert_eq!(read, ["p.bloom", "q.bloom", "s3.filter", "s4.filter"]);
+
+        let tree = WhereTree::parse(sql);
+        let may_hold = |segment: &str| tree.may_hold(refuted.get(segment).copied().unwrap_or(0));
+
+        assert!(!may_hold("s1"));
+        assert!(may_hold("s2"));
+        assert!(!may_hold("s3"));
+        assert!(may_hold("s4"));
     }
 }

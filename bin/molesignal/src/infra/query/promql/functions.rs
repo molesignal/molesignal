@@ -124,15 +124,13 @@ pub(super) fn apply_over_time_range(
     quantile: Option<f64>,
     series: Vec<Series>,
     range: Duration,
-    start_us: i64,
-    end_us: i64,
-    step_us: i64,
+    steps: Steps,
 ) -> RangeVector {
     let range_us = (range.as_micros() as i64).max(1);
     let mut points = Vec::new();
 
     for s in series {
-        each_step_window(&s.samples, start_us, end_us, step_us, range_us, |t, win| {
+        each_step_window(&s.samples, steps, range_us, |t, _, win| {
             let Some(value) = apply_over_time_value(func, quantile, win) else {
                 return;
             };
@@ -232,33 +230,21 @@ pub(super) fn mad_value(values: Vec<f64>) -> f64 {
 
 /// 裸 instant-vector selector 的 range 求值：每个 step 取 `(t - 5min, t]` 内最新
 /// 样本（Prometheus staleness lookback 语义），而不是原样吐出窗口内全部原始样本。
-pub(super) fn samples_to_range_vector(
-    series: Vec<Series>,
-    start_us: i64,
-    end_us: i64,
-    step_us: i64,
-) -> RangeVector {
+pub(super) fn samples_to_range_vector(series: Vec<Series>, steps: Steps) -> RangeVector {
     let mut points = Vec::new();
 
     for s in series {
-        each_step_window(
-            &s.samples,
-            start_us,
-            end_us,
-            step_us,
-            STALENESS_LOOKBACK_US,
-            |t, win| {
-                let Some(&(_, value)) = win.last() else {
-                    return;
-                };
+        each_step_window(&s.samples, steps, STALENESS_LOOKBACK_US, |t, _, win| {
+            let Some(&(_, value)) = win.last() else {
+                return;
+            };
 
-                points.push(RangePoint {
-                    ts_us: t,
-                    labels: s.labels.clone(),
-                    value,
-                });
-            },
-        );
+            points.push(RangePoint {
+                ts_us: t,
+                labels: s.labels.clone(),
+                value,
+            });
+        });
     }
 
     RangeVector { points }

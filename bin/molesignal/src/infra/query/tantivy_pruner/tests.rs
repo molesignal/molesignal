@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::stream::{
+    FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType, StreamType,
+};
+use kernel::{ids::Id, time::TimestampMicros};
 use object_store::{ObjectStore, ObjectStoreExt, PutPayload, local::LocalFileSystem};
+use query_language::like_atom;
+use settings::{CacheLayerSettings, TantivyResultCacheSettings};
 
 use super::*;
-use crate::{
-    config::{CacheLayerSettings, TantivyResultCacheSettings},
-    domain::stream::{
-        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType, StreamType,
-    },
-    infra::{
-        caching::TantivyResultCache, query::parser::like_atom,
-        search::tantivy_index::TantivyArchiveBuilder,
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::infra::{caching::TantivyResultCache, search::tantivy_index::TantivyArchiveBuilder};
 
 /// 每条谓词各是一个原子、全部用 `AND` 连起来的条件树。
 fn conjunction(predicates: &[MatchPredicate]) -> (Vec<IndexedAtom>, Refutations) {
@@ -85,10 +81,8 @@ fn logs_stream() -> StreamDefinition {
                 name: "message".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
-                index_type: None,
-                indexed: true,
+                index_type: StreamIndexType::FullText,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),
@@ -195,11 +189,11 @@ async fn fm_with(parquet_object_key: &str) -> QueryFile {
         org_id: Id::from_string("orga"),
         stream: "log_app".into(),
         stream_type: StreamType::LOGS,
-        dataset_type: crate::domain::storage::primary_dataset_type(StreamType::LOGS).unwrap(),
+        dataset_type: domain::storage::primary_dataset_type(StreamType::LOGS).unwrap(),
         object_key: parquet_object_key.to_string(),
         checksum: None,
         etag: None,
-        time_range: crate::shared::time::TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
+        time_range: kernel::time::TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
         rows: 0,
         size_bytes: 0,
         min_values: serde_json::Map::new(),
@@ -209,6 +203,7 @@ async fn fm_with(parquet_object_key: &str) -> QueryFile {
         null_counts: serde_json::Map::new(),
         indexed_at_micros: None,
         shard: None,
+        clustering: Default::default(),
     }
 }
 
@@ -246,7 +241,7 @@ async fn result_cache_hit_on_second_prune_increments_metric() {
         .await
         .unwrap();
     assert_eq!(kept1.len(), 1);
-    let hits_before = crate::shared::metrics::gather_text().unwrap();
+    let hits_before = signals::metrics::gather_text().unwrap();
     let n_before = scrape_counter(&hits_before, "cache_tantivy_result_hits_total");
 
     let kept2 = pruner
@@ -254,7 +249,7 @@ async fn result_cache_hit_on_second_prune_increments_metric() {
         .await
         .unwrap();
     assert_eq!(kept2.len(), 1);
-    let hits_after = crate::shared::metrics::gather_text().unwrap();
+    let hits_after = signals::metrics::gather_text().unwrap();
     let n_after = scrape_counter(&hits_after, "cache_tantivy_result_hits_total");
     assert!(
         n_after >= n_before + 1.0,
@@ -264,10 +259,9 @@ async fn result_cache_hit_on_second_prune_increments_metric() {
 
 #[tokio::test]
 async fn all_eight_tantivy_cache_metrics_visible_after_prune() {
-    use crate::{
-        config::{TantivyFooterCacheSettings, TantivyResultCacheSettings},
-        infra::caching::TantivyFooterCache,
-    };
+    use settings::{TantivyFooterCacheSettings, TantivyResultCacheSettings};
+
+    use crate::infra::caching::TantivyFooterCache;
 
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
@@ -306,7 +300,7 @@ async fn all_eight_tantivy_cache_metrics_visible_after_prune() {
         .await
         .unwrap();
 
-    let text = crate::shared::metrics::gather_text().unwrap();
+    let text = signals::metrics::gather_text().unwrap();
     // 8 个核心指标 + 2 个 errors_total 全部应当出现在 /metrics。
     for name in [
         "cache_tantivy_result_hits_total",
@@ -336,7 +330,9 @@ async fn all_eight_tantivy_cache_metrics_visible_after_prune() {
 
 #[tokio::test]
 async fn footer_cache_hit_short_circuits_object_store_get() {
-    use crate::{config::TantivyFooterCacheSettings, infra::caching::TantivyFooterCache};
+    use settings::TantivyFooterCacheSettings;
+
+    use crate::infra::caching::TantivyFooterCache;
 
     let tmp = tempfile::tempdir().unwrap();
     let store: Arc<dyn ObjectStore> =
@@ -994,7 +990,7 @@ async fn value_predicates_count_the_rows_a_kept_file_can_give() {
     let (parquet_key, index_object_key) = ("primary/value", "indexes/value");
 
     let mut stream = logs_stream();
-    stream.schema.fields[0].exact = true;
+    stream.schema.fields[0].index_type = StreamIndexType::Exact;
     let mut builder = TantivyArchiveBuilder::try_new(&stream).unwrap().unwrap();
 
     for message in ["a", "a", "b"] {
@@ -1092,7 +1088,7 @@ async fn like_on_an_exact_field_reads_the_dictionary() {
     let (parquet_key, index_object_key) = ("primary/like", "indexes/like");
 
     let mut stream = logs_stream();
-    stream.schema.fields[0].exact = true;
+    stream.schema.fields[0].index_type = StreamIndexType::Exact;
     let mut builder = TantivyArchiveBuilder::try_new(&stream).unwrap().unwrap();
 
     for message in ["checkout-api", "Payments"] {
@@ -1151,7 +1147,7 @@ async fn json_members_prune_and_count_through_the_key_value_index() {
     let mut stream = logs_stream();
     stream.schema.fields[0].name = "context".into();
     stream.schema.fields[0].data_type = FieldType::Json;
-    stream.schema.fields[0].configure_index(true, StreamIndexType::KeyValue);
+    stream.schema.fields[0].index_type = StreamIndexType::KeyValue;
 
     let mut builder = TantivyArchiveBuilder::try_new(&stream).unwrap().unwrap();
 

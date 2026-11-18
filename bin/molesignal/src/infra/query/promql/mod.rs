@@ -47,6 +47,13 @@ use arrow::{
     datatypes::DataType,
 };
 use async_trait::async_trait;
+use domain::{
+    metrics::MetricDirectory,
+    query::{PromqlEngine, QueryRequest, QueryResult},
+    storage::QueryFileSource,
+    stream::{StreamRepository, StreamType},
+};
+use kernel::{Error, Result, time::TimeRange};
 use object_store::ObjectStore;
 use promql_parser::{
     label::{MatchOp, Matcher, Matchers},
@@ -61,21 +68,12 @@ use promql_parser::{
 };
 use regex::{Captures, Regex};
 
-use crate::{
-    domain::{
-        metrics::MetricDirectory,
-        query::{PromqlEngine, QueryRequest, QueryResult},
-        storage::QueryFileSource,
-        stream::{StreamRepository, StreamType},
+use crate::infra::{
+    query::catalog_source::CatalogQuerySource,
+    storage::{
+        org_scoped_store::scoped_to_org,
+        parquet::reader::{ParquetReader, ReadOptions},
     },
-    infra::{
-        query::catalog_source::CatalogQuerySource,
-        storage::{
-            org_scoped_store::scoped_to_org,
-            parquet::reader::{ParquetReader, ReadOptions},
-        },
-    },
-    shared::{Error, Result, time::TimeRange},
 };
 
 mod aggregate;
@@ -114,12 +112,12 @@ use labels::*;
 use math::*;
 use metric_source::{MetricFilter, MetricSources};
 use range_funcs::*;
-#[doc(hidden)]
-pub use rate::apply_rate_like;
 use rate::*;
+#[doc(hidden)]
+pub use rate::{RangeWindow, apply_rate_like};
 use results::{instant_to_query_result, range_to_query_result};
 use series::*;
-use step::{range_step_us, validate_range_step};
+use step::{Steps, range_step_us, validate_range_step};
 pub use types::{InstantVector, LabelSet, MetricSampleMetadata, MetricTemporality, Series};
 use types::{RangePoint, RangeVector};
 
@@ -291,7 +289,7 @@ impl PromqlEngine for PromQLEngine {
     async fn query_exemplars(
         &self,
         req: QueryRequest,
-    ) -> Result<crate::domain::metrics::PrometheusExemplarQueryResult> {
+    ) -> Result<domain::metrics::PrometheusExemplarQueryResult> {
         self.query_exemplars_inner(req).await
     }
 }
@@ -464,7 +462,6 @@ impl PromQLEngine {
 
                 if let Some(ms) = self.cacheable_matrix(arg) {
                     let range = ms.range;
-                    let range_secs = range.as_secs_f64().max(1.0);
 
                     let rv = self
                         .eval_windowed_cached(
@@ -472,10 +469,9 @@ impl PromQLEngine {
                             range,
                             func_name,
                             req,
-                            move |_t, win, metadata| {
-                                rate_window_value_with_metadata(
-                                    func_name, win, metadata, range_secs,
-                                )
+                            move |t, win, metadata| {
+                                let window = RangeWindow::new(t, range);
+                                rate_window_value_with_metadata(func_name, win, metadata, window)
                             },
                         )
                         .await?;
@@ -483,18 +479,12 @@ impl PromQLEngine {
                     return Ok(Some(rv));
                 }
 
-                let Some((series, range)) = self.eval_matrix_input_range(arg, req).await? else {
+                let Some((series, range, steps)) = self.eval_matrix_input_range(arg, req).await?
+                else {
                     return Ok(None);
                 };
 
-                Ok(Some(apply_rate_like_range(
-                    func_name,
-                    series,
-                    range,
-                    req.time_range.start.0,
-                    req.time_range.end.0,
-                    range_step_us(req),
-                )))
+                Ok(Some(apply_rate_like_range(func_name, series, range, steps)))
             }
             name if is_over_time_function(name) => {
                 let (quantile, matrix_idx) = over_time_args(name, &call.args)?;
@@ -516,18 +506,13 @@ impl PromQLEngine {
                     return Ok(Some(rv));
                 }
 
-                let Some((series, range)) = self.eval_matrix_input_range(arg, req).await? else {
+                let Some((series, range, steps)) = self.eval_matrix_input_range(arg, req).await?
+                else {
                     return Ok(None);
                 };
 
                 Ok(Some(apply_over_time_range(
-                    name,
-                    quantile,
-                    series,
-                    range,
-                    req.time_range.start.0,
-                    req.time_range.end.0,
-                    range_step_us(req),
+                    name, quantile, series, range, steps,
                 )))
             }
             name if is_range_vector_function(name) => {
@@ -535,6 +520,8 @@ impl PromQLEngine {
                 let arg = expr_arg(&call.args, 0, name)?;
 
                 if let Some(ms) = self.cacheable_matrix(arg) {
+                    let range = ms.range;
+
                     let func_key = format!(
                         "{name}|pt={}|sf={}|tf={}",
                         params.predict_t, params.hw_sf, params.hw_tf
@@ -543,28 +530,25 @@ impl PromQLEngine {
                     let rv = self
                         .eval_windowed_cached(
                             &ms.vs,
-                            ms.range,
+                            range,
                             &func_key,
                             req,
-                            move |t, win, _metadata| range_vector_value(name, win, t, params),
+                            move |t, win, _metadata| {
+                                range_vector_value(name, win, t, RangeWindow::new(t, range), params)
+                            },
                         )
                         .await?;
 
                     return Ok(Some(rv));
                 }
 
-                let Some((series, range)) = self.eval_matrix_input_range(arg, req).await? else {
+                let Some((series, range, steps)) = self.eval_matrix_input_range(arg, req).await?
+                else {
                     return Ok(None);
                 };
 
                 Ok(Some(apply_range_vector_func_range(
-                    name,
-                    series,
-                    range,
-                    req.time_range.start.0,
-                    req.time_range.end.0,
-                    range_step_us(req),
-                    params,
+                    name, series, range, steps, params,
                 )))
             }
             "label_replace" => {
@@ -640,12 +624,7 @@ impl PromQLEngine {
             )
             .await?;
 
-        Ok(samples_to_range_vector(
-            series,
-            req.time_range.start.0,
-            req.time_range.end.0,
-            range_step_us(req),
-        ))
+        Ok(samples_to_range_vector(series, Steps::of_selector(vs, req)))
     }
 
     /// instant evaluator：在 `at_us` 这个时间点对 expr 求值。
@@ -796,8 +775,8 @@ impl PromQLEngine {
             ) =>
             {
                 let arg = expr_arg(&call.args, 0, func_name)?;
-                let (series, range) = self.eval_matrix_input(arg, at_us, req).await?;
-                Ok(apply_rate_like(func_name, series, range))
+                let (series, window) = self.eval_matrix_input(arg, at_us, req).await?;
+                Ok(apply_rate_like(func_name, series, window))
             }
             name if is_over_time_function(name) => {
                 let (quantile, matrix_idx) = over_time_args(name, &call.args)?;
@@ -808,8 +787,8 @@ impl PromQLEngine {
             name if is_range_vector_function(name) => {
                 let params = range_vector_args(name, &call.args)?;
                 let arg = expr_arg(&call.args, 0, name)?;
-                let (series, _) = self.eval_matrix_input(arg, at_us, req).await?;
-                Ok(apply_range_vector_func(name, series, at_us, params))
+                let (series, window) = self.eval_matrix_input(arg, at_us, req).await?;
+                Ok(apply_range_vector_func(name, series, at_us, window, params))
             }
             "histogram_quantile" => {
                 let (q, inner_expr) = histogram_quantile_args(&call.args)?;
@@ -1000,21 +979,23 @@ impl PromQLEngine {
     }
 
     /// 求值 range 函数的「矩阵参数」（`metric[range]`）。同时支持原生 matrix selector
-    /// 与子查询 `inner[range:step]`，统一返回 `(series, range)`。
+    /// 与子查询 `inner[range:step]`，统一返回 `(series, 读的窗口)`。
     async fn eval_matrix_input(
         &self,
         arg: &Expr,
         at_us: i64,
         req: &QueryRequest,
-    ) -> Result<(Vec<Series>, Duration)> {
+    ) -> Result<(Vec<Series>, RangeWindow)> {
         match arg {
             Expr::MatrixSelector(ms) => {
                 let series = self.load_matrix(&ms.vs, ms.range, at_us, req).await?;
-                Ok((series, ms.range))
+                let end_us = effective_eval_time(&ms.vs, at_us, req);
+                Ok((series, RangeWindow::new(end_us, ms.range)))
             }
             Expr::Subquery(sq) => {
                 let series = self.eval_subquery(sq, at_us, req).await?;
-                Ok((series, sq.range))
+                let end_us = subquery_eval_end(sq, at_us, req);
+                Ok((series, RangeWindow::new(end_us, sq.range)))
             }
             other => Err(Error::invalid(format!(
                 "expected a range-vector argument (`metric[5m]` or subquery `expr[5m:1m]`), got {other:?}"
@@ -1022,20 +1003,20 @@ impl PromQLEngine {
         }
     }
 
-    /// range 查询路径：matrix selector 一次拉整段；子查询返回 `None` 让外层回退到
-    /// instant（避免外层步进 × 子查询步进的双重开销）。
+    /// range 查询路径：matrix selector 一次拉整段，连同它每一步读的窗口；子查询返回 `None` 让
+    /// 外层回退到 instant（避免外层步进 × 子查询步进的双重开销）。
     async fn eval_matrix_input_range(
         &self,
         arg: &Expr,
         req: &QueryRequest,
-    ) -> Result<Option<(Vec<Series>, Duration)>> {
+    ) -> Result<Option<(Vec<Series>, Duration, Steps)>> {
         match arg {
             Expr::MatrixSelector(ms) => {
                 let series = self
                     .load_matrix_for_query_range(&ms.vs, ms.range, req)
                     .await?;
 
-                Ok(Some((series, ms.range)))
+                Ok(Some((series, ms.range, Steps::of_selector(&ms.vs, req))))
             }
             Expr::Subquery(_) => Ok(None),
             other => Err(Error::invalid(format!(

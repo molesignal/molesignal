@@ -35,50 +35,49 @@ use arrow::{
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
 };
 use async_trait::async_trait;
+use domain::{
+    metrics::{MemoryMetricDirectory, MetricDirectory, MetricObservation},
+    query::{PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, StreamHint},
+    storage::{
+        ArtifactRole, ArtifactState, DatasetState, IndexPolicy, IndexTypeId, PartitionPolicy,
+        PhysicalDataset, PhysicalDatasetId, QueryFile, QueryFileSource, StoragePolicy,
+        primary_dataset_type, type_id,
+    },
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
+    },
+};
 use futures::{StreamExt, stream::BoxStream};
-use molesignal::{
-    config::{
-        CacheLayerSettings, ObjectCacheSettings, StreamAggCacheSettings,
-        TantivyFooterCacheSettings, TantivyResultCacheSettings,
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::{
+    caching::{IndexHandleCache, StreamingAggCache, TantivyFooterCache, TantivyResultCache},
+    query::{
+        parquet_table::{ParquetMetadataCache, parquet_metadata_cache},
+        promql::PromQLEngine,
+        tantivy_pruner::TantivyPruner,
     },
-    domain::{
-        metrics::{MemoryMetricDirectory, MetricDirectory, MetricObservation},
-        query::{PromqlEngine, QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{
-            ArtifactRole, ArtifactState, DatasetState, IndexPolicy, IndexTypeId, PartitionPolicy,
-            PhysicalDataset, PhysicalDatasetId, QueryFile, QueryFileSource, StoragePolicy,
-            primary_dataset_type, type_id,
+    search::{datafusion_engine::DataFusionEngine, tantivy_index::IndexHandle},
+    storage::{
+        object_reader::ObjectReader,
+        parquet::{
+            reader::{ParquetReader, ReadOptions},
+            writer::ParquetWriter,
         },
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
-    },
-    infra::{
-        caching::{IndexHandleCache, StreamingAggCache, TantivyFooterCache, TantivyResultCache},
-        query::{
-            parquet_table::{ParquetMetadataCache, parquet_metadata_cache},
-            promql::PromQLEngine,
-            tantivy_pruner::TantivyPruner,
-        },
-        search::{datafusion_engine::DataFusionEngine, tantivy_index::IndexHandle},
-        storage::{
-            object_reader::ObjectReader,
-            parquet::{
-                reader::{ParquetReader, ReadOptions},
-                writer::ParquetWriter,
-            },
-        },
-    },
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
     },
 };
 use object_store::{
     CopyOptions, GetOptions, GetResult, GetResultPayload, ListResult, MultipartUpload, ObjectMeta,
     ObjectStore, PutMultipartOptions, PutOptions, PutPayload, PutResult, memory::InMemory,
     path::Path,
+};
+use settings::{
+    CacheLayerSettings, ObjectCacheSettings, StreamAggCacheSettings, TantivyFooterCacheSettings,
+    TantivyResultCacheSettings,
 };
 
 const HOUR_MICROS: i64 = 3_600_000_000;
@@ -446,15 +445,13 @@ impl StreamRepository for OneStream {
     }
 }
 
-fn field(name: &str, data_type: FieldType, indexed: bool, exact: bool) -> FieldDef {
+fn field(name: &str, data_type: FieldType, index_type: StreamIndexType) -> FieldDef {
     FieldDef {
         name: name.into(),
         data_type,
         nullable: false,
-        index_type: None,
-        indexed,
+        index_type,
         encrypted: false,
-        exact,
     }
 }
 
@@ -466,12 +463,12 @@ fn requests_stream() -> StreamDefinition {
         stream_type: StreamType::LOGS,
         schema: Schema {
             fields: vec![
-                field("path", FieldType::Utf8, true, true),
-                field("method", FieldType::Utf8, true, true),
-                field("level", FieldType::Utf8, true, true),
-                field("status", FieldType::Int64, false, false),
-                field("duration_ms", FieldType::Float64, false, false),
-                field("message", FieldType::Utf8, true, false),
+                field("path", FieldType::Utf8, StreamIndexType::Exact),
+                field("method", FieldType::Utf8, StreamIndexType::Exact),
+                field("level", FieldType::Utf8, StreamIndexType::Exact),
+                field("status", FieldType::Int64, StreamIndexType::None),
+                field("duration_ms", FieldType::Float64, StreamIndexType::None),
+                field("message", FieldType::Utf8, StreamIndexType::FullText),
             ],
         },
         retention: Some(Retention { days: 30 }),
@@ -593,7 +590,7 @@ struct Layout {
     stream: StreamDefinition,
     files: Arc<Files>,
     index_keys: HashMap<String, String>,
-    segments: Vec<molesignal::domain::storage::DataSegment>,
+    segments: Vec<domain::storage::DataSegment>,
     bytes: u64,
 }
 
@@ -662,6 +659,7 @@ async fn write_layout(
             null_counts: segment.column_stats.null_counts.clone(),
             indexed_at_micros: segment.column_stats.indexed_at_micros,
             shard: None,
+            clustering: Default::default(),
         });
 
         segments.push(segment);
@@ -969,12 +967,12 @@ fn metrics_stream() -> StreamDefinition {
         stream_type: StreamType::METRICS,
         schema: Schema {
             fields: vec![
-                field("value", FieldType::Float64, false, false),
-                field("metric_name", FieldType::Utf8, false, true),
-                field("service", FieldType::Utf8, false, false),
-                field("instance", FieldType::Utf8, false, false),
-                field("method", FieldType::Utf8, false, false),
-                field("code", FieldType::Utf8, false, false),
+                field("value", FieldType::Float64, StreamIndexType::None),
+                field("metric_name", FieldType::Utf8, StreamIndexType::None),
+                field("service", FieldType::Utf8, StreamIndexType::None),
+                field("instance", FieldType::Utf8, StreamIndexType::None),
+                field("method", FieldType::Utf8, StreamIndexType::None),
+                field("code", FieldType::Utf8, StreamIndexType::None),
             ],
         },
         retention: Some(Retention { days: 30 }),
@@ -1104,6 +1102,7 @@ async fn write_metrics(store: Arc<SlowStore>, hours: usize, others: usize) -> Me
             null_counts: segment.column_stats.null_counts.clone(),
             indexed_at_micros: segment.column_stats.indexed_at_micros,
             shard: None,
+            clustering: Default::default(),
         });
     }
 

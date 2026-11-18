@@ -90,6 +90,7 @@ impl QueryRuntime {
                 .with_regex_patterns(core.regex_patterns.clone())
                 .with_max_result_rows(settings.search.max_result_rows)
                 .with_max_scan_rows(settings.querier.max_scan_rows)
+                .with_parallelism(settings.querier.concurrency as usize)
                 .with_field_keys(core.field_key_service.clone())
                 .with_parquet_metadata_cache(parquet_metadata_cache(
                     settings.cache.parquet_metadata.max_bytes(),

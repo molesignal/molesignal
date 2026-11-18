@@ -149,7 +149,7 @@ export function FieldAnalysisPanel({
           </>
         )}
       </p>
-      <div className="mx-2 mb-2 flex min-h-0 flex-col gap-1.5 overflow-auto rounded-md bg-[var(--page-canvas)] p-1.5">
+      <div className="mx-2 mb-2 flex min-h-0 flex-col gap-1.5 overflow-auto rounded-md bg-[var(--inset-surface)] p-1.5">
         {pending ? (
           <div role="status" aria-label={t('field_analysis.loading', { name })} className={cn(BLOCK, 'flex flex-col gap-2')}>
             {['w-2/3', 'w-1/2', 'w-3/4', 'w-1/3'].map((width) => (

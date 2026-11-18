@@ -25,6 +25,7 @@ import { TimeRangeChip } from '@/shell/chrome';
 import { CursorPagination } from '@/shell/CursorPagination';
 import { FilterBuilder } from '@/shell/query/builder/FilterBuilder';
 import { QueryEditorFrame } from '@/shell/query/EditorFrame';
+import { EXPLORER_PAGINATION_CLASS } from '@/shell/query/foot';
 import { ResultHistogram } from '@/shell/query/histogram/Chart';
 import type { HistogramRange } from '@/shell/query/histogram/model';
 import { QueryIconAction, QueryRunAction } from '@/shell/query/IconAction';
@@ -1061,7 +1062,7 @@ export function Logs() {
               </div>
               {view !== 'raw' ? null : cursorResults ? (
                 <CursorPagination
-                  className="border-t-0 bg-transparent"
+                  className={EXPLORER_PAGINATION_CLASS}
                   pageSize={logPageSize}
                   pageSizeOptions={EXPLORER_PAGE_SIZE_OPTIONS}
                   hasPrevious={Boolean(logCursorPage?.previousCursor)}
@@ -1077,7 +1078,7 @@ export function Logs() {
                 />
               ) : (
                 <ResultPagination
-                  className="border-t-0 bg-transparent"
+                  className={EXPLORER_PAGINATION_CLASS}
                   page={activeResultPage}
                   pageCount={resultPageCount}
                   pageSize={resultPageSize}

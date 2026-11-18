@@ -16,7 +16,7 @@ const field = (name: string, data_type: StreamField['dataType']): StreamField =>
   name,
   dataType: data_type,
   nullable: true,
-  indexed: false,
+  indexType: 'none',
 });
 
 // A stream that takes every field and operator the cases use: the server checks

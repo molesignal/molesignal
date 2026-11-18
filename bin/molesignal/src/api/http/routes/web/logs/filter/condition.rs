@@ -9,14 +9,12 @@
 //! filter is written as in the list, a word or phrase to find as
 //! `{"text": "..."}`. The lists and the tree hold together.
 
+use domain::stream::FieldDef;
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use super::super::{LogFilter, clean_required, text_sql};
-use crate::{
-    domain::stream::FieldDef,
-    shared::{Error, Result},
-};
 
 /// How deep groups nest in one tree.
 const MAX_DEPTH: usize = 8;
@@ -198,20 +196,18 @@ impl Reader {
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{FieldType, StreamIndexType};
     use serde_json::json;
 
     use super::*;
-    use crate::domain::stream::FieldType;
 
     fn field(name: &str, data_type: FieldType) -> FieldDef {
         FieldDef {
             name: name.into(),
             data_type,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         }
     }
 

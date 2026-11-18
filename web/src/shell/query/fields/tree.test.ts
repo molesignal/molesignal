@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fieldTree, fieldTreeSize } from './tree';
+import { fieldTree, fieldTreeSize, splitFieldTree } from './tree';
 
 const fields = (...names: string[]) => names.map((name) => ({ name }));
 /** A tree as it reads: a field by its label, a group as its name over its children's labels. */
@@ -69,5 +69,23 @@ describe('fieldTree', () => {
 
     expect(tree).toHaveLength(3);
     expect(fieldTreeSize(tree)).toBe(4);
+  });
+});
+
+describe('splitFieldTree', () => {
+  it('keeps the fields of one name together, in the part any of them belongs to', () => {
+    const tree = fieldTree([
+      { name: 'synthetics.test_id', indexed: true },
+      { name: 'session.id', indexed: false },
+      { name: 'synthetics.location_id', indexed: false },
+      { name: 'env', indexed: true },
+      { name: 'session.type', indexed: false },
+    ]);
+    const [indexed, other] = splitFieldTree(tree, (field) => field.indexed);
+    const names = (nodes: typeof tree) =>
+      nodes.map((node) => (node.kind === 'group' ? `${node.name}/${node.children.length}` : node.label));
+
+    expect(names(indexed)).toEqual(['synthetics/2', 'env']);
+    expect(names(other)).toEqual(['session/2']);
   });
 });

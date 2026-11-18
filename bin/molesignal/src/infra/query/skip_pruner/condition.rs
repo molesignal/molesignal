@@ -5,14 +5,11 @@
 
 use std::collections::HashMap;
 
+use domain::stream::{FieldType, Schema, StreamIndexType, cidr_range};
+use query_language::WhereTree;
 use sqlparser::ast::{
     BinaryOperator, DataType as SqlType, Expr, FunctionArg, FunctionArgExpr, FunctionArguments,
     UnaryOperator, Value as SqlValue,
-};
-
-use crate::{
-    domain::stream::{FieldType, Schema, StreamIndexType, cidr_range},
-    infra::query::parser::WhereTree,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,12 +120,7 @@ pub(super) fn extract(tree: &WhereTree, schema: &Schema) -> Vec<(usize, Conditio
             .fields
             .iter()
             .filter(|field| !field.encrypted)
-            .map(|field| {
-                (
-                    field.name.as_str(),
-                    (field.data_type, field.effective_index_type()),
-                )
-            })
+            .map(|field| (field.name.as_str(), (field.data_type, field.index_type)))
             .collect(),
     );
 

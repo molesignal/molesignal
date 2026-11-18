@@ -17,7 +17,7 @@ const field = (name: string, data_type: StreamField['dataType'] = 'utf8'): Strea
   name,
   dataType: data_type,
   nullable: true,
-  indexed: false,
+  indexType: 'none',
 });
 
 /** Logs as OTLP writes them: resource attributes and the record's own under their semantic-convention names. */

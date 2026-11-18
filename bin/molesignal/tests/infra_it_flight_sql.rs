@@ -21,43 +21,42 @@ use arrow_flight::{
 };
 use async_trait::async_trait;
 use common::write_parquet_fixture;
+use domain::{
+    iam::{
+        IamAssignedRole, IamContext, IamMembership, IamMembershipRepository, Organization,
+        OrganizationRepository, User, UserRepository,
+        api_token::{ApiToken, ApiTokenRepository, ManagedApiToken},
+    },
+    query::{PromqlEngine, QueryEngine, QueryRequest, QueryResult},
+    storage::{QueryFile, QueryFileSource},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
+    },
+};
 use futures::TryStreamExt;
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use molesignal::{
     api::grpc::flight::sql::server::FlightSqlGrpc,
     app::{
-        iam::{IamContext, IamContextEnricher, IamService, hash_password},
+        iam::{IamContextEnricher, IamService, hash_password},
         query::QueryService,
     },
-    config::{AuthSettings, FlightSqlSettings},
-    domain::{
-        iam::{
-            IamAssignedRole, IamMembership, IamMembershipRepository, Organization,
-            OrganizationRepository, User, UserRepository,
-            api_token::{ApiToken, ApiTokenRepository, ManagedApiToken},
-        },
-        query::{PromqlEngine, QueryEngine, QueryRequest, QueryResult},
-        storage::{QueryFile, QueryFileSource},
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
-    },
     infra::{
-        persistence::repositories::api_tokens::{
-            assemble_token, generate_token_parts, hash_secret,
-        },
         search::datafusion_engine::DataFusionEngine,
         storage::{arrow_schema::to_arrow, parquet::writer::ParquetWriter},
-    },
-    protocol::query::v1::FlightSqlTicket,
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
     },
 };
 use object_store::{ObjectStore, local::LocalFileSystem};
 use parking_lot::Mutex;
+use postgres::repositories::api_tokens::{assemble_token, generate_token_parts, hash_secret};
 use prost::Message;
+use protocol::query::v1::FlightSqlTicket;
+use settings::{AuthSettings, FlightSqlSettings};
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Channel;
@@ -236,7 +235,7 @@ impl UserRepository for MemUserRepo {
     async fn list(&self) -> Result<Vec<User>> {
         Ok(self.users.lock().clone())
     }
-    async fn set_status(&self, id: &Id, status: molesignal::domain::iam::UserStatus) -> Result<()> {
+    async fn set_status(&self, id: &Id, status: domain::iam::UserStatus) -> Result<()> {
         if let Some(u) = self.users.lock().iter_mut().find(|u| &u.id == id) {
             u.status = status;
         }
@@ -358,19 +357,15 @@ fn sample_stream(org: &Id) -> StreamDefinition {
                     name: "level".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: true,
+                    index_type: StreamIndexType::FullText,
                     encrypted: false,
-                    exact: false,
                 },
                 FieldDef {
                     name: "latency_ms".into(),
                     data_type: FieldType::Int64,
                     nullable: true,
-                    index_type: None,
-                    indexed: true,
+                    index_type: StreamIndexType::Skip,
                     encrypted: false,
-                    exact: false,
                 },
             ],
         },
@@ -420,14 +415,14 @@ async fn mint_token(repo: &MemApiTokenRepo, org: &Id, user_id: &Id) -> String {
         secret_hash: hash_secret(&secret),
         org_id: org.clone(),
         user_id: user_id.clone(),
-        scope: molesignal::domain::iam::api_token::ApiTokenScope::Principal,
+        scope: domain::iam::api_token::ApiTokenScope::Principal,
         name: "it-flight-sql".into(),
         expires_at: None,
         last_used_at: None,
         revoked: false,
         created_at: now,
         is_default: false,
-        token_kind: molesignal::domain::iam::api_token::ApiTokenKind::Personal,
+        token_kind: domain::iam::api_token::ApiTokenKind::Personal,
         application_id: None,
         service_account_id: None,
     })
@@ -484,7 +479,7 @@ async fn start_server(engine_override: Option<Arc<dyn QueryEngine>>) -> TestServ
         bio: String::new(),
         password_hash: hash_password(&password).unwrap(),
         disabled: false,
-        status: molesignal::domain::iam::UserStatus::Active,
+        status: domain::iam::UserStatus::Active,
         created_at: TimestampMicros::now(),
         sessions_valid_after: TimestampMicros(0),
     };

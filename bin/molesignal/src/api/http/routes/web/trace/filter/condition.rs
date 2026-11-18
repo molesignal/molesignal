@@ -9,15 +9,13 @@
 //! comparison is written as in the list, text as `{"text": "..."}`. The list,
 //! the free text and the tree all hold together.
 
+use domain::stream::Schema;
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use super::{TraceFilter, TraceFilterInput, normalize};
-use crate::{
-    api::http::routes::web::trace::list::{MAX_TRACE_FILTERS, clean_input},
-    domain::stream::Schema,
-    shared::{Error, Result},
-};
+use crate::api::http::routes::web::trace::list::{MAX_TRACE_FILTERS, clean_input};
 
 /// How deep groups nest in one tree.
 const MAX_DEPTH: usize = 8;
@@ -245,13 +243,11 @@ impl Reader<'_> {
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{FieldDef, FieldType, StreamIndexType};
     use serde_json::json;
+    use signals::trace::normalization::canonical_trace_schema;
 
     use super::*;
-    use crate::{
-        domain::stream::{FieldDef, FieldType},
-        shared::trace::normalization::canonical_trace_schema,
-    };
 
     fn schema() -> Schema {
         let mut schema = canonical_trace_schema();
@@ -260,10 +256,8 @@ mod tests {
             name: "http.status_code".into(),
             data_type: FieldType::Int64,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         });
 
         schema

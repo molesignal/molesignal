@@ -181,13 +181,23 @@ describe('working with tabs', () => {
     expect(state.tabs[1]).toMatchObject({ window: SIX_HOURS, memory: {}, touched: false });
   });
 
-  it('never numbers two tabs alike, even after one is closed', () => {
+  it('numbers a new tab one past the highest that is open, so closed numbers come free again', () => {
     let state = opened('q=a');
-    state = addQueryTab(state, 2_000);
-    state = closeQueryTab(state, state.activeId, 3_000);
-    state = addQueryTab(state, 4_000);
+    for (const at of [2_000, 3_000, 4_000]) state = addQueryTab(state, at);
+    const closeNumbered = (ordinal: number) => {
+      state = closeQueryTab(state, state.tabs.find((tab) => tab.ordinal === ordinal)!.id, 5_000);
+    };
 
-    expect(state.tabs.map((tab) => tab.ordinal)).toEqual([1, 3]);
+    // Query 2 to 4 closed, the next is Query 2 again.
+    [2, 3, 4].forEach(closeNumbered);
+    state = addQueryTab(state, 6_000);
+    expect(state.tabs.map((tab) => tab.ordinal)).toEqual([1, 2]);
+
+    // A gap below the highest stays: two open tabs are never numbered alike.
+    state = addQueryTab(state, 7_000);
+    closeNumbered(2);
+    state = addQueryTab(state, 8_000);
+    expect(state.tabs.map((tab) => tab.ordinal).sort()).toEqual([1, 3, 4]);
   });
 
   it('stops adding at the limit', () => {
@@ -234,7 +244,7 @@ describe('working with tabs', () => {
     const next = closeQueryTab(state, state.activeId, 3_000);
 
     expect(next.tabs).toHaveLength(1);
-    expect(next.tabs[0]).toMatchObject({ search: '', window: DAY, ordinal: 2 });
+    expect(next.tabs[0]).toMatchObject({ search: '', window: DAY, ordinal: 1 });
     expect(next.tabs[0]?.id).not.toBe(state.activeId);
   });
 

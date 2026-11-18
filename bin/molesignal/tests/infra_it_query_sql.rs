@@ -10,23 +10,22 @@ use std::sync::Arc;
 use arrow::array::{Int64Array, RecordBatch, StringArray, TimestampMicrosecondArray};
 use async_trait::async_trait;
 use common::write_parquet_fixture;
-use molesignal::{
-    domain::{
-        query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{QueryFile, QueryFileSource},
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
+use domain::{
+    query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
+    storage::{QueryFile, QueryFileSource},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
     },
-    infra::{
-        search::datafusion_engine::DataFusionEngine,
-        storage::{arrow_schema::to_arrow, parquet::writer::ParquetWriter},
-    },
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+};
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::{
+    search::datafusion_engine::DataFusionEngine,
+    storage::{arrow_schema::to_arrow, parquet::writer::ParquetWriter},
 };
 use object_store::{ObjectStore, local::LocalFileSystem};
 use parking_lot::Mutex;
@@ -85,19 +84,15 @@ fn sample_stream(org: &Id) -> StreamDefinition {
                     name: "level".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: true,
+                    index_type: StreamIndexType::FullText,
                     encrypted: false,
-                    exact: false,
                 },
                 FieldDef {
                     name: "latency_ms".into(),
                     data_type: FieldType::Int64,
                     nullable: true,
-                    index_type: None,
-                    indexed: true,
+                    index_type: StreamIndexType::Skip,
                     encrypted: false,
-                    exact: false,
                 },
             ],
         },
@@ -290,19 +285,23 @@ fn stream_with(message_indexed: bool, request_id_indexed: bool) -> StreamDefinit
                     name: "message".into(),
                     data_type: FieldType::Utf8,
                     nullable: true,
-                    index_type: None,
-                    indexed: message_indexed,
+                    index_type: if message_indexed {
+                        StreamIndexType::FullText
+                    } else {
+                        StreamIndexType::None
+                    },
                     encrypted: false,
-                    exact: false,
                 },
                 FieldDef {
                     name: "request_id".into(),
                     data_type: FieldType::Utf8,
                     nullable: true,
-                    index_type: None,
-                    indexed: request_id_indexed,
+                    index_type: if request_id_indexed {
+                        StreamIndexType::FullText
+                    } else {
+                        StreamIndexType::None
+                    },
                     encrypted: false,
-                    exact: false,
                 },
             ],
         },

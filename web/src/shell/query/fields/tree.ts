@@ -86,3 +86,25 @@ export function fieldTree<T extends { name: string }>(fields: readonly T[]): Fie
 export function fieldTreeSize<T>(tree: readonly FieldTreeNode<T>[]): number {
   return tree.reduce((count, node) => count + (node.kind === 'group' ? node.children.length : 1), 0);
 }
+
+/**
+ * A tree in two parts by `first`, with no group split between them: a group stands in the first
+ * part when any of its fields belongs there, so the fields of one name are listed in one place
+ * (the three fields of `synthetics` were two in one part and one in the other). The order within
+ * each part is the tree's.
+ */
+export function splitFieldTree<T>(
+  tree: readonly FieldTreeNode<T>[],
+  first: (field: T) => boolean,
+): [FieldTreeNode<T>[], FieldTreeNode<T>[]] {
+  const firsts: FieldTreeNode<T>[] = [];
+  const rest: FieldTreeNode<T>[] = [];
+
+  for (const node of tree) {
+    const belongs = node.kind === 'group' ? node.children.some((child) => first(child.field)) : first(node.field);
+
+    (belongs ? firsts : rest).push(node);
+  }
+
+  return [firsts, rest];
+}

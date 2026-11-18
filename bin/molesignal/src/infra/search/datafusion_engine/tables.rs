@@ -6,20 +6,29 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use arrow::{array::RecordBatch, datatypes::SchemaRef};
+use arrow::{
+    array::RecordBatch,
+    datatypes::{Schema as ArrowSchema, SchemaRef},
+};
 use datafusion::{
     common::TableReference,
     datasource::physical_plan::parquet::ParquetRowSelection,
     error::DataFusionError,
     execution::object_store::ObjectStoreUrl,
+    logical_expr::LogicalPlan,
     prelude::{DataFrame, SessionContext},
 };
+use domain::{
+    storage::{DatasetTypeId, QueryFile},
+    stream::StreamDefinition,
+};
+use kernel::{Error, Result, time::TimeRange};
+use parquet::file::properties::DEFAULT_DATA_PAGE_ROW_COUNT_LIMIT;
 
 use super::DataFusionEngine;
-use crate::{
-    domain::storage::{DatasetTypeId, QueryFile},
-    infra::query::{current_views::CurrentView, parquet_table::PrunedParquetTable},
-    shared::{Error, Result, time::TimeRange},
+use crate::infra::{
+    query::{current_views::CurrentView, executor, parquet_table::PrunedParquetTable},
+    storage::{minute_counts::MinuteCountsKeys, parquet::writer},
 };
 
 /// 一张注册进本次查询的表：它的文件、内存缓冲与 schema，以及某些文件只读哪些行。按时间分批
@@ -32,8 +41,16 @@ pub(super) struct TableInput {
     pub(super) dataset: Option<DatasetTypeId>,
     /// 按 object key：文件的 Tantivy Artifact，从中找等值条件命中的行。
     pub(super) index_keys: HashMap<String, String>,
+    /// 按段 id：段自己的过滤器 Artifact，从中读 `LIKE` 用的块过滤器。
+    pub(super) filter_keys: HashMap<String, String>,
+    /// By segment id: the segment's minute counts, which bound where a page of the newest rows
+    /// lies.
+    pub(super) minute_keys: HashMap<String, MinuteCountsKeys>,
     /// 按 object key：这些文件只读选中的行。
     pub(super) selections: HashMap<String, ParquetRowSelection>,
+    /// Most rows a page of the table's files holds: whether reading only the matching rows can
+    /// skip pages depends on it.
+    pub(super) page_rows: usize,
     /// 语句读的、由这张表派生的当前版本视图；表每注册一次，视图跟着重新注册。
     pub(super) views: Vec<&'static CurrentView>,
 }
@@ -76,6 +93,14 @@ impl TableInput {
     }
 }
 
+/// Most rows a page of the files of a table of `definition` holds, see [`writer::page_rows`]; the
+/// Parquet default for a table without one.
+pub(super) fn page_rows(definition: Option<&StreamDefinition>, schema: &ArrowSchema) -> usize {
+    definition.map_or(DEFAULT_DATA_PAGE_ROW_COUNT_LIMIT, |definition| {
+        writer::page_rows(definition, schema)
+    })
+}
+
 pub(super) fn plan_error(sql: &str) -> impl FnOnce(DataFusionError) -> Error + '_ {
     move |error| {
         tracing::warn!(%error, %sql, "query planning failed");
@@ -95,19 +120,26 @@ pub(super) async fn collect(
     collect_planned(dataframe, limit).await
 }
 
+/// 执行 `dataframe`，结果最多取 `limit` 行。`EXPLAIN` 必须是计划的根，结果只是计划的几行
+/// 文字，不截断。计划在查询执行线程上执行，见 [`executor`]。
 pub(super) async fn collect_planned(
     dataframe: DataFrame,
     limit: Option<usize>,
 ) -> Result<(SchemaRef, Vec<RecordBatch>)> {
+    let explained = matches!(
+        dataframe.logical_plan(),
+        LogicalPlan::Explain(_) | LogicalPlan::Analyze(_)
+    );
+
     let dataframe = match limit {
-        Some(limit) => dataframe
+        Some(limit) if !explained => dataframe
             .limit(0, Some(limit))
             .map_err(|error| Error::internal(format!("datafusion limit: {error}")))?,
-        None => dataframe,
+        _ => dataframe,
     };
 
     let schema = dataframe.schema().inner().clone();
-    let batches = dataframe.collect().await.map_err(collect_error)?;
+    let batches = executor::collect(dataframe).await.map_err(collect_error)?;
 
     Ok((schema, batches))
 }
@@ -148,5 +180,18 @@ mod tests {
             collect_error(DataFusionError::Execution("boom".into())),
             Error::Internal(_)
         ));
+    }
+
+    /// 请求的行数上限不套在 `EXPLAIN` 外面：DataFusion 要求它是计划的根，否则报内部错误。
+    #[tokio::test]
+    async fn an_explanation_is_not_cut_to_the_request_limit() {
+        let ctx = SessionContext::new();
+
+        for sql in ["EXPLAIN ANALYZE SELECT 1", "EXPLAIN SELECT 1"] {
+            let dataframe = ctx.sql(sql).await.unwrap();
+            let (_, batches) = collect_planned(dataframe, Some(1)).await.unwrap();
+
+            assert!(batches.iter().any(|batch| batch.num_rows() > 0), "{sql}");
+        }
     }
 }

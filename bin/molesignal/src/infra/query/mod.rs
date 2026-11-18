@@ -17,19 +17,21 @@
 //! - [`scan_limit`]：`[querier].max_scan_rows` 单次读取行数上限。
 //! - [`arrow_json`]：Arrow 查询结果到 JSON 行的类型映射。
 //! - [`json_members`]：`json_text` / `json_keys`，读 JSON 列里的一层键。
+//! - [`executor`]：查询执行线程，DataFusion 计划在这里执行，不占用主 runtime。
 
 pub mod analyzer;
 pub mod arrow_json;
 pub mod catalog_source;
 pub mod cidr;
+pub mod contains;
 pub mod current_views;
+pub mod executor;
 pub mod federated;
 pub mod federation_cancel;
 pub mod grants;
 pub mod json_members;
 pub mod language_router;
 pub mod parquet_table;
-pub use ::query_language as parser;
 pub mod planner;
 pub mod promql;
 pub mod refutations;

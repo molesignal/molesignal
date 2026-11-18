@@ -14,6 +14,7 @@ import {
 } from '@/shell/query/fields/Group';
 import { fieldTree, fieldTreeSize, type FieldTreeLeaf, type FieldTreeNode } from '@/shell/query/fields/tree';
 import { FieldTypeChip } from '@/shell/query/fields/TypeChip';
+import { EXPLORER_FOOT_HEIGHT } from '@/shell/query/foot';
 import {
   Tooltip,
   TooltipContent,
@@ -203,7 +204,7 @@ export function TraceFieldPanel({
         )
       }
       footer={
-        <div className="flex h-11 items-center truncate px-3 font-sans text-xs text-tx-3">
+        <div className={`flex items-center truncate px-3 font-sans text-xs text-tx-3 ${EXPLORER_FOOT_HEIGHT}`}>
           {t('explore.labels.fields_summary', {
             shown: filtered.length,
             total: fields.length,

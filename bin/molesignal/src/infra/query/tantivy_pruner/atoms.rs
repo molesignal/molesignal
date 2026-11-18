@@ -5,18 +5,16 @@
 
 use std::collections::HashSet;
 
+use domain::stream::{FieldType, StreamDefinition, StreamIndexType};
+use query_language::{
+    KEY_VALUE_SUFFIX, Refuted, WhereTree, atom_bit, equality_atom, key_value_field,
+    key_value_terms, like_atom,
+};
 use tantivy::tokenizer::MAX_TOKEN_LEN;
 
 use super::{
     MatchPredicate, TermMatch,
     match_sql::{in_value_predicates, like_predicates},
-};
-use crate::{
-    domain::stream::{FieldType, StreamDefinition, StreamIndexType},
-    infra::query::parser::{
-        KEY_VALUE_SUFFIX, Refuted, WhereTree, atom_bit, equality_atom, key_value_field,
-        key_value_terms, like_atom,
-    },
 };
 
 /// 一个原子条件在 Tantivy 里的判断：谓词都成立它才可能成立，有一条证明文件里没有，它在这个文件里
@@ -50,7 +48,7 @@ pub fn indexed_atoms(tree: &WhereTree, definition: &StreamDefinition) -> Vec<Ind
             .iter()
             .filter(|field| {
                 !field.encrypted
-                    && field.effective_index_type() == index_type
+                    && field.index_type == index_type
                     && (!text_only || matches!(field.data_type, FieldType::Utf8 | FieldType::Json))
             })
             .map(|field| field.name.as_str())

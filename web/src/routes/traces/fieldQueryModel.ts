@@ -183,7 +183,7 @@ export function deriveTraceFields(schemaFields: StreamField[]): TraceFieldDef[] 
       dataType: field.dataType,
       physical: true,
       scope: field.name === 'duration_ns' ? 'trace_aggregate' : 'span',
-      ...(field.indexed ? { indexed: true } : {}),
+      ...(field.indexType !== 'none' ? { indexed: true } : {}),
     });
   }
   for (const field of SYNTHETIC_TRACE_FIELDS) fields.set(field.name, { ...field });

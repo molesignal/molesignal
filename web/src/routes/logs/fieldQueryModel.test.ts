@@ -86,9 +86,9 @@ describe('log field query model', () => {
 
   it('derives the complete typed schema before query results are available', () => {
     const fields = deriveLogFields([
-      { name: 'status_code', dataType: 'int64', nullable: true, indexed: false },
-      { name: 'sampled', dataType: 'bool', nullable: true, indexed: false },
-      { name: 'payload', dataType: 'json', nullable: true, indexed: false },
+      { name: 'status_code', dataType: 'int64', nullable: true, indexType: 'none' },
+      { name: 'sampled', dataType: 'bool', nullable: true, indexType: 'none' },
+      { name: 'payload', dataType: 'json', nullable: true, indexType: 'none' },
     ]);
 
     expect(fields.map((field) => [field.name, field.dataType])).toEqual([
@@ -120,7 +120,7 @@ describe('log field query model', () => {
 
   it('uses typed placeholders and parses numeric comparisons', () => {
     const [status] = deriveLogFields([
-      { name: 'status_code', dataType: 'int64', nullable: true, indexed: false },
+      { name: 'status_code', dataType: 'int64', nullable: true, indexType: 'none' },
     ]);
 
     expect(appendLogFieldClause('', status!)).toBe('status_code >= 0');
@@ -131,7 +131,7 @@ describe('log field query model', () => {
 
   it('requires SQL mode for composite JSON fields', () => {
     const [payload] = deriveLogFields([
-      { name: 'payload', dataType: 'json', nullable: true, indexed: false },
+      { name: 'payload', dataType: 'json', nullable: true, indexType: 'none' },
     ]);
 
     expect(isLogFieldFilterable(payload!, 'fields')).toBe(false);

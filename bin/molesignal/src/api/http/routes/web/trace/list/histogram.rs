@@ -14,23 +14,20 @@ use axum::{
     Extension, Json,
     extract::{Query, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Result, time::TimestampMicros};
 use serde::Deserialize;
 
 use super::{
     MAX_TRACE_FILTERS, TraceListContext, TraceListSort, clean_input, filter, projection, scan,
     span_filter,
 };
-use crate::{
-    api::{
-        AppState,
-        http::routes::web::{
-            histogram::{BucketPlan, HistogramResponse, Unavailable, bars, within_budget},
-            trace::resolve_traces_stream_definition,
-        },
+use crate::api::{
+    AppState,
+    http::routes::web::{
+        histogram::{BucketPlan, HistogramResponse, Unavailable, bars, within_budget},
+        trace::resolve_traces_stream_definition,
     },
-    app::iam::IamContext,
-    domain::iam::permission,
-    shared::{Result, time::TimestampMicros},
 };
 
 #[derive(Debug, Deserialize)]
@@ -99,11 +96,13 @@ pub(in super::super) async fn histogram(
     }
 
     // The list reads without a slot because it stops at a page. A count reads
-    // the whole range, so it waits its turn among the queries of the role.
-    let Some(_slot) = state
+    // the whole range, so it waits its turn among the queries of the role, and
+    // is busy when no slot comes free in time.
+    let Ok(_slot) = state
         .query
         .admission()
-        .acquire_for_role(ctx.organization_role_key())
+        .admit_for_role(ctx.organization_role_key())
+        .await
     else {
         return Ok(Json(plan.unavailable(Unavailable::Busy)));
     };

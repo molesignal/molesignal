@@ -48,7 +48,7 @@ const field = (name: string, data_type: StreamField['dataType'] = 'utf8'): Strea
   name,
   dataType: data_type,
   nullable: true,
-  indexed: false,
+  indexType: 'none',
 });
 
 /** A stream as OTLP writes logs: the service and the host by their semantic-convention names. */

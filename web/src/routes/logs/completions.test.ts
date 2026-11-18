@@ -8,7 +8,7 @@ import { logQueryCompletions } from './completions';
 import { deriveLogFields } from './fieldQueryModel';
 
 function streamField(name: string, dataType: StreamField['dataType'] = 'utf8'): StreamField {
-  return { name, dataType: dataType, nullable: true, indexed: false };
+  return { name, dataType: dataType, nullable: true, indexType: 'none' };
 }
 
 // A stream OTLP wrote: none of its fields is called `level`, `service` or `status`.

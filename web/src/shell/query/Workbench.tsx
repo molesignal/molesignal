@@ -255,31 +255,21 @@ interface QueryToolbarTabsProps<T extends string> {
   activeId: T;
   onChange: (id: T) => void;
   tone?: QueryToolbarTone;
-  flat?: boolean;
-  selectionStyle?: 'fill' | 'underline';
 }
 
+/**
+ * What an explorer lists, as one segmented control: the box and the fill of the code/builder
+ * switch beside it, each segment as wide as its words. Underlined tabs a fixed 72px wide left the
+ * head of the explorer sparse.
+ */
 export function QueryToolbarTabs<T extends string>({
   tabs,
   activeId,
   onChange,
   tone = 'indigo',
-  flat = false,
-  selectionStyle = 'fill',
 }: QueryToolbarTabsProps<T>) {
-  const underline = selectionStyle === 'underline';
-
   return (
-    <QueryToolbarGroup
-      role="tablist"
-      data-query-tab-selection={selectionStyle}
-      className={cn(
-        'shrink-0',
-        underline
-          ? 'h-10 items-stretch gap-0 rounded-none border-0 bg-transparent p-0'
-          : flat && 'border-0 bg-[var(--control-surface)]',
-      )}
-    >
+    <QueryToolbarGroup role="tablist" data-query-tabs="" className="border-0 bg-[var(--control-surface)]">
       {tabs.map((tab) => {
         const active = tab.id === activeId;
         return (
@@ -287,16 +277,10 @@ export function QueryToolbarTabs<T extends string>({
             key={tab.id}
             role="tab"
             aria-selected={active}
-            active={!underline && active}
+            active={active}
             tone={tone}
-            flat={flat || underline}
+            flat
             onClick={() => onChange(tab.id)}
-            className={cn(
-              'min-w-[72px]',
-              underline &&
-                'relative h-10 rounded-none bg-transparent px-3 shadow-none after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-t-md after:bg-transparent hover:bg-transparent hover:text-tx-0',
-              underline && active && 'text-indigo-soft after:bg-indigo',
-            )}
           >
             <span className="truncate">{tab.label}</span>
             {tab.count !== undefined ? (

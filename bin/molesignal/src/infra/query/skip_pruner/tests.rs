@@ -1,30 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::stream::{FieldDef, FieldType, StreamIndexType, address_key, address_number};
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde_json::{Value, json};
 
 use super::*;
-use crate::{
-    domain::stream::{FieldDef, FieldType, StreamIndexType, address_key, address_number},
-    infra::query::refutations::Refutations,
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::infra::query::refutations::Refutations;
 
 fn schema(index_type: StreamIndexType, data_type: FieldType) -> Schema {
     let mut field = FieldDef {
         name: "value".into(),
         data_type,
         nullable: true,
-        index_type: None,
-        indexed: false,
+        index_type: StreamIndexType::None,
         encrypted: false,
-        exact: false,
     };
 
-    field.configure_index(true, index_type);
+    field.index_type = index_type;
 
     Schema {
         fields: vec![field],
@@ -36,11 +32,9 @@ fn file(id: &str, minimum: Value, maximum: Value) -> QueryFile {
         id: Id::from_string(id),
         org_id: Id::from_string("org"),
         stream: "logs".into(),
-        stream_type: crate::domain::stream::StreamType::LOGS,
-        dataset_type: crate::domain::storage::primary_dataset_type(
-            crate::domain::stream::StreamType::LOGS,
-        )
-        .unwrap(),
+        stream_type: domain::stream::StreamType::LOGS,
+        dataset_type: domain::storage::primary_dataset_type(domain::stream::StreamType::LOGS)
+            .unwrap(),
         object_key: format!("{id}.parquet"),
         checksum: None,
         etag: None,
@@ -54,6 +48,7 @@ fn file(id: &str, minimum: Value, maximum: Value) -> QueryFile {
         null_counts: serde_json::Map::new(),
         indexed_at_micros: None,
         shard: None,
+        clustering: Default::default(),
     }
 }
 

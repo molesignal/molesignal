@@ -16,12 +16,12 @@ import {
 
 describe('trace field query model', () => {
   const fields = deriveTraceFields([
-    { name: 'trace_id', dataType: 'utf8', nullable: false, indexed: true },
-    { name: 'service.name', dataType: 'utf8', nullable: true, indexed: true },
-    { name: 'http.status_code', dataType: 'int64', nullable: true, indexed: false },
-    { name: 'conflict', dataType: 'bool', nullable: true, indexed: false },
-    { name: 'attributes', dataType: 'json', nullable: true, indexed: false },
-    { name: 'molesignal.trace.span_count', dataType: 'int64', nullable: true, indexed: false },
+    { name: 'trace_id', dataType: 'utf8', nullable: false, indexType: 'full_text' },
+    { name: 'service.name', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+    { name: 'http.status_code', dataType: 'int64', nullable: true, indexType: 'none' },
+    { name: 'conflict', dataType: 'bool', nullable: true, indexType: 'none' },
+    { name: 'attributes', dataType: 'json', nullable: true, indexType: 'none' },
+    { name: 'molesignal.trace.span_count', dataType: 'int64', nullable: true, indexType: 'none' },
   ]);
 
   it('derives scalar physical fields and public aggregate aliases', () => {
@@ -39,18 +39,18 @@ describe('trace field query model', () => {
 
   it('separates OpenTelemetry core fields from resource, scope and Span attributes', () => {
     const grouped = groupTraceFields(deriveTraceFields([
-      { name: 'trace_id', dataType: 'utf8', nullable: false, indexed: true },
-      { name: 'span_id', dataType: 'utf8', nullable: false, indexed: true },
-      { name: 'name', dataType: 'utf8', nullable: false, indexed: true },
-      { name: 'duration_ns', dataType: 'int64', nullable: false, indexed: false },
-      { name: 'status_code', dataType: 'utf8', nullable: true, indexed: true },
-      { name: 'service.name', dataType: 'utf8', nullable: true, indexed: true },
-      { name: 'host.name', dataType: 'utf8', nullable: true, indexed: false },
-      { name: 'telemetry.sdk.name', dataType: 'utf8', nullable: true, indexed: false },
-      { name: 'scope_name', dataType: 'utf8', nullable: true, indexed: false },
-      { name: 'http.request.method', dataType: 'utf8', nullable: true, indexed: false },
-      { name: 'attributes', dataType: 'json', nullable: true, indexed: false },
-      { name: 'conflict', dataType: 'bool', nullable: true, indexed: false },
+      { name: 'trace_id', dataType: 'utf8', nullable: false, indexType: 'full_text' },
+      { name: 'span_id', dataType: 'utf8', nullable: false, indexType: 'full_text' },
+      { name: 'name', dataType: 'utf8', nullable: false, indexType: 'full_text' },
+      { name: 'duration_ns', dataType: 'int64', nullable: false, indexType: 'none' },
+      { name: 'status_code', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+      { name: 'service.name', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+      { name: 'host.name', dataType: 'utf8', nullable: true, indexType: 'none' },
+      { name: 'telemetry.sdk.name', dataType: 'utf8', nullable: true, indexType: 'none' },
+      { name: 'scope_name', dataType: 'utf8', nullable: true, indexType: 'none' },
+      { name: 'http.request.method', dataType: 'utf8', nullable: true, indexType: 'none' },
+      { name: 'attributes', dataType: 'json', nullable: true, indexType: 'none' },
+      { name: 'conflict', dataType: 'bool', nullable: true, indexType: 'none' },
     ]));
 
     expect(grouped.core.map((field) => field.name)).toEqual([
@@ -210,7 +210,7 @@ describe('trace field query model', () => {
           name: fieldName,
           dataType: 'utf8' as const,
           nullable: true,
-          indexed: false,
+          indexType: 'none' as const,
         })),
       },
       retention: null,

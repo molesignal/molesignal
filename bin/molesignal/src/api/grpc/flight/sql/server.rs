@@ -44,8 +44,24 @@ use base64::{
     Engine as _,
     engine::general_purpose::{STANDARD as BASE64_STANDARD, STANDARD_NO_PAD as BASE64_NO_PAD},
 };
+use domain::{
+    iam::{
+        IamContext, IamMembership,
+        api_token::{ApiTokenRepository, has_token_marker},
+    },
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::{StreamRepository, StreamType},
+};
 use futures::{Stream, TryStreamExt};
+use kernel::{
+    Error as MsError,
+    time::{TimeRange, TimestampMicros},
+};
 use prost::Message;
+use protocol::query::v1::FlightSqlTicket;
+use query_language::prepare_flight_sql_select;
+use settings::FlightSqlSettings;
+use signals::trace_stream::segmented_result_stream;
 use tonic::{Request, Response, Status, Streaming};
 
 use crate::{
@@ -57,28 +73,12 @@ use crate::{
         },
     },
     app::{
-        iam::{IamContext, IamContextEnricher, IamService, signin_limit::SigninLimiter},
+        iam::{IamContextEnricher, IamService, signin_limit::SigninLimiter},
         query::QueryService,
-    },
-    config::FlightSqlSettings,
-    domain::{
-        iam::{
-            IamMembership,
-            api_token::{ApiTokenRepository, has_token_marker},
-        },
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::{StreamRepository, StreamType},
     },
     infra::{
         mfa::{MfaFactorRepository, SigninPolicyRepository},
-        query::parser::prepare_flight_sql_select,
         storage::arrow_schema::to_arrow,
-    },
-    protocol::query::v1::FlightSqlTicket,
-    shared::{
-        Error as MsError,
-        time::{TimeRange, TimestampMicros},
-        trace_stream::segmented_result_stream,
     },
 };
 
@@ -200,7 +200,7 @@ impl FlightSqlGrpc {
 
         let mut ctx = authenticate_bearer(bearer, self.iam.as_ref(), self.api_tokens.clone())
             .await
-            .map_err(|e| Status::unauthenticated(e.to_string()))?;
+            .map_err(error_to_status)?;
 
         // 密码握手换来的 token 用到登录结束：组织之后加了要求，也不能再用。
         if ctx.credential_token_id.is_none() {
@@ -221,7 +221,7 @@ impl FlightSqlGrpc {
     /// 否则沿用 HTTP login 的"第一个 membership"语义。
     async fn resolve_membership(
         &self,
-        user_id: &crate::shared::ids::Id,
+        user_id: &kernel::ids::Id,
         org_selector: Option<&str>,
     ) -> Result<IamMembership, Status> {
         let memberships = self
@@ -509,7 +509,7 @@ impl FlightSqlService for FlightSqlGrpc {
             if has_token_marker(pass) {
                 let ctx = authenticate_api_token(pass, self.iam.as_ref(), self.api_tokens.clone())
                     .await
-                    .map_err(|e| Status::unauthenticated(e.to_string()))?;
+                    .map_err(error_to_status)?;
 
                 (pass.to_string(), ctx)
             } else {
@@ -536,7 +536,7 @@ impl FlightSqlService for FlightSqlGrpc {
                     credential_token_id: None,
                     credential_application_id: None,
                     credential_service_account_id: None,
-                    scope: crate::domain::iam::IamScope::Organization,
+                    scope: domain::iam::IamScope::Organization,
                     permissions: std::collections::BTreeSet::new(),
                     policy_version: 0,
                 };
@@ -546,7 +546,7 @@ impl FlightSqlService for FlightSqlGrpc {
         } else if let Some(t) = header.strip_prefix("Bearer ") {
             let ctx = authenticate_bearer(t, self.iam.as_ref(), self.api_tokens.clone())
                 .await
-                .map_err(|e| Status::unauthenticated(e.to_string()))?;
+                .map_err(error_to_status)?;
 
             (t.to_string(), ctx)
         } else {

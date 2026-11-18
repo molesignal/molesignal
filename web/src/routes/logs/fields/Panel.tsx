@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CollapsibleSidePanel, SidePanelSearch, SidePanelSection } from '@/shell/CollapsibleSidePanel';
+import { EXPLORER_FOOT_HEIGHT } from '@/shell/query/foot';
 import type { HistogramRange } from '@/shell/query/histogram/model';
 import { QueryState } from '@/shell/query/State';
 import { TooltipProvider } from '@/shell/ui/tooltip';
@@ -147,7 +148,7 @@ export function LogFieldPanel({
         )
       }
       footer={
-        <div className="flex h-11 items-center justify-between pl-3 pr-1 font-sans text-xs text-tx-3">
+        <div className={`flex items-center justify-between pl-3 pr-1 font-sans text-xs text-tx-3 ${EXPLORER_FOOT_HEIGHT}`}>
           <span className="min-w-0 truncate">
             {t('explore.left_panel.fields_summary', {
               shown: filteredFields.length.toLocaleString(),

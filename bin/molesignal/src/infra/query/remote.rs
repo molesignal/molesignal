@@ -15,23 +15,22 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use domain::{
+    cluster::{ClusterRegistry, PeerInfo, PeerRole},
+    metrics::PrometheusExemplarQueryResult,
+    query::{PromqlEngine, QueryEngine, QueryRequest, QueryResult},
+    storage::DatasetTypeId,
+};
+use kernel::{Error, Result};
 use parking_lot::Mutex;
+use protocol::query::v1::{
+    ExecuteOp, ExecuteRequest, query_execution_service_client::QueryExecutionServiceClient,
+};
 use serde::{Serialize, de::DeserializeOwned};
+use signals::rendezvous;
 use tonic::{Code, Status, transport::Channel};
 
-use crate::{
-    app::cluster::{ClusterRegistry, PeerInfo, PeerRole},
-    domain::{
-        metrics::PrometheusExemplarQueryResult,
-        query::{PromqlEngine, QueryEngine, QueryRequest, QueryResult},
-        storage::DatasetTypeId,
-    },
-    infra::cluster::{grpc_channel, grpc_status::status_to_error},
-    protocol::query::v1::{
-        ExecuteOp, ExecuteRequest, query_execution_service_client::QueryExecutionServiceClient,
-    },
-    shared::{Error, Result, rendezvous},
-};
+use crate::infra::cluster::grpc_status::status_to_error;
 
 /// 一次转发最多尝试的 querier 节点数。
 const MAX_ATTEMPTS: usize = 3;
@@ -80,11 +79,11 @@ impl RemoteQueryClient {
             return Ok(channel.clone());
         }
 
-        let url = grpc_channel::endpoint_url(addr, false);
+        let url = grpc_client::endpoint_url(addr, false);
 
         let channel = Channel::from_shared(url)
             .map_err(|error| Status::unavailable(format!("invalid endpoint: {error}")))?
-            .connect_timeout(grpc_channel::CONNECT_TIMEOUT)
+            .connect_timeout(grpc_client::CONNECT_TIMEOUT)
             .timeout(QUERY_TIMEOUT)
             .connect()
             .await
@@ -166,11 +165,11 @@ impl RemoteQueryClient {
             );
         }
 
-        let response = crate::shared::grpc_trace::call(
+        let response = signals::grpc_trace::call(
             request,
             "query.v1.QueryExecutionService",
             "Execute",
-            crate::shared::grpc_trace::GrpcTarget::Internal,
+            signals::grpc_trace::GrpcTarget::Internal,
             |request| client.execute(request),
         )
         .await?;

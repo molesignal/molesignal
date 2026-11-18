@@ -9,23 +9,20 @@
 //! selects by.
 
 use axum::{Extension, Json, extract::State};
+use domain::{
+    iam::{IamContext, permission},
+    intake::EVENT_ID_FIELD,
+    stream::{FieldDef, FieldType, StreamType},
+};
+use kernel::{Error, Result};
 use serde::Deserialize;
 
 use super::{LogFilter, clean_required, match_clauses, validate_filter_fields};
-use crate::{
-    api::{
-        AppState,
-        http::routes::web::field_stats::{
-            Analysed, FieldKind, FieldStatsResponse, Scope, Unavailable, analyze,
-        },
+use crate::api::{
+    AppState,
+    http::routes::web::field_stats::{
+        Analysed, FieldKind, FieldStatsResponse, Scope, Unavailable, analyze,
     },
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        intake::EVENT_ID_FIELD,
-        stream::{FieldDef, FieldType, StreamType},
-    },
-    shared::{Error, Result},
 };
 
 #[derive(Debug, Default, Deserialize)]
@@ -129,6 +126,8 @@ fn declared(name: &str, fields: &[FieldDef]) -> Option<(FieldType, bool)> {
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::StreamIndexType;
+
     use super::*;
 
     fn field(name: &str, data_type: FieldType, encrypted: bool) -> FieldDef {
@@ -136,10 +135,8 @@ mod tests {
             name: name.into(),
             data_type,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted,
-            exact: false,
         }
     }
 

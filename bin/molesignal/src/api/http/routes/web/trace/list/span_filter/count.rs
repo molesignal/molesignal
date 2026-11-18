@@ -9,7 +9,15 @@
 //! would sort and cut a page. Unlike the list it does not rank the summaries
 //! of a trace first: a summary that was written twice counts twice.
 
+use domain::stream::StreamDefinition;
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde_json::Value;
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
+};
 
 use super::{SUMMARY_TABLE, TraceListContext, plan, qualified, register_tables};
 use crate::{
@@ -23,16 +31,7 @@ use crate::{
             trace::list::scan::count::CountedBars,
         },
     },
-    domain::stream::StreamDefinition,
-    infra::query::arrow_json::batches_to_json,
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-        trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-            TRACE_SUMMARY_START_NS_FIELD,
-        },
-    },
+    infra::query::{arrow_json::batches_to_json, executor},
 };
 
 /// Result columns of how long a bar's traces took: names no field has.
@@ -61,12 +60,13 @@ pub(in super::super) async fn bars(
 
     let statement = count_sql(context, plan)?;
 
-    let batches = tables
+    let frame = tables
         .session
         .sql(&statement)
         .await
-        .map_err(|error| Error::internal(format!("plan trace histogram: {error}")))?
-        .collect()
+        .map_err(|error| Error::internal(format!("plan trace histogram: {error}")))?;
+
+    let batches = executor::collect(frame)
         .await
         .map_err(|error| Error::internal(format!("scan trace histogram: {error}")))?;
 
@@ -172,17 +172,15 @@ mod tests {
         datatypes::{DataType, Field, Schema as ArrowSchema},
     };
     use datafusion::{datasource::MemTable, prelude::SessionContext};
+    use domain::stream::{FieldDef, FieldType, StreamIndexType};
+    use signals::trace::{
+        normalization::canonical_trace_schema, summary::TRACE_SUMMARY_SPAN_COUNT_FIELD,
+    };
 
     use super::*;
-    use crate::{
-        api::http::routes::web::{
-            histogram::BarCount,
-            trace::list::{TraceListSort, filter, span_filter::RAW_TABLE},
-        },
-        domain::stream::{FieldDef, FieldType},
-        shared::trace::{
-            normalization::canonical_trace_schema, summary::TRACE_SUMMARY_SPAN_COUNT_FIELD,
-        },
+    use crate::api::http::routes::web::{
+        histogram::BarCount,
+        trace::list::{TraceListSort, filter, span_filter::RAW_TABLE},
     };
 
     /// Bars of a millisecond from 10 ms, holding what began in `[10.5 ms, 13 ms)`.
@@ -196,10 +194,8 @@ mod tests {
             name: "http.status_code".into(),
             data_type: FieldType::Int64,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         });
 
         TraceListContext {

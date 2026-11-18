@@ -8,7 +8,8 @@
 //! 等已内建），而是一条**增量的资源保护规则**——与 admission（并发）/ sampling（扫描）互补。
 //!
 //! 安全性：已有 LIMIT（结果已有界，尊重用户）或含 Aggregate（注入 LIMIT 会截断分组，
-//! 语义不安全）时**不注入**。默认 `max_rows = 0` → 关闭（OSS 零行为变化）。
+//! 语义不安全）时**不注入**。`EXPLAIN ANALYZE` 也不注入：它必须是计划的根，结果只是计划的
+//! 几行文字。默认 `max_rows = 0` → 关闭（OSS 零行为变化）。
 //!
 //! `TimestampIntegerLiteral`：把 `_timestamp` 与整数字面量的比较按微秒解释，见
 //! [`timestamp_literal`]。它每个查询都生效。
@@ -23,7 +24,7 @@ use datafusion::{
     execution::SessionStateBuilder,
     logical_expr::{LogicalPlan, LogicalPlanBuilder},
     optimizer::{Analyzer, AnalyzerRule},
-    prelude::SessionContext,
+    prelude::{SessionConfig, SessionContext},
 };
 use timestamp_literal::TimestampIntegerLiteral;
 
@@ -44,7 +45,10 @@ impl AnalyzerRule for ResultRowGuard {
     }
 
     fn analyze(&self, plan: LogicalPlan, _config: &ConfigOptions) -> DfResult<LogicalPlan> {
-        if self.max_rows == 0 {
+        // `EXPLAIN ANALYZE` 必须是计划的根；DataFusion 只把 `EXPLAIN` 里面的语句交给这里。
+        let explained = matches!(plan, LogicalPlan::Explain(_) | LogicalPlan::Analyze(_));
+
+        if self.max_rows == 0 || explained {
             return Ok(plan);
         }
 
@@ -71,11 +75,21 @@ impl AnalyzerRule for ResultRowGuard {
 /// [`ResultRowGuard`]。另注册不依赖组织数据的函数（`cidr_match`、`json_text`、`json_keys`）。engine 与单测共用，确保
 /// 规则注册路径被真实覆盖。
 pub fn session_context(max_rows: usize) -> SessionContext {
+    query_session(max_rows, 0)
+}
+
+/// 同 [`session_context`]，DataFusion 的并行度取 `parallelism`（`[querier].concurrency`，0 按
+/// CPU 数）。每次表扫描最多同时读这么多个文件，见 [`super::parquet_table`]。
+pub fn query_session(max_rows: usize, parallelism: usize) -> SessionContext {
     let mut rules: Vec<Arc<dyn AnalyzerRule + Send + Sync>> =
         vec![Arc::new(TimestampIntegerLiteral)];
     rules.extend(Analyzer::new().rules);
 
+    // After type coercion: substring LIKEs become one buffer-wide search per column.
+    rules.push(Arc::new(super::contains::ContainsLiteral));
+
     let mut builder = SessionStateBuilder::new()
+        .with_config(SessionConfig::new().with_target_partitions(parallelism))
         .with_default_features()
         .with_analyzer_rules(rules);
 
@@ -87,6 +101,7 @@ pub fn session_context(max_rows: usize) -> SessionContext {
     ctx.register_udf(super::cidr::cidr_match_udf());
     ctx.register_udf(super::json_members::json_text_udf());
     ctx.register_udf(super::json_members::json_keys_udf());
+    ctx.register_udf(super::contains::contains_text_udf());
     ctx
 }
 
@@ -147,6 +162,17 @@ mod tests {
             !plan.contains("Limit"),
             "aggregate must not get a Limit, got:\n{plan}"
         );
+    }
+
+    /// `EXPLAIN ANALYZE` 照常执行：包一层 LIMIT 会让 DataFusion 报它必须是计划的根。
+    #[tokio::test]
+    async fn explain_analyze_stays_the_root() {
+        let ctx = ctx_with_table(100).await;
+
+        for sql in ["EXPLAIN ANALYZE SELECT * FROM t", "EXPLAIN SELECT * FROM t"] {
+            let batches = ctx.sql(sql).await.unwrap().collect().await.unwrap();
+            assert!(batches.iter().any(|batch| batch.num_rows() > 0), "{sql}");
+        }
     }
 
     #[tokio::test]

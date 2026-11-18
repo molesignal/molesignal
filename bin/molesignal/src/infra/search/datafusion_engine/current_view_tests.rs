@@ -11,29 +11,28 @@ use arrow::{
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
 };
 use async_trait::async_trait;
+use domain::{
+    query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    storage::{
+        ArtifactRole, ArtifactState, DatasetState, PhysicalDataset, PhysicalDatasetId, QueryFile,
+        QueryFileSource, builtin_registry, primary_dataset_type, type_id,
+    },
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
+    },
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use object_store::{ObjectStore, local::LocalFileSystem};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
 
 use super::DataFusionEngine;
-use crate::{
-    domain::{
-        query::{QueryEngine, QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        storage::{
-            ArtifactRole, ArtifactState, DatasetState, PhysicalDataset, PhysicalDatasetId,
-            QueryFile, QueryFileSource, builtin_registry, primary_dataset_type, type_id,
-        },
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
-    },
-    infra::storage::parquet::writer::ParquetWriter,
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::infra::storage::parquet::writer::ParquetWriter;
 
 const HOUR: i64 = 3_600_000_000;
 
@@ -108,10 +107,8 @@ fn definition(org: &str, name: &str, key: &str, revision: &str, value: &str) -> 
         name: name.into(),
         data_type,
         nullable: true,
-        index_type: None,
-        indexed: false,
+        index_type: StreamIndexType::None,
         encrypted: false,
-        exact: false,
     };
 
     StreamDefinition {
@@ -264,6 +261,7 @@ async fn write(writer: &ParquetWriter, stream: &StreamDefinition, batch: RecordB
         null_counts: segment.column_stats.null_counts,
         indexed_at_micros: segment.column_stats.indexed_at_micros,
         shard: None,
+        clustering: Default::default(),
     }
 }
 

@@ -13,6 +13,16 @@ use axum::{
     response::Json,
     routing::{get, post},
 };
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::{StreamDefinition, StreamType},
+};
+use kernel::{
+    Error,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 
 use self::{
     request::{TraceWindow, longest_range, validate_trace_id},
@@ -20,18 +30,8 @@ use self::{
 };
 use crate::{
     api::AppState,
-    app::{iam::IamContext, trace::summary::carries_summaries, web::trace::view::rows_to_spans},
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::{StreamDefinition, StreamType},
-    },
+    app::{trace::summary::carries_summaries, web::trace::view::rows_to_spans},
     infra::query::escape_sql_ident,
-    shared::{
-        Error,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 mod expression;
@@ -209,15 +209,13 @@ fn spans_request(ctx: &IamContext, stream: &str, trace_id: &str, range: TimeRang
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::stream::{FieldDef, FieldType, Schema},
-        shared::trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-            TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD,
-            TRACE_SUMMARY_START_NS_FIELD,
-        },
+    use domain::stream::{FieldDef, FieldType, Schema, StreamIndexType};
+    use signals::trace::summary::{
+        TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+        TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
     };
+
+    use super::*;
 
     const CANONICAL_FIELDS: [&str; 7] = [
         "trace_id",
@@ -242,10 +240,8 @@ mod tests {
                         name: (*name).to_string(),
                         data_type: FieldType::Utf8,
                         nullable: true,
-                        index_type: None,
-                        indexed: false,
+                        index_type: StreamIndexType::None,
                         encrypted: false,
-                        exact: false,
                     })
                     .collect(),
             },

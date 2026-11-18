@@ -17,7 +17,7 @@ export const FIELD_CARD_HEAD_CLASS = 'rounded-md hover:bg-bg-2 has-[:focus-visib
 /** What a card opens on, under its head: set in from the card's edge and on a ground of its own. */
 export const FIELD_NEST_CLASS = 'mx-1.5 mb-1.5 mt-0.5 rounded-[5px] bg-[var(--control-surface)] p-[4px]';
 /** The ground the cards of a list stand on: a step off the panel, so a white card reads as lifted. */
-export const FIELD_LIST_GROUND_CLASS = 'rounded-md bg-[var(--page-canvas)] px-1.5 pt-0.5';
+export const FIELD_LIST_GROUND_CLASS = 'rounded-md bg-[var(--inset-surface)] px-1.5 pt-0.5';
 
 /**
  * A field of a flat field list: a row from edge to edge with a line under it,
@@ -34,7 +34,7 @@ export const FIELD_FLAT_HEAD_CLASS = 'font-sans text-xs hover:bg-bg-2 has-[:focu
 /** The line inside a flat row's head, and a flat group's: 6px over and under the 18px name, so a row with the rule under it is 31px. */
 export const FIELD_FLAT_LINE_CLASS = 'py-[6px]';
 /** What a flat row opens on, under its head: on a ground a step off the list. */
-export const FIELD_FLAT_NEST_CLASS = 'border-t border-bd-0 bg-[var(--page-canvas)] px-3 py-1.5';
+export const FIELD_FLAT_NEST_CLASS = 'border-t border-bd-0 bg-[var(--inset-surface)] px-3 py-1.5';
 
 interface FieldGroupProps {
   /** The first part the fields share. */
@@ -77,11 +77,20 @@ export function FieldGroup({ name, count, open, onOpenChange, label, children, v
       >
         <FieldTypeChip glyph="{}" tone="neutral" />
         <span className="min-w-0 truncate font-body text-tx-0">{name}</span>
+        {/* The count's tile is as tall as the name's type (12px) and its figures a size under it
+            (11px), so the tile reads as large as the name and the figures smaller. A 16px tile was
+            a second chip beside the type's, and its figures read larger than the name.
+            The figures' line is as tall as their type and stands on a 1px floor. Alibaba Sans
+            sets its baseline 4.5px under the middle of its line, so a line centred on the tile
+            left the figures half a pixel low where an engine keeps the half pixel of leading
+            (WebKit). Standing so, the baseline is 10px under the tile's top in every engine: 2px
+            of ground over and under the figures. They bring about half a pixel of their own to
+            each side, so 1.5px sides show the same 2px there. */}
         <span
           data-field-group-count
-          className="type-micro shrink-0 rounded-[4px] bg-bg-3 px-[5px] tabular-nums leading-[16px] text-tx-2"
+          className="type-micro flex h-3 shrink-0 items-center rounded-[3px] bg-bg-3 px-[1.5px] pb-px tabular-nums text-tx-2"
         >
-          {count}
+          <span className="leading-none">{count}</span>
         </span>
         <ChevronDown
           aria-hidden="true"

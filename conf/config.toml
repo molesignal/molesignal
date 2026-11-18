@@ -375,7 +375,7 @@ max_new_series_per_minute = 20000
 idle_ttl_secs = 900
 
 [querier]
-# datafusion 并行度，0=按 CPU 数
+# SQL 查询的 DataFusion 并行度，0 = 按 CPU 数。每次表扫描最多同时读这么多个文件。
 concurrency = 0
 # 单次查询最多读取的行数（防爆查）：按候选文件与内存缓冲的行数在读取前判断，超过则以 400 拒绝；
 # PromQL 按单个 selector 计。0 = 不限制。

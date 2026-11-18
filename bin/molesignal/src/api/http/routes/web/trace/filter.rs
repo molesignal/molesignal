@@ -5,13 +5,12 @@
 //! and by the RED figures of the Spans a trace query matches.
 
 use chrono::DateTime;
+use domain::stream::{FieldType, Schema};
+use kernel::{Error, Result};
 use serde::{Deserialize, Serialize};
+use signals::trace::summary::*;
 
 pub(super) use self::condition::TraceCondition;
-use crate::{
-    domain::stream::{FieldType, Schema},
-    shared::{Error, Result, trace::summary::*},
-};
 
 pub(super) mod condition;
 
@@ -397,18 +396,17 @@ fn clean(value: &str, maximum: usize, message: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use domain::stream::{FieldDef, StreamIndexType};
+
     use super::*;
-    use crate::domain::stream::FieldDef;
 
     fn schema() -> Schema {
         let field = |name: &str, data_type| FieldDef {
             name: name.into(),
             data_type,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         };
         Schema {
             fields: vec![

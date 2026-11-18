@@ -148,8 +148,7 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
         array::{BooleanArray, Int64Array},
         datatypes::{DataType, Field, Schema, TimeUnit},
     };
-
-    use crate::domain::metrics::{
+    use domain::metrics::{
         METRIC_DESCRIPTION_FIELD, METRIC_MONOTONIC_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD,
         METRIC_TEMPORALITY_FIELD, METRIC_UNIT_FIELD,
     };
@@ -231,25 +230,28 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
         series[0].sample_metadata[1].start_time_us(),
         Some(19_000_000)
     );
-    let increase = apply_rate_like("increase", series, Duration::from_secs(30));
+    let increase = apply_rate_like(
+        "increase",
+        series,
+        RangeWindow::new(30_000_000, Duration::from_secs(30)),
+    );
     assert_eq!(increase.items[0].1, 3.0, "materialized DELTA values add");
 }
 
 #[tokio::test]
 async fn a_metric_is_read_from_the_streams_the_directory_names() {
-    use crate::{
-        domain::{
-            metrics::{
-                METRIC_DESCRIPTION_FIELD, METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD,
-                METRIC_NAME_FIELD, METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD,
-                MemoryMetricDirectory, MetricDirectory, MetricObservation,
-            },
-            stream::{
-                FieldDef, FieldType, Schema as StreamSchema, StreamDefinition, StreamSettings,
-            },
+    use domain::{
+        metrics::{
+            METRIC_DESCRIPTION_FIELD, METRIC_KIND_FIELD, METRIC_MONOTONIC_FIELD, METRIC_NAME_FIELD,
+            METRIC_START_TIME_UNIX_NANO_FIELD, METRIC_TEMPORALITY_FIELD, MemoryMetricDirectory,
+            MetricDirectory, MetricObservation,
         },
-        shared::{ids::Id, time::TimestampMicros},
+        stream::{
+            FieldDef, FieldType, Schema as StreamSchema, StreamDefinition, StreamIndexType,
+            StreamSettings,
+        },
     };
+    use kernel::{ids::Id, time::TimestampMicros};
 
     struct SystemStreams;
 
@@ -258,10 +260,8 @@ async fn a_metric_is_read_from_the_streams_the_directory_names() {
             name: name.into(),
             data_type,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         }
     }
 
@@ -330,7 +330,7 @@ async fn a_metric_is_read_from_the_streams_the_directory_names() {
             _stream: &str,
             _stream_type: StreamType,
             _time_range: TimeRange,
-        ) -> Result<Vec<crate::domain::storage::QueryFile>> {
+        ) -> Result<Vec<domain::storage::QueryFile>> {
             Ok(Vec::new())
         }
     }
@@ -417,7 +417,11 @@ fn rate_basic_two_points() {
         samples: vec![(0, 0.0), (60_000_000, 60.0)], // 60 in 60s
         ..Default::default()
     }];
-    let r = apply_rate_like("rate", series, Duration::from_secs(60));
+    let r = apply_rate_like(
+        "rate",
+        series,
+        RangeWindow::new(60_000_000, Duration::from_secs(60)),
+    );
     assert_eq!(r.items.len(), 1);
     let v = r.items[0].1;
     assert!((v - 1.0).abs() < 1e-9, "rate must be 1.0/s, got {v}");
@@ -431,6 +435,8 @@ fn rate_and_increase_handle_counter_resets() {
         (60_000_000, 5.0),
         (90_000_000, 10.0),
     ];
+    // 窗口 (0, 90s] 两端都有样本，不外推：只看重置的折算。
+    let window = RangeWindow::new(90_000_000, Duration::from_secs(90));
     let rate = apply_rate_like(
         "rate",
         vec![Series {
@@ -438,7 +444,7 @@ fn rate_and_increase_handle_counter_resets() {
             samples: samples.clone(),
             ..Default::default()
         }],
-        Duration::from_secs(100),
+        window,
     );
     let increase = apply_rate_like(
         "increase",
@@ -447,11 +453,93 @@ fn rate_and_increase_handle_counter_resets() {
             samples,
             ..Default::default()
         }],
-        Duration::from_secs(100),
+        window,
     );
 
-    assert!((rate.items[0].1 - 0.2).abs() < 1e-9);
+    assert!((rate.items[0].1 - 20.0 / 90.0).abs() < 1e-9);
     assert!((increase.items[0].1 - 20.0).abs() < 1e-9);
+}
+
+/// 压测里的 counter：每 15s 一个样本、每个涨 400，最后一个在 `LAST`。5m 窗口按求值时刻装进 20 个
+/// 或 19 个样本，样本之间只有 19 段或 18 段；外推到窗口两端后，四个时刻都是 5m 涨 8000，与
+/// Prometheus 一致。
+#[test]
+fn rate_and_increase_extrapolate_to_the_window_edges() {
+    const LAST: i64 = 1_793_923_185_000_000;
+    const STEP: i64 = 15_000_000;
+
+    let samples: Vec<(i64, f64)> = (0..40)
+        .rev()
+        .map(|k| (LAST - k * STEP, 1_680_000.0 - 400.0 * k as f64))
+        .collect();
+
+    let series = || {
+        vec![Series {
+            labels: LabelSet::new(),
+            samples: samples.clone(),
+            ..Default::default()
+        }]
+    };
+
+    let value = |func: &str, at: i64| {
+        let steps = Steps::new(at, at, STEP);
+        let out = apply_rate_like_range(func, series(), Duration::from_secs(300), steps);
+        assert_eq!(out.points.len(), 1, "{func} at {at}");
+        out.points[0].value
+    };
+
+    // 第一个时刻与 Prometheus 实测的值逐位相同。
+    assert_eq!(value("rate", LAST), 26.666666666666664);
+    assert_eq!(value("increase", LAST), 8000.0);
+
+    for at in [LAST + 1, 1_793_923_199_999_999, 1_793_923_200_000_000] {
+        assert!(
+            (value("rate", at) - 80.0 / 3.0).abs() < 1e-9,
+            "rate at {at}"
+        );
+        assert!(
+            (value("increase", at) - 8000.0).abs() < 1e-9,
+            "increase at {at}"
+        );
+    }
+}
+
+/// 序列在窗口里才开始：第一个样本离起点超过平均间隔的 1.1 倍时只往前延半个间隔；counter 照斜率
+/// 回到 0 的时刻更近时只延到那里。gauge 的 `delta` 同样外推，但不受 0 的限制。
+#[test]
+fn extrapolation_stops_where_the_series_starts() {
+    let window = RangeWindow::new(60_000_000, Duration::from_secs(60));
+    let p = RangeFuncParams::default();
+
+    let increase = |samples: Vec<(i64, f64)>| {
+        let series = Series {
+            labels: LabelSet::new(),
+            samples,
+            ..Default::default()
+        };
+
+        apply_rate_like("increase", vec![series], window).items[0].1
+    };
+
+    let every_ten = |from: i64, first: f64, slope: f64| {
+        (from..=6)
+            .map(|k| (k * 10_000_000, first + slope * (k - from) as f64))
+            .collect::<Vec<_>>()
+    };
+
+    // 30s 起才有样本：起点那边空着 30s，只延 5s；末端贴着窗口。30 × 35 / 30。
+    assert!((increase(every_ten(3, 100.0, 10.0)) - 35.0).abs() < 1e-9);
+
+    // 10s 时是 2、每 10s 涨 10：8s 时是 0，只延 2s。50 × 52 / 50。
+    assert!((increase(every_ten(1, 2.0, 10.0)) - 52.0).abs() < 1e-9);
+
+    // 同样的值当 gauge 求 `delta`：延到窗口起点，50 × 60 / 50；往下走的 gauge 也一样。
+    let delta = |samples: Vec<(i64, f64)>| {
+        range_vector_value("delta", &samples, 60_000_000, window, p).unwrap()
+    };
+
+    assert!((delta(every_ten(1, 2.0, 10.0)) - 60.0).abs() < 1e-9);
+    assert!((delta(every_ten(1, 50.0, -6.0)) + 36.0).abs() < 1e-9);
 }
 
 #[test]
@@ -461,7 +549,11 @@ fn irate_uses_last_two_points() {
         samples: vec![(0, 0.0), (60_000_000, 30.0), (120_000_000, 90.0)],
         ..Default::default()
     }];
-    let r = apply_rate_like("irate", series, Duration::from_secs(120));
+    let r = apply_rate_like(
+        "irate",
+        series,
+        RangeWindow::new(120_000_000, Duration::from_secs(120)),
+    );
     assert_eq!(r.items.len(), 1);
     let v = r.items[0].1;
     assert!((v - 1.0).abs() < 1e-9, "irate must be 1.0/s, got {v}");
@@ -474,7 +566,11 @@ fn irate_uses_post_reset_value_instead_of_negative_delta() {
         samples: vec![(0, 90.0), (60_000_000, 5.0)],
         ..Default::default()
     }];
-    let result = apply_rate_like("irate", series, Duration::from_secs(60));
+    let result = apply_rate_like(
+        "irate",
+        series,
+        RangeWindow::new(60_000_000, Duration::from_secs(60)),
+    );
     assert_eq!(result.items.len(), 1);
     assert!((result.items[0].1 - (5.0 / 60.0)).abs() < 1e-9);
 }
@@ -492,8 +588,9 @@ fn delta_rate_and_increase_sum_reported_intervals() {
         sample_metadata: metadata.clone(),
     };
 
-    let rate = apply_rate_like("rate", vec![input()], Duration::from_secs(30));
-    let increase = apply_rate_like("increase", vec![input()], Duration::from_secs(30));
+    let window = RangeWindow::new(30_000_000, Duration::from_secs(30));
+    let rate = apply_rate_like("rate", vec![input()], window);
+    let increase = apply_rate_like("increase", vec![input()], window);
     assert!((rate.items[0].1 - (10.0 / 30.0)).abs() < 1e-9);
     assert!((increase.items[0].1 - 10.0).abs() < 1e-9);
 }
@@ -509,7 +606,11 @@ fn delta_irate_uses_latest_reported_interval() {
         ],
     };
 
-    let result = apply_rate_like("irate", vec![series], Duration::from_secs(30));
+    let result = apply_rate_like(
+        "irate",
+        vec![series],
+        RangeWindow::new(30_000_000, Duration::from_secs(30)),
+    );
     assert!((result.items[0].1 - 4.0).abs() < 1e-9);
 }
 
@@ -532,8 +633,16 @@ fn non_monotonic_sum_uses_signed_semantics() {
         ],
     };
 
-    let cumulative = apply_rate_like("increase", vec![cumulative], Duration::from_secs(30));
-    let delta = apply_rate_like("increase", vec![delta], Duration::from_secs(30));
+    let cumulative = apply_rate_like(
+        "increase",
+        vec![cumulative],
+        RangeWindow::new(10_000_000, Duration::from_secs(10)),
+    );
+    let delta = apply_rate_like(
+        "increase",
+        vec![delta],
+        RangeWindow::new(30_000_000, Duration::from_secs(30)),
+    );
     assert!((cumulative.items[0].1 + 5.0).abs() < 1e-9);
     assert!((delta.items[0].1 - 7.0).abs() < 1e-9);
 }
@@ -556,7 +665,11 @@ fn temporality_switch_uses_latest_contiguous_run() {
         ],
     };
 
-    let result = apply_rate_like("increase", vec![series], Duration::from_secs(30));
+    let result = apply_rate_like(
+        "increase",
+        vec![series],
+        RangeWindow::new(30_000_000, Duration::from_secs(30)),
+    );
     assert!((result.items[0].1 - 7.0).abs() < 1e-9);
 }
 
@@ -642,9 +755,7 @@ fn avg_over_time_range_uses_trailing_window() {
         None,
         series,
         Duration::from_secs(120),
-        60_000_000,
-        120_000_000,
-        60_000_000,
+        Steps::new(60_000_000, 120_000_000, 60_000_000),
     );
     assert_eq!(range.points.len(), 2);
     assert_eq!(range.points[0].ts_us, 60_000_000);
@@ -1170,7 +1281,11 @@ fn increase_basic() {
         samples: vec![(0, 10.0), (60_000_000, 70.0)],
         ..Default::default()
     }];
-    let r = apply_rate_like("increase", series, Duration::from_secs(60));
+    let r = apply_rate_like(
+        "increase",
+        series,
+        RangeWindow::new(60_000_000, Duration::from_secs(60)),
+    );
     assert!((r.items[0].1 - 60.0).abs() < 1e-9);
 }
 
@@ -1185,9 +1300,7 @@ fn rate_range_emits_timestamped_points() {
         "rate",
         series,
         Duration::from_secs(120),
-        0,
-        120_000_000,
-        60_000_000,
+        Steps::new(0, 120_000_000, 60_000_000),
     );
     assert_eq!(range.points.len(), 2);
     assert_eq!(range.points[0].ts_us, 60_000_000);
@@ -1362,10 +1475,8 @@ fn histogram_fraction_interpolates_inside_bucket() {
 
 #[tokio::test]
 async fn unsupported_function_returns_invalid() {
-    use crate::{
-        domain::query::{QueryLanguage, QueryRequest},
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use domain::query::{QueryLanguage, QueryRequest};
+    use kernel::{ids::Id, time::TimestampMicros};
     struct EmptyFiles;
     #[async_trait]
     impl QueryFileSource for EmptyFiles {
@@ -1375,7 +1486,7 @@ async fn unsupported_function_returns_invalid() {
             _s: &str,
             _t: StreamType,
             _r: TimeRange,
-        ) -> Result<Vec<crate::domain::storage::QueryFile>> {
+        ) -> Result<Vec<domain::storage::QueryFile>> {
             Ok(Vec::new())
         }
     }
@@ -1406,38 +1517,66 @@ async fn unsupported_function_returns_invalid() {
 fn delta_and_idelta_compute_window_differences() {
     let samples = vec![(0, 10.0), (30_000_000, 20.0), (60_000_000, 50.0)];
     let p = RangeFuncParams::default();
+    let window = RangeWindow::new(60_000_000, Duration::from_secs(60));
     assert_eq!(
-        range_vector_value("delta", &samples, 60_000_000, p),
+        range_vector_value("delta", &samples, 60_000_000, window, p),
         Some(40.0)
     );
     assert_eq!(
-        range_vector_value("idelta", &samples, 60_000_000, p),
+        range_vector_value("idelta", &samples, 60_000_000, window, p),
         Some(30.0)
     );
     // 单点不足以求差
-    assert_eq!(range_vector_value("delta", &samples[..1], 0, p), None);
+    assert_eq!(
+        range_vector_value("delta", &samples[..1], 60_000_000, window, p),
+        None
+    );
 }
 
 #[test]
 fn resets_and_changes_count_transitions() {
     let resets = vec![(0, 10.0), (1, 5.0), (2, 8.0), (3, 2.0)];
     assert_eq!(
-        range_vector_value("resets", &resets, 3, RangeFuncParams::default()),
+        range_vector_value(
+            "resets",
+            &resets,
+            3,
+            RangeWindow::new(3, Duration::from_secs(60)),
+            RangeFuncParams::default()
+        ),
         Some(2.0)
     );
     let changes = vec![(0, 1.0), (1, 1.0), (2, 2.0), (3, 2.0), (4, 3.0)];
     assert_eq!(
-        range_vector_value("changes", &changes, 4, RangeFuncParams::default()),
+        range_vector_value(
+            "changes",
+            &changes,
+            4,
+            RangeWindow::new(4, Duration::from_secs(60)),
+            RangeFuncParams::default()
+        ),
         Some(2.0)
     );
     // 恒定序列：0 次变化、0 次 reset
     let flat = vec![(0, 7.0), (1, 7.0), (2, 7.0)];
     assert_eq!(
-        range_vector_value("changes", &flat, 2, RangeFuncParams::default()),
+        range_vector_value(
+            "changes",
+            &flat,
+            2,
+            RangeWindow::new(2, Duration::from_secs(60)),
+            RangeFuncParams::default()
+        ),
         Some(0.0)
     );
     assert_eq!(
-        range_vector_value("resets", &flat, 2, RangeFuncParams::default()),
+        range_vector_value(
+            "resets",
+            &flat,
+            2,
+            RangeWindow::new(2, Duration::from_secs(60)),
+            RangeFuncParams::default()
+        ),
         Some(0.0)
     );
 }
@@ -1450,13 +1589,27 @@ fn deriv_and_predict_linear_fit_a_line() {
         predict_t: 5.0,
         ..Default::default()
     };
-    let slope = range_vector_value("deriv", &samples, 2_000_000, p).unwrap();
+    let slope = range_vector_value(
+        "deriv",
+        &samples,
+        2_000_000,
+        RangeWindow::new(2_000_000, Duration::from_secs(60)),
+        p,
+    )
+    .unwrap();
     assert!(
         (slope - 2.0).abs() < 1e-9,
         "deriv slope must be 2/s, got {slope}"
     );
     // 原点（at_us）处值为 9，5 秒后外推 = 9 + 2*5 = 19。
-    let predicted = range_vector_value("predict_linear", &samples, 2_000_000, p).unwrap();
+    let predicted = range_vector_value(
+        "predict_linear",
+        &samples,
+        2_000_000,
+        RangeWindow::new(2_000_000, Duration::from_secs(60)),
+        p,
+    )
+    .unwrap();
     assert!(
         (predicted - 19.0).abs() < 1e-9,
         "predict_linear must be 19, got {predicted}"
@@ -1471,13 +1624,27 @@ fn holt_winters_smooths_to_trend() {
         hw_tf: 0.5,
         ..Default::default()
     };
-    let v = range_vector_value("holt_winters", &samples, 2, p).unwrap();
+    let v = range_vector_value(
+        "holt_winters",
+        &samples,
+        2,
+        RangeWindow::new(2, Duration::from_secs(60)),
+        p,
+    )
+    .unwrap();
     assert!(
         (v - 30.0).abs() < 1e-9,
         "holt_winters must track to 30, got {v}"
     );
     // double_exponential_smoothing 是同义名
-    let v2 = range_vector_value("double_exponential_smoothing", &samples, 2, p).unwrap();
+    let v2 = range_vector_value(
+        "double_exponential_smoothing",
+        &samples,
+        2,
+        RangeWindow::new(2, Duration::from_secs(60)),
+        p,
+    )
+    .unwrap();
     assert!((v2 - 30.0).abs() < 1e-9);
 }
 
@@ -1488,7 +1655,13 @@ fn apply_range_vector_func_maps_series_to_instant() {
         samples: vec![(0, 10.0), (60_000_000, 40.0)],
         ..Default::default()
     }];
-    let out = apply_range_vector_func("delta", series, 60_000_000, RangeFuncParams::default());
+    let out = apply_range_vector_func(
+        "delta",
+        series,
+        60_000_000,
+        RangeWindow::new(60_000_000, Duration::from_secs(60)),
+        RangeFuncParams::default(),
+    );
     assert_eq!(out.items.len(), 1);
     assert!((out.items[0].1 - 30.0).abs() < 1e-9);
 }
@@ -1641,10 +1814,8 @@ fn binary_group_right_keeps_many_side_labels() {
 
 #[test]
 fn offset_and_at_modifiers_shift_eval_time() {
-    use crate::{
-        domain::query::{QueryLanguage, QueryRequest},
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use domain::query::{QueryLanguage, QueryRequest};
+    use kernel::{ids::Id, time::TimestampMicros};
 
     let req = QueryRequest {
         org_id: Id::from_string("org"),
@@ -1671,6 +1842,27 @@ fn offset_and_at_modifiers_shift_eval_time() {
     assert_eq!(at("m @ 100.000 offset 1m"), 40_000_000); // 100s - 60s
     // matrix selector 上的 offset 同样落在 ms.vs。
     assert_eq!(at("m[5m] offset 1m"), 5_000_000 - 60_000_000);
+
+    // range 查询的每一步读的窗口右端，与在那一步做 instant 求值的相同。
+    for q in [
+        "m",
+        "m offset 5m",
+        "m offset -1m",
+        "m @ end()",
+        "m @ start() offset 1m",
+        "m @ 100.000 offset 1m",
+        "m[5m] offset 1m",
+    ] {
+        let steps = Steps::of_selector(&vs(q), &req);
+
+        for t in [1_000_000, 4_000_000, 10_000_000] {
+            assert_eq!(
+                steps.window_end(t),
+                effective_eval_time(&vs(q), t, &req),
+                "{q} at {t}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -1722,10 +1914,8 @@ fn limit_ratio_partitions_series_complementarily() {
 
 #[tokio::test]
 async fn subquery_steps_inner_expression_over_window() {
-    use crate::{
-        domain::query::{QueryLanguage, QueryRequest},
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use domain::query::{QueryLanguage, QueryRequest};
+    use kernel::{ids::Id, time::TimestampMicros};
 
     struct EmptyFiles;
     #[async_trait]
@@ -1736,7 +1926,7 @@ async fn subquery_steps_inner_expression_over_window() {
             _s: &str,
             _t: StreamType,
             _r: TimeRange,
-        ) -> Result<Vec<crate::domain::storage::QueryFile>> {
+        ) -> Result<Vec<domain::storage::QueryFile>> {
             Ok(Vec::new())
         }
     }
@@ -1785,15 +1975,20 @@ fn each_step_window_matches_bruteforce() {
     let samples: Vec<(i64, f64)> = (0..500).map(|i| (i * 3_000_000, i as f64)).collect();
     let (start, end, step, range) = (10_000_000_i64, 1_400_000_000, 70_000_000, 120_000_000);
     let mut steps = 0usize;
-    each_step_window(&samples, start, end, step, range, |t, win| {
-        let expect: Vec<(i64, f64)> = samples
-            .iter()
-            .copied()
-            .filter(|&(ts, _)| ts > t - range && ts <= t)
-            .collect();
-        assert_eq!(win, &expect[..], "window mismatch at t={t}");
-        steps += 1;
-    });
+    each_step_window(
+        &samples,
+        Steps::new(start, end, step),
+        range,
+        |t, _, win| {
+            let expect: Vec<(i64, f64)> = samples
+                .iter()
+                .copied()
+                .filter(|&(ts, _)| ts > t - range && ts <= t)
+                .collect();
+            assert_eq!(win, &expect[..], "window mismatch at t={t}");
+            steps += 1;
+        },
+    );
     assert_eq!(steps, ((end - start) / step + 1) as usize);
 }
 
@@ -1810,19 +2005,18 @@ fn rate_range_output_bounded_by_step_not_sample_density() {
         "rate",
         series,
         Duration::from_secs(300),
-        0,
-        3_600_000_000,
-        60_000_000,
+        Steps::new(0, 3_600_000_000, 60_000_000),
     );
     // 61 个步点（0..=3600s @60s）；t=0 窗口只有 1 个样本被跳过。
     assert_eq!(out.points.len(), 60);
-    // t=300s：窗口 (0, 300s] 含 counter 1..=300 → delta=299，rate=299/300。
+    // t=300s：窗口 (0, 300s] 含 counter 1..=300 → 样本间的差 299，第一个样本离窗口起点 1s，
+    // 外推到起点 → 增量 300，rate=1/s。
     let p = out
         .points
         .iter()
         .find(|p| p.ts_us == 300_000_000)
         .expect("step at 300s");
-    assert!((p.value - 299.0 / 300.0).abs() < 1e-9, "got {}", p.value);
+    assert!((p.value - 1.0).abs() < 1e-9, "got {}", p.value);
 }
 
 #[test]
@@ -1834,7 +2028,7 @@ fn samples_to_range_vector_steps_with_staleness_lookback() {
         samples: vec![(0, 1.0), (30_000_000, 2.0), (60_000_000, 3.0)],
         ..Default::default()
     }];
-    let out = samples_to_range_vector(series, 0, 600_000_000, 30_000_000);
+    let out = samples_to_range_vector(series, Steps::new(0, 600_000_000, 30_000_000));
     let vals: Vec<(i64, f64)> = out.points.iter().map(|p| (p.ts_us, p.value)).collect();
     // t=0 → 1.0；t=30s → 2.0；t=60s..330s → 3.0；t≥360s 窗口 (t-300s, t] 已空。
     assert_eq!(vals.len(), 12);

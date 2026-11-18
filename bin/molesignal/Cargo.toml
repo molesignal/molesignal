@@ -93,6 +93,8 @@ rand.workspace = true
 rcgen.workspace = true
 rdkafka.workspace = true
 regex.workspace = true
+memchr.workspace = true
+aho-corasick.workspace = true
 reqwest.workspace = true
 report-renderer = { path = "../../crates/support/report-renderer" }
 rmcp.workspace = true

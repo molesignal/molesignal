@@ -7,6 +7,14 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use arrow::datatypes::{DataType, Schema as ArrowSchema, TimeUnit};
 use datafusion::execution::object_store::ObjectStoreUrl;
+use domain::{
+    masking::Masker,
+    query::{QueryRequest, QueryResult, StreamHint},
+    storage::DatasetTypeId,
+    stream::{StreamIndexType, StreamRepository, StreamType as StreamTypeEnum},
+};
+use kernel::{Error, Result};
+use query_language::{WhereTree, equality_sets, extract_referenced_tables, parse_sample_hint};
 
 use super::{
     DataFusionEngine,
@@ -15,34 +23,24 @@ use super::{
     dataset,
     paging::{self, Page},
     resolve_stream_type,
-    selection::{exact_terms, row_selections, rows_to_read},
+    selection::{exact_terms, rows_to_read, selections},
     shards,
-    tables::{TableInput, collect_planned, plan_error},
+    tables::{TableInput, collect_planned, page_rows, plan_error},
     waves::time_order,
 };
-use crate::{
-    domain::{
-        masking::Masker,
-        query::{QueryRequest, QueryResult, StreamHint},
-        storage::DatasetTypeId,
-        stream::{StreamIndexType, StreamRepository, StreamType as StreamTypeEnum},
+use crate::infra::{
+    query::{
+        arrow_json::batches_to_json,
+        catalog_source::StreamSnapshotSelection,
+        current_views,
+        planner::ensure_stream_in_org,
+        refutations::Refutations,
+        scan_limit::ensure_within_scan_limit,
+        skip_pruner,
+        tantivy_pruner::{self, indexed_atoms, match_text_fields, rewrite_match_calls},
+        udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
     },
-    infra::{
-        query::{
-            arrow_json::batches_to_json,
-            catalog_source::StreamSnapshotSelection,
-            current_views,
-            parser::{WhereTree, equality_sets, extract_referenced_tables, parse_sample_hint},
-            planner::ensure_stream_in_org,
-            refutations::Refutations,
-            scan_limit::ensure_within_scan_limit,
-            skip_pruner,
-            tantivy_pruner::{self, indexed_atoms, match_text_fields, rewrite_match_calls},
-            udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
-        },
-        storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
-    },
-    shared::{Error, Result},
+    storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
 };
 
 pub(super) async fn run(
@@ -90,7 +88,8 @@ pub(super) async fn run(
     // 数据文件只能从请求组织自己的对象前缀读取，即使 Catalog 返回了越界的 key。
     let store = scoped_to_org(engine.object_store.clone(), &req.org_id);
     let reader = ParquetReader::new(store.clone());
-    let ctx = crate::infra::query::analyzer::session_context(engine.max_result_rows);
+    let ctx =
+        crate::infra::query::analyzer::query_session(engine.max_result_rows, engine.parallelism);
     let object_store_url = ObjectStoreUrl::parse("molesignal://query")
         .map_err(|error| Error::internal(format!("object store URL: {error}")))?;
     ctx.runtime_env()
@@ -163,7 +162,7 @@ pub(super) async fn run(
             .map(|((_, stream_type, selected_dataset), definition)| {
                 let dataset_types = match selected_dataset.clone() {
                     Some(dataset_type) => vec![dataset_type],
-                    None => crate::domain::storage::logical_query_dataset_types(*stream_type)?,
+                    None => domain::storage::logical_query_dataset_types(*stream_type)?,
                 };
 
                 Ok(StreamSnapshotSelection::new(
@@ -236,6 +235,7 @@ pub(super) async fn run(
                 &engine.files,
                 engine.catalog_source.as_ref(),
                 &engine.explicit_tantivy_indexes,
+                &engine.explicit_minute_count_keys,
                 stream_definition.as_ref(),
                 dataset::DatasetLoadSelection {
                     organization_id: &req.org_id,
@@ -287,7 +287,7 @@ pub(super) async fn run(
             && table_name == &name
         {
             files = counted
-                .take(engine, files, req.time_range, &tantivy_indexes)
+                .take(engine, files, &tantivy_indexes, &loaded.minute_count_keys)
                 .await;
         }
 
@@ -345,6 +345,8 @@ pub(super) async fn run(
             },
         };
 
+        let page_rows = page_rows(stream_definitions[index].as_ref(), &schema);
+
         let table = TableInput {
             name: table_name.clone(),
             schema,
@@ -352,7 +354,10 @@ pub(super) async fn run(
             buffered: buffered_batches,
             dataset: selected_dataset.clone(),
             index_keys: tantivy_indexes,
+            filter_keys: loaded.filter_keys,
+            minute_keys: loaded.minute_count_keys,
             selections: HashMap::new(),
+            page_rows,
             views: views
                 .iter()
                 .filter(|view| view.base() == table_name.as_str())
@@ -384,7 +389,7 @@ pub(super) async fn run(
         .flatten();
 
     let batches = match (order, main_table) {
-        (Some(order), Some(table)) if table.files.len() > 1 => {
+        (Some(order), Some(table)) if table.files.len() > 1 || !table.minute_keys.is_empty() => {
             let page = Page {
                 engine,
                 ctx: &ctx,
@@ -395,6 +400,7 @@ pub(super) async fn run(
                 atoms: if defer { &tantivy_atoms } else { &[] },
                 refutations: &mut refutations,
                 exact_terms: &exact_terms,
+                filter_terms: &filter_terms,
             };
 
             let (batches, scanned) = paging::read(page, order, table).await?;
@@ -402,8 +408,8 @@ pub(super) async fn run(
             batches
         }
         (_, main) => {
-            // 剪枝推迟到这里的文件一次剪完；等值条件命中很少行的文件只读命中的行所在的页。
-            // 文件或要读的行变了，主表重新注册、语句重新规划。
+            // 剪枝推迟到这里的文件一次剪完；等值条件命中很少行的文件只读命中的行所在的页，
+            // `LIKE` 只读它可能成立的块。文件或要读的行变了，主表重新注册、语句重新规划。
             if let Some(mut table) = main {
                 let all = table.files.iter().map(|file| file.rows).sum::<u64>();
                 let before = table.files.len();
@@ -424,8 +430,15 @@ pub(super) async fn run(
                         .files;
                 }
 
-                table.selections =
-                    row_selections(engine, &table.files, &exact_terms, &table.index_keys).await;
+                table.selections = selections(
+                    engine,
+                    &table.files,
+                    &table,
+                    &exact_terms,
+                    &filter_terms,
+                    &refutations,
+                )
+                .await;
 
                 if table.files.len() != before || !table.selections.is_empty() {
                     scanned_rows = scanned_rows
@@ -445,7 +458,11 @@ pub(super) async fn run(
 
             ensure_within_scan_limit(scanned_rows, engine.max_scan_rows)?;
 
-            let (schema, mut batches) = collect_planned(dataframe, req.limit).await?;
+            let limit = counted
+                .as_ref()
+                .map_or(req.limit, |counted| counted.result_limit(req.limit));
+
+            let (schema, mut batches) = collect_planned(dataframe, limit).await?;
 
             if let Some(counted) = &counted {
                 counted.add_to(&mut batches, schema)?;
@@ -494,9 +511,11 @@ pub(super) async fn validate_match_text_fields(
     };
 
     for field in fields {
-        let configured = definition.schema.fields.iter().any(|def| {
-            def.name == field && def.effective_index_type() == StreamIndexType::FullText
-        });
+        let configured = definition
+            .schema
+            .fields
+            .iter()
+            .any(|def| def.name == field && def.index_type == StreamIndexType::FullText);
 
         if !configured {
             return Err(Error::invalid(format!(

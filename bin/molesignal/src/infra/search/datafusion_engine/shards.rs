@@ -6,11 +6,9 @@
 //! 分片的文件里成立。两个分片字段时各按自己那部分分片号判断。文件按自己写入时的分片字段判断，
 //! 没有分片的文件证明不了什么。
 
-use crate::{
-    domain::storage::{FileShard, QueryFile},
-    infra::query::parser::{
-        EqualitySet, LikePattern, LikeSet, Refuted, WhereTree, atom_bit, equality_atom, like_atom,
-    },
+use domain::storage::{FileShard, QueryFile};
+use query_language::{
+    EqualitySet, LikePattern, LikeSet, Refuted, WhereTree, atom_bit, equality_atom, like_atom,
 };
 
 /// 条件树里分片能判断的原子条件：等值条件与 `LIKE` / `ILIKE`。
@@ -78,18 +76,17 @@ fn may_match_any(shard: &FileShard, column: &str, patterns: &[LikePattern]) -> b
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::{
-            storage::primary_dataset_type,
-            stream::{FieldPartition, FieldPartitions, PartitionScheme, StreamType},
-        },
-        infra::query::refutations::Refutations,
-        shared::{
-            ids::Id,
-            time::{TimeRange, TimestampMicros},
-        },
+    use domain::{
+        storage::primary_dataset_type,
+        stream::{FieldPartition, FieldPartitions, PartitionScheme, StreamType},
     };
+    use kernel::{
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    };
+
+    use super::*;
+    use crate::infra::query::refutations::Refutations;
 
     fn file(id: &str, shard: Option<FileShard>) -> QueryFile {
         QueryFile {
@@ -111,6 +108,7 @@ mod tests {
             null_counts: serde_json::Map::new(),
             indexed_at_micros: None,
             shard,
+            clustering: Default::default(),
         }
     }
 

@@ -18,6 +18,50 @@ pub(super) fn range_step_us(req: &QueryRequest) -> i64 {
         .max(1)
 }
 
+/// range 查询的步点 `start, start + step, …`（不超过 `end`），与选择器在每个步点读的窗口的右端。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Steps {
+    pub(super) start_us: i64,
+    pub(super) end_us: i64,
+    pub(super) step_us: i64,
+    /// `@` 固定的时刻：每一步都读同一个窗口。
+    pinned_us: Option<i64>,
+    /// `offset` 把窗口往前移的微秒数，负数往后移。
+    offset_us: i64,
+}
+
+impl Steps {
+    /// 窗口右端就是步点本身。
+    pub(super) fn new(start_us: i64, end_us: i64, step_us: i64) -> Self {
+        Self {
+            start_us,
+            end_us,
+            step_us,
+            pinned_us: None,
+            offset_us: 0,
+        }
+    }
+
+    /// 请求的步点，窗口按选择器 `vs` 的 `@` 与 `offset` 平移，与 instant 求值的
+    /// [`effective_eval_time`] 相同；点仍记在请求的步点上。
+    pub(super) fn of_selector(vs: &VectorSelector, req: &QueryRequest) -> Self {
+        Self {
+            pinned_us: pinned_time(vs.at.as_ref(), req),
+            offset_us: offset_micros(vs.offset.as_ref()),
+            ..Self::new(
+                req.time_range.start.0,
+                req.time_range.end.0,
+                range_step_us(req),
+            )
+        }
+    }
+
+    /// 步点 `t` 读的窗口的右端。
+    pub(super) fn window_end(self, t: i64) -> i64 {
+        self.pinned_us.unwrap_or(t) - self.offset_us
+    }
+}
+
 /// 校验请求的 step：必须为正，且每条 series 的步数不超过 [`MAX_RANGE_STEPS`]。
 pub(super) fn validate_range_step(req: &QueryRequest) -> Result<()> {
     let Some(step) = req.step else {
@@ -44,13 +88,14 @@ pub(super) fn validate_range_step(req: &QueryRequest) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::shared::{ids::Id, time::TimestampMicros};
 
     fn request(span_us: i64, step: Option<i64>) -> QueryRequest {
         QueryRequest {
             org_id: Id::from_string("org"),
-            language: crate::domain::query::QueryLanguage::Promql,
+            language: domain::query::QueryLanguage::Promql,
             statement: "up".into(),
             time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(span_us)),
             stream: None,

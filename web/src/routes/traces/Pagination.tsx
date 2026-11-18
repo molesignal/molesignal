@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 
 import { DEFAULT_EXPLORER_PAGE_SIZE, EXPLORER_PAGE_SIZE_OPTIONS } from '@/pagination/explorerPageSize';
 import { CursorPagination } from '@/shell/CursorPagination';
+import { EXPLORER_PAGINATION_CLASS } from '@/shell/query/foot';
 import { ResultPagination } from '@/shell/ResultPagination';
 
 export const DEFAULT_TRACE_PAGE_SIZE = DEFAULT_EXPLORER_PAGE_SIZE;
@@ -45,7 +46,7 @@ export function TracePagination({ model }: { model: TracePaginationModel }) {
         onPrevious={model.onPrevious}
         onNext={model.onNext}
         onPageSizeChange={model.onPageSizeChange}
-        className="border-t-0 bg-transparent"
+        className={EXPLORER_PAGINATION_CLASS}
       />
     );
   }
@@ -68,7 +69,7 @@ export function TracePagination({ model }: { model: TracePaginationModel }) {
       lastAriaLabel={t('explore.pagination.last_aria')}
       onPageChange={model.onPageChange}
       onPageSizeChange={model.onPageSizeChange}
-      className="border-t-0 bg-transparent"
+      className={EXPLORER_PAGINATION_CLASS}
     />
   );
 }

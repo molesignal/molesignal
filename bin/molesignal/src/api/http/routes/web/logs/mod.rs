@@ -4,6 +4,17 @@
 //! Structured log search with signed, bidirectional keyset pagination.
 
 use axum::{Extension, Json, Router, extract::State, routing::get};
+use domain::{
+    iam::{IamContext, permission},
+    intake::EVENT_ID_FIELD,
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::StreamType,
+};
+use kernel::{
+    Error, Result,
+    cursor::{CursorDirection, CursorPage, trim_cursor_page},
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -11,24 +22,7 @@ use self::{
     cursor::{LogCursorBoundary, LogCursorPayload},
     filter::condition::{self, LogCondition},
 };
-use crate::{
-    api::{
-        AppState,
-        http::pagination::cursor::{CursorDirection, CursorPage, trim_cursor_page},
-    },
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        intake::EVENT_ID_FIELD,
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::StreamType,
-    },
-    infra::query::escape_sql_ident,
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::{api::AppState, infra::query::escape_sql_ident};
 
 mod address;
 mod cursor;
@@ -348,7 +342,7 @@ fn validate_filter_fields(
     filters: &[LogFilter],
     free_text: &[String],
     condition: Option<&LogCondition>,
-    fields: &[crate::domain::stream::FieldDef],
+    fields: &[domain::stream::FieldDef],
 ) -> Result<()> {
     filter::validate(filters, fields)?;
 
@@ -377,7 +371,7 @@ fn match_clauses(
     filters: &[LogFilter],
     free_text: &[String],
     condition: Option<&LogCondition>,
-    fields: &[crate::domain::stream::FieldDef],
+    fields: &[domain::stream::FieldDef],
 ) -> Result<Vec<String>> {
     let mut clauses = vec![
         format!("{TIMESTAMP_MICROS} >= {from}"),
@@ -418,7 +412,7 @@ fn text_sql(value: &str) -> String {
 fn list_sql(
     context: &LogListContext,
     fetch_limit: usize,
-    fields: &[crate::domain::stream::FieldDef],
+    fields: &[domain::stream::FieldDef],
 ) -> Result<String> {
     let stream = escape_sql_ident(&context.stream);
     let timestamp_expr = TIMESTAMP_MICROS;
@@ -460,7 +454,7 @@ fn list_sql(
     ))
 }
 
-fn rows_from_query(output: crate::domain::query::QueryResult) -> Vec<LogListRow> {
+fn rows_from_query(output: domain::query::QueryResult) -> Vec<LogListRow> {
     let timestamp_index = output
         .columns
         .iter()
@@ -530,6 +524,7 @@ mod tests {
         datatypes::{DataType, Field, Schema, TimeUnit},
     };
     use datafusion::{datasource::MemTable, prelude::SessionContext};
+    use domain::stream::StreamIndexType;
 
     use super::*;
 
@@ -553,14 +548,12 @@ mod tests {
 
     #[test]
     fn list_sql_applies_strict_window_sort_and_page_size_plus_one() {
-        let fields = [crate::domain::stream::FieldDef {
+        let fields = [domain::stream::FieldDef {
             name: "service".into(),
-            data_type: crate::domain::stream::FieldType::Utf8,
+            data_type: domain::stream::FieldType::Utf8,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         }];
         let sql = list_sql(&context(), 21, &fields).expect("sql");
         assert!(sql.contains("CAST(_timestamp AS BIGINT) >= 100"));
@@ -657,14 +650,12 @@ mod tests {
             quoted: true,
         }];
         context.free_text.clear();
-        let fields = [crate::domain::stream::FieldDef {
+        let fields = [domain::stream::FieldDef {
             name: "level".into(),
-            data_type: crate::domain::stream::FieldType::Utf8,
+            data_type: domain::stream::FieldType::Utf8,
             nullable: false,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         }];
         let sql = list_sql(&context, 21, &fields).expect("sql");
         let batches = session
@@ -678,15 +669,13 @@ mod tests {
         assert_eq!(batches.iter().map(RecordBatch::num_rows).sum::<usize>(), 1);
     }
 
-    fn utf8(name: &str) -> crate::domain::stream::FieldDef {
-        crate::domain::stream::FieldDef {
+    fn utf8(name: &str) -> domain::stream::FieldDef {
+        domain::stream::FieldDef {
             name: name.into(),
-            data_type: crate::domain::stream::FieldType::Utf8,
+            data_type: domain::stream::FieldType::Utf8,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         }
     }
 

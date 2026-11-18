@@ -9,6 +9,15 @@
 //! Bars counted before are kept (see [`bars`]); only the rest are counted.
 
 use axum::{Extension, Json, extract::State};
+use domain::{
+    iam::{IamContext, permission},
+    query::{QueryLanguage, QueryRequest, StreamHint},
+    stream::{FieldDef, StreamType},
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 
 use super::{
@@ -23,17 +32,7 @@ use crate::{
             Unavailable, bars, read_counts, within_budget,
         },
     },
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        query::{QueryLanguage, QueryRequest, StreamHint},
-        stream::{FieldDef, StreamType},
-    },
     infra::query::escape_sql_ident,
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 /// The fields the level of a log is read from, in the order the explorer
@@ -282,11 +281,11 @@ mod tests {
         datatypes::{DataType, Field, Schema, TimeUnit},
     };
     use datafusion::datasource::MemTable;
+    use domain::stream::{FieldType, StreamIndexType};
 
     use super::*;
     use crate::{
         api::http::routes::web::histogram::BarCount,
-        domain::stream::FieldType,
         infra::query::{analyzer::session_context, arrow_json::batches_to_json},
     };
 
@@ -295,10 +294,8 @@ mod tests {
             name: name.into(),
             data_type: FieldType::Utf8,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         }
     }
 

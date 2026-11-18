@@ -18,32 +18,8 @@
 //! 对应 spec "stream 不存在/属其它 org → Forbidden" 由 DataFusionEngine
 //! 在 execute 之前调 [`ensure_stream_in_org`] 校验。
 
-use crate::{
-    domain::stream::{StreamRepository, StreamType},
-    shared::{Error, Result, ids::Id, time::TimeRange},
-};
-
-/// 抓取 SQL 中所有 base table 名。
-///
-/// **Deprecated**：自 `sqlparser-join-planner` change 起，新代码请直接调
-/// [`crate::infra::query::parser::extract_referenced_tables`]，它返回 `Vec<TableRef>`
-/// 还带 alias / schema 信息。本函数现转发到新解析器并丢弃额外字段，仅维持旧 API
-/// 的二进制兼容。解析失败时返空 vec（保持旧行为：宽容地把"没有可识别 FROM"作为
-/// 空集，让 DataFusion 自己抛 syntax error）。
-#[deprecated(
-    note = "use `crate::infra::query::parser::extract_referenced_tables` instead; \
-            returns TableRef with alias / schema and uses sqlparser AST"
-)]
-pub fn parse_from_tables(stmt: &str) -> Vec<String> {
-    let mut out: Vec<String> = crate::infra::query::parser::extract_referenced_tables(stmt)
-        .map(|refs| refs.into_iter().map(|r| r.name).collect())
-        .unwrap_or_default();
-
-    // 旧 API 排序后返；保持现有 caller 的稳定输出。
-    out.sort();
-    out.dedup();
-    out
-}
+use domain::stream::{StreamRepository, StreamType};
+use kernel::{Error, Result, ids::Id, time::TimeRange};
 
 /// 校验 streamHint 在当前 org 下可被查询，查询时间范围 `time_range` 也在它允许的范围内。
 /// - `_audit` 只给持有 `audit.read` 的调用者读（[`super::grants`]）→ 否则 `Error::Forbidden`。
@@ -117,48 +93,13 @@ impl RewriteTableNamesPass {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_from_single() {
-        let r = parse_from_tables("SELECT * FROM logs WHERE x = 1");
-        assert_eq!(r, vec!["logs".to_string()]);
-    }
-
-    #[test]
-    fn parse_join_picks_up_both() {
-        let r = parse_from_tables(
-            "SELECT l.msg, t.trace_id FROM logs l JOIN traces t ON l.trace_id = t.trace_id",
-        );
-        assert_eq!(r, vec!["logs".to_string(), "traces".to_string()]);
-    }
-
-    #[test]
-    fn parse_multiple_join_chain() {
-        let r = parse_from_tables("SELECT * FROM a JOIN b ON a.id=b.aid JOIN c ON b.id=c.bid");
-        assert_eq!(r, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
-    }
-
-    #[test]
-    fn parse_handles_subquery_from() {
-        // 子查询里也是 FROM；先全部抓回来再 dedup
-        let r = parse_from_tables(
-            "SELECT * FROM (SELECT id FROM logs) sub JOIN traces ON sub.id = traces.id",
-        );
-        assert!(r.contains(&"logs".to_string()));
-        assert!(r.contains(&"traces".to_string()));
-    }
-
     // ---- ensure_stream_in_org: 存在性 + queryable 闸门 ----
-
     use async_trait::async_trait;
+    use domain::stream::{Schema, StreamDefinition, StreamRepository, StreamSettings};
+    use kernel::time::TimestampMicros;
 
-    use crate::{
-        domain::stream::{Schema, StreamDefinition, StreamRepository, StreamSettings},
-        shared::time::TimestampMicros,
-    };
+    use super::*;
 
     struct FakeStreams {
         exists: bool,

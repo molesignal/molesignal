@@ -9,10 +9,8 @@
 
 use std::collections::HashMap;
 
-use crate::{
-    domain::storage::QueryFile,
-    infra::query::parser::{Refuted, WhereTree},
-};
+use domain::storage::QueryFile;
+use query_language::{Refuted, WhereTree};
 
 #[derive(Debug, Default)]
 pub struct Refutations {
@@ -69,15 +67,14 @@ impl Refutations {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::{storage::primary_dataset_type, stream::StreamType},
-        infra::query::parser::atom_bit,
-        shared::{
-            ids::Id,
-            time::{TimeRange, TimestampMicros},
-        },
+    use domain::{storage::primary_dataset_type, stream::StreamType};
+    use kernel::{
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
     };
+    use query_language::atom_bit;
+
+    use super::*;
 
     fn file(key: &str) -> QueryFile {
         QueryFile {
@@ -99,6 +96,7 @@ mod tests {
             null_counts: serde_json::Map::new(),
             indexed_at_micros: None,
             shard: None,
+            clustering: Default::default(),
         }
     }
 

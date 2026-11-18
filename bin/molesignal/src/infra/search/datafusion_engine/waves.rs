@@ -19,8 +19,7 @@ use datafusion::{
     common::tree_node::TreeNode,
     logical_expr::{Expr, FetchType, LogicalPlan, SkipType},
 };
-
-use crate::domain::storage::QueryFile;
+use domain::storage::QueryFile;
 
 /// 行时间列。
 const TIMESTAMP_COLUMN: &str = "_timestamp";
@@ -319,15 +318,13 @@ mod tests {
 
     use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
     use datafusion::{datasource::MemTable, prelude::SessionContext};
+    use domain::stream::StreamType;
+    use kernel::{
+        ids::Id,
+        time::{TimeRange, TimestampMicros},
+    };
 
     use super::*;
-    use crate::{
-        domain::stream::StreamType,
-        shared::{
-            ids::Id,
-            time::{TimeRange, TimestampMicros},
-        },
-    };
 
     async fn plan(sql: &str) -> LogicalPlan {
         let schema = Arc::new(Schema::new(vec![
@@ -352,7 +349,7 @@ mod tests {
             org_id: Id::from_string("org"),
             stream: "logs".into(),
             stream_type: StreamType::LOGS,
-            dataset_type: crate::domain::storage::primary_dataset_type(StreamType::LOGS).unwrap(),
+            dataset_type: domain::storage::primary_dataset_type(StreamType::LOGS).unwrap(),
             object_key: format!("objects/{start}"),
             checksum: None,
             etag: None,
@@ -366,6 +363,7 @@ mod tests {
             null_counts: Default::default(),
             indexed_at_micros: None,
             shard: None,
+            clustering: Default::default(),
         }
     }
 

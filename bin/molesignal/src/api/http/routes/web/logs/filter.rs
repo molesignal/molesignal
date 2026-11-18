@@ -4,16 +4,14 @@
 //! Schema-aware validation and SQL rendering for structured log filters.
 
 use chrono::DateTime;
+use domain::{
+    intake::EVENT_ID_FIELD,
+    stream::{FieldDef, FieldType, StreamIndexType},
+};
+use kernel::{Error, Result};
 
 use super::{LogFilter, clean_required, sql_literal};
-use crate::{
-    domain::{
-        intake::EVENT_ID_FIELD,
-        stream::{FieldDef, FieldType, StreamIndexType},
-    },
-    infra::query::escape_sql_ident,
-    shared::{Error, Result},
-};
+use crate::infra::query::escape_sql_ident;
 
 pub(super) mod condition;
 
@@ -204,7 +202,7 @@ fn validate_search_function(filter: &LogFilter, fields: &[FieldDef]) -> Result<(
     let configured = fields.iter().any(|field| {
         field.name == filter.field
             && field.data_type == FieldType::Utf8
-            && field.effective_index_type() == StreamIndexType::FullText
+            && field.index_type == StreamIndexType::FullText
     });
 
     if !configured {
@@ -314,10 +312,8 @@ mod tests {
             name: name.into(),
             data_type,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         }
     }
 
@@ -436,7 +432,7 @@ mod tests {
             .is_err()
         );
 
-        message.indexed = true;
+        message.index_type = StreamIndexType::FullText;
         assert_eq!(
             to_sql(
                 &filter("message", "match_text", "panic"),
@@ -446,7 +442,7 @@ mod tests {
             "MATCH_TEXT(message, 'panic')"
         );
 
-        message.configure_index(true, StreamIndexType::Bloom);
+        message.index_type = StreamIndexType::Bloom;
         assert!(to_sql(&filter("message", "match_text", "panic"), &[message]).is_err());
     }
 }

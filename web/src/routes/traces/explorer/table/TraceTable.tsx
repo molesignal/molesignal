@@ -7,6 +7,7 @@ import type { TraceListSort } from '@/api/web';
 import { useTimeFormatter } from '@/lib/time';
 import { gridMinWidth } from '@/routes/apm/frame/gridWidth';
 import { cn } from '@/shell/lib/cn';
+import { DurationBar } from '@/shell/list/DurationBar';
 import { LONG_LIST_ROW_CLASS, longListRowStyle } from '@/shell/list/longList';
 import { formatTraceDurationMs } from '@/viz/trace/duration';
 import { OUTCOME_EDGE, requestOutcome, type RequestOutcome } from '@/viz/trace/model/span';
@@ -196,7 +197,6 @@ const TraceTableRow = React.memo(function TraceTableRow({
   onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   const outcome = requestOutcome(trace.errors > 0 || trace.status === 'ERROR', trace.httpStatus);
-  const share = longest > 0 ? Math.max(2, (trace.durationMs / longest) * 100) : 0;
   const picking = pick !== undefined;
   const pressed = picking ? pick !== null : open;
   const label = { operation: trace.op, service: trace.service, duration: formatTraceDurationMs(trace.durationMs) };
@@ -234,7 +234,7 @@ const TraceTableRow = React.memo(function TraceTableRow({
         </span>
       )}
       {columns.map((column) => (
-        <TraceCell key={column.id} column={column} trace={trace} outcome={outcome} share={share} tz={tz} t={t} />
+        <TraceCell key={column.id} column={column} trace={trace} outcome={outcome} longest={longest} tz={tz} t={t} />
       ))}
     </button>
   );
@@ -244,14 +244,15 @@ function TraceCell({
   column,
   trace,
   outcome,
-  share,
+  longest,
   tz,
   t,
 }: {
   column: TraceTableColumn;
   trace: DisplayTrace;
   outcome: RequestOutcome;
-  share: number;
+  /** The longest trace listed, in milliseconds. */
+  longest: number;
   tz: string;
   t: TFunction<'traces'>;
 }) {
@@ -268,12 +269,12 @@ function TraceCell({
       return <TraceOperationName mono={false} operation={trace.op} className="min-w-0 text-tx-0" />;
     case 'duration':
       return (
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="w-[58px] shrink-0 text-right tabular-nums text-tx-0">{formatTraceDurationMs(trace.durationMs)}</span>
-          <span aria-hidden="true" className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-bg-3">
-            <span className={cn('absolute inset-y-0 left-0 rounded-full', outcome === 'failed' ? 'bg-red' : 'bg-[var(--chart-1)]')} style={{ width: `${share}%` }} />
-          </span>
-        </span>
+        <DurationBar
+          text={formatTraceDurationMs(trace.durationMs)}
+          value={trace.durationMs}
+          longest={longest}
+          failed={outcome === 'failed'}
+        />
       );
     case 'spans':
       return <span className="text-right tabular-nums text-tx-0">{trace.spans}</span>;

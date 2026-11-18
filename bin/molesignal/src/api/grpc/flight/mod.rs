@@ -26,31 +26,31 @@ use arrow_flight::{
 use datafusion::{
     common::TableReference, execution::object_store::ObjectStoreUrl, prelude::SessionContext,
 };
+use domain::{
+    iam::api_token::ApiTokenRepository,
+    storage::{DatasetTypeId, ObjectChecksum, QueryFile, QueryFileSource},
+    stream::StreamType,
+};
 use futures::stream::{BoxStream, StreamExt};
+use kernel::{
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use object_store::ObjectStore;
 use prost::Message;
+use protocol::query::v1::QueryShard;
+use signals::trace_stream::segmented_result_stream;
 use tonic::{Request, Response, Status, Streaming};
 
 use crate::{
     api::http::middleware::auth::authenticate_api_token,
     app::iam::IamService,
-    domain::{
-        iam::api_token::ApiTokenRepository,
-        storage::{DatasetTypeId, ObjectChecksum, QueryFile, QueryFileSource},
-        stream::StreamType,
-    },
     infra::{
         query::{
-            catalog_source::CatalogQuerySource, federation_cancel::FederationCancelRegistry,
-            parquet_table::PrunedParquetTable,
+            catalog_source::CatalogQuerySource, executor,
+            federation_cancel::FederationCancelRegistry, parquet_table::PrunedParquetTable,
         },
         storage::{org_scoped_store::scoped_to_org, parquet::reader::ParquetReader},
-    },
-    protocol::query::v1::QueryShard,
-    shared::{
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-        trace_stream::segmented_result_stream,
     },
 };
 
@@ -144,7 +144,7 @@ impl FlightGrpc {
             );
 
             let org_id = Id(shard.org_id.clone());
-            let dataset_types = crate::domain::storage::logical_query_dataset_types(st)
+            let dataset_types = domain::storage::logical_query_dataset_types(st)
                 .map_err(|error| format!("query dataset selection: {error}"))?;
 
             if let Some(source) = &self.catalog_source {
@@ -231,6 +231,9 @@ impl FlightGrpc {
                         null_counts: serde_json::Map::new(),
                         indexed_at_micros: None,
                         shard: None,
+                        // A reference carries no statistics, and the scan a peer runs does not
+                        // order its rows: the file's own order is never relied on here.
+                        clustering: Default::default(),
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -295,7 +298,9 @@ impl FlightGrpc {
             .await
             .map_err(|e| format!("sql parse: {e}"))?;
 
-        df.collect().await.map_err(|e| format!("collect: {e}"))
+        executor::collect(df)
+            .await
+            .map_err(|e| format!("collect: {e}"))
     }
 
     /// 执行分片；带 `federation_query_id` 时登记进取消表并与 cancel 标志 race，
@@ -398,7 +403,7 @@ impl FlightService for FlightGrpc {
 
             let ctx = authenticate_api_token(&token, iam, repo)
                 .await
-                .map_err(|e| Status::unauthenticated(e.to_string()))?;
+                .map_err(crate::infra::cluster::grpc_status::error_to_status)?;
 
             if ctx.org_id.0 != shard.org_id {
                 return Err(Status::permission_denied(
@@ -407,7 +412,7 @@ impl FlightService for FlightGrpc {
             }
 
             // A shard reads its stream's files directly: the audit trail needs the grant here.
-            if shard.stream == crate::domain::stream::AUDIT_STREAM
+            if shard.stream == domain::stream::AUDIT_STREAM
                 && !ctx.has_permission(crate::infra::query::grants::AUDIT_READ)
             {
                 return Err(Status::permission_denied(

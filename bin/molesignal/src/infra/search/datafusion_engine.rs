@@ -15,42 +15,52 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use datafusion::{common::TableReference, datasource::MemTable};
+use domain::{
+    masking::Masker,
+    query::{QueryEngine, QueryRequest, QueryResult, StreamHint},
+    storage::{DatasetTypeId, QueryFileSource},
+    stream::{StreamRepository, StreamType as StreamTypeEnum},
+};
+use kernel::{Error, Result, ids::Id};
 use object_store::ObjectStore;
+use postgres::repositories::{
+    log_patterns::LogPatternRepository, regex_patterns::RegexPatternRepository,
+};
+use query_language::{extract_referenced_tables, parse_sample_hint};
 
-use crate::{
-    domain::{
-        masking::Masker,
-        query::{QueryEngine, QueryRequest, QueryResult, StreamHint},
-        storage::{DatasetTypeId, QueryFileSource},
-        stream::{StreamRepository, StreamType as StreamTypeEnum},
+use crate::infra::{
+    query::{
+        catalog_source::CatalogQuerySource,
+        current_views,
+        parquet_table::ParquetMetadataCache,
+        planner::ensure_stream_in_org,
+        tantivy_pruner::{TantivyPruner, rewrite_match_calls},
+        udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
     },
-    infra::{
-        persistence::repositories::{
-            log_patterns::LogPatternRepository, regex_patterns::RegexPatternRepository,
-        },
-        query::{
-            catalog_source::CatalogQuerySource,
-            current_views,
-            parquet_table::ParquetMetadataCache,
-            parser::{extract_referenced_tables, parse_sample_hint},
-            planner::ensure_stream_in_org,
-            tantivy_pruner::{TantivyPruner, rewrite_match_calls},
-            udfs::{build_extract_pattern_udf, build_mask_udf, compile_patterns},
-        },
-    },
-    shared::{Error, Result, ids::Id},
+    storage::minute_counts::{MinuteCountsCache, MinuteCountsKeys},
 };
 
+#[cfg(test)]
+mod block_filter_tests;
 mod blooms;
+#[cfg(test)]
+mod clustering_tests;
 mod counts;
 #[cfg(test)]
 mod current_view_tests;
 mod dataset;
 mod execute;
+#[cfg(test)]
+mod minute_count_tests;
+mod newest;
 mod paging;
+#[cfg(test)]
+mod range_count_tests;
 mod selection;
 mod shards;
 mod tables;
+#[cfg(test)]
+mod time_window_tests;
 mod waves;
 
 pub struct DataFusionEngine {
@@ -66,15 +76,22 @@ pub struct DataFusionEngine {
     max_result_rows: usize,
     /// 单查询读取行数上限（`[querier].max_scan_rows`）；0 = 不限制。
     max_scan_rows: u64,
+    /// DataFusion 的并行度（`[querier].concurrency`）；0 按 CPU 数。每次表扫描最多同时读这么多个
+    /// 文件。
+    parallelism: usize,
     /// 字段加密 DEK 服务；非空时 SQL 可用 `decrypt(col)`（执行期按 org 预载 DEK 还原密文）。
-    field_keys: Option<Arc<crate::infra::cipher::FieldKeyService>>,
+    field_keys: Option<Arc<postgres::cipher::FieldKeyService>>,
     /// FileCatalog + local buffer snapshot source. `None` preserves isolated unit-test fixtures.
     catalog_source: Option<Arc<CatalogQuerySource>>,
     /// Explicit Artifact relationships for isolated callers that do not own a FileCatalog.
     /// Production bootstrap leaves this empty because Catalog snapshots provide the mapping.
     explicit_tantivy_indexes: HashMap<String, String>,
+    /// Segment id → where its minute counts are kept, for the same isolated callers.
+    explicit_minute_count_keys: HashMap<String, MinuteCountsKeys>,
     /// Parsed Parquet footers shared by every query of this engine (`[cache.parquet_metadata]`).
     parquet_metadata: Option<ParquetMetadataCache>,
+    /// Segments' minute counts read back for counts, shared by every query of this engine.
+    minute_counts: MinuteCountsCache,
 }
 
 impl DataFusionEngine {
@@ -88,10 +105,13 @@ impl DataFusionEngine {
             regex_patterns: None,
             max_result_rows: 0,
             max_scan_rows: 0,
+            parallelism: 0,
             field_keys: None,
             catalog_source: None,
             explicit_tantivy_indexes: HashMap::new(),
+            explicit_minute_count_keys: HashMap::new(),
             parquet_metadata: None,
+            minute_counts: MinuteCountsCache::default(),
         }
     }
 
@@ -109,6 +129,12 @@ impl DataFusionEngine {
 
     pub fn max_scan_rows(&self) -> u64 {
         self.max_scan_rows
+    }
+
+    /// DataFusion 的并行度（`[querier].concurrency`）；0 按 CPU 数。
+    pub fn with_parallelism(mut self, parallelism: usize) -> Self {
+        self.parallelism = parallelism;
+        self
     }
 
     pub fn with_tantivy_pruner(mut self, pruner: Arc<TantivyPruner>) -> Self {
@@ -135,7 +161,7 @@ impl DataFusionEngine {
     }
 
     /// 注入字段加密 DEK 服务；非空时 SQL `decrypt(col)` 可用。
-    pub fn with_field_keys(mut self, svc: Arc<crate::infra::cipher::FieldKeyService>) -> Self {
+    pub fn with_field_keys(mut self, svc: Arc<postgres::cipher::FieldKeyService>) -> Self {
         self.field_keys = Some(svc);
         self
     }
@@ -150,13 +176,23 @@ impl DataFusionEngine {
         self
     }
 
+    /// Segment id → the object of the segment's minute counts.
+    pub fn with_minute_count_keys(mut self, keys: HashMap<String, String>) -> Self {
+        self.explicit_minute_count_keys = keys
+            .into_iter()
+            .map(|(segment, key)| (segment, MinuteCountsKeys::own(key)))
+            .collect();
+
+        self
+    }
+
     pub fn with_parquet_metadata_cache(mut self, cache: Option<ParquetMetadataCache>) -> Self {
         self.parquet_metadata = cache;
         self
     }
 
     /// 暴露 DEK 服务给包装层（distributed coordinator 复用本地引擎的服务注册 `decrypt`）。
-    pub fn field_keys(&self) -> Option<&Arc<crate::infra::cipher::FieldKeyService>> {
+    pub fn field_keys(&self) -> Option<&Arc<postgres::cipher::FieldKeyService>> {
         self.field_keys.as_ref()
     }
 
@@ -233,7 +269,8 @@ impl QueryEngine for DataFusionEngine {
 
         let rewritten_sql = rewrite_match_calls(&statement);
 
-        let ctx = crate::infra::query::analyzer::session_context(self.max_result_rows);
+        let ctx =
+            crate::infra::query::analyzer::query_session(self.max_result_rows, self.parallelism);
         ctx.register_udaf(crate::infra::query::udafs::approx_topk_udf());
 
         if let Some(svc) = &self.field_keys {

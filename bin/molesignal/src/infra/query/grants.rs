@@ -13,7 +13,7 @@
 
 use std::future::Future;
 
-use crate::domain::{query::QueryRequest, stream::AUDIT_STREAM};
+use domain::{query::QueryRequest, stream::AUDIT_STREAM};
 
 /// The permission that lets a caller read the audit trail.
 pub const AUDIT_READ: &str = "audit.read";
@@ -87,7 +87,7 @@ pub fn names_audit(request: &QueryRequest) -> bool {
 
 /// Whether a SQL statement reads the audit trail. Anything else, PromQL too, names no table here.
 pub fn statement_names_audit(statement: &str) -> bool {
-    super::parser::statement_names_table(statement, AUDIT_STREAM)
+    query_language::statement_names_table(statement, AUDIT_STREAM)
 }
 
 #[cfg(test)]
@@ -119,15 +119,13 @@ mod tests {
 
     #[test]
     fn a_query_names_the_audit_trail_by_its_stream_or_its_sql() {
-        use crate::{
-            domain::{
-                query::{QueryLanguage, StreamHint},
-                stream::StreamType,
-            },
-            shared::{
-                ids::Id,
-                time::{TimeRange, TimestampMicros},
-            },
+        use domain::{
+            query::{QueryLanguage, StreamHint},
+            stream::StreamType,
+        };
+        use kernel::{
+            ids::Id,
+            time::{TimeRange, TimestampMicros},
         };
 
         let query = |stream: &str, statement: &str| QueryRequest {

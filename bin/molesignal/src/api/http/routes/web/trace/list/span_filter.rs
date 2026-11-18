@@ -12,26 +12,26 @@ use arrow::{
 use datafusion::{
     common::TableReference, execution::object_store::ObjectStoreUrl, prelude::SessionContext,
 };
+use domain::{
+    storage::{DatasetTypeId, primary_dataset_type, type_id::builtin},
+    stream::{FieldType, Schema, StreamDefinition},
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+    TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
+};
 
 use self::order::{cursor_predicate, order_by};
 use super::{TraceListContext, TraceListRow, filter::TraceFilter};
 use crate::{
     api::{AppState, http::routes::web::trace::HTTP_STATUS_FIELDS},
-    domain::{
-        storage::{DatasetTypeId, primary_dataset_type, type_id::builtin},
-        stream::{FieldType, Schema, StreamDefinition},
-    },
     infra::{
-        query::{escape_sql_ident, parquet_table::PrunedParquetTable},
+        query::{escape_sql_ident, executor, parquet_table::PrunedParquetTable},
         storage::{arrow_schema, org_scoped_store::scoped_to_org},
-    },
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-        trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-            TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
-        },
     },
 };
 
@@ -67,12 +67,13 @@ pub(super) async fn run(
 
     let sql = build_sql(context, &definition.schema, fetch_limit)?;
 
-    let batches = tables
+    let frame = tables
         .session
         .sql(&sql)
         .await
-        .map_err(|error| Error::internal(format!("plan filtered trace summaries: {error}")))?
-        .collect()
+        .map_err(|error| Error::internal(format!("plan filtered trace summaries: {error}")))?;
+
+    let batches = executor::collect(frame)
         .await
         .map_err(|error| Error::internal(format!("scan filtered trace summaries: {error}")))?;
 
@@ -375,13 +376,12 @@ mod tests {
         datatypes::{DataType, Field, Schema as ArrowSchema},
     };
     use datafusion::{datasource::MemTable, prelude::SessionContext};
+    use domain::stream::{FieldDef, StreamIndexType};
     use serde_json::{Value, json};
+    use signals::trace::normalization::canonical_trace_schema;
 
     use super::*;
-    use crate::{
-        api::http::routes::web::trace::list::TraceListSort, domain::stream::FieldDef,
-        shared::trace::normalization::canonical_trace_schema,
-    };
+    use crate::api::http::routes::web::trace::list::TraceListSort;
 
     fn schema() -> Schema {
         let mut schema = canonical_trace_schema();
@@ -390,10 +390,8 @@ mod tests {
             name: "http.status_code".into(),
             data_type: FieldType::Int64,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         });
 
         schema

@@ -13,11 +13,9 @@ use arrow::{
     compute::cast,
     datatypes::{DataType, Field, Schema, SchemaRef},
 };
+use kernel::{Error, Result};
 
-use crate::{
-    infra::search::tantivy_index::BarTally,
-    shared::{Error, Result},
-};
+use crate::infra::search::tantivy_index::BarTally;
 
 /// 把 Catalog 或索引已经数出的行数加进 `count(*)` 的结果；DataFusion 只数了其余文件与缓冲。
 pub(super) fn add_rows(batches: &mut [RecordBatch], counted: u64) -> Result<()> {
@@ -44,12 +42,13 @@ pub(super) fn add_rows(batches: &mut [RecordBatch], counted: u64) -> Result<()> 
 }
 
 /// 把索引数出的柱子与 DataFusion 返回的柱子按柱号相加，得到一个批次：柱号、行数，`split`
-/// 时还有错误数，各是一列 Int64。
+/// 时还有错误数，各是一列 Int64。柱子按柱号升序，有 `limit` 时只留前这么多根。
 pub(super) fn add_bars(
     batches: &mut Vec<RecordBatch>,
     schema: SchemaRef,
     counted: &BTreeMap<i64, BarTally>,
     split: bool,
+    limit: Option<usize>,
 ) -> Result<()> {
     let mut bars: BTreeMap<i64, (i64, i64)> = BTreeMap::new();
 
@@ -71,6 +70,12 @@ pub(super) fn add_bars(
         let bar = bars.entry(*index).or_default();
         bar.0 = bar.0.saturating_add(to_i64(tally.total));
         bar.1 = bar.1.saturating_add(to_i64(tally.errors));
+    }
+
+    if let Some(limit) = limit
+        && let Some(first_cut) = bars.keys().nth(limit).copied()
+    {
+        bars.split_off(&first_cut);
     }
 
     let mut columns: Vec<ArrayRef> = vec![
@@ -102,7 +107,7 @@ pub(super) fn add_values(
     let mut all = counted.clone();
 
     for batch in batches.iter() {
-        each_value(batch, |value, count| {
+        each_value(batch, 0, 1, |value, count| {
             if let Some(value) = value {
                 *all.entry(value.to_owned()).or_default() += count;
             }
@@ -144,7 +149,7 @@ pub(super) fn add_summary(
     let mut values = counted.clone();
 
     for batch in batches.iter() {
-        each_value(batch, |value, count| {
+        each_value(batch, 0, 1, |value, count| {
             rows = rows.saturating_add(count);
 
             if let Some(value) = value {
@@ -175,9 +180,20 @@ pub(super) fn add_summary(
     Ok(())
 }
 
-/// 按值计数的结果里的每一行：值（转成文本；NULL 为 `None`）与行数。
-fn each_value(batch: &RecordBatch, mut visit: impl FnMut(Option<&str>, u64)) -> Result<()> {
-    let values = cast(batch.column(0), &DataType::Utf8)
+/// 按值计数的结果里的每一行：第 `value_column` 列的值（转成文本；NULL 为 `None`）与第
+/// `rows_column` 列的行数。
+pub(super) fn each_value(
+    batch: &RecordBatch,
+    value_column: usize,
+    rows_column: usize,
+    mut visit: impl FnMut(Option<&str>, u64),
+) -> Result<()> {
+    let values = batch
+        .columns()
+        .get(value_column)
+        .ok_or_else(|| Error::internal("a counted statement must return its values"))?;
+
+    let values = cast(values, &DataType::Utf8)
         .map_err(|error| Error::internal(format!("value result: {error}")))?;
 
     let values = values
@@ -185,7 +201,7 @@ fn each_value(batch: &RecordBatch, mut visit: impl FnMut(Option<&str>, u64)) -> 
         .downcast_ref::<StringArray>()
         .ok_or_else(|| Error::internal("values must come back as text"))?;
 
-    let rows = counts(batch, 1)?;
+    let rows = counts(batch, rows_column)?;
 
     for row in 0..batch.num_rows() {
         let value = (!values.is_null(row)).then(|| values.value(row));
@@ -205,7 +221,7 @@ fn counts(batch: &RecordBatch, column: usize) -> Result<&Int64Array> {
         .ok_or_else(|| Error::internal("a counted statement must return Int64 counts"))
 }
 
-fn to_i64(count: u64) -> i64 {
+pub(super) fn to_i64(count: u64) -> i64 {
     i64::try_from(count).unwrap_or(i64::MAX)
 }
 
@@ -273,12 +289,18 @@ mod tests {
             ),
         ]);
 
-        add_bars(&mut batches, schema(true), &counted, true).unwrap();
+        let mut limited = batches.clone();
+
+        add_bars(&mut batches, schema(true), &counted, true, None).unwrap();
 
         assert_eq!(
             rows(&batches),
             vec![vec![1, 6, 4], vec![2, 1, 0], vec![3, 5, 1]]
         );
+
+        add_bars(&mut limited, schema(true), &counted, true, Some(2)).unwrap();
+
+        assert_eq!(rows(&limited), vec![vec![1, 6, 4], vec![2, 1, 0]]);
     }
 
     #[test]
@@ -292,7 +314,7 @@ mod tests {
             },
         )]);
 
-        add_bars(&mut batches, schema(false), &counted, false).unwrap();
+        add_bars(&mut batches, schema(false), &counted, false, None).unwrap();
 
         assert_eq!(rows(&batches), vec![vec![7, 2]]);
     }

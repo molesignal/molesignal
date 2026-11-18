@@ -11,7 +11,13 @@ use arrow::{
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
 };
 use datafusion::{datasource::MemTable, prelude::SessionContext};
+use domain::{
+    query::QueryResult,
+    stream::{FieldDef, FieldType, StreamDefinition, StreamIndexType, StreamType},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
+use signals::trace::normalization::canonical_trace_schema;
 
 use super::{
     RedScope, RedUnavailable,
@@ -21,14 +27,7 @@ use super::{
 };
 use crate::{
     api::http::routes::web::{histogram::BucketPlan, trace::filter},
-    domain::{
-        query::QueryResult,
-        stream::{FieldDef, FieldType, StreamDefinition, StreamType},
-    },
     infra::query::{arrow_json::batches_to_json, scan_limit::ensure_within_scan_limit},
-    shared::{
-        Error, Result, ids::Id, time::TimestampMicros, trace::normalization::canonical_trace_schema,
-    },
 };
 
 const SECOND: i64 = 1_000_000;
@@ -54,10 +53,8 @@ fn definition() -> StreamDefinition {
         name: "http.status_code".into(),
         data_type: FieldType::Int64,
         nullable: true,
-        index_type: None,
-        indexed: false,
+        index_type: StreamIndexType::None,
         encrypted: false,
-        exact: false,
     });
 
     StreamDefinition {
@@ -616,10 +613,8 @@ fn a_moment_or_a_document_does_not_group_requests() {
         name: "x".into(),
         data_type,
         nullable: true,
-        index_type: None,
-        indexed: false,
+        index_type: StreamIndexType::None,
         encrypted: false,
-        exact: false,
     };
 
     assert!(Grouping::new(&field(FieldType::Timestamp)).is_none());

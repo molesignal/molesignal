@@ -4,12 +4,12 @@
 //! The statement a page of Spans is read with: what it selects, the order it
 //! keeps and where a page after the first begins.
 
+use domain::stream::Schema;
+use kernel::cursor::{CursorDirection, CursorSortDirection, CursorValue, lexicographic_seek};
+
 use super::{SpanListContext, SpanListSort};
 use crate::{
-    api::http::{pagination::cursor::CursorDirection, routes::web::trace::red::statements::Source},
-    domain::stream::Schema,
-    infra::query::escape_sql_ident,
-    shared::cursor::{CursorSortDirection, CursorValue, lexicographic_seek},
+    api::http::routes::web::trace::red::statements::Source, infra::query::escape_sql_ident,
 };
 
 /// Result columns of what is worked out for a Span, named with a prefix no field has.
@@ -211,6 +211,9 @@ mod tests {
         datatypes::{DataType, Field, Schema as ArrowSchema},
     };
     use datafusion::{datasource::MemTable, prelude::SessionContext};
+    use domain::stream::{FieldDef, FieldType, StreamDefinition, StreamIndexType, StreamType};
+    use kernel::{ids::Id, time::TimestampMicros};
+    use signals::trace::normalization::canonical_trace_schema;
 
     use super::*;
     use crate::{
@@ -219,9 +222,7 @@ mod tests {
             red::RedScope,
             spans::{SpanCursorBoundary, SpanCursorPosition},
         },
-        domain::stream::{FieldDef, FieldType, StreamDefinition, StreamType},
         infra::query::arrow_json::batches_to_json,
-        shared::{ids::Id, time::TimestampMicros, trace::normalization::canonical_trace_schema},
     };
 
     fn definition() -> StreamDefinition {
@@ -231,10 +232,8 @@ mod tests {
             name: "http.response.status_code".into(),
             data_type: FieldType::Int64,
             nullable: true,
-            index_type: None,
-            indexed: false,
+            index_type: StreamIndexType::None,
             encrypted: false,
-            exact: false,
         });
 
         StreamDefinition {

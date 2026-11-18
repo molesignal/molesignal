@@ -15,33 +15,31 @@ pub(super) mod count;
 mod files;
 mod top;
 
+#[cfg(test)]
+use domain::storage::QueryFile;
+use domain::{
+    storage::{DatasetTypeId, type_id::builtin},
+    stream::FieldType,
+};
 use files::{file_may_match_cursor, file_may_match_query, order_files, remaining_cannot_beat};
+use kernel::{
+    Error, Result,
+    cursor::CursorDirection,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use signals::trace::summary::{
+    TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+    TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
+};
 use top::TopTraces;
 
 use super::{TraceCondition, TraceFilter, TraceListContext, TraceListRow, TraceListSort};
-#[cfg(test)]
-use crate::domain::storage::QueryFile;
 use crate::{
-    api::{
-        AppState,
-        http::{pagination::cursor::CursorDirection, routes::web::trace::HTTP_STATUS_FIELDS},
-    },
-    domain::{
-        storage::{DatasetTypeId, type_id::builtin},
-        stream::FieldType,
-    },
+    api::{AppState, http::routes::web::trace::HTTP_STATUS_FIELDS},
     infra::storage::{
         org_scoped_store::scoped_to_org,
         parquet::reader::{ParquetReader, ReadOptions},
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-        trace::summary::{
-            TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-            TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
-        },
     },
 };
 
@@ -82,7 +80,7 @@ pub(super) async fn run(
         .snapshot_by_name(
             org_id,
             stream,
-            crate::domain::stream::StreamType::TRACES,
+            domain::stream::StreamType::TRACES,
             std::slice::from_ref(&summary_type),
             range,
         )
@@ -458,9 +456,9 @@ mod tests {
     use std::sync::Arc;
 
     use arrow::datatypes::{Field, Schema};
+    use kernel::cursor::CursorDirection;
 
     use super::*;
-    use crate::api::http::pagination::cursor::CursorDirection;
 
     fn context(sort: TraceListSort) -> TraceListContext {
         TraceListContext {
@@ -584,7 +582,7 @@ mod tests {
         let mut context = context(TraceListSort::Latest);
         context.filters = super::super::filter::parse(
             Some(r#"[{"field":"span_count","op":">=","value":"2"}]"#),
-            &crate::shared::trace::normalization::canonical_trace_schema(),
+            &signals::trace::normalization::canonical_trace_schema(),
             32,
         )
         .unwrap();
@@ -598,7 +596,7 @@ mod tests {
         let mut context = context(TraceListSort::Latest);
         context.filters = super::super::filter::parse(
             Some(r#"[{"field":"trace_id","op":"=","value":"trace-z"}]"#),
-            &crate::shared::trace::normalization::canonical_trace_schema(),
+            &signals::trace::normalization::canonical_trace_schema(),
             32,
         )
         .unwrap();
@@ -606,7 +604,7 @@ mod tests {
             id: Id::from_string("file"),
             org_id: Id::from_string("org"),
             stream: "default".into(),
-            stream_type: crate::domain::stream::StreamType::TRACES,
+            stream_type: domain::stream::StreamType::TRACES,
             dataset_type: DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
             object_key: "file.parquet".into(),
             checksum: None,
@@ -621,6 +619,7 @@ mod tests {
             null_counts: serde_json::Map::new(),
             indexed_at_micros: None,
             shard: None,
+            clustering: Default::default(),
         };
         file.min_values.insert("trace_id".into(), "trace-a".into());
         file.max_values.insert("trace_id".into(), "trace-m".into());
@@ -638,7 +637,7 @@ mod tests {
 
         context.condition = super::super::filter::condition::parse(
             Some(condition),
-            &crate::shared::trace::normalization::canonical_trace_schema(),
+            &signals::trace::normalization::canonical_trace_schema(),
             32,
         )
         .unwrap();
@@ -703,7 +702,7 @@ mod tests {
             id: Id::from_string("file"),
             org_id: Id::from_string("org"),
             stream: "default".into(),
-            stream_type: crate::domain::stream::StreamType::TRACES,
+            stream_type: domain::stream::StreamType::TRACES,
             dataset_type: DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
             object_key: "file.parquet".into(),
             checksum: None,
@@ -718,6 +717,7 @@ mod tests {
             null_counts: serde_json::Map::new(),
             indexed_at_micros: None,
             shard: None,
+            clustering: Default::default(),
         };
         file.min_values.insert("trace_id".into(), "trace-a".into());
         file.max_values.insert("trace_id".into(), "trace-m".into());

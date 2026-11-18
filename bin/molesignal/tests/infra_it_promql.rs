@@ -19,28 +19,26 @@ use arrow::{
 };
 use async_trait::async_trait;
 use common::write_parquet_fixture;
-use molesignal::{
-    config::StreamAggCacheSettings,
-    domain::{
-        metrics::{MemoryMetricDirectory, MetricDirectory, MetricObservation},
-        query::{PromqlEngine, QueryLanguage, QueryRequest},
-        storage::{QueryFile, QueryFileSource},
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository,
-            StreamSettings, StreamType,
-        },
-    },
-    infra::{
-        caching::StreamingAggCache, query::promql::PromQLEngine,
-        storage::parquet::writer::ParquetWriter,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
+use domain::{
+    metrics::{MemoryMetricDirectory, MetricDirectory, MetricObservation},
+    query::{PromqlEngine, QueryLanguage, QueryRequest},
+    storage::{QueryFile, QueryFileSource},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamSettings, StreamType,
     },
 };
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::{
+    caching::StreamingAggCache, query::promql::PromQLEngine,
+    storage::parquet::writer::ParquetWriter,
+};
 use object_store::{ObjectStore, local::LocalFileSystem};
+use settings::StreamAggCacheSettings;
 
 // ---- in-mem QueryFileSource ----
 #[derive(Default)]
@@ -138,37 +136,29 @@ fn metric_stream() -> StreamDefinition {
                     name: "value".into(),
                     data_type: FieldType::Float64,
                     nullable: false,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 },
                 FieldDef {
                     name: "metric_name".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: false,
+                    index_type: StreamIndexType::None,
                     encrypted: false,
-                    exact: false,
                 },
                 FieldDef {
                     name: "method".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: true,
+                    index_type: StreamIndexType::FullText,
                     encrypted: false,
-                    exact: false,
                 },
                 FieldDef {
                     name: "code".into(),
                     data_type: FieldType::Utf8,
                     nullable: false,
-                    index_type: None,
-                    indexed: true,
+                    index_type: StreamIndexType::FullText,
                     encrypted: false,
-                    exact: false,
                 },
             ],
         },
@@ -790,4 +780,119 @@ async fn label_matchers_read_a_missing_label_as_empty() {
         methods(r#"http_requests_total"#).await,
         ["GET", "POST", "PUT"]
     );
+}
+
+/// 一个 `GET`/`200` 序列，`samples` 的每个 `(时间, 值)` 一行。
+fn series_batch(samples: &[(i64, f64)]) -> RecordBatch {
+    let schema = Arc::new(ArrowSchema::new(vec![
+        Field::new(
+            "_timestamp",
+            DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
+            false,
+        ),
+        Field::new("value", DataType::Float64, false),
+        Field::new("metric_name", DataType::Utf8, false),
+        Field::new("method", DataType::Utf8, false),
+        Field::new("code", DataType::Utf8, false),
+    ]));
+
+    let n = samples.len();
+    let times = samples.iter().map(|(time, _)| *time).collect::<Vec<_>>();
+    let values = samples.iter().map(|(_, value)| *value).collect::<Vec<_>>();
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(TimestampMicrosecondArray::from(times).with_timezone("UTC")),
+            Arc::new(Float64Array::from(values)),
+            Arc::new(StringArray::from(vec![METRIC; n])),
+            Arc::new(StringArray::from(vec!["GET"; n])),
+            Arc::new(StringArray::from(vec!["200"; n])),
+        ],
+    )
+    .unwrap()
+}
+
+/// range 查询的每一步与在那一刻做的 instant 查询相同，选择器带 `offset`（往前或往后）或 `@` 时也
+/// 一样：每一步读的窗口跟着平移，点仍记在请求的步点上。序列的值是时间的平方，换一个窗口，
+/// 值、增量与斜率都不同。
+#[tokio::test]
+async fn range_steps_read_the_windows_their_modifiers_name() {
+    const MINUTE: i64 = 60_000_000;
+
+    let tmp = tempfile::tempdir().unwrap();
+    let store: Arc<dyn ObjectStore> =
+        Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
+    let writer = ParquetWriter::new(store.clone());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
+    let stream = metric_stream();
+
+    // 整点起的 30 分钟、每 15s 一个样本，不跨小时，一个文件放得下。
+    let t0: i64 = 1_699_999_200_000_000;
+
+    let samples = (0..=120_i64)
+        .map(|k| (t0 + k * 15_000_000, (k * 15).pow(2) as f64 / 60.0))
+        .collect::<Vec<_>>();
+
+    let meta = write_parquet_fixture(&writer, &stream, series_batch(&samples)).await;
+    repo.insert(meta).await.unwrap();
+
+    let engine = engine(&repo, &store).await;
+    let (start, end) = (t0 + 10 * MINUTE, t0 + 25 * MINUTE);
+    let pinned = (t0 + 20 * MINUTE) / 1_000_000;
+
+    let request = |statement: &str, start: i64, end: i64, step: Option<i64>| QueryRequest {
+        org_id: stream.org_id.clone(),
+        language: QueryLanguage::Promql,
+        statement: statement.into(),
+        time_range: TimeRange::new(TimestampMicros(start), TimestampMicros(end)),
+        stream: None,
+        limit: None,
+        step,
+        federation_clusters: Vec::new(),
+    };
+
+    for statement in [
+        format!("{METRIC} offset 5m"),
+        format!("{METRIC} offset -2m"),
+        format!("{METRIC} @ {pinned}"),
+        format!("max_over_time({METRIC}[1m] offset 5m)"),
+        format!("max_over_time({METRIC}[1m] @ {pinned} offset 1m)"),
+        format!("rate({METRIC}[2m] offset 5m)"),
+        format!("increase({METRIC}[2m] @ {pinned})"),
+        format!("delta({METRIC}[2m] offset -2m)"),
+        format!("predict_linear({METRIC}[2m] offset 5m, 60)"),
+    ] {
+        let range = engine
+            .execute(request(&statement, start, end, Some(MINUTE)))
+            .await
+            .unwrap_or_else(|error| panic!("{statement}: {error}"));
+
+        let stepped = range
+            .rows
+            .iter()
+            .map(|row| (row[0].as_i64().unwrap(), row[1].as_f64().unwrap()))
+            .collect::<Vec<_>>();
+
+        let mut instant = Vec::new();
+
+        for at in (start..=end).step_by(MINUTE as usize) {
+            let result = engine
+                .execute(request(&statement, at, at, None))
+                .await
+                .unwrap_or_else(|error| panic!("{statement} at {at}: {error}"));
+
+            assert_eq!(result.rows.len(), 1, "{statement} at {at}");
+            instant.push((at, result.rows[0][0].as_f64().unwrap()));
+        }
+
+        assert_eq!(stepped.len(), instant.len(), "{statement}");
+
+        for ((at, stepped), (_, instant)) in stepped.iter().zip(&instant) {
+            assert!(
+                (stepped - instant).abs() < 1e-9,
+                "{statement} at {at}: range {stepped}, instant {instant}"
+            );
+        }
+    }
 }

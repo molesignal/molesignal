@@ -18,34 +18,40 @@ use std::{
 };
 
 use anyhow::{Result, anyhow};
+use domain::stream::{FieldType, StreamDefinition, StreamIndexType};
+use index_format::{
+    TantivyFooter,
+    puffin_directory::{PuffinDirReader, PuffinDirWriter},
+};
 use object_store::{ObjectStore, path::Path as ObjectPath};
+use query_language::{Number, NumberRange, key_term, key_value_field, key_value_term};
 use tantivy::{
     Index, ReloadPolicy, Searcher, TantivyDocument, Term,
     index::SegmentComponent,
     query::{AllQuery, BooleanQuery, Query, TermQuery},
-    schema::{
-        FAST, Field, FieldEntry, FieldType as TantivyFieldType, IndexRecordOption, STORED, STRING,
-        Schema, TextFieldIndexing, TextOptions,
-    },
+    schema::{FAST, Field, FieldEntry, FieldType as TantivyFieldType, IndexRecordOption, Schema},
     tokenizer::MAX_TOKEN_LEN,
 };
 
-use crate::{
-    domain::stream::{FieldType, StreamDefinition, StreamIndexType},
-    infra::query::json_members,
-    tantivy::puffin_directory::{PuffinDirReader, PuffinDirWriter},
-};
+use crate::infra::query::json_members;
 
 mod bars;
 mod contains;
 mod grams;
+mod numbers;
 mod rows;
 mod text;
 mod values;
 
 pub use bars::{BarQuery, BarTally};
+pub use numbers::NumberColumns;
 pub use text::{TEXT_TOKENIZER, is_cjk};
 
+/// Indexing memory of an archive, all of it given to the one thread that indexes it. A segment is
+/// written each time it fills, some 240,000 rows of a log stream with two identifier fields, and
+/// Tantivy merges eight of them once there are: an archive of under two million rows is never
+/// merged, a larger one merges most of its rows once. Split between threads, it made segments a
+/// third that size, merged again and again: a quarter of the indexing work.
 const WRITER_HEAP_BYTES: usize = 50_000_000;
 
 /// 按子串计数时整个读进内存的词典文件上限：更大的词典按需读取，免得一次计数占太多内存。
@@ -55,9 +61,10 @@ const MAX_RESIDENT_DICTIONARY_BYTES: u64 = 8 * 1024 * 1024;
 /// buckets of matching documents can be counted from the archive.
 pub const TIMESTAMP_FIELD: &str = "_timestamp";
 
-/// 文档对应的行在 Parquet 文件里的序号（从 0 起，按文件里的行序）：把命中的少数文档换成文件
-/// 里的行，只读这些行所在的页。存在文档库里而不是快字段：取几个文档只读它们所在的块，快字段
-/// 却要整列读入。
+/// The row of a document in its Parquet file, from 0 in the file's order: the few matching
+/// documents become the rows whose pages are read. A fast field: one thread adds the rows in order,
+/// so a segment holds consecutive rows and the column takes a few bytes. Archives written before
+/// keep it in the document store.
 pub const ROW_FIELD: &str = "_row";
 
 /// 值长到没能建索引的整值字段：文档在这个字段上记下这些字段的名字。
@@ -83,11 +90,6 @@ fn long_grams_property(field: &str) -> String {
 /// 归档自己用的字段名；数据流里同名的字段不进索引。
 const RESERVED_FIELDS: [&str; 3] = [TIMESTAMP_FIELD, ROW_FIELD, OVERLONG_FIELD];
 
-/// JSON 字段的键值索引：在归档里的字段名与词的写法，与查询侧共用。
-pub use crate::infra::query::parser::{
-    KEY_VALUE_SUFFIX, key_term, key_value_field, key_value_term,
-};
-
 // =====================================================================
 //  Builder
 // =====================================================================
@@ -103,6 +105,8 @@ pub struct TantivyArchiveBuilder {
     members: HashSet<Field>,
     /// 分词字段，各自长词的三元组。
     tokenized: HashMap<Field, grams::LongGrams>,
+    /// `range` fields, indexed by their numbers.
+    numbers: numbers::NumberFields,
     timestamp: Field,
     row: Field,
     overlong: Field,
@@ -139,19 +143,20 @@ impl TantivyArchiveBuilder {
                 continue;
             }
 
-            let tf = match f.effective_index_type() {
+            let tf = match f.index_type {
                 StreamIndexType::Exact => {
-                    let tf = sb.add_text_field(&f.name, STRING);
+                    let tf = sb.add_text_field(&f.name, text::whole_value_options());
                     whole.insert(tf);
                     tf
                 }
                 StreamIndexType::FullText => {
-                    let tf = sb.add_text_field(&f.name, text_options());
+                    let tf = sb.add_text_field(&f.name, text::text_options());
                     tokenized.insert(tf, grams::LongGrams::default());
                     tf
                 }
                 StreamIndexType::KeyValue => {
-                    let tf = sb.add_text_field(&key_value_field(&f.name), STRING);
+                    let tf =
+                        sb.add_text_field(&key_value_field(&f.name), text::whole_value_options());
                     members.insert(tf);
                     tf
                 }
@@ -161,13 +166,15 @@ impl TantivyArchiveBuilder {
             fields.insert(f.name.clone(), tf);
         }
 
-        if fields.is_empty() {
+        let numbers = numbers::NumberFields::add(&mut sb, stream, &RESERVED_FIELDS);
+
+        if fields.is_empty() && numbers.is_empty() {
             return Ok(None);
         }
 
         let timestamp = sb.add_i64_field(TIMESTAMP_FIELD, FAST);
-        let row = sb.add_u64_field(ROW_FIELD, STORED);
-        let overlong = sb.add_text_field(OVERLONG_FIELD, STRING);
+        let row = sb.add_u64_field(ROW_FIELD, FAST);
+        let overlong = sb.add_text_field(OVERLONG_FIELD, text::whole_value_options());
         let schema = sb.build();
         let dir = PuffinDirWriter::new().map_err(|e| anyhow!("puffin writer: {e}"))?;
         let index = Index::create(dir.clone(), schema, tantivy::IndexSettings::default())
@@ -178,7 +185,7 @@ impl TantivyArchiveBuilder {
             .register(TEXT_TOKENIZER, text::text_analyzer());
 
         let writer: tantivy::IndexWriter = index
-            .writer(WRITER_HEAP_BYTES)
+            .writer_with_num_threads(1, WRITER_HEAP_BYTES)
             .map_err(|e| anyhow!("tantivy writer: {e}"))?;
 
         Ok(Some(Self {
@@ -189,6 +196,7 @@ impl TantivyArchiveBuilder {
             whole,
             members,
             tokenized,
+            numbers,
             timestamp,
             row,
             overlong,
@@ -204,6 +212,16 @@ impl TantivyArchiveBuilder {
         timestamp: Option<i64>,
         field_values: &HashMap<&str, &str>,
     ) -> Result<()> {
+        self.add_doc_with_numbers(timestamp, field_values, &HashMap::new())
+    }
+
+    /// [`Self::add_doc`], with the row's `numbers` of the `range` fields.
+    pub fn add_doc_with_numbers(
+        &mut self,
+        timestamp: Option<i64>,
+        field_values: &HashMap<&str, &str>,
+        numbers: &HashMap<&str, Number>,
+    ) -> Result<()> {
         let mut doc = TantivyDocument::default();
         doc.add_u64(self.row, self.rows);
         self.rows += 1;
@@ -211,6 +229,8 @@ impl TantivyArchiveBuilder {
         if let Some(timestamp) = timestamp {
             doc.add_i64(self.timestamp, timestamp);
         }
+
+        self.numbers.add_to(&mut doc, numbers);
 
         for (name, val) in field_values {
             let Some(tf) = self.fields.get(*name) else {
@@ -266,7 +286,12 @@ impl TantivyArchiveBuilder {
             .commit()
             .map_err(|e| anyhow!("tantivy commit: {e}"))?;
 
-        drop(self.writer);
+        // 等写入时与提交后开始的段合并都结束：丢下 writer 不会停下进行中的合并，它们还在往目录里
+        // 写，结束得早的还会改写 `meta.json`、删掉被合并的段。
+        self.writer
+            .wait_merging_threads()
+            .map_err(|e| anyhow!("tantivy merge: {e}"))?;
+
         drop(self.index);
         self.dir
             .set_property(FORMAT_PROPERTY, FORMAT_VERSION.to_string());
@@ -373,11 +398,32 @@ impl IndexHandle {
         terms: &[(String, String)],
         contains: &[(String, String)],
     ) -> Result<Option<usize>> {
+        self.count_matching(terms, contains, &[])
+    }
+
+    /// [`Self::count_exact`], of the rows whose `range` fields are also in `ranges`. `None` as
+    /// well when the archive does not index one of those fields by its numbers.
+    pub fn count_matching(
+        &self,
+        terms: &[(String, String)],
+        contains: &[(String, String)],
+        ranges: &[(String, NumberRange)],
+    ) -> Result<Option<usize>> {
         if terms
             .iter()
             .any(|(name, _)| self.whole_value_field(name).is_none())
         {
             return Ok(None);
+        }
+
+        let mut queries = Vec::with_capacity(ranges.len() + 1);
+
+        for (name, range) in ranges {
+            let Some(query) = numbers::range_query(&self.schema, name, range) else {
+                return Ok(None);
+            };
+
+            queries.push(query);
         }
 
         let searcher = self.searcher()?;
@@ -386,12 +432,15 @@ impl IndexHandle {
             return Ok(None);
         };
 
-        let count = match (terms, contains) {
-            ([], []) => searcher.num_docs() as usize,
-            _ => query
-                .count(&searcher)
-                .map_err(|e| anyhow!("tantivy count: {e}"))?,
-        };
+        if terms.is_empty() && contains.is_empty() && queries.is_empty() {
+            return Ok(Some(searcher.num_docs() as usize));
+        }
+
+        queries.push(query);
+
+        let count = conjunction(queries)
+            .count(&searcher)
+            .map_err(|e| anyhow!("tantivy count: {e}"))?;
 
         Ok(Some(count))
     }
@@ -485,16 +534,6 @@ fn term_query(field: Field, value: &str) -> Box<dyn Query> {
     ))
 }
 
-/// 分词字段：按 [`TEXT_TOKENIZER`] 分词，只记文档。裁剪与计数只问哪些文档有某个词，用不到词频
-/// 与位置。
-fn text_options() -> TextOptions {
-    TextOptions::default().set_indexing_options(
-        TextFieldIndexing::default()
-            .set_tokenizer(TEXT_TOKENIZER)
-            .set_index_option(IndexRecordOption::Basic),
-    )
-}
-
 /// 一行 JSON 字段第一层的每个键：「有这个键」与「这个键的值是什么」各一个词，值按 `json_text`
 /// 的规则写成文本。不是 JSON 对象的值（被遮掩的值也是）没有词，与 `json_text` 给出 NULL 一致。
 /// 过长的词 Tantivy 会丢掉；查询不拿这样长的字面量裁剪，见
@@ -576,47 +615,36 @@ impl TantivyArchiveOpener {
     }
 }
 
-// =====================================================================
-//  Footer cache value（puffin meta + payload + schema；不含 archive 全字节）
-// =====================================================================
-
-pub use crate::tantivy::TantivyFooter;
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
+    use domain::stream::{FieldDef, FieldType, Retention, Schema as DomainSchema};
+    use kernel::{ids::Id, time::TimestampMicros};
+
     use super::*;
-    use crate::{
-        domain::stream::{FieldDef, FieldType, Retention, Schema as DomainSchema},
-        shared::{ids::Id, time::TimestampMicros},
-    };
 
     fn stream_with_indexed_message() -> StreamDefinition {
         StreamDefinition {
             id: Id::new(),
             org_id: Id::from_string("org"),
             name: "logs".into(),
-            stream_type: crate::domain::stream::StreamType::LOGS,
+            stream_type: domain::stream::StreamType::LOGS,
             schema: DomainSchema {
                 fields: vec![
                     FieldDef {
                         name: "level".into(),
                         data_type: FieldType::Utf8,
                         nullable: false,
-                        index_type: None,
-                        indexed: false,
+                        index_type: StreamIndexType::None,
                         encrypted: false,
-                        exact: false,
                     },
                     FieldDef {
                         name: "message".into(),
                         data_type: FieldType::Utf8,
                         nullable: false,
-                        index_type: None,
-                        indexed: true,
+                        index_type: StreamIndexType::FullText,
                         encrypted: false,
-                        exact: false,
                     },
                 ],
             },
@@ -629,7 +657,7 @@ mod tests {
     #[test]
     fn no_indexed_fields_returns_none() {
         let mut s = stream_with_indexed_message();
-        s.schema.fields[1].indexed = false;
+        s.schema.fields[1].index_type = StreamIndexType::None;
         let r = TantivyArchiveBuilder::try_new(&s).unwrap();
         assert!(r.is_none());
     }
@@ -641,7 +669,7 @@ mod tests {
         use object_store::{ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};
         let mut s = stream_with_indexed_message();
         // message 改成 exact（STRING）。
-        s.schema.fields[1].exact = true;
+        s.schema.fields[1].index_type = StreamIndexType::Exact;
         let mut b = TantivyArchiveBuilder::try_new(&s).unwrap().unwrap();
         for msg in &["my-service/API", "other"] {
             let mut v = HashMap::new();
@@ -679,7 +707,7 @@ mod tests {
     fn bloom_and_skip_fields_do_not_fall_through_to_text_indexes() {
         for index_type in [StreamIndexType::Bloom, StreamIndexType::Skip] {
             let mut stream = stream_with_indexed_message();
-            stream.schema.fields[1].configure_index(true, index_type);
+            stream.schema.fields[1].index_type = index_type;
             assert!(
                 TantivyArchiveBuilder::try_new(&stream).unwrap().is_none(),
                 "{index_type:?} must not create a Tantivy field"
@@ -792,8 +820,7 @@ mod tests {
         use object_store::{ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};
 
         let mut stream = stream_with_indexed_message();
-        stream.schema.fields[0].indexed = true;
-        stream.schema.fields[0].exact = true;
+        stream.schema.fields[0].index_type = StreamIndexType::Exact;
         let mut builder = TantivyArchiveBuilder::try_new(&stream).unwrap().unwrap();
 
         for (level, message) in [
@@ -851,8 +878,7 @@ mod tests {
         use object_store::{ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};
 
         let mut stream = stream_with_indexed_message();
-        stream.schema.fields[0].indexed = true;
-        stream.schema.fields[0].exact = true;
+        stream.schema.fields[0].index_type = StreamIndexType::Exact;
         let mut builder = TantivyArchiveBuilder::try_new(&stream).unwrap().unwrap();
 
         for (level, message) in [
@@ -927,8 +953,7 @@ mod tests {
         use object_store::{ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};
 
         let mut stream = stream_with_indexed_message();
-        stream.schema.fields[0].indexed = true;
-        stream.schema.fields[0].exact = true;
+        stream.schema.fields[0].index_type = StreamIndexType::Exact;
         let mut builder = TantivyArchiveBuilder::try_new(&stream).unwrap().unwrap();
 
         for (time, level, message) in [
@@ -1026,8 +1051,7 @@ mod tests {
 
     fn stream_with_exact_level() -> StreamDefinition {
         let mut stream = stream_with_indexed_message();
-        stream.schema.fields[0].indexed = true;
-        stream.schema.fields[0].exact = true;
+        stream.schema.fields[0].index_type = StreamIndexType::Exact;
         stream
     }
 
@@ -1045,6 +1069,31 @@ mod tests {
 
     /// 命中的文档换成它们在文件里的行号，不论写入时落在哪个段；命中太多、没有条件或条件落在
     /// 分词字段上时不给出。
+    /// An archive keeps no field norms, which only weigh scores, and its rows as a fast field,
+    /// not in the document store.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn an_archive_keeps_no_field_norms_and_its_rows_as_a_column() {
+        let rows = vec![(None, vec![("level", "error"), ("message", "disk full")])];
+        let handle = open_archive(&stream_with_exact_level(), &rows).await;
+        let schema = handle.schema();
+
+        let norms = schema
+            .fields()
+            .filter_map(|(_, entry)| match entry.field_type() {
+                TantivyFieldType::Str(options) => options
+                    .get_indexing_options()
+                    .map(|indexing| (entry.name().to_owned(), indexing.fieldnorms())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        let row = schema.get_field_entry(schema.get_field(ROW_FIELD).unwrap());
+
+        assert_eq!(norms.len(), 3, "{norms:?}");
+        assert!(norms.iter().all(|(_, norms)| !norms), "{norms:?}");
+        assert!(row.is_fast() && !row.is_stored());
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn matching_rows_gives_the_file_rows_of_the_matches() {
         let rows = (0..300)
@@ -1232,5 +1281,77 @@ mod tests {
                 Some(false)
             ]
         );
+    }
+
+    /// 写入途中提交出的段在后台合并，最后一次提交后还在合并：归档等这些合并结束，装的是合并成的
+    /// 一段；重开后计数、行时间与行号都对得上。
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn an_archive_holds_the_segment_its_merges_made() {
+        use object_store::{ObjectStoreExt, memory::InMemory, path::Path as ObjectPath};
+        use tantivy::merge_policy::LogMergePolicy;
+
+        let mut builder = TantivyArchiveBuilder::try_new(&stream_with_exact_level())
+            .unwrap()
+            .unwrap();
+
+        // 有两段就合并；每 300 行提交出一段，最后 300 行由归档提交。
+        let mut policy = LogMergePolicy::default();
+        policy.set_min_num_segments(2);
+        builder.writer.set_merge_policy(Box::new(policy));
+
+        for row in 0..900 {
+            let level = if row % 4 == 0 { "error" } else { "info" };
+            let values = HashMap::from([("level", level), ("message", "disk full")]);
+            builder.add_doc(Some(row), &values).unwrap();
+
+            if row % 300 == 299 && row < 899 {
+                builder.writer.commit().unwrap();
+            }
+        }
+
+        let bytes = builder.commit_and_archive().unwrap();
+        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let path = ObjectPath::from("merged.ttv");
+        store.put(&path, bytes.clone().into()).await.expect("put");
+
+        let handle = TantivyArchiveOpener::open_from_object_store(store, path, bytes.len() as u64)
+            .await
+            .expect("open");
+
+        let segments = handle.index.searchable_segment_ids().unwrap().len();
+
+        let bars = BarQuery {
+            terms: Vec::new(),
+            contains: Vec::new(),
+            window: 0..900,
+            origin: 0,
+            width: 300,
+            errors: Some("level".to_owned()),
+        };
+
+        let (errors, tallies, rows) = tokio::task::spawn_blocking(move || {
+            (
+                handle.count_term("level", "error").unwrap(),
+                handle.count_bars(&bars).unwrap(),
+                handle
+                    .matching_rows(&sets(&[("level", &["error"])]), 900)
+                    .unwrap(),
+            )
+        })
+        .await
+        .unwrap();
+
+        let third = || BarTally {
+            total: 300,
+            errors: 75,
+        };
+
+        assert_eq!(segments, 1);
+        assert_eq!(errors, Some(225));
+        assert_eq!(
+            tallies,
+            Some(BTreeMap::from([(0, third()), (1, third()), (2, third())]))
+        );
+        assert_eq!(rows, Some((0..900).step_by(4).collect()));
     }
 }

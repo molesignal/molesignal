@@ -2,29 +2,36 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! 识别只数行数的语句：`SELECT count(*) FROM <table> [WHERE col = 'v' AND …]`、explorer
-//! 直方图按时间分柱数行数的语句（见 [`BarCounts`]），以及字段分析的最常见值与汇总。
+//! 直方图按时间分柱数行数的语句（见 [`BarCounts`]）、字段分析的最常见值与汇总，以及按一列的值
+//! 数行的 `GROUP BY`（见 [`GroupedCounts`]）。
 //!
 //! 这些语句的结果只取决于满足条件的行数，直方图还取决于每行的时间：引擎可以用 Catalog 记录的
-//! 行数或索引回答，不必读数据。条件是等值（`col = 'v'`，由整值索引回答）与子串
-//! （`col ILIKE '%词%'`，由分词索引回答）的合取。这里只做语法判断，字段有没有这样的索引由
-//! 调用方按 stream schema 决定。列名按 DataFusion 的规则解析：未加引号的标识符按 ASCII
-//! 转小写。
+//! 行数或索引回答，不必读数据。条件是等值（`col = 'v'`，由整值索引回答）、子串
+//! （`col ILIKE '%词%'`，由分词索引回答）与行时间上下界的合取。这里只做语法判断，字段有没有
+//! 这样的索引由调用方按 stream schema 决定。列名按 DataFusion 的规则解析：未加引号的标识符按
+//! ASCII 转小写。
 
 use sqlparser::{
     ast::{
-        BinaryOperator, CaseWhen, CastKind, DataType, Expr, FunctionArg, FunctionArgExpr,
-        FunctionArguments, GroupByExpr, ObjectNamePart, Query, Select, SelectItem, SetExpr,
-        Statement, TableFactor, TableWithJoins, UnaryOperator, Value,
+        BinaryOperator, CaseWhen, CastKind, CeilFloorKind, DataType, DateTimeField, Expr,
+        FunctionArg, FunctionArgExpr, FunctionArguments, GroupByExpr, ObjectNamePart, OrderByKind,
+        Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, UnaryOperator,
+        Value,
     },
     dialect::GenericDialect,
     parser::Parser,
 };
 
 mod conditions;
+mod groups;
+mod rows;
 mod summary;
 mod values;
 
 use conditions::{Conditions, TimeWindow, collect_conditions};
+pub use conditions::{Number, NumberRange};
+pub use groups::{GroupKey, GroupOrder, GroupedCounts, grouped_counts};
+pub use rows::{RowFilters, row_filters};
 pub use summary::{FieldSummary, field_summary};
 pub use values::{TopValues, top_values};
 
@@ -41,11 +48,18 @@ const TIMESTAMP_COLUMN: &str = "_timestamp";
 ///       [AND <col> = '<value>' …] [AND <col> ILIKE '%<term>%' …]
 /// GROUP BY 1
 /// ```
+///
+/// A bar can also be named by the time it starts at, `CAST(FLOOR(CAST(_timestamp AS BIGINT) /
+/// <width>) AS BIGINT) * <width>` or `(CAST(_timestamp AS BIGINT) / <width>) * <width>`, see
+/// [`BarKey::Start`]. `GROUP BY` names the bar by its place or its alias, and an `ORDER BY` of the
+/// bar ascending may follow.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BarCounts {
     /// 一行落在第 `(_timestamp - origin) / width` 根柱子：微秒，整数除法。
     pub origin: i64,
     pub width: i64,
+    /// What the statement returns for a bar.
+    pub key: BarKey,
     /// WHERE 限定的时间窗 `[from, to)`，微秒。
     pub from: i64,
     pub to: i64,
@@ -58,20 +72,26 @@ pub struct BarCounts {
 }
 
 /// `SELECT count(*)` 的条件；不带 WHERE 时都为空，数的是整张表。
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct PlainCount {
     /// 等值过滤 `(列名, 字面量)`。
     pub filters: Vec<(String, String)>,
     /// 子串过滤 `列 ILIKE '%子串%'`：`(列名, 按 ASCII 转小写的子串)`。
     pub contains: Vec<(String, String)>,
+    /// WHERE 限定的时间窗 `[from, to)`，微秒；没有时间条件的一边为 `None`。
+    pub from: Option<i64>,
+    pub to: Option<i64>,
+    /// Comparisons of other columns with numbers, `(列名, 保留的数)`: a row counts when its value
+    /// of each column is in its range.
+    pub ranges: Vec<(String, NumberRange)>,
 }
 
 /// `sql` 只统计 `table` 的行数时，返回它的条件。
 ///
 /// 其它任何形态都返回 `None`：多个投影项、`count(col)`、`DISTINCT`、`GROUP BY`、JOIN、
-/// 子查询、`LIMIT` / `ORDER BY`，以及 WHERE 里任何不是 `列 = '字面量'` 与
-/// `列 ILIKE '%子串%'` 合取的条件（`OR`、`NOT`、比较、`LIKE`、带通配符的 `ILIKE`、函数、
-/// 时间条件）。
+/// 子查询、`LIMIT` / `ORDER BY`，以及 WHERE 里任何不是 `列 = '字面量'`、`列 ILIKE '%子串%'`、
+/// 别的列与数字的 `>=`、`>`、`<`、`<=` 与行时间上下界合取的条件（`OR`、`NOT`、`LIKE`、带通配符
+/// 的 `ILIKE`、函数、行时间与整数以外的比较）。
 pub fn plain_count(sql: &str, table: &str) -> Option<PlainCount> {
     let select = plain_select(sql)?;
 
@@ -88,34 +108,50 @@ pub fn plain_count(sql: &str, table: &str) -> Option<PlainCount> {
         return None;
     }
 
-    let mut conditions = Conditions::default();
+    let mut conditions = Conditions {
+        window: Some(TimeWindow::default()),
+        ranges: Some(Vec::new()),
+        ..Conditions::default()
+    };
 
     if let Some(selection) = &select.selection {
         collect_conditions(selection, &mut conditions)?;
     }
 
+    let window = conditions.window.unwrap_or_default();
+
     Some(PlainCount {
         filters: conditions.filters,
         contains: conditions.contains,
+        from: window.from,
+        to: window.to,
+        ranges: conditions.ranges.unwrap_or_default(),
     })
+}
+
+/// What a statement counting rows by bar returns for a bar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BarKey {
+    /// Its place, `(_timestamp - origin) / width`.
+    Index,
+    /// The time it starts at, `_timestamp / width * width`; `origin` is 0.
+    Start,
 }
 
 /// `sql` 是按时间分柱数 `table` 行数的 explorer 直方图语句时，返回它的柱子与过滤条件。
 ///
-/// 只认 [`BarCounts`] 所示的一种写法：投影的顺序与形状、WHERE 恰好是时间上下界、
-/// `列 = '字面量'` 与 `列 ILIKE '%子串%'` 的合取、`GROUP BY 1`。柱宽须为正，时间窗两端减去 `origin` 不得溢出，
+/// 只认 [`BarCounts`] 所示的写法：投影的顺序与形状、WHERE 恰好是时间上下界、
+/// `列 = '字面量'` 与 `列 ILIKE '%子串%'` 的合取、`GROUP BY` 柱子。柱宽须为正，时间窗两端减去 `origin` 不得溢出，
 /// 窗内每一行算柱号便都不溢出。level 由几个列 `COALESCE` 而来的写法也返回 `None`：
 /// 索引答不出一行先在哪一列有值。
 pub fn bar_counts(sql: &str, table: &str) -> Option<BarCounts> {
-    let select = plain_select(sql)?;
+    let query = single_query(sql)?;
 
-    let grouped_by_bar = matches!(
-        &select.group_by,
-        GroupByExpr::Expressions(exprs, modifiers)
-            if modifiers.is_empty() && matches!(exprs.as_slice(), [expr] if integer(expr) == Some(1))
-    );
+    let SetExpr::Select(select) = query.body.as_ref() else {
+        return None;
+    };
 
-    if !grouped_by_bar || !reads_only(&select.from, table) {
+    if query.limit_clause.is_some() || !plain(select) || !reads_only(&select.from, table) {
         return None;
     }
 
@@ -125,9 +161,36 @@ pub fn bar_counts(sql: &str, table: &str) -> Option<BarCounts> {
         _ => return None,
     };
 
-    let (origin, width) = bar_index(item_expr(bar)?)?;
+    let (origin, width, key) = match bar_index(item_expr(bar)?) {
+        Some((origin, width)) => (origin, width, BarKey::Index),
+        None => (0, bar_start(item_expr(bar)?)?, BarKey::Start),
+    };
 
-    if !counts_rows(item_expr(rows)?) {
+    let bar_alias = groups::alias(bar);
+
+    // The bar by its place in the result or by its alias.
+    let names_bar = |expr: &Expr| {
+        integer(expr) == Some(1)
+            || (bar_alias.is_some() && groups::is_column(expr) && column_name(expr) == bar_alias)
+    };
+
+    let grouped_by_bar = matches!(
+        &select.group_by,
+        GroupByExpr::Expressions(exprs, modifiers)
+            if modifiers.is_empty() && matches!(exprs.as_slice(), [expr] if names_bar(expr))
+    );
+
+    // The bars come back in ascending order: the statement may ask for no other.
+    let ordered = query.order_by.as_ref().is_none_or(|order| {
+        order.interpolate.is_none()
+            && matches!(&order.kind, OrderByKind::Expressions(keys)
+                if matches!(keys.as_slice(), [key]
+                    if key.with_fill.is_none()
+                        && key.options.asc != Some(false)
+                        && names_bar(&key.expr)))
+    });
+
+    if !grouped_by_bar || !ordered || !counts_rows(item_expr(rows)?) {
         return None;
     }
 
@@ -150,6 +213,7 @@ pub fn bar_counts(sql: &str, table: &str) -> Option<BarCounts> {
     fits.then_some(BarCounts {
         origin,
         width,
+        key,
         from,
         to,
         filters: conditions.filters,
@@ -287,6 +351,51 @@ fn bar_index(expr: &Expr) -> Option<(i64, i64)> {
     Some((integer(origin)?, integer(width)?))
 }
 
+/// The width of a bar named by the time it starts at: `CAST(FLOOR(CAST(_timestamp AS BIGINT) /
+/// <width>) AS BIGINT) * <width>`, or the same without `FLOOR` and its `CAST`, in brackets or not.
+/// Integer division leaves `FLOOR` nothing to round.
+fn bar_start(expr: &Expr) -> Option<i64> {
+    let Expr::BinaryOp {
+        left,
+        op: BinaryOperator::Multiply,
+        right,
+    } = expr
+    else {
+        return None;
+    };
+
+    let divided = match left.as_ref() {
+        Expr::Nested(inner) => inner.as_ref(),
+        Expr::Cast {
+            kind: CastKind::Cast,
+            expr: floor,
+            data_type: DataType::BigInt(None),
+            array: false,
+            format: None,
+        } => match floor.as_ref() {
+            Expr::Floor {
+                expr: divided,
+                field: CeilFloorKind::DateTimeField(DateTimeField::NoDateTime),
+            } => divided.as_ref(),
+            _ => return None,
+        },
+        divided => divided,
+    };
+
+    let Expr::BinaryOp {
+        left: micros,
+        op: BinaryOperator::Divide,
+        right: width,
+    } = divided
+    else {
+        return None;
+    };
+
+    let width = integer(width)?;
+
+    (timestamp_micros(micros) && integer(right) == Some(width)).then_some(width)
+}
+
 /// `SUM(CASE WHEN UPPER(CAST(<level> AS VARCHAR)) = 'ERROR' THEN 1 ELSE 0 END)`，返回
 /// level 列名。
 fn error_level(expr: &Expr) -> Option<String> {
@@ -357,8 +466,18 @@ fn timestamp_micros(expr: &Expr) -> bool {
         return false;
     };
 
-    matches!(column.as_ref(), Expr::Identifier(_))
-        && column_name(column).is_some_and(|name| name == TIMESTAMP_COLUMN)
+    timestamp_column(column)
+}
+
+/// 与整数比较的行时间：`CAST(_timestamp AS BIGINT)`，或不加 CAST 的 `_timestamp`，DataFusion
+/// 把与它比较的整数当作同一单位（微秒）的时间。
+fn compared_timestamp(expr: &Expr) -> bool {
+    timestamp_micros(expr) || timestamp_column(expr)
+}
+
+fn timestamp_column(expr: &Expr) -> bool {
+    matches!(expr, Expr::Identifier(_))
+        && column_name(expr).is_some_and(|name| name == TIMESTAMP_COLUMN)
 }
 
 /// 整数字面量，可以带负号或套括号。
@@ -426,6 +545,8 @@ pub fn column_name(expr: &Expr) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Bound;
+
     use super::*;
 
     fn filters(sql: &str) -> Option<Vec<(String, String)>> {
@@ -509,7 +630,134 @@ mod tests {
             Some(PlainCount {
                 filters: vec![pair("path", "a")],
                 contains: vec![pair("message", "timeout")],
+                from: None,
+                to: None,
+                ranges: vec![],
             })
+        );
+    }
+
+    /// 行时间与整数微秒的比较收窄时间窗：同一边取最窄的，`>` 与 `<=` 换成半开区间。
+    #[test]
+    fn reads_bounds_of_the_row_time() {
+        let window = |sql: &str| plain_count(sql, "requests").map(|count| (count.from, count.to));
+
+        assert_eq!(
+            window(
+                "SELECT count(*) FROM requests WHERE CAST(_timestamp AS BIGINT) >= 1000 \
+                 AND CAST(_timestamp AS BIGINT) < 9000"
+            ),
+            Some((Some(1000), Some(9000)))
+        );
+        assert_eq!(
+            window(
+                "SELECT count(*) FROM requests WHERE _timestamp > 1000 AND _timestamp <= 9000 \
+                 AND _timestamp >= 500 AND (_timestamp < 20000)"
+            ),
+            Some((Some(1001), Some(9001)))
+        );
+        assert_eq!(
+            window("SELECT count(*) FROM requests WHERE _timestamp >= -5"),
+            Some((Some(-5), None))
+        );
+        assert_eq!(
+            plain_count(
+                "SELECT count(*) FROM requests WHERE level = 'ERROR' AND _timestamp < 9000",
+                "requests"
+            ),
+            Some(PlainCount {
+                filters: vec![pair("level", "ERROR")],
+                contains: vec![],
+                from: None,
+                to: Some(9000),
+                ranges: vec![],
+            })
+        );
+    }
+
+    /// Other columns compared with numbers become ranges; the row time keeps narrowing the window,
+    /// and only as `_timestamp op number`.
+    #[test]
+    fn reads_comparisons_with_numbers_as_ranges() {
+        let ranges =
+            |sql: &str| plain_count(sql, "requests").map(|count| (count.ranges, count.from));
+
+        assert_eq!(
+            ranges(
+                "SELECT count(*) FROM requests WHERE duration >= 1000 AND 2.5 > ratio \
+                 AND _timestamp >= 7 AND (status < -1)"
+            ),
+            Some((
+                vec![
+                    (
+                        "duration".to_string(),
+                        NumberRange {
+                            lower: Bound::Included(Number::Integer(1000)),
+                            upper: Bound::Unbounded,
+                        },
+                    ),
+                    (
+                        "ratio".to_string(),
+                        NumberRange {
+                            lower: Bound::Unbounded,
+                            upper: Bound::Excluded(Number::Decimal(2.5)),
+                        },
+                    ),
+                    (
+                        "status".to_string(),
+                        NumberRange {
+                            lower: Bound::Unbounded,
+                            upper: Bound::Excluded(Number::Integer(-1)),
+                        },
+                    ),
+                ],
+                Some(7)
+            ))
+        );
+
+        assert_eq!(
+            ranges("SELECT count(*) FROM requests WHERE timestamp > 1"),
+            Some((
+                vec![(
+                    "timestamp".to_string(),
+                    NumberRange {
+                        lower: Bound::Excluded(Number::Integer(1)),
+                        upper: Bound::Unbounded,
+                    },
+                )],
+                None
+            ))
+        );
+
+        for declined in [
+            "SELECT count(*) FROM requests WHERE duration = 5",
+            "SELECT count(*) FROM requests WHERE duration <> 5",
+            "SELECT count(*) FROM requests WHERE duration >= '5'",
+            "SELECT count(*) FROM requests WHERE duration >= other",
+            "SELECT count(*) FROM requests WHERE 5 <= _timestamp",
+        ] {
+            assert_eq!(plain_count(declined, "requests"), None, "{declined}");
+        }
+    }
+
+    /// Only a plain count takes ranges: the other counts read no numbers, and a statement they
+    /// take turns into one they decline once it compares a column with a number.
+    #[test]
+    fn other_counts_decline_comparisons_with_numbers() {
+        let grouped = |condition: &str| {
+            grouped_counts(
+                &format!("SELECT service, count(*) FROM requests{condition} GROUP BY service"),
+                "requests",
+            )
+        };
+
+        assert!(grouped("").is_some());
+        assert_eq!(grouped(" WHERE duration >= 1"), None);
+
+        assert!(bar_counts(&histogram("600", "", ""), "requests").is_some());
+        assert_eq!(
+            bar_counts(&histogram("600", "", " AND duration >= 1"), "requests"),
+            None
         );
     }
 
@@ -532,8 +780,15 @@ mod tests {
             "SELECT count(*) FROM requests WHERE path ILIKE '%%'",
             "SELECT count(*) FROM requests WHERE path NOT ILIKE '%bar%'",
             "SELECT count(*) FROM requests WHERE path ILIKE '%bar%' ESCAPE '!'",
-            "SELECT count(*) FROM requests WHERE _timestamp >= 1",
-            "SELECT count(*) FROM requests WHERE CAST(_timestamp AS BIGINT) >= 1",
+            "SELECT count(*) FROM requests WHERE _timestamp <> 1",
+            "SELECT count(*) FROM requests WHERE _timestamp = 1",
+            "SELECT count(*) FROM requests WHERE _timestamp >= 1.5",
+            "SELECT count(*) FROM requests WHERE _timestamp >= '2026-11-05T00:00:00Z'",
+            "SELECT count(*) FROM requests WHERE _timestamp >= now() - INTERVAL '1 hour'",
+            "SELECT count(*) FROM requests WHERE 1000 <= _timestamp",
+            "SELECT count(*) FROM requests WHERE r._timestamp >= 1",
+            "SELECT count(*) FROM requests WHERE CAST(_timestamp AS VARCHAR) >= '1'",
+            "SELECT count(*) FROM requests WHERE _timestamp > 9223372036854775807",
             "SELECT count(*) FROM requests WHERE lower(path) = 'a'",
             "SELECT count(*) FROM requests GROUP BY path",
             "SELECT count(*) FROM requests HAVING count(*) > 1",
@@ -560,6 +815,7 @@ mod tests {
             Some(BarCounts {
                 origin: 600,
                 width: 60_000_000,
+                key: BarKey::Index,
                 from: 1000,
                 to: 9000,
                 filters: vec![],
@@ -580,6 +836,7 @@ mod tests {
             Some(BarCounts {
                 origin: -500,
                 width: 60_000_000,
+                key: BarKey::Index,
                 from: 1000,
                 to: 9000,
                 filters: vec![pair("environment", "prod"), pair("host", "a")],
@@ -587,6 +844,51 @@ mod tests {
                 errors: Some("level".to_owned()),
             })
         );
+
+        let ordered = histogram("600", "", "").replace(" GROUP BY 1", " GROUP BY 1 ORDER BY 1");
+
+        assert!(bar_counts(&ordered, "requests").is_some());
+    }
+
+    #[test]
+    fn reads_bars_named_by_the_time_they_start_at() {
+        let sql = "SELECT CAST(FLOOR(CAST(_timestamp AS BIGINT) / 60000000) AS BIGINT) * 60000000 \
+                   AS bucket, COUNT(*) AS n FROM bench_logs WHERE _timestamp >= 1000 \
+                   AND _timestamp < 9000 AND level = 'ERROR' GROUP BY bucket ORDER BY bucket ASC";
+
+        assert_eq!(
+            bar_counts(sql, "bench_logs"),
+            Some(BarCounts {
+                origin: 0,
+                width: 60_000_000,
+                key: BarKey::Start,
+                from: 1000,
+                to: 9000,
+                filters: vec![pair("level", "ERROR")],
+                contains: vec![],
+                errors: None,
+            })
+        );
+
+        let bracketed = "SELECT (CAST(_timestamp AS BIGINT) / 300000000) * 300000000 AS b, \
+                         COUNT(*) FROM bench_logs WHERE _timestamp >= 0 AND _timestamp < 9000 \
+                         GROUP BY 1";
+
+        assert_eq!(
+            bar_counts(bracketed, "bench_logs").map(|bars| (bars.width, bars.key)),
+            Some((300_000_000, BarKey::Start))
+        );
+
+        for sql in [
+            sql.replace("ASC", "DESC"),
+            sql.replace("* 60000000", "* 30000000"),
+            sql.replace("FLOOR", "CEIL"),
+            sql.replace("GROUP BY bucket", "GROUP BY n"),
+            sql.replace("ORDER BY bucket ASC", "ORDER BY n"),
+            format!("{sql} LIMIT 10"),
+        ] {
+            assert_eq!(bar_counts(&sql, "bench_logs"), None, "{sql}");
+        }
     }
 
     #[test]
@@ -614,7 +916,7 @@ mod tests {
             // A bar origin that is not a whole number, or a time window that overflows it.
             histogram("1.5", "", ""),
             histogram("-9223372036854775807", "", ""),
-            histogram("0", "", "").replace(" GROUP BY 1", " GROUP BY 1 ORDER BY 1"),
+            histogram("0", "", "").replace(" GROUP BY 1", " GROUP BY 1 ORDER BY 1 DESC"),
             histogram("0", "", "").replace(" GROUP BY 1", " GROUP BY 1 LIMIT 3"),
             histogram("0", "", "").replace(" GROUP BY 1", " GROUP BY 2"),
             histogram("0", "", "").replace("/ 60000000", "/ 0"),
@@ -622,6 +924,7 @@ mod tests {
             histogram("0", "", "").replace("\"requests\"", "\"other\""),
             histogram("0", "", "").replace("COUNT(*)", "COUNT(host)"),
             histogram("0", "", "").replace("AS BIGINT) - 0", "AS INT) - 0"),
+            histogram("0", "", "").replace("(CAST(_timestamp AS BIGINT) - 0)", "(_timestamp - 0)"),
             histogram("0", "", "").replace("AND CAST(_timestamp AS BIGINT) < 9000", ""),
             histogram("0", "", "").replace("CAST(_timestamp AS BIGINT) >= 1000 AND ", ""),
         ] {

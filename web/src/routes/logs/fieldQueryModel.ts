@@ -106,7 +106,9 @@ export function deriveLogFields(
   if (schemaFields.length === 0 && !result) return [];
   const schema = new Map(schemaFields.map((field) => [field.name, field.dataType]));
   schema.set('_timestamp', 'timestamp');
-  const indexed = new Set(schemaFields.filter((field) => field.indexed).map((field) => field.name));
+  const indexed = new Set(
+    schemaFields.filter((field) => field.indexType !== 'none').map((field) => field.name),
+  );
   // Time is not a field a stream declares an index for: every stream is partitioned by it, and a
   // query reads only the files of its time range. It is the first index a log has.
   indexed.add('_timestamp');

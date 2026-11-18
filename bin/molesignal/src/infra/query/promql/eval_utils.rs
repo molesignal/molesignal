@@ -35,20 +35,25 @@ fn resolve_modifier_time(
     at_us: i64,
     req: &QueryRequest,
 ) -> i64 {
-    let mut base = match at {
-        Some(AtModifier::Start) => req.time_range.start.0,
-        Some(AtModifier::End) => req.time_range.end.0,
-        Some(AtModifier::At(t)) => system_time_to_micros(*t),
-        None => at_us,
-    };
+    pinned_time(at, req).unwrap_or(at_us) - offset_micros(offset)
+}
 
+/// `@` 固定的求值时刻（micros）；没有 `@` 时为 `None`。
+pub(super) fn pinned_time(at: Option<&AtModifier>, req: &QueryRequest) -> Option<i64> {
+    at.map(|at| match at {
+        AtModifier::Start => req.time_range.start.0,
+        AtModifier::End => req.time_range.end.0,
+        AtModifier::At(t) => system_time_to_micros(*t),
+    })
+}
+
+/// `offset` 把求值时刻往前移的微秒数；负的 offset 往后移，是负数。
+pub(super) fn offset_micros(offset: Option<&Offset>) -> i64 {
     match offset {
-        Some(Offset::Pos(d)) => base -= d.as_micros() as i64,
-        Some(Offset::Neg(d)) => base += d.as_micros() as i64,
-        None => {}
+        Some(Offset::Pos(d)) => d.as_micros() as i64,
+        Some(Offset::Neg(d)) => -(d.as_micros() as i64),
+        None => 0,
     }
-
-    base
 }
 
 fn system_time_to_micros(t: SystemTime) -> i64 {
@@ -117,51 +122,40 @@ pub(super) fn negate_range_vector(mut input: RangeVector) -> RangeVector {
     input
 }
 
-/// 在 `[start_us, end_us]` 上按 `step_us` 步进，对每个步点 `t` 回调其前置窗口
-/// `(t - range_us, t]` 内的样本切片（`samples` 须按 ts 升序）。
+/// 在 `steps` 的每个步点 `t` 回调它的窗口右端 `end`（见 [`Steps::window_end`]），与前置窗口
+/// `(end - range_us, end]` 内的样本切片（`samples` 须按 ts 升序）。
 ///
 /// 两指针实现：lo/hi 只单调前移，整条 series 共 O(samples + steps)。range 求值
 /// 一律走这里按 step 出点，而不是对窗口内每个原始样本各出一个点——后者输出规模
 /// 随采样密度线性、重扫成本随密度平方膨胀。
-pub(super) fn each_step_window<F>(
-    samples: &[(i64, f64)],
-    start_us: i64,
-    end_us: i64,
-    step_us: i64,
-    range_us: i64,
-    mut visit: F,
-) where
-    F: FnMut(i64, &[(i64, f64)]),
+pub(super) fn each_step_window<F>(samples: &[(i64, f64)], steps: Steps, range_us: i64, mut visit: F)
+where
+    F: FnMut(i64, i64, &[(i64, f64)]),
 {
-    each_step_window_indices(
-        samples,
-        start_us,
-        end_us,
-        step_us,
-        range_us,
-        |timestamp, lo, hi| visit(timestamp, &samples[lo..hi]),
-    );
+    each_step_window_indices(samples, steps, range_us, |t, end, lo, hi| {
+        visit(t, end, &samples[lo..hi])
+    });
 }
 
 /// Index-based variant used when per-sample sidecar metadata must stay aligned
 /// with the selected value window.
 pub(super) fn each_step_window_indices<F>(
     samples: &[(i64, f64)],
-    start_us: i64,
-    end_us: i64,
-    step_us: i64,
+    steps: Steps,
     range_us: i64,
     mut visit: F,
 ) where
-    F: FnMut(i64, usize, usize),
+    F: FnMut(i64, i64, usize, usize),
 {
-    let step_us = step_us.max(1);
+    let step_us = steps.step_us.max(1);
     let range_us = range_us.max(1);
     let (mut lo, mut hi) = (0usize, 0usize);
-    let mut t = start_us;
+    let mut t = steps.start_us;
 
-    while t <= end_us {
-        let window_start = t.saturating_sub(range_us);
+    while t <= steps.end_us {
+        // 窗口右端随步点前移（`@` 时不动），两个指针也只前移。
+        let end = steps.window_end(t);
+        let window_start = end.saturating_sub(range_us);
 
         while lo < samples.len() && samples[lo].0 <= window_start {
             lo += 1;
@@ -171,11 +165,11 @@ pub(super) fn each_step_window_indices<F>(
             hi = lo;
         }
 
-        while hi < samples.len() && samples[hi].0 <= t {
+        while hi < samples.len() && samples[hi].0 <= end {
             hi += 1;
         }
 
-        visit(t, lo, hi);
+        visit(t, end, lo, hi);
 
         match t.checked_add(step_us) {
             Some(next) => t = next,

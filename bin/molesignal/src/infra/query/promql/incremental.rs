@@ -310,11 +310,9 @@ impl PromQLEngine {
             for s in &series {
                 each_step_window_indices(
                     &s.samples,
-                    plan.compute_lo,
-                    q_hi,
-                    step_us,
+                    Steps::new(plan.compute_lo, q_hi, step_us),
                     range_us,
-                    |t, lo, hi| {
+                    |t, _, lo, hi| {
                         let samples = &s.samples[lo..hi];
                         let metadata = s.metadata_slice(lo, hi);
 

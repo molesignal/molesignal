@@ -19,20 +19,21 @@ use arrow::{
 };
 use async_trait::async_trait;
 use common::write_parquet_fixture;
-use molesignal::{
-    domain::{
-        query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
-        storage::{QueryFile, QueryFileSource},
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
+use domain::{
+    query::{QueryEngine, QueryLanguage, QueryRequest, StreamHint},
+    storage::{QueryFile, QueryFileSource},
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
     },
-    infra::{search::datafusion_engine::DataFusionEngine, storage::parquet::writer::ParquetWriter},
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use molesignal::infra::{
+    search::datafusion_engine::DataFusionEngine, storage::parquet::writer::ParquetWriter,
 };
 use object_store::{ObjectStore, local::LocalFileSystem};
 
@@ -114,10 +115,8 @@ fn stream_def(org: &str) -> StreamDefinition {
                 name: "n".into(),
                 data_type: FieldType::Int64,
                 nullable: false,
-                index_type: None,
-                indexed: false,
+                index_type: StreamIndexType::None,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),
@@ -187,7 +186,7 @@ async fn cte_union_subquery_isolated_per_org() {
             federation_clusters: Vec::new(),
         }
     }
-    fn cell_i64(r: &molesignal::domain::query::QueryResult) -> i64 {
+    fn cell_i64(r: &domain::query::QueryResult) -> i64 {
         r.rows[0][0]
             .as_i64()
             .or_else(|| r.rows[0][0].as_u64().map(|u| u as i64))

@@ -26,7 +26,10 @@ export interface QueryTabTime {
  */
 export interface QueryTab extends QueryTabTime {
   id: string;
-  /** Names a tab nobody named: "Query 3". Never reused within a set of tabs. */
+  /**
+   * Names a tab nobody named: "Query 3". One past the highest a tab still open has: two open
+   * tabs never share one, and the numbers of closed tabs come free again.
+   */
   ordinal: number;
   /** A name the user gave the tab. */
   label?: string;
@@ -47,7 +50,6 @@ export interface QueryTab extends QueryTabTime {
 export interface QueryTabsState {
   tabs: QueryTab[];
   activeId: string;
-  nextOrdinal: number;
   /**
    * The tab shown in each half of a split page, left then right. Each half
    * lists its own tabs (`QueryTab.side`), and the tab in front is one of the
@@ -161,14 +163,19 @@ export function composeSearch(
   return params.toString();
 }
 
+/** The number of a new tab among `tabs`: one past the highest of them, 1 when there is none. */
+function nextOrdinal(tabs: readonly QueryTab[]): number {
+  return tabs.reduce((highest, tab) => Math.max(highest, tab.ordinal), 0) + 1;
+}
+
 function newTab(
-  state: Pick<QueryTabsState, 'nextOrdinal'>,
+  ordinal: number,
   init: { search?: string; memory?: Record<string, unknown>; label?: string } & QueryTabTime,
   now: number,
 ): QueryTab {
   return {
-    id: `q${state.nextOrdinal}-${now.toString(36)}`,
-    ordinal: state.nextOrdinal,
+    id: `q${ordinal}-${now.toString(36)}`,
+    ordinal,
     ...(init.label ? { label: init.label } : {}),
     search: init.search ?? '',
     window: init.window,
@@ -227,8 +234,8 @@ export function openQueryTabs(
   };
 
   if (!saved || saved.tabs.length === 0) {
-    const tab = newTab({ nextOrdinal: 1 }, { search: arrival.own, ...time }, now);
-    return { tabs: [tab], activeId: tab.id, nextOrdinal: 2 };
+    const tab = newTab(1, { search: arrival.own, ...time }, now);
+    return { tabs: [tab], activeId: tab.id };
   }
 
   const front = (state: QueryTabsState, id: string): QueryTabsState =>
@@ -244,12 +251,9 @@ export function openQueryTabs(
   if (existing) return front(saved, existing.id);
 
   // A link opens in the half that is worked in.
-  const tab = { ...newTab(saved, { search: arrival.own, ...time }, now), ...sideLike(active) };
   const kept = makeRoom(saved.tabs, saved.activeId);
-  return inFront(
-    { ...saved, tabs: [...kept, tab], nextOrdinal: saved.nextOrdinal + 1 },
-    tab.id,
-  );
+  const tab = { ...newTab(nextOrdinal(kept), { search: arrival.own, ...time }, now), ...sideLike(active) };
+  return inFront({ ...saved, tabs: [...kept, tab] }, tab.id);
 }
 
 /** The half a tab is listed in, for a tab that is to be listed beside it. */
@@ -280,7 +284,7 @@ export function addQueryTab(
   const beside = state.tabs.find((tab) => tab.id === besideId)
     ?? state.tabs.find((tab) => tab.id === state.activeId);
   const tab = newTab(
-    state,
+    nextOrdinal(state.tabs),
     {
       window: beside?.window ?? state.tabs[0]!.window,
       anchor: beside?.anchor ?? null,
@@ -299,7 +303,7 @@ export function duplicateQueryTab(
   const source = state.tabs.find((tab) => tab.id === id);
   if (!source || state.tabs.length >= MAX_QUERY_TABS) return state;
   const tab = newTab(
-    state,
+    nextOrdinal(state.tabs),
     {
       search: source.search,
       window: source.window,
@@ -322,7 +326,6 @@ function insertAfter(state: QueryTabsState, id: string, tab: QueryTab): QueryTab
     {
       ...state,
       tabs: [...state.tabs.slice(0, at), listed, ...state.tabs.slice(at)],
-      nextOrdinal: state.nextOrdinal + 1,
     },
     listed.id,
   );
@@ -372,7 +375,7 @@ export function setQueryPaneCount(state: QueryTabsState, count: number, now: num
 
   const copy: QueryTab = {
     ...newTab(
-      single,
+      nextOrdinal(single.tabs),
       {
         search: source.search,
         window: source.window,
@@ -389,7 +392,6 @@ export function setQueryPaneCount(state: QueryTabsState, count: number, now: num
   return {
     ...single,
     tabs: [...single.tabs, copy],
-    nextOrdinal: single.nextOrdinal + 1,
     panes: [source.id, copy.id],
     activeId: copy.id,
   };
@@ -423,8 +425,8 @@ export function closeQueryTab(state: QueryTabsState, id: string, now: number): Q
   const closing = state.tabs[index]!;
 
   if (state.tabs.length === 1) {
-    const tab = newTab(state, { window: closing.window, anchor: closing.anchor }, now);
-    return { tabs: [tab], activeId: tab.id, nextOrdinal: state.nextOrdinal + 1 };
+    const tab = newTab(1, { window: closing.window, anchor: closing.anchor }, now);
+    return { tabs: [tab], activeId: tab.id };
   }
 
   const tabs = state.tabs.filter((tab) => tab.id !== id);

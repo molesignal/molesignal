@@ -10,17 +10,17 @@ import {
 } from './valueFilter';
 
 const fields = deriveTraceFields([
-  { name: 'trace_id', dataType: 'utf8', nullable: false, indexed: true },
-  { name: 'span_id', dataType: 'utf8', nullable: false, indexed: true },
-  { name: 'service.name', dataType: 'utf8', nullable: true, indexed: true },
-  { name: 'name', dataType: 'utf8', nullable: true, indexed: true },
-  { name: 'duration_ns', dataType: 'int64', nullable: false, indexed: false },
-  { name: 'http.status_code', dataType: 'int64', nullable: true, indexed: false },
-  { name: 'ratio', dataType: 'float64', nullable: true, indexed: false },
-  { name: 'conflict', dataType: 'bool', nullable: true, indexed: false },
-  { name: 'seen_at', dataType: 'timestamp', nullable: true, indexed: false },
-  { name: 'attributes', dataType: 'json', nullable: true, indexed: false },
-  { name: 'http.request.header.x-request-id', dataType: 'utf8', nullable: true, indexed: false },
+  { name: 'trace_id', dataType: 'utf8', nullable: false, indexType: 'full_text' },
+  { name: 'span_id', dataType: 'utf8', nullable: false, indexType: 'full_text' },
+  { name: 'service.name', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+  { name: 'name', dataType: 'utf8', nullable: true, indexType: 'full_text' },
+  { name: 'duration_ns', dataType: 'int64', nullable: false, indexType: 'none' },
+  { name: 'http.status_code', dataType: 'int64', nullable: true, indexType: 'none' },
+  { name: 'ratio', dataType: 'float64', nullable: true, indexType: 'none' },
+  { name: 'conflict', dataType: 'bool', nullable: true, indexType: 'none' },
+  { name: 'seen_at', dataType: 'timestamp', nullable: true, indexType: 'none' },
+  { name: 'attributes', dataType: 'json', nullable: true, indexType: 'none' },
+  { name: 'http.request.header.x-request-id', dataType: 'utf8', nullable: true, indexType: 'none' },
 ]);
 const field = (name: string): TraceFieldDef => fields.find((candidate) => candidate.name === name)!;
 
