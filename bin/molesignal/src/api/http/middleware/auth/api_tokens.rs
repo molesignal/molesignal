@@ -5,15 +5,14 @@
 
 use std::{collections::BTreeSet, sync::Arc};
 
-use crate::{
-    app::iam::{IamContext, IamService},
-    domain::iam::{
-        IamScope,
-        api_token::{ApiTokenKind, ApiTokenRepository, has_token_marker},
-    },
-    infra::persistence::repositories::api_tokens::{split_token, verify_secret},
-    shared::{Error, ids::Id, time::TimestampMicros},
+use domain::iam::{
+    IamContext, IamScope,
+    api_token::{ApiTokenKind, ApiTokenRepository, has_token_marker},
 };
+use kernel::{Error, ids::Id, time::TimestampMicros};
+use postgres::repositories::api_tokens::{split_token, verify_secret};
+
+use crate::app::iam::IamService;
 
 #[derive(Debug, Clone)]
 pub(crate) struct VerifiedApiTokenIdentity {
@@ -110,10 +109,11 @@ pub(crate) async fn verify_api_token_with_metadata(
     let (prefix, secret) = split_token(token)
         .ok_or_else(|| Error::unauthorized("malformed API token (expected mspat-<36>)"))?;
 
+    // 查不了（数据库忙、连不上）说明不了 token 无效：错误原样交回，按服务端错误应答，客户端
+    // 会重试，而不是当成凭据失效。
     let row = repo
         .find_by_prefix(prefix)
-        .await
-        .map_err(|error| Error::unauthorized(format!("api token lookup: {error}")))?
+        .await?
         .ok_or_else(|| Error::unauthorized("api token not found"))?;
 
     if row.revoked {
@@ -135,7 +135,7 @@ pub(crate) async fn verify_api_token_with_metadata(
     let prefix_owned = prefix.to_string();
     let repo_clone = repo.clone();
 
-    crate::shared::trace_context::spawn_with_current_trace_context(async move {
+    signals::trace_context::spawn_with_current_trace_context(async move {
         let _ = repo_clone.touch_last_used(&prefix_owned, now).await;
     });
 
@@ -159,4 +159,73 @@ pub(crate) async fn verify_api_token_with_metadata(
         token_id,
         token_kind,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use async_trait::async_trait;
+    use domain::iam::api_token::{ApiToken, ManagedApiToken};
+    use kernel::Result;
+    use postgres::repositories::api_tokens::{assemble_token, generate_token_parts};
+
+    use super::*;
+
+    /// 数据库忙时的 token 仓库：查找答不了。
+    struct BusyTokens;
+
+    #[async_trait]
+    impl ApiTokenRepository for BusyTokens {
+        async fn create(&self, _token: ApiToken) -> Result<ApiToken> {
+            Err(Error::internal("unused"))
+        }
+
+        async fn find_by_prefix(&self, _prefix: &str) -> Result<Option<ApiToken>> {
+            Err(Error::unavailable("metadata database busy"))
+        }
+
+        async fn list_by_org(&self, _org_id: &Id) -> Result<Vec<ApiToken>> {
+            Err(Error::internal("unused"))
+        }
+
+        async fn list_personal(&self, _org_id: &Id, _user_id: &Id) -> Result<Vec<ApiToken>> {
+            Err(Error::internal("unused"))
+        }
+
+        async fn get(&self, _org_id: &Id, _id: &Id) -> Result<ApiToken> {
+            Err(Error::internal("unused"))
+        }
+
+        async fn mark_revoked(&self, _org_id: &Id, _id: &Id) -> Result<()> {
+            Err(Error::internal("unused"))
+        }
+
+        async fn touch_last_used(&self, _prefix: &str, _at: TimestampMicros) -> Result<()> {
+            Err(Error::internal("unused"))
+        }
+
+        async fn ensure_default(&self, _org_id: &Id, _user_id: &Id) -> Result<ManagedApiToken> {
+            Err(Error::internal("unused"))
+        }
+
+        async fn ensure_rum_client(
+            &self,
+            _org_id: &Id,
+            _user_id: &Id,
+            _application_id: &str,
+        ) -> Result<ManagedApiToken> {
+            Err(Error::internal("unused"))
+        }
+    }
+
+    #[tokio::test]
+    async fn a_lookup_that_cannot_be_answered_does_not_call_the_token_invalid() {
+        let (prefix, secret) = generate_token_parts();
+        let token = assemble_token(&prefix, &secret);
+        let error = verify_api_token(&token, Arc::new(BusyTokens))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, Error::Unavailable(_)), "{error}");
+        assert_eq!(error.http_status_code(), 503);
+    }
 }

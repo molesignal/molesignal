@@ -43,4 +43,4 @@ pub mod infra {
     }
 }
 
-pub use persistence::{MetaStore, pool, repositories, sqlx_err};
+pub use persistence::{MetaStore, is_unique_violation, pool, repositories, sqlx_err};

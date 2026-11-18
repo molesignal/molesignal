@@ -17,18 +17,16 @@ use std::{
 
 use async_trait::async_trait;
 use futures::future::join_all;
+use kernel::ids::Id;
 use parking_lot::Mutex;
+use postgres::repositories::cluster::events::ClusterOrgLinkRepository;
+use protocol::cluster::v1::{RealtimeCountsRequest, event_service_client::EventServiceClient};
 use tonic::transport::Channel;
 
-use super::{ClusterSecretRepository, RemoteClustersRepository, grpc_channel};
+use super::{ClusterSecretRepository, RemoteClustersRepository};
 use crate::{
     app::alerting::{realtime::FederatedCounts, sources::FederationCluster},
-    infra::{
-        persistence::repositories::cluster::events::ClusterOrgLinkRepository,
-        secret::resolve_secret_ref,
-    },
-    protocol::cluster::v1::{RealtimeCountsRequest, event_service_client::EventServiceClient},
-    shared::ids::Id,
+    infra::secret::resolve_secret_ref,
 };
 
 /// 每个集群最多等多久：汇总每秒一轮。
@@ -45,7 +43,7 @@ static FAILED: OnceLock<prometheus::IntCounterVec> = OnceLock::new();
 /// `realtime_federated_counts_failed_total{cluster}`：拉不到别的集群计数的次数。
 fn failed_vec() -> &'static prometheus::IntCounterVec {
     FAILED.get_or_init(|| {
-        crate::shared::metrics::register_int_counter_vec(
+        signals::metrics::register_int_counter_vec(
             "realtime_federated_counts_failed_total",
             "real-time rule counts that could not be read from a federated cluster, by cluster",
             &["cluster"],
@@ -164,7 +162,7 @@ impl GrpcFederatedCounts {
             return Ok(channel.clone());
         }
 
-        let channel = grpc_channel::connect(&target.address, target.tls_verify).await?;
+        let channel = grpc_client::connect(&target.address, target.tls_verify).await?;
 
         self.channels
             .lock()
@@ -188,7 +186,7 @@ impl GrpcFederatedCounts {
             rule_ids: rule_ids.iter().map(|id| id.0.clone()).collect(),
         });
         request.set_timeout(COUNTS_TIMEOUT);
-        grpc_channel::with_bearer(&mut request, &target.token)?;
+        grpc_client::with_bearer(&mut request, &target.token)?;
 
         let reply = tokio::time::timeout(
             COUNTS_TIMEOUT,

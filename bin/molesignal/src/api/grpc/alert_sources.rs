@@ -8,13 +8,14 @@
 //!   原样回给转发集群，由它回给发送方。
 //! - 同步来的来源写到本集群；同步来的删除先解决这个来源在本集群的活跃事件，它们再也收不到恢复。
 
+use domain::{alerting::source::AlertSource, federation::CudAction};
+use kernel::{Error, Result, ids::Id};
+use protocol::cluster::v1::{ForwardAlertsRequest, ForwardAlertsResponse};
 use tonic::{Request, Response, Status};
 
 use crate::{
     api::{AppState, http::middleware::auth::authenticate_api_token},
-    domain::{alerting::source::AlertSource, federation::CudAction},
-    protocol::cluster::v1::{ForwardAlertsRequest, ForwardAlertsResponse},
-    shared::{Error, Result, ids::Id},
+    infra::cluster::grpc_status::error_to_status,
 };
 
 /// 同步来的来源变化落到本集群（组织已换成本地组织）。
@@ -59,7 +60,7 @@ pub(super) async fn forward_alerts(
         state.iam.api_tokens.clone(),
     )
     .await
-    .map_err(|error| Status::unauthenticated(error.to_string()))?
+    .map_err(error_to_status)?
     .org_id;
 
     let request = request.into_inner();

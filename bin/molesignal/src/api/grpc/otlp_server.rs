@@ -14,6 +14,12 @@
 
 //! `IntakeService::intake`，只是 payload 由 tonic 解码而非手动 protobuf/JSON 解码。
 
+use domain::{
+    iam::{IamContext, api_token::has_token_marker},
+    intake::RawEvent,
+    stream::StreamType,
+};
+use kernel::{Error as MsError, ids::Id, time::TimestampMicros};
 use opentelemetry_proto::tonic::collector::{
     logs::v1::{
         ExportLogsServiceRequest, ExportLogsServiceResponse, logs_service_server::LogsService,
@@ -30,7 +36,11 @@ use opentelemetry_proto::tonic::collector::{
         ExportTraceServiceRequest, ExportTraceServiceResponse, trace_service_server::TraceService,
     },
 };
+use postgres::repositories::audit_events::AuditEvent;
 use prost::Message as _;
+use signals::trace_context::{
+    TRACE_DEBUG_TOKEN, TraceContext, TraceTrust, update_current_trace_context,
+};
 use tonic::{Request, Response, Status};
 
 use crate::{
@@ -46,17 +56,7 @@ use crate::{
             },
         },
     },
-    app::{iam::IamContext, intake::usage::split_by_events},
-    domain::{iam::api_token::has_token_marker, intake::RawEvent, stream::StreamType},
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::{
-        Error as MsError,
-        ids::Id,
-        time::TimestampMicros,
-        trace_context::{
-            TRACE_DEBUG_TOKEN, TraceContext, TraceTrust, update_current_trace_context,
-        },
-    },
+    app::intake::usage::split_by_events,
 };
 
 /// 标准 OTLP gRPC 四 service 的共享实现（持 `AppState`，Arc 内部共享、clone 廉价）。
@@ -93,7 +93,7 @@ impl OtlpGrpc {
             self.state.iam.api_tokens.clone(),
         )
         .await
-        .map_err(|e| Status::unauthenticated(e.to_string()))?;
+        .map_err(error_to_status)?;
 
         self.state
             .iam
@@ -176,7 +176,7 @@ impl TraceService for OtlpGrpc {
             .extensions()
             .get::<TraceContext>()
             .cloned()
-            .unwrap_or_else(|| TraceContext::new_root(crate::shared::ids::Id::new().0));
+            .unwrap_or_else(|| TraceContext::new_root(kernel::ids::Id::new().0));
 
         trace_context.set_authenticated_org(ctx.org_id.as_str());
 
@@ -308,7 +308,7 @@ impl ProfilesService for OtlpGrpc {
         let shares = split_by_events(bytes as u64, &vec![1; normalized.len()]);
 
         for (profile, share) in normalized.iter().zip(shares) {
-            let raw = crate::infra::profiles::encode_pprof_raw(profile).map_err(error_to_status)?;
+            let raw = profiles::encode_pprof_raw(profile).map_err(error_to_status)?;
 
             store_profile(&self.state, &ctx, profile, &raw, share)
                 .await

@@ -10,19 +10,15 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id};
+use postgres::repositories::cluster::events::ClusterOrgLinkRepository;
+use protocol::cluster::v1::{ForwardAlertsRequest, event_service_client::EventServiceClient};
 use serde_json::Value;
 
-use super::{
-    ClusterSecretRepository, RemoteClustersRepository, grpc_channel, grpc_status::status_to_error,
-};
+use super::{ClusterSecretRepository, RemoteClustersRepository, grpc_status::status_to_error};
 use crate::{
     app::alerting::sources::{AlertForwarder, ForwardedRequest, IntakeReply},
-    infra::{
-        persistence::repositories::cluster::events::ClusterOrgLinkRepository,
-        secret::resolve_secret_ref,
-    },
-    protocol::cluster::v1::{ForwardAlertsRequest, event_service_client::EventServiceClient},
-    shared::{Error, Result, ids::Id},
+    infra::secret::resolve_secret_ref,
 };
 
 /// 转发最多等多久。
@@ -92,7 +88,7 @@ impl AlertForwarder for GrpcAlertForwarder {
                 Error::unavailable("the token for the receiving cluster cannot be resolved")
             })?;
 
-        let channel = grpc_channel::connect(&cluster.advertise_addr, cluster.tls_verify)
+        let channel = grpc_client::connect(&cluster.advertise_addr, cluster.tls_verify)
             .await
             .map_err(Error::unavailable)?;
 
@@ -105,18 +101,18 @@ impl AlertForwarder for GrpcAlertForwarder {
         });
 
         call.set_timeout(FORWARD_TIMEOUT);
-        grpc_channel::with_bearer(&mut call, &token).map_err(Error::unavailable)?;
+        grpc_client::with_bearer(&mut call, &token).map_err(Error::unavailable)?;
 
         let mut client =
             EventServiceClient::new(channel).max_encoding_message_size(self.max_message_size);
 
         let response = tokio::time::timeout(
             FORWARD_TIMEOUT,
-            crate::shared::grpc_trace::call(
+            signals::grpc_trace::call(
                 call,
                 "cluster.v1.EventService",
                 "ForwardAlerts",
-                crate::shared::grpc_trace::GrpcTarget::Internal,
+                signals::grpc_trace::GrpcTarget::Internal,
                 |call| client.forward_alerts(call),
             ),
         )

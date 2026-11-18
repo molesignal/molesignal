@@ -16,34 +16,35 @@ use std::{
 };
 
 use async_trait::async_trait;
+use domain::{
+    intake::{IntakeSink, RawEvent},
+    storage::{
+        CatalogSnapshot, CommitFlush, DataSegment, DatasetSelection, DatasetState, FileCatalog,
+        FlushCommitResult, OrganizationScope, PhysicalDataset, PhysicalDatasetId,
+        PhysicalDatasetSpec, ReplaceSegments, TombstoneSegments, UpdateArtifact, WalCheckpointView,
+        builtin_registry, primary_dataset_type,
+    },
+    stream::{
+        FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
+        StreamRepository, StreamType,
+    },
+};
+use kernel::{Error, Result, health::Probe, ids::Id, time::TimestampMicros};
 use molesignal::{
     api::grpc::intake_server::IntakeGrpc,
     app::intake::IntakeService as AppIntakeService,
     bootstrap::roles::intake::IntakeWorker,
-    config::{IntakeSettings, ObjectStoreSettings},
-    domain::{
-        intake::{IntakeSink, RawEvent},
-        storage::{
-            CatalogSnapshot, CommitFlush, DataSegment, DatasetSelection, DatasetState, FileCatalog,
-            FlushCommitResult, OrganizationScope, PhysicalDataset, PhysicalDatasetId,
-            PhysicalDatasetSpec, ReplaceSegments, TombstoneSegments, UpdateArtifact,
-            WalCheckpointView, builtin_registry, primary_dataset_type,
-        },
-        stream::{
-            FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamRepository, StreamType,
-        },
-    },
     infra::{
         intake::{BufferPool, DatasetResolver, WalPool},
         segment_wal::FsyncPolicy,
         storage::{object, parquet::writer::ParquetWriter},
     },
-    protocol::intake::v1::{
-        PushRequest, StreamType as ProtoStreamType, intake_service_client::IntakeServiceClient,
-    },
-    shared::{Error, Result, health::Probe, ids::Id, time::TimestampMicros},
+};
+use protocol::intake::v1::{
+    PushRequest, StreamType as ProtoStreamType, intake_service_client::IntakeServiceClient,
 };
 use serde_json::json;
+use settings::{IntakeSettings, ObjectStoreSettings};
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
@@ -62,7 +63,7 @@ impl FileCatalog for InMemFileCatalog {
     async fn intake_usage(
         &self,
         _: &OrganizationScope,
-    ) -> Result<Vec<molesignal::domain::storage::DatasetIntakeUsage>> {
+    ) -> Result<Vec<domain::storage::DatasetIntakeUsage>> {
         Ok(Vec::new())
     }
 
@@ -225,10 +226,8 @@ fn sample_stream() -> StreamDefinition {
                 name: "level".into(),
                 data_type: FieldType::Utf8,
                 nullable: false,
-                index_type: None,
-                indexed: true,
+                index_type: StreamIndexType::FullText,
                 encrypted: false,
-                exact: false,
             }],
         },
         retention: Some(Retention { days: 7 }),

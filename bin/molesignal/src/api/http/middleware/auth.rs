@@ -20,19 +20,13 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use domain::iam::api_token::has_token_marker;
 use http::{HeaderMap, Method};
+use kernel::{Error, ids::Id, time::TimestampMicros};
+use postgres::repositories::audit_events::AuditEvent;
+use signals::trace_context::{TraceTrust, update_current_trace_context};
 
-use crate::{
-    api::{AppState, http::session_cookie},
-    domain::iam::api_token::has_token_marker,
-    infra::persistence::repositories::audit_events::AuditEvent,
-    shared::{
-        Error,
-        ids::Id,
-        time::TimestampMicros,
-        trace_context::{TraceTrust, update_current_trace_context},
-    },
-};
+use crate::api::{AppState, http::session_cookie};
 
 mod api_tokens;
 pub(crate) mod oauth;
@@ -45,7 +39,7 @@ pub(crate) enum AuthenticatedCredential {
     UserJwt,
     ApiToken {
         token_id: Id,
-        token_kind: crate::domain::iam::api_token::ApiTokenKind,
+        token_kind: domain::iam::api_token::ApiTokenKind,
     },
     OAuthAccess {
         token_id: Id,
@@ -67,8 +61,8 @@ impl AuthenticatedCredential {
         matches!(
             self,
             Self::ApiToken {
-                token_kind: crate::domain::iam::api_token::ApiTokenKind::Personal
-                    | crate::domain::iam::api_token::ApiTokenKind::ServiceAccount,
+                token_kind: domain::iam::api_token::ApiTokenKind::Personal
+                    | domain::iam::api_token::ApiTokenKind::ServiceAccount,
                 ..
             } | Self::OAuthAccess { .. }
         )
@@ -114,7 +108,6 @@ const WHITELIST_EXACT_PATHS: &[&str] = &[
     "/.well-known/oauth-protected-resource",
     "/.well-known/oauth-protected-resource/api/v1/mcp",
     "/.well-known/oauth-authorization-server",
-    "/docs/inbound-mcp",
 ];
 
 fn is_whitelisted_path(path: &str) -> bool {
@@ -188,7 +181,7 @@ pub async fn auth_layer(
 
     let debug_token = req
         .headers()
-        .get(crate::shared::trace_context::TRACE_DEBUG_TOKEN)
+        .get(signals::trace_context::TRACE_DEBUG_TOKEN)
         .and_then(|value| value.to_str().ok())
         .filter(|value| has_token_marker(value) && value.len() <= 160)
         .map(str::to_owned);
@@ -209,7 +202,7 @@ pub async fn auth_layer(
         {
             if let Some(trace_context) = req
                 .extensions_mut()
-                .get_mut::<crate::shared::trace_context::TraceContext>()
+                .get_mut::<signals::trace_context::TraceContext>()
             {
                 trace_context.trust = TraceTrust::DebugToken;
                 trace_context.apply_trusted_force(true);
@@ -246,7 +239,7 @@ pub async fn auth_layer(
 
     if let Some(trace_context) = req
         .extensions_mut()
-        .get_mut::<crate::shared::trace_context::TraceContext>()
+        .get_mut::<signals::trace_context::TraceContext>()
     {
         trace_context.set_authenticated_org(ctx.org_id.as_str());
     }
@@ -297,24 +290,18 @@ mod tests {
 
     use async_trait::async_trait;
     use axum::extract::Request;
+    use domain::iam::{
+        IamAssignedRole, IamMembership, IamMembershipRepository, Organization,
+        OrganizationRepository, User, UserRepository, UserStatus,
+        access::IamPrincipalType,
+        api_token::{ApiToken, ApiTokenKind, ApiTokenRepository, ApiTokenScope, ManagedApiToken},
+    };
+    use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+    use postgres::repositories::api_tokens::{assemble_token, generate_token_parts, hash_secret};
+    use settings::AuthSettings;
 
     use super::{authenticate_bearer, is_whitelisted_path, materialize_http2_authority};
-    use crate::{
-        app::iam::IamService,
-        config::AuthSettings,
-        domain::iam::{
-            IamAssignedRole, IamMembership, IamMembershipRepository, Organization,
-            OrganizationRepository, User, UserRepository, UserStatus,
-            access::IamPrincipalType,
-            api_token::{
-                ApiToken, ApiTokenKind, ApiTokenRepository, ApiTokenScope, ManagedApiToken,
-            },
-        },
-        infra::persistence::repositories::api_tokens::{
-            assemble_token, generate_token_parts, hash_secret,
-        },
-        shared::{Error, Result, ids::Id, time::TimestampMicros},
-    };
+    use crate::app::iam::IamService;
 
     struct TestUsers {
         user: Mutex<User>,
@@ -610,7 +597,6 @@ mod tests {
             organizations.clone(),
             Arc::new(UnusedMemberships),
             AuthSettings {
-                deprecated_jwt_secret: None,
                 session_ttl_secs: 3_600,
                 root_email: String::new(),
                 root_password: String::new(),

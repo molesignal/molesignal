@@ -15,14 +15,15 @@ use std::{
     time::{Duration, Instant},
 };
 
+use domain::alerting::rule::AlertRuleKind;
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use parking_lot::Mutex;
+use protocol::cluster::v1::{RealtimeCountsRequest, RealtimeCountsResponse, RealtimeRuleCount};
 use tonic::{Request, Response, Status};
 
 use crate::{
     api::{AppState, http::middleware::auth::authenticate_api_token},
-    domain::alerting::rule::AlertRuleKind,
-    protocol::cluster::v1::{RealtimeCountsRequest, RealtimeCountsResponse, RealtimeRuleCount},
-    shared::{Result, ids::Id, time::TimestampMicros},
+    infra::cluster::grpc_status::error_to_status,
 };
 
 /// 一次最多问几条规则。
@@ -72,7 +73,7 @@ impl RealtimeFederation {
             state.iam.api_tokens.clone(),
         )
         .await
-        .map_err(|error| Status::unauthenticated(error.to_string()))?
+        .map_err(error_to_status)?
         .org_id;
 
         // 汇总集群的组织 → 本地组织；没映射的组织不答。

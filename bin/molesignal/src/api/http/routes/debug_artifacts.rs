@@ -9,22 +9,19 @@ use axum::{
     routing::get,
 };
 use bytes::Bytes;
+use domain::{
+    iam::{IamContext, permission},
+    rum::{
+        DebugArtifactKind, DebugArtifactMeta, normalize_architecture, normalize_debug_id,
+        validate_application_id,
+    },
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStoreExt, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    api::AppState,
-    app::iam::IamContext,
-    domain::{
-        iam::permission,
-        rum::{
-            DebugArtifactKind, DebugArtifactMeta, normalize_architecture, normalize_debug_id,
-            validate_application_id,
-        },
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 const MAX_ARTIFACT_BYTES: usize = 50 * 1024 * 1024;
 const MAX_MULTIPART_BYTES: usize = MAX_ARTIFACT_BYTES + 1024 * 1024;
@@ -442,6 +439,13 @@ mod tests {
         assert!(key.starts_with("debug-artifacts/org_one/"));
         assert!(key.ends_with("/artifact_one/app.android-arm64.symbols"));
         assert!(!key.contains("../"));
+
+        let org = Id::from_string("org_one");
+        assert!(
+            crate::infra::storage::layout::StorageLayout::organization_prefixes(&org)
+                .iter()
+                .any(|prefix| key.starts_with(prefix.as_str()))
+        );
     }
 
     #[test]
