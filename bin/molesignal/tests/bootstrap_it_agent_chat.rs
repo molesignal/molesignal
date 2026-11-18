@@ -18,13 +18,12 @@
 
 use std::sync::Arc;
 
-use molesignal::{
-    agent::{
-        chat::{AgentLoop, AgentStreamEvent, MessageRole, providers::OpenAiAdapter},
-        tools::{ToolAuthContext, ToolCall, ToolDispatcher, ToolResult},
-    },
-    shared::{Result, ids::Id, time::TimestampMicros},
+use agent::{
+    chat::{AgentLoop, AgentStreamEvent, MessageRole, providers::OpenAiAdapter},
+    tools::{ToolAuthContext, ToolDispatcher},
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use tool_runtime::{ToolCall, ToolResult};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path},
@@ -41,8 +40,8 @@ impl ToolDispatcher for NoopDispatcher {
     }
 }
 
-fn user_msg(s: &str) -> molesignal::agent::chat::ChatMessage {
-    molesignal::agent::chat::ChatMessage {
+fn user_msg(s: &str) -> agent::chat::ChatMessage {
+    agent::chat::ChatMessage {
         id: Id::new(),
         chat_id: Id("s".into()),
         role: MessageRole::User,
@@ -56,7 +55,7 @@ fn user_msg(s: &str) -> molesignal::agent::chat::ChatMessage {
 }
 
 fn test_tool_context() -> ToolAuthContext {
-    ToolAuthContext::from_iam(&molesignal::app::iam::IamContext {
+    ToolAuthContext::from_iam(&domain::iam::IamContext {
         user_id: Id("u1".into()),
         org_id: Id("orgA".into()),
         display_role: String::new(),
@@ -64,7 +63,7 @@ fn test_tool_context() -> ToolAuthContext {
         credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
-        scope: molesignal::domain::iam::IamScope::Organization,
+        scope: domain::iam::IamScope::Organization,
         permissions: Default::default(),
         policy_version: 0,
     })
@@ -94,7 +93,7 @@ async fn end_to_end_openai_stream_yields_text_chunks_and_done() {
         .await;
 
     let adapter = Arc::new(OpenAiAdapter::new(srv.uri(), "test-key"))
-        as Arc<dyn molesignal::agent::chat::ProviderAdapter>;
+        as Arc<dyn agent::chat::ProviderAdapter>;
     let dispatcher: Arc<dyn ToolDispatcher> = Arc::new(NoopDispatcher);
     let chat_loop = Arc::new(AgentLoop::new(adapter, dispatcher));
     let mut stream = chat_loop.clone().run_stream(

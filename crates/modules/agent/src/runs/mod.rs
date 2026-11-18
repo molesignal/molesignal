@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 一轮回答 = 一个 Run。
+//! One response turn equals one Run.
 //!
-//! 发消息只把 Run 排进队列；后台在某个节点上执行它，过程写成按序号递增的事件（[`RunEvent`]），
-//! 浏览器从任意节点按序号续读，切走页面或刷新都不打断回答。停止、提问人的回答与确认都记在
-//! Run 上，由执行它的节点取走。同一个会话的 Run 按先后一个接一个执行。
+//! Sending a message only queues the Run; a node executes it in the background and records progress
+//! as events with increasing sequence numbers ([`RunEvent`]). The browser resumes reading by
+//! sequence number from any node, so navigating away or refreshing does not interrupt the response.
+//! Stop requests, the requester's answers, and confirmations are recorded on the Run and picked up
+//! by the executing node. Runs in the same session execute one after another in order.
 //!
-//! - 执行身份记成 [`RunPrincipal`]，执行时据此重新核对账号与权限。
-//! - 执行中的 Run 持有租约，节点隔一会儿续一次；租约过期说明节点没了，Run 标为
-//!   [`RunStatus::Interrupted`]。
+//! - The execution identity is recorded as [`RunPrincipal`], which is used to recheck the account
+//!   and permissions at execution time.
+//! - A running Run holds a lease that the node renews periodically; an expired lease means the node
+//!   is gone, and the Run is marked as [`RunStatus::Interrupted`].
 
 mod context;
 mod events;
@@ -27,32 +30,31 @@ use domain::iam::{IamContext, IamScope};
 pub use events::{
     NewRunEvent, RunEvent, RunEventKind, TEXT_FLUSH_BYTES, TEXT_FLUSH_MILLIS, TextBuffer,
 };
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 pub use signals::{RunSignalHub, RunSignals};
+use tool_runtime::RiskLevel;
 pub use transcript::{
     MAX_INLINE_RESULT_BYTES, TranscriptBuilder, TranscriptCall, TranscriptStep, inline_result,
     transcript_messages,
 };
 
-use crate::{
-    agent::{model::RiskLevel, usage::Cost},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::usage::Cost;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunStatus {
     Queued,
     Running,
-    /// 等提问人回答一个问题，或存下他在一台 MCP 服务器上的凭据。
+    /// Waits for the requester to answer a question or save their credentials for an MCP server.
     WaitingInput,
-    /// 等提问人确认执行一个工具。
+    /// Waits for the requester to confirm running a tool.
     WaitingApproval,
     Succeeded,
     Failed,
     Cancelled,
-    /// 执行它的节点没了。
+    /// The executing node is gone.
     Interrupted,
 }
 
@@ -92,7 +94,7 @@ impl RunStatus {
         )
     }
 
-    /// 正在某个节点上执行（含等待回答与确认）。
+    /// Runs on a node, including while waiting for answers and confirmations.
     pub fn is_live(self) -> bool {
         matches!(
             self,
@@ -101,7 +103,7 @@ impl RunStatus {
     }
 }
 
-/// Run 从哪来。
+/// Where the Run originates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunSource {
@@ -110,6 +112,8 @@ pub enum RunSource {
     Incident,
     Api,
     Im,
+    /// A drill: a resolved incident investigated again, graded against its known root cause.
+    Drill,
 }
 
 impl RunSource {
@@ -120,6 +124,7 @@ impl RunSource {
             Self::Incident => "incident",
             Self::Api => "api",
             Self::Im => "im",
+            Self::Drill => "drill",
         }
     }
 
@@ -130,13 +135,16 @@ impl RunSource {
             Self::Incident,
             Self::Api,
             Self::Im,
+            Self::Drill,
         ]
         .into_iter()
         .find(|source| source.as_str() == value)
     }
 }
 
-/// 以谁的身份执行。只记身份，不记权限：执行时重新解析，这期间被收回的权限不会被用上。
+/// The identity used for execution.
+/// Only the identity is recorded, not permissions: they are resolved again at execution time, so
+/// permissions revoked in the meantime are not used.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunPrincipal {
@@ -161,7 +169,7 @@ impl RunPrincipal {
         }
     }
 
-    /// 还没解析权限的身份，交给 IAM 补全。
+    /// An identity with unresolved permissions, passed to IAM to complete.
     pub fn unresolved_context(&self, org_id: &Id) -> IamContext {
         IamContext {
             user_id: self.user_id.clone(),
@@ -178,7 +186,7 @@ impl RunPrincipal {
     }
 }
 
-/// 提问的方式。
+/// The way a question is asked.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QuestionKind {
@@ -188,7 +196,7 @@ pub enum QuestionKind {
     Text,
 }
 
-/// 在等提问人的东西。
+/// What is awaited from the requester.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "type",
@@ -210,23 +218,25 @@ pub enum Pending {
         arguments: Value,
         risk: RiskLevel,
     },
-    /// 「授权以继续」：一台要成员凭据的 MCP 服务器缺提问人的凭据，或拒绝了他存的那个。
-    /// 存好后这次工具调用再执行一次。
+    /// `Authorize to continue`: an MCP server requiring member credentials lacks the requester's
+    /// credentials or rejects the saved ones. This tool call runs again after the credentials are
+    /// saved.
     Authorization {
         call_id: String,
-        /// 要用这个凭据的工具。
+        /// The tool that uses these credentials.
         tool: String,
         server_id: String,
         server: String,
-        /// 凭据放进的请求头，小写。
+        /// The request header that holds the credentials, in lowercase.
         header: String,
-        /// 值前面加 `Bearer `。
+        /// Prefixes the value with `Bearer `.
         #[serde(default)]
         bearer: bool,
-        /// 管理员写的：去哪里拿凭据、要哪些权限。
+        /// Administrator-written instructions on where to get credentials and which permissions
+        /// are needed.
         #[serde(default)]
         instructions: String,
-        /// 存过的凭据被远端拒绝了。
+        /// The remote server rejects the saved credentials.
         #[serde(default)]
         rejected: bool,
     },
@@ -249,7 +259,7 @@ impl Pending {
     }
 }
 
-/// 提问人的回答或决定。
+/// The requester's answer or decision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "type",
@@ -259,13 +269,14 @@ impl Pending {
 pub enum RunResponse {
     Answer {
         call_id: String,
-        /// 选中的选项。
+        /// The selected options.
         #[serde(default)]
         choices: Vec<String>,
-        /// 写下的回答。
+        /// The written answer.
         #[serde(default)]
         text: String,
-        /// 谁回答的：团队会话里不一定是发起这一轮的人。
+        /// Who answers: in a team session, this is not necessarily the person who initiates this
+        /// turn.
         responder: Id,
     },
     Decision {
@@ -273,7 +284,7 @@ pub enum RunResponse {
         approved: bool,
         responder: Id,
     },
-    /// 提问人存好了凭据，接着执行；或者跳过这台服务器。
+    /// The requester saves the credentials and execution continues, or skips this server.
     Authorization {
         call_id: String,
         authorized: bool,
@@ -290,7 +301,7 @@ impl RunResponse {
         }
     }
 
-    /// 对得上在等的那个问题、确认或授权。
+    /// Matches the pending question, confirmation, or authorization.
     pub fn answers(&self, pending: &Pending) -> bool {
         self.call_id() == pending.call_id()
             && matches!(
@@ -311,11 +322,12 @@ pub struct Run {
     pub source: RunSource,
     pub status: RunStatus,
     pub principal: RunPrincipal,
-    /// 执行这一轮要用的请求：模式、时间、模型、Agent 配置、命令带来的指令……
+    /// The request used to execute this turn: mode, time, model, Agent configuration, instructions
+    /// from commands, etc.
     pub request: Value,
     pub user_message_id: Option<Id>,
     pub assistant_message_id: Option<Id>,
-    /// 执行它的节点。
+    /// The executing node.
     pub node: Option<String>,
     pub lease_expires_at: Option<TimestampMicros>,
     pub cancel_requested: bool,
@@ -323,10 +335,11 @@ pub struct Run {
     pub response: Option<RunResponse>,
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
-    /// 用模型服务选的币种记；没有单价时为空。
+    /// Recorded in the currency selected for the model service; empty if no unit price is
+    /// available.
     pub cost: Option<Cost>,
     pub error: Option<String>,
-    /// 最后一个事件的序号。
+    /// The sequence number of the last event.
     pub last_seq: i64,
     pub created_at: TimestampMicros,
     pub started_at: Option<TimestampMicros>,
@@ -335,7 +348,7 @@ pub struct Run {
 }
 
 impl Run {
-    /// 发起这一轮的人。
+    /// The person who initiates this turn.
     pub fn initiator(&self) -> &Id {
         &self.principal.user_id
     }
@@ -378,7 +391,7 @@ impl Run {
     }
 }
 
-/// 一轮回答怎么结束的。
+/// How a response turn ends.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunOutcome {
     pub status: RunStatus,
@@ -391,40 +404,49 @@ pub struct RunOutcome {
 
 #[async_trait]
 pub trait RunRepository: Send + Sync {
-    /// 排进队列，并叫醒等着领取的节点。
+    /// Adds the Run to the queue and wakes nodes waiting to claim it.
     async fn create(&self, run: Run) -> Result<Run>;
     async fn get(&self, org_id: &Id, id: &Id) -> Result<Run>;
-    /// 一个会话最近的 Run，新的在前。
+    /// The most recent Runs in a session, newest first.
     async fn for_chat(&self, org_id: &Id, chat_id: &Id, limit: i64) -> Result<Vec<Run>>;
-    /// 领走最早的一个能执行的 Run：同一会话里前面的都结束了才轮到它。
+    /// Claims the earliest runnable Run: its turn comes only after all earlier Runs in the same
+    /// session finish.
     async fn claim_next(&self, node: &str, lease_until: TimestampMicros) -> Result<Option<Run>>;
-    /// 等到可能有 Run 可领（有 Run 排进队列或结束时会被叫醒），最多等 `timeout`。
+    /// Waits up to `timeout` until a Run may be available to claim, waking when a Run is queued
+    /// or finishes.
     async fn wait_for_pending(&self, timeout: Duration) -> bool;
-    /// 订阅这个节点里关于 Run 的提醒：新事件、停止、回答。
+    /// Subscribes to Run notifications on this node: new events, stops, and answers.
     fn signals(&self) -> RunSignals;
-    /// 续租；Run 已不归这个节点或已结束时返回 false。
+    /// Renews the lease; returns false if the Run no longer belongs to this node or has finished.
     async fn renew(&self, id: &Id, node: &str, lease_until: TimestampMicros) -> Result<bool>;
-    /// 开始等提问人：记下在等什么，状态换成对应的等待。
+    /// Starts waiting for the requester: records what is awaited and sets the corresponding
+    /// waiting status.
     async fn wait_for(&self, id: &Id, pending: &Pending) -> Result<()>;
-    /// 提问人的回答或决定；对不上在等的东西时报冲突。
+    /// The requester's answer or decision; reports a conflict if it does not match what is awaited.
     async fn respond(&self, org_id: &Id, id: &Id, response: &RunResponse) -> Result<Run>;
-    /// 取走回答，状态回到执行中；还没有回答时返回 `None`。
+    /// Takes the answer and returns the status to running; returns `None` if there is no answer
+    /// yet.
     async fn take_response(&self, id: &Id) -> Result<Option<RunResponse>>;
-    /// 不再等了（等太久）：清掉在等的东西，状态回到执行中；之后到的回答被拒绝。
+    /// Stops waiting after too long: clears what is awaited and returns the status to running;
+    /// later answers are rejected.
     async fn stop_waiting(&self, id: &Id) -> Result<()>;
-    /// 停止：排队中的直接结束，执行中的记下请求，由执行它的节点停下。
+    /// Stops the Run: ends a queued Run immediately, or records a request for the executing node
+    /// to stop a running Run.
     async fn request_cancel(&self, org_id: &Id, id: &Id) -> Result<Run>;
     async fn cancel_requested(&self, id: &Id) -> Result<bool>;
-    /// 追加事件，返回最后一个的序号，并提醒在续读的连接。Run 已经结束时报冲突。
+    /// Appends events, returns the last sequence number, and notifies connections that are reading
+    /// further events. Reports a conflict if the Run has already finished.
     async fn append_events(&self, org_id: &Id, run_id: &Id, events: &[NewRunEvent]) -> Result<i64>;
-    /// 结束：追加最后的事件（以 [`RunEventKind::Done`] 结尾）并记下结果。Run 已经结束（例如
-    /// 已被标为中断）时什么都不写，返回 false。
+    /// Finishes the Run by appending the final events (ending with [`RunEventKind::Done`]) and
+    /// recording the outcome. If the Run has already finished (for example, marked as interrupted),
+    /// writes nothing and returns false.
     async fn finish(&self, run: &Run, outcome: &RunOutcome, events: &[NewRunEvent])
     -> Result<bool>;
     async fn events_after(&self, run_id: &Id, after: i64, limit: i64) -> Result<Vec<RunEvent>>;
-    /// 租约过期的 Run 标为中断，各补一个结束事件；返回这些 Run。
+    /// Marks Runs with expired leases as interrupted, adds a completion event to each, and
+    /// returns these Runs.
     async fn expire_leases(&self, now: TimestampMicros) -> Result<Vec<Run>>;
-    /// 删掉早于 `before` 的事件，返回删了多少。
+    /// Deletes events earlier than `before` and returns the number deleted.
     async fn purge_events(&self, before: TimestampMicros) -> Result<u64>;
 }
 
@@ -518,7 +540,7 @@ mod tests {
         assert!(!decision.answers(&pending));
         assert_eq!(pending.status(), RunStatus::WaitingInput);
 
-        // 存在 Run 上的样子：旧的记录没有可选字段也读得出来。
+        // The form stored on the Run: older records without optional fields can still be read.
         let stored = serde_json::json!({
             "type": "authorization", "callId": "call-1", "tool": "t",
             "serverId": "s", "server": "S", "header": "x-api-key",

@@ -2081,6 +2081,18 @@
       "title": "搜索字段值",
       "description": "返回单个精确字段的有界去重值及计数。"
     },
+    "analyze_log_patterns": {
+      "title": "分析日志模式",
+      "description": "把一个数据流的日志聚成消息模式，并与对照时段比较：新出现、激增、减少还是平稳。"
+    },
+    "analyze_metric_trend": {
+      "title": "分析指标趋势",
+      "description": "总结一个 PromQL 查询相对对照时段怎么变的：从什么时候开始、变了多少、哪些序列和标签带来了变化。"
+    },
+    "check_data_readiness": {
+      "title": "检查数据就绪度",
+      "description": "检查各数据流有没有记录服务、环境和 trace ID，同一服务在日志、指标、链路里名字是否一致，指标名是否带单位，每条发现附修复建议。"
+    },
     "list_log_inspections": {
       "title": "列出定时巡检",
       "description": "列出组织的定时日志巡检：读哪个数据流、关注什么、执行周期、是否启用，以及最近一次执行的结果。"
@@ -2121,10 +2133,6 @@
       "title": "列出 Trace User",
       "description": "当 Trace 流包含 User 字段时，有界列出 AI Trace User 聚合。"
     },
-    "list_recent_alerts": {
-      "title": "查看近期告警",
-      "description": "列出活跃告警事件；等价于 list_incidents 的 active 筛选。"
-    },
     "list_incidents": {
       "title": "检索事件",
       "description": "按状态和可选时间范围检索有界事件列表。"
@@ -2140,6 +2148,14 @@
     "get_incident_insights": {
       "title": "获取事件洞察",
       "description": "返回按状态、严重度、服务及规则聚合的有界事件洞察。"
+    },
+    "get_similar_incidents": {
+      "title": "获取相似事件",
+      "description": "列出近 90 天里和某个事件最像的事件，以及它们怎么结束的、根因的第一句。"
+    },
+    "list_changes": {
+      "title": "列出变更",
+      "description": "列出某个时间前后的部署、配置变更和功能开关，可以按服务，也可以按一个事件。"
     },
     "acknowledge_incident": {
       "title": "确认事件",
@@ -2304,6 +2320,10 @@
     "list_apm_services": {
       "title": "列出 APM 服务",
       "description": "列出带 RED 健康摘要的 APM 服务。"
+    },
+    "search_service_catalog": {
+      "title": "搜索服务目录",
+      "description": "按名字、别名、说明或标签找服务，返回负责人、团队、别名和数据入口。"
     },
     "get_apm_service": {
       "title": "获取 APM 服务",

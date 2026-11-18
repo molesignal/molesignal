@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::iam::IamContext;
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
-use tool_runtime::{RiskLevel, ToolInvocationContext, ToolResult, catalog::BuiltinToolKind};
-
-use super::{ToolRuntime, common::parse_args};
-use crate::{
-    agent::{
-        model::{ApprovalRequest, ApprovalStatus},
-        tool_control::ToolExecutionMode,
-    },
-    app::iam::IamContext,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+use tool_runtime::{
+    RiskLevel, ToolExecutionMode, ToolInvocationContext, ToolResult, catalog::BuiltinToolKind,
 };
 
-const DEFAULT_APPROVAL_TTL_MICROS: i64 = 60 * 60 * 1_000_000;
+use super::{
+    ToolRuntime,
+    approvals::{CreateApprovalRequest, create_agent_approval},
+    common::parse_args,
+};
 
 pub(super) async fn execute(
     runtime: &ToolRuntime,
@@ -272,24 +270,6 @@ fn execution_mode_reviews(ctx: &ToolInvocationContext) -> Result<Option<i32>> {
         .ok_or_else(|| Error::forbidden("the active Tool Policy disables this operation"))
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct CreateApprovalRequest {
-    pub investigation_id: Option<Id>,
-    pub action: String,
-    pub target: String,
-    #[serde(default)]
-    pub parameters: Value,
-    pub reason: String,
-    pub impact: String,
-    pub expires_at: Option<i64>,
-    #[serde(skip)]
-    pub required_approvals_override: Option<i32>,
-    /// 风险等级不按操作的默认算（修复动作按它自己设的 L2 或 L3）。
-    #[serde(skip)]
-    pub risk_override: Option<RiskLevel>,
-}
-
 pub(crate) fn operation_policy(action: &str) -> Result<(RiskLevel, &'static str)> {
     match action {
         "acknowledge_alert" | "resolve_alert" | "snooze_alert" => {
@@ -371,121 +351,6 @@ pub(crate) fn dashboard_required_approvals(mode: ToolExecutionMode) -> Result<i3
     mode.required_approvals().ok_or_else(|| {
         Error::forbidden("Dashboard creation is disabled by the active operation policy")
     })
-}
-
-pub(crate) async fn create_agent_approval(
-    runtime: &ToolRuntime,
-    auth: &IamContext,
-    request: CreateApprovalRequest,
-) -> Result<ApprovalRequest> {
-    let (risk, required_permission) = operation_policy(&request.action)?;
-    let risk = request.risk_override.unwrap_or(risk);
-
-    if request.action == "create_api_token"
-        && auth.principal_type() != crate::domain::iam::access::IamPrincipalType::User
-    {
-        return Err(Error::forbidden(
-            "personal API tokens can only be requested by an authenticated user",
-        ));
-    }
-
-    if !operation_permission_allowed(auth, &request.action, required_permission) {
-        return Err(Error::forbidden(format!(
-            "operation '{}' requires permission '{}'",
-            request.action, required_permission
-        )));
-    }
-
-    if request.target.trim().is_empty() {
-        return Err(Error::invalid("operation target cannot be empty"));
-    }
-
-    if request.reason.trim().is_empty() || request.reason.chars().count() > 2_000 {
-        return Err(Error::invalid(
-            "operation reason must contain 1 to 2000 characters",
-        ));
-    }
-
-    if request.impact.trim().is_empty() || request.impact.chars().count() > 2_000 {
-        return Err(Error::invalid(
-            "operation impact must contain 1 to 2000 characters",
-        ));
-    }
-
-    let draft_expiry = if request.action == "create_dashboard" {
-        let expected_hash = request
-            .parameters
-            .get("expectedHash")
-            .and_then(Value::as_str)
-            .ok_or_else(|| Error::invalid("create_dashboard requires expected_hash"))?;
-
-        if request
-            .parameters
-            .as_object()
-            .is_none_or(|parameters| parameters.len() != 1)
-        {
-            return Err(Error::invalid(
-                "create_dashboard parameters may contain only expected_hash",
-            ));
-        }
-
-        Some(
-            runtime
-                .content
-                .dashboard_authoring
-                .validate_reference(
-                    &auth.org_id,
-                    &auth.user_id,
-                    &Id(request.target.clone()),
-                    expected_hash,
-                )
-                .await?
-                .expires_at,
-        )
-    } else {
-        None
-    };
-
-    let now = TimestampMicros::now();
-
-    let required_approvals = request
-        .required_approvals_override
-        .unwrap_or_else(|| risk.required_approvals())
-        .clamp(0, 2);
-
-    let expires_at = request
-        .expires_at
-        .unwrap_or(now.0.saturating_add(DEFAULT_APPROVAL_TTL_MICROS));
-
-    let expires_at = draft_expiry.map_or(expires_at, |draft| expires_at.min(draft.0));
-
-    runtime
-        .agent
-        .repository
-        .create_approval(ApprovalRequest {
-            id: Id::new(),
-            org_id: auth.org_id.clone(),
-            investigation_id: request.investigation_id,
-            action: request.action,
-            target: request.target,
-            parameters: request.parameters,
-            reason: request.reason,
-            impact: request.impact,
-            risk,
-            status: if required_approvals == 0 {
-                ApprovalStatus::Approved
-            } else {
-                ApprovalStatus::Pending
-            },
-            requested_by: auth.principal_id().clone(),
-            required_approvals,
-            reviews: json!([]),
-            expires_at: Some(TimestampMicros(expires_at)),
-            decided_at: (required_approvals == 0).then_some(now),
-            created_at: now,
-            updated_at: now,
-        })
-        .await
 }
 
 pub(crate) fn operation_permission_allowed(

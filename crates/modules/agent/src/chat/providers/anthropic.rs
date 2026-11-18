@@ -1,37 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Anthropic Messages API 的 Mole Agent Model Gateway adapter。
+//! The Mole Agent Model Gateway adapter for the Anthropic Messages API.
 //!
-//! 重要差异：
-//! - URL `{base_url}/v1/messages`；`anthropic-version` header 必须；
-//! - SSE 帧有 `event:` 名（`message_start` / `content_block_start` / `content_block_delta` /
-//!   `message_delta` / `message_stop`）；
-//! - 文本增量：`event: content_block_delta` + `delta.type == "text_delta"`，从 `delta.text` 取；
-//! - tool use：`content_block_start` 携 `content_block.type == "tool_use"` + id / name；
-//!   随后 `content_block_delta` 的 `delta.type == "input_json_delta"` 增量给 `partial_json`；
-//! - usage：`message_start` 给 `input_tokens`，`message_delta` 给 `output_tokens`。
+//! Key differences:
+//! - URL `{base_url}/v1/messages`; the `anthropic-version` header is required;
+//! - SSE frames have an `event:` name (`message_start` / `content_block_start` /
+//!   `content_block_delta` / `message_delta` / `message_stop`);
+//! - Text deltas: `event: content_block_delta` + `delta.type == "text_delta"`, read from
+//!   `delta.text`;
+//! - tool use: `content_block_start` carries `content_block.type == "tool_use"` + id / name;
+//!   subsequent `content_block_delta` frames with `delta.type == "input_json_delta"` provide
+//!   `partial_json` increments;
+//! - usage: `message_start` provides `input_tokens`, and `message_delta` provides `output_tokens`.
 
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use futures::stream::StreamExt;
+use kernel::{Error, Result};
+use signals::trace_stream::segmented_result_stream;
 
-use crate::{
-    agent::chat::{
-        ChatMessage, ChatStream, ChunkOrToolCall, CompletionRequest, CompletionResponse,
-        MessageRole, Provider, ProviderAdapter, ToolChoice,
-        providers::{
-            sse::response_to_sse,
-            transport::{TransportOptions, send_with_retry},
-        },
+use crate::chat::{
+    ChatMessage, ChatStream, ChunkOrToolCall, CompletionRequest, CompletionResponse, MessageRole,
+    Provider, ProviderAdapter, ToolChoice,
+    providers::{
+        sse::response_to_sse,
+        transport::{TransportOptions, send_with_retry},
     },
-    shared::{Error, Result, trace_stream::segmented_result_stream},
 };
 
 pub const ANTHROPIC_VERSION: &str = "2023-06-01";
 
-/// Messages API 必须给 `max_tokens`；模型服务没有配置时用这个值，够写完一份结构化结论。
+/// The Messages API requires `max_tokens`.
+/// Uses this value when the model service has no setting, enough for a complete structured
+/// conclusion.
 pub const DEFAULT_MAX_TOKENS: i32 = 4096;
 
 #[derive(Debug, Clone)]
@@ -54,7 +57,7 @@ impl AnthropicAdapter {
         }
     }
 
-    /// 换用模型服务自己的超时与重试设置。
+    /// Switches to the model service's own timeout and retry settings.
     pub fn with_transport(mut self, transport: TransportOptions) -> Self {
         self.client = transport.client();
         self.transport = transport;
@@ -118,10 +121,10 @@ impl AnthropicAdapter {
                 .header("anthropic-version", ANTHROPIC_VERSION)
                 .json(&body);
 
-            crate::shared::http_trace::send(
+            signals::http_trace::send(
                 &self.client,
                 request,
-                crate::shared::http_trace::HttpTarget::ThirdParty,
+                signals::http_trace::HttpTarget::ThirdParty,
             )
         })
         .await
@@ -140,11 +143,14 @@ impl AnthropicAdapter {
     }
 }
 
-/// 把对话历史转成 Messages API 的 `system` 与 `messages`。
+/// Converts conversation history into the Messages API's `system` and `messages`.
 ///
-/// - 多条 system 消息按顺序合成一段，缺了哪一条模型都会少一部分指令；
-/// - assistant 消息里的工具调用写成 `tool_use` 块，后面的 `tool_result` 才有对应；
-/// - 紧挨着的多条工具结果放进同一条 user 消息，这是 API 对一次多工具调用的要求。
+/// - Combines multiple system messages in order; omitting any one leaves the model missing
+///   part of its instructions;
+/// - Writes tool calls in assistant messages as `tool_use` blocks so that subsequent `tool_result`
+///   blocks have corresponding calls;
+/// - Groups consecutive tool results into one user message, as the API requires for multiple
+///   tool calls in one turn.
 fn messages_body(messages: &[ChatMessage]) -> (Option<String>, Vec<serde_json::Value>) {
     let mut system: Vec<&str> = Vec::new();
     let mut out: Vec<serde_json::Value> = Vec::new();
@@ -194,7 +200,8 @@ fn messages_body(messages: &[ChatMessage]) -> (Option<String>, Vec<serde_json::V
     (system, out)
 }
 
-/// assistant 消息：没有工具调用时是纯文本；有工具调用时是文本块加 `tool_use` 块。
+/// An assistant message is plain text without tool calls, or text blocks plus `tool_use` blocks
+/// with tool calls.
 fn assistant_message(m: &ChatMessage) -> serde_json::Value {
     let Some(calls) = m.tool_calls.as_array().filter(|calls| !calls.is_empty()) else {
         return serde_json::json!({ "role": "assistant", "content": m.content });
@@ -207,7 +214,7 @@ fn assistant_message(m: &ChatMessage) -> serde_json::Value {
     }
 
     for call in calls {
-        // 历史里存的是 OpenAI 形状：`function.arguments` 是 JSON 字符串。
+        // History uses the OpenAI format: `function.arguments` is a JSON string.
         let input = call["function"]["arguments"]
             .as_str()
             .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
@@ -251,7 +258,7 @@ impl ProviderAdapter for AnthropicAdapter {
                         }
                     }
                     Some("tool_use") => {
-                        tool_calls.push(crate::agent::chat::RequestedToolCall {
+                        tool_calls.push(crate::chat::RequestedToolCall {
                             id: b["id"].as_str().unwrap_or_default().to_string(),
                             name: b["name"].as_str().unwrap_or_default().to_string(),
                             arguments: b["input"].clone(),
@@ -280,8 +287,9 @@ impl ProviderAdapter for AnthropicAdapter {
 
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<ChunkOrToolCall>>(32);
 
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
-            // content_block_start 时记录 index → (kind, id, name)；text_delta / input_json_delta 引用它
+        signals::trace_context::spawn_with_current_trace_context(async move {
+            // Record index -> (kind, id, name) on content_block_start;
+            // text_delta / input_json_delta reference it
             let mut blocks: HashMap<i64, (String, String, String, String)> = HashMap::new();
             let mut input_tokens: i32 = 0;
             let mut cached_input_tokens: i32 = 0;
@@ -397,8 +405,10 @@ pub fn from_env(env_prefix: &str) -> Result<Arc<AnthropicAdapter>> {
     Ok(Arc::new(AnthropicAdapter::new(base_url, api_key)))
 }
 
-/// Anthropic 的 `input_tokens` 不含缓存：读缓存的记在 `cache_read_input_tokens`，写缓存的记在
-/// `cache_creation_input_tokens`。返回全部输入（三者之和）与其中命中缓存的部分。
+/// Anthropic's `input_tokens` excludes cache usage.
+/// Cache reads are recorded in `cache_read_input_tokens`, and cache writes in
+/// `cache_creation_input_tokens`. Returns all input (the sum of all three) and the portion
+/// served from cache.
 fn input_usage(usage: &serde_json::Value) -> (i32, i32) {
     let count = |key: &str| usage[key].as_i64().unwrap_or(0).max(0);
     let read = count("cache_read_input_tokens");
@@ -418,10 +428,9 @@ mod tests {
     use super::*;
 
     fn mk_req() -> CompletionRequest {
-        use crate::{
-            agent::chat::{ChatMessage, MessageRole},
-            shared::{ids::Id, time::TimestampMicros},
-        };
+        use kernel::{ids::Id, time::TimestampMicros};
+
+        use crate::chat::{ChatMessage, MessageRole};
         CompletionRequest {
             model: "claude-3-5-sonnet-20241022".into(),
             messages: vec![ChatMessage {
@@ -454,7 +463,7 @@ mod tests {
     }
 
     fn message(role: MessageRole, content: &str) -> ChatMessage {
-        use crate::shared::{ids::Id, time::TimestampMicros};
+        use kernel::{ids::Id, time::TimestampMicros};
 
         ChatMessage {
             id: Id::new(),

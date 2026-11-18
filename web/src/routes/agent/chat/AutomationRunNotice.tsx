@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Workflow } from 'lucide-react';
+import { FlaskConical, Workflow } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
@@ -26,9 +26,29 @@ export function useAutomationChat(chatId: string | null, listed: Chat[] | undefi
 /**
  * Said where the question would be typed: this chat is a run of an
  * automation, kept to be read. Asking again means running the automation.
+ * A run of a drill says so and leads back to the drills.
  */
 export function AutomationRunNotice({ chat }: { chat: Chat }) {
   const { t } = useTranslation('agent');
+
+  if (chat.subjectKind === 'drill') {
+    return (
+      <div
+        data-agent-drill-run={chat.subjectId ?? ''}
+        role="status"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-bg-2 px-3 py-2.5 font-sans text-xs text-tx-1"
+      >
+        <FlaskConical aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-tx-2" />
+        <span className="min-w-0 flex-1">{t('drill_run.notice', { name: chat.title })}</span>
+        <Link
+          to="/agent/quality/drills"
+          className="shrink-0 rounded-sm font-strong text-tx-0 underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+        >
+          {t('drill_run.open')}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div

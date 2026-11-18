@@ -3,6 +3,7 @@
 
 //! Protocol-neutral builtin Tool coordinator shared by Mole Agent and inbound MCP adapters.
 
+use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{
@@ -11,10 +12,7 @@ use tool_runtime::{
 };
 
 use super::control;
-use crate::{
-    api::AppState,
-    shared::{Error, Result, ids::Id},
-};
+use crate::api::AppState;
 
 pub(crate) async fn execute(
     state: &AppState,
@@ -30,6 +28,19 @@ pub(crate) async fn execute(
     }
 
     let result = state.tools.execute(invocation, kind, arguments).await?;
+
+    // A remediation action that a pre-approval covers comes back approved: it runs now.
+    if kind == BuiltinToolKind::RunRemediationAction
+        && let Some(approval_id) = control::preapproved::preapproved_in(&result)
+    {
+        let completed =
+            control::preapproved::run(state, invocation.iam_context(), &approval_id).await?;
+
+        return Ok(control::preapproved::preapproved_result(
+            &approval_id,
+            completed,
+        ));
+    }
 
     if invocation.execution_mode().automatically_executes()
         && matches!(

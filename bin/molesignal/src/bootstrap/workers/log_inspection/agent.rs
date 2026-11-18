@@ -9,29 +9,26 @@
 
 use std::sync::Arc;
 
+use agent::{
+    chat::{
+        AgentLoop, ChatMessage, DEFAULT_TEMPERATURE, LoopLimits, MessageRole, Provider,
+        ProviderAdapter, TransportOptions, adapter_from_parts,
+    },
+    tool_control::ToolControlRepository,
+    tools::ToolAuthContext,
+    usage::UsageOrigin,
+};
 use async_trait::async_trait;
+use kernel::{Error, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::model_providers::{ModelProvider, ModelProviderRepository};
 use serde_json::Value;
+use tool_runtime::ExecutionPolicy;
 
 use super::dispatcher::{AutomationToolDispatcher, OrgToolPolicy};
-use crate::{
-    agent::{
-        chat::{
-            AgentLoop, ChatMessage, DEFAULT_TEMPERATURE, LoopLimits, MessageRole, Provider,
-            ProviderAdapter, TransportOptions, adapter_from_parts,
-        },
-        tool_control::ToolControlRepository,
-        tools::{AgentExecutionPolicy, ToolAuthContext},
-        usage::UsageOrigin,
-    },
-    app::{
-        agent_usage::{AgentUsage, BudgetGate, UsageScope},
-        log_inspection::{AgentAnswer, AgentFailure, AgentRequest, InspectionAgent},
-        tools::ToolRuntime,
-    },
-    infra::persistence::repositories::agent::model_providers::{
-        ModelProvider, ModelProviderRepository,
-    },
-    shared::{Error, ids::Id, time::TimestampMicros},
+use crate::app::{
+    agent_usage::{AgentUsage, BudgetGate, UsageScope},
+    log_inspection::{AgentAnswer, AgentFailure, AgentRequest, InspectionAgent},
+    tools::ToolRuntime,
 };
 
 /// 一次巡检最多执行这么多次工具调用，加上收尾那次，模型最多被调用 9 次。
@@ -179,7 +176,7 @@ impl InspectionAgent for ModelAgent {
 
         // 只读：没有人在场审批，不允许提出任何变更。
         let context = ToolAuthContext::from_iam(&request.identity)
-            .with_execution_policy(AgentExecutionPolicy::ReadOnly);
+            .with_execution_policy(ExecutionPolicy::ReadOnly);
 
         let recorder = self.usage.recorder(UsageScope {
             user_id: Some(request.identity.user_id.clone()),

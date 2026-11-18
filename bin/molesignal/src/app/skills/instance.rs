@@ -15,17 +15,14 @@ use std::{
     sync::Arc,
 };
 
+use agent::{
+    commands::find_builtin,
+    skills::{MAX_FILE_BYTES, MAX_FILES, SKILL_FILE, SkillBundle, SkillFile, SkillSource},
+};
+use kernel::time::TimestampMicros;
 use parking_lot::RwLock;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-
-use crate::{
-    agent::{
-        commands::find_builtin,
-        skills::{MAX_FILE_BYTES, MAX_FILES, SKILL_FILE, SkillBundle, SkillFile, SkillSource},
-    },
-    shared::time::TimestampMicros,
-};
 
 /// 一个实例级 Skill。
 #[derive(Debug)]
@@ -74,6 +71,10 @@ const BUILTIN: &[(&str, &str)] = &[
     ("init", include_str!("builtin/init/SKILL.md")),
     ("insight", include_str!("builtin/insight/SKILL.md")),
     ("rum-triage", include_str!("builtin/rum-triage/SKILL.md")),
+    (
+        "data-readiness",
+        include_str!("builtin/data-readiness/SKILL.md"),
+    ),
 ];
 
 fn builtin_skills() -> Vec<Arc<InstanceSkill>> {
@@ -397,7 +398,7 @@ mod tests {
     fn every_built_in_skill_is_written_in_both_languages() {
         use crate::{
             app::skills::{BUNDLED_SKILL_KEY, bundled_text},
-            shared::i18n_language_seed::seeded_pack,
+            i18n_language_seed::seeded_pack,
         };
 
         for language in ["en-us", "zh-cn"] {

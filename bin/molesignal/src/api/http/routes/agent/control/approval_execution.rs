@@ -3,6 +3,12 @@
 
 //! Shared approved-operation coordinator used by Mole Agent and future inbound MCP adapters.
 
+use agent::model::{ApprovalRequest, ApprovalStatus, Execution, ExecutionStatus};
+use domain::{
+    alerting::{incident::IncidentStatus, timeline::ActionVia},
+    iam::IamContext,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 
 use super::{
@@ -10,25 +16,19 @@ use super::{
     resource_operation,
 };
 use crate::{
-    agent::model::{ApprovalRequest, ApprovalStatus, Execution, ExecutionStatus},
     api::{
         AppState,
         http::{middleware::Permission, routes::activity_audit},
     },
-    app::{
-        iam::IamContext,
-        tools::dashboard::{operation_permission_allowed, operation_policy},
-    },
-    domain::alerting::{incident::IncidentStatus, timeline::ActionVia},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::tools::dashboard::{operation_permission_allowed, operation_policy},
 };
 
-pub(in crate::api::http::routes::agent) struct OperationExecution {
+pub(crate) struct OperationExecution {
     pub execution: Execution,
     pub one_time_result: Option<Value>,
 }
 
-pub(in crate::api::http::routes::agent) async fn execute_approved_operation(
+pub(crate) async fn execute_approved_operation(
     state: &AppState,
     ctx: &IamContext,
     approval_id: &Id,

@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{
+    alerting::{
+        discovery::{FindingFilter, FindingKind},
+        incident_group::IncidentGroupState,
+    },
+    iam::IamContext,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
@@ -8,14 +16,6 @@ use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 use super::{
     ToolRuntime,
     common::{bounded, json_result, parse_args},
-};
-use crate::{
-    app::iam::IamContext,
-    domain::alerting::{
-        discovery::{FindingFilter, FindingKind},
-        incident_group::IncidentGroupState,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) async fn execute(
@@ -31,6 +31,11 @@ pub(super) async fn execute(
 
             if args.enabled_only {
                 rules.retain(|rule| rule.enabled);
+            }
+
+            // The list is an overview: a rule's investigation guide is read with get_alert_rule.
+            for rule in &mut rules {
+                rule.guide = Default::default();
             }
 
             json_result(&bounded(rules, args.limit, 500))

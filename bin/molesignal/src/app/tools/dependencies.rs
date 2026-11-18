@@ -7,55 +7,52 @@
 
 use std::sync::Arc;
 
+use agent::model::AgentRepository;
+use domain::{
+    alerting::{
+        incident_group::IncidentGroupRepository, mute::MuteRuleRepository,
+        repositories::IncidentRcaRepository,
+    },
+    function::{FunctionExecutor, FunctionRepository},
+    iam::{
+        TeamRepository, api_token::ApiTokenRepository, service_account::ServiceAccountRepository,
+    },
+    masking::{FieldMaskingProvider, FieldMaskingRuleRepository},
+    metrics::MetricDirectory,
+    query::SlowQueryRepository,
+    rum::{
+        RumApplicationRepository, RumIssueRepository, RumReplayCommentRepository,
+        RumSessionSummaryRepository,
+    },
+    saved_view::SavedViewRepository,
+    storage::QueryFileSource,
+    stream::StreamRepository,
+};
 use object_store::ObjectStore;
+use postgres::repositories::{
+    annotations::AnnotationRepository, audit_events::AuditEventRepository,
+    iam::roles::IamRoleRepository, log_patterns::LogPatternRepository,
+    notify::NotifyTemplateManagementRepository, pipelines::runs::PipelineRunRepository,
+    regex_patterns::RegexPatternRepository, report_templates::ReportTemplateRepository,
+    scheduled_reports::ScheduledReportRepository, user_preferences::UserPreferencesRepository,
+};
+use service_graph::ServiceGraphRepository;
 
 use crate::{
-    agent::model::AgentRepository,
     app::{
         alerting::{AlertingService, rule_evaluator::RuleEvaluator},
         apm::{ApmQueryService, ApmRuntime},
         dashboard::{DashboardService, authoring::DashboardAuthoringService},
         iam::{IamAccessService, IamService},
-        intake::FunctionExecutor,
         notify::{NotifyEngine, NotifyService},
         query::{QueryService, jobs::SearchJobService},
         status_page::StatusPageService,
         synthetics::SyntheticService,
     },
-    domain::{
-        alerting::{
-            incident_group::IncidentGroupRepository, mute::MuteRuleRepository,
-            repositories::IncidentRcaRepository,
-        },
-        function::FunctionRepository,
-        iam::{
-            TeamRepository, api_token::ApiTokenRepository,
-            service_account::ServiceAccountRepository,
-        },
-        masking::{FieldMaskingProvider, FieldMaskingRuleRepository},
-        metrics::MetricDirectory,
-        query::SlowQueryRepository,
-        rum::{
-            RumApplicationRepository, RumIssueRepository, RumReplayCommentRepository,
-            RumSessionSummaryRepository,
-        },
-        saved_view::SavedViewRepository,
-        storage::QueryFileSource,
-        stream::StreamRepository,
-    },
     infra::{
         connectors::ConnectorRepository,
-        persistence::repositories::{
-            annotations::AnnotationRepository, audit_events::AuditEventRepository,
-            iam::roles::IamRoleRepository, log_patterns::LogPatternRepository,
-            notify::NotifyTemplateManagementRepository, pipelines::runs::PipelineRunRepository,
-            regex_patterns::RegexPatternRepository, report_templates::ReportTemplateRepository,
-            scheduled_reports::ScheduledReportRepository,
-            user_preferences::UserPreferencesRepository,
-        },
         pipeline::{ExtendKvRepository, ScheduledPipelineRepository},
         query::catalog_source::CatalogQuerySource,
-        traces::ServiceGraphRepository,
     },
 };
 
@@ -88,6 +85,8 @@ pub struct ObservabilityToolDependencies {
     pub rum_issues: Arc<dyn RumIssueRepository>,
     pub rum_comments: Arc<dyn RumReplayCommentRepository>,
     pub rum_summaries: Arc<dyn RumSessionSummaryRepository>,
+    /// What the organization says of its services: owners, aliases, where their data is.
+    pub service_catalog: Arc<dyn domain::apm::ApmCatalogRepository>,
 }
 
 #[derive(Clone)]
@@ -108,7 +107,9 @@ pub struct AlertingToolDependencies {
     /// 事件能用的修复动作。
     pub remediation: Arc<crate::app::alerting::RemediationService>,
     /// 自动发现找到的问题。
-    pub discovery: Arc<dyn crate::domain::alerting::discovery::DiscoveryRepository>,
+    pub discovery: Arc<dyn domain::alerting::discovery::DiscoveryRepository>,
+    /// Incidents like one incident, and the changes reported around it.
+    pub related: Arc<crate::app::alerting::RelatedIncidents>,
 }
 
 #[derive(Clone)]
@@ -152,5 +153,11 @@ pub struct AdministrationToolDependencies {
 #[derive(Clone)]
 pub struct AgentToolDependencies {
     pub repository: Arc<dyn AgentRepository>,
-    pub automations: Arc<dyn crate::agent::automations::AutomationRepository>,
+    pub automations: Arc<dyn agent::automations::AutomationRepository>,
+    /// Text the backend writes for approvals, in the reader's language.
+    pub i18n_language: Arc<dyn domain::i18n_language::I18nLanguageRepository>,
+    /// The workspace's language, for what is sent to people who set none.
+    pub workspace_defaults: Arc<
+        dyn postgres::repositories::workspace_preference_defaults::WorkspacePreferenceDefaultsRepository,
+    >,
 }

@@ -1,32 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! OpenAI Chat Completion (`POST /v1/chat/completions`) 的 Model Gateway adapter。
+//! The Model Gateway adapter for OpenAI Chat Completion (`POST /v1/chat/completions`).
 //!
-//! 设计：
-//! - 每个 SSE 帧 `data: <json>` 是一个 `chat.completion.chunk`；
-//! - 一个 message 由多个 chunk 拼成（按 `delta.content` / `delta.tool_calls[].function.arguments`
-//!   增量追加）；
-//! - tool_calls 增量按 `tool_calls[].index` 排序，arguments 是分片字符串，需要 buffer
-//!   到 `finish_reason: tool_calls` 时再 yield；
-//! - usage 块（`stream_options: {include_usage: true}`）只会在末尾出现；
-//! - `data: [DONE]` 是流结束哨兵，忽略 JSON 解析。
+//! Design:
+//! - Each SSE frame `data: <json>` is a `chat.completion.chunk`;
+//! - A message is assembled from multiple chunks (appended incrementally via `delta.content` /
+//!   `delta.tool_calls[].function.arguments`);
+//! - tool_calls increments are sorted by `tool_calls[].index`; arguments are string fragments
+//!   that need buffering until `finish_reason: tool_calls` before yielding;
+//! - The usage block (`stream_options: {include_usage: true}`) only appears at the end;
+//! - `data: [DONE]` is the end-of-stream sentinel; skip JSON parsing.
 
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use futures::stream::StreamExt;
+use kernel::{Error, Result};
+use signals::trace_stream::segmented_result_stream;
 
-use crate::{
-    agent::chat::{
-        ChatStream, ChunkOrToolCall, CompletionRequest, CompletionResponse, MessageRole, Provider,
-        ProviderAdapter, ToolChoice,
-        providers::{
-            sse::response_to_sse,
-            transport::{TransportOptions, send_with_retry},
-        },
+use crate::chat::{
+    ChatStream, ChunkOrToolCall, CompletionRequest, CompletionResponse, MessageRole, Provider,
+    ProviderAdapter, ToolChoice,
+    providers::{
+        sse::response_to_sse,
+        transport::{TransportOptions, send_with_retry},
     },
-    shared::{Error, Result, trace_stream::segmented_result_stream},
 };
 
 #[derive(Debug, Clone)]
@@ -49,7 +48,7 @@ impl OpenAiAdapter {
         }
     }
 
-    /// 换用模型服务自己的超时与重试设置。
+    /// Switches to the model service's own timeout and retry settings.
     pub fn with_transport(mut self, transport: TransportOptions) -> Self {
         self.client = transport.client();
         self.transport = transport;
@@ -143,10 +142,10 @@ impl OpenAiAdapter {
                 .bearer_auth(&self.api_key)
                 .json(&body);
 
-            crate::shared::http_trace::send(
+            signals::http_trace::send(
                 &self.client,
                 request,
-                crate::shared::http_trace::HttpTarget::ThirdParty,
+                signals::http_trace::HttpTarget::ThirdParty,
             )
         })
         .await
@@ -182,7 +181,7 @@ impl ProviderAdapter for OpenAiAdapter {
 
         if let Some(tcs) = choice["message"]["tool_calls"].as_array() {
             for tc in tcs {
-                tool_calls.push(crate::agent::chat::RequestedToolCall {
+                tool_calls.push(crate::chat::RequestedToolCall {
                     id: tc["id"].as_str().unwrap_or_default().to_string(),
                     name: tc["function"]["name"]
                         .as_str()
@@ -213,11 +212,12 @@ impl ProviderAdapter for OpenAiAdapter {
         let resp = self.send(&req, true).await?;
         let mut sse = response_to_sse(resp);
 
-        // 用 channel 暴露 stream，逐 SSE 帧解析并 push 增量；arguments buffer 在闭包内。
+        // Expose the stream through a channel, parse each SSE frame, and push increments;
+        // the arguments buffer stays inside the closure.
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<ChunkOrToolCall>>(32);
 
-        crate::shared::trace_context::spawn_with_current_trace_context(async move {
-            // tool_calls buffer：(index -> (id, name, accumulated args))
+        signals::trace_context::spawn_with_current_trace_context(async move {
+            // tool_calls buffer: (index -> (id, name, accumulated args))
             let mut tc_bufs: HashMap<i64, (String, String, String)> = HashMap::new();
 
             while let Some(item) = sse.next().await {
@@ -241,7 +241,7 @@ impl ProviderAdapter for OpenAiAdapter {
                     }
                 };
 
-                // usage 终结块（choices == []，但 usage 存在）。
+                // Final usage block (choices == [], but usage is present).
                 if let Some(usage) = v.get("usage").and_then(|u| u.as_object())
                     && !usage.is_empty()
                 {
@@ -305,7 +305,7 @@ impl ProviderAdapter for OpenAiAdapter {
                 if let Some(fr) = choice["finish_reason"].as_str()
                     && (fr == "tool_calls" || fr == "stop" || fr == "length")
                 {
-                    // 把 buffered tool_calls flush 出去
+                    // Flush buffered tool_calls
                     let mut indices: Vec<i64> = tc_bufs.keys().copied().collect();
                     indices.sort_unstable();
 
@@ -334,7 +334,7 @@ impl ProviderAdapter for OpenAiAdapter {
     }
 }
 
-/// 工厂：根据 env 构造 adapter，避免 bootstrap 阶段散落字段。
+/// Factory: constructs an adapter from env to avoid scattering fields throughout bootstrap.
 pub fn from_env(env_prefix: &str) -> Result<Arc<OpenAiAdapter>> {
     let api_key_var = format!("{env_prefix}_API_KEY");
     let base_url_var = format!("{env_prefix}_BASE_URL");
@@ -345,9 +345,9 @@ pub fn from_env(env_prefix: &str) -> Result<Arc<OpenAiAdapter>> {
     Ok(Arc::new(OpenAiAdapter::new(base_url, api_key)))
 }
 
-/// 输入里命中缓存的 token，各家写法不同：OpenAI 与多数兼容服务写在
-/// `prompt_tokens_details.cached_tokens`，DeepSeek 写 `prompt_cache_hit_tokens`，Kimi 写
-/// `cached_tokens`。都含在 `prompt_tokens` 里；没有报时为 0。
+/// Providers report input tokens served from cache differently: OpenAI and most compatible services
+/// use `prompt_tokens_details.cached_tokens`, DeepSeek uses `prompt_cache_hit_tokens`, and Kimi
+/// uses `cached_tokens`. All are included in `prompt_tokens`; defaults to 0 when not reported.
 fn cached_prompt_tokens(usage: &serde_json::Value) -> i32 {
     usage["prompt_tokens_details"]["cached_tokens"]
         .as_i64()
@@ -368,10 +368,9 @@ mod tests {
     use super::*;
 
     fn mk_req(model: &str) -> CompletionRequest {
-        use crate::{
-            agent::chat::{ChatMessage, MessageRole},
-            shared::{ids::Id, time::TimestampMicros},
-        };
+        use kernel::{ids::Id, time::TimestampMicros};
+
+        use crate::chat::{ChatMessage, MessageRole};
         CompletionRequest {
             model: model.into(),
             messages: vec![ChatMessage {
@@ -468,7 +467,8 @@ mod tests {
         assert_eq!(done.as_deref(), Some("stop"));
     }
 
-    /// task 5.3：429 → adapter 应返 `Err`，让 AgentLoop 把它转成 AgentStreamEvent::Error。
+    /// task 5.3: 429 -> the adapter should return `Err` so AgentLoop converts it to
+    /// AgentStreamEvent::Error.
     #[tokio::test]
     async fn rate_limited_returns_err() {
         let srv = MockServer::start().await;
@@ -494,7 +494,8 @@ mod tests {
         assert!(msg.contains("429"), "{msg}");
     }
 
-    /// 限流一次之后成功：适配器自己重发，调用方拿到的是第二次的回答。
+    /// Succeeds after one rate limit: the adapter retries itself, and the caller receives the
+    /// second response.
     #[tokio::test]
     async fn rate_limited_request_is_retried_before_streaming() {
         let srv = MockServer::start().await;

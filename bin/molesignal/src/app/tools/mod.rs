@@ -8,20 +8,20 @@
 
 use std::sync::{Arc, OnceLock};
 
+use domain::iam::IamContext;
+use kernel::{Error, Result};
 use tool_runtime::{
     PermissionMode, ToolAccess, ToolExecutionMode, ToolInvocationContext, ToolResult,
     catalog::{BuiltinToolKind, is_session_tool, is_workspace_tool},
 };
 
-use crate::{
-    app::{iam::IamContext, log_inspection::LogInspectionService},
-    shared::{Error, Result},
-};
+use crate::app::log_inspection::LogInspectionService;
 
 mod administration;
 mod agent_control;
 mod alerting;
 mod apm;
+pub(crate) mod approvals;
 mod common;
 mod content;
 mod correlation;
@@ -142,7 +142,10 @@ impl ToolRuntime {
             | BuiltinToolKind::ListMetricLabels
             | BuiltinToolKind::ListMetricSeries
             | BuiltinToolKind::SearchAround
-            | BuiltinToolKind::SearchFieldValues => {
+            | BuiltinToolKind::SearchFieldValues
+            | BuiltinToolKind::AnalyzeLogPatterns
+            | BuiltinToolKind::AnalyzeMetricTrend
+            | BuiltinToolKind::CheckDataReadiness => {
                 observability::execute(self, auth, kind, arguments).await
             }
             BuiltinToolKind::ListLogInspections
@@ -156,11 +159,12 @@ impl ToolRuntime {
             | BuiltinToolKind::ListTraceSessions
             | BuiltinToolKind::GetTraceSession
             | BuiltinToolKind::ListTraceUsers => traces::execute(self, auth, kind, arguments).await,
-            BuiltinToolKind::ListRecentAlerts
-            | BuiltinToolKind::ListIncidents
+            BuiltinToolKind::ListIncidents
             | BuiltinToolKind::GetIncident
             | BuiltinToolKind::GetIncidentRca
             | BuiltinToolKind::GetIncidentInsights
+            | BuiltinToolKind::GetSimilarIncidents
+            | BuiltinToolKind::ListChanges
             | BuiltinToolKind::GetIncidentTimeline
             | BuiltinToolKind::GetIncidentTickets
             | BuiltinToolKind::ListRemediationActions
@@ -196,6 +200,7 @@ impl ToolRuntime {
             }
             BuiltinToolKind::ApmOverview
             | BuiltinToolKind::ListApmServices
+            | BuiltinToolKind::SearchServiceCatalog
             | BuiltinToolKind::GetApmService
             | BuiltinToolKind::ListApmTransactions
             | BuiltinToolKind::GetApmTransaction

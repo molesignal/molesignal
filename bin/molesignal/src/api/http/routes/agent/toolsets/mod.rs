@@ -11,20 +11,21 @@
 
 use std::collections::{HashMap, HashSet};
 
-use axum::Router;
-use serde::Deserialize;
-
-use crate::{
-    agent::{
-        chat::LoopLimits,
-        model::{AgentProfile, NetworkAccess, RiskLevel},
-        scope::{ChatScope, Scope, Viewer},
-        tool_control::{McpServer, McpTool, ToolExecutionMode, ToolPolicy, ToolPolicyDefaults},
-        tools::{is_builtin_tool, is_meta_tool, risk_for_tool},
-    },
-    api::AppState,
-    shared::{Error, Result, ids::Id},
+use agent::{
+    chat::LoopLimits,
+    model::{AgentProfile, NetworkAccess},
+    scope::{ChatScope, Scope, Viewer},
+    tool_control::{McpServer, McpTool, ToolPolicy, ToolPolicyDefaults},
 };
+use axum::Router;
+use kernel::{Error, Result, ids::Id};
+use serde::Deserialize;
+use tool_runtime::{
+    RiskLevel, ToolExecutionMode,
+    catalog::{is_builtin_tool, is_meta_tool, risk_for_tool},
+};
+
+use crate::api::AppState;
 
 mod api;
 mod limits;
@@ -159,7 +160,7 @@ impl ToolsetResolution {
         self.mcp_tools.get(name).filter(|tool| {
             self.network_access == NetworkAccess::Allowed
                 && tool.enabled
-                && tool.status == crate::agent::tool_control::ManagedToolStatus::Healthy
+                && tool.status == agent::tool_control::ManagedToolStatus::Healthy
                 && self.tool_enabled(name)
                 && self.execution_mode_for_mcp(tool) != ToolExecutionMode::Disabled
                 && self
@@ -515,7 +516,7 @@ mod tests {
     #[test]
     fn profile_and_toolset_allowlists_are_intersected() {
         let profile = HashSet::from(["query_logs".to_string(), "list_rum_sessions".to_string()]);
-        let toolsets = HashSet::from(["query_logs".to_string(), "list_recent_alerts".to_string()]);
+        let toolsets = HashSet::from(["query_logs".to_string(), "list_incidents".to_string()]);
         assert_eq!(
             intersect_allowlists(Some(profile), Some(toolsets)),
             Some(HashSet::from(["query_logs".to_string()]))
@@ -597,7 +598,7 @@ mod tests {
 
     #[test]
     fn dashboard_policy_can_tighten_or_disable_proposals() {
-        let now = crate::shared::time::TimestampMicros(1);
+        let now = kernel::time::TimestampMicros(1);
         let policy = |mode, enabled| ToolPolicy {
             org_id: Id("org-1".into()),
             tool_name: "propose_dashboard_creation".into(),

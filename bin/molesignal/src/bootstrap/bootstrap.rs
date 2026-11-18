@@ -289,6 +289,11 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         settings,
         agent_model_providers.clone(),
         agent_usage.clone(),
+        crate::app::alerting::related::IncidentBriefing::new(
+            alerting_runtime.related.clone(),
+            tracing_runtime.apm_query.clone(),
+            tracing_runtime.service_graph.clone(),
+        ),
     );
 
     let dashboard_authoring = Arc::new(
@@ -633,6 +638,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             tickets: alert_tickets.clone(),
             remediation: alert_remediation.clone(),
             discovery: discovery_findings.clone(),
+            related: related_incidents.clone(),
         },
         content: ContentToolDependencies {
             dashboard: dashboard.clone(),
@@ -671,6 +677,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         agent: AgentToolDependencies {
             repository: agent.clone(),
             automations: agent_automations.clone(),
+            i18n_language: core.i18n_language.clone(),
+            workspace_defaults: workspace_preference_defaults.clone(),
         },
     }));
 

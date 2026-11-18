@@ -347,18 +347,12 @@ test.describe('Mole Agent operations workspace', () => {
     await expect(agentHeader.getByText('Running automations')).toHaveCount(0);
     await expect(agentHeader.getByRole('link', { name: 'Chat' })).toBeVisible();
 
-    await page.route('**/api/v1/alerts/incidents**', (route) =>
-      route.fulfill({ json: [] }),
-    );
-    await page.route('**/api/v1/alerts/rules**', (route) =>
-      route.fulfill({ json: [] }),
-    );
-    await page.goto('/alerts/incidents');
+    await page.goto('/synthetics/overview');
     // The module has one title; which tab is open is said by the tabs below it.
-    const alertTitle = page.locator('.type-page-title').filter({ hasText: 'Alerts' });
-    await expect(alertTitle).toBeVisible();
-    const subnav = page.getByTestId('alerts-subnav');
-    const activeTab = subnav.locator('a[href="/alerts/incidents"]');
+    const moduleTitle = page.locator('.type-page-title').filter({ hasText: 'Synthetics' });
+    await expect(moduleTitle).toBeVisible();
+    const subnav = page.getByTestId('synthetics-subnav');
+    const activeTab = subnav.locator('a[href="/synthetics/overview"]');
 
     await expect(activeTab).toHaveAttribute('aria-current', 'page');
     // The active tab has no fill or rule of its own; one indicator marks it.

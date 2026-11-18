@@ -26,8 +26,8 @@ export interface Chat {
   ownerId?: string;
   /** False when only the title and usage can be seen. */
   readable?: boolean;
-  /** What the chat investigates, such as the incident it was started from. */
-  subjectKind?: 'incident' | 'service' | 'rum' | 'finding' | null;
+  /** What the chat investigates, such as the incident it was started from; `drill` for a run of a drill. */
+  subjectKind?: 'incident' | 'service' | 'rum' | 'finding' | 'drill' | null;
   subjectId?: string | null;
   /** The investigation record the answers of the chat write to. */
   investigationId?: string | null;

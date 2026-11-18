@@ -3,6 +3,16 @@
 
 use std::collections::BTreeMap;
 
+use domain::{
+    alerting::{
+        incident::{Incident, IncidentStatus},
+        priority::Priority,
+        timeline::ActionVia,
+        urgency::Urgency,
+    },
+    iam::IamContext,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
@@ -11,16 +21,9 @@ use super::{
     ToolRuntime,
     common::{TimeRangeArg, optional_time_range, parse_args},
 };
-use crate::{
-    app::{alerting::Actor, iam::IamContext},
-    domain::alerting::{
-        incident::{Incident, IncidentStatus},
-        priority::Priority,
-        timeline::ActionVia,
-        urgency::Urgency,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::app::alerting::Actor;
+
+mod related;
 
 pub(super) async fn execute(
     runtime: &ToolRuntime,
@@ -29,13 +32,14 @@ pub(super) async fn execute(
     arguments: Value,
 ) -> Result<ToolResult> {
     match kind {
-        BuiltinToolKind::ListRecentAlerts => list_recent(runtime, auth, arguments).await,
         BuiltinToolKind::ListIncidents => list_incidents(runtime, auth, arguments).await,
         BuiltinToolKind::GetIncident => get_incident(runtime, auth, arguments).await,
         BuiltinToolKind::GetIncidentRca => get_incident_rca(runtime, auth, arguments).await,
         BuiltinToolKind::GetIncidentInsights => {
             get_incident_insights(runtime, auth, arguments).await
         }
+        BuiltinToolKind::GetSimilarIncidents => related::similar(runtime, auth, arguments).await,
+        BuiltinToolKind::ListChanges => related::changes(runtime, auth, arguments).await,
         BuiltinToolKind::GetIncidentTimeline => {
             get_incident_timeline(runtime, auth, arguments).await
         }
@@ -50,33 +54,6 @@ pub(super) async fn execute(
         BuiltinToolKind::GetCurrentOnCall => current_on_call(runtime, auth, arguments).await,
         _ => unreachable!("incident handler received unrelated tool"),
     }
-}
-
-#[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RecentArgs {
-    #[serde(default)]
-    limit: Option<usize>,
-}
-
-async fn list_recent(
-    runtime: &ToolRuntime,
-    auth: &IamContext,
-    arguments: Value,
-) -> Result<ToolResult> {
-    let args: RecentArgs = parse_args(arguments)?;
-
-    let mut incidents = runtime
-        .alerting
-        .service
-        .list_incidents_active(&auth.org_id)
-        .await?;
-
-    sort_and_limit(&mut incidents, args.limit.unwrap_or(50).clamp(1, 500));
-
-    Ok(ToolResult::json(
-        json!({"incidents": incidents, "status": "active"}),
-    ))
 }
 
 #[derive(Default, Deserialize)]

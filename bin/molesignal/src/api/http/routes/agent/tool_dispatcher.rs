@@ -12,27 +12,30 @@ use std::{
     time::{Duration, Instant},
 };
 
+use agent::{
+    model::ToolCallRecord,
+    tools::{ToolAuthContext, ToolDispatcher},
+};
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde_json::{Value, json};
 pub(crate) use session::{Reply, RunInteraction};
-use tool_runtime::{ToolCallSource, ToolContent, ToolInvocationContext};
+use tool_runtime::{
+    RiskLevel, ToolCall, ToolCallSource, ToolContent, ToolExecutionMode, ToolInvocationContext,
+    ToolResult,
+    catalog::{
+        BuiltinToolKind, is_builtin_tool, is_meta_tool, is_session_tool, is_skill_tool,
+        is_workspace_tool, risk_for_tool,
+    },
+};
 pub(crate) use workspace::ChatWorkspace;
 
 use crate::{
-    agent::{
-        model::{RiskLevel, ToolCallRecord},
-        tool_control::ToolExecutionMode,
-        tools::{
-            BuiltinToolKind, ToolAuthContext, ToolCall, ToolDispatcher, ToolResult,
-            is_builtin_tool, is_meta_tool, is_session_tool, is_skill_tool, is_workspace_tool,
-            risk_for_tool,
-        },
-    },
     api::AppState,
     app::{mcp::McpToolCall, skills::SessionSkills},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
+mod alongside;
 mod meta;
 mod session;
 mod skills;
@@ -101,6 +104,10 @@ impl ToolDispatcher for RealToolDispatcher {
         self.audit(ctx, &tool_name, input, started, &outcome)
             .await?;
         outcome
+    }
+
+    fn runs_alongside(&self, call: &ToolCall) -> bool {
+        self.reads_only(&call.name, &call.arguments)
     }
 }
 

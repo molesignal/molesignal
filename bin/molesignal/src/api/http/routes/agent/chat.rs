@@ -19,6 +19,11 @@
 //! - tool 证据落 `agent_messages.evidence_json`，大原始结果 spill 到对象存储。
 //! - transcript 归档：对象存储 JSON + PG 元数据（object_key/sha256/bytes/status）+ 审计事件。
 
+use agent::{
+    capabilities::dashboard_authoring,
+    references::MessageReference,
+    runs::{Run, RunPrincipal, RunSource},
+};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
@@ -26,27 +31,19 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use postgres::repositories::agent::chats::{Chat, ChatMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tool_runtime::ExecutionPolicy;
 
 use super::{budget, references, runs::RunResp, toolsets, viewer::readable_chat};
-use crate::{
-    agent::{
-        capabilities::dashboard_authoring,
-        references::MessageReference,
-        runs::{Run, RunPrincipal, RunSource},
-        tools::AgentExecutionPolicy,
-    },
-    api::AppState,
-    app::{agent_usage::BudgetGate, iam::IamContext},
-    domain::iam::permission,
-    infra::persistence::repositories::agent::chats::{Chat, ChatMessage},
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::{api::AppState, app::agent_usage::BudgetGate};
 
 mod archive;
 mod commands;
@@ -113,7 +110,7 @@ pub struct PostMessageReq {
     #[serde(default)]
     pub capability: Option<String>,
     #[serde(default)]
-    pub execution_policy: Option<AgentExecutionPolicy>,
+    pub execution_policy: Option<ExecutionPolicy>,
     #[serde(default)]
     pub stream_hints: Vec<String>,
     #[serde(default)]
@@ -124,11 +121,6 @@ pub struct PostMessageReq {
     pub model: Option<String>,
     #[serde(default)]
     pub prompt_template_id: Option<String>,
-    /// 客户端传 prompt token 数（legacy cost hint）。
-    #[serde(default)]
-    pub prompt_tokens: Option<i64>,
-    #[serde(default)]
-    pub completion_tokens: Option<i64>,
     /// 输入框里用 @ 插入的引用。
     #[serde(default)]
     pub references: Vec<MessageReference>,
@@ -155,7 +147,7 @@ async fn post_message(
     };
 
     // bypass permissions 要这个对话的 Agent Profile 允许；不允许时不落消息。
-    if req.execution_policy == Some(AgentExecutionPolicy::BypassPermissions) {
+    if req.execution_policy == Some(ExecutionPolicy::BypassPermissions) {
         let profile_id = req.agent_profile_id.as_deref().map(Id::from_string);
 
         if !toolsets::bypass_permissions_allowed(&state, &ctx.org_id, profile_id.as_ref()).await? {
@@ -215,7 +207,6 @@ async fn post_message(
                 .chats
                 .append_message(ChatMessage {
                     user_id: Some(ctx.user_id.clone()),
-                    prompt_tokens: req.prompt_tokens,
                     command_json: turn
                         .record
                         .as_ref()

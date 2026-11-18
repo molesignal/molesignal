@@ -26,7 +26,7 @@ describe('Mole Agent tool strip helpers', () => {
       },
       {
         id: 'call-3',
-        name: 'list_recent_alerts',
+        name: 'list_incidents',
         status: 'error',
         result: 'timeout',
       },
@@ -43,7 +43,7 @@ describe('Mole Agent tool strip helpers', () => {
         ],
       },
       {
-        name: 'list_recent_alerts',
+        name: 'list_incidents',
         count: 1,
         status: 'error',
         calls: [{ id: 'call-3', result: 'timeout' }],

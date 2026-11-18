@@ -15,18 +15,19 @@
 
 use std::{sync::Arc, time::Duration};
 
+use agent::automations::AutomationRepository;
+use domain::{
+    alerting::repositories::IncidentRepository,
+    cluster::PeerRole,
+    iam::{IamMembershipRepository, OrganizationRepository},
+};
+use kernel::{Result, time::TimestampMicros};
+use postgres::repositories::user_preferences::UserPreferencesRepository;
 use tokio::task::JoinHandle;
 
 use crate::{
-    agent::automations::AutomationRepository,
     api::rca::{RcaGenerator, RcaOutputLocale},
-    app::cluster::{PeerRole, WorkOwnership},
-    domain::{
-        alerting::repositories::IncidentRepository,
-        iam::{IamMembershipRepository, OrganizationRepository},
-    },
-    infra::persistence::repositories::user_preferences::UserPreferencesRepository,
-    shared::{Result, time::TimestampMicros},
+    app::cluster::WorkOwnership,
 };
 
 #[derive(Debug, Clone)]
@@ -188,10 +189,7 @@ impl RcaSweeper {
 
     /// 后台任务没有当前 HTTP 用户，因此使用组织内最早加入成员的界面语言
     /// 作为该组织 RCA 的默认输出语言。角色不参与这项非授权决策。
-    async fn preferred_locale_for_org(
-        &self,
-        org_id: &crate::shared::ids::Id,
-    ) -> Result<RcaOutputLocale> {
+    async fn preferred_locale_for_org(&self, org_id: &kernel::ids::Id) -> Result<RcaOutputLocale> {
         let mut memberships = self.memberships.list_for_org(org_id).await?;
         memberships.sort_by_key(|membership| membership.joined_at.0);
 

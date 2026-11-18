@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! OpenAI-compatible Mole Agent Model Gateway adapter。
+//! The OpenAI-compatible Mole Agent Model Gateway adapter.
 //!
-//! Together / vLLM / Groq / Ollama 等：协议与 OpenAI v1/chat/completions 一致，
-//! 只差 `base_url` 与 API key。直接 wrap [`OpenAiAdapter`]。
+//! Together / vLLM / Groq / Ollama and others use the same protocol as OpenAI v1/chat/completions,
+//! differing only in `base_url` and API key. Directly wraps [`OpenAiAdapter`].
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use kernel::Result;
 
-use crate::{
-    agent::chat::{
-        ChatStream, CompletionRequest, CompletionResponse, Provider, ProviderAdapter,
-        providers::{openai::OpenAiAdapter, transport::TransportOptions},
-    },
-    shared::Result,
+use crate::chat::{
+    ChatStream, CompletionRequest, CompletionResponse, Provider, ProviderAdapter,
+    providers::{openai::OpenAiAdapter, transport::TransportOptions},
 };
 
 #[derive(Debug, Clone)]
@@ -30,7 +28,7 @@ impl OpenAiCompatibleAdapter {
         }
     }
 
-    /// 换用模型服务自己的超时与重试设置。
+    /// Switches to the model service's own timeout and retry settings.
     pub fn with_transport(self, transport: TransportOptions) -> Self {
         Self {
             inner: self.inner.with_transport(transport),
@@ -54,7 +52,7 @@ impl ProviderAdapter for OpenAiCompatibleAdapter {
 }
 
 pub fn from_env(env_prefix: &str) -> Result<Arc<OpenAiCompatibleAdapter>> {
-    use crate::shared::Error;
+    use kernel::Error;
     let api_key_var = format!("{env_prefix}_API_KEY");
     let base_url_var = format!("{env_prefix}_BASE_URL");
     let api_key = std::env::var(&api_key_var)
@@ -67,16 +65,14 @@ pub fn from_env(env_prefix: &str) -> Result<Arc<OpenAiCompatibleAdapter>> {
 #[cfg(test)]
 mod tests {
     use futures::StreamExt;
+    use kernel::{ids::Id, time::TimestampMicros};
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{method, path},
     };
 
     use super::*;
-    use crate::{
-        agent::chat::{ChunkOrToolCall, MessageRole, ToolChoice},
-        shared::{ids::Id, time::TimestampMicros},
-    };
+    use crate::chat::{ChunkOrToolCall, MessageRole, ToolChoice};
 
     fn tool_req(choice: ToolChoice) -> CompletionRequest {
         CompletionRequest {
@@ -135,9 +131,9 @@ mod tests {
             .mount(&srv)
             .await;
         let ad = OpenAiCompatibleAdapter::new(srv.uri(), "test");
-        let req = crate::agent::chat::CompletionRequest {
+        let req = crate::chat::CompletionRequest {
             model: "llama-3".into(),
-            messages: vec![crate::agent::chat::ChatMessage {
+            messages: vec![crate::chat::ChatMessage {
                 id: Id::new(),
                 chat_id: Id("s".into()),
                 role: MessageRole::User,
@@ -149,7 +145,7 @@ mod tests {
                 completion_tokens: None,
             }],
             tools: None,
-            tool_choice: crate::agent::chat::ToolChoice::Auto,
+            tool_choice: crate::chat::ToolChoice::Auto,
             max_tokens: None,
             temperature: None,
         };

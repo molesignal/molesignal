@@ -1,7 +1,7 @@
 ---
 name: alert-noise-reduction
 description: Find the alert rules that page people without need - flapping, duplicated, never acted on - and propose concrete changes for review.
-argument-hint: [time range, default 7d]
+argument-hint: "[time range, default 7d]"
 version: "1"
 allowed-tools: list_alert_rules, get_alert_rule, list_incidents, get_incident, list_incident_groups, list_mute_rules, list_escalation_policies, list_notification_deliveries, test_alert_rule
 tags: [alerting, noise, on-call]

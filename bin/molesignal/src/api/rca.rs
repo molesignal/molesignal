@@ -11,38 +11,44 @@
 
 use std::sync::Arc;
 
-use serde_json::{Map, Value};
+use agent::{
+    chat::{
+        ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider, TransportOptions,
+        adapter_from_parts, observed_complete,
+    },
+    scoring::{ScoreTarget, ScoringRepository, TargetSource},
+    usage::UsageOrigin,
+};
+use domain::alerting::{
+    incident::{Incident, IncidentRca},
+    repositories::IncidentRcaRepository,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::{
+    model_providers::{ModelProvider, ModelProviderRepository},
+    prompts::{AgentPromptRepository, AgentPromptTemplate, prompt_hash, render_prompt},
+};
+use serde_json::Value;
 
 use crate::{
-    agent::{
-        chat::{
-            ChatMessage, CompletionRequest, MessageRole, ModelCallObserver, Provider,
-            TransportOptions, adapter_from_parts, observed_complete,
-        },
-        scoring::{ScoreTarget, ScoringRepository, TargetSource},
-        usage::UsageOrigin,
-    },
     api::AppState,
     app::{
         agent_usage::{AgentUsage, BudgetGate, UsageScope},
+        alerting::related::IncidentBriefing,
         scoring::enqueue_answered,
     },
-    domain::alerting::{
-        incident::{Incident, IncidentRca},
-        repositories::IncidentRcaRepository,
-    },
-    infra::persistence::repositories::agent::{
-        model_providers::{ModelProvider, ModelProviderRepository},
-        prompts::{AgentPromptRepository, AgentPromptTemplate, prompt_hash, render_prompt},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
+
+mod evidence;
+
+pub(crate) use evidence::incident_facts;
+use evidence::{build_evidence, render_vars};
 
 /// root_cause prompt 的 purpose（与迁移 seed 的 builtin 行一致）。
 pub(crate) const RCA_PURPOSE: &str = "root_cause";
 
-/// 证据文本里样本行上限（incident 已裁到 20，这里再压一层控制 prompt 体积）。
-const MAX_EVIDENCE_SAMPLES: usize = 10;
+/// How long an incident's brief may take to read before the analysis goes on without it.
+const BRIEF_WAIT: std::time::Duration = std::time::Duration::from_secs(8);
 
 /// RCA 只支持产品内已经发布的界面语言。调用方传入的 BCP-47 tag 必须先归一化
 /// 为该枚举，不能把任意用户输入直接拼接进 system prompt。
@@ -133,6 +139,9 @@ pub struct RcaGenerator {
     cfg: RcaGenConfig,
     /// 生成的 RCA 排进打分。
     scoring: Option<Arc<dyn ScoringRepository>>,
+    /// Where the incident's brief is read from: its rule's guide, the catalog of its services,
+    /// similar incidents and nearby changes. Without it the evidence is the incident's own facts.
+    briefing: Option<IncidentBriefing>,
 }
 
 /// 写好、还没存下的一份 RCA。
@@ -159,12 +168,19 @@ impl RcaGenerator {
             usage,
             cfg,
             scoring: None,
+            briefing: None,
         }
     }
 
     /// 生成的 RCA 排进打分。
     pub fn with_scoring(mut self, scoring: Arc<dyn ScoringRepository>) -> Self {
         self.scoring = Some(scoring);
+        self
+    }
+
+    /// Adds the incident's brief to the evidence.
+    pub fn with_briefing(mut self, briefing: IncidentBriefing) -> Self {
+        self.briefing = Some(briefing);
         self
     }
 
@@ -178,6 +194,11 @@ impl RcaGenerator {
             RcaGenConfig::default(),
         )
         .with_scoring(state.agent.scoring.clone())
+        .with_briefing(IncidentBriefing::new(
+            state.alerting.related.clone(),
+            state.telemetry.apm_query.clone(),
+            state.telemetry.service_graph.clone(),
+        ))
     }
 
     /// 组织今天的预算还允不允许生成。`interactive`：有人在事件页上等这次生成。
@@ -335,16 +356,35 @@ impl RcaGenerator {
         let system_body = format!("{rendered}\n\n{}", locale.system_instruction());
         let phash = prompt_hash(&system_body);
 
+        // Metadata the organization keeps about the incident; the generator reads no telemetry.
+        // A brief that takes too long is left out rather than holding up the sweep.
+        let brief = match &self.briefing {
+            Some(briefing) => {
+                match tokio::time::timeout(BRIEF_WAIT, briefing.brief(incident)).await {
+                    Ok(brief) => brief.render(),
+                    Err(_) => {
+                        tracing::warn!(incident = %incident.id.0, "an incident's brief took too long to read");
+                        String::new()
+                    }
+                }
+            }
+            None => String::new(),
+        };
+
         let messages = vec![
             msg(MessageRole::System, system_body, now),
-            msg(MessageRole::User, build_evidence(incident, locale), now),
+            msg(
+                MessageRole::User,
+                build_evidence(incident, &brief, locale),
+                now,
+            ),
         ];
 
         let req = CompletionRequest {
             model: provider.default_model.clone(),
             messages,
             tools: None,
-            tool_choice: crate::agent::chat::ToolChoice::None,
+            tool_choice: agent::chat::ToolChoice::None,
             max_tokens: provider
                 .max_tokens
                 .map(|m| m as i32)
@@ -386,126 +426,6 @@ pub fn pick_provider(providers: &[ModelProvider]) -> Option<ModelProvider> {
     providers.iter().find(|p| p.enabled && p.key_set).cloned()
 }
 
-/// 构造 prompt 模板变量：incident 上下文 + 受控输出语言。
-fn render_vars(incident: &Incident, locale: RcaOutputLocale) -> Map<String, Value> {
-    let mut m = Map::new();
-
-    m.insert(
-        "time_range".to_string(),
-        Value::String(time_range_str(incident)),
-    );
-
-    m.insert("streams".to_string(), Value::String(streams_str(incident)));
-
-    m.insert(
-        "locale".to_string(),
-        Value::String(locale.language_tag().to_string()),
-    );
-
-    m.insert(
-        "output_language".to_string(),
-        Value::String(locale.output_language().to_string()),
-    );
-
-    m
-}
-
-fn time_range_str(incident: &Incident) -> String {
-    let end = incident.resolved_at.unwrap_or(incident.created_at);
-    format!("{} .. {}", iso(incident.created_at), iso(end))
-}
-
-fn streams_str(incident: &Incident) -> String {
-    if incident.affected_services.is_empty() {
-        "n/a".to_string()
-    } else {
-        incident.affected_services.join(", ")
-    }
-}
-
-/// 把 incident 的跨信号上下文渲染成给 LLM 的证据文本（user 消息）。
-fn build_evidence(incident: &Incident, locale: RcaOutputLocale) -> String {
-    let mut s = incident_facts(incident);
-    s.push('\n');
-    s.push_str(locale.evidence_instruction());
-    s
-}
-
-/// 一个事件的跨信号上下文，给模型读：摘要、级别、状态、受影响的服务与主机、trace、标签、
-/// 注解与触发查询。对话里的 `/rca` 也用它。
-pub(crate) fn incident_facts(incident: &Incident) -> String {
-    let mut s = String::new();
-    s.push_str(&format!("Incident: {}\n", incident.summary));
-    s.push_str(&format!("Severity: {:?}\n", incident.severity));
-    s.push_str(&format!("Status: {:?}\n", incident.status));
-    s.push_str(&format!("Created: {}\n", iso(incident.created_at)));
-
-    s.push_str(&format!(
-        "Affected services: {}\n",
-        join_or_na(&incident.affected_services)
-    ));
-
-    s.push_str(&format!("Hosts: {}\n", join_or_na(&incident.host_ids)));
-    s.push_str(&format!("Trace IDs: {}\n", join_or_na(&incident.trace_ids)));
-
-    if !incident.labels.is_empty() {
-        let labels = incident
-            .labels
-            .iter()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        s.push_str(&format!("Labels: {labels}\n"));
-    }
-
-    if !incident.annotations.is_empty() {
-        let ann = incident
-            .annotations
-            .iter()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        s.push_str(&format!("Annotations: {ann}\n"));
-    }
-
-    if let Some(q) = &incident.triggering_query {
-        s.push_str(&format!(
-            "Triggering query ({:?}): {}\n",
-            q.language, q.statement
-        ));
-
-        if !q.sample_values.is_empty() {
-            s.push_str("Sample values:\n");
-
-            for sample in q.sample_values.iter().take(MAX_EVIDENCE_SAMPLES) {
-                s.push_str(&format!("- ts={} value={}\n", iso(sample.ts), sample.value));
-            }
-        }
-    }
-
-    s
-}
-
-fn join_or_na(v: &[String]) -> String {
-    if v.is_empty() {
-        "n/a".to_string()
-    } else {
-        v.join(", ")
-    }
-}
-
-/// micros → RFC3339（UTC）；越界回退到原始 micros 文本。
-fn iso(ts: TimestampMicros) -> String {
-    let secs = ts.0.div_euclid(1_000_000);
-    let nanos = (ts.0.rem_euclid(1_000_000) * 1000) as u32;
-
-    chrono::DateTime::from_timestamp(secs, nanos)
-        .map(|d| d.to_rfc3339())
-        .unwrap_or_else(|| ts.0.to_string())
-}
-
 fn msg(role: MessageRole, content: String, now: TimestampMicros) -> ChatMessage {
     ChatMessage {
         id: Id::new(),
@@ -522,13 +442,7 @@ fn msg(role: MessageRole, content: String, now: TimestampMicros) -> ChatMessage 
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use super::*;
-    use crate::domain::{
-        alerting::incident::{IncidentStatus, Severity, TriggeringQuery, TriggeringSample},
-        query::QueryLanguage,
-    };
 
     fn sample_provider(enabled: bool, key_set: bool) -> ModelProvider {
         ModelProvider {
@@ -541,7 +455,7 @@ mod tests {
             enabled,
             timeout_ms: 30000,
             max_tokens: None,
-            price_currency: crate::agent::usage::Currency::USD,
+            price_currency: agent::usage::Currency::USD,
             input_price_per_mtok: None,
             cached_input_price_per_mtok: None,
             output_price_per_mtok: None,
@@ -552,46 +466,6 @@ mod tests {
         }
     }
 
-    fn incident() -> Incident {
-        Incident {
-            id: Id::from_string("i1"),
-            org_id: Id::from_string("o1"),
-            rule_id: Id::from_string("r1"),
-            escalation_policy_id: Id::from_string("e1"),
-            status: IncidentStatus::Open,
-            severity: Severity::Critical,
-            summary: "High error rate".into(),
-            fingerprint: "fp".into(),
-            current_step: 0,
-            current_loop: 0,
-            current_step_started_at: TimestampMicros(0),
-            assignees: vec![],
-            labels: BTreeMap::from([("env".to_string(), "prod".to_string())]),
-            annotations: BTreeMap::new(),
-            trace_ids: vec!["t-1".into()],
-            host_ids: vec!["h-1".into()],
-            affected_services: vec!["api".into(), "web".into()],
-            triggering_query: Some(TriggeringQuery {
-                language: QueryLanguage::Sql,
-                statement: "SELECT count(*) FROM logs".into(),
-                sample_values: vec![TriggeringSample {
-                    ts: TimestampMicros(1_700_000_000_000_000),
-                    value: 42.0,
-                    labels: BTreeMap::new(),
-                }],
-            }),
-            created_at: TimestampMicros(1_700_000_000_000_000),
-            acknowledged_at: None,
-            acknowledged_by: None,
-            resolved_at: None,
-            resolved_by: None,
-            team_id: None,
-            routing: None,
-            handling: Default::default(),
-            revision: 0,
-        }
-    }
-
     #[test]
     fn pick_provider_skips_disabled_and_keyless() {
         assert!(pick_provider(&[]).is_none());
@@ -599,32 +473,6 @@ mod tests {
         assert!(pick_provider(&[sample_provider(true, false)]).is_none());
         let picked = pick_provider(&[sample_provider(true, true)]).unwrap();
         assert_eq!(picked.id.0, "p1");
-    }
-
-    #[test]
-    fn render_vars_carries_time_range_and_services() {
-        let vars = render_vars(&incident(), RcaOutputLocale::ZhCn);
-        assert_eq!(
-            vars.get("streams").and_then(|v| v.as_str()),
-            Some("api, web")
-        );
-        assert_eq!(vars.get("locale").and_then(|v| v.as_str()), Some("zh-cn"));
-        assert_eq!(
-            vars.get("output_language").and_then(|v| v.as_str()),
-            Some("Simplified Chinese")
-        );
-        let tr = vars.get("time_range").and_then(|v| v.as_str()).unwrap();
-        assert!(tr.contains("2023-11-14"), "time_range should be ISO: {tr}");
-    }
-
-    #[test]
-    fn build_evidence_includes_context_and_instruction() {
-        let e = build_evidence(&incident(), RcaOutputLocale::EnUs);
-        assert!(e.contains("High error rate"));
-        assert!(e.contains("Affected services: api, web"));
-        assert!(e.contains("Trace IDs: t-1"));
-        assert!(e.contains("SELECT count(*) FROM logs"));
-        assert!(e.contains("root-cause analysis"));
     }
 
     #[test]
@@ -642,8 +490,6 @@ mod tests {
             RcaOutputLocale::EnUs
         );
 
-        let evidence = build_evidence(&incident(), RcaOutputLocale::ZhCn);
-        assert!(evidence.contains("仅依据以上证据"));
         assert!(
             RcaOutputLocale::ZhCn
                 .system_instruction()
@@ -654,12 +500,5 @@ mod tests {
                 .system_instruction()
                 .contains("CommonMark")
         );
-    }
-
-    #[test]
-    fn streams_falls_back_to_na() {
-        let mut i = incident();
-        i.affected_services.clear();
-        assert_eq!(streams_str(&i), "n/a");
     }
 }

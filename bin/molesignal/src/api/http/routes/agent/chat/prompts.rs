@@ -3,19 +3,18 @@
 
 //! 一轮回答的 system 与任务 prompt：解析、渲染白名单变量，记下活跃 prompt 的引用与 hash。
 
+use agent::capabilities::dashboard_authoring;
+use domain::iam::IamContext;
+use kernel::{ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::{
+    chats::Chat,
+    prompts::{prompt_hash, render_prompt},
+};
 use serde_json::{Map, Value};
+use tool_runtime::ExecutionPolicy;
 
 use super::PostMessageReq;
-use crate::{
-    agent::{capabilities::dashboard_authoring, tools::AgentExecutionPolicy},
-    api::AppState,
-    app::iam::IamContext,
-    infra::persistence::repositories::agent::{
-        chats::Chat,
-        prompts::{prompt_hash, render_prompt},
-    },
-    shared::{ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 /// 解析出的活跃 prompt 元数据（持久化到 assistant 消息）。
 #[derive(Clone, Default)]
@@ -39,7 +38,7 @@ fn purpose_for_mode(mode: &str) -> Option<&'static str> {
 }
 
 fn prompt_readable(
-    t: &crate::infra::persistence::repositories::agent::prompts::AgentPromptTemplate,
+    t: &postgres::repositories::agent::prompts::AgentPromptTemplate,
     ctx: &IamContext,
 ) -> bool {
     match t.scope.as_str() {
@@ -128,19 +127,19 @@ pub(super) async fn resolve_prompts(
 
     system_texts.push(
         match req.execution_policy.unwrap_or_default() {
-            AgentExecutionPolicy::AdviceOnly => {
+            ExecutionPolicy::AdviceOnly => {
                 "The user selected Advice only. You may use read-only investigation tools, but do not create approval requests. Describe any proposed operation without invoking a write-capable tool."
             }
-            AgentExecutionPolicy::ReadOnly => {
+            ExecutionPolicy::ReadOnly => {
                 "The user selected Auto-run read-only. Run authorized read-only investigation tools as needed, but do not create approval requests or invoke write-capable tools."
             }
-            AgentExecutionPolicy::Policy => {
+            ExecutionPolicy::Policy => {
                 "The user selected Policy approval. Read-only tools may run automatically. Any state-changing operation must only be proposed through the approval workflow and must never be executed directly."
             }
-            AgentExecutionPolicy::Auto => {
+            ExecutionPolicy::Auto => {
                 "The user selected Auto. Read-only tools run automatically. A change the organization lets run after the user's confirmation runs without asking when it can be undone; a destructive one still asks. Operations that need approval must be proposed through the approval workflow and never executed directly. Say what you changed."
             }
-            AgentExecutionPolicy::BypassPermissions => {
+            ExecutionPolicy::BypassPermissions => {
                 "The user selected Bypass permissions. Read-only tools run automatically, and a change the organization lets run after the user's confirmation runs without asking, a destructive one included: say exactly what you will change before you change it. Operations that need approval must still be proposed through the approval workflow and never executed directly."
             }
         }

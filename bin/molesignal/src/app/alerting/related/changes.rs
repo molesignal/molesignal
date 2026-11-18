@@ -6,15 +6,12 @@
 
 use std::collections::HashSet;
 
-use serde::Serialize;
-
-use crate::{
-    domain::{
-        alerting::{incident::Incident, rule::AlertRule},
-        apm::{ChangeKind, DeploymentEvent, DeploymentStatus},
-    },
-    shared::{ids::Id, time::TimestampMicros},
+use domain::{
+    alerting::{incident::Incident, rule::AlertRule},
+    apm::{ChangeKind, DeploymentEvent, DeploymentStatus},
 };
+use kernel::{ids::Id, time::TimestampMicros};
+use serde::Serialize;
 
 /// 变更最早可以早于触发多久，最晚可以晚于触发多久（指标分桶有延迟）。与 APM 洞察的取法一致。
 pub const BEFORE: i64 = 30 * 60_000_000;
@@ -96,6 +93,7 @@ pub fn select_changes(
         .filter(|event| event.deployed_at.0 >= from && event.deployed_at.0 <= to)
         .filter_map(|event| {
             let name = bare(&event.service);
+
             let downstream = if own.contains(name) {
                 false
             } else if below.contains(name) {
@@ -104,27 +102,7 @@ pub fn select_changes(
                 return None;
             };
 
-            Some(IncidentChange {
-                kind: match event.kind {
-                    ChangeKind::Deployment => "deployment",
-                    ChangeKind::Configuration => "configuration",
-                    ChangeKind::FeatureFlag => "feature_flag",
-                },
-                at: event.deployed_at,
-                service: Some(event.service.clone()),
-                downstream,
-                version: Some(event.version.clone()).filter(|version| !version.is_empty()),
-                status: Some(event.status),
-                commit: event.commit.clone(),
-                description: event.description.clone(),
-                author: event.author.clone(),
-                link: event
-                    .ci_url
-                    .clone()
-                    .or_else(|| event.pull_request_url.clone()),
-                rule_id: None,
-                rule_name: None,
-            })
+            Some(reported_change(event, downstream))
         })
         .collect();
 
@@ -156,6 +134,59 @@ pub fn select_changes(
         from: TimestampMicros(from),
         to: TimestampMicros(to),
         changes,
+    }
+}
+
+/// The changes reported from `from` until `to`, in time order and the latest `limit` of them:
+/// only those of `services` when any are named (a `namespace/service` name counts by its service)
+/// and only those of `kinds` when any are named.
+pub fn select_reported(
+    reported: &[DeploymentEvent],
+    from: TimestampMicros,
+    to: TimestampMicros,
+    services: &[String],
+    kinds: &[ChangeKind],
+    limit: usize,
+) -> Vec<IncidentChange> {
+    let wanted: HashSet<&str> = services
+        .iter()
+        .map(|service| bare(service))
+        .filter(|service| !service.is_empty())
+        .collect();
+
+    let mut changes: Vec<IncidentChange> = reported
+        .iter()
+        .filter(|event| event.deployed_at.0 >= from.0 && event.deployed_at.0 <= to.0)
+        .filter(|event| wanted.is_empty() || wanted.contains(bare(&event.service)))
+        .filter(|event| kinds.is_empty() || kinds.contains(&event.kind))
+        .map(|event| reported_change(event, false))
+        .collect();
+
+    changes.sort_by_key(|change| change.at.0);
+
+    let older = changes.len().saturating_sub(limit);
+    changes.drain(..older);
+    changes
+}
+
+/// One reported change as it is listed.
+fn reported_change(event: &DeploymentEvent, downstream: bool) -> IncidentChange {
+    IncidentChange {
+        kind: event.kind.as_str(),
+        at: event.deployed_at,
+        service: Some(event.service.clone()),
+        downstream,
+        version: Some(event.version.clone()).filter(|version| !version.is_empty()),
+        status: Some(event.status),
+        commit: event.commit.clone(),
+        description: event.description.clone(),
+        author: event.author.clone(),
+        link: event
+            .ci_url
+            .clone()
+            .or_else(|| event.pull_request_url.clone()),
+        rule_id: None,
+        rule_name: None,
     }
 }
 

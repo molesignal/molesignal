@@ -13,6 +13,14 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     });
 
     let (description, input, tags) = match kind {
+        BuiltinToolKind::SearchServiceCatalog => (
+            "Find services in the service catalog by name, alias, description or tag, with what the catalog says of each: description, team, owner, tier, lifecycle, repository, tags, aliases, and where its data is (log streams and their filters, metric selectors, dashboards, links). Call it to learn what a service is called in other data before querying it.",
+            object_schema(json!({
+                "query": {"type": "string", "description": "Words to look for; every service in the catalog when left out."},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10}
+            })),
+            vec!["APM", "Service catalog"],
+        ),
         BuiltinToolKind::ApmOverview => (
             "Return bounded RED metrics, trends, service health, dependencies, and top errors.",
             object_schema(common.clone()),
@@ -130,6 +138,13 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         _ => unreachable!("APM catalog received unrelated kind"),
     };
 
+    // The catalog is read as its page reads it; the rest of APM as the services are.
+    let permissions: &[&str] = if kind == BuiltinToolKind::SearchServiceCatalog {
+        &["apm.definitions.read", "sys.telemetry.read"]
+    } else {
+        &["apm.services.read", "sys.telemetry.read"]
+    };
+
     ToolSpec::read(
         kind.name(),
         description,
@@ -137,7 +152,7 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         "apm",
         input,
         open_output(),
-        &["apm.services.read", "sys.telemetry.read"],
+        permissions,
         &tags,
     )
     .any_permission()

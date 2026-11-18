@@ -12,24 +12,24 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
+use domain::{
+    i18n_language::LanguagePack,
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::prompts::{
+    AgentPromptTemplate, prompt_hash, validate_template_variables,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::{
-    api::{
-        AppState,
-        http::{
-            interface_language::interface_language_pack,
-            middleware::Permission,
-            routes::{activity_audit, agent::quality},
-        },
+use crate::api::{
+    AppState,
+    http::{
+        interface_language::interface_language_pack,
+        middleware::Permission,
+        routes::{activity_audit, agent::quality},
     },
-    app::iam::IamContext,
-    domain::{i18n_language::LanguagePack, iam::permission},
-    infra::persistence::repositories::agent::prompts::{
-        AgentPromptTemplate, prompt_hash, validate_template_variables,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub fn routes() -> Router<AppState> {
@@ -436,7 +436,7 @@ async fn delete(
 #[cfg(test)]
 mod reader_language_tests {
     use super::*;
-    use crate::shared::i18n_language_seed::seeded_pack;
+    use crate::i18n_language_seed::seeded_pack;
 
     fn prompt(scope: &str, builtin_key: Option<&str>, name: &str) -> PromptResp {
         PromptResp {
@@ -467,7 +467,7 @@ mod reader_language_tests {
         .expect("read the baseline migration");
 
         let (_, seed) = baseline
-            .split_once("INSERT INTO ai_prompt_templates")
+            .split_once("INSERT INTO agent_prompt_templates")
             .expect("built-in prompt seed");
 
         let seed = &seed[..seed.find("ON CONFLICT").expect("end of the seed")];

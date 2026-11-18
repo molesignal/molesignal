@@ -194,6 +194,7 @@ fn alert_rule_input(id_field: Option<&str>) -> serde_json::Value {
         "escalationPolicyId": {"type": ["string", "null"]},
         "labels": {"type": "object", "additionalProperties": {"type": "string"}},
         "annotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "guide": {"type": "object", "description": "Investigation guide: steps (Markdown), queries [{name, language: sql or promql, stream: {name, streamType} for SQL, statement}] run over an incident's time range, and dashboards (ids). Left out on an update, the rule keeps its guide."},
         "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
         "impact": {"type": "string", "minLength": 1, "maxLength": 2000},
         "expiresAt": timestamp_schema()

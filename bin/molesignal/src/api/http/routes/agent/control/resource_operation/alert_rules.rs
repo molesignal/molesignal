@@ -3,33 +3,32 @@
 
 use std::collections::BTreeMap;
 
+use agent::model::ApprovalRequest;
+use domain::{
+    alerting::{
+        anomaly::{AnomalyParams, MAX_ANOMALY_LOOKBACK_DAYS, SUPPORTED_DETECTORS},
+        escalation::DEFAULT_POLICY_ID,
+        incident::Severity,
+        rule::{
+            AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleGuide, RuleState,
+            SeverityThreshold,
+        },
+    },
+    federation::{CudAction, ResourceKind},
+    iam::IamContext,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::super::OperationOutcome;
-use crate::{
-    agent::model::ApprovalRequest,
-    api::{
-        AppState,
-        http::{
-            federation::{delete_payload, emit_cud},
-            middleware::Permission,
-            routes::alerting::check_rum_application,
-        },
+use crate::api::{
+    AppState,
+    http::{
+        federation::{delete_payload, emit_cud},
+        middleware::Permission,
+        routes::alerting::check_rum_application,
     },
-    app::iam::IamContext,
-    domain::{
-        alerting::{
-            anomaly::{AnomalyParams, MAX_ANOMALY_LOOKBACK_DAYS, SUPPORTED_DETECTORS},
-            escalation::DEFAULT_POLICY_ID,
-            incident::Severity,
-            rule::{
-                AlertQuery, AlertRule, AlertRuleKind, AlertTrigger, RuleState, SeverityThreshold,
-            },
-        },
-        federation::{CudAction, ResourceKind},
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) async fn execute(
@@ -70,6 +69,9 @@ struct RuleWrite {
     labels: BTreeMap<String, String>,
     #[serde(default)]
     annotations: BTreeMap<String, String>,
+    /// Left out on an update, the rule keeps the guide it has.
+    #[serde(default)]
+    guide: Option<RuleGuide>,
 }
 
 fn default_true() -> bool {
@@ -106,6 +108,7 @@ async fn create(
                 .unwrap_or_else(|| Id::from_string(DEFAULT_POLICY_ID)),
             labels: request.labels,
             annotations: request.annotations,
+            guide: request.guide.unwrap_or_default(),
             last_eval_at: None,
             last_state: RuleState::Healthy,
             created_at: now,
@@ -147,6 +150,7 @@ async fn update(
                 .unwrap_or(existing.escalation_policy_id),
             labels: request.labels,
             annotations: request.annotations,
+            guide: request.guide.unwrap_or(existing.guide),
             last_eval_at: existing.last_eval_at,
             last_state: existing.last_state,
             created_at: existing.created_at,

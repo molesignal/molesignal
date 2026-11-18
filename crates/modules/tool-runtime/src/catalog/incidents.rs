@@ -8,15 +8,6 @@ use crate::{RiskLevel, ToolSpec};
 
 pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     let (description, category, input, permissions, tags) = match kind {
-        BuiltinToolKind::ListRecentAlerts => (
-            "List active alert incidents. Compatibility alias for list_incidents with status=active.",
-            "incidents",
-            object_schema(
-                json!({"limit": {"type": "integer", "minimum": 1, "maximum": 500, "default": 50}}),
-            ),
-            vec!["alerts.incidents.read"],
-            vec!["Alerts", "Compatibility"],
-        ),
         BuiltinToolKind::ListIncidents => (
             "List incidents by status and optional time range, priority and urgency, with bounded results.",
             "incidents",
@@ -53,6 +44,36 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             })),
             vec!["alerts.incidents.read"],
             vec!["Incidents", "Insights"],
+        ),
+        BuiltinToolKind::GetSimilarIncidents => (
+            "List the incidents of the last 90 days most like one incident: what they had in common, how each ended and how long it took, how many notes it has, and the first sentence of its root cause.",
+            "incidents",
+            json!({
+                "type": "object", "required": ["incidentId"],
+                "properties": {
+                    "incidentId": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 10, "default": 5}
+                }, "additionalProperties": false
+            }),
+            vec!["alerts.incidents.read"],
+            vec!["Incidents", "Similar", "Investigation"],
+        ),
+        BuiltinToolKind::ListChanges => (
+            "List the changes reported around a time: deployments (version, status, commit, author), configuration changes and feature flags. Give incidentId for the services of one incident from shortly before it began until shortly after, or a time range and optionally services.",
+            "changes",
+            object_schema(json!({
+                "incidentId": {"type": "string"},
+                "timeRange": time_range_schema(),
+                "services": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
+                "kinds": {"type": "array", "items": {"type": "string", "enum": ["deployment", "configuration", "feature_flag"]}, "maxItems": 3},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
+            })),
+            vec![
+                "alerts.incidents.read",
+                "apm.deployments.read",
+                "sys.telemetry.read",
+            ],
+            vec!["Changes", "Deployments", "Investigation"],
         ),
         BuiltinToolKind::AcknowledgeIncident => (
             "Acknowledge one open incident.",
@@ -345,6 +366,8 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
 
     match kind {
         BuiltinToolKind::GetIncident => tool.pinned(),
+        // With an incident it reads as the incident does; without one, as deployments do.
+        BuiltinToolKind::ListChanges => tool.any_permission(),
         BuiltinToolKind::AcknowledgeIncident
         | BuiltinToolKind::ResolveIncident
         | BuiltinToolKind::ReassignIncident
@@ -374,7 +397,8 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
     }
 }
 
-/// 一个事件的提议操作：事件 ID、理由与影响，再加上这个操作自己的参数。
+/// A proposed operation on an incident: the incident ID, reason, and impact, plus the
+/// operation's own parameters.
 fn proposal_with(extra: serde_json::Value, required: &[&str]) -> serde_json::Value {
     let mut schema = proposal_input("incidentId");
 
@@ -391,7 +415,8 @@ fn proposal_with(extra: serde_json::Value, required: &[&str]) -> serde_json::Val
     schema
 }
 
-/// 手动建事件：没有目标事件，参数同 `POST /api/v1/alerts/incidents`。
+/// Manually creates an incident: there is no target incident, and the parameters are those of
+/// `POST /api/v1/alerts/incidents`.
 fn create_incident_input() -> serde_json::Value {
     json!({
         "type": "object", "required": ["title", "reason", "impact"],

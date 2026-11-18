@@ -1,23 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{iam::IamContext, query::QueryLanguage, stream::StreamType};
+use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
-use crate::{
-    app::{
-        iam::IamContext,
-        tools::{
-            ToolRuntime,
-            common::{
-                TimeRangeArg, optional_time_range, parse_args, quote_ident, require_field,
-                resolve_traces_stream, rows_as_objects, run_query, schema_has, sql_literal,
-            },
-        },
+use crate::app::tools::{
+    ToolRuntime,
+    common::{
+        TimeRangeArg, optional_time_range, parse_args, quote_ident, require_field,
+        resolve_traces_stream, rows_as_objects, run_query, schema_has, sql_literal,
     },
-    domain::{query::QueryLanguage, stream::StreamType},
-    shared::{Error, Result},
 };
 
 const SESSION_FIELDS: [&str; 4] = [
@@ -211,10 +206,7 @@ async fn get_session(
     })))
 }
 
-fn first_field<'a>(
-    schema: &crate::domain::stream::Schema,
-    candidates: &'a [&str],
-) -> Option<&'a str> {
+fn first_field<'a>(schema: &domain::stream::Schema, candidates: &'a [&str]) -> Option<&'a str> {
     candidates
         .iter()
         .copied()

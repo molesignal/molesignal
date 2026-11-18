@@ -5,22 +5,19 @@
 //!
 //! 同一作用域里没忘掉的记忆名称不分大小写唯一（部分唯一索引）；按名称记住时替换同名的那条。
 
+use agent::{
+    memory::{
+        MAX_MEMORIES, Memory, MemoryDraft, MemoryKind, MemorySettings, MemoryStore, check_memory,
+    },
+    scope::Scope,
+};
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row, postgres::PgRow};
 
 use super::super::org_settings::{self, sections::AGENT_MEMORY};
-use crate::{
-    agent::{
-        memory::{
-            MAX_MEMORIES, Memory, MemoryDraft, MemoryKind, MemorySettings, MemoryStore,
-            check_memory,
-        },
-        scope::Scope,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-    sqlx_err,
-};
+use crate::{is_unique_violation, sqlx_err};
 
 const COLS: &str = "id, org_id, scope, team_id, owner_id, kind, name, description, body, \
     source_chat_id, created_by, updated_by, created_at, updated_at, \
@@ -77,9 +74,10 @@ fn memory_row(row: PgRow) -> Result<Memory> {
 }
 
 fn conflict_on_name(error: sqlx::Error) -> Error {
-    match sqlx_err(error) {
-        Error::Conflict(_) => Error::conflict("a memory with this name already exists"),
-        other => other,
+    if is_unique_violation(&error) {
+        Error::conflict("a memory with this name already exists")
+    } else {
+        sqlx_err(error)
     }
 }
 

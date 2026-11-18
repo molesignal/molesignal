@@ -14,7 +14,7 @@ describe('Mole Agent investigation presentation', () => {
       parseInvestigationEvidence([
         {
           toolCallId: 'call-1',
-          tool: 'list_recent_alerts',
+          tool: 'list_incidents',
           status: 'success',
           summary: '0 rows',
           rowCount: 0,
@@ -25,7 +25,7 @@ describe('Mole Agent investigation presentation', () => {
     ).toEqual([
       {
         toolCallId: 'call-1',
-        tool: 'list_recent_alerts',
+        tool: 'list_incidents',
         status: 'success',
         summary: '0 rows',
         rowCount: 0,

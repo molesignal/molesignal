@@ -1,7 +1,7 @@
 ---
 name: init
 description: Write the knowledge of this organization or team from scratch - scan what is already set up, interview the person topic by topic, and write each file only after they confirm it.
-argument-hint: [what to focus on]
+argument-hint: "[what to focus on]"
 version: "1"
 allowed-tools: list_knowledge, read_knowledge, edit_knowledge, ask_user, todo_write, list_streams, get_stream_schema, list_apm_services, get_service_topology, list_alert_rules, list_incidents, list_on_call_schedules, list_escalation_policies, list_notification_connectors, list_teams
 tags: [knowledge, onboarding]

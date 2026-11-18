@@ -273,7 +273,7 @@ pub(super) fn is_subscribable(uri: &str) -> bool {
 
 pub(super) async fn authorize_subscription(
     handler: &InboundMcpHandler,
-    iam: &crate::app::iam::IamContext,
+    iam: &domain::iam::IamContext,
     uri: &str,
 ) -> Result<(), ErrorData> {
     if matches!(uri, CAPABILITIES_URI | CATALOG_URI) {

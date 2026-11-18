@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{
+    query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
+    stream::{Schema, StreamDefinition, StreamType},
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tool_runtime::ToolResult;
 
 use super::ToolRuntime;
-use crate::{
-    app::trace::summary::carries_summaries,
-    domain::{
-        query::{QueryLanguage, QueryRequest, QueryResult, StreamHint},
-        stream::{Schema, StreamDefinition, StreamType},
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::app::trace::summary::carries_summaries;
 
 pub(super) const DEFAULT_LOOKBACK_MICROS: i64 = 60 * 60 * 1_000_000;
 
@@ -350,18 +348,14 @@ pub(super) fn is_internal_stream(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        domain::stream::{FieldDef, FieldType},
-        shared::{
-            time::TimestampMicros,
-            trace::summary::{
-                TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
-                TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD,
-                TRACE_SUMMARY_START_NS_FIELD,
-            },
-        },
+    use domain::stream::{FieldDef, FieldType, StreamIndexType};
+    use kernel::time::TimestampMicros;
+    use signals::trace::summary::{
+        TRACE_SUMMARY_DURATION_NS_FIELD, TRACE_SUMMARY_ERROR_COUNT_FIELD,
+        TRACE_SUMMARY_MARKER_FIELD, TRACE_SUMMARY_SPAN_COUNT_FIELD, TRACE_SUMMARY_START_NS_FIELD,
     };
+
+    use super::*;
 
     fn stream(name: &str, fields: &[&str]) -> StreamDefinition {
         StreamDefinition {
@@ -376,10 +370,8 @@ mod tests {
                         name: (*name).to_string(),
                         data_type: FieldType::Utf8,
                         nullable: true,
-                        index_type: None,
-                        indexed: false,
+                        index_type: StreamIndexType::None,
                         encrypted: false,
-                        exact: false,
                     })
                     .collect(),
             },

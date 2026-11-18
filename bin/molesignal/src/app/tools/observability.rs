@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::{iam::IamContext, query::QueryLanguage, stream::StreamType};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{ToolRuntime, common::*};
-use crate::{
-    app::iam::IamContext,
-    domain::{query::QueryLanguage, stream::StreamType},
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
 
+mod baseline;
+mod log_patterns;
 mod metadata;
+mod metric_trend;
 mod metrics;
+mod readiness;
 
 const DEFAULT_LIMIT: usize = 500;
 const MAX_LIMIT: usize = 5_000;
@@ -46,6 +47,13 @@ pub(super) async fn execute(
         }
         BuiltinToolKind::SearchAround => search_around(runtime, auth, arguments).await,
         BuiltinToolKind::SearchFieldValues => search_field_values(runtime, auth, arguments).await,
+        BuiltinToolKind::AnalyzeLogPatterns => {
+            log_patterns::analyze(runtime, auth, arguments).await
+        }
+        BuiltinToolKind::AnalyzeMetricTrend => {
+            metric_trend::analyze(runtime, auth, arguments).await
+        }
+        BuiltinToolKind::CheckDataReadiness => readiness::check(runtime, auth, arguments).await,
         _ => unreachable!("observability handler received unrelated tool"),
     }
 }

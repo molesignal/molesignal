@@ -22,21 +22,20 @@ use std::{
     time::Duration,
 };
 
+use agent::{
+    runs::{NewRunEvent, Run, RunEventKind, RunOutcome, RunStatus},
+    usage::Cost,
+};
+use kernel::{Error, ids::Id, time::TimestampMicros};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    agent::{
-        runs::{NewRunEvent, Run, RunEventKind, RunOutcome, RunStatus},
-        usage::Cost,
-    },
-    api::AppState,
-    shared::{Error, ids::Id, time::TimestampMicros},
-};
+use crate::api::AppState;
 
 mod answer;
+mod denied;
 mod distill;
 mod history;
 pub(crate) mod identity;
@@ -102,7 +101,7 @@ pub(super) struct RunControl {
     slot: RunSlot,
     /// 实例设置的上下文大小；Agent Profile 设了时用 Profile 的。
     pub(super) context_window: u64,
-    /// 没有人可问时被挡住的地方（[`crate::agent::automations::reasons`] 里的代码）。
+    /// 没有人可问时被挡住的地方（[`agent::automations::reasons`] 里的代码）。
     blocked: Mutex<Vec<&'static str>>,
     /// 超过了自动化的总时限，被停下。
     timed_out: AtomicBool,
@@ -296,7 +295,7 @@ async fn perform(control: &Arc<RunControl>) -> Ending {
         // 自动化的执行身份不能再用：运行记录写明原因，等有权限的人重新保存。
         Err(Error::Forbidden(reason)) if unattended::is_unattended(run) => {
             return Ending {
-                code: Some(crate::agent::automations::reasons::RUN_AS_UNAVAILABLE),
+                code: Some(agent::automations::reasons::RUN_AS_UNAVAILABLE),
                 ..Ending::failed(reason)
             };
         }

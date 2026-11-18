@@ -5,51 +5,50 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use super::{core::Core, iam::IamRuntime};
-use crate::{
+use agent::{
+    automations::AutomationRepository, currencies::CurrencyRepository,
+    feedback::AgentFeedbackRepository, im::ImRepository, inbound_mcp::InboundMcpRepository,
+    knowledge::KnowledgeStore, memory::MemoryStore, model::AgentRepository,
+    network::NetworkPolicyStore, runs::RunRepository, scoring::ScoringRepository,
+    tool_control::ToolControlRepository,
+};
+use domain::{
+    alerting::repositories::IncidentRcaRepository,
+    iam::{IamMembershipRepository, OrganizationRepository},
+    query::SlowQueryRepository,
+};
+use postgres::repositories::{
     agent::{
-        automations::AutomationRepository, currencies::CurrencyRepository,
-        feedback::AgentFeedbackRepository, im::ImRepository, inbound_mcp::InboundMcpRepository,
-        knowledge::KnowledgeStore, memory::MemoryStore, model::AgentRepository,
-        network::NetworkPolicyStore, runs::RunRepository, scoring::ScoringRepository,
-        tool_control::ToolControlRepository,
+        PgAgentRepository,
+        automations::PgAutomationRepository,
+        chat_archives::{ChatArchiveRepository, PgChatArchiveRepository},
+        chats::{ChatRepository, PgChatRepository},
+        currencies::PgCurrencyRepository,
+        feedback::PgAgentFeedbackRepository,
+        im::PgImRepository,
+        inbound_mcp::PgInboundMcpRepository,
+        knowledge::PgKnowledgeStore,
+        memory::PgMemoryStore,
+        model_providers::{ModelProviderRepository, PgModelProviderRepository},
+        network::PgNetworkPolicyStore,
+        prompts::{AgentPromptRepository, PgAgentPromptRepository},
+        runs::PgRunRepository,
+        scoring::PgScoringRepository,
+        skills::PgSkillStore,
+        tool_control::PgToolControlRepository,
+        toolsets::{AgentToolsetRepository, PgAgentToolsetRepository},
+        usage::PgAgentUsageRepository,
     },
-    app::{
-        agent_usage::{AgentUsage, TraceReceiver, trace_queue},
-        mcp::McpService,
-        skills::{InstanceSkills, SkillService},
-    },
-    config::Settings,
-    domain::{
-        alerting::repositories::IncidentRcaRepository,
-        iam::{IamMembershipRepository, OrganizationRepository},
-        query::SlowQueryRepository,
-    },
-    infra::persistence::repositories::{
-        agent::{
-            PgAgentRepository,
-            automations::PgAutomationRepository,
-            chat_archives::{ChatArchiveRepository, PgChatArchiveRepository},
-            chats::{ChatRepository, PgChatRepository},
-            currencies::PgCurrencyRepository,
-            feedback::PgAgentFeedbackRepository,
-            im::PgImRepository,
-            inbound_mcp::PgInboundMcpRepository,
-            knowledge::PgKnowledgeStore,
-            memory::PgMemoryStore,
-            model_providers::{ModelProviderRepository, PgModelProviderRepository},
-            network::PgNetworkPolicyStore,
-            prompts::{AgentPromptRepository, PgAgentPromptRepository},
-            runs::PgRunRepository,
-            scoring::PgScoringRepository,
-            skills::PgSkillStore,
-            tool_control::PgToolControlRepository,
-            toolsets::{AgentToolsetRepository, PgAgentToolsetRepository},
-            usage::PgAgentUsageRepository,
-        },
-        incidents::rca::PgIncidentRcaRepository,
-        slow_queries::PgSlowQueryRepository,
-    },
+    incidents::rca::PgIncidentRcaRepository,
+    slow_queries::PgSlowQueryRepository,
+};
+use settings::Settings;
+
+use super::{core::Core, iam::IamRuntime};
+use crate::app::{
+    agent_usage::{AgentUsage, TraceReceiver, trace_queue},
+    mcp::McpService,
+    skills::{InstanceSkills, SkillService},
 };
 
 pub(super) fn build_model_providers(core: &Core) -> Arc<dyn ModelProviderRepository> {
@@ -109,6 +108,7 @@ impl AgentRuntime {
         settings: &Settings,
         model_providers: Arc<dyn ModelProviderRepository>,
         usage: Arc<AgentUsage>,
+        briefing: crate::app::alerting::related::IncidentBriefing,
     ) -> Self {
         let chats: Arc<dyn ChatRepository> = Arc::new(PgChatRepository::new(core.pool.clone()));
         let agent: Arc<dyn AgentRepository> = Arc::new(PgAgentRepository::new(core.pool.clone()));
@@ -208,7 +208,8 @@ impl AgentRuntime {
                 usage,
                 crate::api::rca::RcaGenConfig::default(),
             )
-            .with_scoring(scoring.clone()),
+            .with_scoring(scoring.clone())
+            .with_briefing(briefing),
         );
 
         let automations: Arc<dyn AutomationRepository> =

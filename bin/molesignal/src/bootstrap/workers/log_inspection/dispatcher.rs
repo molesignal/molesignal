@@ -10,22 +10,20 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use async_trait::async_trait;
-use serde_json::{Value, json};
-use tool_runtime::{ToolCallSource, ToolInvocationContext};
-
-use crate::{
-    agent::{
-        chat::Provider,
-        tool_control::{ToolControlRepository, ToolExecutionMode, ToolPolicy, ToolPolicyDefaults},
-        tools::{
-            BuiltinToolKind, ToolAuthContext, ToolCall, ToolDispatcher, ToolResult, ToolSurface,
-            tools_for_surface,
-        },
-    },
-    app::{log_inspection::ToolCallLog, tools::ToolRuntime},
-    shared::{Error, Result, ids::Id},
+use agent::{
+    chat::Provider,
+    tool_control::{ToolControlRepository, ToolPolicy, ToolPolicyDefaults},
+    tools::{ToolAuthContext, ToolDispatcher},
 };
+use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id};
+use serde_json::{Value, json};
+use tool_runtime::{
+    ToolCall, ToolCallSource, ToolExecutionMode, ToolInvocationContext, ToolResult, ToolSurface,
+    catalog::{BuiltinToolKind, tools_for_surface},
+};
+
+use crate::app::{log_inspection::ToolCallLog, tools::ToolRuntime};
 
 /// 只读工具默认的单次超时，与 Mole Agent 聊天一致。
 const DEFAULT_TOOL_TIMEOUT_MS: i64 = 30_000;
@@ -183,7 +181,7 @@ impl AutomationToolDispatcher {
         }
 
         // 模型拿到的任务只说了一个数据流；它要是去读别的，这里拦下。
-        if call.arguments.get("stream").and_then(Value::as_str) != Some(self.stream.as_str()) {
+        if !reads_only_the_stream(&call.arguments, &self.stream) {
             return Ok(ToolResult::error(format!(
                 "this inspection reads only the stream `{}`",
                 self.stream
@@ -217,6 +215,12 @@ impl AutomationToolDispatcher {
     }
 }
 
+/// Whether a call reads only the inspection's stream. Every tool offered to an inspection names
+/// the stream it reads, the comparison stretch of `analyze_log_patterns` included.
+fn reads_only_the_stream(arguments: &Value, stream: &str) -> bool {
+    arguments.get("stream").and_then(Value::as_str) == Some(stream)
+}
+
 #[async_trait]
 impl ToolDispatcher for AutomationToolDispatcher {
     #[tracing::instrument(
@@ -238,8 +242,9 @@ impl ToolDispatcher for AutomationToolDispatcher {
 
 #[cfg(test)]
 mod tests {
+    use kernel::time::TimestampMicros;
+
     use super::*;
-    use crate::shared::time::TimestampMicros;
 
     fn policy_for(tool: &str, enabled: bool, mode: ToolExecutionMode) -> ToolPolicy {
         ToolPolicy {
@@ -287,7 +292,12 @@ mod tests {
         let openai = policy.tools_schema(Provider::OpenAi);
         assert_eq!(
             names(&openai),
-            ["get_stream_schema", "query_logs", "search_field_values"]
+            [
+                "analyze_log_patterns",
+                "get_stream_schema",
+                "query_logs",
+                "search_field_values"
+            ]
         );
         assert_eq!(openai[0]["type"], "function");
         assert!(openai[0]["function"]["parameters"].is_object());
@@ -295,6 +305,22 @@ mod tests {
         let anthropic = policy.tools_schema(Provider::Anthropic);
         assert_eq!(names(&anthropic), names(&openai));
         assert!(anthropic[0]["input_schema"].is_object());
+    }
+
+    #[test]
+    fn an_inspection_reads_the_patterns_of_its_own_stream_and_of_no_other() {
+        let patterns = json!({
+            "stream": "app_logs",
+            "timeRange": {"startTime": 0, "endTime": 1},
+            "baseline": "week_before",
+        });
+
+        assert!(reads_only_the_stream(&patterns, "app_logs"));
+        assert!(!reads_only_the_stream(&patterns, "audit_logs"));
+        assert!(!reads_only_the_stream(
+            &json!({"timeRange": {}}),
+            "app_logs"
+        ));
     }
 
     #[test]
@@ -309,7 +335,7 @@ mod tests {
 
         assert_eq!(
             names(&policy.tools_schema(Provider::OpenAi)),
-            ["get_stream_schema"]
+            ["analyze_log_patterns", "get_stream_schema"]
         );
         assert!(!policy.allows(BuiltinToolKind::QueryLogs));
         assert!(!policy.allows(BuiltinToolKind::SearchFieldValues));

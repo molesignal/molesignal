@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::iam::IamContext;
+use kernel::Result;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{ToolRuntime, common::parse_args};
-use crate::{app::iam::IamContext, shared::Result};
 
 pub(super) async fn execute(
     runtime: &ToolRuntime,
@@ -41,17 +42,17 @@ pub(super) async fn execute(
         BuiltinToolKind::GetReportTemplate => {
             let args: IdArgs = parse_args(arguments)?;
 
-            let template =
-                runtime
-                    .content
-                    .report_templates
-                    .get(
-                        &auth.org_id,
-                        &crate::shared::ids::Id(args.template_id.ok_or_else(|| {
-                            crate::shared::Error::invalid("templateId is required")
-                        })?),
-                    )
-                    .await?;
+            let template = runtime
+                .content
+                .report_templates
+                .get(
+                    &auth.org_id,
+                    &kernel::ids::Id(
+                        args.template_id
+                            .ok_or_else(|| kernel::Error::invalid("templateId is required"))?,
+                    ),
+                )
+                .await?;
 
             super::common::json_result(&template)
         }
@@ -63,9 +64,9 @@ pub(super) async fn execute(
                 .scheduled_reports
                 .get(
                     &auth.org_id,
-                    &crate::shared::ids::Id(
+                    &kernel::ids::Id(
                         args.report_id
-                            .ok_or_else(|| crate::shared::Error::invalid("reportId is required"))?,
+                            .ok_or_else(|| kernel::Error::invalid("reportId is required"))?,
                     ),
                 )
                 .await?;
@@ -75,9 +76,9 @@ pub(super) async fn execute(
         BuiltinToolKind::ListReportDeliveries => {
             let args: IdArgs = parse_args(arguments)?;
 
-            let report_id = crate::shared::ids::Id(
+            let report_id = kernel::ids::Id(
                 args.report_id
-                    .ok_or_else(|| crate::shared::Error::invalid("reportId is required"))?,
+                    .ok_or_else(|| kernel::Error::invalid("reportId is required"))?,
             );
 
             runtime

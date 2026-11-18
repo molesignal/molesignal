@@ -18,13 +18,12 @@ mod common;
 
 use std::sync::Arc;
 
-use molesignal::{
-    agent::{
-        chat::{AgentLoop, AgentStreamEvent, MessageRole, providers::OpenAiAdapter},
-        tools::{ToolAuthContext, ToolCall, ToolDispatcher, ToolResult},
-    },
-    shared::{Result as SharedResult, ids::Id, time::TimestampMicros},
+use agent::{
+    chat::{AgentLoop, AgentStreamEvent, MessageRole, providers::OpenAiAdapter},
+    tools::{ToolAuthContext, ToolDispatcher},
 };
+use kernel::{Result as SharedResult, ids::Id, time::TimestampMicros};
+use tool_runtime::{ToolCall, ToolResult};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path},
@@ -41,8 +40,8 @@ impl ToolDispatcher for NoopDispatcher {
     }
 }
 
-fn user_msg(s: &str) -> molesignal::agent::chat::ChatMessage {
-    molesignal::agent::chat::ChatMessage {
+fn user_msg(s: &str) -> agent::chat::ChatMessage {
+    agent::chat::ChatMessage {
         id: Id::new(),
         chat_id: Id("s".into()),
         role: MessageRole::User,
@@ -56,7 +55,7 @@ fn user_msg(s: &str) -> molesignal::agent::chat::ChatMessage {
 }
 
 fn test_tool_context() -> ToolAuthContext {
-    ToolAuthContext::from_iam(&molesignal::app::iam::IamContext {
+    ToolAuthContext::from_iam(&domain::iam::IamContext {
         user_id: Id("u1".into()),
         org_id: Id("orgA".into()),
         display_role: String::new(),
@@ -64,7 +63,7 @@ fn test_tool_context() -> ToolAuthContext {
         credential_token_id: None,
         credential_application_id: None,
         credential_service_account_id: None,
-        scope: molesignal::domain::iam::IamScope::Organization,
+        scope: domain::iam::IamScope::Organization,
         permissions: Default::default(),
         policy_version: 0,
     })
@@ -81,7 +80,7 @@ async fn chatloop_provider_error_path_emits_error_event() {
         .await;
 
     let adapter = Arc::new(OpenAiAdapter::new(srv.uri(), "test-key"))
-        as Arc<dyn molesignal::agent::chat::ProviderAdapter>;
+        as Arc<dyn agent::chat::ProviderAdapter>;
     let chat_loop = Arc::new(AgentLoop::new(adapter, Arc::new(NoopDispatcher)));
     let mut stream = chat_loop.clone().run_stream(
         test_tool_context(),
@@ -132,22 +131,21 @@ async fn http_chat_prompt_metadata_and_archive() {
         .await;
 
     // 1) 建 PG provider 行（base_url 指向 wiremock）。
-    let input =
-        molesignal::infra::persistence::repositories::agent::model_providers::ModelProviderInput {
-            id: Id::new(),
-            org_id: server.root_org_id.clone(),
-            provider: "openai".into(),
-            name: "wiremock".into(),
-            base_url: Some(openai.uri()),
-            default_model: "gpt-4o".into(),
-            enabled: true,
-            timeout_ms: 30_000,
-            max_tokens: Some(1024),
-            price_currency: molesignal::agent::usage::Currency::USD,
-            input_price_per_mtok: None,
-            cached_input_price_per_mtok: None,
-            output_price_per_mtok: None,
-        };
+    let input = postgres::repositories::agent::model_providers::ModelProviderInput {
+        id: Id::new(),
+        org_id: server.root_org_id.clone(),
+        provider: "openai".into(),
+        name: "wiremock".into(),
+        base_url: Some(openai.uri()),
+        default_model: "gpt-4o".into(),
+        enabled: true,
+        timeout_ms: 30_000,
+        max_tokens: Some(1024),
+        price_currency: agent::usage::Currency::USD,
+        input_price_per_mtok: None,
+        cached_input_price_per_mtok: None,
+        output_price_per_mtok: None,
+    };
     let provider = server
         .state
         .agent

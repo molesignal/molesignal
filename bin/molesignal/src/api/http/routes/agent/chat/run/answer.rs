@@ -8,7 +8,19 @@
 
 use std::{sync::Arc, time::Duration};
 
+use agent::{
+    capabilities::dashboard_authoring,
+    chat::{AgentLoop, RunConclusion, ToolChoice},
+    runs::{RunEventKind, RunStatus, TEXT_FLUSH_MILLIS, language_instruction},
+    skills::render_catalog,
+    tools::{ToolAuthContext, ToolDispatcher},
+    usage::UsageOrigin,
+};
+use domain::iam::IamContext;
+use kernel::{Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::{Chat, ChatMessage};
 use serde_json::{Value, json};
+use tool_runtime::{ExecutionPolicy, catalog::builtin_tools};
 
 use super::{
     super::{
@@ -16,7 +28,7 @@ use super::{
         provider::resolve_provider,
         tool_schema::tools_schema_for,
     },
-    Ending, RunControl,
+    Ending, RunControl, denied,
     history::{self, Conversation},
     interaction::Interaction,
     request::AnswerRequest,
@@ -26,14 +38,6 @@ use super::{
     workspace,
 };
 use crate::{
-    agent::{
-        capabilities::dashboard_authoring,
-        chat::{AgentLoop, RunConclusion, ToolChoice},
-        runs::{RunEventKind, RunStatus, TEXT_FLUSH_MILLIS, language_instruction},
-        skills::render_catalog,
-        tools::{AgentExecutionPolicy, ToolAuthContext, ToolDispatcher, builtin_tools},
-        usage::UsageOrigin,
-    },
     api::{
         AppState,
         http::routes::agent::{
@@ -45,11 +49,8 @@ use crate::{
     },
     app::{
         agent_usage::{BudgetGate, UsageRecorder, UsageScope},
-        iam::IamContext,
         skills::SessionSkills,
     },
-    infra::persistence::repositories::agent::chats::{Chat, ChatMessage},
-    shared::{Result, ids::Id, time::TimestampMicros},
 };
 
 pub(super) async fn answer(
@@ -62,7 +63,7 @@ pub(super) async fn answer(
 
     // bypass permissions 只在生效的 Agent Profile 允许时有效：排队期间被关掉时按「执行（需
     // 审批）」处理，改动都先问提问人，并说一声。
-    if request.message.execution_policy == Some(AgentExecutionPolicy::BypassPermissions) {
+    if request.message.execution_policy == Some(ExecutionPolicy::BypassPermissions) {
         let profile_id = request
             .message
             .agent_profile_id
@@ -73,7 +74,7 @@ pub(super) async fn answer(
             .unwrap_or(false);
 
         if !allowed {
-            request.message.execution_policy = Some(AgentExecutionPolicy::Policy);
+            request.message.execution_policy = Some(ExecutionPolicy::Policy);
 
             control
                 .emit(
@@ -173,7 +174,7 @@ pub(super) async fn answer(
 
     let requested_profile_id = req.agent_profile_id.as_deref().map(|id| Id(id.to_string()));
 
-    let resolution = match toolsets::resolve_toolsets_for_profile(
+    let mut resolution = match toolsets::resolve_toolsets_for_profile(
         state,
         &ctx.org_id,
         requested_profile_id.as_ref(),
@@ -184,6 +185,9 @@ pub(super) async fn answer(
         Ok(resolution) => resolution,
         Err(error) => return Ending::failed(error.to_string()),
     };
+
+    // A drill may not read what people found after the incident.
+    denied::for_run(&control.run, &mut resolution);
 
     let initial_tool_choice = match dashboard_choice(
         state,

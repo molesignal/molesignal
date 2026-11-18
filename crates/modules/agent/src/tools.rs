@@ -1,33 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 对平台 Tool Core 的兼容适配。
+//! The Agent loop's side of the platform Tool Core.
 //!
-//! 工具 catalog、风险、输入输出与执行策略由 `tool-runtime` 统一定义。这里仅保留
-//! Agent loop 现有的认证上下文和 dispatcher trait，避免模型适配层反向依赖服务端。
+//! `tool-runtime` defines the tool catalog, risks, inputs, outputs, and execution policies.
+//! This module holds the authentication context the server builds for an Agent run and the
+//! dispatcher trait the server implements, so the model adapter layer does not depend on the
+//! server.
 
 use async_trait::async_trait;
 use domain::iam::{IamContext, access::IamPrincipalType};
-pub use tool_runtime::{
-    ExecutionPolicy as AgentExecutionPolicy, PermissionMode, ToolAccess, ToolAnnotations, ToolCall,
-    ToolContent, ToolExecutionMode, ToolExposure, ToolResult, ToolSpec as Tool, ToolSurface,
-    catalog::{
-        BuiltinToolKind, builtin_tools, is_builtin_tool, is_meta_tool, is_session_tool,
-        is_skill_tool, is_workspace_tool, pinned_tools, risk_for_tool, tools_for_surface,
-    },
-};
+use kernel::Result;
+use tool_runtime::{ExecutionPolicy, ToolCall, ToolResult};
 
-use crate::shared::Result;
-
-/// 由服务端认证层构造的可信 Agent 调用上下文。
+/// Trusted Agent call context constructed by the server authentication layer.
 ///
-/// `org_id` / `user_id` 永远不从模型提供的 tool arguments 读取。
+/// `org_id` / `user_id` are never read from model-provided tool arguments.
 #[derive(Debug, Clone)]
 pub struct ToolAuthContext {
     iam: IamContext,
     chat_id: Option<String>,
     investigation_id: Option<String>,
-    execution_policy: AgentExecutionPolicy,
+    execution_policy: ExecutionPolicy,
     query_generation_only: bool,
 }
 
@@ -38,7 +32,7 @@ impl ToolAuthContext {
             iam: iam.clone(),
             chat_id: None,
             investigation_id: None,
-            execution_policy: AgentExecutionPolicy::default(),
+            execution_policy: ExecutionPolicy::default(),
             query_generation_only: false,
         }
     }
@@ -72,7 +66,7 @@ impl ToolAuthContext {
         self.investigation_id.as_deref()
     }
 
-    pub const fn execution_policy(&self) -> AgentExecutionPolicy {
+    pub const fn execution_policy(&self) -> ExecutionPolicy {
         self.execution_policy
     }
 
@@ -90,7 +84,7 @@ impl ToolAuthContext {
         self
     }
 
-    pub fn with_execution_policy(mut self, policy: AgentExecutionPolicy) -> Self {
+    pub fn with_execution_policy(mut self, policy: ExecutionPolicy) -> Self {
         self.execution_policy = policy;
         self
     }
@@ -104,19 +98,25 @@ impl ToolAuthContext {
 #[async_trait]
 pub trait ToolDispatcher: Send + Sync {
     async fn dispatch(&self, ctx: &ToolAuthContext, call: ToolCall) -> Result<ToolResult>;
+
+    /// Whether this call only reads and changes nothing, asks nobody and waits for nobody, so the
+    /// loop may run it together with the calls next to it in the same model reply. The loop
+    /// runs every call alone unless the dispatcher says so.
+    fn runs_alongside(&self, call: &ToolCall) -> bool {
+        let _ = call;
+        false
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
-    use domain::{
-        iam::{IamContext, IamScope},
-        shared::ids::Id,
-    };
+    use domain::iam::{IamContext, IamScope};
+    use kernel::ids::Id;
+    use tool_runtime::{RiskLevel, ToolAccess, catalog::builtin_tools};
 
     use super::*;
-    use crate::agent::model::RiskLevel;
 
     #[test]
     fn agent_tool_identity_is_an_immutable_iam_snapshot() {
@@ -171,10 +171,10 @@ mod tests {
 
     #[test]
     fn only_the_modes_that_change_things_can_create_approval_requests() {
-        assert!(!AgentExecutionPolicy::AdviceOnly.allows_approval_request());
-        assert!(!AgentExecutionPolicy::ReadOnly.allows_approval_request());
-        assert!(AgentExecutionPolicy::Policy.allows_approval_request());
-        assert!(AgentExecutionPolicy::Auto.allows_approval_request());
-        assert!(AgentExecutionPolicy::BypassPermissions.allows_approval_request());
+        assert!(!ExecutionPolicy::AdviceOnly.allows_approval_request());
+        assert!(!ExecutionPolicy::ReadOnly.allows_approval_request());
+        assert!(ExecutionPolicy::Policy.allows_approval_request());
+        assert!(ExecutionPolicy::Auto.allows_approval_request());
+        assert!(ExecutionPolicy::BypassPermissions.allows_approval_request());
     }
 }

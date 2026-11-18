@@ -4,21 +4,19 @@
 //! `agent_knowledge_files`：组织与各团队的知识文件。份额（文件数、合计大小）在写入的事务里按
 //! 写完之后的结果检查，同一份知识的并发写入靠锁住这份知识的已有行排队。
 
+use agent::{
+    knowledge::{
+        ENTRY_FILE, KnowledgeBase, KnowledgeFile, KnowledgeFileMeta, KnowledgeHit, KnowledgeStore,
+        check_content, check_quota, matching_lines, normalize_path,
+    },
+    scope::Scope,
+};
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row, postgres::PgRow};
 
-use crate::{
-    agent::{
-        knowledge::{
-            ENTRY_FILE, KnowledgeBase, KnowledgeFile, KnowledgeFileMeta, KnowledgeHit,
-            KnowledgeStore, check_content, check_quota, matching_lines, normalize_path,
-        },
-        scope::Scope,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-    sqlx_err,
-};
+use crate::{is_unique_violation, sqlx_err};
 
 /// 搜索时一次最多读这么多个文件。
 const SEARCH_FILES: i64 = 1_000;
@@ -290,9 +288,12 @@ impl KnowledgeStore for PgKnowledgeStore {
         .bind(TimestampMicros::now())
         .execute(&self.pool)
         .await
-        .map_err(|error| match sqlx_err(error) {
-            Error::Conflict(_) => Error::conflict(format!("`{to}` already exists")),
-            other => other,
+        .map_err(|error| {
+            if is_unique_violation(&error) {
+                Error::conflict(format!("`{to}` already exists"))
+            } else {
+                sqlx_err(error)
+            }
         })?;
 
         if renamed.rows_affected() == 0 {

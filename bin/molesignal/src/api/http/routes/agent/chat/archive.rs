@@ -9,17 +9,14 @@ use axum::{
     Extension, Json,
     extract::{Path, State},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Result, ids::Id, time::TimestampMicros};
 use object_store::{ObjectStoreExt, PutPayload, path::Path as ObjPath};
+use postgres::repositories::agent::{chats::Chat, prompts::prompt_hash};
 use serde_json::{Value, json};
 
 use super::{super::viewer::readable_chat, CHAT_OBJECT_LAYOUT_VERSION};
-use crate::{
-    api::{AppState, http::routes::activity_audit},
-    app::iam::IamContext,
-    domain::iam::permission,
-    infra::persistence::repositories::agent::{chats::Chat, prompts::prompt_hash},
-    shared::{Result, ids::Id, time::TimestampMicros},
-};
+use crate::api::{AppState, http::routes::activity_audit};
 
 const CHAT_TRANSCRIPT_SCHEMA_VERSION: u32 = 1;
 
@@ -47,8 +44,8 @@ pub(super) async fn archive_chat(
     state: &AppState,
     ctx: &IamContext,
     chat: &Chat,
-) -> crate::infra::persistence::repositories::agent::chat_archives::ChatArchive {
-    use crate::infra::persistence::repositories::agent::chat_archives::ChatArchive;
+) -> postgres::repositories::agent::chat_archives::ChatArchive {
+    use postgres::repositories::agent::chat_archives::ChatArchive;
 
     let messages = state
         .agent
@@ -207,6 +204,18 @@ mod tests {
                 TimestampMicros(42)
             ),
             "agent/chat/v1/org-1/chat-1/transcript-42.json"
+        );
+    }
+
+    #[test]
+    fn transcripts_go_with_their_organization() {
+        let org = Id::from_string("org-1");
+        let key = transcript_object_key(&org, &Id::from_string("chat-1"), TimestampMicros(42));
+
+        assert!(
+            crate::infra::storage::layout::StorageLayout::organization_prefixes(&org)
+                .iter()
+                .any(|prefix| key.starts_with(prefix.as_str()))
         );
     }
 }

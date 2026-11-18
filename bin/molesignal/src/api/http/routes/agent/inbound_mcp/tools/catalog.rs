@@ -3,6 +3,7 @@
 
 use std::{cmp::Reverse, sync::Arc};
 
+use kernel::{Error, Result};
 use rmcp::model::{JsonObject, Tool, ToolAnnotations as McpAnnotations};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -13,10 +14,7 @@ use tool_runtime::{
 };
 
 use super::{ResolvedTool, adapter_tool};
-use crate::{
-    api::http::routes::agent::{inbound_mcp::handler::InboundMcpHandler, toolsets},
-    shared::{Error, Result},
-};
+use crate::api::http::routes::agent::{inbound_mcp::handler::InboundMcpHandler, toolsets};
 
 pub(super) const ADAPTER_NAMES: [&str; 3] = ["tool_search", "call_read_tool", "call_managed_tool"];
 
@@ -96,7 +94,7 @@ pub(super) fn protocol_tool(name: &str) -> Option<Tool> {
 
 pub(super) async fn advertised(
     handler: &InboundMcpHandler,
-    iam: &crate::app::iam::IamContext,
+    iam: &domain::iam::IamContext,
 ) -> Result<Vec<Tool>> {
     let resolution = toolsets::resolve_inbound_tool_policies(&handler.state, &iam.org_id).await?;
 
@@ -135,7 +133,7 @@ pub(super) async fn advertised(
 
 pub(in crate::api::http::routes::agent::inbound_mcp) async fn resolve(
     handler: &InboundMcpHandler,
-    iam: &crate::app::iam::IamContext,
+    iam: &domain::iam::IamContext,
     name: &str,
 ) -> Result<ResolvedTool> {
     let kind = BuiltinToolKind::from_name(name)
@@ -190,7 +188,7 @@ pub(super) struct SearchArgs {
 
 pub(super) async fn search(
     handler: &InboundMcpHandler,
-    iam: &crate::app::iam::IamContext,
+    iam: &domain::iam::IamContext,
     arguments: Value,
 ) -> Result<Value> {
     let args: SearchArgs = serde_json::from_value(arguments)
@@ -280,7 +278,7 @@ pub(super) async fn search(
 
 pub(in crate::api::http::routes::agent::inbound_mcp) async fn resource_catalog(
     handler: &InboundMcpHandler,
-    iam: &crate::app::iam::IamContext,
+    iam: &domain::iam::IamContext,
 ) -> Result<Value> {
     let resolution = toolsets::resolve_inbound_tool_policies(&handler.state, &iam.org_id).await?;
     let mut entries = Vec::new();

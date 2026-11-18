@@ -3,46 +3,45 @@
 
 //! Mole Agent 调查、审批、执行与 Agent Profile API。自动化在 `automations`。
 
+use agent::model::{
+    ApprovalRequest, ApprovalStatus, ConfidenceLevel, Execution, FactStatus, HypothesisStatus,
+    Investigation, InvestigationEvidence, InvestigationHypothesis, InvestigationStatus,
+    InvestigationStep, StepStatus,
+};
 use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     routing::{get, post},
 };
+use domain::iam::{IamContext, permission};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Deserializer};
 use serde_json::{Value, json};
-use tool_runtime::{ToolSurface, catalog::tools_for_surface};
+use tool_runtime::{
+    ToolSurface,
+    catalog::{builtin_tools, tools_for_surface},
+};
 
 use crate::{
-    agent::{
-        model::{
-            ApprovalRequest, ApprovalStatus, ConfidenceLevel, Execution, FactStatus,
-            HypothesisStatus, Investigation, InvestigationEvidence, InvestigationHypothesis,
-            InvestigationStatus, InvestigationStep, StepStatus,
-        },
-        tools::builtin_tools,
-    },
     api::{
         AppState,
         http::{middleware::Permission, routes::activity_audit},
     },
-    app::{
-        iam::IamContext,
-        tools::dashboard::{CreateApprovalRequest, create_agent_approval},
-    },
-    domain::iam::permission,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::tools::approvals::{CreateApprovalRequest, create_agent_approval},
 };
 
 mod approval_execution;
 mod dashboard_operation;
 mod execution_response;
 mod incident_operation;
+pub(crate) mod preapproved;
 mod profiles;
 pub(crate) mod remediation_operation;
 mod resource_operation;
+pub(crate) mod review;
 
 use approval_execution::OperationOutcome;
-pub(super) use approval_execution::{OperationExecution, execute_approved_operation};
+pub(crate) use approval_execution::{OperationExecution, execute_approved_operation};
 use profiles::{create_profile, get_profile, list_profiles, update_profile};
 
 pub fn routes() -> Router<AppState> {
@@ -568,68 +567,13 @@ async fn review_approval(
     Path(id): Path<String>,
     Json(request): Json<ReviewApprovalRequest>,
 ) -> Result<axum::response::Response> {
-    let id = Id(id);
+    let reviewed = review::review(&state, &ctx, &Id(id), request.approve, &request.comment).await?;
+    let execution = reviewed.execution.transpose()?;
 
-    let existing = state
-        .agent
-        .repository
-        .get_approval(&ctx.org_id, &id)
-        .await?;
-
-    if existing.required_approvals > 0 && &existing.requested_by == ctx.principal_id() {
-        return Err(Error::forbidden(
-            "requester cannot approve their own reviewed operation",
-        ));
-    }
-
-    let mut saved = state
-        .agent
-        .repository
-        .review_approval(
-            &ctx.org_id,
-            &id,
-            ctx.principal_id(),
-            request.approve,
-            &request.comment,
-            TimestampMicros::now(),
-        )
-        .await?;
-
-    activity_audit::record(
-        &state,
-        &ctx,
-        if request.approve {
-            "agent.approval.approved"
-        } else {
-            "agent.approval.rejected"
-        },
-        "agent_approval",
-        &saved.id.0,
-        json!({"comment": request.comment, "status": saved.status}),
-    )
-    .await;
-
-    let execution = if request.approve && saved.status == ApprovalStatus::Approved {
-        let execution = execute_approved_operation(
-            &state,
-            &ctx,
-            &saved.id,
-            format!("approval:{}:approved", saved.id.0),
-        )
-        .await?;
-
-        saved = state
-            .agent
-            .repository
-            .get_approval(&ctx.org_id, &saved.id)
-            .await?;
-
-        Some(execution)
-    } else {
-        None
-    };
-
-    Ok(execution_response::review_response(saved, execution))
+    Ok(execution_response::review_response(
+        reviewed.approval,
+        execution,
+    ))
 }
 
 #[derive(Debug, Deserialize)]
@@ -677,12 +621,10 @@ async fn get_execution(
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use tool_runtime::{RiskLevel, ToolExecutionMode};
 
     use super::UpdateInvestigationRequest;
-    use crate::{
-        agent::{model::RiskLevel, tool_control::ToolExecutionMode},
-        app::tools::dashboard::{dashboard_required_approvals, operation_policy},
-    };
+    use crate::app::tools::dashboard::{dashboard_required_approvals, operation_policy};
 
     #[test]
     fn dashboard_policy_keeps_confirmation_floor_and_allows_only_tightening() {

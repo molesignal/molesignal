@@ -1,7 +1,7 @@
 ---
 name: insight
 description: Look back at how Mole Agent was used in this chat's scope - what people asked, how the answers and automations went, what was rated unhelpful and why, which tools failed - and write a one-page review with what to keep, what to fix and what knowledge to add. Read only.
-argument-hint: [days to look back, default 30]
+argument-hint: "[days to look back, default 30]"
 version: "1"
 allowed-tools: get_agent_insights, list_knowledge, read_knowledge, list_skills, todo_write
 tags: [review, insights]

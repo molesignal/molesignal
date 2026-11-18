@@ -2081,6 +2081,18 @@
       "title": "Search field values",
       "description": "Return bounded distinct values and counts for one exact stream field."
     },
+    "analyze_log_patterns": {
+      "title": "Analyze log patterns",
+      "description": "Groups one stream's logs into message patterns and compares each with a baseline stretch: new, surging, dropping or steady."
+    },
+    "analyze_metric_trend": {
+      "title": "Analyze metric trend",
+      "description": "Summarizes how a PromQL query moved against a baseline stretch: when the change began, how far, and which series and labels drove it."
+    },
+    "check_data_readiness": {
+      "title": "Check data readiness",
+      "description": "Checks whether streams record the service, environment and trace ID, whether a service has one name across logs, metrics and traces, and whether metric names carry units, with a fix for each finding."
+    },
     "list_log_inspections": {
       "title": "List log inspections",
       "description": "List the organization's scheduled log inspections: the stream each reads, what it looks for, its schedule, whether it is on, and how its last run ended."
@@ -2121,10 +2133,6 @@
       "title": "List trace users",
       "description": "List bounded AI trace-user aggregates when user fields exist in the trace stream."
     },
-    "list_recent_alerts": {
-      "title": "List recent alerts",
-      "description": "List active alert incidents. Compatibility alias for list_incidents with status=active."
-    },
     "list_incidents": {
       "title": "List incidents",
       "description": "List incidents by status and optional time range, with bounded results."
@@ -2140,6 +2148,14 @@
     "get_incident_insights": {
       "title": "Get incident insights",
       "description": "Return bounded incident counts grouped by status, severity, service, and rule."
+    },
+    "get_similar_incidents": {
+      "title": "Get similar incidents",
+      "description": "Lists the incidents of the last 90 days most like one incident, with how each ended and the first sentence of its root cause."
+    },
+    "list_changes": {
+      "title": "List changes",
+      "description": "Lists deployments, configuration changes and feature flags around a time, for some services or for one incident."
     },
     "acknowledge_incident": {
       "title": "Acknowledge incident",
@@ -2304,6 +2320,10 @@
     "list_apm_services": {
       "title": "List APM services",
       "description": "List APM services with RED health summaries."
+    },
+    "search_service_catalog": {
+      "title": "Search service catalog",
+      "description": "Finds services by name, alias, description or tag, with their owner, team, aliases and where their data is."
     },
     "get_apm_service": {
       "title": "Get APM service",

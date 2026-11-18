@@ -3,27 +3,29 @@
 
 //! 和一个事件有关的别的东西：过去像它的事件，和它触发前后的变更。
 
+mod brief;
 mod changes;
+mod downstream;
 mod similar;
 
 use std::{collections::HashMap, sync::Arc};
 
+pub use brief::{IncidentBrief, IncidentBriefing};
 pub use changes::{
     AFTER, BEFORE, IncidentChange, IncidentChanges, incident_services, select_changes,
+    select_reported,
 };
-pub use similar::{SimilarIncident, first_sentence, score, trigram_similarity};
-
-use crate::{
-    domain::{
-        alerting::{
-            incident::Incident,
-            repositories::{AlertRuleRepository, IncidentRcaRepository, IncidentRepository},
-            timeline::{IncidentTimelineRepository, TimelineKind},
-        },
-        apm::{ApmCatalogRepository, DeploymentQuery},
+use domain::{
+    alerting::{
+        incident::Incident,
+        repositories::{AlertRuleRepository, IncidentRcaRepository, IncidentRepository},
+        timeline::{IncidentTimelineRepository, TimelineKind},
     },
-    shared::{Result, ids::Id, time::TimestampMicros},
+    apm::{ApmCatalogRepository, ChangeKind, DeploymentQuery},
 };
+pub use downstream::downstream_of;
+use kernel::{Result, ids::Id, time::TimestampMicros};
+pub use similar::{MOST_SIMILAR, SimilarIncident, first_sentence, score, trigram_similarity};
 
 /// 一次最多读多少条上报的变更。
 const MOST_CHANGES_READ: usize = 500;
@@ -56,6 +58,15 @@ impl RelatedIncidents {
     /// 近 90 天里最像 `incident` 的几个事件，带上备注数和根因的第一句。它自己、并入它的、它并入的
     /// 不算。
     pub async fn similar(&self, incident: &Incident) -> Result<Vec<SimilarIncident>> {
+        self.similar_up_to(incident, MOST_SIMILAR).await
+    }
+
+    /// Like [`Self::similar`], at most `most` of them.
+    pub async fn similar_up_to(
+        &self,
+        incident: &Incident,
+        most: usize,
+    ) -> Result<Vec<SimilarIncident>> {
         let since = TimestampMicros(incident.created_at.0 - similar::LOOKBACK_MICROS);
 
         let mut scored: Vec<(f64, Vec<&'static str>, Incident)> = self
@@ -78,7 +89,7 @@ impl RelatedIncidents {
             b.0.total_cmp(&a.0)
                 .then_with(|| b.2.created_at.0.cmp(&a.2.created_at.0))
         });
-        scored.truncate(similar::MOST_SIMILAR);
+        scored.truncate(most);
 
         let ids: Vec<Id> = scored
             .iter()
@@ -155,5 +166,33 @@ impl RelatedIncidents {
             downstream,
             rule.as_ref(),
         ))
+    }
+
+    /// The changes the organization reported from `from` until `to`, in time order and the latest
+    /// `limit` of them, of `services` and `kinds` when any are named.
+    pub async fn changes_between(
+        &self,
+        org_id: &Id,
+        (from, to): (TimestampMicros, TimestampMicros),
+        services: &[String],
+        kinds: &[ChangeKind],
+        limit: usize,
+    ) -> Result<Vec<IncidentChange>> {
+        let reported = self
+            .catalog
+            .list_deployments(
+                org_id,
+                &DeploymentQuery {
+                    namespace: None,
+                    service: None,
+                    environment: None,
+                    from: Some(from),
+                    to: Some(to),
+                    limit: MOST_CHANGES_READ,
+                },
+            )
+            .await?;
+
+        Ok(select_reported(&reported, from, to, services, kinds, limit))
     }
 }

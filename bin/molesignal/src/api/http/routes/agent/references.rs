@@ -8,37 +8,38 @@
 //! - [`resolve`]：发消息时逐个核对提问人能不能读，写成交给模型的上下文块；读不了的引用让这条
 //!   消息被拒绝，不悄悄丢掉。
 
+use agent::references::{
+    MAX_REFERENCES, MessageReference, REFERENCES_INTRODUCTION, ReferenceKind, context_block,
+};
 use axum::{
     Extension, Json, Router,
     extract::{Query, State},
     routing::get,
 };
+use domain::{
+    alerting::{incident::Incident, rule::AlertRule},
+    dashboard::Dashboard,
+    iam::{IamContext, permission},
+    stream::StreamDefinition,
+};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{rum_facts::rum_application_facts, service_facts::service_facts};
-use crate::{
-    agent::references::{
-        MAX_REFERENCES, MessageReference, REFERENCES_INTRODUCTION, ReferenceKind, context_block,
-    },
-    api::{
-        AppState,
-        http::middleware::{Permission, authorize_resource},
-        rca::incident_facts,
-    },
-    app::iam::IamContext,
-    domain::{
-        alerting::{incident::Incident, rule::AlertRule},
-        dashboard::Dashboard,
-        iam::permission,
-        stream::StreamDefinition,
-    },
-    shared::{
-        Error, Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
-    },
+use crate::api::{
+    AppState,
+    http::middleware::{Permission, authorize_resource},
 };
+
+mod dashboard;
+pub(crate) mod incident;
+
+use dashboard::dashboard_facts;
 
 /// 搜索时每类最多给几个。
 const PER_KIND: usize = 8;
@@ -275,12 +276,12 @@ fn can_read_rum(ctx: &IamContext) -> bool {
     ctx.has_permission("streams.query") || ctx.has_permission("sys.telemetry.read")
 }
 
-fn cut(text: String) -> String {
-    if text.chars().count() <= FACTS_CHARS {
+fn cut(text: String, most: usize) -> String {
+    if text.chars().count() <= most {
         return text;
     }
 
-    let kept = text.chars().take(FACTS_CHARS).collect::<String>();
+    let kept = text.chars().take(most).collect::<String>();
     format!("{kept}\n[cut]")
 }
 
@@ -319,7 +320,10 @@ pub(crate) async fn resolve(
                         .await
                         .map_err(|_| unavailable(&reference))?;
 
-                (incident.summary.clone(), incident_facts(&incident))
+                (
+                    incident.summary.clone(),
+                    incident::context(state, ctx, &incident).await,
+                )
             }
             ReferenceKind::AlertRule => {
                 let rule: AlertRule = authorize_resource(state, ctx, id, "alerts.rules.read")
@@ -383,8 +387,13 @@ pub(crate) async fn resolve(
             }
         };
 
+        let most = match reference.kind {
+            ReferenceKind::Incident => incident::FACTS_CHARS,
+            _ => FACTS_CHARS,
+        };
+
         reference.label = label;
-        blocks.push(context_block(&reference, &cut(facts)));
+        blocks.push(context_block(&reference, &cut(facts, most)));
         resolved.push(reference);
     }
 
@@ -408,41 +417,5 @@ fn rule_facts(rule: &AlertRule) -> String {
             .map(|(key, value)| format!("{key}={value}"))
             .collect::<Vec<_>>()
             .join(", ")
-    )
-}
-
-fn dashboard_facts(dashboard: &Dashboard) -> String {
-    // 面板的标题与查询：模型据此知道这个仪表盘看的是什么。
-    let panels = dashboard
-        .model
-        .get("panels")
-        .and_then(Value::as_array)
-        .map(|panels| {
-            panels
-                .iter()
-                .take(30)
-                .map(|panel| {
-                    let title = panel
-                        .get("title")
-                        .and_then(Value::as_str)
-                        .unwrap_or("(untitled)");
-                    let query = panel
-                        .pointer("/targets/0/query")
-                        .or_else(|| panel.get("query"))
-                        .map(Value::to_string)
-                        .unwrap_or_default();
-
-                    format!("- {title} {query}")
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
-        .unwrap_or_default();
-
-    format!(
-        "Dashboard: {}\nTags: {}\nPanels:\n{}",
-        dashboard.title,
-        dashboard.tags.join(", "),
-        panels
     )
 }

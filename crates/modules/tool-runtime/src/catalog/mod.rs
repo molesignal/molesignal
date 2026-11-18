@@ -64,6 +64,9 @@ impl BuiltinToolKind {
             | Self::ListMetricSeries
             | Self::SearchAround
             | Self::SearchFieldValues
+            | Self::AnalyzeLogPatterns
+            | Self::AnalyzeMetricTrend
+            | Self::CheckDataReadiness
             | Self::CorrelateSignals
             | Self::GetServiceTopology => observability::spec(self),
             Self::ListTraces
@@ -72,11 +75,12 @@ impl BuiltinToolKind {
             | Self::ListTraceSessions
             | Self::GetTraceSession
             | Self::ListTraceUsers => traces::spec(self),
-            Self::ListRecentAlerts
-            | Self::ListIncidents
+            Self::ListIncidents
             | Self::GetIncident
             | Self::GetIncidentRca
             | Self::GetIncidentInsights
+            | Self::GetSimilarIncidents
+            | Self::ListChanges
             | Self::AcknowledgeIncident
             | Self::ResolveIncident
             | Self::ReassignIncident
@@ -133,6 +137,7 @@ impl BuiltinToolKind {
             }
             Self::ApmOverview
             | Self::ListApmServices
+            | Self::SearchServiceCatalog
             | Self::GetApmService
             | Self::ListApmTransactions
             | Self::GetApmTransaction
@@ -316,7 +321,8 @@ pub fn is_builtin_tool(name: &str) -> bool {
     BuiltinToolKind::from_name(name).is_some()
 }
 
-/// Skill 的三个工具：按会话能用的 Skill 执行，由 Mole Agent 的入口处理。
+/// The three Skill tools: they execute the Skills available to the session and are handled by
+/// the Mole Agent entry point.
 pub fn is_skill_tool(name: &str) -> bool {
     matches!(
         BuiltinToolKind::from_name(name),
@@ -328,7 +334,8 @@ pub fn is_skill_tool(name: &str) -> bool {
     )
 }
 
-/// 一轮回答里与提问人打交道的两个工具：任务清单与提问。由 Mole Agent 的 Run 处理。
+/// The two tools that interact with the asker during one answer turn: the task list and asking
+/// questions. Handled by Mole Agent's Run.
 pub fn is_session_tool(name: &str) -> bool {
     matches!(
         BuiltinToolKind::from_name(name),
@@ -336,8 +343,9 @@ pub fn is_session_tool(name: &str) -> bool {
     )
 }
 
-/// 知识、记忆与调查记录：跟着会话走（读哪个团队的知识、写谁的记忆、记哪个调查），由 Mole Agent
-/// 的 Run 处理。
+/// Knowledge, memory, and investigation records: they follow the session (which team's
+/// knowledge to read, whose memory to write, which investigation to record). Handled by
+/// Mole Agent's Run.
 pub fn is_workspace_tool(name: &str) -> bool {
     matches!(
         BuiltinToolKind::from_name(name),
@@ -374,7 +382,7 @@ pub(super) fn open_output() -> Value {
     json!({"type": "object", "additionalProperties": true})
 }
 
-/// 时间点参数：名字里不带单位，单位写在说明里。
+/// Timestamp parameter: the name carries no unit, and the unit is given in the description.
 pub(super) fn timestamp_schema() -> Value {
     json!({"type": "integer", "description": "Microseconds since the Unix epoch."})
 }
@@ -561,7 +569,12 @@ mod tests {
             .collect::<HashSet<_>>();
         assert_eq!(
             names,
-            HashSet::from(["query_logs", "get_stream_schema", "search_field_values"])
+            HashSet::from([
+                "query_logs",
+                "get_stream_schema",
+                "search_field_values",
+                "analyze_log_patterns"
+            ])
         );
 
         // Nobody is there to approve a call made on a schedule.

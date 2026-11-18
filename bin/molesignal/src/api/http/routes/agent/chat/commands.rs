@@ -8,32 +8,29 @@
 //! 出错时只给一个固定的错误码和命令名，说明文字由前端按读者语言写。control 命令由前端
 //! 执行，发到这里说明客户端没认出它，同样拒绝。
 
+use agent::{
+    commands::{CommandKind, CommandRecord, CommandSource, Input, Invocation, find_builtin, parse},
+    scope::Viewer,
+};
 use axum::{
     Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use domain::{alerting::incident::Incident, iam::IamContext};
+use kernel::{Error, ids::Id, time::TimestampMicros};
+use postgres::repositories::agent::chats::Chat;
 use serde_json::json;
 
 use super::{
     PostMessageReq, TimeRangeReq, mcp_prompt::invoke_mcp_prompt, skill_invocation::invoke_skill,
 };
-use crate::{
-    agent::{
-        commands::{
-            CommandKind, CommandRecord, CommandSource, Input, Invocation, find_builtin, parse,
-        },
-        scope::Viewer,
+use crate::api::{
+    AppState,
+    http::{
+        interface_language::interface_language_pack, middleware::authorize_resource,
+        routes::agent::references::incident::context as incident_context,
     },
-    api::{
-        AppState,
-        http::{interface_language::interface_language_pack, middleware::authorize_resource},
-        rca::incident_facts,
-    },
-    app::iam::IamContext,
-    domain::alerting::incident::Incident,
-    infra::persistence::repositories::agent::chats::Chat,
-    shared::{Error, ids::Id, time::TimestampMicros},
 };
 
 pub(super) const UNKNOWN_COMMAND: &str = "unknown_command";
@@ -249,7 +246,7 @@ async fn rca(
 
     turn.system_texts.push(format!(
         "The user asked for a root cause investigation of the incident below. Work over the incident's time range: confirm what changed and which services were affected with your tools before concluding, and say which evidence supports the cause.\n\n{}",
-        incident_facts(&incident)
+        incident_context(state, ctx, &incident).await
     ));
 
     turn.alert_name = Some(incident.summary);

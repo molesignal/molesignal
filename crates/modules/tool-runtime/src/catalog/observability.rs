@@ -139,6 +139,45 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             }),
             vec!["Search", "Fields"],
         ),
+        BuiltinToolKind::AnalyzeLogPatterns => (
+            "Group the logs of one stream in a time range into message patterns, with the parts that change from log to log (numbers, IDs, IPs, URLs, times) folded into placeholders, and compare each pattern with a baseline stretch: its count, share, first time seen, levels, and whether it is new, surging, dropping or steady. Call it before reading raw logs; read examples of a pattern with query_logs or search_around afterwards.",
+            "logs",
+            json!({
+                "type": "object", "required": ["stream", "timeRange"],
+                "properties": {
+                    "stream": {"type": "string"}, "timeRange": time_range_schema(),
+                    "filterSql": {"type": "string", "description": "Optional boolean SQL expression that narrows the logs; no SELECT/ORDER/LIMIT."},
+                    "field": {"type": "string", "description": "The field that holds the message; found from the stream's schema when left out."},
+                    "baseline": {"type": "string", "enum": ["previous", "week_before", "none"], "default": "previous", "description": "previous: the stretch of the same length just before; week_before: the same stretch a week earlier."},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 30}
+                }, "additionalProperties": false
+            }),
+            vec!["Logs", "Patterns", "Investigation"],
+        ),
+        BuiltinToolKind::AnalyzeMetricTrend => (
+            "Summarize how one PromQL query moved in a time range against a baseline stretch: its level before and after, the change point (when the move began, how far and which way), and which series and which label values contributed most to the change. Call it instead of reading raw series with query_metrics when the question is what changed.",
+            "metrics",
+            json!({
+                "type": "object", "required": ["promql", "timeRange"],
+                "properties": {
+                    "promql": {"type": "string"}, "timeRange": time_range_schema(),
+                    "baseline": {"type": "string", "enum": ["previous", "week_before"], "default": "previous", "description": "previous: the stretch of the same length just before; week_before: the same stretch a week earlier."},
+                    "stepSeconds": {"type": "integer", "minimum": 1},
+                    "splitBy": {"type": "array", "items": {"type": "string"}, "maxItems": 5, "description": "Labels to attribute the change to; every label of the series when left out."},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10}
+                }, "additionalProperties": false
+            }),
+            vec!["Metrics", "Trend", "Investigation"],
+        ),
+        BuiltinToolKind::CheckDataReadiness => (
+            "Check how ready the organization's telemetry is for an investigation: for each stream, whether the service, environment and trace id are recorded (synonyms such as app or app_name included); whether a service is named the same way in logs, metrics and traces; whether environment values are spelled one way; and whether metric names carry their unit. Each finding comes with a suggested fix.",
+            "streams",
+            object_schema(json!({
+                "streams": {"type": "array", "items": {"type": "string"}, "maxItems": 50, "description": "Streams to check; every stream when left out."},
+                "timeRange": time_range_schema()
+            })),
+            vec!["Streams", "Data quality"],
+        ),
         BuiltinToolKind::CorrelateSignals => (
             "Return bounded links between incidents, traces, logs, RUM, and profiles for a service or trace.",
             "correlation",
@@ -192,13 +231,14 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
         tool
     };
 
-    // What a scheduled log inspection reads with: the schema of its stream, the logs, and the
-    // values a field takes. Nothing else is offered to unattended automation.
+    // What a scheduled log inspection reads with: the schema of its stream, the logs, the values a
+    // field takes, and the patterns of its logs. Nothing else is offered to unattended automation.
     if matches!(
         kind,
         BuiltinToolKind::QueryLogs
             | BuiltinToolKind::GetStreamSchema
             | BuiltinToolKind::SearchFieldValues
+            | BuiltinToolKind::AnalyzeLogPatterns
     ) {
         tool.automation()
     } else {

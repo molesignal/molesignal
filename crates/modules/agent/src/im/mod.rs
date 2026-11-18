@@ -1,38 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Mole Agent 在 IM 里：用一个 notify 应用连接器（飞书、Slack、钉钉、企业微信智能机器人、
-//! Google Chat、Microsoft Teams）收消息、回答。
+//! Mole Agent in IM: receives messages and answers through a notify app connector (Feishu, Slack,
+//! DingTalk, WeCom smart bot, Google Chat, or Microsoft Teams).
 //!
-//! - 机器人（[`ImBot`]）：一个应用连接器开了「在 IM 里回答」。机器人用长连接收消息（Teams 是
-//!   公网回调），同一时间只有一个节点连着（租约）；状态写回机器人。
-//! - 话题（[`ImThread`]）：群里的一个话题、一个人在群里（钉钉）或私聊里的对话，对应一个会话。
-//!   `/new` 与 `/scope` 换成新会话。
-//! - 消息（[`ImMessage`]）：收到的每一条，按平台的消息 ID 去重；排了一轮回答的记下 Run，结束
-//!   后回复到原处。
-//! - 绑定（[`ImLink`]）：IM 账号还没对上 MoleSignal 用户时私下发一个一次性链接，登录后确认。
-//! - 待发的回复（[`ImOutgoing`]）：回复只能从连着机器人的节点发出时（企业微信），别的节点把回复
-//!   记在这里，由连着的节点发出去。
-//! - 告警卡片上的按钮（[`CardAction`]）：飞书与 Slack 的告警通知带着确认、解决按钮，点了从长连接
-//!   交回来，结果是给点的人的一句话和换上的卡片（[`CardAnswer`]）。
+//! - Bot ([`ImBot`]): an app connector with `Answer in IM` enabled. The bot receives messages over
+//!   a persistent connection (a public callback for Teams), with only one node connected at a time
+//!   (via a lease); status is written back to the bot.
+//! - Thread ([`ImThread`]): a group thread, a person's conversation in a group (DingTalk), or a
+//!   direct conversation, mapped to a session. `/new` and `/scope` switch to a new session.
+//! - Message ([`ImMessage`]): each received message, deduplicated by the platform's message ID;
+//!   records the Run when an answer run is queued and replies to the original location on
+//!   completion.
+//! - Link ([`ImLink`]): sends a one-time link privately when an IM account is not yet matched to a
+//!   MoleSignal user, for confirmation after login.
+//! - Outgoing reply ([`ImOutgoing`]): when replies can only be sent by the node connected to the
+//!   bot (WeCom), other nodes record replies here for the connected node to send.
+//! - Alert card button ([`CardAction`]): Feishu and Slack alert notifications include acknowledge
+//!   and resolve buttons. Clicks arrive over the persistent connection and produce a message for
+//!   the person who clicked and a replacement card ([`CardAnswer`]).
 //!
-//! 只认已验证的通知身份：IM 账号对上的必须是一个启用、已验证的通知身份，对上多个人时不答。
+//! Only verified notification identities are recognized: the IM account must match an enabled,
+//! verified notification identity. No answer is sent if it matches multiple people.
 
 pub mod commands;
 
 use async_trait::async_trait;
+use domain::notify::{
+    buttons::{AlertButtonValue, AlertButtons},
+    connector::NotifyMessage,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    domain::notify::{
-        buttons::{AlertButtonValue, AlertButtons},
-        connector::NotifyMessage,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
-
-/// 能在 IM 里回答的平台，按连接器类型认。
+/// Platforms that support replies in IM, identified by connector type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ImPlatform {
@@ -42,16 +44,18 @@ pub enum ImPlatform {
     WeCom,
     GoogleChat,
     Teams,
+    Telegram,
 }
 
 impl ImPlatform {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Feishu,
         Self::Slack,
         Self::DingTalk,
         Self::WeCom,
         Self::GoogleChat,
         Self::Teams,
+        Self::Telegram,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -62,10 +66,11 @@ impl ImPlatform {
             Self::WeCom => "wecom",
             Self::GoogleChat => "google_chat",
             Self::Teams => "teams",
+            Self::Telegram => "telegram",
         }
     }
 
-    /// 这种连接器能不能在 IM 里回答。
+    /// Whether this connector type supports replies in IM.
     pub fn of_connector(connector_type: &str) -> Option<Self> {
         match connector_type {
             "lark_app" => Some(Self::Feishu),
@@ -74,11 +79,12 @@ impl ImPlatform {
             "wecom_bot" => Some(Self::WeCom),
             "google_chat_app" => Some(Self::GoogleChat),
             "teams_app" => Some(Self::Teams),
+            "telegram_bot" => Some(Self::Telegram),
             _ => None,
         }
     }
 
-    /// 写给人看的平台名。
+    /// The human-readable platform name.
     pub fn label(self) -> &'static str {
         match self {
             Self::Feishu => "Feishu",
@@ -87,15 +93,16 @@ impl ImPlatform {
             Self::WeCom => "WeCom",
             Self::GoogleChat => "Google Chat",
             Self::Teams => "Microsoft Teams",
+            Self::Telegram => "Telegram",
         }
     }
 }
 
-/// 机器人的长连接现在怎么样。
+/// The current state of the bot's persistent connection.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BotStatus {
-    /// 没开，或还没有节点连上。
+    /// Disabled, or no node has connected yet.
     #[default]
     Idle,
     Connecting,
@@ -124,17 +131,18 @@ impl BotStatus {
     }
 }
 
-/// 一个开了「在 IM 里回答」的应用连接器。
+/// An app connector with `Answer in IM` enabled.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImBot {
     pub connector_id: Id,
     pub org_id: Id,
     pub enabled: bool,
-    /// 群里新开的话题记成这个团队的团队会话（提问人是成员时）；空就是提问人的个人会话。
+    /// New group threads become this team's team sessions when the asker is a member; if empty,
+    /// they become the asker's personal sessions.
     pub default_team_id: Option<Id>,
     pub status: BotStatus,
-    /// 连不上的原因，或连上的节点。
+    /// The reason the connection fails, or the connected node.
     pub status_detail: Option<String>,
     pub status_at: Option<TimestampMicros>,
     pub last_message_at: Option<TimestampMicros>,
@@ -144,7 +152,7 @@ pub struct ImBot {
     pub updated_at: TimestampMicros,
 }
 
-/// 消息来自私聊还是群。
+/// Whether the message comes from a direct conversation or a group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConversationKind {
@@ -152,16 +160,17 @@ pub enum ConversationKind {
     Group,
 }
 
-/// 一个 IM 话题对应的会话。
+/// The session mapped to an IM thread.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImThread {
     pub id: Id,
     pub org_id: Id,
     pub connector_id: Id,
-    /// 群或私聊。
+    /// The group or direct conversation.
     pub conversation_id: String,
-    /// 话题：群里话题的根消息、钉钉群里的提问人；私聊是空的。
+    /// The thread: its root message in a group, or the asker in a DingTalk group; empty for direct
+    /// conversations.
     pub thread_key: String,
     pub chat_id: Id,
     pub created_by: Id,
@@ -169,10 +178,11 @@ pub struct ImThread {
     pub updated_at: TimestampMicros,
 }
 
-/// 发消息的人在平台上的身份：按顺序去对通知身份。
+/// The sender's identity on the platform, matched against notification identities in order.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sender {
-    /// 平台上的 ID，例如飞书的 open_id、user_id、union_id。第一个当作这个人的主 ID。
+    /// Platform IDs, such as Feishu's open_id, user_id, and union_id; the first is the person's
+    /// primary ID.
     pub ids: Vec<String>,
     #[serde(default)]
     pub name: Option<String>,
@@ -184,7 +194,7 @@ impl Sender {
     }
 }
 
-/// 收到的一条消息，已经去掉了对机器人的 @。
+/// A received message with the bot's @ mention already removed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Inbound {
     pub message_id: String,
@@ -193,27 +203,29 @@ pub struct Inbound {
     pub thread_key: String,
     pub sender: Sender,
     pub text: String,
-    /// 群里 @ 了机器人；私聊总是。
+    /// Whether the bot is @ mentioned in a group; always true in direct conversations.
     pub addressed: bool,
-    /// 回复到原处要的东西，各平台不同。
+    /// Platform-specific data needed to reply to the original location.
     pub reply: Value,
 }
 
-/// 点了告警卡片上的一个按钮。
+/// A button click on an alert card.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CardAction {
     pub value: AlertButtonValue,
     pub sender: Sender,
     pub conversation_id: String,
-    /// 平台不说是不是私聊时当作群：绑定链接私下发。
+    /// Treats the conversation as a group if the platform does not specify whether it is direct:
+    /// sends the linking URL privately.
     pub kind: ConversationKind,
-    /// 回复到卡片所在处要的东西，同 [`Inbound::reply`]。
+    /// Data needed to reply where the card is located, as in [`Inbound::reply`].
     pub reply: Value,
-    /// 换掉卡片要的东西，各平台不同：飞书的消息 ID，Slack 的 `response_url`。
+    /// Platform-specific data needed to replace the card: a Feishu message ID or Slack
+    /// `response_url`.
     pub card: Value,
 }
 
-/// 给点按钮的人的一句话是什么口气。
+/// The tone of the message to the person who clicks the button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NoticeKind {
     Success,
@@ -233,14 +245,16 @@ impl NoticeKind {
     }
 }
 
-/// 点了按钮以后：给点的人的一句话（飞书是一个提示，Slack 是只有他看得到的消息），与换上的卡片。
+/// The result of a button click: a message for the person who clicked (a Feishu notification or a
+/// Slack message visible only to that person) and the replacement card.
 #[derive(Debug, Clone)]
 pub struct CardAnswer {
     pub notice: Option<(NoticeKind, String)>,
     pub card: Option<AlertCard>,
 }
 
-/// 换上的告警卡片：按告警现在的样子重写的通知、还能点的按钮，与一句谁做了什么。
+/// The replacement alert card: a notification rewritten to reflect the alert's current state,
+/// buttons still available to click, and a line stating who did what.
 #[derive(Debug, Clone)]
 pub struct AlertCard {
     pub message: NotifyMessage,
@@ -248,19 +262,20 @@ pub struct AlertCard {
     pub note: Option<String>,
 }
 
-/// 一条消息走到哪一步了。
+/// The current processing stage of a message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageStatus {
-    /// 收到了，还在处理。
+    /// Received and still being processed.
     Received,
-    /// 排了一轮回答，等它结束。
+    /// An answer run is queued, awaiting completion.
     Answering,
-    /// 回复了。
+    /// Replied.
     Replied,
-    /// 不用回答：没 @ 机器人、是命令，或者回过了别的话。
+    /// No answer needed: the bot is not @ mentioned, the message is a command, or another reply
+    /// has already been sent.
     Ignored,
-    /// 回复不出去。
+    /// The reply cannot be sent.
     Failed,
 }
 
@@ -289,7 +304,7 @@ impl MessageStatus {
     }
 }
 
-/// 收到的一条消息与它的回复。
+/// A received message and its reply.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImMessage {
@@ -304,7 +319,7 @@ pub struct ImMessage {
     pub chat_id: Option<Id>,
     pub run_id: Option<Id>,
     pub reply: Value,
-    /// 「处理中」表情的 ID，回复后撤掉。
+    /// The ID of the `Processing` reaction, removed after replying.
     pub reaction_id: Option<String>,
     pub status: MessageStatus,
     pub detail: Option<String>,
@@ -335,8 +350,9 @@ impl ImMessage {
     }
 }
 
-/// 一次性的绑定链接：私下发给 IM 里的人，登录 MoleSignal 后确认，把这个 IM 账号记成本人的已验证
-/// 通知身份。只存令牌的摘要。
+/// A one-time linking URL sent privately to an IM user for confirmation after logging in to
+/// MoleSignal, registering the IM account as that user's verified notification identity. Only the
+/// token's digest is stored.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImLink {
@@ -349,25 +365,27 @@ pub struct ImLink {
     pub created_at: TimestampMicros,
 }
 
-/// 绑定链接多久有效。
+/// How long the linking URL remains valid.
 pub const LINK_LIFETIME_MICROS: i64 = 15 * 60 * 1_000_000;
 
-/// 一条等连着机器人的节点发出去的回复：把「处理中」换成回答，或回复到原处。也可以是机器人主动发的一条
-/// 通知（`notification`）。
+/// A reply waiting for the node connected to the bot to send it, replacing `Processing` with the
+/// answer or replying to the original location. It can also be a notification sent proactively by
+/// the bot (`notification`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImOutgoing {
     pub id: Id,
     pub org_id: Id,
     pub connector_id: Id,
-    /// 这条回复了结的消息；发出去后写回它的状态。
+    /// The message this reply settles; its status is written back after the reply is sent.
     pub message_id: Option<Id>,
-    /// 回复到哪里，同 [`Inbound::reply`]。
+    /// Where to send the reply, as in [`Inbound::reply`].
     pub reply: Value,
-    /// 要换掉的「处理中」。
+    /// The `Processing` message to replace.
     pub working: Option<String>,
     pub markdown: String,
-    /// 机器人主动发的一条通知，平台的消息体，发往哪里写在里面；有它时不看 `reply` 与 `markdown`。
+    /// A proactive bot notification with a platform message body that includes its destination;
+    /// when present, `reply` and `markdown` are ignored.
     #[serde(default)]
     pub notification: Option<Value>,
     pub created_at: TimestampMicros,
@@ -377,14 +395,15 @@ pub struct ImOutgoing {
 pub trait ImRepository: Send + Sync {
     async fn list_bots(&self, org_id: &Id) -> Result<Vec<ImBot>>;
     async fn get_bot(&self, org_id: &Id, connector_id: &Id) -> Result<Option<ImBot>>;
-    /// 按连接器找机器人，不看组织：公网回调只知道连接器 ID。
+    /// Finds a bot by connector, regardless of organization: public callbacks only know the
+    /// connector ID.
     async fn find_bot(&self, connector_id: &Id) -> Result<Option<ImBot>>;
-    /// 新建或改机器人的设置（状态与租约不动）。
+    /// Creates or updates bot settings (without changing its status or lease).
     async fn put_bot(&self, bot: &ImBot) -> Result<ImBot>;
     async fn delete_bot(&self, org_id: &Id, connector_id: &Id) -> Result<()>;
-    /// 所有组织里开着的机器人，给 worker 用。
+    /// Enabled bots across all organizations, for the worker.
     async fn enabled_bots(&self) -> Result<Vec<ImBot>>;
-    /// 领到或续上一个机器人的租约；别的节点持有且没过期时返回 false。
+    /// Acquires or renews a bot's lease; returns false if another node holds an unexpired lease.
     async fn lease_bot(
         &self,
         connector_id: &Id,
@@ -393,7 +412,8 @@ pub trait ImRepository: Send + Sync {
         until: TimestampMicros,
     ) -> Result<bool>;
     async fn release_bot(&self, connector_id: &Id, node: &str) -> Result<()>;
-    /// 写下机器人的状态；只有持有租约的 `node` 写得进去（交接时旧节点不会盖掉新节点的）。
+    /// Writes the bot's status; only the `node` holding the lease can write it (during handoff, the
+    /// old node cannot overwrite the new node's status).
     async fn set_bot_status(
         &self,
         connector_id: &Id,
@@ -409,15 +429,18 @@ pub trait ImRepository: Send + Sync {
         conversation_id: &str,
         thread_key: &str,
     ) -> Result<Option<ImThread>>;
-    /// 记下话题对应的会话；已经有了就换成这个会话。
+    /// Records the session associated with a thread; replaces any existing association with this
+    /// session.
     async fn put_thread(&self, thread: &ImThread) -> Result<ImThread>;
 
-    /// 记下收到的消息；同一个连接器的同一条消息已经记过时返回 false。
+    /// Records a received message; returns false if the same message from the same connector is
+    /// already recorded.
     async fn record_message(&self, message: &ImMessage) -> Result<bool>;
     async fn update_message(&self, message: &ImMessage) -> Result<()>;
-    /// 把一条消息从 `from` 换到 `to`；别人先换了时返回 false（回复只发一次）。
+    /// Moves a message from `from` to `to`; returns false if someone else moves it first (the reply
+    /// is sent only once).
     async fn move_message(&self, id: &Id, from: MessageStatus, to: MessageStatus) -> Result<bool>;
-    /// 回复发出去了（或发不出去）：写下状态、原因与时间。
+    /// Records the status, reason, and time when a reply is sent (or cannot be sent).
     async fn settle_message(
         &self,
         id: &Id,
@@ -426,18 +449,19 @@ pub trait ImRepository: Send + Sync {
         replied_at: TimestampMicros,
     ) -> Result<()>;
     async fn message_for_run(&self, run_id: &Id) -> Result<Option<ImMessage>>;
-    /// 还在等回答、早于 `before` 收到的消息：节点没了时由 worker 补上回复。
+    /// Messages received before `before` that still await answers; the worker supplies replies if
+    /// the node is gone.
     async fn answering(&self, before: TimestampMicros, limit: i64) -> Result<Vec<ImMessage>>;
-    /// 清掉早于 `before` 的消息与没发出去的回复。
+    /// Purges messages and unsent replies from before `before`.
     async fn purge_messages(&self, before: TimestampMicros) -> Result<u64>;
 
-    /// 记下一条等连着机器人的节点发的回复。
+    /// Records a reply awaiting delivery by the node connected to the bot.
     async fn enqueue_outgoing(&self, outgoing: &ImOutgoing) -> Result<()>;
-    /// 取走一个机器人最早的几条待发回复（取走就不在了，别的节点拿不到）。
+    /// Takes a bot's earliest pending replies (removing them so other nodes cannot take them).
     async fn take_outgoing(&self, connector_id: &Id, limit: i64) -> Result<Vec<ImOutgoing>>;
 
     async fn create_link(&self, link: &ImLink) -> Result<()>;
-    /// 取走一个没过期的链接（取走就作废）。
+    /// Takes an unexpired link (invalidating it upon retrieval).
     async fn take_link(&self, token_hash: &str, now: TimestampMicros) -> Result<Option<ImLink>>;
     async fn peek_link(&self, token_hash: &str, now: TimestampMicros) -> Result<Option<ImLink>>;
 }
@@ -474,6 +498,10 @@ mod tests {
             Some(ImPlatform::Teams)
         );
         assert_eq!(ImPlatform::of_connector("wecom_app"), None);
+        assert_eq!(
+            ImPlatform::of_connector("telegram_bot"),
+            Some(ImPlatform::Telegram)
+        );
 
         for status in [
             BotStatus::Idle,

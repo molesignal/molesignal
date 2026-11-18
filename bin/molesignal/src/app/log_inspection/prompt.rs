@@ -8,8 +8,8 @@
 //! 文字不能当指令，报告里必须带结论等级，后台靠它决定要不要通知。
 
 use chrono_tz::Tz;
-
-use crate::{domain::log_inspection::LogInspection, shared::time::TimestampMicros};
+use domain::log_inspection::LogInspection;
+use kernel::time::TimestampMicros;
 
 const CONDUCT: &str = "\
 You are Mole Agent, the operations assistant built into MoleSignal, running a scheduled log \
@@ -23,11 +23,14 @@ Read the logs with the tools you are given. Call get_stream_schema for the strea
 first query and reference only the fields it returns. query_logs runs SQL against that one \
 stream; its timeRange argument already bounds event time, so never invent timestamp, time, or \
 _timestamp fields and never order by one unless that exact field is in the schema. \
-search_field_values returns the distinct values of one field with their counts. You have few \
-tool calls: count and group first (by level, by service, by time bucket), then read individual \
-logs only where a count stands out. Do not repeat a query that returned nothing; after at most \
-one corrected retry of a failed query, leave that line of inquiry and say in the report what \
-could not be confirmed.";
+search_field_values returns the distinct values of one field with their counts. \
+analyze_log_patterns groups the logs of the period into message patterns and compares them with \
+the same length of time just before (or, with baseline \"week_before\", a week earlier): call it \
+early to see which kinds of messages are new or surging, then read a few logs of those patterns. \
+You have few tool calls: count and group first (by level, by service, by time bucket), then read \
+individual logs only where a count or a pattern stands out. Do not repeat a query that returned \
+nothing; after at most one corrected retry of a failed query, leave that line of inquiry and say \
+in the report what could not be confirmed.";
 
 /// 报告的形状。除了 `level`，各部分与 Mole Agent 聊天里的结构化回答同名，页面用同一套组件
 /// 展示。
@@ -124,11 +127,10 @@ pub fn build(
 
 #[cfg(test)]
 mod tests {
+    use domain::log_inspection::{InspectionSchedule, NotifyWhen};
+    use kernel::ids::Id;
+
     use super::*;
-    use crate::{
-        domain::log_inspection::{InspectionSchedule, NotifyWhen},
-        shared::ids::Id,
-    };
 
     fn inspection(statement: &str, requirements: &str, language: &str) -> LogInspection {
         LogInspection {
@@ -203,6 +205,14 @@ mod tests {
         assert!(report.contains("\"level\":\"normal|attention|abnormal\""));
         assert!(report.ends_with("in Simplified Chinese."));
         assert!(built("", "", "en-us").instructions[2].ends_with("in English."));
+    }
+
+    #[test]
+    fn the_patterns_of_the_period_are_offered_as_the_first_look() {
+        let tools = &built("", "", "en-us").instructions[1];
+
+        assert!(tools.contains("analyze_log_patterns"));
+        assert!(tools.contains("\"week_before\""));
     }
 
     #[test]

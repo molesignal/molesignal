@@ -1,29 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! AgentLoop：执行 user → LLM → tool → LLM → ... → final assistant。
+//! AgentLoop: runs user -> LLM -> tool -> LLM -> ... -> final assistant.
 //!
-//! 一轮回答能用掉多少由 [`LoopLimits`] 决定：工具调用次数、总时限与温度。额度用完后
-//! 不再调用工具，追加一条收尾指令，让模型用已经拿到的结果给出最终回答。每次调用模型
-//! 服务都交一条 [`ModelCall`] 给观察者。
+//! [`LoopLimits`] determines the budget for one answer: tool call count, total time limit, and
+//! temperature. Once the budget runs out, stops calling tools and appends a final instruction
+//! so the model gives its final answer using results already obtained. Each model service call
+//! passes a [`ModelCall`] to the observer.
 
 use std::{sync::Arc, time::Instant};
 
 use budget::{Budget, Exhaustion, INVALID_FINAL_RESPONSE_FALLBACK_MESSAGE};
+use futures::StreamExt;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
+use tool_runtime::{ToolContent, ToolResult};
 
 use super::{
     ChatMessage, CompletionRequest, CompletionResponse, MessageRole, ProviderAdapter,
     RequestedToolCall, ToolChoice,
     model_call::{ModelCall, ModelCallObserver, elapsed_ms},
 };
-use crate::{
-    agent::tools::{ToolAuthContext, ToolCall, ToolContent, ToolDispatcher, ToolResult},
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
+use crate::tools::{ToolAuthContext, ToolDispatcher};
 
 mod budget;
+mod group;
 mod stream;
+#[cfg(test)]
+mod tests;
 
 pub use budget::{DEFAULT_MAX_TOOL_CALLS, DEFAULT_TEMPERATURE, LoopLimits};
 pub use stream::RunConclusion;
@@ -79,9 +83,10 @@ fn message(role: MessageRole, content: String) -> ChatMessage {
     }
 }
 
-/// 携带工具调用的 assistant 消息。OpenAI 与兼容 API 要求工具结果前必须先有这样一条，
-/// 否则 400 "Messages with role 'tool' must be a response to a preceding message with
-/// 'tool_calls'"；Anthropic 适配器把它转成 `tool_use` 块。
+/// An assistant message carrying tool calls.
+/// OpenAI and compatible APIs require this message before tool results; otherwise, they return
+/// 400 "Messages with role 'tool' must be a response to a preceding message with
+/// 'tool_calls'". The Anthropic adapter converts it to `tool_use` blocks.
 fn assistant_with_tool_calls(content: String, calls: &[RequestedToolCall]) -> ChatMessage {
     let tool_calls = calls
         .iter()
@@ -103,7 +108,7 @@ fn assistant_with_tool_calls(content: String, calls: &[RequestedToolCall]) -> Ch
     }
 }
 
-/// 工具结果消息，连同回给调用方展示用的 JSON 文本。
+/// A tool result message, along with JSON text returned to the caller for display.
 fn tool_message(call_id: &str, result: &ToolResult) -> (ChatMessage, String) {
     let content = serde_json::to_string(&result.content).unwrap_or_default();
 
@@ -115,7 +120,7 @@ fn tool_message(call_id: &str, result: &ToolResult) -> (ChatMessage, String) {
     (chat_message, content)
 }
 
-/// AgentLoop：执行 user → LLM → tool → LLM → ... → final assistant。
+/// AgentLoop: runs user -> LLM -> tool -> LLM -> ... -> final assistant.
 pub struct AgentLoop {
     provider: Arc<dyn ProviderAdapter>,
     dispatcher: Arc<dyn ToolDispatcher>,
@@ -130,8 +135,8 @@ pub struct AgentLoopResult {
     pub tool_calls_made: usize,
     pub prompt_tokens_total: i32,
     pub completion_tokens_total: i32,
-    /// 最后一次模型调用的结束原因；额度用完时是 `tool_budget_exhausted` 或
-    /// `time_budget_exhausted`。
+    /// The finish reason of the last model call; `tool_budget_exhausted` or
+    /// `time_budget_exhausted` when the budget runs out.
     pub finish_reason: String,
 }
 
@@ -150,7 +155,7 @@ impl AgentLoop {
         self
     }
 
-    /// 每次调用模型服务之后把记录交给 `observer`。
+    /// Passes the record to `observer` after each model service call.
     pub fn with_observer(mut self, observer: Arc<dyn ModelCallObserver>) -> Self {
         self.observer = Some(observer);
         self
@@ -184,7 +189,7 @@ impl AgentLoop {
         }
     }
 
-    /// 非流式调用一次模型服务，并记下这次调用。
+    /// Makes one non-streaming model service call and records it.
     async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse> {
         let model = request.model.clone();
         let started = Instant::now();
@@ -222,8 +227,9 @@ impl AgentLoop {
         outcome
     }
 
-    /// 跑完整循环。`history` 包含 system + 历史消息 + 当前 user message。
-    /// 返回最终 assistant content + 计数。
+    /// Runs the full loop.
+    /// `history` contains system + historical messages + the current user message.
+    /// Returns the final assistant content + counts.
     #[tracing::instrument(
         name = "gen_ai.agent",
         skip_all,
@@ -287,7 +293,7 @@ impl AgentLoop {
             total_completion += resp.completion_tokens;
 
             if resp.tool_calls.is_empty() {
-                // 最终回答
+                // Final answer
                 let content = resp.content.unwrap_or_default();
 
                 return Ok(AgentLoopResult {
@@ -307,27 +313,25 @@ impl AgentLoop {
                 &resp.tool_calls,
             ));
 
-            // 跑 tool calls，把结果作为 Tool message 追加，再回 LLM；额度不够的调用不执行，
-            // 也要回一条结果，否则下一次请求里有调用没有结果。
-            for tc in &resp.tool_calls {
-                let result = match budget.take() {
-                    Ok(()) => {
-                        tool_calls_made += 1;
+            // Runs tool calls, appends results as Tool messages, then returns to the LLM.
+            // Calls with insufficient budget are skipped but still receive a result; otherwise,
+            // the next request contains calls without results. Consecutive calls that only read
+            // run together; results keep the order of the calls.
+            for range in group::groups(self.dispatcher.as_ref(), &resp.tool_calls) {
+                let calls = &resp.tool_calls[range];
+                let planned = group::plan(&mut budget, calls);
+                tool_calls_made += group::runs(&planned);
 
-                        let call = ToolCall {
-                            name: tc.name.clone(),
-                            arguments: tc.arguments.clone(),
-                        };
+                let results: Vec<ToolResult> = group::run(self.dispatcher.as_ref(), ctx, planned)
+                    .collect()
+                    .await;
 
-                        self.dispatcher
-                            .dispatch(ctx, call)
-                            .await
-                            .unwrap_or_else(tool_failure_result)
-                    }
-                    Err(reason) => reason.skipped_result(),
-                };
+                let mut results = results.into_iter();
 
-                messages.push(tool_message(&tc.id, &result).0);
+                for tc in calls {
+                    let result = results.next().unwrap_or_else(group::missing_result);
+                    messages.push(tool_message(&tc.id, &result).0);
+                }
             }
 
             tracing::debug!(

@@ -3,6 +3,10 @@
 
 use std::collections::HashSet;
 
+use domain::iam::access::IamPrincipalType;
+use postgres::repositories::agent::prompts::{
+    AgentPromptTemplate, allowed_variables, render_prompt,
+};
 use rmcp::{
     ErrorData, RoleServer,
     model::{
@@ -14,12 +18,6 @@ use rmcp::{
 use serde_json::{Map, Value};
 
 use super::handler::{InboundMcpHandler, protocol_error, request_data};
-use crate::{
-    domain::iam::access::IamPrincipalType,
-    infra::persistence::repositories::agent::prompts::{
-        AgentPromptTemplate, allowed_variables, render_prompt,
-    },
-};
 
 pub(super) async fn list(
     handler: &InboundMcpHandler,
@@ -97,7 +95,7 @@ pub(super) async fn get(
 
 async fn visible_templates(
     handler: &InboundMcpHandler,
-    iam: &crate::app::iam::IamContext,
+    iam: &domain::iam::IamContext,
 ) -> Result<Vec<AgentPromptTemplate>, ErrorData> {
     let templates = handler
         .state
