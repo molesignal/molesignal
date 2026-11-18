@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-26.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ endsWith(github.ref_name, '-alpha') }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -35,7 +36,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(-alpha)?$ ]] || exit 1
           git fetch origin main
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
@@ -387,14 +388,13 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # Publish the exact version and the shared latest tag.
           flavor: |
             latest=false
           tags: |
             type=raw,value=build-${{ env.BUILD_ID }}
             type=sha,format=long,prefix=sha-
             type=match,pattern=v(.*),group=1
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ needs.release-version.outputs.prerelease == 'false' }}
           labels: |
             io.molesignal.build-id=${{ env.BUILD_ID }}
 
@@ -409,7 +409,7 @@ jobs:
             type=raw,value=build-${{ env.BUILD_ID }}
             type=sha,format=long,prefix=sha-
             type=match,pattern=v(.*),group=1
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ needs.release-version.outputs.prerelease == 'false' }}
           labels: |
             io.molesignal.build-id=${{ env.BUILD_ID }}
             org.opencontainers.image.title=MoleSignal Probe Agent
@@ -464,7 +464,7 @@ jobs:
       - name: append docker image info to changelog
         env:
           VERSIONED_TAG: ${{ needs.release-version.outputs.version }}
-          FLOAT_TAG: latest
+          PRERELEASE: ${{ needs.release-version.outputs.prerelease }}
         run: |
           cat >> CHANGELOG.md << EOF
 
@@ -488,10 +488,14 @@ jobs:
           | Artifact | Tag | Image |
           |----------|-----|-------|
           | Server | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSIONED_TAG}\` |
-          | Server | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${FLOAT_TAG}\` |
           | Probe Agent | \`${VERSIONED_TAG}\` | \`${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${VERSIONED_TAG}\` |
-          | Probe Agent | \`${FLOAT_TAG}\` | \`${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:${FLOAT_TAG}\` |
           EOF
+          if [[ "$PRERELEASE" == "false" ]]; then
+            cat >> CHANGELOG.md << EOF
+          | Server | \`latest\` | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\` |
+          | Probe Agent | \`latest\` | \`${{ env.REGISTRY }}/${{ env.PROBE_IMAGE_NAME }}:latest\` |
+          EOF
+          fi
 
       # 放在正文最后，紧贴 GitHub 根据 @mention 渲染的 Contributors 区块。
       - name: append compare link to changelog
@@ -513,6 +517,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           name: ${{ github.ref_name }}
-          prerelease: false
+          prerelease: ${{ needs.release-version.outputs.prerelease }}
+          fail_on_unmatched_files: true
           body_path: CHANGELOG.md
           files: artifacts/*.tar.gz

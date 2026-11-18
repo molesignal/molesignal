@@ -56,13 +56,16 @@ fn main() {
 
     let product_version =
         env::var("PRODUCT_VERSION").unwrap_or_else(|_| INTERNAL_PRODUCT_VERSION.to_owned());
-    let parts: Vec<_> = product_version.split('.').collect();
+    let numeric_version = product_version
+        .strip_suffix("-alpha")
+        .unwrap_or(&product_version);
+    let parts: Vec<_> = numeric_version.split('.').collect();
     assert!(
         parts.len() == 4
             && parts.iter().all(|part| !part.is_empty()
                 && part.bytes().all(|b| b.is_ascii_digit())
                 && part.parse::<u64>().is_ok()),
-        "PRODUCT_VERSION must contain four numeric components"
+        "PRODUCT_VERSION must contain four numeric components with an optional -alpha suffix"
     );
 
     println!("cargo:rustc-env=MOLESIGNAL_GIT_COMMIT={commit}");

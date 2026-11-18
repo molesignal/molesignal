@@ -35,6 +35,10 @@ impl ProductVersion {
             return Some(Self(numbers, true, 0));
         }
 
+        if suffix == "-alpha" {
+            return Some(Self(numbers, false, 0));
+        }
+
         if !suffix.starts_with(['.', '-'])
             || suffix.len() == 1
             || !suffix[1..]

@@ -8,6 +8,8 @@ fn versions_compare_numerically_and_accept_historical_tags() {
     let parse = |s| ProductVersion::parse(s).unwrap();
     assert!(parse("v26.10.0.0") > parse("26.2.0.0"));
     assert!(parse("26.0.0.0") > parse("v26.0.0.0.alpha-1"));
+    assert!(parse("26.4.0.0") > parse("v26.4.0.0-alpha"));
+    assert!(parse("v26.4.0.0-alpha") > parse("26.3.0.2"));
     assert!(parse("26.0.0.0-rc.10") > parse("26.0.0.0-rc.2"));
 
     for value in [
