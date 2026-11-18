@@ -127,12 +127,21 @@ export interface CatalogFilter {
   only?: ReadonlySet<string> | null;
 }
 
+/** Whether a row's name, namespace or one of the other names of its service holds the search. */
+function matchesSearch(row: CatalogRow, search: string): boolean {
+  return (
+    row.name.toLocaleLowerCase().includes(search) ||
+    row.namespace.toLocaleLowerCase().includes(search) ||
+    (row.definition?.aliases ?? []).some((alias) => alias.toLocaleLowerCase().includes(search))
+  );
+}
+
 export function filterCatalogRows(rows: readonly CatalogRow[], filter: CatalogFilter): CatalogRow[] {
   const search = filter.search.trim().toLocaleLowerCase();
 
   return rows.filter(
     (row) =>
-      (!search || row.name.toLocaleLowerCase().includes(search) || row.namespace.toLocaleLowerCase().includes(search)) &&
+      (!search || matchesSearch(row, search)) &&
       (!filter.environment || row.environment === filter.environment) &&
       (!filter.team || row.definition?.teamId === filter.team) &&
       (!filter.namespace || row.namespace === filter.namespace) &&

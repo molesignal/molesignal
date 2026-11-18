@@ -367,7 +367,43 @@
       "tags": "标签",
       "tags_hint": "key=value，或只写 key；用逗号分隔。key 只用小写字母、数字和 _ . - /",
       "apdex": "Apdex 阈值 T（毫秒）",
-      "apdex_hint": "不超过 T 的请求算满意，不超过 4T 算可容忍；留空使用默认的 500 毫秒"
+      "apdex_hint": "不超过 T 的请求算满意，不超过 4T 算可容忍；留空使用默认的 500 毫秒",
+      "aliases": "其他叫法",
+      "aliases_placeholder": "order_service, 订单中心",
+      "aliases_hint":"日志、指标和其他系统对这个服务的叫法，用逗号分隔，例如 order_service、订单中心。按这些叫法也能找到服务，Mole Agent 排查时会读到；数据不会合并。要把旧名字上报的数据算作这个服务，在 APM 设置里添加服务别名。"
+    },
+    "aliases_problem": {
+      "length": "每个叫法最多 128 个字符：{{alias}}",
+      "own_name": "{{alias}} 是服务自己的名字",
+      "twice": "{{alias}} 写了两次",
+      "too_many": "一个服务最多 20 个其他叫法"
+    },
+    "sources": {
+      "title": "数据入口",
+      "hint": "这个服务的数据在哪些日志流、指标、仪表盘和页面里。Mole Agent 排查这个服务时从这里找起。",
+      "logs": "日志流",
+      "metrics": "指标",
+      "dashboards": "仪表盘",
+      "links": "链接",
+      "add": "添加",
+      "remove": "删除",
+      "open": "打开",
+      "stream": "数据流",
+      "filter": "过滤条件：SQL 条件，留空表示整个数据流",
+      "selector": "PromQL 选择器",
+      "dashboard": "仪表盘",
+      "choose_dashboard": "选择仪表盘",
+      "link_name": "名称",
+      "link_url": "地址",
+      "problem": {
+        "too_many": "每类最多 10 条",
+        "stream": "请填写日志所在的数据流",
+        "filter": "过滤条件最多 2000 个字符",
+        "selector": "请填写选择器，例如 {service=\"checkout\"}，或带标签的指标名",
+        "link_name": "请填写链接名称，最多 120 个字符",
+        "link_url": "请填写不含空格的 http 或 https 地址",
+        "dashboard_twice": "同一个仪表盘列了两次"
+      }
     },
     "none": "无",
     "docs_hint": "文档和 Runbook 放在 Mole Agent 知识库的 {{path}} 下，Mole Agent 排查时也会读到。",
@@ -456,7 +492,8 @@
       "deployed_label": "最近部署",
       "deployed": "{{when}}部署",
       "region": "部署区域",
-      "repository": "代码仓库"
+      "repository": "代码仓库",
+      "aliases": "其他叫法"
     },
     "coverage": {
       "missing": {

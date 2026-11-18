@@ -13,19 +13,19 @@ use axum::{
     http::StatusCode,
     routing::{get, post, put},
 };
+use domain::{
+    apm::{
+        ErrorIssue, ErrorIssueStatus, KeyTransactionMark, ServiceDataSources, ServiceDefinition,
+        ServiceLifecycle, ServiceTier, TransactionIdentity, alias_clash, masked_repository_address,
+    },
+    iam::{IamContext, permission},
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 
 use crate::{
     api::{AppState, http::routes::activity_audit},
-    app::{apm::ErrorIssueView, iam::IamContext},
-    domain::{
-        apm::{
-            ErrorIssue, ErrorIssueStatus, KeyTransactionMark, ServiceDefinition, ServiceLifecycle,
-            ServiceTier, TransactionIdentity, masked_repository_address,
-        },
-        iam::permission,
-    },
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
+    app::apm::ErrorIssueView,
 };
 
 pub(super) fn routes() -> Router<AppState> {
@@ -62,6 +62,12 @@ struct DefinitionWrite {
     tags: BTreeMap<String, String>,
     #[serde(default)]
     apdex_threshold: Option<u64>,
+    /// Other names the service goes by. Left out, a definition already kept
+    /// keeps its own, as it does its data sources.
+    #[serde(default)]
+    aliases: Option<Vec<String>>,
+    #[serde(default)]
+    data_sources: Option<ServiceDataSources>,
     /// Left out, a definition already kept stays as archived as it was.
     #[serde(default)]
     archived: Option<bool>,
@@ -120,13 +126,16 @@ async fn save_definition(
 
     let namespace = params.namespace.trim().to_owned();
     let name = service.trim().to_owned();
-    let kept = state
+    let definitions = state
         .telemetry
         .apm_catalog
         .list_definitions(&ctx.org_id)
-        .await?
-        .into_iter()
-        .find(|definition| definition.namespace == namespace && definition.name == name);
+        .await?;
+
+    let kept = definitions
+        .iter()
+        .find(|definition| definition.namespace == namespace && definition.name == name)
+        .cloned();
 
     let definition = ServiceDefinition {
         description: request.description.trim().to_owned(),
@@ -142,6 +151,20 @@ async fn save_definition(
             .map(|address| masked_repository_address(&address).unwrap_or(address)),
         tags: trimmed_tags(request.tags),
         apdex_threshold: request.apdex_threshold,
+        aliases: match request.aliases {
+            Some(aliases) => trimmed_aliases(aliases),
+            None => kept
+                .as_ref()
+                .map(|kept| kept.aliases.clone())
+                .unwrap_or_default(),
+        },
+        data_sources: match request.data_sources {
+            Some(sources) => sources.trimmed(),
+            None => kept
+                .as_ref()
+                .map(|kept| kept.data_sources.clone())
+                .unwrap_or_default(),
+        },
         // Starred one at a time, and kept as they are by a save.
         key_transactions: kept
             .as_ref()
@@ -159,6 +182,12 @@ async fn save_definition(
     };
 
     definition.validate()?;
+
+    // Another name is found by: it may not be what another service is known by already.
+    if let Some(clash) = alias_clash(&definition, &definitions) {
+        return Err(Error::invalid(clash));
+    }
+
     state
         .telemetry
         .apm_catalog
@@ -178,6 +207,8 @@ async fn save_definition(
             "lifecycle": definition.lifecycle,
             "tags": definition.tags,
             "apdexThreshold": definition.apdex_threshold,
+            "aliases": definition.aliases,
+            "dataSources": definition.data_sources,
             "archived": definition.archived,
         }),
     )
@@ -236,6 +267,15 @@ async fn mark_key_transaction(
 fn trimmed_tags(tags: BTreeMap<String, String>) -> BTreeMap<String, String> {
     tags.into_iter()
         .map(|(key, value)| (key.trim().to_owned(), value.trim().to_owned()))
+        .collect()
+}
+
+/// Other names as they are kept: without the spaces around them, the empty ones dropped.
+fn trimmed_aliases(aliases: Vec<String>) -> Vec<String> {
+    aliases
+        .into_iter()
+        .map(|alias| alias.trim().to_owned())
+        .filter(|alias| !alias.is_empty())
         .collect()
 }
 

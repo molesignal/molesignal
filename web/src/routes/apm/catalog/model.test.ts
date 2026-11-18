@@ -55,6 +55,13 @@ describe('the service catalog', () => {
     expect(filterCatalogRows(rows, { search: '', environment: '', team: 't2' }).map((row) => row.name)).toEqual(['cart']);
   });
 
+  it('finds a service by one of its other names too', () => {
+    const rows = catalogRows([summary('checkout', 'prod', 10), summary('cart', 'prod', 2)], [definition('checkout', { aliases: ['order_service', '订单中心'] })]);
+    expect(filterCatalogRows(rows, { search: 'ORDER_SERVICE', environment: '', team: '' }).map((row) => row.name)).toEqual(['checkout']);
+    expect(filterCatalogRows(rows, { search: '订单', environment: '', team: '' }).map((row) => row.name)).toEqual(['checkout']);
+    expect(filterCatalogRows(rows, { search: 'basket', environment: '', team: '' })).toEqual([]);
+  });
+
   it('sorts by a column and keeps rows without a value last whichever way it goes', () => {
     const rows = catalogRows([summary('a', 'prod', 5, 300), summary('b', 'prod', 50), summary('c', 'prod', 1, 900)], [definition('d')]);
     expect(sortCatalogRows(rows, { key: 'p95', direction: 'desc' }, names).map((row) => row.name)).toEqual(['c', 'a', 'b', 'd']);

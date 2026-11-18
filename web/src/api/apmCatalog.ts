@@ -6,6 +6,33 @@ import type { TransactionIdentity } from './apm';
 export type ServiceTier = 'p0' | 'p1' | 'p2' | 'p3' | 'p4' | 'p5';
 export type ServiceLifecycle = 'production' | 'staging' | 'experimental' | 'deprecated';
 
+/** A log stream that holds the service's logs, with the condition that picks them out of it. */
+export interface ServiceLogSource {
+  stream: string;
+  /** A boolean SQL expression; none when the stream holds this service's logs alone. */
+  filter?: string | null;
+}
+
+/** The service's metrics as a PromQL selector: `{service="order-api"}` or a metric with its labels. */
+export interface ServiceMetricSource {
+  selector: string;
+}
+
+/** A page about the service elsewhere: a runbook, a document, a CMDB entry. */
+export interface ServiceLink {
+  name: string;
+  url: string;
+}
+
+/** Where a service's data is. Older backends answer without it. */
+export interface ServiceDataSources {
+  logs?: ServiceLogSource[];
+  metrics?: ServiceMetricSource[];
+  /** Ids of the dashboards that show the service. */
+  dashboards?: string[];
+  links?: ServiceLink[];
+}
+
 /** A service as people describe it, in every environment it runs in. Owners are the platform's teams and users. */
 export interface ServiceDefinition {
   namespace: string;
@@ -23,6 +50,9 @@ export interface ServiceDefinition {
   apdexThreshold?: number | null;
   /** The endpoints that matter most, starred in the service's endpoint lists. */
   keyTransactions?: TransactionIdentity[];
+  /** Other names the service goes by in logs, metrics and elsewhere. Older backends answer without them. */
+  aliases?: string[];
+  dataSources?: ServiceDataSources;
   /** Out of the catalog's default view. */
   archived?: boolean;
   updatedBy: string;
@@ -32,7 +62,7 @@ export interface ServiceDefinition {
 /** What a save writes; key transactions are starred one at a time, and a save keeps them. */
 export type ServiceDefinitionWrite = Pick<
   ServiceDefinition,
-  'description' | 'teamId' | 'ownerId' | 'tier' | 'lifecycle' | 'repositoryUrl' | 'tags' | 'apdexThreshold' | 'archived'
+  'description' | 'teamId' | 'ownerId' | 'tier' | 'lifecycle' | 'repositoryUrl' | 'tags' | 'apdexThreshold' | 'aliases' | 'dataSources' | 'archived'
 >;
 
 /** Whether a signal carries the service: `unknown` when the look failed or could not tell. */

@@ -5974,6 +5974,10 @@ CREATE TABLE IF NOT EXISTS apm_service_definitions (
     tags                    JSONB        NOT NULL DEFAULT '{}'::jsonb,
     apdex_threshold         INTERVAL,
     key_transactions        JSONB        NOT NULL DEFAULT '[]'::jsonb,
+    -- Other names the service goes by in logs, metrics and elsewhere ("order_service", "Order Center").
+    aliases                 JSONB        NOT NULL DEFAULT '[]'::jsonb,
+    -- Where its data is: {logs: [{stream, filter}], metrics: [{selector}], dashboards: [id], links: [{name, url}]}.
+    data_sources            JSONB        NOT NULL DEFAULT '{}'::jsonb,
     archived                BOOLEAN      NOT NULL DEFAULT FALSE,
     updated_by              VARCHAR(64)  NOT NULL,
     updated_at              TIMESTAMPTZ  NOT NULL,
@@ -5983,6 +5987,8 @@ CREATE TABLE IF NOT EXISTS apm_service_definitions (
     CHECK (lifecycle IS NULL OR lifecycle IN ('production', 'staging', 'experimental', 'deprecated')),
     CHECK (jsonb_typeof(tags) = 'object'),
     CHECK (jsonb_typeof(key_transactions) = 'array'),
+    CHECK (jsonb_typeof(aliases) = 'array'),
+    CHECK (jsonb_typeof(data_sources) = 'object'),
     CHECK (apdex_threshold IS NULL OR apdex_threshold > INTERVAL '0')
 );
 CREATE INDEX IF NOT EXISTS idx_apm_service_definitions_team_id

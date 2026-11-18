@@ -646,6 +646,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             rum_issues: rum_issues.clone(),
             rum_comments: rum_comments.clone(),
             rum_summaries: rum_summaries.clone(),
+            service_catalog: apm_catalog.clone(),
         },
         alerting: AlertingToolDependencies {
             service: alerting.clone(),

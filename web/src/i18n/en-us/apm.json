@@ -367,7 +367,43 @@
       "tags": "Tags",
       "tags_hint": "key=value, or the key alone, separated by commas. Keys use lowercase letters, digits and _ . - /",
       "apdex": "Apdex threshold T (ms)",
-      "apdex_hint": "Requests within T satisfy, within 4T are tolerated. Empty uses the default 500 ms."
+      "apdex_hint": "Requests within T satisfy, within 4T are tolerated. Empty uses the default 500 ms.",
+      "aliases": "Also known as",
+      "aliases_placeholder": "order_service, Order Center",
+      "aliases_hint":"What logs, metrics and other systems call the service, separated by commas, such as order_service or Order Center. The service is found by these names and Mole Agent reads them; no data is merged. To read what an old name reported as this service, add a service alias in APM settings."
+    },
+    "aliases_problem": {
+      "length": "A name is at most 128 characters: {{alias}}",
+      "own_name": "{{alias}} is the service's own name",
+      "twice": "{{alias}} is given twice",
+      "too_many": "A service has at most 20 other names"
+    },
+    "sources": {
+      "title": "Where its data is",
+      "hint": "The log streams, metrics, dashboards and pages that hold the service's data. Mole Agent starts from them when it looks into the service.",
+      "logs": "Log streams",
+      "metrics": "Metrics",
+      "dashboards": "Dashboards",
+      "links": "Links",
+      "add": "Add",
+      "remove": "Remove",
+      "open": "Open",
+      "stream": "Stream",
+      "filter": "Filter: a SQL condition, empty for the whole stream",
+      "selector": "PromQL selector",
+      "dashboard": "Dashboard",
+      "choose_dashboard": "Choose a dashboard",
+      "link_name": "Name",
+      "link_url": "Address",
+      "problem": {
+        "too_many": "At most 10 of each",
+        "stream": "Enter the stream that holds the logs",
+        "filter": "A filter is at most 2000 characters",
+        "selector": "Enter a selector such as {service=\"checkout\"}, or a metric name with its labels",
+        "link_name": "Name the link in up to 120 characters",
+        "link_url": "Enter an http or https address without spaces",
+        "dashboard_twice": "A dashboard is listed twice"
+      }
     },
     "none": "None",
     "docs_hint": "Documents and runbooks live in the Mole Agent knowledge base under {{path}}, where Mole Agent reads them too.",
@@ -456,7 +492,8 @@
       "deployed_label": "Last deploy",
       "deployed": "deployed {{when}}",
       "region": "Region",
-      "repository": "Repository"
+      "repository": "Repository",
+      "aliases": "Also known as"
     },
     "coverage": {
       "missing": {

@@ -9,10 +9,14 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 
 use super::{OTHER_DIMENSION, TransactionIdentity, masked_repository_address};
-use crate::shared::{Error, Result, ids::Id, time::TimestampMicros};
+
+mod sources;
+
+pub use sources::*;
 
 /// The longest description a service keeps.
 pub const SERVICE_DESCRIPTION_MAX_LENGTH: usize = 2_000;
@@ -122,6 +126,14 @@ pub struct ServiceDefinition {
     /// The endpoints that matter most, starred in the service's endpoint lists.
     #[serde(default)]
     pub key_transactions: Vec<TransactionIdentity>,
+    /// Other names the service goes by in logs, metrics and elsewhere, such
+    /// as `order_service` or "Order Center": the service is found by them.
+    #[serde(default)]
+    pub aliases: Vec<String>,
+    /// Where the service's data is: log streams, metric selectors,
+    /// dashboards and links.
+    #[serde(default)]
+    pub data_sources: ServiceDataSources,
     /// Out of the catalog's default view: retired, or no longer watched.
     #[serde(default)]
     pub archived: bool,
@@ -144,6 +156,8 @@ impl ServiceDefinition {
             tags: BTreeMap::new(),
             apdex_threshold: None,
             key_transactions: Vec::new(),
+            aliases: Vec::new(),
+            data_sources: ServiceDataSources::default(),
             archived: false,
             updated_by,
             updated_at,
@@ -201,6 +215,8 @@ impl ServiceDefinition {
             ));
         }
 
+        sources::validate_aliases(&self.name, &self.aliases)?;
+        self.data_sources.validate()?;
         validate_key_transactions(&self.key_transactions)
     }
 }

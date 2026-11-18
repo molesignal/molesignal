@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::iam::IamContext;
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
 use serde::Deserialize;
 use serde_json::Value;
 use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
@@ -9,13 +14,9 @@ use super::{
     ToolRuntime,
     common::{TimeRangeArg, parse_args, time_range},
 };
-use crate::{
-    app::{apm::ApmQueryRequest, iam::IamContext},
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
-};
+use crate::app::apm::ApmQueryRequest;
+
+mod catalog;
 
 const DAY_MICROS: i64 = 86_400_000_000;
 
@@ -25,10 +26,28 @@ pub(super) async fn execute(
     kind: BuiltinToolKind,
     arguments: Value,
 ) -> Result<ToolResult> {
-    let args: ApmArgs = parse_args(arguments)?;
+    // The catalog is searched by words, not read for a time range like the rest of APM.
+    if kind == BuiltinToolKind::SearchServiceCatalog {
+        return catalog::search(runtime, auth, arguments).await;
+    }
+
+    let mut args: ApmArgs = parse_args(arguments)?;
+
+    // A service asked for by another name of it in the catalog is read as the service.
+    let resolved = match args.service.as_deref().map(str::trim) {
+        Some(asked) if !asked.is_empty() => {
+            catalog::resolve_alias(runtime, auth, asked, &args.request()?).await?
+        }
+        _ => None,
+    };
+
+    if let Some(resolution) = &resolved {
+        args.service = Some(resolution.service.clone());
+    }
+
     let request = args.request()?;
 
-    let value = match kind {
+    let mut value = match kind {
         BuiltinToolKind::ApmOverview => {
             let context = runtime.observability.apm.context(
                 auth.org_id.clone(),
@@ -214,6 +233,12 @@ pub(super) async fn execute(
         _ => unreachable!("APM handler received unrelated tool"),
     }
     .map_err(|error| Error::internal(error.to_string()))?;
+
+    if let Some(resolution) = &resolved
+        && let Some(object) = value.as_object_mut()
+    {
+        object.insert("serviceAlias".into(), resolution.note());
+    }
 
     Ok(ToolResult::json(value))
 }

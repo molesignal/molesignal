@@ -6,6 +6,13 @@
 //! rebuilt from spans.
 
 use async_trait::async_trait;
+use domain::apm::{
+    ApmCatalogRepository, ApmOrgSettings, DeploymentEvent, DeploymentQuery, ErrorIssue,
+    ErrorIssueStatus, ErrorRule, KeyTransactionMark, ServiceDefinition, ServiceLevelObjective,
+    ServiceLifecycle, ServiceTier,
+};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::sqlx_err;
 use sqlx::{
     Row,
     postgres::{PgRow, types::PgInterval},
@@ -17,19 +24,10 @@ use super::{
     codec::{interval, interval_micros},
     deployments, error_rules, slo,
 };
-use crate::{
-    domain::apm::{
-        ApmCatalogRepository, ApmOrgSettings, DeploymentEvent, DeploymentQuery, ErrorIssue,
-        ErrorIssueStatus, ErrorRule, KeyTransactionMark, ServiceDefinition, ServiceLevelObjective,
-        ServiceLifecycle, ServiceTier,
-    },
-    infra::persistence::sqlx_err,
-    shared::{Error, Result, ids::Id, time::TimestampMicros},
-};
 
 const DEFINITION_COLUMNS: &str = "service_namespace, service_name, description, team_id, \
      owner_id, tier, lifecycle, repository_url, tags, apdex_threshold, key_transactions, \
-     archived, updated_by, updated_at";
+     aliases, data_sources, archived, updated_by, updated_at";
 
 #[async_trait]
 impl ApmCatalogRepository for PgApmRepository {
@@ -53,9 +51,9 @@ impl ApmCatalogRepository for PgApmRepository {
             "INSERT INTO apm_service_definitions (
                  org_id, service_namespace, service_name, description, team_id, owner_id,
                  tier, lifecycle, repository_url, tags, apdex_threshold,
-                 key_transactions, archived, updated_by, updated_at
+                 key_transactions, archived, updated_by, updated_at, aliases, data_sources
              )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
              ON CONFLICT (org_id, service_namespace, service_name) DO UPDATE
              SET description = EXCLUDED.description,
                  team_id = EXCLUDED.team_id,
@@ -65,6 +63,8 @@ impl ApmCatalogRepository for PgApmRepository {
                  repository_url = EXCLUDED.repository_url,
                  tags = EXCLUDED.tags,
                  apdex_threshold = EXCLUDED.apdex_threshold,
+                 aliases = EXCLUDED.aliases,
+                 data_sources = EXCLUDED.data_sources,
                  archived = EXCLUDED.archived,
                  updated_by = EXCLUDED.updated_by,
                  updated_at = EXCLUDED.updated_at",
@@ -84,6 +84,8 @@ impl ApmCatalogRepository for PgApmRepository {
         .bind(definition.archived)
         .bind(definition.updated_by.as_str())
         .bind(definition.updated_at)
+        .bind(Json(&definition.aliases))
+        .bind(Json(&definition.data_sources))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
@@ -316,6 +318,11 @@ fn definition_from_row(row: &PgRow) -> Result<ServiceDefinition> {
             .and_then(interval_micros),
         key_transactions: row
             .try_get::<Json<_>, _>("key_transactions")
+            .map_err(sqlx_err)?
+            .0,
+        aliases: row.try_get::<Json<_>, _>("aliases").map_err(sqlx_err)?.0,
+        data_sources: row
+            .try_get::<Json<_>, _>("data_sources")
             .map_err(sqlx_err)?
             .0,
         archived: row.try_get("archived").map_err(sqlx_err)?,

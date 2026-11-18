@@ -238,7 +238,7 @@ export function ServiceDependencies({ address, detail, compared }: { address: Se
                         <div
                           key={`${group.key}:${item.dependency.operation ?? ''}:${item.version ?? ''}`}
                           role="row"
-                          className={cn('grid h-8 items-center gap-3 border-b border-bd-0 bg-[var(--page-canvas)] pl-9 pr-3 font-sans text-xs', grid)}
+                          className={cn('grid h-8 items-center gap-3 border-b border-bd-0 bg-[var(--inset-surface)] pl-9 pr-3 font-sans text-xs', grid)}
                         >
                           <span className="flex min-w-0 items-center gap-1.5">
                             {item.dependency.operation ? (

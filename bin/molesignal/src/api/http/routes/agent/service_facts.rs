@@ -6,20 +6,23 @@
 //! environment's health and figures, the same over the stretch before and a
 //! week before, what insights find and the changes near them, and what calls
 //! the service and what it calls. Without APM data, the calls the service
-//! graph paired over the last day.
+//! graph paired over the last day. Then what the service catalog keeps of it.
+//! A name APM has no data for that is another name of a service in the
+//! catalog is read as that service.
 
 use std::fmt::Write as _;
 
+use domain::iam::IamContext;
+use kernel::{
+    Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+
 use crate::{
     api::AppState,
-    app::{
-        apm::{ApmQueryRequest, BaselineFigures, BlastNode, Insight, ServiceSummary},
-        iam::IamContext,
-    },
-    shared::{
-        Result,
-        ids::Id,
-        time::{TimeRange, TimestampMicros},
+    app::apm::{
+        ApmQueryRequest, BaselineFigures, BlastNode, Insight, ServiceSummary, catalog_facts,
     },
 };
 
@@ -35,10 +38,66 @@ pub(super) async fn service_facts(
     name: &str,
     window: Option<TimeRange>,
 ) -> String {
-    match apm_facts(state, ctx, name, window).await {
-        Ok(Some(facts)) => facts,
-        Ok(None) | Err(_) => graph_facts(state, &ctx.org_id, name).await,
+    let mut facts = apm_facts(state, ctx, name, window).await.ok().flatten();
+    let mut service = name.to_owned();
+
+    // Nothing reported under the name: it may be another name of a catalog service.
+    if facts.is_none()
+        && let Some(canonical) = canonical_name(state, &ctx.org_id, name).await
+    {
+        let read = apm_facts(state, ctx, &canonical, window)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| format!("APM has no data for {canonical} in the time asked about."));
+
+        facts = Some(format!(
+            "\"{name}\" is another name of the service {canonical} in the service catalog.\n{read}"
+        ));
+        service = canonical;
     }
+
+    let mut text = match facts {
+        Some(facts) => facts,
+        None => graph_facts(state, &ctx.org_id, &service).await,
+    };
+
+    let catalog = catalog_facts(
+        state.telemetry.apm_catalog.as_ref(),
+        &ctx.org_id,
+        std::slice::from_ref(&service),
+    )
+    .await;
+
+    if let Ok(Some(catalog)) = catalog {
+        let _ = write!(text, "\n{catalog}");
+    }
+
+    text
+}
+
+/// The catalog's service `name` is another name of, when no service of the
+/// catalog is called `name`.
+async fn canonical_name(state: &AppState, org_id: &Id, name: &str) -> Option<String> {
+    let definitions = state
+        .telemetry
+        .apm_catalog
+        .list_definitions(org_id)
+        .await
+        .ok()?;
+
+    if definitions
+        .iter()
+        .any(|definition| definition.has_name(name))
+    {
+        return None;
+    }
+
+    definitions
+        .iter()
+        .filter(|definition| definition.has_alias(name))
+        .min_by_key(|definition| definition.archived)
+        .map(|definition| definition.name.clone())
 }
 
 async fn apm_facts(

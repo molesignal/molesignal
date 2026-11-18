@@ -2,23 +2,21 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use async_trait::async_trait;
+use domain::apm::{
+    ApmQueryRepository, BucketQuery, CatalogQuery, ErrorGroupQuery, ErrorGroupRecord, ErrorSample,
+    InstanceObservation, MergedBucket, ProjectionGap, ProjectionGapReason, ProjectionState,
+    QueryResolution, ServiceObservation, VersionObservation,
+};
+use kernel::{
+    Error, Result,
+    time::{TimeRange, TimestampMicros},
+};
+use postgres::sqlx_err;
 use sqlx::Row;
 
 use super::{
     PgApmRepository,
     codec::{kind_name, merge_rows, resolve_resolution, row_to_bucket},
-};
-use crate::{
-    domain::apm::{
-        ApmQueryRepository, BucketQuery, CatalogQuery, ErrorGroupQuery, ErrorGroupRecord,
-        ErrorSample, InstanceObservation, MergedBucket, ProjectionGap, ProjectionGapReason,
-        ProjectionState, QueryResolution, ServiceObservation, VersionObservation,
-    },
-    infra::persistence::sqlx_err,
-    shared::{
-        Error, Result,
-        time::{TimeRange, TimestampMicros},
-    },
 };
 
 #[async_trait]
@@ -95,16 +93,13 @@ impl ApmQueryRepository for PgApmRepository {
 
     async fn list_error_samples(
         &self,
-        org_id: &crate::shared::ids::Id,
+        org_id: &kernel::ids::Id,
         fingerprint: &str,
     ) -> Result<Vec<ErrorSample>> {
         self.query_error_samples(org_id, fingerprint).await
     }
 
-    async fn projection_state(
-        &self,
-        org_id: &crate::shared::ids::Id,
-    ) -> Result<Option<ProjectionState>> {
+    async fn projection_state(&self, org_id: &kernel::ids::Id) -> Result<Option<ProjectionState>> {
         let row = sqlx::query(
             "SELECT projection_started_at,
                     last_complete_bucket_at,
@@ -136,7 +131,7 @@ impl ApmQueryRepository for PgApmRepository {
 
     async fn projection_gaps(
         &self,
-        org_id: &crate::shared::ids::Id,
+        org_id: &kernel::ids::Id,
         range: TimeRange,
     ) -> Result<Vec<ProjectionGap>> {
         if range.end.0 < range.start.0 {

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 
 import { apmApi, apmQueryKeys } from '@/api/apm';
+import { useRecordVisit } from '@/shell/recentVisits';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 
 import { SERVICE_SECTIONS, serviceKey, servicePath } from '../scope';
@@ -48,6 +49,16 @@ export function ApmService() {
     enabled: Boolean(address.orgId),
   });
   const definition = definitions.data?.find((entry) => serviceKey(entry) === serviceKey(address.identity)) ?? null;
+  useRecordVisit(
+    detail.data
+      ? {
+          kind: 'service',
+          id: `${serviceKey(address.identity)}/${address.identity.environment}`,
+          label: address.identity.name,
+          path: servicePath(address.identity),
+        }
+      : null,
+  );
 
   if (!address.section) return <Navigate to={servicePath(address.identity, 'overview', address.searchParams)} replace />;
 

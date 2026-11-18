@@ -2,12 +2,12 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use serde_json::json;
-
-use super::*;
-use crate::shared::{
+use signals::{
     self_telemetry::ResourceIdentity,
     trace_normalization::{CanonicalEvent, CanonicalSpan, FinishedSpan, finished_span_to_event},
 };
+
+use super::*;
 
 fn span(kind: i32) -> CanonicalSpan {
     CanonicalSpan::new(
@@ -254,28 +254,27 @@ fn masked_values_do_not_reach_fact_or_persistence_snapshot() {
         "http.request.header.cookie".into(),
         json!("session=private"),
     );
-    crate::shared::trace_normalization::sanitize_and_limit_span(
+    signals::trace_normalization::sanitize_and_limit_span(
         &mut span,
-        crate::shared::trace_normalization::TraceLimits::default(),
+        signals::trace_normalization::TraceLimits::default(),
     );
     let fact = extract_apm_fact("org-1", &span).expect("fact");
-    assert_eq!(fact.service.name, crate::domain::apm::DEFAULT_SERVICE_NAME);
+    assert_eq!(fact.service.name, domain::apm::DEFAULT_SERVICE_NAME);
     assert_eq!(
         fact.service.environment,
-        crate::domain::apm::DEFAULT_DEPLOYMENT_ENVIRONMENT
+        domain::apm::DEFAULT_DEPLOYMENT_ENVIRONMENT
     );
     let mut aggregator = crate::app::apm::ApmAggregator::new(
         "owner".into(),
-        crate::domain::apm::HistogramSchema::v1(),
+        domain::apm::HistogramSchema::v1(),
         1,
         1,
     )
     .expect("aggregator");
     aggregator.observe(fact, false).expect("observe");
-    let persisted = serde_json::to_string(
-        &aggregator.flush_batch(crate::shared::time::TimestampMicros::now(), 10),
-    )
-    .expect("serialize persistence batch");
+    let persisted =
+        serde_json::to_string(&aggregator.flush_batch(kernel::time::TimestampMicros::now(), 10))
+            .expect("serialize persistence batch");
     assert!(!persisted.contains("session=private"));
     assert!(!persisted.contains("[REDACTED]"));
 }
@@ -301,7 +300,7 @@ fn span_kind_and_low_cardinality_fallback_are_bounded() {
 
 #[test]
 fn deterministic_backend_fixture_catalog_covers_protocols_and_standalone_services() {
-    let http = crate::shared::trace_fixtures::canonical_http_trace()
+    let http = signals::trace_fixtures::canonical_http_trace()
         .into_iter()
         .next()
         .and_then(|span| extract_apm_fact("org-fixture", &span))
@@ -311,7 +310,7 @@ fn deterministic_backend_fixture_catalog_covers_protocols_and_standalone_service
         Some(TransactionKind::Http)
     );
 
-    let rpc = crate::shared::trace_fixtures::canonical_grpc_trace()
+    let rpc = signals::trace_fixtures::canonical_grpc_trace()
         .into_iter()
         .next()
         .and_then(|span| extract_apm_fact("org-fixture", &span))
@@ -321,7 +320,7 @@ fn deterministic_backend_fixture_catalog_covers_protocols_and_standalone_service
         Some(TransactionKind::Rpc)
     );
 
-    let database = crate::shared::trace_fixtures::canonical_sql_trace()
+    let database = signals::trace_fixtures::canonical_sql_trace()
         .into_iter()
         .next()
         .and_then(|span| extract_apm_fact("org-fixture", &span))
@@ -331,7 +330,7 @@ fn deterministic_backend_fixture_catalog_covers_protocols_and_standalone_service
         Some(DependencyCategory::Database)
     );
 
-    let backend_error = crate::shared::trace_fixtures::canonical_error_trace()
+    let backend_error = signals::trace_fixtures::canonical_error_trace()
         .into_iter()
         .next()
         .and_then(|span| extract_apm_fact("org-fixture", &span))
@@ -361,10 +360,7 @@ fn deterministic_backend_fixture_catalog_covers_protocols_and_standalone_service
         None,
         "consumer spans are Transactions rather than dependencies"
     );
-    assert_eq!(
-        messaging.service.name,
-        crate::domain::apm::DEFAULT_SERVICE_NAME
-    );
+    assert_eq!(messaging.service.name, domain::apm::DEFAULT_SERVICE_NAME);
 
     let mut producer = span(4);
     producer

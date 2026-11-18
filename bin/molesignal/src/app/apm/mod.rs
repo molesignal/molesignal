@@ -5,6 +5,7 @@
 
 mod aggregator;
 mod cardinality;
+mod catalog_facts;
 mod error_rules;
 mod extractor;
 mod instance;
@@ -17,6 +18,7 @@ mod runtime;
 
 pub use aggregator::*;
 pub use cardinality::*;
+pub use catalog_facts::*;
 pub use error_rules::*;
 pub use extractor::*;
 pub use instance::*;

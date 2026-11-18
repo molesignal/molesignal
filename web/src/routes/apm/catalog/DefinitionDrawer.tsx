@@ -16,6 +16,8 @@ import { Textarea } from '@/shell/ui/textarea';
 import { useUsers } from '@/shell/useUsers';
 import { useAuthStore } from '@/stores/auth';
 
+import { checkSources, formatAliases, parseAliases, sourceRows, sourcesWrite } from './dataSources';
+import { DataSourcesEditor } from './DataSourcesEditor';
 import { apdexMillisText, formatTags, isRepositoryAddress, parseApdexMillis, parseTags } from './definitionFields';
 import { useTeams } from './people';
 
@@ -76,10 +78,15 @@ export function DefinitionForm({ target, onDone, embedded = false }: { target: D
   const [repository, setRepository] = React.useState(existing?.repositoryUrl ?? '');
   const [tagsText, setTagsText] = React.useState(formatTags(existing?.tags));
   const [apdexText, setApdexText] = React.useState(apdexMillisText(existing?.apdexThreshold));
+  const [aliasesText, setAliasesText] = React.useState(formatAliases(existing?.aliases));
+  const [sources, setSources] = React.useState(() => sourceRows(existing?.dataSources));
   const declaring = !target?.name;
   const tags = parseTags(tagsText);
   const apdex = parseApdexMillis(apdexText);
-  const valid = Boolean(name.trim()) && tags.problem === null && apdex.valid && isRepositoryAddress(repository);
+  const aliases = parseAliases(aliasesText, name);
+  const sourcesProblem = checkSources(sources);
+  const valid =
+    Boolean(name.trim()) && tags.problem === null && apdex.valid && isRepositoryAddress(repository) && aliases.problem === null && sourcesProblem === null;
 
   const refresh = () =>
     queryClient.invalidateQueries({
@@ -100,6 +107,8 @@ export function DefinitionForm({ target, onDone, embedded = false }: { target: D
           repositoryUrl: repository.trim() || null,
           tags: tags.tags,
           apdexThreshold: apdex.micros,
+          aliases: aliases.aliases,
+          dataSources: sourcesWrite(sources),
           archived,
         },
       ),
@@ -227,6 +236,14 @@ export function DefinitionForm({ target, onDone, embedded = false }: { target: D
         <Field label={t('definition.fields.description')}>
           <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} maxLength={2000} />
         </Field>
+        <Field
+          label={t('definition.fields.aliases')}
+          hint={t('definition.fields.aliases_hint')}
+          error={aliases.problem ? t(`definition.aliases_problem.${aliases.problem}`, { alias: aliases.at ?? '' }) : undefined}
+        >
+          <Input value={aliasesText} onChange={(event) => setAliasesText(event.target.value)} placeholder={t('definition.fields.aliases_placeholder')} data-apm-definition-aliases="" />
+        </Field>
+        <DataSourcesEditor rows={sources} onChange={setSources} problem={sourcesProblem} disabled={access.disabled} />
         <p className="leading-relaxed text-tx-3">
           {t('definition.docs_hint', {
             path: `services/${name.trim() || '…'}/`,

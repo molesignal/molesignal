@@ -1,4 +1,4 @@
-import { Boxes, ExternalLink, GitBranch, Layers, type LucideIcon, MapPin, Network, Rocket, Server, Users } from 'lucide-react';
+import { Boxes, ExternalLink, GitBranch, Layers, type LucideIcon, MapPin, Network, Rocket, Server, Tag, Users } from 'lucide-react';
 import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -22,9 +22,9 @@ import { servicePath } from '../scope';
  * data came in the range (which says nothing of its health), how much it
  * matters, its system and environment, what it serves and is written in,
  * the version or versions in view, its team, how many instances run it, when
- * it was last deployed, where it runs and its repository. Each follows the
- * environment and version in view; what the telemetry reports wins over what
- * people set in the catalog.
+ * it was last deployed, where it runs, its repository and the other names it
+ * goes by. Each follows the environment and version in view; what the
+ * telemetry reports wins over what people set in the catalog.
  */
 export function ServiceFacts({
   address,
@@ -58,6 +58,7 @@ export function ServiceFacts({
     onCallUser ? `${t('definition.on_call')}: ${nameOf(onCallUser)}` : null,
   ].filter(Boolean);
   const instances = summary?.profile?.instanceCount ?? 0;
+  const aliases = definition?.aliases ?? [];
 
   return (
     <span data-apm-service-facts="" className="inline-flex min-w-0 items-center gap-x-3.5">
@@ -157,6 +158,16 @@ export function ServiceFacts({
             {t('service.facts.repository')}
           </span>
         ))}
+      {aliases.length > 0 && (
+        <Fact
+          icon={Tag}
+          tone="text-[var(--chart-4)]"
+          label={t('service.facts.aliases')}
+          value={aliases[0]! + (aliases.length > 1 ? ` +${aliases.length - 1}` : '')}
+          detail={aliases.length > 1 ? aliases.join(', ') : undefined}
+          testId="aliases"
+        />
+      )}
     </span>
   );
 }
