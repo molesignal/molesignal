@@ -216,7 +216,9 @@ By default one process runs every role. [Split by role](https://docs.molesignal.
 |---|---|
 | Docker Compose | See [Quick start](#quick-start); use `--profile multirole` to split by role |
 | Helm | See the commands below, or use `oci://ghcr.io/molesignal/charts/molesignal` |
-| Binary | Download the `aarch64` or `x86_64` Linux archive from [Releases](https://github.com/molesignal/molesignal/releases). The `x86_64` archive requires x86-64-v3 or newer. Set `[meta_database]` in `conf/config.toml` and run `bin/molesignal --config conf/config.toml`. A systemd unit is in [`deploy/systemd`](deploy/systemd) |
+| Linux binaries | Download `molesignal-<tag>-<arch>-linux.tar.gz` (Server) or `probe-agent-<tag>-<arch>-linux.tar.gz` (Probe Agent) from [Releases](https://github.com/molesignal/molesignal/releases). Choose `aarch64` or `x86_64`. Both `x86_64` binaries require x86-64-v3 or newer. |
+| Server setup | Set `[meta_database]` in `conf/config.toml` and run `bin/molesignal --config conf/config.toml`. A systemd unit is in [`deploy/systemd`](deploy/systemd). |
+| Probe Agent setup | Extract the archive and run `bin/probe-agent register --help` for registration options. After registration, start it with `bin/probe-agent run`. |
 | Kubernetes manifests | [`deploy/k8s`](deploy/k8s) |
 
 ```bash

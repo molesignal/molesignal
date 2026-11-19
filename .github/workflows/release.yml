@@ -275,7 +275,7 @@ jobs:
             fi
           done
 
-      - name: package artifact (binary + conf + systemd + mmdb)
+      - name: package Server and Probe Agent archives
         shell: bash
         env:
           VERSION: ${{ github.ref_name }}
@@ -295,9 +295,14 @@ jobs:
           cp .release-assets/dbip-city-lite.mmdb assets/mmdb/NOTICE.txt "dist/${ARCHIVE}/mmdb/"
           printf '{"build_id":"%s","git_sha":"%s"}\n' "$BUILD_ID" "$GITHUB_SHA" \
             > "dist/${ARCHIVE}/build-info.json"
-          cd dist && tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"
+          tar -czf "dist/${ARCHIVE}.tar.gz" -C dist "${ARCHIVE}"
 
-      - name: upload artifact
+          PROBE_ARCHIVE="probe-agent-${VERSION}-${ARCH}-${OS}"
+          mkdir -p "dist/${PROBE_ARCHIVE}/bin"
+          install -m 0755 "target/${{ matrix.target }}/release/probe-agent" "dist/${PROBE_ARCHIVE}/bin/probe-agent"
+          tar -czf "dist/${PROBE_ARCHIVE}.tar.gz" -C dist "${PROBE_ARCHIVE}"
+
+      - name: upload release archives
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}-${{ github.ref_name }}
@@ -472,6 +477,8 @@ jobs:
           |---------|-----------------|
           | \`molesignal-${GITHUB_REF_NAME}-x86_64-linux.tar.gz\` | x86-64-v3 or newer |
           | \`molesignal-${GITHUB_REF_NAME}-aarch64-linux.tar.gz\` | ARM64 with AES, SHA2, CRC and LSE |
+          | \`probe-agent-${GITHUB_REF_NAME}-x86_64-linux.tar.gz\` | x86-64-v3 or newer |
+          | \`probe-agent-${GITHUB_REF_NAME}-aarch64-linux.tar.gz\` | ARM64 with AES, SHA2, CRC and LSE |
 
           ### Docker
 
