@@ -216,7 +216,7 @@ service:
 |---|---|
 | Docker Compose | 见[快速开始](#快速开始)；按角色拆分时用 `--profile multirole` |
 | Helm | 见下方命令，也可以用 `oci://ghcr.io/molesignal/charts/molesignal` |
-| 二进制 | 从 [Releases](https://github.com/molesignal/molesignal/releases) 下载（Linux x86_64、aarch64），在 `conf/config.toml` 里设置 `[meta_database]`，运行 `bin/molesignal --config conf/config.toml`；systemd 配置在 [`deploy/systemd`](deploy/systemd) |
+| 二进制 | 从 [Releases](https://github.com/molesignal/molesignal/releases) 下载 `aarch64` 或 `x86_64` Linux 安装包。`x86_64` 包最低要求 CPU 支持 x86-64-v3。在 `conf/config.toml` 里设置 `[meta_database]`，运行 `bin/molesignal --config conf/config.toml`。systemd 配置在 [`deploy/systemd`](deploy/systemd) |
 | Kubernetes 清单 | [`deploy/k8s`](deploy/k8s) |
 
 ```bash

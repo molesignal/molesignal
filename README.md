@@ -216,7 +216,7 @@ By default one process runs every role. [Split by role](https://docs.molesignal.
 |---|---|
 | Docker Compose | See [Quick start](#quick-start); use `--profile multirole` to split by role |
 | Helm | See the commands below, or use `oci://ghcr.io/molesignal/charts/molesignal` |
-| Binary | Download from [Releases](https://github.com/molesignal/molesignal/releases) (Linux x86_64, aarch64), set `[meta_database]` in `conf/config.toml`, and run `bin/molesignal --config conf/config.toml`. A systemd unit is in [`deploy/systemd`](deploy/systemd) |
+| Binary | Download the `aarch64` or `x86_64` Linux archive from [Releases](https://github.com/molesignal/molesignal/releases). The `x86_64` archive requires x86-64-v3 or newer. Set `[meta_database]` in `conf/config.toml` and run `bin/molesignal --config conf/config.toml`. A systemd unit is in [`deploy/systemd`](deploy/systemd) |
 | Kubernetes manifests | [`deploy/k8s`](deploy/k8s) |
 
 ```bash

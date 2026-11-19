@@ -4,8 +4,7 @@
 rustflags = ["-C", "force-frame-pointers=yes"]
 
 # Instruction sets of Linux servers: x86-64-v3 (AVX2, BMI2, FMA) lets Arrow's kernels vectorize to
-# 256 bits; aarch64 adds AES, SHA2, CRC and LSE atomics (ARMv8.1+) to NEON. The release workflow
-# also builds an x86-64-v4 (AVX-512) archive. Each target matches exactly one of these tables.
+# 256 bits; aarch64 adds AES, SHA2, CRC and LSE atomics (ARMv8.1+) to NEON.
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))']
 rustflags = ["-C", "force-frame-pointers=yes", "-C", "target-cpu=x86-64-v3"]
 

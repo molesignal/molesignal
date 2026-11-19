@@ -140,7 +140,7 @@ jobs:
 
   # 3. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
   build:
-    name: build (${{ matrix.target }}${{ matrix.variant }})
+    name: build (${{ matrix.target }})
     needs: [release-version, web-assets, quality-gate, geoip-db]
     runs-on: ${{ matrix.os }}
     # 构建在 rust:1.96-bullseye 容器（Debian 11, glibc 2.31）内进行，产物 glibc
@@ -161,27 +161,18 @@ jobs:
           # glibc 地板：构建容器 rust:1.96-bullseye 的 glibc 是 2.31，覆盖目标机
           # 地板 2.34（Alma 9）与 Ubuntu 22.04（2.35）；runtime debian:bullseye-slim
           # 同为 2.31；下方 assert 步骤守护该地板不被漂移。
-          # Instruction sets: x86-64 builds for x86-64-v3 (AVX2, BMI2, FMA) and once more for
-          # x86-64-v4 (AVX-512) as a separate archive; the Docker image takes the v3 build.
+          # The x86_64 archive and the amd64 Docker image both require x86-64-v3.
           # aarch64 adds AES, SHA2, CRC and LSE atomics to NEON (ARMv8.1+: Graviton2, Ampere
           # Altra, Kunpeng 920 and later).
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-26.04
             archive_arch: x86_64
             archive_os: linux
-            variant: ""
             rustflags: "-C force-frame-pointers=yes -C target-cpu=x86-64-v3"
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-26.04
-            archive_arch: x86_64-v4
-            archive_os: linux
-            variant: "-v4"
-            rustflags: "-C force-frame-pointers=yes -C target-cpu=x86-64-v4"
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
             archive_arch: aarch64
             archive_os: linux
-            variant: ""
             rustflags: "-C force-frame-pointers=yes -C target-feature=+aes,+sha2,+crc,+lse"
 
     steps:
@@ -309,13 +300,12 @@ jobs:
       - name: upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.target }}${{ matrix.variant }}-${{ github.ref_name }}
+          name: ${{ matrix.target }}-${{ github.ref_name }}
           path: dist/*.tar.gz
           if-no-files-found: error
 
       # Docker 镜像直接复用上面已经验证并打包的同一个 Linux 二进制，不再重新 cargo build。
       - name: upload docker binary
-        if: runner.os == 'Linux' && matrix.variant == ''
         uses: actions/upload-artifact@v7
         with:
           name: docker-binary-${{ matrix.target }}-${{ github.run_id }}
@@ -323,7 +313,6 @@ jobs:
           if-no-files-found: error
 
       - name: upload Probe Agent docker binary
-        if: runner.os == 'Linux' && matrix.variant == ''
         uses: actions/upload-artifact@v7
         with:
           name: probe-docker-binary-${{ matrix.target }}-${{ github.run_id }}
@@ -461,7 +450,7 @@ jobs:
           OUTPUT: CHANGELOG.md
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: append docker image info to changelog
+      - name: append download and image information to changelog
         env:
           VERSIONED_TAG: ${{ needs.release-version.outputs.version }}
           PRERELEASE: ${{ needs.release-version.outputs.prerelease }}
@@ -476,6 +465,13 @@ jobs:
           |-------|-------|
           | Build ID | \`${BUILD_ID}\` |
           | Git SHA | \`${GITHUB_SHA}\` |
+
+          ### Linux downloads
+
+          | Archive | CPU requirement |
+          |---------|-----------------|
+          | \`molesignal-${GITHUB_REF_NAME}-x86_64-linux.tar.gz\` | x86-64-v3 or newer |
+          | \`molesignal-${GITHUB_REF_NAME}-aarch64-linux.tar.gz\` | ARM64 with AES, SHA2, CRC and LSE |
 
           ### Docker
 
