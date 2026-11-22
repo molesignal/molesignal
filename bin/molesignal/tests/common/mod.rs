@@ -30,6 +30,39 @@ use settings::{
 use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres as PgImage;
 
+/// Registers a WAL writer for `node` and opens its stream of `dataset`, so that `commit_flush`
+/// accepts publications by the returned epoch: for tests that publish without the intake path.
+pub async fn open_wal_stream(
+    pool: &sqlx::PgPool,
+    dataset: &PhysicalDataset,
+    node: &str,
+) -> domain::storage::WriterEpoch {
+    use domain::storage::{WalStreamRow, WalWriterRegistry, WriterNodeId};
+    use postgres::repositories::wal_writers::PgWalWriterRegistry;
+
+    let registry = PgWalWriterRegistry::new(pool.clone());
+    let node = WriterNodeId::new(node);
+
+    let epoch = registry
+        .register(&node, std::time::Duration::from_secs(3600))
+        .await
+        .expect("register wal writer");
+
+    registry
+        .open_stream(&WalStreamRow {
+            organization_id: dataset.organization_id.clone(),
+            dataset_id: dataset.id.clone(),
+            dataset_type: dataset.dataset_type.clone(),
+            writer_node_id: node,
+            writer_epoch: epoch,
+            publisher_epoch: epoch,
+        })
+        .await
+        .expect("open wal stream");
+
+    epoch
+}
+
 /// One test server's database: a new one on the Postgres `MS_IT_POSTGRES_DSN` names, or a container.
 /// The role has to be able to create databases. The new databases stay behind, named `ms_it_*`, for
 /// whoever set the variable to drop after the run.
@@ -90,7 +123,6 @@ pub struct TestServer {
     _logger_guard: Option<signals::telemetry::LoggerGuard>,
     _pg: Option<ContainerAsync<PgImage>>,
     _server: tokio::task::JoinHandle<()>,
-    _wal_root: tempfile::TempDir,
 }
 
 impl TestServer {
@@ -162,12 +194,8 @@ impl TestServer {
         let (dsn, pg) = test_database().await;
 
         let object_root = tempfile::tempdir().expect("tmpdir for object_store");
-        let wal_root = tempfile::tempdir().expect("tmpdir for WAL");
 
         let mut settings = Settings::default();
-
-        // 默认的 ./data/wal 落在 crate 目录里，还被进程里所有 TestServer 共用。
-        settings.wal.dir = wal_root.path().to_string_lossy().into();
 
         settings.meta_database = MetaDatabaseSettings {
             dsn: dsn.clone(),
@@ -354,7 +382,6 @@ impl TestServer {
             _logger_guard: logger_guard,
             _pg: pg,
             _server: server,
-            _wal_root: wal_root,
         }
     }
 

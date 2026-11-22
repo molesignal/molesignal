@@ -41,19 +41,27 @@ impl IntakeWorker {
             "dataset no longer exists; buffered rows discarded"
         );
 
-        match self.cleanup_wal(key, high_watermark_seq).await {
+        // Only this epoch's objects are this process's to delete; an earlier epoch's are claimed
+        // by another node, which finds the stream gone too.
+        let writer_epoch = self.wal.lease().epoch();
+
+        match self
+            .cleanup_wal(key, writer_epoch, high_watermark_seq)
+            .await
+        {
             Ok(()) => {
                 self.pending_wal_cleanup.remove(key);
             }
             Err(error) => {
-                self.remember_pending_wal_cleanup(key, high_watermark_seq);
+                self.remember_pending_wal_cleanup(key, writer_epoch, high_watermark_seq);
                 tracing::warn!(dataset_id = %key, %error, "WAL cleanup of discarded dataset deferred");
             }
         }
     }
 
-    /// 写入权被更高 epoch 栅栏：该 epoch 的数据永远无法发布。丢出内存并让这个 epoch 的后续写入
-    /// 被拒绝；WAL 原样保留，留给人工处理。其它 epoch（例如重启后的新写入）不受影响。
+    /// The writer epoch was fenced: its rows can no longer be published from here. They are dropped
+    /// from memory and their WAL objects kept: the node that claimed the stream publishes them.
+    /// Rows of other epochs (this process's new one) are untouched.
     pub(super) async fn discard_fenced_writer(
         &self,
         buffer: &DatasetBuffer,
@@ -61,7 +69,6 @@ impl IntakeWorker {
         writer: &BufferWriter,
         error: &Error,
     ) {
-        buffer.fence(writer.writer_epoch);
         let discarded = buffer.records().lock().await.discard_writer(writer);
         self.buffer.release_memory(discarded.accounted_bytes);
         inc_flush_error("writer_fenced");
@@ -71,8 +78,8 @@ impl IntakeWorker {
             writer_epoch = %writer.writer_epoch,
             rows = discarded.rows,
             %error,
-            "writer fenced by a newer epoch; buffered rows dropped from memory and the WAL is \
-             kept. Another process publishes under the same node id: give every node a unique one"
+            "writer epoch fenced; buffered rows dropped from memory, the node that claimed its \
+             WAL publishes them"
         );
     }
 }

@@ -3,14 +3,13 @@
 
 //! Intake role 自身的 metric（与 caching 共享同一全局 registry）。
 //!
-//! - `intake_flush_errors_total{step}`：step ∈ {parquet_write, file_catalog_commit, wal_seal,
-//!   wal_truncate}；永远无法发布、整体丢出内存的数据另记 {stream_gone, dataset_gone,
-//!   writer_fenced}，每次丢弃计一次。
+//! - `intake_flush_errors_total{step}`: step ∈ {parquet_write, file_catalog_commit, wal_cleanup};
+//!   data that can never be published and is dropped from memory counts once per drop under
+//!   {stream_gone, dataset_gone, writer_fenced}.
 //! - `intake_rotations_total{stream_type,reason}`：reason ∈ {size, age, retry, forced}。
 //! - `intake_flush_inflight{stream_type}`：正在执行完整 flush transaction 的并发数。
-//! - `wal_append_lock_wait_seconds{dataset_type}`：WAL per-dataset 互斥锁等待延迟 Histogram。
-//! - `wal_append_inflight{dataset_type}`：当前持有 WAL 临界区的并发数 IntGauge（`WalInflightGuard` RAII 维护）。
-//! - `wal_recovery_quarantined_total` / `wal_recovery_tail_truncated_total`：恢复期损坏处理计数。
+//!
+//! The WAL's own metrics are in `object_wal::metrics`.
 
 use std::sync::OnceLock;
 
@@ -28,8 +27,6 @@ static MEMORY_REJECTIONS: OnceLock<IntCounterVec> = OnceLock::new();
 static RESERVED_BUFFER_BYTES: OnceLock<IntGauge> = OnceLock::new();
 static PARQUET_RATIO: OnceLock<HistogramVec> = OnceLock::new();
 static ADAPTIVE_TARGET: OnceLock<HistogramVec> = OnceLock::new();
-static WAL_LOCK_WAIT: OnceLock<HistogramVec> = OnceLock::new();
-static WAL_INFLIGHT: OnceLock<IntGaugeVec> = OnceLock::new();
 
 fn flush_errors_vec() -> &'static IntCounterVec {
     FLUSH_ERRORS.get_or_init(|| {
@@ -190,104 +187,6 @@ pub(super) fn observe_adaptive_target(dataset_type: &str, bytes: f64) {
     adaptive_target_vec()
         .with_label_values(&[dataset_type])
         .observe(bytes);
-}
-
-fn wal_lock_wait_vec() -> &'static HistogramVec {
-    WAL_LOCK_WAIT.get_or_init(|| {
-        register_histogram_vec(
-            "wal_append_lock_wait_seconds",
-            "WAL per-dataset mutex wait time observed at WalPool::append",
-            &["dataset_type"],
-            vec![0.0001, 0.001, 0.01, 0.1, 1.0],
-        )
-    })
-}
-
-fn wal_inflight_vec() -> &'static IntGaugeVec {
-    WAL_INFLIGHT.get_or_init(|| {
-        register_int_gauge_vec(
-            "wal_append_inflight",
-            "Concurrent WalPool::append entries holding the per-dataset mutex",
-            &["dataset_type"],
-        )
-    })
-}
-
-/// 记录 `WalPool::append` 在 per-dataset mutex 上的等待时长。
-pub fn observe_wal_lock_wait(dataset_type: &str, secs: f64) {
-    wal_lock_wait_vec()
-        .with_label_values(&[dataset_type])
-        .observe(secs);
-}
-
-/// RAII：进入 `WalPool::append` 临界区时 +1，drop 时 -1。
-///
-/// label cardinality 锁死在受控的 dataset type 集合，不带 `org_id` /
-/// `stream_name`，避免 high cardinality。
-pub struct WalInflightGuard {
-    dataset_type: String,
-}
-
-impl WalInflightGuard {
-    pub fn enter(dataset_type: &str) -> Self {
-        wal_inflight_vec().with_label_values(&[dataset_type]).inc();
-
-        Self {
-            dataset_type: dataset_type.to_owned(),
-        }
-    }
-}
-
-impl Drop for WalInflightGuard {
-    fn drop(&mut self) {
-        wal_inflight_vec()
-            .with_label_values(&[self.dataset_type.as_str()])
-            .dec();
-    }
-}
-
-fn wal_recovery_quarantined() -> &'static prometheus::IntCounter {
-    static C: OnceLock<prometheus::IntCounter> = OnceLock::new();
-
-    C.get_or_init(|| {
-        signals::metrics::register_int_counter(
-            "wal_recovery_quarantined_total",
-            "WAL segments or epoch dirs moved to quarantine during recovery",
-        )
-    })
-}
-
-fn wal_recovery_tail_truncated() -> &'static prometheus::IntCounter {
-    static C: OnceLock<prometheus::IntCounter> = OnceLock::new();
-
-    C.get_or_init(|| {
-        signals::metrics::register_int_counter(
-            "wal_recovery_tail_truncated_total",
-            "Active WAL segments whose incomplete tail was truncated during recovery",
-        )
-    })
-}
-
-/// 恢复期把损坏的 sealed segment / 非法 epoch 目录挪进隔离区时 +1。
-pub(crate) fn inc_wal_recovery_quarantined() {
-    wal_recovery_quarantined().inc();
-}
-
-/// 恢复期把活跃 segment 的不完整尾部截断到最后一条有效记录时 +1。
-pub(crate) fn inc_wal_recovery_tail_truncated() {
-    wal_recovery_tail_truncated().inc();
-}
-
-#[cfg(test)]
-pub(crate) fn wal_inflight_count(stream_type: &str) -> i64 {
-    wal_inflight_vec().with_label_values(&[stream_type]).get()
-}
-
-#[cfg(test)]
-pub(crate) fn wal_lock_wait_sample_count(stream_type: &str) -> u64 {
-    wal_lock_wait_vec()
-        .with_label_values(&[stream_type])
-        .get_sample_count()
 }
 
 #[cfg(test)]

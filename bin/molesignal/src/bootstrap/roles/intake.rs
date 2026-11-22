@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Intake role composition: durable append, bounded replay, and ordered catalog publication.
+//! Intake role composition: appends acknowledged once in object storage, ordered catalog
+//! publication, takeover of lapsed writers, and release on drain.
 
 mod columnar;
 mod discard;
 mod flush;
-mod replay;
+mod release;
+mod takeover;
 
 use std::{
     sync::Arc,
@@ -17,7 +19,7 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use domain::{
     intake::{IntakeBatch, IntakeResult, IntakeSink},
-    storage::{DatasetTypeId, FileCatalog, PhysicalDatasetId},
+    storage::{DatasetTypeId, FileCatalog, PhysicalDatasetId, WriterEpoch},
     stream::{Clustering, FieldPartitions, StreamRepository},
 };
 use kernel::{Result, drain::DrainController, health::Probe, ids::Id};
@@ -27,18 +29,20 @@ use tokio::sync::{Mutex, Notify};
 
 use crate::infra::{
     intake::{
-        AdaptiveRotation, BufferKey, BufferPool, DatasetResolver, DurableIntakeSink, WalPool,
+        AdaptiveRotation, BufferKey, BufferPool, DatasetResolver, DurableIntakeSink, ObjectWal,
     },
     storage::parquet::writer::ParquetWriter,
 };
 
+/// WAL objects a committed flush covers whose deletion still has to be retried.
 #[derive(Debug, Clone)]
 struct PendingWalCleanup {
     dataset_id: PhysicalDatasetId,
+    writer_epoch: WriterEpoch,
     high_watermark_seq: u64,
 }
 
-const DEFAULT_REPLAY_BYTE_CAP: usize = 512 * 1024 * 1024;
+const DEFAULT_TAKEOVER_BYTE_CAP: usize = 512 * 1024 * 1024;
 
 /// How long a stream's file layout read from its settings is used before it is read again.
 const LAYOUT_TTL: Duration = Duration::from_secs(30);
@@ -53,22 +57,22 @@ struct FileLayout {
 
 pub struct IntakeWorker {
     sink: Arc<DurableIntakeSink>,
-    wal: Arc<WalPool>,
+    wal: Arc<ObjectWal>,
     buffer: Arc<BufferPool>,
     streams: Arc<dyn StreamRepository>,
     datasets: Arc<DatasetResolver>,
     file_catalog: Arc<dyn FileCatalog>,
     parquet_writer: Arc<ParquetWriter>,
-    probe: Arc<Probe>,
     settings: IntakeSettings,
     flush_notify: Arc<Notify>,
     /// One publication at a time per physical dataset; distinct datasets may publish in parallel.
     flush_locks: DashMap<BufferKey, Arc<Mutex<()>>>,
-    /// Catalog committed, while local WAL cleanup still needs retrying.
+    /// Catalog committed, while deleting the WAL objects it covers still needs retrying.
     pending_wal_cleanup: DashMap<BufferKey, PendingWalCleanup>,
     adaptive_rotation: AdaptiveRotation,
     drain: Option<Arc<DrainController>>,
-    replay_byte_cap: usize,
+    /// The most a takeover holds in memory before it publishes a segment.
+    takeover_byte_cap: usize,
     /// Stream id → when its settings were read, and the file layout they named.
     layouts: DashMap<Id, (Instant, FileLayout)>,
 }
@@ -76,7 +80,7 @@ pub struct IntakeWorker {
 impl IntakeWorker {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        wal: Arc<WalPool>,
+        wal: Arc<ObjectWal>,
         buffer: Arc<BufferPool>,
         streams: Arc<dyn StreamRepository>,
         datasets: Arc<DatasetResolver>,
@@ -95,6 +99,10 @@ impl IntakeWorker {
             datasets.clone(),
         ));
 
+        // Nothing to replay: unflushed data of earlier processes is in object storage and taken
+        // over in the background, so this node can take writes at once.
+        probe.set_replay_done(true);
+
         Self {
             sink,
             wal,
@@ -103,14 +111,13 @@ impl IntakeWorker {
             datasets,
             file_catalog,
             parquet_writer,
-            probe,
             settings,
             flush_notify: Arc::new(Notify::new()),
             flush_locks: DashMap::new(),
             pending_wal_cleanup: DashMap::new(),
             adaptive_rotation,
             drain: None,
-            replay_byte_cap: DEFAULT_REPLAY_BYTE_CAP,
+            takeover_byte_cap: DEFAULT_TAKEOVER_BYTE_CAP,
             layouts: DashMap::new(),
         }
     }
@@ -120,9 +127,13 @@ impl IntakeWorker {
         self
     }
 
-    pub fn with_replay_byte_cap(mut self, cap_bytes: usize) -> Self {
-        self.replay_byte_cap = cap_bytes.max(1);
+    pub fn with_takeover_byte_cap(mut self, cap_bytes: usize) -> Self {
+        self.takeover_byte_cap = cap_bytes.max(1);
         self
+    }
+
+    pub fn wal(&self) -> &Arc<ObjectWal> {
+        &self.wal
     }
 
     pub fn with_field_keys(mut self, service: Arc<FieldKeyService>) -> Self {

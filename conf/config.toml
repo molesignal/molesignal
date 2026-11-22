@@ -313,26 +313,21 @@ max_backoff_ms = 5000
 jitter_ratio = 0.2
 
 [wal]
-# WAL segment 文件的存放目录。
-dir = "./data/wal"
-# 单段大小，单位 MiB，到达后切换
-segment_size = 256
-# fsync 触发模式：none / every_write / batch（默认 batch）
-# - none        永不 sync_*，仅 page cache 持久化（旧版默认；不推荐生产开启）
-# - every_write 每条记录 sync_data/all 后才返回（最强 durability，单条延迟最高）
-# - batch       BufWriter::flush 每次；sync_* 在 batch_max_pending 或 batch_max_delay_ms 任一触发
-flush_strategy = "batch"
-# sync_file 深度：none / data / all（默认 data = sync_data）
-# - data        数据落盘，metadata 可能未刷
-# - all         sync_all + 父目录 sync_all，最强（带 rename 屏障）
-sync_level = "data"
-# Batch 模式参数：攒到 64 条或 50 毫秒任一触发一次 sync_*
-batch_max_pending = 64
-# Batch 模式两次 sync_* 之间允许的最大间隔，单位毫秒。
-batch_max_delay_ms = 50
-# 启动恢复重放的内存上限，单位 MiB：重放累计超过该值即强制 flush 一次腾空 buffer。
-max_replay_size = 512
-# 回归旧版"永不 fsync"行为：flush_strategy = "none" 且 sync_level = "none"
+# WAL 写在对象存储里：一组写入的 WAL 对象写进对象存储后才向客户端确认，节点本地盘不保存已确认的数据。
+# 写入者租约，单位秒（最小 3）。节点停止续约后，最多再过一个 takeover_interval_secs 由其他节点接管。
+lease_secs = 15
+# 一个 WAL 对象最多攒多少，单位 MiB。同一数据集上一个对象写入期间到达的请求合进下一个对象。
+max_group_size = 8
+# 单次对象写入的超时，单位秒。
+put_timeout_secs = 10
+# 每个对象最多写几次，都失败则拒绝这一组写入（客户端收到 503 后重试）。
+put_attempts = 3
+# 多久检查一次需要接管的写入者，单位秒。
+takeover_interval_secs = 5
+# 用 cipher 根密钥（KEK）加密 WAL 对象。
+encrypt = false
+# 接管时攒多少数据发布一个段，单位 MiB。
+max_takeover_size = 512
 
 [intake]
 # 每个 stream 原始内存 buffer 硬上限，单位 MiB（自适应阈值不会超过它）

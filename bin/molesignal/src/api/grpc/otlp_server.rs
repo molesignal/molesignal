@@ -243,7 +243,7 @@ impl TraceService for OtlpGrpc {
         let bytes = req.encoded_len();
         let spans = traces_to_canonical(req);
 
-        submit_traces(
+        let submission = submit_traces(
             &self.state,
             &ctx,
             stream,
@@ -255,7 +255,7 @@ impl TraceService for OtlpGrpc {
         .await
         .map_err(error_to_status)?;
 
-        Ok(Response::new(ExportTraceServiceResponse::default()))
+        Ok(Response::new(submission.response()))
     }
 }
 

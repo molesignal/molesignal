@@ -3,34 +3,13 @@
 
 //! WAL 身份与 flush 溯源。
 //!
-//! WAL 是独立于 FileCatalog 的持久化子系统，只保证未 flush 数据的持久与恢复；
-//! 正常查询不扫 WAL。身份统一落在 `(org, dataset, node, epoch)`，
-//! 不再使用 stream name / stream type / dataset type 作为路径或键。
+//! The WAL lives in object storage and only holds data not yet flushed; queries never read it.
+//! A record is named by `(org, dataset, node, epoch, sequence)`; epochs come from
+//! [`super::WalWriterRegistry`] and are unique across the cluster.
 
-use kernel::ids::Id;
 use serde::{Deserialize, Serialize};
 
 use super::ids::{FlushId, PhysicalDatasetId, SequenceRange, WriterEpoch, WriterNodeId};
-
-/// 一条 WAL 流的完整身份。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct WalStreamId {
-    pub organization_id: Id,
-    pub dataset_id: PhysicalDatasetId,
-    pub writer_node_id: WriterNodeId,
-    pub writer_epoch: WriterEpoch,
-}
-
-impl WalStreamId {
-    /// 本地目录相对路径：`{node}/{dataset}/{epoch}`。
-    /// org 不进路径——单机 WAL 根目录属于一个进程，dataset ID 已全局唯一。
-    pub fn local_dir(&self) -> String {
-        format!(
-            "{}/{}/{}",
-            self.writer_node_id.0, self.dataset_id, self.writer_epoch.0
-        )
-    }
-}
 
 /// Cumulative canonical intake bytes committed for a physical dataset.
 #[derive(Debug, Clone)]
@@ -79,16 +58,5 @@ mod tests {
             SequenceRange::new(WalSequence(1), WalSequence(9)),
         );
         assert_eq!(provenance.flush_id.as_str(), "f-node-a-2-1-9");
-    }
-
-    #[test]
-    fn local_dir_uses_only_stable_ids() {
-        let id = WalStreamId {
-            organization_id: Id::from_string("org-1"),
-            dataset_id: PhysicalDatasetId::from_string("ds-1"),
-            writer_node_id: WriterNodeId::new("node-a"),
-            writer_epoch: WriterEpoch(3),
-        };
-        assert_eq!(id.local_dir(), "node-a/ds-1/3");
     }
 }

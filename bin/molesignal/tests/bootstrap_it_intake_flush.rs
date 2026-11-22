@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! IntakeWorker 端到端：WAL append → buffer push → 显式 flush_one →
-//! FileCatalog Segment/Artifact + parquet 文件存在 + WAL 段被截断；再重启 worker 验 replay。
+//! IntakeWorker end to end on a real Postgres: a write is acknowledged once its WAL object is in
+//! object storage → flush publishes a segment and deletes the objects → a node dies after
+//! acknowledging and before flushing, with nothing of it left → another node takes its WAL over
+//! and publishes every acknowledged row exactly once, and the dead node, should it come back,
+//! is refused.
 //!
-//! 用 `MS_RUN_IT=1` 守护：默认本地无 docker 跳过。
+//! Guarded by `MS_RUN_IT=1` (a container, or `MS_IT_POSTGRES_DSN`).
 
 #![allow(clippy::field_reassign_with_default, dead_code)]
 
@@ -14,58 +17,58 @@ use std::{path::PathBuf, sync::Arc};
 
 use common::skip_unless_enabled;
 use domain::{
+    cluster::PeerRole,
     iam::{Organization, OrganizationRepository},
     intake::{IntakeBatch, IntakeSink, RawEvent},
     storage::{
-        DatasetSelection, FileCatalog, OrganizationScope, builtin_registry, primary_dataset_type,
+        DatasetSelection, FileCatalog, OrganizationScope, PhysicalDatasetId, builtin_registry,
+        is_stale_writer_epoch, primary_dataset_type,
     },
     stream::{
         FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
         StreamRepository, StreamType,
     },
 };
+use futures::TryStreamExt;
 use kernel::{
     health::Probe,
     ids::Id,
     time::{TimeRange, TimestampMicros},
 };
 use molesignal::{
+    app::cluster::WorkOwnership,
     bootstrap::roles::intake::IntakeWorker,
     infra::{
-        intake::{BufferPool, DatasetResolver, WalPool},
-        segment_wal::FsyncPolicy,
+        intake::{BufferPool, DatasetResolver, ObjectWal, ObjectWalConfig},
         storage::{object, parquet::writer::ParquetWriter},
     },
 };
+use object_store::{ObjectStore, path::Path};
 use postgres::{
     MetaStore,
     repositories::{
         file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
-        streams::PgStreamRepository,
+        streams::PgStreamRepository, wal_writers::PgWalWriterRegistry,
     },
 };
 use serde_json::json;
-use settings::IntakeSettings;
+use settings::{IntakeSettings, WalSettings};
 use testcontainers_modules::postgres::Postgres as PgImage;
 
 struct Fixture {
-    worker: Arc<IntakeWorker>,
+    pool: sqlx::PgPool,
     streams: Arc<PgStreamRepository>,
     catalog: Arc<PgFileCatalog>,
     resolver: Arc<DatasetResolver>,
-    wal_pool: Arc<WalPool>,
-    buffer: Arc<BufferPool>,
+    store: Arc<dyn ObjectStore>,
     object_root: tempfile::TempDir,
-    wal_root: tempfile::TempDir,
     stream: StreamDefinition,
     _pg: Option<testcontainers::ContainerAsync<PgImage>>,
 }
 
 async fn fixture() -> Fixture {
     let (dsn, pg) = common::test_database().await;
-
     let object_root = tempfile::tempdir().unwrap();
-    let wal_root = tempfile::tempdir().unwrap();
 
     let meta_cfg = settings::MetaDatabaseSettings {
         dsn,
@@ -77,7 +80,6 @@ async fn fixture() -> Fixture {
     let streams = Arc::new(PgStreamRepository::new(pool.clone()));
     let catalog = Arc::new(PgFileCatalog::new(pool.clone()));
 
-    // 建 org + streams 行
     PgOrganizationRepository::new(pool.clone())
         .create(Organization {
             id: Id::from_string("orga"),
@@ -89,6 +91,7 @@ async fn fixture() -> Fixture {
         })
         .await
         .unwrap();
+
     let stream = StreamDefinition {
         id: Id::new(),
         org_id: Id::from_string("orga"),
@@ -120,44 +123,88 @@ async fn fixture() -> Fixture {
     )
     .unwrap();
 
-    let wal_pool = Arc::new(WalPool::new(
-        wal_root.path(),
-        "node-test",
-        4 * 1024, // 4 KiB 小段，触发多次 rotate
-        FsyncPolicy::none_default(),
-    ));
-    let buffer = Arc::new(BufferPool::new());
-    let parquet_writer = Arc::new(ParquetWriter::new(store));
-    let probe = Arc::new(Probe::new());
-    let settings = IntakeSettings::default();
-
     let resolver = Arc::new(DatasetResolver::new(
         catalog.clone() as Arc<dyn FileCatalog>,
         Arc::new(builtin_registry()),
     ));
-    let worker = Arc::new(IntakeWorker::new(
-        wal_pool.clone(),
-        buffer.clone(),
-        streams.clone() as Arc<dyn StreamRepository>,
-        resolver.clone(),
-        catalog.clone() as Arc<dyn FileCatalog>,
-        parquet_writer,
-        probe,
-        settings,
-    ));
 
     Fixture {
-        worker,
+        pool,
         streams,
         catalog,
         resolver,
-        wal_pool,
-        buffer,
+        store,
         object_root,
-        wal_root,
         stream,
         _pg: pg,
     }
+}
+
+/// A node: its own WAL writer (a new epoch) and memory buffers over the shared Postgres and
+/// object store. Nothing of it is on a disk.
+async fn node(f: &Fixture, node_id: &str) -> Arc<IntakeWorker> {
+    let wal = ObjectWal::start(
+        f.store.clone(),
+        Arc::new(PgWalWriterRegistry::new(f.pool.clone())),
+        node_id,
+        ObjectWalConfig::from_settings(&WalSettings::default()),
+        None,
+    )
+    .await
+    .expect("register WAL writer");
+
+    Arc::new(IntakeWorker::new(
+        Arc::new(wal),
+        Arc::new(BufferPool::new()),
+        f.streams.clone() as Arc<dyn StreamRepository>,
+        f.resolver.clone(),
+        f.catalog.clone() as Arc<dyn FileCatalog>,
+        Arc::new(ParquetWriter::new(f.store.clone())),
+        Arc::new(Probe::new()),
+        IntakeSettings::default(),
+    ))
+}
+
+async fn wal_objects(f: &Fixture) -> usize {
+    f.store
+        .list(Some(&Path::from("wal/v1")))
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap()
+        .len()
+}
+
+async fn published_rows(f: &Fixture, dataset_id: &PhysicalDatasetId) -> (usize, u64) {
+    let snapshot = f
+        .catalog
+        .snapshot(
+            &OrganizationScope::new(f.stream.org_id.clone()),
+            DatasetSelection {
+                dataset_ids: vec![dataset_id.clone()],
+                time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
+                partition_shard: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    let segments = &snapshot.datasets[0].segments;
+    (
+        segments.len(),
+        segments.iter().map(|segment| segment.row_count).sum(),
+    )
+}
+
+/// What the takeover node does every few seconds; the lapsed lease is made to lapse at once.
+async fn expire_lease(f: &Fixture, worker: &IntakeWorker) {
+    sqlx::query(
+        "UPDATE wal_writers SET lease_expires_at = now() - interval '1 second'
+          WHERE writer_epoch = $1",
+    )
+    .bind(worker.wal().lease().epoch().0 as i64)
+    .execute(&f.pool)
+    .await
+    .unwrap();
 }
 
 fn batch_of(stream: &StreamDefinition, base_ts: i64, n: usize) -> IntakeBatch {
@@ -182,23 +229,28 @@ fn batch_of(stream: &StreamDefinition, base_ts: i64, n: usize) -> IntakeBatch {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn it_5000_rows_flush_then_replay() {
+async fn acknowledged_rows_survive_losing_the_node_and_are_published_once() {
     if skip_unless_enabled() {
         return;
     }
     let f = fixture().await;
+    let a = node(&f, "node-a").await;
 
-    // 写 5000 行，按 100 行/batch 切 50 batch（覆盖多次 WAL append + buffer 累积）
+    // 5000 rows in 50 acknowledged batches, then a flush.
     for chunk in 0..50 {
         let b = batch_of(
             &f.stream,
             1_700_000_000_000_000 + chunk as i64 * 1_000_000,
             100,
         );
-        f.worker.write(b).await.expect("intake");
+        a.write(b).await.expect("intake");
     }
 
-    // 显式 flush（避免依赖 background tick）
+    assert!(
+        wal_objects(&f).await > 0,
+        "acknowledged batches are in object storage"
+    );
+
     let dataset_id = f
         .resolver
         .resolve(
@@ -210,10 +262,15 @@ async fn it_5000_rows_flush_then_replay() {
         .dataset
         .id
         .clone();
-    let key = dataset_id.clone();
-    f.worker.flush_one(&key).await.expect("flush_one");
+    a.flush_one(&dataset_id).await.expect("flush_one");
 
-    // 验：Catalog 一次快照返回已发布 Segment + Primary Artifact。
+    assert_eq!(published_rows(&f, &dataset_id).await, (1, 5000));
+    assert_eq!(
+        wal_objects(&f).await,
+        0,
+        "a committed flush deletes its WAL objects"
+    );
+
     let snapshot = f
         .catalog
         .snapshot(
@@ -226,134 +283,62 @@ async fn it_5000_rows_flush_then_replay() {
         )
         .await
         .unwrap();
-    let segments = &snapshot.datasets[0].segments;
-    assert_eq!(segments.len(), 1, "expect a single segment from flush");
-    assert_eq!(segments[0].row_count, 5000, "all 5000 rows landed");
-
-    // 验：parquet 文件落到 object_store 路径
     let parquet_path: PathBuf = f
         .object_root
         .path()
-        .join(segments[0].primary.object.key.as_str());
+        .join(snapshot.datasets[0].segments[0].primary.object.key.as_str());
     assert!(parquet_path.exists(), "parquet missing at {parquet_path:?}");
 
-    // 验：WAL sealed segments 已被截断（活跃段保留）。目录按 dataset id / epoch 组织。
-    let listed_dataset_id = {
-        let datasets = f
-            .catalog
-            .list_datasets(
-                &OrganizationScope::new(f.stream.org_id.clone()),
-                &f.stream.id,
-            )
-            .await
-            .expect("list datasets");
-        assert_eq!(datasets.len(), 1, "raw dataset provisioned on first write");
-        datasets[0].id.clone()
-    };
-    assert_eq!(listed_dataset_id, dataset_id);
-    let wal_dir = f
-        .wal_root
-        .path()
-        .join("node-test")
-        .join(dataset_id.as_str())
-        .join("1");
-    let segs_now = molesignal::infra::segment_wal::SegmentWal::segment_paths_sorted(&wal_dir)
-        .expect("list segs");
-    assert!(
-        segs_now.len() <= 1,
-        "expect only active segment left after truncate, got {} segments",
-        segs_now.len()
+    // 200 more rows are acknowledged and never flushed: then the node is gone, disk and all.
+    a.write(batch_of(&f.stream, 1_700_500_000_000_000, 200))
+        .await
+        .expect("acknowledged before the crash");
+    assert!(wal_objects(&f).await > 0);
+    expire_lease(&f, &a).await;
+
+    // Another node takes the WAL over.
+    let b = node(&f, "node-b").await;
+    let ownership = WorkOwnership::solo(PeerRole::Intake);
+    let round = b.take_over_lapsed(&ownership).await.expect("takeover");
+    assert_eq!((round.fenced, round.streams, round.rows), (1, 1, 200));
+    assert_eq!(published_rows(&f, &dataset_id).await, (2, 5200));
+    assert_eq!(
+        wal_objects(&f).await,
+        0,
+        "a finished takeover deletes the objects"
     );
 
-    // === 第二阶段：drop worker → 写残余 WAL → 新建 worker（新 WalPool 模拟重启）→ replay ===
-    drop(f.worker);
-    // 直接往 WAL 追写一批（不经过 buffer），模拟"flush 前进程崩溃"
-    let extra_batch = batch_of(&f.stream, 1_700_500_000_000_000, 200);
-    let payload = molesignal::infra::intake::wal_record::encode(
-        &molesignal::infra::intake::wal_record::WalBatch {
-            org_id: extra_batch.org_id.clone(),
-            stream: extra_batch.stream.clone(),
-            stream_type: extra_batch.stream_type,
-            collected_bytes: None,
-            columns: molesignal::infra::intake::row_columns::rows_to_columns(
-                &f.stream,
-                &extra_batch.events,
-                None,
-            )
-            .unwrap(),
-        },
-    )
-    .unwrap();
-    let resolved = f
-        .resolver
-        .resolve(
-            &f.stream,
-            primary_dataset_type(f.stream.stream_type).unwrap(),
-        )
-        .await
-        .expect("resolve dataset");
-    f.wal_pool
-        .append(&resolved.wal_identity(), payload)
-        .await
-        .unwrap();
-
-    // 新 worker：全新 BufferPool + 全新 WalPool（重启后 pools 状态清零，恢复走目录扫描）
-    let buffer2 = Arc::new(BufferPool::new());
-    let wal_pool2 = Arc::new(WalPool::new(
-        f.wal_root.path(),
-        "node-test",
-        4 * 1024,
-        FsyncPolicy::none_default(),
-    ));
-    let object_cfg = settings::ObjectStoreSettings {
-        backend: "local".into(),
-        root: f.object_root.path().to_string_lossy().into(),
-        ..Default::default()
-    };
-    let store2 = object::build(
-        &object_cfg,
-        &object::credentials::ResolvedCredentials::empty(),
-    )
-    .unwrap();
-    let parquet_writer2 = Arc::new(ParquetWriter::new(store2));
-    let worker2 = Arc::new(IntakeWorker::new(
-        wal_pool2,
-        buffer2.clone(),
-        f.streams.clone() as Arc<dyn StreamRepository>,
-        f.resolver.clone(),
-        f.catalog.clone() as Arc<dyn FileCatalog>,
-        parquet_writer2,
-        Arc::new(Probe::new()),
-        IntakeSettings::default(),
-    ));
-    worker2.recover_and_replay().await.expect("replay");
-
-    // replay 成功落盘后旧 epoch 目录被整目录清理。
-    assert!(
-        !wal_dir.exists(),
-        "old epoch dir must be purged after successful replay flush"
+    let again = b.take_over_lapsed(&ownership).await.expect("second round");
+    assert_eq!(
+        (again.streams, again.rows),
+        (0, 0),
+        "nothing is taken over twice"
     );
 
-    // replay 已强制发布；再次 flush_one 应为 no-op。
-    worker2
-        .flush_one(&key)
-        .await
-        .expect("flush_one after replay");
+    // The old node comes back from a pause: its buffered rows are refused, not published twice.
+    let refused = a.flush_one(&dataset_id).await.unwrap_err();
+    assert!(is_stale_writer_epoch(&refused), "{refused}");
+    assert_eq!(published_rows(&f, &dataset_id).await, (2, 5200));
 
-    let snapshot2 = f
-        .catalog
-        .snapshot(
-            &OrganizationScope::new(f.stream.org_id.clone()),
-            DatasetSelection {
-                dataset_ids: vec![dataset_id],
-                time_range: TimeRange::new(TimestampMicros(0), TimestampMicros(i64::MAX)),
-                partition_shard: None,
-            },
-        )
+    // Its next renewal finds the writer fenced; it takes a new epoch and goes on writing.
+    let fenced_epoch = a.wal().lease().epoch();
+    a.wal().renew().await;
+    assert!(a.wal().lease().epoch() > fenced_epoch);
+    a.write(batch_of(&f.stream, 1_700_600_000_000_000, 1))
+        .await
+        .expect("write under the new epoch");
+    a.flush_one(&dataset_id)
+        .await
+        .expect("flush under the new epoch");
+    assert_eq!(published_rows(&f, &dataset_id).await, (3, 5201));
+
+    let streams_left: Vec<i64> = sqlx::query_scalar("SELECT writer_epoch FROM wal_streams")
+        .fetch_all(&f.pool)
         .await
         .unwrap();
-    let segments2 = &snapshot2.datasets[0].segments;
-    assert_eq!(segments2.len(), 2, "expect 2 segments after replay flush");
-    let total_rows: u64 = segments2.iter().map(|segment| segment.row_count).sum();
-    assert_eq!(total_rows, 5000 + 200, "total rows after replay");
+    assert_eq!(
+        streams_left,
+        vec![a.wal().lease().epoch().0 as i64],
+        "only the live epoch's stream is open"
+    );
 }

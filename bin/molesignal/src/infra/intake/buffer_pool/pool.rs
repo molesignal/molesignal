@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
-};
+use std::sync::Arc;
 
 use dashmap::{DashMap, mapref::entry::Entry};
 use domain::{
-    storage::{PhysicalDatasetId, WriterEpoch},
+    storage::PhysicalDatasetId,
     stream::{StreamDefinition, StreamType},
 };
 use kernel::{Error, Result, ids::Id};
@@ -28,24 +25,11 @@ pub struct DatasetBuffer {
     pub stream_name: String,
     pub stream_type: StreamType,
     records: Mutex<RecordBuilder>,
-    /// 已被 FileCatalog 栅栏拒绝的最大 writer epoch；0 = 没有被栅栏过。
-    fenced_epoch: AtomicU64,
 }
 
 impl DatasetBuffer {
     pub fn records(&self) -> &Mutex<RecordBuilder> {
         &self.records
-    }
-
-    /// 记录 `epoch`（及更早）的 writer 已被更高 epoch 栅栏：它再也无法发布数据。
-    pub fn fence(&self, epoch: WriterEpoch) {
-        self.fenced_epoch.fetch_max(epoch.0, Ordering::AcqRel);
-    }
-
-    /// 该 epoch 的 writer 是否已被栅栏。重启后取得更高 epoch 的写入不受影响。
-    pub fn is_fenced(&self, epoch: WriterEpoch) -> bool {
-        let fenced = self.fenced_epoch.load(Ordering::Acquire);
-        fenced != 0 && epoch.0 <= fenced
     }
 
     pub async fn query_snapshot(&self) -> Result<Vec<BufferedRecordBatch>> {
@@ -137,7 +121,6 @@ impl BufferPool {
                         stream_name: stream.name.clone(),
                         stream_type: stream.stream_type,
                         records: Mutex::new(RecordBuilder::new(&physical_stream)),
-                        fenced_epoch: AtomicU64::new(0),
                     }))
                     .clone())
             }

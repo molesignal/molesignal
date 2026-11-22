@@ -35,8 +35,7 @@ use molesignal::{
     app::intake::IntakeService as AppIntakeService,
     bootstrap::roles::intake::IntakeWorker,
     infra::{
-        intake::{BufferPool, DatasetResolver, WalPool},
-        segment_wal::FsyncPolicy,
+        intake::{BufferPool, DatasetResolver, MemoryWalWriters, ObjectWal, ObjectWalConfig},
         storage::{object, parquet::writer::ParquetWriter},
     },
 };
@@ -240,7 +239,6 @@ fn sample_stream() -> StreamDefinition {
 async fn grpc_push_100_events_lands_in_buffer_and_flush() {
     let stream = sample_stream();
     let object_root = tempfile::tempdir().unwrap();
-    let wal_root = tempfile::tempdir().unwrap();
     let object_cfg = ObjectStoreSettings {
         backend: "local".into(),
         root: object_root.path().to_string_lossy().into(),
@@ -251,12 +249,17 @@ async fn grpc_push_100_events_lands_in_buffer_and_flush() {
         &object::credentials::ResolvedCredentials::empty(),
     )
     .unwrap();
-    let wal_pool = Arc::new(WalPool::new(
-        wal_root.path(),
-        "node-test",
-        64 * 1024,
-        FsyncPolicy::none_default(),
-    ));
+    let wal = Arc::new(
+        ObjectWal::start(
+            store.clone(),
+            Arc::new(MemoryWalWriters::default()),
+            "node-test",
+            ObjectWalConfig::from_settings(&settings::WalSettings::default()),
+            None,
+        )
+        .await
+        .unwrap(),
+    );
     let buffer = Arc::new(BufferPool::new());
     let streams = InMemStreams::with(stream.clone());
     let stream_repo: Arc<dyn StreamRepository> = streams.clone();
@@ -269,7 +272,7 @@ async fn grpc_push_100_events_lands_in_buffer_and_flush() {
         Arc::new(builtin_registry()),
     ));
     let worker = Arc::new(IntakeWorker::new(
-        wal_pool.clone(),
+        wal,
         buffer.clone(),
         stream_repo.clone(),
         resolver.clone(),
@@ -278,8 +281,6 @@ async fn grpc_push_100_events_lands_in_buffer_and_flush() {
         probe,
         IntakeSettings::default(),
     ));
-    // 直接 replay（无残留 WAL，期望立即 ready）
-    worker.recover_and_replay().await.unwrap();
 
     let intake_service = Arc::new(AppIntakeService::new(
         worker.clone() as Arc<dyn IntakeSink>,

@@ -9,7 +9,10 @@ use std::{
 };
 
 use domain::{
-    storage::{CommitFlush, FlushId, OrganizationScope, PhysicalDatasetId, is_stale_writer_epoch},
+    storage::{
+        CommitFlush, FlushId, OrganizationScope, PhysicalDataset, PhysicalDatasetId, WriterEpoch,
+        is_stale_writer_epoch,
+    },
     stream::{StreamDefinition, StreamType},
 };
 use futures::{StreamExt, stream};
@@ -18,8 +21,20 @@ use tokio::task::JoinHandle;
 
 use super::{FileLayout, IntakeWorker, LAYOUT_TTL, PendingWalCleanup};
 use crate::infra::intake::{
-    BufferKey, DatasetBuffer, FlushInflightGuard, RotationReason, inc_flush_error, inc_rotation,
+    BufferKey, BufferedRecordBatch, DatasetBuffer, FlushInflightGuard, RotationReason,
+    inc_flush_error, inc_rotation,
 };
+
+/// How long a draining node waits for WAL groups in flight once it stops acknowledging.
+const DRAIN_GROUP_WAIT: Duration = Duration::from_secs(5);
+
+/// Why a generation was not published.
+pub(super) enum PublishError {
+    /// Writing the segment files failed.
+    Write(Error),
+    /// The catalog refused or failed the commit.
+    Commit(Error),
+}
 
 impl IntakeWorker {
     #[tracing::instrument(
@@ -147,8 +162,7 @@ impl IntakeWorker {
         let dataset_type = buffer.dataset.dataset.dataset_type.as_str();
         inc_rotation(stream_type, reason);
         let _inflight = FlushInflightGuard::enter(stream_type);
-        let provenance = generation.provenance();
-        let flush_id = provenance.flush_id.clone();
+        let flush_id = generation.flush_id();
 
         let estimated_raw_bytes = if generation.accounted_size_bytes() > 0 {
             generation.accounted_size_bytes()
@@ -156,72 +170,47 @@ impl IntakeWorker {
             generation.approximate_size_bytes()
         };
 
-        let physical_stream = crate::infra::intake::physical_schema::project(
-            &stream_definition,
-            &buffer.dataset.dataset.dataset_type,
-        );
+        // The writer publishes its own rows; rows of an epoch this process was fenced out of are
+        // refused here and dropped, the node that claimed that epoch publishes them.
+        let publisher = generation.writer.writer_epoch;
 
-        let layout = self.layout(&stream_definition).await;
-
-        let segments = match self
-            .parquet_writer
-            .flush_catalog_clustered(
-                &physical_stream,
+        let encoded_size_bytes = match self
+            .publish_generation(
+                &stream_definition,
                 &buffer.dataset.dataset,
-                &provenance,
-                generation.batch.clone(),
-                layout.sharding.as_ref(),
-                layout.clustering.as_ref(),
+                &generation,
+                publisher,
             )
             .await
         {
-            Ok(segments) => segments,
-            Err(error) => {
+            Ok(bytes) => bytes,
+            Err(PublishError::Write(error)) => {
                 inc_flush_error("parquet_write");
                 self.fail_generation(&buffer, &flush_id).await?;
                 return Err(error);
             }
-        };
+            Err(PublishError::Commit(error)) => {
+                inc_flush_error("file_catalog_commit");
 
-        let encoded_size_bytes = segments
-            .iter()
-            .flat_map(|segment| segment.artifacts())
-            .map(|artifact| artifact.object.size_bytes)
-            .sum();
+                // 物理数据集已从 catalog 删除（例如流被删除后又重建）：这批数据没有去处。
+                if matches!(error, Error::NotFound(_)) {
+                    self.discard_dataset_gone(&buffer, key, "dataset_gone")
+                        .await;
+                    return Ok(());
+                }
 
-        let scope = OrganizationScope::new(buffer.organization_id.clone());
+                // The publisher was fenced: these rows are published from the WAL by the node
+                // that claimed the stream, and retrying here could never succeed.
+                if is_stale_writer_epoch(&error) {
+                    self.discard_fenced_writer(&buffer, key, &generation.writer, &error)
+                        .await;
+                    return Err(error);
+                }
 
-        if let Err(error) = self
-            .file_catalog
-            .commit_flush(
-                &scope,
-                CommitFlush {
-                    dataset_id: key.clone(),
-                    provenance,
-                    segments,
-                },
-            )
-            .await
-        {
-            inc_flush_error("file_catalog_commit");
-
-            // 物理数据集已从 catalog 删除（例如流被删除后又重建）：这批数据没有去处。
-            if matches!(error, Error::NotFound(_)) {
-                self.discard_dataset_gone(&buffer, key, "dataset_gone")
-                    .await;
-                return Ok(());
-            }
-
-            // 同一 (dataset, node) 已有更高 epoch 提交过：本 epoch 永远无法发布，重试没有意义。
-            if is_stale_writer_epoch(&error) {
-                self.discard_fenced_writer(&buffer, key, &generation.writer, &error)
-                    .await;
+                self.fail_generation(&buffer, &flush_id).await?;
                 return Err(error);
             }
-
-            self.fail_generation(&buffer, &flush_id).await?;
-            return Err(error);
-        }
+        };
 
         let accounted_size_bytes = buffer
             .records()
@@ -236,12 +225,12 @@ impl IntakeWorker {
 
         let high_watermark_seq = generation.sequence_range().end.0;
 
-        match self.cleanup_wal(key, high_watermark_seq).await {
+        match self.cleanup_wal(key, publisher, high_watermark_seq).await {
             Ok(()) => {
                 self.pending_wal_cleanup.remove(key);
             }
             Err(error) => {
-                self.remember_pending_wal_cleanup(key, high_watermark_seq);
+                self.remember_pending_wal_cleanup(key, publisher, high_watermark_seq);
                 tracing::warn!(
                     dataset_id = %key,
                     high_watermark_seq,
@@ -252,6 +241,59 @@ impl IntakeWorker {
         }
 
         Ok(())
+    }
+
+    /// Writes `generation`'s segment files and commits them to the catalog as `publisher`. Shared
+    /// by the flush of this node's own rows and by takeovers. Returns the encoded bytes.
+    pub(super) async fn publish_generation(
+        &self,
+        stream_definition: &StreamDefinition,
+        dataset: &PhysicalDataset,
+        generation: &BufferedRecordBatch,
+        publisher: WriterEpoch,
+    ) -> std::result::Result<u64, PublishError> {
+        let provenance = generation.provenance();
+
+        let physical_stream = crate::infra::intake::physical_schema::project(
+            stream_definition,
+            &dataset.dataset_type,
+        );
+
+        let layout = self.layout(stream_definition).await;
+
+        let segments = self
+            .parquet_writer
+            .flush_catalog_clustered(
+                &physical_stream,
+                dataset,
+                &provenance,
+                generation.batch.clone(),
+                layout.sharding.as_ref(),
+                layout.clustering.as_ref(),
+            )
+            .await
+            .map_err(PublishError::Write)?;
+
+        let encoded_size_bytes = segments
+            .iter()
+            .flat_map(|segment| segment.artifacts())
+            .map(|artifact| artifact.object.size_bytes)
+            .sum();
+
+        self.file_catalog
+            .commit_flush(
+                &OrganizationScope::new(dataset.organization_id.clone()),
+                CommitFlush {
+                    dataset_id: dataset.id.clone(),
+                    provenance,
+                    publisher_epoch: publisher,
+                    segments,
+                },
+            )
+            .await
+            .map_err(PublishError::Commit)?;
+
+        Ok(encoded_size_bytes)
     }
 
     pub(super) async fn flush_keys(&self, keys: Vec<BufferKey>, force: bool, phase: &'static str) {
@@ -282,14 +324,25 @@ impl IntakeWorker {
             .map_err(|error| Error::internal(format!("restore failed flush generation: {error}")))
     }
 
-    pub(super) fn remember_pending_wal_cleanup(&self, key: &BufferKey, high_watermark_seq: u64) {
+    pub(super) fn remember_pending_wal_cleanup(
+        &self,
+        key: &BufferKey,
+        writer_epoch: WriterEpoch,
+        high_watermark_seq: u64,
+    ) {
         self.pending_wal_cleanup
             .entry(key.clone())
             .and_modify(|pending| {
-                pending.high_watermark_seq = pending.high_watermark_seq.max(high_watermark_seq);
+                if pending.writer_epoch == writer_epoch {
+                    pending.high_watermark_seq = pending.high_watermark_seq.max(high_watermark_seq);
+                } else if writer_epoch > pending.writer_epoch {
+                    pending.writer_epoch = writer_epoch;
+                    pending.high_watermark_seq = high_watermark_seq;
+                }
             })
             .or_insert_with(|| PendingWalCleanup {
                 dataset_id: key.clone(),
+                writer_epoch,
                 high_watermark_seq,
             });
     }
@@ -300,7 +353,11 @@ impl IntakeWorker {
         };
 
         match self
-            .cleanup_wal(&pending.dataset_id, pending.high_watermark_seq)
+            .cleanup_wal(
+                &pending.dataset_id,
+                pending.writer_epoch,
+                pending.high_watermark_seq,
+            )
             .await
         {
             Ok(()) => {
@@ -315,26 +372,18 @@ impl IntakeWorker {
         }
     }
 
+    /// Deletes the WAL objects of `writer_epoch`'s WAL of `dataset_id` up to `high_watermark_seq`,
+    /// which a committed flush covers.
     pub(super) async fn cleanup_wal(
         &self,
         dataset_id: &PhysicalDatasetId,
+        writer_epoch: WriterEpoch,
         high_watermark_seq: u64,
     ) -> Result<()> {
-        if let Err(error) = self.wal.seal_active(dataset_id).await {
-            inc_flush_error("wal_seal");
-            return Err(Error::internal(format!("wal seal_active: {error}")));
-        }
-
-        if let Err(error) = self
-            .wal
-            .truncate_up_to(dataset_id, high_watermark_seq)
+        self.wal
+            .cleanup(dataset_id, writer_epoch, high_watermark_seq)
             .await
-        {
-            inc_flush_error("wal_truncate");
-            return Err(Error::internal(format!("wal truncate: {error}")));
-        }
-
-        Ok(())
+            .inspect_err(|_| inc_flush_error("wal_cleanup"))
     }
 
     /// Interval and explicit wake-up driven flush loop.
@@ -358,8 +407,10 @@ impl IntakeWorker {
                 {
                     self.flush_keys(self.buffer.snapshot_keys(), true, "drain")
                         .await;
+                    self.wal.stop_acknowledging(DRAIN_GROUP_WAIT).await;
                     self.flush_keys(self.buffer.snapshot_keys(), true, "drain_final")
                         .await;
+                    self.release_wal().await;
                     drain.mark_drained();
                     tracing::info!("intake drained: pending buffers flushed; flush loop exiting");
                     break;

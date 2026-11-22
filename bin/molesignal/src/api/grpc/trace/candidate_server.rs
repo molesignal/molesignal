@@ -6,11 +6,15 @@
 //! 该 service 只挂在内部 gRPC listener；即便误暴露到公共网络，调用方仍必须同时
 //! 提供内部 origin 标记和集群 bearer。接收端不修改 producer 的 Resource/Scope，
 //! 只把完整 CanonicalSpan 放入本节点的有界 tail-sampler queue。
+//!
+//! A batch is taken or refused as a whole, and accepted only once its tenant candidates are in
+//! this node's trace candidate log: from then on they survive this node, and the producer
+//! settles them in its own log.
 
 use std::sync::Arc;
 
 use protocol::cluster::v1::{
-    TraceCandidateDisposition, TraceCandidateServiceSubmitRequest,
+    TraceCandidateDisposition, TraceCandidateItem, TraceCandidateServiceSubmitRequest,
     TraceCandidateServiceSubmitResponse, TraceForceKeep,
     trace_candidate_service_server::{TraceCandidateService, TraceCandidateServiceServer},
 };
@@ -20,7 +24,7 @@ use signals::{
 };
 use tonic::{Request, Response, Status};
 
-use crate::app::trace::{TracePipeline, TraceSubmitError};
+use crate::app::trace::{TracePipeline, TraceSubmitError, durable::TraceCandidateLog};
 
 pub const TRACE_CANDIDATE_ORIGIN_HEADER: &str = "x-molesignal-internal-origin";
 pub const TRACE_CANDIDATE_ORIGIN_VALUE: &str = "trace-candidate";
@@ -29,6 +33,7 @@ pub const MAX_TRACE_CANDIDATE_BYTES: usize = 2 * 1024 * 1024;
 pub struct TraceCandidateGrpc {
     pipeline: Arc<TracePipeline>,
     cluster_token: Option<Arc<str>>,
+    candidate_log: Option<Arc<TraceCandidateLog>>,
 }
 
 impl TraceCandidateGrpc {
@@ -36,7 +41,15 @@ impl TraceCandidateGrpc {
         Self {
             pipeline,
             cluster_token,
+            candidate_log: None,
         }
+    }
+
+    /// Writes accepted tenant candidates to this node's candidate log before answering, so the
+    /// producer may settle them.
+    pub fn with_candidate_log(mut self, log: Option<Arc<TraceCandidateLog>>) -> Self {
+        self.candidate_log = log;
+        self
     }
 
     pub fn into_server(self) -> TraceCandidateServiceServer<Self> {
@@ -51,16 +64,46 @@ impl TraceCandidateService for TraceCandidateGrpc {
         request: Request<TraceCandidateServiceSubmitRequest>,
     ) -> Result<Response<TraceCandidateServiceSubmitResponse>, Status> {
         authenticate_cluster_candidate(&request, self.cluster_token.as_deref())?;
-        let candidate = decode_candidate(request.into_inner())?;
+        let request = request.into_inner();
 
-        let disposition = match self.pipeline.try_submit(candidate) {
+        if request.producer_node_id.is_empty() || request.producer_node_id.len() > 256 {
+            return Err(Status::invalid_argument("invalid producer_node_id"));
+        }
+
+        let mut candidates = Vec::with_capacity(request.candidates.len());
+        let mut rejected = 0_u32;
+
+        // A malformed candidate is refused on its own: refusing the batch would make the producer
+        // retry it for ever.
+        for item in request.candidates {
+            match decode_candidate(item) {
+                Ok(candidate) => candidates.push(candidate),
+                Err(status) => {
+                    rejected += 1;
+                    tracing::warn!(
+                        producer = %request.producer_node_id,
+                        reason = %status.message(),
+                        "a Trace candidate from a producer was malformed"
+                    );
+                }
+            }
+        }
+
+        let disposition = match self
+            .pipeline
+            .submit_logged_batch(candidates, self.candidate_log.as_deref())
+            .await
+        {
             Ok(()) => TraceCandidateDisposition::Accepted,
-            Err(TraceSubmitError::Full) => TraceCandidateDisposition::Overloaded,
+            Err(TraceSubmitError::Full | TraceSubmitError::Unlogged) => {
+                TraceCandidateDisposition::Overloaded
+            }
             Err(TraceSubmitError::Stopped) => TraceCandidateDisposition::Stopped,
         };
 
         Ok(Response::new(TraceCandidateServiceSubmitResponse {
             disposition: disposition as i32,
+            rejected,
         }))
     }
 }
@@ -97,13 +140,9 @@ fn authenticate_cluster_candidate<T>(
     Ok(())
 }
 
-fn decode_candidate(request: TraceCandidateServiceSubmitRequest) -> Result<TraceCandidate, Status> {
+fn decode_candidate(request: TraceCandidateItem) -> Result<TraceCandidate, Status> {
     if request.org_id.is_empty() || request.org_id.len() > 256 {
         return Err(Status::invalid_argument("invalid org_id"));
-    }
-
-    if request.producer_node_id.is_empty() || request.producer_node_id.len() > 256 {
-        return Err(Status::invalid_argument("invalid producer_node_id"));
     }
 
     if request.canonical_span_json.is_empty()
@@ -215,14 +254,12 @@ mod tests {
             .attributes
             .insert("molesignal.node.id".into(), serde_json::json!("producer-a"));
         span.scope.name = "producer.instrumentation".into();
-        let decoded = decode_candidate(TraceCandidateServiceSubmitRequest {
+        let decoded = decode_candidate(TraceCandidateItem {
             org_id: "org-a".into(),
             stream: "default".into(),
             system_self_trace: false,
             canonical_span_json: serde_json::to_vec(&span).unwrap().into(),
             force_keep: TraceForceKeep::TrustedInternal as i32,
-            producer_node_id: "producer-a".into(),
-            produced_at_micros: 1,
         })
         .unwrap();
         assert_eq!(decoded.span.resource, span.resource);

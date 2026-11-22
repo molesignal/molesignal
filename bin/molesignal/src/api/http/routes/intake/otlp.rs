@@ -31,7 +31,7 @@ use opentelemetry_proto::tonic::{
     collector::{
         logs::v1::{ExportLogsServiceRequest, ExportLogsServiceResponse},
         metrics::v1::{ExportMetricsServiceRequest, ExportMetricsServiceResponse},
-        trace::v1::{ExportTraceServiceRequest, ExportTraceServiceResponse},
+        trace::v1::ExportTraceServiceRequest,
     },
     common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value},
     resource::v1::Resource,
@@ -44,21 +44,20 @@ use signals::trace_normalization::{
 };
 
 use super::{DEFAULT_STREAM, stream_name};
-use crate::{
-    api::AppState,
-    app::intake::usage::{IntakeReceipt, ServiceTally},
-};
+use crate::{api::AppState, app::intake::usage::IntakeReceipt};
 
 mod json;
 mod metrics;
+mod traces;
 
 pub(crate) use metrics::metrics_to_events;
+pub(crate) use traces::submit_traces;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/logs", post(otlp_logs))
         .route("/metrics", post(otlp_metrics))
-        .route("/traces", post(otlp_traces))
+        .route("/traces", post(traces::otlp_traces))
 }
 
 // ===== content negotiation =====
@@ -489,102 +488,6 @@ async fn otlp_metrics(
     .await?;
 
     Ok(otlp_ok(enc, ExportMetricsServiceResponse::default()))
-}
-
-#[permission("traces.write")]
-async fn otlp_traces(
-    State(state): State<AppState>,
-    axum::Extension(ctx): axum::Extension<domain::iam::IamContext>,
-    axum::Extension(trace_context): axum::Extension<signals::trace_context::TraceContext>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Result<Response> {
-    let enc = detect_encoding(&headers)?;
-    let req: ExportTraceServiceRequest = decode_otlp(enc, &body)?;
-    let stream = stream_name(&headers, DEFAULT_STREAM);
-    let spans = traces_to_canonical(req);
-
-    submit_traces(
-        &state,
-        &ctx,
-        stream,
-        spans,
-        body.len(),
-        &trace_context,
-        headers.contains_key(crate::app::trace::export::SELF_EXPORT_MARKER),
-    )
-    .await?;
-
-    Ok(otlp_ok(enc, ExportTraceServiceResponse::default()))
-}
-
-pub(crate) async fn submit_traces(
-    state: &AppState,
-    ctx: &IamContext,
-    stream: String,
-    mut spans: Vec<CanonicalSpan>,
-    bytes: usize,
-    trace_context: &signals::trace_context::TraceContext,
-    suppress_external: bool,
-) -> Result<usize> {
-    // Spans are written after tail sampling, where a refusal reaches no one: a stream only the
-    // platform writes is refused here, while the sender waits for the answer.
-    domain::stream::refuse_platform_stream(&stream)?;
-
-    let receipt = IntakeReceipt {
-        credential: IntakeCredential::of(ctx),
-        stream_type: StreamType::TRACES,
-        stream: stream.clone(),
-        bytes: bytes as u64,
-        services: ServiceTally::of_spans(&spans),
-    };
-
-    let force_keep = match trace_context.trust {
-        signals::trace_context::TraceTrust::DebugToken if trace_context.force_keep => {
-            signals::tail_sampling::ForceKeep::DebugToken
-        }
-        signals::trace_context::TraceTrust::Internal if trace_context.force_keep => {
-            signals::tail_sampling::ForceKeep::TrustedInternal
-        }
-        _ => signals::tail_sampling::ForceKeep::None,
-    };
-
-    let count = spans.len();
-
-    for span in &mut spans {
-        if suppress_external {
-            span.attributes.insert(
-                "molesignal.trace.suppress_external".into(),
-                Value::Bool(true),
-            );
-        }
-    }
-
-    let mut taken = 0_u64;
-
-    for span in spans {
-        // Queue exhaustion is an explicitly measured fail-open drop; OTLP producer success
-        // must not backpressure the caller.
-        let submitted =
-            state
-                .telemetry
-                .trace_candidates
-                .try_submit(signals::tail_sampling::TraceCandidate {
-                    org_id: ctx.org_id.0.clone(),
-                    stream: Some(stream.clone()),
-                    span,
-                    force_keep,
-                });
-
-        taken += u64::from(submitted.is_ok());
-    }
-
-    state
-        .platform
-        .intake_meter
-        .record(&ctx.org_id, receipt, taken);
-
-    Ok(count)
 }
 
 #[cfg(test)]

@@ -191,7 +191,7 @@ impl TraceSink for ExternalOtlpTraceSink {
         "external_otlp"
     }
 
-    async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String> {
+    async fn export(&self, traces: &mut Vec<DecidedTrace>) -> Result<(), String> {
         let request = canonical_to_otlp_request(traces);
 
         match &self.transport {
@@ -578,7 +578,7 @@ mod tests {
             .expect("build HTTP exporter")
             .expect("enabled HTTP exporter");
 
-        sink.export(&[retained_trace()])
+        sink.export(&mut vec![retained_trace()])
             .await
             .expect("HTTP/protobuf export");
 
@@ -756,7 +756,7 @@ mod tests {
             .expect("build gRPC exporter")
             .expect("enabled gRPC exporter");
 
-        sink.export(&[retained_trace()])
+        sink.export(&mut vec![retained_trace()])
             .await
             .expect("gRPC OTLP export");
 
@@ -845,7 +845,7 @@ mod tests {
             .expect("build mTLS gRPC exporter")
             .expect("enabled mTLS gRPC exporter");
 
-        sink.export(&[retained_trace()])
+        sink.export(&mut vec![retained_trace()])
             .await
             .expect("mTLS gRPC OTLP export");
 

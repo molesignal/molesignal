@@ -47,13 +47,15 @@ data:
     max_backoff_ms = 5000
     jitter_ratio = 0.2
 
+    # WAL 写在对象存储里，确认前已持久化；节点不需要本地盘。
     [wal]
-    dir = "/data/wal"
-    segment_size = 256
-    flush_strategy = "batch"
-    sync_level = "data"
-    batch_max_pending = 64
-    batch_max_delay_ms = 50
+    lease_secs = 15
+    max_group_size = 8
+    put_timeout_secs = 10
+    put_attempts = 3
+    takeover_interval_secs = 5
+    encrypt = false
+    max_takeover_size = 512
 
     [intake]
     buffer_max_size = 256

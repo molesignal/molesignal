@@ -3,8 +3,8 @@
 
 //! flush 原子发布。
 //!
-//! 一笔事务内：写 flush 溯源 → 插 Segment / Artifact → 推进 WAL checkpoint →
-//! 递增 catalog_version。`flush_id` 幂等：重试命中已有溯源行时不写任何数据，
+//! One transaction: check the publication fence → write the flush provenance → insert segments and
+//! artifacts → advance the WAL checkpoint → bump catalog_version.`flush_id` 幂等：重试命中已有溯源行时不写任何数据，
 //! 直接返回已提交结果。WAL 清理不是提交条件。
 
 use std::collections::HashSet;
@@ -32,34 +32,53 @@ pub(super) async fn commit_flush(
 
     let mut tx = sqlx::begin(pool).await.map_err(sqlx_err)?;
 
-    // Serialize every publication for one dataset before inspecting writer epochs. Without this
-    // lock, a lower and a higher epoch can both observe the old checkpoint, then the lower epoch
-    // can commit after the higher one and bypass the zombie-writer fence.
+    // Serialize every publication for one dataset: checkpoints and the catalog version advance in
+    // commit order.
     let current = lock_dataset_version(&mut tx, scope, &command.dataset_id).await?;
 
-    // 僵尸 writer 栅栏：同一 (dataset, node) 一旦有更高 epoch 提交过 checkpoint，
-    // 旧 epoch 的迟到 flush 必须拒绝，防止重启 / 租约切换后旧 writer 复活。
-    let fenced_epoch: Option<i64> = sqlx::query(
-        "SELECT MAX(writer_epoch) AS max_epoch FROM wal_checkpoints \
-         WHERE org_id = $1 AND dataset_id = $2 AND writer_node_id = $3",
+    // Publication fence: only the stream's current publisher may publish, and only while it is
+    // not fenced. The share lock on the stream row makes a claim wait for this transaction, and a
+    // claimant reads the checkpoint only after its claim, so nothing published here is published
+    // again by it.
+    let fence = sqlx::query(
+        "SELECT s.publisher_epoch, publisher.fenced_at IS NOT NULL AS fenced \
+           FROM wal_streams s \
+           JOIN wal_writers publisher ON publisher.writer_epoch = s.publisher_epoch \
+          WHERE s.org_id = $1 AND s.dataset_id = $2 AND s.writer_epoch = $3 \
+          FOR SHARE OF s",
     )
     .bind(scope.organization_id.as_str())
     .bind(command.dataset_id.as_str())
-    .bind(provenance.writer_node_id.as_str())
-    .fetch_one(&mut *tx)
+    .bind(to_i64(provenance.writer_epoch.0, "writer_epoch")?)
+    .fetch_optional(&mut *tx)
     .await
-    .map_err(sqlx_err)?
-    .try_get("max_epoch")
     .map_err(sqlx_err)?;
 
-    if let Some(max_epoch) = fenced_epoch
-        && to_u64(max_epoch, "writer_epoch")? > provenance.writer_epoch.0
-    {
+    let refusal = match &fence {
+        None => Some("no open WAL stream".to_owned()),
+        Some(row) => {
+            let publisher = to_u64(
+                row.try_get("publisher_epoch").map_err(sqlx_err)?,
+                "publisher",
+            )?;
+            let fenced: bool = row.try_get("fenced").map_err(sqlx_err)?;
+
+            if publisher != command.publisher_epoch.0 {
+                Some(format!("publisher {publisher}"))
+            } else if fenced {
+                Some(format!("fenced publisher {publisher}"))
+            } else {
+                None
+            }
+        }
+    };
+
+    if let Some(fenced_by) = refusal {
         return Err(stale_writer_epoch(
             provenance.writer_epoch,
             &command.dataset_id,
             &provenance.writer_node_id,
-            max_epoch,
+            fenced_by,
         ));
     }
 

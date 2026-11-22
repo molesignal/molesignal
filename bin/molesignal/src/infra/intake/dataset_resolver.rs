@@ -19,7 +19,7 @@ use domain::{
 };
 use kernel::{Result, ids::Id};
 
-use crate::infra::intake::wal_pool::WalStreamIdentity;
+use crate::infra::intake::object_wal::WalStreamIdentity;
 
 /// 解析结果：dataset 行 + WAL 编码。
 #[derive(Debug, Clone)]
@@ -134,12 +134,21 @@ pub(crate) mod test_support {
         checkpoints: DashMap<(String, String, String, u64), WalSequence>,
         commits: DashMap<(String, String, String), u64>,
         fail_next_commit: AtomicBool,
+        /// One more than the commits to let through before one fails; 0 when none is planned.
+        fail_after: AtomicUsize,
         fail_next_replace: AtomicBool,
         committed_rows: Mutex<Vec<u64>>,
         snapshot_calls: AtomicUsize,
+        /// The registry whose publication fence `commit_flush` applies, as Postgres does.
+        wal_writers: std::sync::OnceLock<Arc<crate::infra::intake::MemoryWalWriters>>,
     }
 
     impl StubFileCatalog {
+        /// Applies `registry`'s publication fence to every later `commit_flush`.
+        pub(crate) fn fence_with(&self, registry: Arc<crate::infra::intake::MemoryWalWriters>) {
+            let _ = self.wal_writers.set(registry);
+        }
+
         pub(crate) fn fail_next_commit(&self) {
             self.fail_next_commit.store(true, Ordering::SeqCst);
         }
@@ -153,23 +162,9 @@ pub(crate) mod test_support {
             self.datasets.clear();
         }
 
-        /// 模拟另一个 writer 已以 `epoch` 提交过该 (dataset, node)，更低 epoch 的 flush 被栅栏拒绝。
-        pub(crate) fn record_foreign_commit(
-            &self,
-            organization_id: &Id,
-            dataset_id: &PhysicalDatasetId,
-            node_id: &str,
-            epoch: u64,
-        ) {
-            self.checkpoints.insert(
-                (
-                    organization_id.as_str().to_owned(),
-                    dataset_id.as_str().to_owned(),
-                    node_id.to_owned(),
-                    epoch,
-                ),
-                WalSequence(1),
-            );
+        /// Lets `successes` more commits through, then fails the one after.
+        pub(crate) fn fail_commit_after(&self, successes: usize) {
+            self.fail_after.store(successes + 1, Ordering::SeqCst);
         }
 
         pub(crate) fn committed_rows(&self) -> Vec<u64> {
@@ -349,6 +344,30 @@ pub(crate) mod test_support {
             if self.fail_next_commit.swap(false, Ordering::SeqCst) {
                 return Err(Error::internal("injected FileCatalog commit failure"));
             }
+            let planned = self.fail_after.load(Ordering::SeqCst);
+            if planned == 1 {
+                self.fail_after.store(0, Ordering::SeqCst);
+                return Err(Error::internal("injected FileCatalog commit failure"));
+            }
+            if planned > 1 {
+                self.fail_after.store(planned - 1, Ordering::SeqCst);
+            }
+            // The publication fence, as in the PostgreSQL implementation.
+            if let Some(registry) = self.wal_writers.get()
+                && let Err(fenced_by) = registry.may_publish(
+                    &scope.organization_id,
+                    &command.dataset_id,
+                    command.provenance.writer_epoch,
+                    command.publisher_epoch,
+                )
+            {
+                return Err(stale_writer_epoch(
+                    command.provenance.writer_epoch,
+                    &command.dataset_id,
+                    &command.provenance.writer_node_id,
+                    fenced_by,
+                ));
+            }
             let commit_key = (
                 scope.organization_id.as_str().to_owned(),
                 command.dataset_id.as_str().to_owned(),
@@ -371,26 +390,6 @@ pub(crate) mod test_support {
                 .ok_or_else(|| {
                     Error::not_found(format!("physical dataset {}", command.dataset_id))
                 })?;
-            // 与 PostgreSQL 实现一致：同一 (dataset, node) 有更高 epoch 提交过，旧 epoch 被栅栏拒绝。
-            let fenced_by = self
-                .checkpoints
-                .iter()
-                .filter(|entry| {
-                    entry.key().0 == scope.organization_id.as_str()
-                        && entry.key().1 == command.dataset_id.as_str()
-                        && entry.key().2 == command.provenance.writer_node_id.as_str()
-                })
-                .map(|entry| entry.key().3)
-                .max()
-                .filter(|max_epoch| *max_epoch > command.provenance.writer_epoch.0);
-            if let Some(max_epoch) = fenced_by {
-                return Err(stale_writer_epoch(
-                    command.provenance.writer_epoch,
-                    &command.dataset_id,
-                    &command.provenance.writer_node_id,
-                    max_epoch,
-                ));
-            }
             let version = {
                 let mut dataset = self
                     .datasets

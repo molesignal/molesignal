@@ -11,16 +11,19 @@
 
 mod common;
 
+use std::time::Duration;
+
 use domain::{
     iam::{Organization, OrganizationRepository},
     storage::{
         Artifact, ArtifactId, ArtifactRole, ArtifactState, ArtifactTypeId, ArtifactUpdate,
         CatalogInvariant, ColumnStats, CommitFlush, DataSegment, DatasetSelection, DatasetTypeId,
-        FileCatalog, FlushProvenance, ObjectChecksum, OrganizationScope, Partition,
-        PartitionManifestPointer, PhysicalDatasetId, PublishDatasetTransform,
+        FileCatalog, FlushProvenance, ObjectChecksum, OrganizationScope, OrphanedStreams,
+        Partition, PartitionManifestPointer, PhysicalDatasetId, PublishDatasetTransform,
         PublishPartitionManifest, ReplaceSegments, SegmentId, SegmentState, SequenceRange,
-        StoredObject, TombstoneSegments, UpdateArtifact, WalSequence, WriterEpoch, WriterNodeId,
-        builtin_registry, type_id,
+        StoredObject, TombstoneSegments, UpdateArtifact, WalSequence, WalStreamRow,
+        WalWriterRegistry, WriterEpoch, WriterNodeId, builtin_registry, is_stale_writer_epoch,
+        type_id,
     },
     stream::{Schema, StreamDefinition, StreamRepository, StreamType},
 };
@@ -33,7 +36,7 @@ use postgres::{
     MetaStore,
     repositories::{
         file_catalog::PgFileCatalog, organizations::PgOrganizationRepository,
-        streams::PgStreamRepository,
+        streams::PgStreamRepository, wal_writers::PgWalWriterRegistry,
     },
 };
 use settings::MetaDatabaseSettings;
@@ -247,6 +250,31 @@ fn provenance(node: &str, epoch: u64, start: u64, end: u64) -> FlushProvenance {
     )
 }
 
+/// Opens the WAL stream `commit_flush` checks: writer `epoch` of `node`, publishing itself.
+async fn open_stream(h: &Harness, node: &str, epoch: u64) {
+    sqlx::query(
+        "INSERT INTO wal_writers (writer_epoch, writer_node_id, started_at, lease_expires_at)
+         VALUES ($1, $2, now(), now() + interval '1 hour') ON CONFLICT DO NOTHING",
+    )
+    .bind(epoch as i64)
+    .bind(node)
+    .execute(&h.pool)
+    .await
+    .expect("insert wal writer");
+
+    PgWalWriterRegistry::new(h.pool.clone())
+        .open_stream(&WalStreamRow {
+            organization_id: h.scope.organization_id.clone(),
+            dataset_id: h.dataset_id.clone(),
+            dataset_type: DatasetTypeId::builtin(type_id::builtin::DATASET_LOG_RECORDS),
+            writer_node_id: WriterNodeId::new(node),
+            writer_epoch: WriterEpoch(epoch),
+            publisher_epoch: WriterEpoch(epoch),
+        })
+        .await
+        .expect("open wal stream");
+}
+
 fn whole_day() -> TimeRange {
     TimeRange::new(TimestampMicros(0), TimestampMicros(24 * HOUR_MICROS))
 }
@@ -290,10 +318,12 @@ async fn flush_publish_replace_and_tombstone_lifecycle() {
 
     // flush 发布 + 幂等重试。
     let mut p1 = provenance("node-a", 1, 1, 10);
+    open_stream(&h, "node-a", 1).await;
     p1.collected_bytes = Some(12345);
     let seg1 = segment(&h, &p1, 1, true);
     let commit = CommitFlush {
         dataset_id: h.dataset_id.clone(),
+        publisher_epoch: p1.writer_epoch,
         provenance: p1.clone(),
         segments: vec![seg1.clone()],
     };
@@ -346,6 +376,7 @@ async fn flush_publish_replace_and_tombstone_lifecycle() {
 
     // 另一个写入节点：相同 epoch 与序号区间不得撞车（flush_id 含 node）。
     let p2 = provenance("node-b", 1, 1, 10);
+    open_stream(&h, "node-b", 1).await;
     let seg2 = segment(&h, &p2, 2, false);
     let other = h
         .catalog
@@ -353,6 +384,7 @@ async fn flush_publish_replace_and_tombstone_lifecycle() {
             &h.scope,
             CommitFlush {
                 dataset_id: h.dataset_id.clone(),
+                publisher_epoch: p2.writer_epoch,
                 provenance: p2,
                 segments: vec![seg2.clone()],
             },
@@ -499,56 +531,208 @@ async fn flush_publish_replace_and_tombstone_lifecycle() {
 }
 
 #[tokio::test]
-async fn stale_writer_epoch_is_fenced() {
+async fn only_the_current_unfenced_publisher_commits_and_a_claim_moves_it() {
     if skip_unless_enabled() {
         eprintln!("skipped (set MS_RUN_IT=1 to enable)");
         return;
     }
     let h = harness().await;
+    let registry = PgWalWriterRegistry::new(h.pool.clone());
+    let lease = Duration::from_secs(60);
 
-    let newer = provenance("node-a", 2, 1, 5);
-    h.catalog
-        .commit_flush(
-            &h.scope,
-            CommitFlush {
-                dataset_id: h.dataset_id.clone(),
-                provenance: newer.clone(),
-                segments: vec![segment(&h, &newer, 1, false)],
-            },
-        )
+    let a = registry
+        .register(&WriterNodeId::new("node-a"), lease)
         .await
-        .expect("epoch 2 commit");
+        .expect("register a");
+    let b = registry
+        .register(&WriterNodeId::new("node-b"), lease)
+        .await
+        .expect("register b");
+    assert!(b > a, "epochs grow across the cluster");
 
-    let stale = provenance("node-a", 1, 1, 5);
-    let rejected = h
-        .catalog
-        .commit_flush(
-            &h.scope,
-            CommitFlush {
-                dataset_id: h.dataset_id.clone(),
-                provenance: stale.clone(),
-                segments: vec![segment(&h, &stale, 2, false)],
-            },
-        )
-        .await;
+    let row = WalStreamRow {
+        organization_id: h.scope.organization_id.clone(),
+        dataset_id: h.dataset_id.clone(),
+        dataset_type: DatasetTypeId::builtin(type_id::builtin::DATASET_LOG_RECORDS),
+        writer_node_id: WriterNodeId::new("node-a"),
+        writer_epoch: a,
+        publisher_epoch: a,
+    };
+    registry.open_stream(&row).await.expect("open stream");
+    registry
+        .open_stream(&row)
+        .await
+        .expect("open is idempotent");
+
+    let commit = |provenance: &FlushProvenance, publisher: WriterEpoch, hour: i64| CommitFlush {
+        dataset_id: h.dataset_id.clone(),
+        provenance: provenance.clone(),
+        publisher_epoch: publisher,
+        segments: vec![segment(&h, provenance, hour, false)],
+    };
+
+    // The writer publishes its own stream; nobody else may while it holds it.
+    let first = provenance("node-a", a.0, 1, 5);
+    h.catalog
+        .commit_flush(&h.scope, commit(&first, a, 1))
+        .await
+        .expect("writer publishes");
+    let early = provenance("node-a", a.0, 6, 9);
     assert!(
-        rejected.is_err(),
-        "zombie writer from older epoch is fenced"
+        is_stale_writer_epoch(
+            &h.catalog
+                .commit_flush(&h.scope, commit(&early, b, 2))
+                .await
+                .unwrap_err()
+        ),
+        "a node that did not claim the stream is refused"
+    );
+    assert!(
+        !registry.claim_stream(&row, b).await.expect("claim"),
+        "a live writer's stream cannot be claimed"
     );
 
-    // 其他节点不受该栅栏影响。
-    let other_node = provenance("node-b", 1, 1, 5);
-    h.catalog
-        .commit_flush(
-            &h.scope,
-            CommitFlush {
-                dataset_id: h.dataset_id.clone(),
-                provenance: other_node.clone(),
-                segments: vec![segment(&h, &other_node, 3, false)],
-            },
-        )
+    // The lease lapses: the writer is fenced, renewing fails, its stream is work for b.
+    sqlx::query("UPDATE wal_writers SET lease_expires_at = now() - interval '1 second' WHERE writer_epoch = $1")
+        .bind(a.0 as i64)
+        .execute(&h.pool)
         .await
-        .expect("independent node epoch space");
+        .expect("expire lease");
+    assert_eq!(registry.fence_expired().await.expect("fence"), 1);
+    assert!(
+        !registry.renew(a, lease).await.expect("renew"),
+        "a fenced writer stays fenced"
+    );
+    let orphaned = registry
+        .orphaned_streams(b, &datasets(), 10)
+        .await
+        .expect("orphaned");
+    assert_eq!(orphaned, vec![row.clone()]);
+
+    // A trace candidate log of the same writer is asked for apart from the datasets.
+    let candidate_log = WalStreamRow {
+        dataset_id: PhysicalDatasetId::from(Id("trace-candidates".into())),
+        dataset_type: molesignal::app::trace::durable::candidate_log_type(),
+        ..row.clone()
+    };
+    registry
+        .open_stream(&candidate_log)
+        .await
+        .expect("open candidate log");
+    assert_eq!(
+        registry
+            .orphaned_streams(b, &datasets(), 10)
+            .await
+            .expect("datasets"),
+        vec![row.clone()],
+        "a dataset round never sees candidate logs"
+    );
+    assert_eq!(
+        registry
+            .orphaned_streams(
+                b,
+                &OrphanedStreams::Only(molesignal::app::trace::durable::candidate_log_type()),
+                10,
+            )
+            .await
+            .expect("candidate logs"),
+        vec![candidate_log.clone()],
+        "a trace round sees only candidate logs"
+    );
+    assert!(
+        registry
+            .close_stream(
+                &candidate_log.organization_id,
+                &candidate_log.dataset_id,
+                a,
+                a
+            )
+            .await
+            .expect("close candidate log"),
+        "its publisher closes it"
+    );
+    assert!(
+        is_stale_writer_epoch(
+            &h.catalog
+                .commit_flush(&h.scope, commit(&early, a, 2))
+                .await
+                .unwrap_err()
+        ),
+        "a fenced writer is refused"
+    );
+
+    // b claims and publishes under a's identity; a retried range is a no-op.
+    assert!(registry.claim_stream(&row, b).await.expect("claim"));
+    assert!(
+        registry.claim_stream(&row, b).await.expect("claim again"),
+        "a claim is resumable"
+    );
+    let taken = provenance("node-a", a.0, 6, 9);
+    assert!(
+        !h.catalog
+            .commit_flush(&h.scope, commit(&taken, b, 3))
+            .await
+            .expect("claimant publishes")
+            .already_committed
+    );
+    assert!(
+        h.catalog
+            .commit_flush(&h.scope, commit(&taken, b, 3))
+            .await
+            .expect("retry")
+            .already_committed
+    );
+    assert_eq!(
+        registry
+            .orphaned_streams(b, &datasets(), 10)
+            .await
+            .expect("resumable")[0]
+            .publisher_epoch,
+        b,
+        "an unfinished claim stays b's work"
+    );
+
+    // b dies too: c takes the claim over from it.
+    let c = registry
+        .register(&WriterNodeId::new("node-c"), lease)
+        .await
+        .expect("register c");
+    registry.release(b).await.expect("release b");
+    assert!(registry.claim_stream(&row, c).await.expect("claim from b"));
+    assert!(
+        is_stale_writer_epoch(
+            &h.catalog
+                .commit_flush(&h.scope, commit(&provenance("node-a", a.0, 10, 12), b, 4))
+                .await
+                .unwrap_err()
+        ),
+        "the superseded claimant is refused"
+    );
+
+    // Finished: the stream closes only for its publisher, then the fenced writers go.
+    assert!(
+        !registry
+            .close_stream(&row.organization_id, &row.dataset_id, a, b)
+            .await
+            .unwrap()
+    );
+    assert!(
+        registry
+            .close_stream(&row.organization_id, &row.dataset_id, a, c)
+            .await
+            .unwrap()
+    );
+    assert_eq!(registry.forget_finished_writers().await.expect("forget"), 2);
+    assert!(registry.renew(c, lease).await.expect("c lives on"));
+    assert!(
+        is_stale_writer_epoch(
+            &h.catalog
+                .commit_flush(&h.scope, commit(&provenance("node-a", a.0, 13, 14), c, 5))
+                .await
+                .unwrap_err()
+        ),
+        "a closed stream takes no more publications"
+    );
 }
 
 #[tokio::test]
@@ -559,12 +743,14 @@ async fn manifest_generation_switches_atomically_and_can_retire_partition() {
     }
     let h = harness().await;
     let provenance = provenance("node-a", 1, 1, 10);
+    open_stream(&h, "node-a", 1).await;
     let segment = segment(&h, &provenance, 1, false);
     h.catalog
         .commit_flush(
             &h.scope,
             CommitFlush {
                 dataset_id: h.dataset_id.clone(),
+                publisher_epoch: provenance.writer_epoch,
                 provenance,
                 segments: vec![segment.clone()],
             },
@@ -681,12 +867,15 @@ async fn cross_dataset_transform_retires_sealed_base_and_publishes_output_atomic
         .remove(0);
 
     let provenance = provenance("node-a", 1, 1, 10);
+
+    open_stream(&h, "node-a", 1).await;
     let input = segment(&h, &provenance, 1, false);
     h.catalog
         .commit_flush(
             &h.scope,
             CommitFlush {
                 dataset_id: h.dataset_id.clone(),
+                publisher_epoch: provenance.writer_epoch,
                 provenance,
                 segments: vec![input.clone()],
             },
@@ -798,11 +987,13 @@ async fn reconciler_catalog_invariants_detect_checkpoint_drift() {
     }
     let h = harness().await;
     let provenance = provenance("node-a", 1, 1, 10);
+    open_stream(&h, "node-a", 1).await;
     h.catalog
         .commit_flush(
             &h.scope,
             CommitFlush {
                 dataset_id: h.dataset_id.clone(),
+                publisher_epoch: provenance.writer_epoch,
                 provenance: provenance.clone(),
                 segments: vec![segment(&h, &provenance, 1, false)],
             },
@@ -827,4 +1018,9 @@ async fn reconciler_catalog_invariants_detect_checkpoint_drift() {
     assert!(issues.iter().any(|issue| {
         issue.invariant == CatalogInvariant::WalCheckpointFlushMismatch && issue.occurrences == 1
     }));
+}
+
+/// What a dataset takeover round asks for: every orphaned stream but trace candidate logs.
+fn datasets() -> OrphanedStreams {
+    OrphanedStreams::Except(molesignal::app::trace::durable::candidate_log_type())
 }

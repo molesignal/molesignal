@@ -10,14 +10,14 @@
 | 资源 | Kind | 副本 | 监听端口 | 就绪探针 | 说明 |
 |---|---|---|---|---|---|
 | `router`        | Deployment  | 2 | HTTP 5080、OTLP gRPC 4317 | `GET /api/v1/healthz` | 无状态、HPA 横向扩；完整 HTTP API 与 Web UI，写入经内部 gRPC 转发给 `intake`，查询交给 `querier`，并按组织限流 |
-| `intake`        | StatefulSet | 2 | HTTP 5080、gRPC 5082、OTLP gRPC 4317 | `GET /api/v1/readyz` | 需本地盘存 WAL（每副本 20Gi）；监听在 WAL replay 完成后才开始 |
+| `intake`        | Deployment  | 2 | HTTP 5080、gRPC 5082、OTLP gRPC 4317 | `GET /api/v1/readyz` | 无状态、不需要持久卷：写入确认前 WAL 已写进对象存储；Pod 及其本地盘丢失后，其余 intake 节点在 `[wal].lease_secs`（默认 15 秒）后接管未刷写的数据；缩容或滚动更新时 Pod 刷完缓冲再退出 |
 | `querier`       | Deployment  | 2 | HTTP 5080、gRPC 5082 | `GET /api/v1/readyz` | 无状态、HPA；经 gRPC 接收其它节点转来的查询，并执行搜索 job |
 | `compactor`     | Deployment  | 1 | HTTP 5080 | `GET /api/v1/readyz` | 纯后台角色；可加副本，多个 compactor 按数据流与组织分担工作，节点故障后由其余节点接管 |
 | `alert` | Deployment  | 1 | HTTP 5080、Probe 注册 5084、Probe 控制 5085 | `GET /api/v1/readyz` | 可加副本：多个 alert 节点按规则、报告、pipeline、日志定时巡检分担，单点任务只在主节点运行，节点故障后由其余节点接管；同时承担 scheduled reports 的渲染 |
 | `web`           | Deployment  | 2 | HTTP 8080 | `GET /healthz` | 可选的 nginx 静态资源层，附带 `web` Ingress |
 
 5080 端口在 `router` 上是完整的 HTTP 服务，在其它角色上是内部运维监听：
-`GET /api/v1/healthz`（子系统降级时返回 `503`）、`GET /api/v1/readyz`（WAL replay 完成前返回 `503`）
+`GET /api/v1/healthz`（子系统降级时返回 `503`）、`GET /api/v1/readyz`（尚未就绪时返回 `503`）
 与 `GET /metrics`，不鉴权，也没有业务 API，不要暴露到集群外。
 
 所有角色共享同一镜像 `molesignal:dev`，差别只在 `MS_NODE_ROLES`

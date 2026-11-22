@@ -153,6 +153,7 @@ pub async fn serve_grpc(
         state.telemetry.trace_pipeline.clone(),
         state.telemetry.self_telemetry_cluster_token.clone(),
     )
+    .with_candidate_log(state.telemetry.trace_candidates.candidate_log())
     .into_server()
     .max_decoding_message_size(max_recv);
 

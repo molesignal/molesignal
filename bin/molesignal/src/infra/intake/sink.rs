@@ -8,31 +8,31 @@
 //!    [`IntakeService`] 演化好），再经 [`DatasetResolver`] 解析出物理数据集。
 //! 2. 事件先按流的 schema 变成 Arrow 列（[`rows_to_columns`]，加密字段在这一步加密）；
 //!    列式写入（[`DurableIntakeSink::write_columns`]）已经是列，跳过这一步。
-//! 3. 串行先写 WAL（durable）后写 buffer（内存）：
-//!    - 整批写成一条 Arrow IPC 记录（[`wal_record`]）→ [`WalPool::append_position`]（按 dataset
-//!      键入独立 WAL，sequence 由 WAL 分配返回）
-//!    - 整批 [`RecordBuilder::push_batch`](super::RecordBuilder::push_batch)，并把 `seq` 记入 buffer
-//! 4. 返 `IntakeResult { accepted, rejected: 0, errors: [] }`。
+//! 3. The batch becomes one Arrow IPC record ([`wal_record`]) and goes to [`ObjectWal::append`]:
+//!    the dataset's group commit writes it to object storage, then pushes the columns into the
+//!    buffer with the WAL position ([`RecordBuilder::push_batch`](super::RecordBuilder::push_batch)).
+//! 4. Only then `IntakeResult { accepted, rejected: 0, errors: [] }`: an acknowledged batch is in
+//!    object storage, not only on this node.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use domain::{
     intake::{IntakeBatch, IntakeResult, IntakeSink},
-    storage::{DatasetTypeId, WriterEpoch, WriterNodeId},
+    storage::DatasetTypeId,
     stream::{StreamDefinition, StreamRepository},
 };
 use kernel::{Error, Result};
 use postgres::cipher::{FieldKeyService, OrgFieldKey};
 
 use super::{
-    BufferPool, BufferWriter, DatasetResolver, WalPool, physical_schema,
+    BufferPool, DatasetResolver, ObjectWal, WalAppend, physical_schema,
     row_columns::{encrypt_columns, rows_to_columns},
     wal_record::{self, WalBatch},
 };
 
 pub struct DurableIntakeSink {
-    wal: Arc<WalPool>,
+    wal: Arc<ObjectWal>,
     buffer: Arc<BufferPool>,
     streams: Arc<dyn StreamRepository>,
     datasets: Arc<DatasetResolver>,
@@ -42,7 +42,7 @@ pub struct DurableIntakeSink {
 
 impl DurableIntakeSink {
     pub fn new(
-        wal: Arc<WalPool>,
+        wal: Arc<ObjectWal>,
         buffer: Arc<BufferPool>,
         streams: Arc<dyn StreamRepository>,
         datasets: Arc<DatasetResolver>,
@@ -62,7 +62,7 @@ impl DurableIntakeSink {
         self
     }
 
-    pub fn wal(&self) -> &Arc<WalPool> {
+    pub fn wal(&self) -> &Arc<ObjectWal> {
         &self.wal
     }
 
@@ -144,7 +144,8 @@ impl DurableIntakeSink {
         }
     }
 
-    /// The batch into the WAL as one record, then into the dataset buffer under the same lock.
+    /// The batch into the WAL as one record; the group commit puts it in the dataset buffer once
+    /// the record is in object storage.
     async fn write_to(
         &self,
         stream: &StreamDefinition,
@@ -162,45 +163,39 @@ impl DurableIntakeSink {
             .buffer
             .get_or_create_dataset(stream, resolved.clone())?;
 
-        // 被栅栏的 writer 永远无法发布数据：写入直接拒绝。
-        if let Some(epoch) = self.wal.current_epoch(&resolved.dataset.id)
-            && buffer.is_fenced(WriterEpoch(epoch))
-        {
-            return Err(Error::unavailable(format!(
-                "dataset {} was fenced by a newer writer epoch; every node needs a unique node id",
-                resolved.dataset.id
-            )));
-        }
-
-        // This mutex is the per-dataset ordering discipline shared with flush rotation. Holding it
-        // across append + push closes the historical window where a flush high-watermark could
-        // cover a WAL record that had not entered the memory buffer yet.
-        let mut guard = buffer.records().lock().await;
-        guard.sync_schema(&physical_schema::project(stream, &dataset_type));
-
-        let position = self
-            .wal
-            .append_position(&resolved.wal_identity(), payload)
-            .await
-            .map_err(|e| Error::internal(format!("wal append: {e}")))?;
-
-        guard.add_accounted_bytes(reservation.commit());
-        guard.add_collected_bytes(batch.collected_bytes);
-
+        let projected = physical_schema::project(stream, &dataset_type);
         let rows = batch.columns.num_rows();
-        let writer =
-            BufferWriter::new(WriterNodeId::new(self.wal.node_id()), position.writer_epoch);
+        let dataset_type_label = resolved.dataset.dataset_type.as_str().to_owned();
+        let WalBatch {
+            collected_bytes,
+            columns,
+            ..
+        } = batch;
 
-        let buffer_span = tracing::info_span!(
-            "intake.buffer",
-            otel.kind = "internal",
-            molesignal.intake.event_count = rows,
-            molesignal.dataset.type = resolved.dataset.dataset_type.as_str()
-        );
+        let apply: super::object_wal::ApplyToBuffer = Box::new(move |records, writer, sequence| {
+            records.sync_schema(&projected);
+            records.add_accounted_bytes(reservation.commit());
+            records.add_collected_bytes(collected_bytes);
 
-        buffer_span
-            .in_scope(|| guard.push_batch(&batch.columns, &writer, position.sequence))
-            .map_err(|e| Error::internal(format!("buffer push: {e}")))?;
+            tracing::info_span!(
+                "intake.buffer",
+                otel.kind = "internal",
+                molesignal.intake.event_count = rows,
+                molesignal.dataset.type = dataset_type_label.as_str()
+            )
+            .in_scope(|| records.push_batch(&columns, writer, sequence))
+        });
+
+        self.wal
+            .append(
+                &resolved.wal_identity(),
+                WalAppend {
+                    payload,
+                    buffer,
+                    apply,
+                },
+            )
+            .await?;
 
         Ok(accepted(rows))
     }
@@ -272,13 +267,15 @@ mod tests {
             FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType, StreamType,
         },
     };
+    use futures::StreamExt;
     use kernel::{ids::Id, time::TimestampMicros};
+    use object_store::ObjectStore;
     use serde_json::json;
-    use tempfile::tempdir;
 
     use super::*;
     use crate::infra::intake::{
-        BufferPool, WalPool, dataset_resolver::test_support::test_resolver,
+        BufferPool, dataset_resolver::test_support::test_resolver,
+        object_wal::test_support::memory_wal,
     };
 
     struct InMemStreamRepo {
@@ -373,13 +370,7 @@ mod tests {
 
     #[tokio::test]
     async fn write_pipelines_wal_then_buffer() {
-        let tmp = tempdir().unwrap();
-        let wal = Arc::new(WalPool::new(
-            tmp.path(),
-            "node-test",
-            64 * 1024,
-            crate::infra::segment_wal::FsyncPolicy::none_default(),
-        ));
+        let (wal, store, _registry) = memory_wal().await;
         let buffer = Arc::new(BufferPool::new());
         let stream = sample_stream();
         let streams = InMemStreamRepo::with(stream.clone());
@@ -409,17 +400,16 @@ mod tests {
         assert_eq!(buf.high_watermark_seq(), 1);
         assert_eq!(buf.accounted_size_bytes(), buffer.reserved_bytes());
         assert!(buffer.reserved_bytes() > 0);
+        assert_eq!(
+            store.list(None).collect::<Vec<_>>().await.len(),
+            1,
+            "the batch is in object storage before it is acknowledged"
+        );
     }
 
     #[tokio::test]
     async fn seq_increments_per_batch() {
-        let tmp = tempdir().unwrap();
-        let wal = Arc::new(WalPool::new(
-            tmp.path(),
-            "node-test",
-            64 * 1024,
-            crate::infra::segment_wal::FsyncPolicy::none_default(),
-        ));
+        let (wal, _store, _registry) = memory_wal().await;
         let buffer = Arc::new(BufferPool::new());
         let stream = sample_stream();
         let streams = InMemStreamRepo::with(stream.clone());
@@ -449,13 +439,7 @@ mod tests {
 
     #[tokio::test]
     async fn existing_dataset_buffer_tracks_stream_schema_evolution() {
-        let tmp = tempdir().unwrap();
-        let wal = Arc::new(WalPool::new(
-            tmp.path(),
-            "node-test",
-            64 * 1024,
-            crate::infra::segment_wal::FsyncPolicy::none_default(),
-        ));
+        let (wal, _store, _registry) = memory_wal().await;
         let buffer = Arc::new(BufferPool::new());
         let stream = sample_stream();
         let streams = InMemStreamRepo::with(stream.clone());
@@ -521,13 +505,7 @@ mod tests {
 
     #[tokio::test]
     async fn memory_rejection_happens_before_wal_or_buffer_mutation() {
-        let tmp = tempdir().unwrap();
-        let wal = Arc::new(WalPool::new(
-            tmp.path(),
-            "node-test",
-            64 * 1024,
-            crate::infra::segment_wal::FsyncPolicy::none_default(),
-        ));
+        let (wal, store, _registry) = memory_wal().await;
         let buffer = Arc::new(BufferPool::with_memory_limit_bytes(1));
         let stream = sample_stream();
         let streams = InMemStreamRepo::with(stream.clone());
@@ -545,6 +523,9 @@ mod tests {
         assert!(error.to_string().contains("buffer memory limit"));
         assert_eq!(buffer.reserved_bytes(), 0);
         assert!(buffer.snapshot_keys().is_empty());
-        assert!(wal.recovery_sources().unwrap().is_empty());
+        assert!(
+            store.list(None).next().await.is_none(),
+            "nothing reached the WAL"
+        );
     }
 }

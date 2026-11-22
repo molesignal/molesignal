@@ -19,7 +19,7 @@ use domain::{
     iam::{Organization, OrganizationRepository},
     storage::{
         CommitFlush, DatasetSelection, FileCatalog, FlushProvenance, OrganizationScope,
-        SequenceRange, WalSequence, WriterEpoch, WriterNodeId, builtin_registry,
+        SequenceRange, WalSequence, WriterNodeId, builtin_registry,
     },
     stream::{
         FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
@@ -131,12 +131,14 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
         ObjectReader::build(store.clone(), "local", &ObjectCacheSettings::default()).unwrap();
 
     // 写 5 个小 Segment，并逐个通过 Catalog 原子发布。
+    let epoch = common::open_wal_stream(&pool, &dataset, "intake-a").await;
+
     for i in 0..5 {
         let batch = small_batch(1_000_000 + i * 1_000, 20);
         let start = i as u64 * 20 + 1;
         let provenance = FlushProvenance::derive(
             WriterNodeId::new("intake-a"),
-            WriterEpoch(1),
+            epoch,
             SequenceRange::new(WalSequence(start), WalSequence(start + 19)),
         );
         let segments = writer
@@ -148,6 +150,7 @@ async fn it_compactor_merges_5_files_into_1_via_pg() {
                 &scope,
                 CommitFlush {
                     dataset_id: dataset.id.clone(),
+                    publisher_epoch: epoch,
                     provenance,
                     segments,
                 },

@@ -13,73 +13,32 @@ use std::{
 };
 
 use async_trait::async_trait;
-use domain::{
-    intake::IntakeBatch,
-    storage::{DatasetTypeId, type_id::builtin},
-    stream::{MOLESIGNAL_SYSTEM_STREAM, StreamType},
-};
-use kernel::{ids::Id, time::TimestampMicros};
-use parking_lot::RwLock;
 use serde::Serialize;
 use signals::{
-    self_telemetry::with_suppression,
     tail_sampling::{DecidedTrace, SamplerOutput, TailSampler, TraceCandidate},
     trace_metrics,
-    trace_normalization::{TraceLimits, validate_sink_invariants},
+    trace_normalization::TraceLimits,
 };
 use tokio::{
     sync::{Mutex, mpsc},
     task::JoinHandle,
-    time::{Instant, sleep, timeout},
+    time::timeout,
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::app::intake::IntakeService;
-
 pub mod candidate_router;
+pub mod durable;
 pub mod export;
 mod owner;
 mod processing;
+mod self_intake;
+mod sink_worker;
 pub(crate) mod summary;
 
-#[derive(Debug, Clone, Copy)]
-pub struct TraceSinkWorkerConfig {
-    pub queue_capacity: usize,
-    pub batch_size: usize,
-    pub batch_delay: Duration,
-    pub export_timeout: Duration,
-    pub max_attempts: usize,
-    pub initial_backoff: Duration,
-}
-
-impl Default for TraceSinkWorkerConfig {
-    fn default() -> Self {
-        Self {
-            queue_capacity: 8_192,
-            batch_size: 256,
-            batch_delay: Duration::from_secs(1),
-            export_timeout: Duration::from_secs(5),
-            max_attempts: 3,
-            initial_backoff: Duration::from_millis(100),
-        }
-    }
-}
-
-impl TraceSinkWorkerConfig {
-    pub fn validate(self) -> Result<Self, String> {
-        if self.queue_capacity == 0
-            || self.batch_size == 0
-            || self.batch_delay.is_zero()
-            || self.export_timeout.is_zero()
-            || self.max_attempts == 0
-            || self.initial_backoff.is_zero()
-        {
-            return Err("Trace sink queue/batch/timeout/retry settings must be non-zero".into());
-        }
-
-        Ok(self)
-    }
-}
+use durable::{SpanOrigin, SpanSettlement};
+pub use self_intake::SelfIntakeTraceSink;
+use sink_worker::{Delivery, SinkEndpoint, fanout, make_sink_worker, record_shutdown_residue};
+pub use sink_worker::{TraceSinkHealth, TraceSinkHealthSnapshot, TraceSinkWorkerConfig};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TracePipelineConfig {
@@ -126,60 +85,9 @@ pub trait TraceSink: Send + Sync {
         true
     }
 
-    async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String>;
-}
-
-#[derive(Debug, Default)]
-pub struct TraceSinkHealth {
-    queue_depth: AtomicUsize,
-    queue_capacity: AtomicUsize,
-    queued_spans: AtomicUsize,
-    in_flight_spans: AtomicUsize,
-    exported_spans: AtomicU64,
-    failed_batches: AtomicU64,
-    dropped_spans: AtomicU64,
-    retries: AtomicU64,
-    degraded: AtomicBool,
-    last_error: RwLock<Option<String>>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TraceSinkHealthSnapshot {
-    pub queue_depth: usize,
-    pub queue_capacity: usize,
-    pub queued_spans: usize,
-    pub in_flight_spans: usize,
-    pub exported_spans: u64,
-    pub failed_batches: u64,
-    pub dropped_spans: u64,
-    pub retries: u64,
-    pub degraded: bool,
-    pub last_error: Option<String>,
-}
-
-impl TraceSinkHealth {
-    fn with_capacity(capacity: usize) -> Self {
-        Self {
-            queue_capacity: AtomicUsize::new(capacity),
-            ..Self::default()
-        }
-    }
-
-    pub fn snapshot(&self) -> TraceSinkHealthSnapshot {
-        TraceSinkHealthSnapshot {
-            queue_depth: self.queue_depth.load(Ordering::Relaxed),
-            queue_capacity: self.queue_capacity.load(Ordering::Relaxed),
-            queued_spans: self.queued_spans.load(Ordering::Relaxed),
-            in_flight_spans: self.in_flight_spans.load(Ordering::Relaxed),
-            exported_spans: self.exported_spans.load(Ordering::Relaxed),
-            failed_batches: self.failed_batches.load(Ordering::Relaxed),
-            dropped_spans: self.dropped_spans.load(Ordering::Relaxed),
-            retries: self.retries.load(Ordering::Relaxed),
-            degraded: self.degraded.load(Ordering::Relaxed),
-            last_error: self.last_error.read().clone(),
-        }
-    }
+    /// Writes `traces`. On failure the sink leaves in `traces` only what it has not written, so
+    /// the retry that follows writes nothing twice; a sink that cannot tell leaves them all.
+    async fn export(&self, traces: &mut Vec<DecidedTrace>) -> Result<(), String>;
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -193,16 +101,15 @@ pub struct TracePipelineHealthSnapshot {
     pub external: Option<TraceSinkHealthSnapshot>,
 }
 
-pub(super) struct SinkEndpoint {
-    sink: Arc<dyn TraceSink>,
-    sender: mpsc::Sender<DecidedTrace>,
-    health: Arc<TraceSinkHealth>,
-    name: &'static str,
-    capacity: usize,
-}
+/// A candidate in the owner's queue, with its place in the candidate log when it is logged.
+pub(super) type QueuedSpan = (TraceCandidate, Option<SpanOrigin>);
+
+/// Told when logged spans are settled; attached once at start-up, shared with the workers.
+pub(super) type SettlementSlot = Arc<std::sync::OnceLock<Arc<dyn SpanSettlement>>>;
 
 pub struct TracePipeline {
-    candidate_sender: mpsc::Sender<TraceCandidate>,
+    candidate_sender: mpsc::Sender<QueuedSpan>,
+    settlement: SettlementSlot,
     candidate_depth: Arc<AtomicUsize>,
     candidate_capacity: usize,
     candidate_drops: AtomicU64,
@@ -247,10 +154,21 @@ impl TracePipeline {
         trace_metrics::set_queue("candidate", 0, config.candidate_capacity);
         let accepting = Arc::new(AtomicBool::new(true));
         let cancel = CancellationToken::new();
-        let (self_endpoint, self_health, self_join) =
-            make_sink_worker(self_intake_sink, config.self_intake, limits);
-        let (external_endpoint, external_health, external_join) =
-            make_sink_worker(external_sink, config.external, limits);
+        let settlement = SettlementSlot::default();
+        let (self_endpoint, self_health, self_join) = make_sink_worker(
+            self_intake_sink,
+            config.self_intake,
+            limits,
+            Delivery::Lossless,
+            settlement.clone(),
+        );
+        let (external_endpoint, external_health, external_join) = make_sink_worker(
+            external_sink,
+            config.external,
+            limits,
+            Delivery::BestEffort,
+            SettlementSlot::default(),
+        );
 
         let owner_join = owner::spawn_candidate_owner(owner::CandidateOwnerRuntime {
             sampler,
@@ -262,6 +180,7 @@ impl TracePipeline {
             config,
             self_endpoint,
             external_endpoint,
+            settlement: settlement.clone(),
         });
 
         let mut joins = vec![owner_join];
@@ -276,6 +195,7 @@ impl TracePipeline {
 
         Ok(Arc::new(Self {
             candidate_sender,
+            settlement,
             candidate_depth,
             candidate_capacity: config.candidate_capacity,
             candidate_drops: AtomicU64::new(0),
@@ -309,7 +229,7 @@ impl TracePipeline {
             self.candidate_capacity,
         );
 
-        match self.candidate_sender.try_send(candidate) {
+        match self.candidate_sender.try_send((candidate, None)) {
             Ok(()) => Ok(()),
             Err(mpsc::error::TrySendError::Full(_)) => {
                 self.candidate_depth.fetch_sub(1, Ordering::Relaxed);
@@ -337,6 +257,119 @@ impl TracePipeline {
                 trace_metrics::record_spans("candidate", "stopped", 1);
                 Err(TraceSubmitError::Stopped)
             }
+        }
+    }
+
+    /// Waits for room in the candidate queue instead of refusing: the router hands over tenant
+    /// spans their senders were already told were accepted, and a full queue pushes back on the
+    /// router rather than dropping them.
+    ///
+    /// `origin` is the span's place in the candidate log; it is settled once the span's fate is
+    /// durable.
+    pub async fn submit(
+        &self,
+        mut candidate: TraceCandidate,
+        origin: Option<SpanOrigin>,
+    ) -> Result<(), TraceSubmitError> {
+        if !self.accepting.load(Ordering::Acquire) {
+            self.candidate_drops.fetch_add(1, Ordering::Relaxed);
+            trace_metrics::record_spans("candidate", "stopped", 1);
+            return Err(TraceSubmitError::Stopped);
+        }
+
+        signals::trace_normalization::sanitize_and_limit_span(&mut candidate.span, self.limits);
+
+        let Ok(permit) = self.candidate_sender.reserve().await else {
+            self.candidate_drops.fetch_add(1, Ordering::Relaxed);
+            trace_metrics::record_spans("candidate", "stopped", 1);
+            return Err(TraceSubmitError::Stopped);
+        };
+
+        self.candidate_depth.fetch_add(1, Ordering::Relaxed);
+
+        trace_metrics::set_queue(
+            "candidate",
+            self.candidate_depth.load(Ordering::Relaxed),
+            self.candidate_capacity,
+        );
+
+        permit.send((candidate, origin));
+        Ok(())
+    }
+
+    /// Takes a producer's batch as a sampler owner: room for it is reserved, its tenant spans
+    /// are written to this node's candidate log when `log` is given, and only then do the spans
+    /// enter the queue, carrying their places in the log. A refusal of the first chunk leaves
+    /// nothing behind; a batch larger than the queue goes in chunks, the later ones waiting for
+    /// room.
+    pub async fn submit_logged_batch(
+        &self,
+        candidates: Vec<TraceCandidate>,
+        log: Option<&durable::TraceCandidateLog>,
+    ) -> Result<(), TraceSubmitError> {
+        if !self.accepting.load(Ordering::Acquire) {
+            return Err(TraceSubmitError::Stopped);
+        }
+
+        let mut candidates = candidates;
+
+        for candidate in &mut candidates {
+            signals::trace_normalization::sanitize_and_limit_span(&mut candidate.span, self.limits);
+        }
+
+        let chunk_size = self.candidate_capacity.max(1);
+        let mut first = true;
+
+        for chunk in candidates.chunks(chunk_size) {
+            let permits = if first {
+                match self.candidate_sender.try_reserve_many(chunk.len()) {
+                    Ok(permits) => permits,
+                    Err(mpsc::error::TrySendError::Full(())) => {
+                        trace_metrics::record_spans("candidate", "queue_full", chunk.len() as u64);
+                        return Err(TraceSubmitError::Full);
+                    }
+                    Err(mpsc::error::TrySendError::Closed(())) => {
+                        return Err(TraceSubmitError::Stopped);
+                    }
+                }
+            } else {
+                self.candidate_sender
+                    .reserve_many(chunk.len())
+                    .await
+                    .map_err(|_| TraceSubmitError::Stopped)?
+            };
+
+            first = false;
+
+            let origins = match log {
+                Some(log) => log.append_candidates(chunk).await.map_err(|error| {
+                    tracing::warn!(%error, "a candidate batch could not be logged");
+                    TraceSubmitError::Unlogged
+                })?,
+                None => vec![None; chunk.len()],
+            };
+
+            self.candidate_depth
+                .fetch_add(chunk.len(), Ordering::Relaxed);
+
+            trace_metrics::set_queue(
+                "candidate",
+                self.candidate_depth.load(Ordering::Relaxed),
+                self.candidate_capacity,
+            );
+
+            for ((permit, candidate), origin) in permits.zip(chunk.iter().cloned()).zip(origins) {
+                permit.send((candidate, origin));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Settles logged spans as their fate becomes durable. Called once, before the first span.
+    pub fn attach_settlement(&self, settlement: Arc<dyn SpanSettlement>) {
+        if self.settlement.set(settlement).is_err() {
+            tracing::warn!("a span settlement was attached twice; the first one is kept");
         }
     }
 
@@ -409,427 +442,8 @@ impl TracePipeline {
 pub enum TraceSubmitError {
     Full,
     Stopped,
-}
-
-fn make_sink_worker(
-    sink: Option<Arc<dyn TraceSink>>,
-    config: TraceSinkWorkerConfig,
-    limits: TraceLimits,
-) -> (
-    Option<SinkEndpoint>,
-    Option<Arc<TraceSinkHealth>>,
-    Option<JoinHandle<()>>,
-) {
-    let Some(sink) = sink else {
-        return (None, None, None);
-    };
-
-    let name = sink.name();
-    let (sender, receiver) = mpsc::channel(config.queue_capacity);
-    trace_metrics::set_queue(name, 0, config.queue_capacity);
-    let health = Arc::new(TraceSinkHealth::with_capacity(config.queue_capacity));
-
-    let join = tokio::spawn(run_sink_worker(
-        sink.clone(),
-        receiver,
-        config,
-        limits,
-        health.clone(),
-    ));
-
-    (
-        Some(SinkEndpoint {
-            sink,
-            sender,
-            health: health.clone(),
-            name,
-            capacity: config.queue_capacity,
-        }),
-        Some(health),
-        Some(join),
-    )
-}
-
-fn fanout(
-    traces: Vec<DecidedTrace>,
-    self_intake: Option<&SinkEndpoint>,
-    external: Option<&SinkEndpoint>,
-) {
-    for trace in traces.into_iter().filter(|trace| trace.kept) {
-        enqueue_sink(self_intake, trace.clone());
-
-        let suppress_external = trace.spans.iter().any(|span| {
-            span.attributes
-                .get("molesignal.trace.suppress_external")
-                .and_then(serde_json::Value::as_bool)
-                == Some(true)
-        });
-
-        if !suppress_external {
-            enqueue_sink(external, trace);
-        }
-    }
-}
-
-fn enqueue_sink(endpoint: Option<&SinkEndpoint>, trace: DecidedTrace) {
-    let Some(endpoint) = endpoint else {
-        return;
-    };
-
-    if !endpoint.sink.takes(&trace) {
-        return;
-    }
-
-    let spans = trace.spans.len() as u64;
-    endpoint.health.queue_depth.fetch_add(1, Ordering::Relaxed);
-
-    endpoint
-        .health
-        .queued_spans
-        .fetch_add(spans as usize, Ordering::Relaxed);
-
-    trace_metrics::set_queue(
-        endpoint.name,
-        endpoint.health.queue_depth.load(Ordering::Relaxed),
-        endpoint.capacity,
-    );
-
-    match endpoint.sender.try_send(trace) {
-        Ok(()) => {}
-        Err(_) => {
-            endpoint.health.queue_depth.fetch_sub(1, Ordering::Relaxed);
-
-            endpoint
-                .health
-                .queued_spans
-                .fetch_sub(spans as usize, Ordering::Relaxed);
-
-            trace_metrics::set_queue(
-                endpoint.name,
-                endpoint.health.queue_depth.load(Ordering::Relaxed),
-                endpoint.capacity,
-            );
-
-            endpoint
-                .health
-                .dropped_spans
-                .fetch_add(spans, Ordering::Relaxed);
-
-            trace_metrics::record_spans(endpoint.name, "queue_full", spans);
-            endpoint.health.degraded.store(true, Ordering::Release);
-            *endpoint.health.last_error.write() = Some("bounded sink queue exhausted".into());
-        }
-    }
-}
-
-async fn run_sink_worker(
-    sink: Arc<dyn TraceSink>,
-    mut receiver: mpsc::Receiver<DecidedTrace>,
-    config: TraceSinkWorkerConfig,
-    limits: TraceLimits,
-    health: Arc<TraceSinkHealth>,
-) {
-    let sink_name = sink.name();
-
-    loop {
-        let first = receiver.recv().await;
-
-        let Some(first) = first else {
-            break;
-        };
-
-        health.queue_depth.fetch_sub(1, Ordering::Relaxed);
-
-        health
-            .queued_spans
-            .fetch_sub(first.spans.len(), Ordering::Relaxed);
-
-        trace_metrics::set_queue(
-            sink_name,
-            health.queue_depth.load(Ordering::Relaxed),
-            config.queue_capacity,
-        );
-
-        let mut batch = vec![first];
-        let deadline = sleep(config.batch_delay);
-        tokio::pin!(deadline);
-
-        while batch.len() < config.batch_size {
-            tokio::select! {
-                _ = &mut deadline => break,
-                next = receiver.recv() => match next {
-                    Some(trace) => {
-                        health.queue_depth.fetch_sub(1, Ordering::Relaxed);
-                        health
-                            .queued_spans
-                            .fetch_sub(trace.spans.len(), Ordering::Relaxed);
-                        trace_metrics::set_queue(
-                            sink_name,
-                            health.queue_depth.load(Ordering::Relaxed),
-                            config.queue_capacity,
-                        );
-                        batch.push(trace);
-                    }
-                    None => break,
-                }
-            }
-        }
-
-        let invalid = batch
-            .iter()
-            .flat_map(|trace| &trace.spans)
-            .find_map(|span| {
-                validate_sink_invariants(span, limits)
-                    .err()
-                    .map(|error| error.to_string())
-            });
-
-        if let Some(error) = invalid {
-            let spans = span_count(&batch);
-
-            health
-                .dropped_spans
-                .fetch_add(spans as u64, Ordering::Relaxed);
-
-            health.failed_batches.fetch_add(1, Ordering::Relaxed);
-            trace_metrics::record_export(sink_name, "invalid", spans as u64, Duration::ZERO);
-            health.degraded.store(true, Ordering::Release);
-            *health.last_error.write() = Some(format!("pre-sink invariant failed: {error}"));
-            continue;
-        }
-
-        let spans = span_count(&batch);
-        health.in_flight_spans.store(spans, Ordering::Relaxed);
-        let mut last_error = None;
-        let mut retry_reason = "export_failed";
-        let export_started = Instant::now();
-
-        for attempt in 0..config.max_attempts {
-            if attempt > 0 {
-                health.retries.fetch_add(1, Ordering::Relaxed);
-                trace_metrics::record_retry(sink_name, retry_reason);
-                let shift = u32::try_from(attempt - 1).unwrap_or(31).min(16);
-                sleep(config.initial_backoff.saturating_mul(1_u32 << shift)).await;
-            }
-
-            match timeout(config.export_timeout, sink.export(&batch)).await {
-                Ok(Ok(())) => {
-                    health
-                        .exported_spans
-                        .fetch_add(spans as u64, Ordering::Relaxed);
-
-                    health.degraded.store(false, Ordering::Release);
-                    *health.last_error.write() = None;
-
-                    trace_metrics::record_export(
-                        sink_name,
-                        "exported",
-                        spans as u64,
-                        export_started.elapsed(),
-                    );
-
-                    last_error = None;
-                    break;
-                }
-                Ok(Err(error)) => {
-                    retry_reason = "export_failed";
-                    last_error = Some(error);
-                }
-                Err(_) => {
-                    retry_reason = "timeout";
-                    last_error = Some("export timeout".into());
-                }
-            }
-        }
-
-        if let Some(error) = last_error {
-            health.failed_batches.fetch_add(1, Ordering::Relaxed);
-
-            health
-                .dropped_spans
-                .fetch_add(spans as u64, Ordering::Relaxed);
-
-            trace_metrics::record_export(
-                sink_name,
-                "failed",
-                spans as u64,
-                export_started.elapsed(),
-            );
-
-            health.degraded.store(true, Ordering::Release);
-            *health.last_error.write() = Some(error.clone());
-            tracing::warn!(
-                target: "molesignal::app::trace",
-                sink = sink.name(),
-                error = %error,
-                spans,
-                "Trace sink batch dropped after bounded retries"
-            );
-        }
-
-        health.in_flight_spans.store(0, Ordering::Relaxed);
-    }
-}
-
-fn record_shutdown_residue(
-    sink_name: &'static str,
-    health: Option<&Arc<TraceSinkHealth>>,
-) -> usize {
-    let Some(health) = health else {
-        return 0;
-    };
-
-    let queued_spans = health.queued_spans.swap(0, Ordering::Relaxed);
-    let in_flight_spans = health.in_flight_spans.swap(0, Ordering::Relaxed);
-    let residue = queued_spans.saturating_add(in_flight_spans);
-    health.queue_depth.store(0, Ordering::Relaxed);
-    trace_metrics::set_queue(sink_name, 0, health.queue_capacity.load(Ordering::Relaxed));
-
-    if residue > 0 {
-        health
-            .dropped_spans
-            .fetch_add(residue as u64, Ordering::Relaxed);
-
-        health.failed_batches.fetch_add(1, Ordering::Relaxed);
-        health.degraded.store(true, Ordering::Release);
-        *health.last_error.write() = Some("shutdown timeout with unexported spans".into());
-
-        trace_metrics::record_export(
-            sink_name,
-            "shutdown_timeout",
-            residue as u64,
-            Duration::ZERO,
-        );
-    }
-
-    residue
-}
-
-fn span_count(traces: &[DecidedTrace]) -> usize {
-    traces.iter().map(|trace| trace.spans.len()).sum()
-}
-
-/// Writes the traces that were kept into this deployment's own storage: tenants' always, the
-/// process's own only with self telemetry on.
-pub struct SelfIntakeTraceSink {
-    intake: Arc<IntakeService>,
-    system_org_id: Id,
-    stores_own_traces: bool,
-}
-
-impl SelfIntakeTraceSink {
-    pub fn new(intake: Arc<IntakeService>, system_org_id: Id, stores_own_traces: bool) -> Self {
-        Self {
-            intake,
-            system_org_id,
-            stores_own_traces,
-        }
-    }
-}
-
-#[async_trait]
-impl TraceSink for SelfIntakeTraceSink {
-    fn name(&self) -> &'static str {
-        "self_intake"
-    }
-
-    fn takes(&self, trace: &DecidedTrace) -> bool {
-        self.stores_own_traces || trace.stream.is_some()
-    }
-
-    async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String> {
-        let mut groups: BTreeMap<(String, String, bool), (Vec<_>, Vec<_>)> = BTreeMap::new();
-
-        for trace in traces {
-            let (org_id, stream, internal) = match &trace.stream {
-                Some(stream) => (trace.org_id.clone(), stream.clone(), false),
-                None => (
-                    self.system_org_id.0.clone(),
-                    MOLESIGNAL_SYSTEM_STREAM.into(),
-                    true,
-                ),
-            };
-
-            let spans = summary::span_events(trace);
-
-            let spans = if internal {
-                spans
-            } else {
-                processing::written_spans(&self.intake, &org_id, &stream, spans).await?
-            };
-
-            let group = groups.entry((org_id, stream, internal)).or_default();
-
-            if summary::summarized(trace) {
-                group.1.extend(summary::summary_event(&spans));
-            }
-
-            group.0.extend(spans);
-        }
-
-        for ((org_id, stream, internal), (spans, summaries)) in groups {
-            if spans.is_empty() {
-                continue;
-            }
-
-            let batch = IntakeBatch {
-                batch_id: Id::new(),
-                org_id: Id(org_id.clone()),
-                stream: stream.clone(),
-                stream_type: StreamType::TRACES,
-                events: spans,
-                received_at: TimestampMicros::now(),
-            };
-
-            let result = if internal {
-                with_suppression(self.intake.intake_self_telemetry(batch)).await
-            } else {
-                with_suppression(self.intake.intake(batch)).await
-            }
-            .map_err(|error| error.to_string())?;
-
-            if result.rejected != 0 {
-                return Err(format!("Trace storage rejected {} spans", result.rejected));
-            }
-
-            if summaries.is_empty() {
-                continue;
-            }
-
-            let summary_batch = IntakeBatch {
-                batch_id: Id::new(),
-                org_id: Id(org_id),
-                stream,
-                stream_type: StreamType::TRACES,
-                events: summaries,
-                received_at: TimestampMicros::now(),
-            };
-
-            let result = if internal {
-                with_suppression(self.intake.intake_self_telemetry_dataset(
-                    summary_batch,
-                    DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
-                ))
-                .await
-            } else {
-                with_suppression(self.intake.intake_derived_dataset(
-                    summary_batch,
-                    DatasetTypeId::builtin(builtin::DATASET_TRACE_SUMMARY),
-                ))
-                .await
-            }
-            .map_err(|error| error.to_string())?;
-
-            if result.rejected != 0 {
-                return Err(format!(
-                    "Trace summary storage rejected {} rows",
-                    result.rejected
-                ));
-            }
-        }
-
-        Ok(())
-    }
+    /// The candidate log could not store the spans.
+    Unlogged,
 }
 
 /// 测试/诊断 sink：按 org 聚合，生产代码不使用。
@@ -860,14 +474,14 @@ impl TraceSink for MemoryTraceSink {
         "memory"
     }
 
-    async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String> {
+    async fn export(&self, traces: &mut Vec<DecidedTrace>) -> Result<(), String> {
         if self.fail.load(Ordering::Acquire) {
             return Err("injected failure".into());
         }
 
         let mut stored = self.traces.lock().await;
 
-        for trace in traces {
+        for trace in traces.iter() {
             stored
                 .entry(trace.org_id.clone())
                 .or_default()
@@ -886,6 +500,7 @@ mod tests {
         trace_fixtures,
         trace_normalization::CanonicalSpan,
     };
+    use tokio::time::{Instant, sleep};
 
     use super::*;
     use crate::app::apm::ApmCandidateProjector;
@@ -915,7 +530,7 @@ mod tests {
             "self_intake"
         }
 
-        async fn export(&self, _traces: &[DecidedTrace]) -> Result<(), String> {
+        async fn export(&self, _traces: &mut Vec<DecidedTrace>) -> Result<(), String> {
             self.started.notify_one();
             std::future::pending().await
         }
@@ -992,7 +607,7 @@ mod tests {
             trace.stream.is_some()
         }
 
-        async fn export(&self, traces: &[DecidedTrace]) -> Result<(), String> {
+        async fn export(&self, traces: &mut Vec<DecidedTrace>) -> Result<(), String> {
             self.0.export(traces).await
         }
     }
@@ -1165,5 +780,141 @@ mod tests {
             health.last_error.as_deref(),
             Some("shutdown timeout with unexported spans")
         );
+    }
+    fn tenant_candidate(trace_id: &str) -> TraceCandidate {
+        let mut span = trace_fixtures::canonical_http_trace().remove(0);
+        span.trace_id = trace_id.into();
+
+        TraceCandidate {
+            org_id: "org".into(),
+            stream: Some("default".into()),
+            span,
+            force_keep: ForceKeep::None,
+        }
+    }
+
+    async fn wait_for(mut done: impl FnMut() -> bool) {
+        timeout(Duration::from_secs(3), async {
+            while !done() {
+                sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("condition reached in time");
+    }
+
+    #[tokio::test]
+    async fn a_failing_store_holds_tenant_traces_until_it_recovers() {
+        let sink = Arc::new(MemoryTraceSink::default());
+        sink.set_fail(true);
+
+        let pipeline = TracePipeline::start(
+            test_sampler(),
+            Some(sink.clone()),
+            None,
+            fast_config(),
+            TraceLimits::default(),
+        )
+        .unwrap();
+
+        let trace_ids = [
+            "0af7651916cd43dd8448eb211c80319c",
+            "1af7651916cd43dd8448eb211c80319c",
+            "2af7651916cd43dd8448eb211c80319c",
+        ];
+
+        for trace_id in trace_ids {
+            pipeline
+                .submit(tenant_candidate(trace_id), None)
+                .await
+                .unwrap();
+        }
+
+        wait_for(|| pipeline.health().self_intake.unwrap().retries >= 3).await;
+        assert_eq!(pipeline.health().self_intake.unwrap().dropped_spans, 0);
+
+        sink.set_fail(false);
+
+        timeout(Duration::from_secs(3), async {
+            while sink.traces("org").await.len() < trace_ids.len() {
+                sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("every trace written once the store is back");
+
+        let health = pipeline.health().self_intake.unwrap();
+        pipeline.shutdown().await;
+
+        assert_eq!(sink.traces("org").await.len(), trace_ids.len());
+        assert_eq!(health.dropped_spans, 0);
+        assert!(!health.degraded);
+    }
+
+    /// Writes the first trace of its first batch, then fails, leaving the rest unwritten.
+    #[derive(Default)]
+    struct HalfWritingSink {
+        written: parking_lot::Mutex<Vec<String>>,
+        failed: AtomicBool,
+    }
+
+    #[async_trait]
+    impl TraceSink for HalfWritingSink {
+        fn name(&self) -> &'static str {
+            "self_intake"
+        }
+
+        async fn export(&self, traces: &mut Vec<DecidedTrace>) -> Result<(), String> {
+            if !self.failed.swap(true, Ordering::AcqRel) {
+                let first = traces.remove(0);
+                self.written.lock().push(first.trace_id);
+                return Err("written halfway".into());
+            }
+
+            self.written
+                .lock()
+                .extend(traces.iter().map(|trace| trace.trace_id.clone()));
+
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn a_retry_writes_only_what_the_sink_left_unwritten() {
+        let sink = Arc::new(HalfWritingSink::default());
+        let mut config = fast_config();
+        config.self_intake.batch_size = 8;
+        config.self_intake.batch_delay = Duration::from_millis(30);
+
+        let pipeline = TracePipeline::start(
+            test_sampler(),
+            Some(sink.clone()),
+            None,
+            config,
+            TraceLimits::default(),
+        )
+        .unwrap();
+
+        for trace_id in [
+            "0bf7651916cd43dd8448eb211c80319c",
+            "1bf7651916cd43dd8448eb211c80319c",
+            "2bf7651916cd43dd8448eb211c80319c",
+        ] {
+            pipeline
+                .submit(tenant_candidate(trace_id), None)
+                .await
+                .unwrap();
+        }
+
+        wait_for(|| sink.written.lock().len() >= 3).await;
+        pipeline.shutdown().await;
+
+        let mut written = sink.written.lock().clone();
+        written.sort();
+        let all = written.len();
+        written.dedup();
+
+        assert_eq!(all, 3, "every trace written exactly once: {written:?}");
+        assert_eq!(written.len(), 3);
     }
 }

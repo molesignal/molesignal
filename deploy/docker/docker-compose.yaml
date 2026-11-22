@@ -105,7 +105,6 @@ services:
       - "5082:5082"
     volumes:
       - ../../conf/config.toml:/app/conf/config.toml:ro
-      - obs-wal:/data/wal
     environment:
       <<: *molesignal-env
       MS_NODE_ROLES: '["standalone"]'
@@ -130,7 +129,6 @@ services:
     profiles: ["multirole"]
     volumes:
       - ../../conf/config.toml:/app/conf/config.toml:ro
-      - obs-wal:/data/wal
     environment:
       <<: *molesignal-env
       MS_NODE_ROLES: '["intake"]'
@@ -159,4 +157,3 @@ services:
 volumes:
   pgdata:
   rustfsdata:
-  obs-wal:

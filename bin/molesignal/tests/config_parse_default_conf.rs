@@ -40,7 +40,7 @@ fn k8s_configmap_conf_parses() {
     assert_eq!(s.meta_database.min_connections, 2);
     assert_eq!(s.meta_database.max_connections, 16);
     assert_eq!(s.object_store.backend, "s3");
-    assert_eq!(s.wal.batch_max_delay_ms, 50);
+    assert_eq!(s.wal.lease_secs, 15);
     assert_eq!(s.querier.auto_async_threshold_rows, 50_000_000);
     assert_eq!(s.storage.catalog.seal_after_hours, 48);
     assert_eq!(s.cache.object.max_size, 10 * 1024);

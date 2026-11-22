@@ -81,6 +81,7 @@ pub mod usage;
 pub mod user_preferences;
 pub mod user_ui_preference;
 pub mod users;
+pub mod wal_writers;
 pub mod web_search;
 pub mod workspace_preference_defaults;
 

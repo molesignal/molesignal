@@ -26,10 +26,11 @@ use super::{
     wal::FlushProvenance,
 };
 
-/// 僵尸 writer 栅栏拒绝 flush 时，冲突信息的固定前缀。
+/// The fixed start of the conflict a fenced publication gets.
 const STALE_WRITER_EPOCH: &str = "stale writer epoch";
 
-/// 同一 (dataset, node) 已有更高 epoch 提交过 checkpoint 时，旧 epoch 的 flush 收到的冲突。
+/// The conflict a flush gets when its publisher may no longer publish the writer's stream: the
+/// publisher was fenced, or another node claimed the stream (see [`super::WalWriterRegistry`]).
 pub fn stale_writer_epoch(
     epoch: WriterEpoch,
     dataset_id: &PhysicalDatasetId,
@@ -41,7 +42,8 @@ pub fn stale_writer_epoch(
     ))
 }
 
-/// `error` 是否来自上面的栅栏。被栅栏的 writer 永远无法再发布数据，重试没有意义。
+/// Whether `error` comes from that fence. A fenced publisher never publishes again, so retrying is
+/// pointless.
 pub fn is_stale_writer_epoch(error: &Error) -> bool {
     matches!(error, Error::Conflict(message) if message.starts_with(STALE_WRITER_EPOCH))
 }
@@ -121,6 +123,9 @@ impl CatalogSnapshot {
 pub struct CommitFlush {
     pub dataset_id: PhysicalDatasetId,
     pub provenance: FlushProvenance,
+    /// The epoch publishing: the writer's own, or that of a node that claimed the writer's stream.
+    /// It must be the stream's current publisher and not fenced.
+    pub publisher_epoch: WriterEpoch,
     pub segments: Vec<DataSegment>,
 }
 

@@ -22,7 +22,7 @@ use common::{TestServer, skip_unless_enabled};
 use domain::{
     storage::{
         CommitFlush, FileCatalog, FlushProvenance, OrganizationScope, SequenceRange, WalSequence,
-        WriterEpoch, WriterNodeId, primary_dataset_type,
+        WriterNodeId, primary_dataset_type,
     },
     stream::{
         FieldDef, FieldType, Retention, Schema, StreamDefinition, StreamIndexType,
@@ -147,9 +147,10 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
         .into_iter()
         .find(|dataset| dataset.dataset_type == dataset_type)
         .expect("intake provisioned raw dataset");
+    let epoch = common::open_wal_stream(&pool, &dataset, "fixture-node").await;
     let provenance = FlushProvenance::derive(
         WriterNodeId::new("fixture-node"),
-        WriterEpoch(1),
+        epoch,
         SequenceRange::new(WalSequence(1), WalSequence(3)),
     );
     let segments = writer
@@ -161,6 +162,7 @@ async fn intake_api_accepts_batch_and_query_api_returns_seeded_rows() {
             &scope,
             CommitFlush {
                 dataset_id: dataset.id,
+                publisher_epoch: epoch,
                 provenance,
                 segments,
             },

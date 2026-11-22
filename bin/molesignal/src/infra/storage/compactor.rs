@@ -664,6 +664,7 @@ mod tests {
                     &scope,
                     CommitFlush {
                         dataset_id: dataset.dataset.id.clone(),
+                        publisher_epoch: provenance.writer_epoch,
                         provenance,
                         segments,
                     },
@@ -903,6 +904,7 @@ mod tests {
                     &scope,
                     CommitFlush {
                         dataset_id: dataset.dataset.id.clone(),
+                        publisher_epoch: provenance.writer_epoch,
                         provenance,
                         segments,
                     },
@@ -1048,6 +1050,7 @@ mod tests {
                     &scope,
                     CommitFlush {
                         dataset_id: dataset.dataset.id.clone(),
+                        publisher_epoch: provenance.writer_epoch,
                         provenance,
                         segments,
                     },
@@ -1160,6 +1163,7 @@ mod tests {
                     &scope,
                     CommitFlush {
                         dataset_id: dataset.dataset.id.clone(),
+                        publisher_epoch: provenance.writer_epoch,
                         provenance,
                         segments,
                     },

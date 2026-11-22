@@ -251,7 +251,7 @@ impl RecordBuilder {
         Ok(batches)
     }
 
-    fn finish_active(&mut self) -> Result<BufferedRecordBatch> {
+    pub(super) fn finish_active(&mut self) -> Result<BufferedRecordBatch> {
         let arrays = self
             .column_order
             .iter()

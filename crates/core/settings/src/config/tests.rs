@@ -631,32 +631,17 @@ max_series_per_query = 0
 }
 
 #[test]
-fn wal_defaults_yield_batch_data_64_50() {
+fn wal_defaults_hold_a_fifteen_second_lease_and_eight_mib_groups() {
     let s: Settings = toml::from_str("[wal]\n").expect("empty [wal] section must parse");
-    assert_eq!(s.wal.dir, "./data/wal");
-    assert_eq!(s.wal.segment_size, 256);
-    assert!(matches!(s.wal.flush_strategy, WalFlushStrategy::Batch));
-    assert!(matches!(s.wal.sync_level, WalSyncLevel::Data));
-    assert_eq!(s.wal.batch_max_pending, 64);
-    assert_eq!(s.wal.batch_max_delay_ms, 50);
-}
+    assert_eq!(s.wal.lease(), std::time::Duration::from_secs(15));
+    assert_eq!(s.wal.max_group_bytes(), 8 * 1024 * 1024);
+    assert_eq!(s.wal.put_attempts, 3);
+    assert_eq!(s.wal.takeover_interval(), std::time::Duration::from_secs(5));
+    assert!(!s.wal.encrypt);
 
-#[test]
-fn wal_flush_strategy_none_round_trip() {
-    // 显式指定 flush_strategy = "none" 可以回归旧的 never-fsync 行为。
-    let toml_text = r#"
-[wal]
-flush_strategy = "none"
-sync_level = "none"
-"#;
-    let s: Settings = toml::from_str(toml_text).expect("explicit none must parse");
-    assert!(matches!(s.wal.flush_strategy, WalFlushStrategy::None));
-    assert!(matches!(s.wal.sync_level, WalSyncLevel::None));
-    // re-emit + re-parse must be lossless
-    let text = toml::to_string(&s.wal).expect("serialize WalSettings");
-    let w2: WalSettings = toml::from_str(&text).expect("re-parse");
-    assert!(matches!(w2.flush_strategy, WalFlushStrategy::None));
-    assert!(matches!(w2.sync_level, WalSyncLevel::None));
+    let s: Settings = toml::from_str("[wal]\nlease_secs = 1\nmax_takeover_size = 0\n").unwrap();
+    assert_eq!(s.wal.lease(), std::time::Duration::from_secs(3));
+    assert_eq!(s.wal.max_takeover_bytes(), 1024 * 1024);
 }
 
 #[test]

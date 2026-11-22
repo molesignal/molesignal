@@ -716,6 +716,7 @@ mod tests {
                 &OrganizationScope::new(stream.org_id.clone()),
                 CommitFlush {
                     dataset_id: raw.dataset.id.clone(),
+                    publisher_epoch: provenance.writer_epoch,
                     provenance,
                     segments,
                 },

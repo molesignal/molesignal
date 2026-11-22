@@ -284,16 +284,17 @@ impl RecordBuilder {
         writer: &BufferWriter,
         sequence: WalSequence,
     ) -> Result<()> {
-        if let Some(active_writer) = &self.active_writer
-            && active_writer != writer
+        // A generation has one writer. Rows of a new writer epoch (this process took a new one
+        // after being fenced) start a new generation; the old one waits for its flush, which
+        // the fence refuses, and is then dropped.
+        if self.row_count > 0
+            && self
+                .active_writer
+                .as_ref()
+                .is_some_and(|active_writer| active_writer != writer)
         {
-            return Err(anyhow!(
-                "buffer active generation belongs to node {} epoch {}, cannot append node {} epoch {}",
-                active_writer.writer_node_id,
-                active_writer.writer_epoch,
-                writer.writer_node_id,
-                writer.writer_epoch
-            ));
+            let sealed = self.finish_active()?;
+            self.pending.push_back(sealed);
         }
 
         if let Some(previous) = self.active_sequences.last()

@@ -20,6 +20,7 @@ mod registry;
 mod segment;
 pub mod type_id;
 mod wal;
+mod wal_writers;
 
 pub use artifact::{Artifact, ArtifactRole, ArtifactState, StoredObject};
 pub use catalog::{
@@ -48,4 +49,5 @@ pub use registry::{
 };
 pub use segment::{ColumnStats, DataSegment, Partition, SegmentState};
 pub use type_id::{ArtifactTypeId, DatasetTypeId, IndexTypeId, StreamTypeId, WalCodecId};
-pub use wal::{DatasetIntakeUsage, FlushProvenance, WalStreamId};
+pub use wal::{DatasetIntakeUsage, FlushProvenance};
+pub use wal_writers::{OrphanedStreams, WalStreamRow, WalWriterRegistry};

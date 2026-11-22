@@ -5,7 +5,11 @@
 //!
 //! 每个进程只向有界本地 channel 写入候选。后台 worker 从活跃的 intake/querier/
 //! standalone 节点中按 `trace_id` rendezvous 选一个 sampler owner；本机 owner 直接
-//! 投递本地 pipeline，远端 owner 使用集群认证 RPC。传输没有复制或 Trace WAL。
+//! 投递本地 pipeline，远端 owner 使用集群认证 RPC。
+//!
+//! Tenant spans are in the trace candidate log in object storage before their sender is answered
+//! (see [`super::durable`]). A local owner settles a span once its fate is durable; a remote
+//! owner's acceptance settles it, and what that owner holds in memory is not durable yet.
 
 use std::{
     collections::HashSet,
@@ -39,8 +43,19 @@ use crate::{
     api::grpc::trace::candidate_server::{
         MAX_TRACE_CANDIDATE_BYTES, TRACE_CANDIDATE_ORIGIN_HEADER, TRACE_CANDIDATE_ORIGIN_VALUE,
     },
-    app::trace::{TracePipeline, TraceSubmitError},
+    app::trace::{
+        TracePipeline, TraceSubmitError,
+        durable::{SpanOrigin, SpanSettlement, TraceCandidateLog},
+    },
 };
+
+mod admission;
+mod delivery;
+
+pub use admission::{TraceBatchAdmission, TraceCandidateSubmitError};
+use delivery::deliver_batch;
+#[cfg(test)]
+use delivery::{peer_to_sampler_node, sampler_peers};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TraceCandidateRouterConfig {
@@ -115,6 +130,8 @@ pub struct TraceCandidateRouterHealth {
 struct QueuedCandidate {
     candidate: TraceCandidate,
     enqueued_at: Instant,
+    /// Where the span sits in this node's candidate log; `None` when it is not logged.
+    origin: Option<SpanOrigin>,
 }
 
 struct RouterWorkerContext {
@@ -126,6 +143,7 @@ struct RouterWorkerContext {
     local_pipeline: Arc<TracePipeline>,
     config: TraceCandidateRouterConfig,
     metrics: Arc<RouterMetrics>,
+    candidate_log: CandidateLogSlot,
     /// 每个 owner 一条复用的 gRPC 连接：候选 span 的投递频率很高，逐条建连会耗尽临时端口。
     channels: parking_lot::Mutex<std::collections::HashMap<String, tonic::transport::Channel>>,
 }
@@ -151,8 +169,12 @@ impl RouterWorkerContext {
     }
 }
 
+/// The candidate log, attached once at start-up and shared with the workers.
+type CandidateLogSlot = Arc<std::sync::OnceLock<Arc<TraceCandidateLog>>>;
+
 pub struct TraceCandidateRouter {
     sender: mpsc::Sender<QueuedCandidate>,
+    candidate_log: CandidateLogSlot,
     depth: Arc<AtomicUsize>,
     capacity: usize,
     accepting: AtomicBool,
@@ -182,6 +204,7 @@ impl TraceCandidateRouter {
         trace_metrics::set_queue("routing", 0, config.queue_capacity);
         let metrics = Arc::new(RouterMetrics::default());
         let cancel = CancellationToken::new();
+        let candidate_log = CandidateLogSlot::default();
 
         let context = Arc::new(RouterWorkerContext {
             registry,
@@ -192,6 +215,7 @@ impl TraceCandidateRouter {
             local_pipeline,
             config,
             metrics: metrics.clone(),
+            candidate_log: candidate_log.clone(),
             channels: parking_lot::Mutex::new(std::collections::HashMap::new()),
         });
 
@@ -205,24 +229,24 @@ impl TraceCandidateRouter {
 
             joins.push(tokio::spawn(async move {
                 loop {
-                    let queued = tokio::select! {
+                    let batch = tokio::select! {
                         biased;
                         _ = cancel.cancelled() => {
                             let mut receiver = receiver.lock().await;
                             receiver.close();
-                            receiver.recv().await
+                            take_batch(&mut receiver).await
                         }
-                        queued = async {
+                        batch = async {
                             let mut receiver = receiver.lock().await;
-                            receiver.recv().await
-                        } => queued,
+                            take_batch(&mut receiver).await
+                        } => batch,
                     };
 
-                    let Some(queued) = queued else {
+                    if batch.is_empty() {
                         break;
-                    };
+                    }
 
-                    depth.fetch_sub(1, Ordering::Relaxed);
+                    depth.fetch_sub(batch.len(), Ordering::Relaxed);
 
                     trace_metrics::set_queue(
                         "routing",
@@ -230,13 +254,14 @@ impl TraceCandidateRouter {
                         context.config.queue_capacity,
                     );
 
-                    deliver_candidate(context.as_ref(), queued).await;
+                    deliver_batch(context.as_ref(), batch).await;
                 }
             }));
         }
 
         Ok(Arc::new(Self {
             sender,
+            candidate_log,
             depth,
             capacity: config.queue_capacity,
             accepting: AtomicBool::new(true),
@@ -248,61 +273,31 @@ impl TraceCandidateRouter {
         }))
     }
 
-    /// producer 热路径：先执行中央 sanitizer/limits，再尝试写入本地有界队列。
-    pub fn try_submit(
-        &self,
-        mut candidate: TraceCandidate,
-    ) -> Result<(), TraceCandidateSubmitError> {
-        if !self.accepting.load(Ordering::Acquire) {
-            trace_metrics::record_spans("routing", "stopped", 1);
-            return Err(TraceCandidateSubmitError::Stopped);
+    /// Makes tenant spans durable before they are acknowledged: [`Self::submit_durable`] writes
+    /// them to `log`, and delivery settles them. Called once, before the first request.
+    pub fn attach_candidate_log(&self, log: Arc<TraceCandidateLog>) {
+        if self.candidate_log.set(log).is_err() {
+            tracing::warn!("a trace candidate log was attached twice; the first one is kept");
         }
+    }
 
-        sanitize_and_limit_span(&mut candidate.span, self.limits);
+    /// The attached candidate log, if any.
+    pub fn candidate_log(&self) -> Option<Arc<TraceCandidateLog>> {
+        self.candidate_log.get().cloned()
+    }
 
-        let encoded_len = serde_json::to_vec(&candidate.span)
-            .map(|encoded| encoded.len())
-            .unwrap_or(usize::MAX);
+    /// Ends the attached candidate log after the router and the pipeline have drained: see
+    /// [`TraceCandidateLog::release`].
+    pub async fn release_candidate_log(&self) {
+        let Some(log) = self.candidate_log.get() else {
+            return;
+        };
 
-        if encoded_len > MAX_TRACE_CANDIDATE_BYTES {
-            self.metrics.invalid.fetch_add(1, Ordering::Relaxed);
-            trace_metrics::record_spans("routing", "invalid", 1);
-            return Err(TraceCandidateSubmitError::Invalid);
-        }
-
-        self.depth.fetch_add(1, Ordering::Relaxed);
-        trace_metrics::set_queue("routing", self.depth.load(Ordering::Relaxed), self.capacity);
-
-        match self.sender.try_send(QueuedCandidate {
-            candidate,
-            enqueued_at: Instant::now(),
-        }) {
-            Ok(()) => Ok(()),
-            Err(mpsc::error::TrySendError::Full(_)) => {
-                self.depth.fetch_sub(1, Ordering::Relaxed);
-                self.metrics.queue_full.fetch_add(1, Ordering::Relaxed);
-
-                trace_metrics::set_queue(
-                    "routing",
-                    self.depth.load(Ordering::Relaxed),
-                    self.capacity,
-                );
-
-                trace_metrics::record_spans("routing", "queue_full", 1);
-                Err(TraceCandidateSubmitError::Full)
-            }
-            Err(mpsc::error::TrySendError::Closed(_)) => {
-                self.depth.fetch_sub(1, Ordering::Relaxed);
-
-                trace_metrics::set_queue(
-                    "routing",
-                    self.depth.load(Ordering::Relaxed),
-                    self.capacity,
-                );
-
-                trace_metrics::record_spans("routing", "stopped", 1);
-                Err(TraceCandidateSubmitError::Stopped)
-            }
+        if let Err(error) = log.release().await {
+            tracing::warn!(
+                %error,
+                "releasing the trace candidate log failed; another node replays what is left"
+            );
         }
     }
 
@@ -363,247 +358,26 @@ impl TraceCandidateRouter {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TraceCandidateSubmitError {
-    Full,
-    Stopped,
-    Invalid,
-}
+/// Candidates one worker takes off the queue at once.
+const WORKER_BATCH: usize = 256;
 
-async fn deliver_candidate(context: &RouterWorkerContext, queued: QueuedCandidate) {
-    let mut failed_nodes = HashSet::new();
-    let mut last_failure_was_no_owner = false;
-
-    let canonical_json = match serde_json::to_vec(&queued.candidate.span) {
-        Ok(value) if value.len() <= MAX_TRACE_CANDIDATE_BYTES => value,
-        _ => {
-            context.metrics.invalid.fetch_add(1, Ordering::Relaxed);
-            trace_metrics::record_spans("routing", "invalid", 1);
-            return;
-        }
+/// Waits for one candidate, then takes those already queued behind it, up to [`WORKER_BATCH`].
+/// Empty once the queue is closed and drained.
+async fn take_batch(receiver: &mut mpsc::Receiver<QueuedCandidate>) -> Vec<QueuedCandidate> {
+    let Some(first) = receiver.recv().await else {
+        return Vec::new();
     };
 
-    for attempt in 0..context.config.max_attempts {
-        if queued.enqueued_at.elapsed() >= context.config.max_delivery_age {
-            context.metrics.expired.fetch_add(1, Ordering::Relaxed);
-            trace_metrics::record_spans("routing", "dropped", 1);
-            return;
-        }
+    let mut batch = vec![first];
 
-        if attempt > 0 {
-            trace_metrics::record_retry("routing", "delivery_failed");
-            let shift = (attempt - 1).min(16) as u32;
-
-            let backoff = context
-                .config
-                .initial_backoff
-                .saturating_mul(1_u32 << shift);
-
-            if queued.enqueued_at.elapsed().saturating_add(backoff)
-                >= context.config.max_delivery_age
-            {
-                context.metrics.expired.fetch_add(1, Ordering::Relaxed);
-                trace_metrics::record_spans("routing", "dropped", 1);
-                return;
-            }
-
-            sleep(backoff).await;
-        }
-
-        let peers = sampler_peers(context).await;
-
-        let mut nodes = peers
-            .iter()
-            .filter(|peer| !failed_nodes.contains(&peer.node_id))
-            .map(peer_to_sampler_node)
-            .collect::<Vec<_>>();
-
-        let mut owner = rendezvous_owner(&queued.candidate.span.trace_id, &nodes).cloned();
-
-        if owner.is_none() && !failed_nodes.is_empty() {
-            // 单 owner 集群仍允许在下一次 bounded attempt 重试原节点。
-            failed_nodes.clear();
-            nodes = peers.iter().map(peer_to_sampler_node).collect();
-            owner = rendezvous_owner(&queued.candidate.span.trace_id, &nodes).cloned();
-        }
-
-        let Some(owner) = owner else {
-            last_failure_was_no_owner = true;
-            continue;
-        };
-
-        last_failure_was_no_owner = false;
-
-        if context.local_accepts_candidates && owner.node_id == context.local_node_id {
-            match context.local_pipeline.try_submit(queued.candidate.clone()) {
-                Ok(()) => {
-                    context
-                        .metrics
-                        .delivered_local
-                        .fetch_add(1, Ordering::Relaxed);
-
-                    trace_metrics::record_spans("routing", "accepted", 1);
-                    return;
-                }
-                Err(TraceSubmitError::Full) => {
-                    context
-                        .metrics
-                        .owner_overloaded
-                        .fetch_add(1, Ordering::Relaxed);
-
-                    continue;
-                }
-                Err(TraceSubmitError::Stopped) => {
-                    failed_nodes.insert(owner.node_id);
-                    continue;
-                }
-            }
-        }
-
-        let Some(token) = context.cluster_token.as_deref() else {
-            context
-                .metrics
-                .transport_failed
-                .fetch_add(1, Ordering::Relaxed);
-
-            trace_metrics::record_spans("routing", "dropped", 1);
-            return;
-        };
-
-        let request = build_request(context, &queued.candidate, canonical_json.clone(), token);
-
-        let result = timeout(context.config.attempt_timeout, async {
-            let channel = context.channel(&owner.endpoint).await?;
-            let mut client = TraceCandidateServiceClient::new(channel);
-
-            signals::grpc_trace::call(
-                request,
-                "cluster.v1.TraceCandidateService",
-                "Submit",
-                signals::grpc_trace::GrpcTarget::Internal,
-                |request| client.submit(request),
-            )
-            .await
-            .map_err(|status| format!("candidate submit failed: {}", status.code()))
-        })
-        .await;
-
-        match result {
-            Ok(Ok(response))
-                if TraceCandidateDisposition::try_from(response.get_ref().disposition)
-                    .unwrap_or(TraceCandidateDisposition::Unspecified)
-                    == TraceCandidateDisposition::Accepted =>
-            {
-                context
-                    .metrics
-                    .delivered_remote
-                    .fetch_add(1, Ordering::Relaxed);
-
-                trace_metrics::record_spans("routing", "accepted", 1);
-                return;
-            }
-            Ok(Ok(response))
-                if TraceCandidateDisposition::try_from(response.get_ref().disposition)
-                    .unwrap_or(TraceCandidateDisposition::Unspecified)
-                    == TraceCandidateDisposition::Overloaded =>
-            {
-                context
-                    .metrics
-                    .owner_overloaded
-                    .fetch_add(1, Ordering::Relaxed);
-            }
-            _ => {
-                context.drop_channel(&owner.endpoint);
-                failed_nodes.insert(owner.node_id);
-            }
+    while batch.len() < WORKER_BATCH {
+        match receiver.try_recv() {
+            Ok(next) => batch.push(next),
+            Err(_) => break,
         }
     }
 
-    if last_failure_was_no_owner {
-        context.metrics.no_owner.fetch_add(1, Ordering::Relaxed);
-    } else {
-        context
-            .metrics
-            .transport_failed
-            .fetch_add(1, Ordering::Relaxed);
-    }
-
-    trace_metrics::record_spans("routing", "dropped", 1);
-}
-
-async fn sampler_peers(context: &RouterWorkerContext) -> Vec<PeerInfo> {
-    let mut peers = context
-        .registry
-        .list_all()
-        .await
-        .into_iter()
-        .filter(|peer| {
-            peer.roles.iter().any(|role| {
-                matches!(
-                    role,
-                    PeerRole::Standalone | PeerRole::Intake | PeerRole::Querier
-                )
-            })
-        })
-        .collect::<Vec<_>>();
-
-    if context.local_accepts_candidates
-        && !peers
-            .iter()
-            .any(|peer| peer.node_id == context.local_node_id)
-    {
-        peers.push(PeerInfo {
-            node_id: context.local_node_id.clone(),
-            advertise_addr: context.local_advertise_addr.clone(),
-            roles: vec![PeerRole::Standalone],
-        });
-    }
-
-    peers.sort_by(|left, right| left.node_id.cmp(&right.node_id));
-    peers.dedup_by(|left, right| left.node_id == right.node_id);
-    peers
-}
-
-fn peer_to_sampler_node(peer: &PeerInfo) -> SamplerNode {
-    SamplerNode {
-        node_id: peer.node_id.clone(),
-        endpoint: peer.advertise_addr.clone(),
-        healthy: true,
-    }
-}
-
-fn build_request(
-    context: &RouterWorkerContext,
-    candidate: &TraceCandidate,
-    canonical_json: Vec<u8>,
-    token: &str,
-) -> tonic::Request<TraceCandidateServiceSubmitRequest> {
-    let force_keep = match candidate.force_keep {
-        ForceKeep::None => TraceForceKeep::Unspecified,
-        ForceKeep::TrustedInternal => TraceForceKeep::TrustedInternal,
-        ForceKeep::DebugToken => TraceForceKeep::DebugToken,
-    };
-
-    let mut request = tonic::Request::new(TraceCandidateServiceSubmitRequest {
-        org_id: candidate.org_id.clone(),
-        stream: candidate.stream.clone().unwrap_or_default(),
-        system_self_trace: candidate.stream.is_none(),
-        canonical_span_json: canonical_json.into(),
-        force_keep: force_keep as i32,
-        producer_node_id: context.local_node_id.clone(),
-        produced_at_micros: TimestampMicros::now().0,
-    });
-
-    // Both headers are required. Metadata construction cannot fail for these static values and
-    // the token was already parsed from a process environment variable.
-    let _ = grpc_client::with_bearer(&mut request, token);
-
-    request.metadata_mut().insert(
-        TRACE_CANDIDATE_ORIGIN_HEADER,
-        TRACE_CANDIDATE_ORIGIN_VALUE.parse().unwrap(),
-    );
-
-    request
+    batch
 }
 
 #[cfg(test)]
@@ -749,6 +523,7 @@ mod tests {
             local_pipeline: local_pipeline(),
             config: TraceCandidateRouterConfig::default(),
             metrics: Arc::new(RouterMetrics::default()),
+            candidate_log: Default::default(),
             channels: Default::default(),
         };
         let peers = sampler_peers(&context).await;
@@ -1124,5 +899,48 @@ mod tests {
         let retained = sink.traces("system-org").await;
         assert_eq!(retained.len(), 1);
         assert_eq!(retained[0].trace_id, trace_id);
+    }
+    #[tokio::test]
+    async fn a_tenant_candidate_without_an_owner_is_kept_not_dropped() {
+        let pipeline = local_pipeline();
+        let router = TraceCandidateRouter::start(
+            Arc::new(FixedRegistry(Vec::new())),
+            "router".into(),
+            "router:5081".into(),
+            false,
+            None,
+            pipeline.clone(),
+            TraceCandidateRouterConfig {
+                queue_capacity: 4,
+                workers: 1,
+                max_attempts: 2,
+                attempt_timeout: Duration::from_millis(10),
+                max_delivery_age: Duration::from_millis(50),
+                initial_backoff: Duration::from_millis(1),
+                shutdown_timeout: Duration::from_millis(100),
+            },
+            TraceLimits::default(),
+        )
+        .unwrap();
+
+        router
+            .try_submit(TraceCandidate {
+                org_id: "org".into(),
+                stream: Some("default".into()),
+                span: signals::trace_fixtures::canonical_http_trace().remove(0),
+                force_keep: ForceKeep::None,
+            })
+            .unwrap();
+
+        // Well past the delivery age and attempts a best-effort candidate gets.
+        sleep(Duration::from_millis(200)).await;
+        let health = router.health();
+
+        assert_eq!(health.no_owner, 0);
+        assert_eq!(health.expired, 0);
+        assert_eq!(health.transport_failed, 0);
+
+        router.shutdown().await;
+        pipeline.shutdown().await;
     }
 }

@@ -28,6 +28,7 @@ use crate::{
             SelfIntakeTraceSink, TracePipeline, TracePipelineConfig, TraceSink,
             TraceSinkWorkerConfig,
             candidate_router::{TraceCandidateRouter, TraceCandidateRouterConfig},
+            durable::{TraceCandidateLog, TraceLogConfig, spawn_takeover_loop},
             export::ExternalOtlpTraceSink,
         },
     },
@@ -234,6 +235,26 @@ impl TracingRuntime {
             trace_limits,
         )
         .map_err(Error::invalid)?;
+
+        // Tenant spans are acknowledged only once they are in the candidate log in object
+        // storage; intake nodes replay the logs of writers that are gone.
+        let candidate_log = Arc::new(TraceCandidateLog::new(
+            storage.wal.clone(),
+            core.system_org.id.clone(),
+            TraceLogConfig::default(),
+        ));
+
+        candidates.attach_candidate_log(candidate_log.clone());
+        pipeline.attach_settlement(candidate_log.clone());
+        let _markers = candidate_log.spawn_marker_loop();
+
+        if core.roles.run_intake {
+            let _takeover = spawn_takeover_loop(
+                candidate_log.clone(),
+                candidates.clone(),
+                settings.wal.takeover_interval(),
+            );
+        }
 
         let trace_capture_enabled = settings.telemetry.trace.effective_enabled();
 

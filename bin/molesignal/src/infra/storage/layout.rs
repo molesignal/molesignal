@@ -10,6 +10,7 @@
 //! artifacts/v1/{org}/{type}/{dataset}/p-{partition_start_secs}-{shard:02}/{segment}/{artifact}{suffix}
 //! manifests/v1/{org}/{type}/{dataset}/p-{partition_start_secs}-{shard:02}/{generation}.parquet
 //! search_jobs/v1/{org}/{job}-{attempt}.ndjson
+//! wal/v1/{org}/{dataset}/{writer_epoch:020}/{sequence:020}.wal
 //! ```
 //!
 //! Search Job 的结果对象不进 Catalog：任务行上记着自己的 key，读取、重试和清理都按那个 key
@@ -36,6 +37,42 @@ impl StorageLayout {
 
     /// The prefix scheduled reports are exported under, one directory per organization.
     pub const REPORT_PREFIX: &'static str = "reports/";
+
+    /// The prefix of WAL objects: data acknowledged to clients and not yet flushed. They are not
+    /// in the catalog; `wal_streams` names them, and the orphan scan never looks here.
+    pub const WAL_PREFIX: &'static str = "wal/v1/";
+
+    /// Where one writer epoch keeps the WAL of one dataset. Zero-padded numbers list in order.
+    pub fn wal_stream_prefix(
+        organization_id: &Id,
+        dataset_id: &PhysicalDatasetId,
+        writer_epoch: u64,
+    ) -> String {
+        format!(
+            "{}{}/{}/{writer_epoch:020}/",
+            Self::WAL_PREFIX,
+            organization_id.as_str(),
+            dataset_id.as_str()
+        )
+    }
+
+    /// The WAL object holding sequence `sequence` of a writer epoch's dataset WAL.
+    pub fn wal_object_key(
+        organization_id: &Id,
+        dataset_id: &PhysicalDatasetId,
+        writer_epoch: u64,
+        sequence: u64,
+    ) -> ObjectKey {
+        ObjectKey::from_string(format!(
+            "{}{sequence:020}.wal",
+            Self::wal_stream_prefix(organization_id, dataset_id, writer_epoch)
+        ))
+    }
+
+    /// The sequence of a WAL object key, or `None` for another key.
+    pub fn wal_object_sequence(key: &str) -> Option<u64> {
+        key.rsplit('/').next()?.strip_suffix(".wal")?.parse().ok()
+    }
 
     /// `key` 是否是 Manifest 对象。Manifest 靠单次条件写实现版本协议。
     pub fn is_manifest_key(key: &str) -> bool {
@@ -157,6 +194,7 @@ impl StorageLayout {
             format!("{}{org}/", Self::MANIFEST_PREFIX),
             format!("{}{org}/", Self::SEARCH_JOB_PREFIX),
             format!("{}{org}/", Self::REPORT_PREFIX),
+            format!("{}{org}/", Self::WAL_PREFIX),
             format!("blobs/v1/{org}/"),
             format!("agent_skills/v1/{org}/"),
             format!("agent/chat/v1/{org}/"),
@@ -373,6 +411,30 @@ mod tests {
     }
 
     #[test]
+    fn wal_object_keys_list_in_sequence_order_and_read_back() {
+        let org = Id::from_string("org");
+        let dataset = PhysicalDatasetId::from_string("dataset");
+        let key = StorageLayout::wal_object_key(&org, &dataset, 7, 3).0;
+
+        assert_eq!(
+            key,
+            "wal/v1/org/dataset/00000000000000000007/00000000000000000003.wal"
+        );
+        assert!(key.starts_with(&StorageLayout::wal_stream_prefix(&org, &dataset, 7)));
+        assert_eq!(StorageLayout::wal_object_sequence(&key), Some(3));
+        assert_eq!(StorageLayout::wal_object_sequence("wal/v1/org/x.tmp"), None);
+        assert!(
+            StorageLayout::wal_object_key(&org, &dataset, 7, 9).0
+                < StorageLayout::wal_object_key(&org, &dataset, 7, 10).0
+        );
+        assert!(
+            StorageLayout::catalog_scan_prefixes()
+                .iter()
+                .all(|prefix| !key.starts_with(prefix))
+        );
+    }
+
+    #[test]
     fn an_organization_purge_reaches_the_keys_made_for_it_and_no_others() {
         let org = Id::from_string("org");
         let dataset = PhysicalDatasetId::from_string("dataset");
@@ -391,6 +453,7 @@ mod tests {
             StorageLayout::manifest_key(&org, StreamTypeId::LOGS, &dataset, &partition(), 1).0,
             StorageLayout::search_job_result_key(&org, &Id::from_string("job"), 0).0,
             StorageLayout::report_export_key(&org, "s3://bucket/weekly", "r1-20261110.pdf").0,
+            StorageLayout::wal_object_key(&org, &dataset, 7, 3).0,
             profiles::archive_object_key(
                 &org,
                 "api",

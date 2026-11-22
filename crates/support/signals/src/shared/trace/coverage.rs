@@ -40,6 +40,10 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::RootPerRun,
     },
     WorkerCoverage {
+        source: "src/bootstrap/roles/intake/takeover.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/acme.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },
@@ -224,7 +228,7 @@ pub const GRPC_CLIENT_COVERAGE: &[&str] = &[
     "src/api/http/routes/clusters.rs",
     "src/api/http/routes/query.rs",
     "src/app/self_telemetry.rs",
-    "src/app/trace/candidate_router.rs",
+    "src/app/trace/candidate_router/delivery.rs",
     "src/app/trace/export.rs",
     "src/bootstrap/workers/cluster/event_sync.rs",
     "src/bootstrap/workers/cluster/gossip.rs",

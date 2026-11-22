@@ -953,15 +953,9 @@ mod tests {
         },
     };
     use kernel::{Error, Result, ids::Id, time::TimestampMicros};
-    use settings::{SelfCollectSettings, WalFlushStrategy, WalSettings, WalSyncLevel};
+    use settings::SelfCollectSettings;
 
-    use crate::{
-        bootstrap::{
-            storage::build_fsync_policy,
-            tracing::{SYSTEM_STREAM_RETENTION_DAYS, prepare_self_telemetry_streams},
-        },
-        infra::segment_wal::FsyncPolicy,
-    };
+    use crate::bootstrap::tracing::{SYSTEM_STREAM_RETENTION_DAYS, prepare_self_telemetry_streams};
 
     struct TestOrganizations {
         org: Option<Organization>,
@@ -1260,49 +1254,5 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(org_id, default_org().id);
         assert!(external_only.is_empty());
-    }
-
-    #[test]
-    fn build_fsync_policy_defaults_to_batch_data_50ms_64() {
-        let wal = WalSettings::default();
-        let p = build_fsync_policy(&wal);
-        match p {
-            FsyncPolicy::Batch {
-                max_pending,
-                max_delay_ms,
-                sync_level,
-            } => {
-                assert_eq!(max_pending, 64);
-                assert_eq!(max_delay_ms, 50);
-                assert!(sync_level.is_data());
-            }
-            other => panic!("expected Batch, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn build_fsync_policy_none_strategy_yields_none_variant() {
-        let wal = WalSettings {
-            flush_strategy: WalFlushStrategy::None,
-            sync_level: WalSyncLevel::None,
-            ..Default::default()
-        };
-        match build_fsync_policy(&wal) {
-            FsyncPolicy::None { sync_level } => assert!(sync_level.is_none()),
-            other => panic!("expected None variant, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn build_fsync_policy_every_write_with_all_sync() {
-        let wal = WalSettings {
-            flush_strategy: WalFlushStrategy::EveryWrite,
-            sync_level: WalSyncLevel::All,
-            ..Default::default()
-        };
-        match build_fsync_policy(&wal) {
-            FsyncPolicy::EveryWrite { sync_level } => assert!(sync_level.is_all()),
-            other => panic!("expected EveryWrite, got {other:?}"),
-        }
     }
 }

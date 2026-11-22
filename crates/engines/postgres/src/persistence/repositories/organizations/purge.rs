@@ -426,6 +426,7 @@ mod tests {
         "user_passkeys",
         "users",
         "users_ext",
+        "wal_writers",
     ];
 
     /// Tables without an organization column whose rows cascade from a purged table.

@@ -1,17 +1,24 @@
+# intake 是无状态的：写入确认前 WAL 已写进对象存储，节点及本地盘丢失后由其余 intake 节点接管
+# 未刷写的数据（[wal].lease_secs 之后）。不需要持久卷，可以像其它 Deployment 一样随意替换。
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: intake
   namespace: molesignal
 spec:
-  serviceName: intake
   replicas: 2
+  # 先起新 Pod 再停旧 Pod；旧 Pod 收到 SIGTERM 后刷完缓冲并释放 WAL，剩余部分立即由其它节点接管。
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
   selector:
     matchLabels: { app: molesignal, role: intake }
   template:
     metadata:
       labels: { app: molesignal, role: intake }
     spec:
+      # 大于 [node].drain_timeout_secs（默认 30），留出刷写与释放 WAL 的时间。
+      terminationGracePeriodSeconds: 45
       containers:
         - name: molesignal
           image: molesignal:dev
@@ -41,7 +48,7 @@ spec:
             - { name: http, containerPort: 5080 }
             - { name: grpc, containerPort: 5082 }
             - { name: otlp-grpc, containerPort: 4317 }
-          # 监听在 WAL replay 完成后才开始，readyz 通过即表示可以接收写入。
+          # readyz 通过即表示可以接收写入；启动时不需要重放 WAL。
           readinessProbe:
             httpGet: { path: /api/v1/readyz, port: http }
             initialDelaySeconds: 10
@@ -49,15 +56,9 @@ spec:
             failureThreshold: 12
           volumeMounts:
             - { name: cfg, mountPath: /app/conf }
-            - { name: data, mountPath: /data }
       volumes:
         - name: cfg
           configMap: { name: molesignal-config }
-  volumeClaimTemplates:
-    - metadata: { name: data }
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources: { requests: { storage: 20Gi } }
 ---
 apiVersion: v1
 kind: Service

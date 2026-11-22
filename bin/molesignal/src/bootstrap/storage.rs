@@ -15,7 +15,7 @@ use domain::{
     storage::{FileCatalog, QueryFileSource, builtin_registry},
     stream::StreamRepository,
 };
-use kernel::{Error, Result, health::Probe, ids::Id};
+use kernel::{Result, health::Probe, ids::Id};
 use postgres::repositories::{
     agent::model_providers::ModelProviderRepository,
     audit_events::PgAuditEventRepository,
@@ -26,9 +26,10 @@ use postgres::repositories::{
     rum_issues::{PgRumIssueRepository, PgRumVersionRepository},
     synthetics::PgSyntheticRepository,
     usage::PgIntakeUsageRepository,
+    wal_writers::PgWalWriterRegistry,
 };
 use service_graph::{ServiceGraphAggregator, ServiceGraphObserverImpl};
-use settings::{Settings, WalFlushStrategy, WalSettings, WalSyncLevel};
+use settings::Settings;
 
 use super::core::Core;
 use crate::{
@@ -52,11 +53,12 @@ use crate::{
         },
     },
     infra::{
-        intake::{BufferPool, DatasetResolver, PrometheusSeriesAdmission, WalPool},
+        intake::{
+            BufferPool, DatasetResolver, ObjectWal, ObjectWalConfig, PrometheusSeriesAdmission,
+        },
         pipeline::realtime::limit_usage::PgLimitUsageLedger,
         query::catalog_source::CatalogQuerySource,
         rum::{issues::IssueTracker, session_state::SessionMerger},
-        segment_wal::{FsyncPolicy, SyncLevel},
         storage::{
             compactor::Compactor,
             index_rebuild::IndexRebuildWorker,
@@ -69,6 +71,8 @@ use crate::{
 };
 
 pub(super) struct StorageRuntime {
+    /// The object-storage WAL; the trace candidate log writes under its writer epoch too.
+    pub(super) wal: Arc<ObjectWal>,
     pub(super) probe: Arc<Probe>,
     pub(super) intake: Arc<IntakeService>,
     pub(super) profile_storage: Arc<ProfileStorageService>,
@@ -96,40 +100,19 @@ impl StorageRuntime {
         model_providers: Arc<dyn ModelProviderRepository>,
         agent_usage: Arc<AgentUsage>,
     ) -> Result<Self> {
-        let segment_bytes = (settings.wal.segment_size as usize)
-            .saturating_mul(1024 * 1024)
-            .max(64 * 1024);
-
-        std::fs::create_dir_all(&settings.wal.dir).map_err(|error| {
-            Error::internal(format!("create wal dir {}: {error}", settings.wal.dir))
-        })?;
-
-        let fsync_policy = build_fsync_policy(&settings.wal);
-        tracing::info!(
-            wal_dir = %settings.wal.dir,
-            flush_strategy = ?settings.wal.flush_strategy,
-            sync_level = ?settings.wal.sync_level,
-            batch_max_pending = settings.wal.batch_max_pending,
-            batch_max_delay_ms = settings.wal.batch_max_delay_ms,
-            "wal fsync policy resolved"
+        // Acknowledged writes live in object storage; the node's disk holds no WAL.
+        let wal = Arc::new(
+            ObjectWal::start(
+                core.store.clone(),
+                Arc::new(PgWalWriterRegistry::new(core.pool.clone())),
+                core.node_id.clone(),
+                ObjectWalConfig::from_settings(&settings.wal),
+                settings.wal.encrypt.then(|| core.cipher_root_key.clone()),
+            )
+            .await?,
         );
 
-        let wal_pool = {
-            let pool = WalPool::new(
-                &settings.wal.dir,
-                core.node_id.clone(),
-                segment_bytes,
-                fsync_policy,
-            );
-
-            let pool = if settings.wal.encrypt {
-                pool.with_cipher(core.cipher_root_key.clone())
-            } else {
-                pool
-            };
-
-            Arc::new(pool)
-        };
+        let _lease_handle = wal.spawn_lease_loop();
 
         let buffer_pool = Arc::new(BufferPool::with_memory_limit_bytes(
             (settings.intake.max_buffer_memory_size as usize).saturating_mul(1024 * 1024),
@@ -172,12 +155,9 @@ impl StorageRuntime {
         ));
 
         let catalog_files: Arc<dyn QueryFileSource> = catalog_query.clone();
-        let replay_byte_cap =
-            (settings.wal.max_replay_size.max(1) as usize).saturating_mul(1024 * 1024);
-
         let worker = Arc::new(
             IntakeWorker::new(
-                wal_pool,
+                wal.clone(),
                 buffer_pool,
                 core.streams.clone(),
                 dataset_resolver,
@@ -186,15 +166,32 @@ impl StorageRuntime {
                 probe.clone(),
                 settings.intake.clone(),
             )
-            .with_replay_byte_cap(replay_byte_cap)
+            .with_takeover_byte_cap(settings.wal.max_takeover_bytes())
             .with_field_keys(core.field_key_service.clone())
             .with_drain(core.drain_controller.clone()),
         );
 
-        worker.recover_and_replay().await?;
         // 每个节点都 flush 自己缓冲的数据：intake 角色缓冲外部写入，其余角色缓冲
         // 本节点产生的内部数据（派生数据集、pipeline 结果等）。
         let _flush_handle = worker.clone().spawn_flush_loop();
+
+        // Intake nodes take over the WAL of writers whose lease lapsed, each the datasets it owns
+        // by rendezvous hashing among the live intake nodes.
+        if core.roles.run_intake {
+            let ownership = WorkOwnership::new(
+                core.registry.clone(),
+                core.node_id.clone(),
+                PeerRole::Intake,
+                Duration::from_secs(u64::from(settings.cluster.peer_timeout_secs.max(1))),
+            );
+
+            let _watch = ownership.spawn_watch(Duration::from_secs(u64::from(
+                settings.cluster.heartbeat_interval_secs.max(1),
+            )));
+
+            let _takeover_handle =
+                worker.spawn_takeover_loop(ownership, settings.wal.takeover_interval());
+        }
 
         let _probe_handle = crate::bootstrap::roles::health_probe::spawn_probe(
             core.store.clone(),
@@ -453,6 +450,7 @@ impl StorageRuntime {
         });
 
         Ok(Self {
+            wal,
             probe,
             intake,
             profile_storage,
@@ -469,24 +467,5 @@ impl StorageRuntime {
             catalog_files,
             rum_query,
         })
-    }
-}
-
-/// 把 `[wal]` settings 字段映射到 `SegmentWal` 的 [`FsyncPolicy`]。
-pub(super) fn build_fsync_policy(wal: &WalSettings) -> FsyncPolicy {
-    let sync_level = match wal.sync_level {
-        WalSyncLevel::None => SyncLevel::NONE,
-        WalSyncLevel::Data => SyncLevel::DATA,
-        WalSyncLevel::All => SyncLevel::ALL,
-    };
-
-    match wal.flush_strategy {
-        WalFlushStrategy::None => FsyncPolicy::None { sync_level },
-        WalFlushStrategy::EveryWrite => FsyncPolicy::EveryWrite { sync_level },
-        WalFlushStrategy::Batch => FsyncPolicy::Batch {
-            max_pending: wal.batch_max_pending.max(1) as usize,
-            max_delay_ms: wal.batch_max_delay_ms as u64,
-            sync_level,
-        },
     }
 }

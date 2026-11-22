@@ -209,6 +209,9 @@ impl ShutdownWork {
 
         self.trace_candidates.shutdown().await;
         self.trace_pipeline.shutdown().await;
+        // Before the drain releases the WAL writer: what settled is recorded, and a log with
+        // nothing unsettled is deleted; the rest is replayed by another node.
+        self.trace_candidates.release_candidate_log().await;
 
         if let Some(runtime) = self.apm_runtime {
             runtime.shutdown().await;

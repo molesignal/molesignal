@@ -1,34 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Intake role 的核心组件：WalPool + BufferPool + flush 路径。
+//! The intake role's parts: the object-storage WAL, the memory buffers, and the flush path.
 //!
-//! 数据流：
 //! ```text
 //!   IntakeService::intake(batch)          IntakeService::intake_json(body), columnar path
 //!     ├─ rows_to_columns(events)          ├─ decode(body) → columns
 //!     ├─ DatasetResolver.resolve(stream, dataset_type) → PhysicalDataset
-//!     └─ BufferPool[dataset_id] lock:
-//!          WalPool[dataset_id].append(Arrow IPC record) → (epoch, seq) → push_batch(columns, position)
+//!     └─ ObjectWal.append(Arrow IPC record): group commit → PUT wal/v1/... → lease still held
+//!          → push_batch(columns, epoch, seq) under the buffer lock → acknowledge
 //!
-//!   FlushScheduler tick:
-//!     for each buffer where size >= buffer_max_size OR age >= flush_interval_secs:
-//!       generation = buffer.begin_flush() // remains query-visible as in-flight
+//!   flush tick, for each buffer past its size or age:
+//!       generation = buffer.begin_flush()      // stays visible to queries while in flight
 //!       parquet_writer.flush_catalog(...)
-//!       file_catalog.commit_flush(...)
+//!       file_catalog.commit_flush(...)         // fenced: only the stream's publisher commits
 //!       buffer.complete_flush(generation.flush_id)
-//!       wal_pool.truncate_up_to(dataset_id, generation.sequence_end)
+//!       object_wal.cleanup(dataset, epoch, generation.sequence_end)
+//!
+//!   takeover tick: lapsed writers are fenced, their streams claimed and published from objects
 //! ```
 
 pub mod buffer_pool;
 pub mod cardinality;
 pub mod dataset_resolver;
 pub mod metrics;
+pub mod object_wal;
 pub(crate) mod physical_schema;
 pub mod rotation;
 pub mod row_columns;
 pub mod sink;
-pub mod wal_pool;
 pub mod wal_record;
 
 pub use buffer_pool::{
@@ -38,6 +38,8 @@ pub use buffer_pool::{
 pub use cardinality::{PrometheusSeriesAdmission, SeriesIdentity, SeriesLimitReason};
 pub use dataset_resolver::{DatasetResolver, ResolvedDataset};
 pub use metrics::{FlushInflightGuard, inc_flush_error, inc_rotation};
+pub use object_wal::{
+    MemoryWalWriters, ObjectWal, ObjectWalConfig, WalAppend, WalAppendPosition, WalStreamIdentity,
+};
 pub use rotation::{AdaptiveRotation, RotationReason};
 pub use sink::DurableIntakeSink;
-pub use wal_pool::{WalAppendPosition, WalEpochDir, WalPool, WalRecoverySource, WalStreamIdentity};

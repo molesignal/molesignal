@@ -7,7 +7,7 @@
 //! - 启动 watcher：`spawn_config_watcher(path, on_change)`；底层 `notify` crate
 //!   监听文件 Modify / Create 事件
 //! - 触发后：重新解析 TOML → 与旧 Settings diff → 仅 apply 可热重载的字段；
-//!   immutable 字段（dsn / pool bounds / wal.dir / http.port / grpc.port / node.id）变化只
+//!   immutable 字段（dsn / pool bounds / wal.lease_secs / http.port / grpc.port / node.id）变化只
 //!   warn 不 apply
 //!
 //! 当前实装：watcher 骨架 + diff API；具体字段 apply 闭包由调用方传（避免本 crate
@@ -28,7 +28,7 @@ pub const IMMUTABLE_FIELDS: &[&str] = &[
     "meta_database.dsn",
     "meta_database.min_connections",
     "meta_database.max_connections",
-    "wal.dir",
+    "wal.lease_secs",
     "http.port",
     "grpc.port",
     "node.id",

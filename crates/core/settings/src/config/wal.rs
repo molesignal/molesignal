@@ -1,102 +1,100 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! `[wal]` —— Write-Ahead Log 落盘目录、分段与 fsync 策略。
+//! `[wal]`: the write-ahead log in object storage.
+//!
+//! A write is acknowledged once its group's WAL object is in the object store; nothing a node
+//! acknowledged lives only on its disk. Each process holds a writer lease in Postgres and stops
+//! acknowledging before it can lapse; once it has lapsed, another node takes the writer's
+//! unflushed objects over.
+
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-/// fsync 触发模式（spec `intake / Write-Ahead Log Durability`）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WalFlushStrategy {
-    /// 仅 `BufWriter::flush()` 到 page cache，**永不** `sync_*`（旧版默认行为）。
-    None,
-    /// 每条记录都 `BufWriter::flush()` + `sync_file(sync_level)`。
-    EveryWrite,
-    /// `BufWriter::flush()` 每次；`sync_*` 在
-    /// `batch_max_pending` 条或 `batch_max_delay_ms` 毫秒任一触发时执行。
-    Batch,
-}
-
-/// `sync_file` 深度。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WalSyncLevel {
-    /// no-op（实际不调用 `sync_*`）。
-    None,
-    /// `sync_data` —— 仅 data，不强制 metadata。
-    Data,
-    /// `sync_all` + 父目录 `sync_all`。
-    All,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalSettings {
-    #[serde(default = "default_wal_dir")]
-    pub dir: String,
-    #[serde(default = "default_wal_seg")]
-    pub segment_size: u32,
-    /// fsync 触发模式；默认 `batch`。
-    #[serde(default = "default_flush_strategy")]
-    pub flush_strategy: WalFlushStrategy,
-    /// `sync_file` 深度；默认 `data`（`sync_data`）。
-    #[serde(default = "default_sync_level")]
-    pub sync_level: WalSyncLevel,
-    /// `Batch` 模式下攒批条数上限。
-    #[serde(default = "default_batch_max_pending")]
-    pub batch_max_pending: u32,
-    /// `Batch` 模式下两次 `sync_*` 的最大间隔（毫秒）。
-    #[serde(default = "default_batch_max_delay_ms")]
-    pub batch_max_delay_ms: u32,
-    /// WAL 落盘 at-rest 加密：true 时每条 record 的 payload 用 `CipherRootKey`（KEK）加密后
-    /// 再写 segment（recover 时解密）。默认 false → 明文落盘（与现状一致）。
+    /// The writer lease in seconds. A node that stops renewing it is taken over this long after
+    /// its last renewal (plus up to one `takeover_interval_secs`). Minimum 3.
+    #[serde(default = "default_lease_secs")]
+    pub lease_secs: u32,
+    /// The most one WAL object holds, in MiB. Writes that arrive while the previous object of a
+    /// dataset is being written are grouped into the next one, up to this size.
+    #[serde(default = "default_max_group_size")]
+    pub max_group_size: u32,
+    /// How long one object write may take, in seconds.
+    #[serde(default = "default_put_timeout_secs")]
+    pub put_timeout_secs: u32,
+    /// Attempts per object write before the writes in it are refused.
+    #[serde(default = "default_put_attempts")]
+    pub put_attempts: u32,
+    /// How often a node looks for lapsed writers to take over, in seconds.
+    #[serde(default = "default_takeover_interval_secs")]
+    pub takeover_interval_secs: u32,
+    /// Seal WAL objects with the cipher root key (KEK).
     #[serde(default)]
     pub encrypt: bool,
-    /// 启动恢复重放的内存上限（MB）：重放累计超过该值即强制 flush 一次腾空 buffer，
-    /// 保证恢复期占用有界。0 视为 1。
-    #[serde(default = "default_max_replay_size")]
-    pub max_replay_size: u32,
+    /// The most a takeover holds in memory before it publishes a segment, in MiB. 0 counts as 1.
+    #[serde(default = "default_max_takeover_size")]
+    pub max_takeover_size: u32,
 }
 
-fn default_wal_dir() -> String {
-    "./data/wal".into()
+impl WalSettings {
+    pub fn lease(&self) -> Duration {
+        Duration::from_secs(u64::from(self.lease_secs.max(3)))
+    }
+
+    pub fn max_group_bytes(&self) -> usize {
+        (self.max_group_size.max(1) as usize).saturating_mul(1024 * 1024)
+    }
+
+    pub fn put_timeout(&self) -> Duration {
+        Duration::from_secs(u64::from(self.put_timeout_secs.max(1)))
+    }
+
+    pub fn takeover_interval(&self) -> Duration {
+        Duration::from_secs(u64::from(self.takeover_interval_secs.max(1)))
+    }
+
+    pub fn max_takeover_bytes(&self) -> usize {
+        (self.max_takeover_size.max(1) as usize).saturating_mul(1024 * 1024)
+    }
 }
 
-fn default_wal_seg() -> u32 {
-    256
+fn default_lease_secs() -> u32 {
+    15
 }
 
-fn default_flush_strategy() -> WalFlushStrategy {
-    WalFlushStrategy::Batch
+fn default_max_group_size() -> u32 {
+    8
 }
 
-fn default_sync_level() -> WalSyncLevel {
-    WalSyncLevel::Data
+fn default_put_timeout_secs() -> u32 {
+    10
 }
 
-fn default_batch_max_pending() -> u32 {
-    64
+fn default_put_attempts() -> u32 {
+    3
 }
 
-fn default_batch_max_delay_ms() -> u32 {
-    50
+fn default_takeover_interval_secs() -> u32 {
+    5
 }
 
-fn default_max_replay_size() -> u32 {
+fn default_max_takeover_size() -> u32 {
     512
 }
 
 impl Default for WalSettings {
     fn default() -> Self {
         Self {
-            dir: default_wal_dir(),
-            segment_size: default_wal_seg(),
-            flush_strategy: default_flush_strategy(),
-            sync_level: default_sync_level(),
-            batch_max_pending: default_batch_max_pending(),
-            batch_max_delay_ms: default_batch_max_delay_ms(),
+            lease_secs: default_lease_secs(),
+            max_group_size: default_max_group_size(),
+            put_timeout_secs: default_put_timeout_secs(),
+            put_attempts: default_put_attempts(),
+            takeover_interval_secs: default_takeover_interval_secs(),
             encrypt: false,
-            max_replay_size: default_max_replay_size(),
+            max_takeover_size: default_max_takeover_size(),
         }
     }
 }

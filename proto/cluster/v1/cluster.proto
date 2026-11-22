@@ -12,6 +12,10 @@ service NodeService {
 
 // 集群内部 CanonicalSpan 候选传输。producer 按 trace_id rendezvous 选定一个
 // sampler owner 后调用；服务端必须校验集群 bearer，不能暴露为公共 OTLP 接口。
+//
+// One call carries a batch of candidates for one owner, taken or refused as a whole. The owner
+// answers ACCEPTED only once the tenant candidates are in its own trace candidate log in object
+// storage, so the producer may settle them in its log.
 service TraceCandidateService {
   rpc Submit(TraceCandidateServiceSubmitRequest) returns (TraceCandidateServiceSubmitResponse);
 }
@@ -29,7 +33,7 @@ enum TraceCandidateDisposition {
   TRACE_CANDIDATE_DISPOSITION_STOPPED = 3;
 }
 
-message TraceCandidateServiceSubmitRequest {
+message TraceCandidateItem {
   string org_id = 1;
   // system_self_trace=true 时 stream 必须为空，owner 将其写入 _sys/_molesignal；
   // 否则 stream 是租户 Trace stream。
@@ -38,12 +42,18 @@ message TraceCandidateServiceSubmitRequest {
   // 完整且有界的 CanonicalSpan JSON。Resource/Scope 由 producer 生成，owner 不重写。
   bytes canonical_span_json = 4;
   TraceForceKeep force_keep = 5;
-  string producer_node_id = 6;
-  int64 produced_at_micros = 7;
+}
+
+message TraceCandidateServiceSubmitRequest {
+  repeated TraceCandidateItem candidates = 1;
+  string producer_node_id = 2;
+  int64 produced_at_micros = 3;
 }
 
 message TraceCandidateServiceSubmitResponse {
   TraceCandidateDisposition disposition = 1;
+  // Candidates of an ACCEPTED batch the owner refused for good because they were malformed.
+  uint32 rejected = 2;
 }
 
 enum NodeRole {
