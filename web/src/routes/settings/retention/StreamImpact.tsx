@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { DataTable, type DataTableColumn, MetadataStrip } from '@/admin';
 import type { StreamRetentionImpact, StreamRetentionPreview } from '@/api/instance';
 import { useTimeFormatter } from '@/lib/time';
-import { formatBytes, formatCount } from '@/routes/home/canvas/format';
+import { formatBytes, formatCount } from '@/routes/home/format';
 import { ChromeButton } from '@/shell/chrome';
 
 import { ImpactFailure, ImpactStatus } from './ImpactStatus';

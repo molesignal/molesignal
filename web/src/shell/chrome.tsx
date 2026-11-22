@@ -1,4 +1,4 @@
-import { AlertTriangle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import * as React from 'react';
 
 import { DisabledControl } from '@/shell/DisabledControl';
@@ -101,64 +101,6 @@ const DOT_TONE = {
 
 export function Dot({ tone = 'green', className }: { tone?: keyof typeof DOT_TONE; className?: string }) {
   return <span className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', DOT_TONE[tone], className)} />;
-}
-
-/* ───────────────────────── CriticalAlertBanner ───────────────────────── */
-
-export interface CriticalAlertItem {
-  id: string;
-  label: string;
-  meta?: string;
-}
-
-/**
- * Red, non-collapsible banner that leads the Home command center. Turns
- * "N firing" from an abstract number into the actual incidents an operator
- * has to triage — name + service + how long it's been burning. Renders
- * nothing when there's nothing on fire.
- */
-export function CriticalAlertBanner({
-  title,
-  items,
-  viewAllLabel,
-  onViewAll,
-}: {
-  title: string;
-  items: readonly CriticalAlertItem[];
-  viewAllLabel?: string;
-  onViewAll?: () => void;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <div className="overflow-hidden rounded-md border border-red/40 bg-red-dim">
-      <div className="flex items-center gap-2.5 px-5 py-3">
-        <AlertTriangle className="h-4 w-4 shrink-0 text-red-soft" />
-        <span className="font-sans text-xs font-bold tracking-normal text-red-soft">{title}</span>
-        {onViewAll && (
-          <button
-            type="button"
-            onClick={onViewAll}
-            className="ml-auto inline-flex items-center gap-1 rounded px-1 py-0.5 font-sans text-xs font-strong text-red-soft transition-colors hover:bg-red/10 hover:text-tx-0 focus-visible:bg-red/10 focus-visible:text-tx-0 focus-visible:outline-none"
-          >
-            {viewAllLabel} →
-          </button>
-        )}
-      </div>
-      <div className="border-t border-red/20">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="flex min-h-9 items-center gap-2.5 border-b border-red/10 px-5 py-2 last:border-b-0"
-          >
-            <Dot tone="red" />
-            <span className="min-w-0 flex-1 truncate font-sans text-xs font-strong text-tx-0">{item.label}</span>
-            {/* On the red tint the muted ink falls under AA in the dark theme; this one does not. */}
-            {item.meta && <span className="shrink-0 font-mono text-xs text-tx-1">{item.meta}</span>}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 /* ───────────────────────── Button ───────────────────────── */

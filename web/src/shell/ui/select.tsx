@@ -125,12 +125,14 @@ const SelectItem = React.forwardRef<
     className={cn(
       floatingMenuItemClass,
       floatingMenuSelectedClass,
-      'h-[44px] w-full pl-[30px] pr-[10px] sm:h-[30px]',
+      // The tick stands at the row's end, under the field's arrow, and the label where the field's is:
+      // with the list's 4px, 12px from either edge, as in the field.
+      'h-[44px] w-full pl-[8px] pr-[30px] sm:h-[30px]',
       className,
     )}
     {...props}
   >
-    <span className="absolute left-[8px] flex h-[14px] w-[14px] items-center justify-center">
+    <span className="absolute right-[8px] flex h-[14px] w-[14px] items-center justify-center">
       <SelectPrimitive.ItemIndicator>
         <Check className="h-[14px] w-[14px] text-indigo-soft" />
       </SelectPrimitive.ItemIndicator>

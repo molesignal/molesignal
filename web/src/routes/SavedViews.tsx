@@ -16,7 +16,6 @@ import {
 } from '@/product/actionAccess';
 import { type ProductStateProps } from '@/product/states';
 import { ListPage } from '@/product/templates';
-import { savedViewPath } from '@/routes/saved-views/path';
 import { ChromeButton, IconButton, Pill, type PillTone } from '@/shell/chrome';
 import { CodeEditor } from '@/shell/codeEditor';
 import {
@@ -30,7 +29,6 @@ import {
   FormSubmitFooter,
 } from '@/shell/FormDrawer';
 import { queryStateFor } from '@/shell/query/State';
-import { useVisitRecorder } from '@/shell/recentVisits';
 import { toast } from '@/shell/ui/sonner';
 
 const LANGUAGE_TONE: Record<QueryLanguage, PillTone> = {
@@ -85,7 +83,6 @@ export function SavedViews() {
   });
   const [editing, setEditing] = React.useState<SavedView | 'new' | null>(null);
   const [confirmingDelete, setConfirmingDelete] = React.useState<SavedView | null>(null);
-  const recordVisit = useVisitRecorder();
 
   const q = useQuery({
     queryKey: ['saved-views'],
@@ -113,7 +110,6 @@ export function SavedViews() {
 
   /** Open a saved view in the matching explorer with its look-back window. */
   const openView = (v: SavedView) => {
-    recordVisit({ kind: 'saved_view', id: v.id, label: v.name, path: savedViewPath(v) });
     const to = new Date();
     const from = new Date(to.getTime() - v.timeRangeSecs * 1000);
     // `?time=<from>..<to>` is the platform-wide window contract hydrated by

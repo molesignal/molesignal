@@ -92,9 +92,9 @@ test.describe('Logs stream select', () => {
       rooms.push(await roomAfterName(field));
     }
 
-    // It is the longest name the field is cut to: only the gap before the arrow follows it.
-    expect(rooms[0]).toBeGreaterThan(12);
-    expect(rooms[0]).toBeLessThan(24);
+    // It is the longest name the field is cut to: only the 8px gap before the arrow follows it.
+    expect(rooms[0]).toBeGreaterThan(4);
+    expect(rooms[0]).toBeLessThan(12);
     expect(rooms[1]).toBeGreaterThan(rooms[0]! + 50);
   });
 

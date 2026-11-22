@@ -26,7 +26,6 @@ import { ResourceShareDialog } from '@/sharing/ResourceShareDialog';
 import { ChromeButton, TimeRangeChip } from '@/shell/chrome';
 import { FormDrawer } from '@/shell/FormDrawer';
 import { cn } from '@/shell/lib/cn';
-import { useRecordVisit } from '@/shell/recentVisits';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,12 +81,6 @@ function DashboardScreen() {
     definition,
     modelError,
   } = useDashboardDefinition(id);
-  const visited = dashboardQuery.data;
-  useRecordVisit(
-    visited && id
-      ? { kind: 'dashboard', id, label: visited.title, path: `/dashboards/${encodeURIComponent(id)}` }
-      : null,
-  );
   const foldersQuery = useQuery({
     queryKey: ['folders', 'list'],
     queryFn: foldersApi.list,

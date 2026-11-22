@@ -1,5 +1,5 @@
 {
-  "home": "工作台",
+  "home": "首页",
   "logs": "日志",
   "metrics": "指标",
   "traces": "链路",
@@ -47,7 +47,7 @@
     "search_hint": "搜索页面、数据流、服务、仪表盘"
   },
   "groups": {
-    "home": "工作台",
+    "home": "首页",
     "observe": "观察",
     "reliability": "可靠性",
     "ai_ops": "AI 运维",

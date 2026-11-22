@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import * as schedulesApi from '@/api/schedules';
 import { useTimeFormatter } from '@/lib/time';
@@ -15,7 +15,7 @@ import { formatRelativeSpan } from '@/time/relative';
 import type { Schedule } from '@/types/alerting';
 
 import { myShift } from './myShift';
-import { CanvasHeaderAction, CanvasSection } from '../canvas/layout';
+import { Panel } from './Panel';
 
 const SCHEDULES_PATH = '/alerts/schedules';
 
@@ -40,10 +40,9 @@ function initials(name: string): string {
  * The reader's on-call: the shift under way or the next one, and who holds the schedule now when
  * it is someone else. Shown to whoever can read schedules.
  */
-export function OnCallCard({ className }: { className?: string }) {
+export function OnCallPanel({ className }: { className?: string }) {
   const { t, i18n } = useTranslation('onboarding');
   const locale = i18n.resolvedLanguage ?? i18n.language;
-  const nav = useNavigate();
   const access = useProductAccess();
   const userId = useAuthStore((state) => state.ctx?.userId ?? '');
   const formatter = useTimeFormatter();
@@ -69,35 +68,33 @@ export function OnCallCard({ className }: { className?: string }) {
   const hour12 = formatter.format === 'local_12h';
 
   return (
-    <CanvasSection
-      title={t('workbench.oncall.title')}
+    <Panel
+      title={t('home.oncall.title')}
       className={className}
-      actions={
-        <CanvasHeaderAction
-          label={t('workbench.oncall.schedules')}
-          onClick={() => nav(shift ? `${SCHEDULES_PATH}/${encodeURIComponent(shift.schedule.id)}` : SCHEDULES_PATH)}
-        />
-      }
-      bodyClassName="px-[20px] pb-4"
-      testId="workbench-oncall"
+      action={{
+        label: t('home.oncall.schedules'),
+        to: shift ? `${SCHEDULES_PATH}/${encodeURIComponent(shift.schedule.id)}` : SCHEDULES_PATH,
+      }}
+      bodyClassName="px-[12px] py-[10px]"
+      testId="home-oncall"
     >
       {shift ? (
-        <div data-testid="workbench-my-shift">
+        <div data-testid="home-my-shift">
           <div className="flex items-baseline justify-between gap-3 font-sans text-xs text-tx-3">
             <span className="min-w-0 truncate">
               {shift.now ? (
                 <StatusWord tone="green" strong>
-                  {t('workbench.oncall.on_now')}
+                  {t('home.oncall.on_now')}
                 </StatusWord>
               ) : (
-                t('workbench.oncall.next')
+                t('home.oncall.next')
               )}
               {' · '}
               {shift.schedule.name}
             </span>
             <span className="shrink-0">
               {shift.now
-                ? t('workbench.oncall.hands_over', { time: formatRelativeSpan(shift.endAt, nowMicros, locale) })
+                ? t('home.oncall.hands_over', { time: formatRelativeSpan(shift.endAt, nowMicros, locale) })
                 : formatRelativeSpan(shift.startAt, nowMicros, locale)}
             </span>
           </div>
@@ -109,9 +106,9 @@ export function OnCallCard({ className }: { className?: string }) {
             <p role="status" data-oncall-unreachable className="mt-2 flex items-start gap-1.5 font-sans text-xs text-tx-1">
               <TriangleAlert aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-[var(--orange-ink)]" />
               <span>
-                {t('workbench.oncall.unreachable')}{' '}
+                {t('home.oncall.unreachable')}{' '}
                 <Link to="/account/settings/notify" className="font-strong text-[var(--blue-ink)] hover:underline">
-                  {t('workbench.oncall.set_up_notify')}
+                  {t('home.oncall.set_up_notify')}
                 </Link>
               </span>
             </p>
@@ -120,10 +117,10 @@ export function OnCallCard({ className }: { className?: string }) {
       ) : (
         <p className="font-sans text-sm text-tx-3">
           {schedules.isLoading
-            ? t('workbench.loading')
+            ? t('home.loading')
             : schedules.isError
-              ? t('workbench.oncall.unavailable')
-              : t('workbench.oncall.none')}
+              ? t('home.oncall.unavailable')
+              : t('home.oncall.none')}
         </p>
       )}
       {schedule && !holder && !schedules.isLoading && (
@@ -131,12 +128,12 @@ export function OnCallCard({ className }: { className?: string }) {
         <p role="status" data-oncall-gap className="mt-3 flex items-start gap-1.5 font-sans text-xs text-tx-1">
           <TriangleAlert aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-[var(--orange-ink)]" />
           <span>
-            {t('workbench.oncall.gap', { schedule: schedule.name })}{' '}
+            {t('home.oncall.gap', { schedule: schedule.name })}{' '}
             <Link
               to={`${SCHEDULES_PATH}/${encodeURIComponent(schedule.id)}?addOverride=1`}
               className="font-strong text-[var(--blue-ink)] hover:underline"
             >
-              {t('workbench.oncall.arrange')}
+              {t('home.oncall.arrange')}
             </Link>
           </span>
         </p>
@@ -144,7 +141,7 @@ export function OnCallCard({ className }: { className?: string }) {
       {schedule && holder && holder.userId !== userId && (
         <>
           <div className="my-3 h-px bg-[var(--row-rule)]" />
-          <div className="flex items-center gap-3" data-testid="workbench-on-call-now">
+          <div className="flex items-center gap-3" data-testid="home-on-call-now">
             <span className="type-micro grid h-8 w-8 shrink-0 place-items-center rounded-full bg-bg-2 font-sans font-strong text-tx-2">
               {initials(nameOf(holder.userId))}
             </span>
@@ -152,13 +149,13 @@ export function OnCallCard({ className }: { className?: string }) {
               <div className="truncate font-sans text-sm font-strong text-tx-0">{nameOf(holder.userId)}</div>
               <div className="mt-0.5 truncate font-sans text-xs text-tx-3">
                 {replaced
-                  ? t('workbench.oncall.covering', { name: nameOf(replaced), schedule: schedule.name })
-                  : t('workbench.oncall.holding', { schedule: schedule.name })}
+                  ? t('home.oncall.covering', { name: nameOf(replaced), schedule: schedule.name })
+                  : t('home.oncall.holding', { schedule: schedule.name })}
               </div>
             </div>
           </div>
         </>
       )}
-    </CanvasSection>
+    </Panel>
   );
 }

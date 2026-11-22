@@ -173,9 +173,9 @@
   --nav-current-surface:      #f5f5f5;
   --nav-current-ink:          var(--indigo);
   --nav-hover-surface:        #f7f7f7;
-  --nav-ink:                  #000000;
-  --nav-hover-ink:            #000000;
-  --title-ink:                #000000;
+  --nav-ink:                  var(--tx-1);
+  --nav-hover-ink:            var(--tx-0);
+  --title-ink:                var(--tx-0);
   /* A table's head is a band 1.5 points under the white it heads, not a stripe of its own. */
   --table-head-surface:       #f7f8fa;
   /* A hint a step under the labels: 3.8:1 on white, 3.1:1 on a hovered field. */
@@ -380,23 +380,20 @@ pre {
   --easing-out:        cubic-bezier(0, 0, 0.2, 1);
 }
 
-/* Light words on a dark ground read a step heavier than the same weight on white, and the
-   platform's subpixel smoothing thickens them again. On dark, titles take 500 and buttons,
-   labels and table heads 400 (running text stays 400), smoothed in grey. Light keeps the
-   platform's smoothing: antialiased text read faint there. */
+/* On dark the text is smoothed in grey, which draws it thinner than the platform's smoothing.
+   Buttons, labels and table heads keep 500 and titles 600, as on light: a step lighter left
+   the words fainter than the status colours beside them. Light keeps the platform's smoothing:
+   antialiased text read faint there. */
 [data-theme='dark'] {
-  --fw-strong:         400;
-  --fw-display:        500;
-  --fw-display-strong: 500;
+  --fw-strong:         500;
+  --fw-display:        600;
+  --fw-display-strong: 600;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* A light scope inside a dark page (the public status page) takes the light steps back. */
+/* A light scope inside a dark page (the public status page) takes the light smoothing back. */
 [data-theme='dark'] [data-theme='light'] {
-  --fw-strong:         500;
-  --fw-display:        600;
-  --fw-display-strong: 600;
   -webkit-font-smoothing: auto;
   -moz-osx-font-smoothing: auto;
 }
@@ -461,6 +458,15 @@ body,
   /* The platform's own smoothing: on macOS it darkens strokes a little, which
      `-webkit-font-smoothing: antialiased` turned off and the text read faint. */
   text-rendering: optimizeLegibility;
+  /* Alibaba Sans draws thin strokes that read fuzzy at 12-14px, most of all on a 1x screen: a
+     fifth of a pixel of outline in the text's own colour firms them up without a heavier weight.
+     It inherits, so menus and dialogs portaled to the body take it too. */
+  -webkit-text-stroke: 0.2px currentColor;
+}
+
+/* Code editors measure their own glyphs: their text is drawn as the face draws it. */
+.monaco-editor {
+  -webkit-text-stroke: 0;
 }
 
 /* A page printed for a report (src/report-render) is paper, not a window: the

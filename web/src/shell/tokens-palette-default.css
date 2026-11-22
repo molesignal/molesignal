@@ -36,10 +36,10 @@
   --bd-2: #373b44;        /* oklch(0.35 0.017 266) — emphatic interaction boundary */
 
   /* layer 1 — text */
-  --tx-0: #ecedf3;        /* oklch(0.95 0.008 279) — primary text (not pure white) */
-  --tx-1: #babec4;        /* oklch(0.80 0.009 258) — secondary text */
-  --tx-2: #8d919a;        /* oklch(0.66 0.014 267) — muted / auxiliary; AA on bg-3 keyboard hints */
-  --tx-3: #8d919a;        /* placeholder / dim; AA on bg-0..bg-3 */
+  --tx-0: #e6e8ec;        /* oklch(0.93 0.006 265) — primary text (not pure white) */
+  --tx-1: #c2c6cd;        /* oklch(0.82 0.010 260) — secondary text */
+  --tx-2: #9499a2;        /* oklch(0.68 0.013 264) — muted / auxiliary; AA on bg-3 keyboard hints */
+  --tx-3: #858a93;        /* oklch(0.63 0.013 264) — dim, a step under tx-2; 4.6:1 on bg-3 */
   --tx-4: #3b3e45;        /* oklch(0.36 0.013 267) — weakest, rarely used */
 
   /* layer 1 — the brand: light's #0064C8 at the dark ramp's lightness, white on it 5.1:1 */
@@ -47,37 +47,39 @@
   --indigo-soft: #68a0eb;  /* oklch(0.70 0.126 256) — readable brand foreground on indigo-dim */
   --indigo-dim:  rgba(33, 109, 201, 0.16);
 
-  /* layer 1 — status palette (re-tuned, names conserved) */
+  /* layer 1 — status palette. A step under the text in lightness and chroma: the base tone (dots,
+     marks) at L 0.68 C 0.12, words (soft, ink) at L 0.74 C 0.11, areas (fill) at L 0.60 C 0.095.
+     At the chroma the light theme carries, the colours outshone the words beside them. */
 
-  /* red — error / firing — WCAG AAA on the two primary dark surfaces */
-  --red:         #f78784;
-  --red-soft:    #ff8f89;
-  --red-dim:     rgba(247, 135, 132, 0.16);
+  /* red — error / firing */
+  --red:         #d87972;  /* oklch(0.68 0.120 25) — 6.2:1 on bg-0 */
+  --red-soft:    #e88f87;  /* oklch(0.74 0.110 25) — 6.4:1 on bg-3 */
+  --red-dim:     rgba(216, 121, 114, 0.14);
 
   /* green — success / healthy */
-  --green:       #3dc26e;  /* oklch(0.70 0.18 150) — 6.3:1 on bg-0 */
-  --green-soft:  #66d28e;
-  --green-dim:   rgba(61, 194, 110, 0.14);
+  --green:       #59ad73;  /* oklch(0.68 0.120 152) — 6.9:1 on bg-0 */
+  --green-soft:  #73bf88;  /* oklch(0.74 0.110 152) — 7.0:1 on bg-3 */
+  --green-dim:   rgba(89, 173, 115, 0.14);
 
   /* yellow — warning / pending (amber, AA on bg-0) */
-  --yellow:      #e0a020;  /* oklch(0.74 0.16 75) — 5.6:1 on bg-0 */
-  --yellow-soft: #f2b53d;
-  --yellow-dim:  rgba(224, 160, 32, 0.14);
+  --yellow:      #bd9033;  /* oklch(0.68 0.120 82) — 6.5:1 on bg-0 */
+  --yellow-soft: #cda454;  /* oklch(0.74 0.110 82) — 6.6:1 on bg-3 */
+  --yellow-dim:  rgba(189, 144, 51, 0.14);
 
   /* blue — info / link (separated from brand indigo) */
-  --blue:        #4d97e0;  /* oklch(0.66 0.14 240) — 5.4:1 on bg-0 */
-  --blue-soft:   #74afe8;
-  --blue-dim:    rgba(77, 151, 224, 0.14);
+  --blue:        #519fdd;  /* oklch(0.68 0.120 245) — 6.6:1 on bg-0 */
+  --blue-soft:   #6cb2ec;  /* oklch(0.74 0.110 245) — 6.7:1 on bg-3 */
+  --blue-dim:    rgba(81, 159, 221, 0.14);
 
   /* orange — secondary brand / KPI accent (NOT primary) */
-  --orange:      #e88234;  /* oklch(0.70 0.17 50) — 5.5:1 on bg-0 */
-  --orange-soft: #f0a06b;
-  --orange-dim:  rgba(232, 130, 52, 0.14);
+  --orange:      #d1834b;  /* oklch(0.68 0.120 55) — 6.4:1 on bg-0 */
+  --orange-soft: #e09865;  /* oklch(0.74 0.110 55) — 6.5:1 on bg-3 */
+  --orange-dim:  rgba(209, 131, 75, 0.14);
 
   /* purple — trace / function / code identifier */
-  --purple:      #a87edb;  /* oklch(0.66 0.16 305) — 5.0:1 on bg-0 */
-  --purple-soft: #c2a3e6;
-  --purple-dim:  rgba(168, 126, 219, 0.14);
+  --purple:      #aa84d4;  /* oklch(0.68 0.120 305) — 6.3:1 on bg-0 */
+  --purple-soft: #bb99e3;  /* oklch(0.74 0.110 305) — 6.4:1 on bg-3 */
+  --purple-dim:  rgba(170, 132, 212, 0.14);
 
   /* ink — a status tone as small text (an HTTP method or a metric kind on a row, a link in a
    * panel's head): AA (4.5:1) on every fill a row takes, bg-0 to bg-3 and indigo-dim where it
@@ -107,12 +109,12 @@
 
   /* fill — a status tone over an area (a bar, a band, a stripe down a row): the tone at a
    * chroma of 0.11 at most, so a page of bars reads calm; words and dots keep the full tone. */
-  --red-fill:    #d9807d;  /* oklch(0.69 0.111 22) */
-  --orange-fill: #c57d4d;  /* oklch(0.66 0.110 53) */
-  --yellow-fill: #c39547;  /* oklch(0.70 0.110 78) */
-  --green-fill:  #5ea974;  /* oklch(0.67 0.109 152) */
-  --blue-fill:   #4d88c3;  /* oklch(0.61 0.109 250) */
-  --purple-fill: #9575bc;  /* oklch(0.62 0.110 304) */
+  --red-fill:    #b26963;  /* oklch(0.60 0.095 25) */
+  --orange-fill: #ac7046;  /* oklch(0.60 0.095 55) */
+  --yellow-fill: #9c7a37;  /* oklch(0.60 0.095 82) */
+  --green-fill:  #519164;  /* oklch(0.60 0.095 152) */
+  --blue-fill:   #4c86b5;  /* oklch(0.60 0.095 245) */
+  --purple-fill: #8d71ae;  /* oklch(0.60 0.095 305) */
 
   /* data viz series (8-color cycle, OKLCH-equalized for CVD safety). A chart is an area of
    * colour: chroma 0.12 at most, the hues and lightness as before. */
@@ -143,14 +145,15 @@
   --bd-1: #cdd2df;        /* oklch(0.83 0.013 265) */
   --bd-2: #b5bcce;        /* oklch(0.76 0.016 265) */
 
-  /* text — titles, running text, menus, table cells and buttons in black (the user's word,
-   * 2026-10-22); what is said beside them a grey a step under, as on dark: a page's or a
+  /* text — titles, running text, menus, table cells and buttons in a cool near-black (the
+   * user's choice, 2026-11-22: pure black with the 0.2px text stroke read hard and heavy);
+   * what is said beside them a grey a step under, as on dark: a page's or a
    * section's description, a tab or an option not chosen, a group's name, a figure's label
    * and unit, times, counts and hints. The grey holds AA on every fill a row takes (4.6:1 on
    * bg-3). What is disabled keeps a pale tone (tx-4), and placeholders their own
    * (--placeholder in tokens.css). */
-  --tx-0: #000000;        /* body text; 21:1 on white */
-  --tx-1: #000000;        /* menus, table cells, quiet buttons */
+  --tx-0: #1f2329;        /* body text; 15.8:1 on white */
+  --tx-1: #1f2329;        /* menus, table cells, quiet buttons */
   --tx-2: #666666;        /* labels, auxiliary; 5.7:1 on white */
   --tx-3: #666666;        /* dim */
   --tx-4: #aaaaaa;        /* oklch(0.74 0 0) — disabled */

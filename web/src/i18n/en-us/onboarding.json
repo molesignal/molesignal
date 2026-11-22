@@ -52,17 +52,131 @@
     "done": "Done"
   },
   "home": {
+    "title": "Home",
     "view_all": "View all",
-    "critical": {
-      "title": "Critical · {{count}} firing"
+    "loading": "Loading…",
+    "unavailable": "Could not load",
+    "quick_start_one": "{{count}} setup step remaining",
+    "quick_start_other": "{{count}} setup steps remaining",
+    "refresh": "Refresh",
+    "window": {
+      "label": "Time range",
+      "1h": "Last 1 hour",
+      "24h": "Last 24 hours",
+      "7d": "Last 7 days"
     },
-    "toolbar": {
-      "new": "New",
-      "new_dashboard": "New dashboard",
-      "new_alert": "New alert rule",
-      "new_stream": "New stream",
-      "new_pipeline": "New pipeline",
-      "new_function": "New function"
+    "status": {
+      "title": "System status",
+      "loading": "Loading",
+      "ok": "All systems normal",
+      "nothing": "Your role cannot see any system status.",
+      "issues_one": "{{count}} issue",
+      "issues_other": "{{count}} issues",
+      "updated": "Updated {{time}}"
+    },
+    "signal": {
+      "logs": "Logs",
+      "metrics": "Metrics",
+      "traces": "Traces",
+      "profiles": "Profiles"
+    },
+    "signal_state": {
+      "healthy": "Normal",
+      "delayed": "Delayed",
+      "degraded": "Failing",
+      "no_data": "No data",
+      "unknown": "Unknown"
+    },
+    "severity": {
+      "critical": "Critical",
+      "error": "Error",
+      "warning": "Warning",
+      "info": "Info"
+    },
+    "tiles": {
+      "incidents": "Active incidents",
+      "unacknowledged": "{{count}} unacknowledged",
+      "no_incidents": "No active incidents",
+      "rules": "Firing rules",
+      "of_enabled": "of {{count}} enabled",
+      "pending": "{{count}} pending",
+      "services": "Healthy services",
+      "of_total": "of {{count}}",
+      "no_traces": "No trace data",
+      "checks": "Passing checks",
+      "of_passing": "of {{count}}",
+      "no_checks": "No checks",
+      "error_rate": "Error rate",
+      "requests": "{{value}} requests",
+      "p95": "P95 latency"
+    },
+    "rule_state": {
+      "firing": "Firing",
+      "pending": "Pending",
+      "ok": "Normal"
+    },
+    "service_health": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "healthy": "Healthy",
+      "no_traffic": "No traffic"
+    },
+    "check_state": {
+      "failing": "Failing",
+      "degraded": "Degraded",
+      "flaky": "Flaky",
+      "healthy": "Passing",
+      "unknown": "No data"
+    },
+    "services": {
+      "title": "Services",
+      "empty": "No traces received.",
+      "connect": "Connect a service",
+      "service": "Service",
+      "health": "Health",
+      "throughput": "Throughput",
+      "error_rate": "Errors"
+    },
+    "incidents": {
+      "title": "Active incidents",
+      "empty": "No active incidents",
+      "acknowledge": "Acknowledge"
+    },
+    "incident_status": {
+      "open": "Unacknowledged",
+      "acknowledged": "Acknowledged",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "intake": {
+      "title": "Data intake",
+      "streams": "Streams",
+      "streams_active": "{{active}} of {{total}} streams receiving",
+      "stored": "{{size}} stored",
+      "received": "{{size}} received"
+    },
+    "checks": {
+      "title": "Synthetics",
+      "empty": "No checks yet.",
+      "create": "Create a check",
+      "availability": "Availability",
+      "all_passing_one": "The only check is passing",
+      "all_passing_other": "All {{count}} checks passing"
+    },
+    "oncall": {
+      "title": "My on-call",
+      "schedules": "Schedules",
+      "on_now": "On call",
+      "next": "Next shift",
+      "hands_over": "Hands over {{time}}",
+      "none": "No shift of yours in the next 30 days.",
+      "covering": "Covering for {{name}} · {{schedule}}",
+      "holding": "On call now · {{schedule}}",
+      "unreachable": "You are on the schedule but cannot get alerts.",
+      "set_up_notify": "Set up notifications",
+      "unavailable": "Could not load the schedules",
+      "gap": "Nobody is on call for {{schedule}} now.",
+      "arrange": "Assign now"
     }
   },
   "datasource": {
@@ -194,124 +308,5 @@
     "copy": "Copy",
     "expand_code": "Expand code",
     "collapse_code": "Collapse code"
-  },
-  "workbench": {
-    "title": "Home",
-    "loading": "Loading…",
-    "open": "Open",
-    "kinds": {
-      "dashboard": "Dashboard",
-      "service": "Service",
-      "incident": "Incident",
-      "saved_view": "Query",
-      "check": "Check",
-      "status_page": "Status page"
-    },
-    "severity": {
-      "critical": "Critical",
-      "error": "Error",
-      "warning": "Warning",
-      "info": "Info"
-    },
-    "recent": {
-      "title": "Recently visited",
-      "empty": "The dashboards, services, incidents and queries you open show up here, on any device."
-    },
-    "resources": {
-      "title": "My resources",
-      "kinds_label": "Kind of resource",
-      "scope_label": "Scope",
-      "me": "Me",
-      "fallback": "Nothing in {{chosen}} yet: showing {{shown}}",
-      "view_all_one": "View all {{count}} {{kind}}",
-      "view_all_other": "View all {{count}} {{kind}}",
-      "tabs": {
-        "services": "Services",
-        "dashboards": "Dashboards",
-        "saved_views": "Queries",
-        "checks": "Checks",
-        "status_pages": "Status pages"
-      },
-      "scopes": {
-        "mine": "Owned by me",
-        "team": "My teams",
-        "starred": "My favorites",
-        "all": "All"
-      },
-      "columns": {
-        "state": "Status",
-        "detail": "Detail",
-        "requestRate": "Requests/s",
-        "errorRate": "Error rate",
-        "p95Time": "P95",
-        "updatedAt": "Updated",
-        "owner": "Owner"
-      },
-      "details": {
-        "services": "Environment",
-        "dashboards": "Detail",
-        "saved_views": "Language",
-        "checks": "Kind",
-        "status_pages": "Address"
-      },
-      "states": {
-        "healthy": "Healthy",
-        "warning": "Warning",
-        "critical": "Critical",
-        "no_traffic": "No traffic",
-        "flaky": "Flaky",
-        "degraded": "Degraded",
-        "failing": "Failing",
-        "unknown": "Unknown"
-      },
-      "empty": {
-        "services": "No service has sent traces yet.",
-        "dashboards": "No dashboards yet.",
-        "saved_views": "No saved queries yet.",
-        "checks": "No checks yet.",
-        "status_pages": "No status pages yet."
-      },
-      "no_access": "The account has no permission to view services, dashboards, queries, checks, or status pages."
-    },
-    "todos": {
-      "title": "My to-dos",
-      "empty": "Nothing is waiting on you.",
-      "acknowledge": "Acknowledge",
-      "approval": "Waiting for your approval",
-      "action_item": "Postmortem: {{title}}",
-      "overdue_one": "{{count}} day overdue",
-      "overdue_other": "{{count}} days overdue",
-      "due_in_one": "Due in {{count}} day",
-      "due_in_other": "Due in {{count}} days",
-      "stream_gap_one": "{{count}} stream stopped receiving",
-      "stream_gap_other": "{{count}} streams stopped receiving",
-      "stream_gap_meta": "Streams",
-      "activation_one": "{{count}} setup step remaining",
-      "activation_other": "{{count}} setup steps remaining",
-      "activation_next": "Next: {{step}}",
-      "incidents_unavailable": "Incidents could not be fetched"
-    },
-    "oncall": {
-      "title": "My on-call",
-      "schedules": "Schedules",
-      "on_now": "On call",
-      "next": "Next shift",
-      "hands_over": "Hands over {{time}}",
-      "none": "No shift of yours in the next 30 days.",
-      "covering": "Covering for {{name}} · {{schedule}}",
-      "holding": "On call now · {{schedule}}",
-      "unreachable": "You are on the schedule but cannot get alerts.",
-      "set_up_notify": "Set up notifications",
-      "unavailable": "Could not load the schedules",
-      "gap": "Nobody is on call for {{schedule}} now.",
-      "arrange": "Assign now"
-    },
-    "usage": {
-      "title": "This month's intake",
-      "details": "Details",
-      "taken_in": "taken in",
-      "budgets": "Budget used, by stream",
-      "no_budgets": "Set budgets on streams to see here how close each one is."
-    }
   }
 }

@@ -71,10 +71,10 @@ export function LogStreamSelect({
         aria-label={t('explore.left_panel.select_stream_aria')}
         data-log-stream-select
         onPointerEnter={tellWhenCut}
-        // A row of the list is its name with 48px around it (the list's edge, the tick before the
-        // name, the row's end). The field has the same around its longest name and 1px to spare:
-        // 8px a side, 19px of gap and the 14px arrow, so no row is cut while the field is not.
-        className="h-9 w-auto max-w-[220px] shrink-0 gap-[19px] rounded-md border-0 bg-[var(--control-surface)] px-2.5 font-sans text-xs font-strong text-tx-0 shadow-none"
+        // A row of the list is its name with 46px around it: 12px to the list's edge before it, 8px of
+        // gap, the 14px tick and 12px after it. The field draws its longest name the same way, the
+        // arrow where the tick is, so no row is cut while the field is not.
+        className="h-9 w-auto max-w-[220px] shrink-0 gap-[8px] rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-xs font-strong text-tx-0 shadow-none"
       >
         {/* One cell holds the chosen name and, unseen, the longest names of the list: it is as wide as the widest. */}
         <span className="grid min-w-0 text-left">

@@ -100,11 +100,11 @@ export function FittedSelect({
         data-fitted-select
         onPointerEnter={tellWhenCut}
         {...trigger}
-        // A row of the list is its label with 48px around it (the list's edge, the tick before the
-        // label, the row's end). The field has the same around its longest label and 1px to spare:
-        // 8px a side, 19px of gap and the 14px arrow, so no row is cut while the field is not.
+        // A row of the list is its label with 46px around it: 12px to the list's edge before it, 8px
+        // of gap, the 14px tick and 12px after it. The field draws its longest label the same way,
+        // the arrow where the tick is, so the list is exactly as wide and no row is cut.
         className={cn(
-          'h-8 w-auto shrink-0 gap-[19px] px-2.5 font-sans text-xs',
+          'h-8 w-auto shrink-0 gap-[8px] px-3 font-sans text-xs',
           className,
         )}
         style={{ maxWidth }}

@@ -2689,6 +2689,60 @@ export function registerRoutes(app: Express): void {
       recentVersions: [],
     });
   });
+  // What the signals took in, for Home and the datasource page: logs and metrics arriving, traces
+  // a few minutes behind, no profiles. Each signal's buckets rise and fall over the day.
+  app.get('/api/v1/home/overview', (req, res) => {
+    const end = Date.parse(FROZEN_NOW_ISO) * 1_000;
+    const windowSecs = Number(req.query.windowSecs ?? 86_400);
+    const bucketCount = Math.min(48, Math.max(6, Number(req.query.bucketCount ?? 24)));
+    const start = end - windowSecs * 1_000_000;
+    const step = (end - start) / bucketCount;
+    const shape = (base: number, phase: number) =>
+      Array.from({ length: bucketCount }, (_, index) =>
+        Math.round(base * (1 + 0.35 * Math.sin((index / bucketCount) * Math.PI * 2 + phase) + 0.08 * Math.sin(index * 1.7))),
+      );
+    const signals = [
+      { streamType: 'logs', status: 'healthy', totalStreams: 3, activeStreams: 3, rows: shape(412_000, 0.4), bytes: 96, lastAgo: 4 },
+      { streamType: 'metrics', status: 'healthy', totalStreams: 2, activeStreams: 2, rows: shape(1_180_000, 1.1), bytes: 41, lastAgo: 9 },
+      { streamType: 'traces', status: 'delayed', totalStreams: 1, activeStreams: 1, rows: shape(86_000, 2.3), bytes: 64, lastAgo: 1_140 },
+      { streamType: 'profiles', status: 'no_data', totalStreams: 0, activeStreams: 0, rows: Array(bucketCount).fill(0), bytes: 0, lastAgo: null },
+    ].map((signal) => ({
+      streamType: signal.streamType,
+      status: signal.status,
+      totalStreams: signal.totalStreams,
+      activeStreams: signal.activeStreams,
+      rows: signal.rows.reduce((sum, rows) => sum + rows, 0),
+      storedBytes: signal.rows.reduce((sum, rows) => sum + rows * signal.bytes, 0),
+      lastReceivedAt: signal.lastAgo === null ? null : end - signal.lastAgo * 1_000_000,
+      buckets: signal.rows.map((rows) => ({ rows, storedBytes: rows * signal.bytes })),
+    }));
+    const rows = signals.reduce((sum, signal) => sum + signal.rows, 0);
+    const storedBytes = signals.reduce((sum, signal) => sum + signal.storedBytes, 0);
+    res.json({
+      generatedAt: end,
+      window: { startTime: start, endTime: end, windowSecs },
+      intakeStatus: 'healthy',
+      probeReason: null,
+      intakeBytes: storedBytes * 7,
+      storedBytes,
+      rows,
+      compressionSavingsRatio: 1 - 1 / 7,
+      activeStreams: 6,
+      totalStreams: 6,
+      attentionStreams: 1,
+      lastReceivedAt: end - 4_000_000,
+      statsProbe: { succeeded: 6, total: 6 },
+      buckets: Array.from({ length: bucketCount }, (_, index) => ({
+        startTime: Math.round(start + index * step),
+        endTime: Math.round(start + (index + 1) * step),
+        intakeBytes: signals.reduce((sum, signal) => sum + signal.buckets[index]!.storedBytes * 7, 0),
+        storedBytes: signals.reduce((sum, signal) => sum + signal.buckets[index]!.storedBytes, 0),
+        rows: signals.reduce((sum, signal) => sum + signal.buckets[index]!.rows, 0),
+      })),
+      signals,
+      streams: [],
+    });
+  });
   type AskedQuery = { language?: string; timeRange?: { start?: number | undefined; end?: number | undefined } } | undefined;
   const answerQuery = (body: AskedQuery, res: Response) => {
     if (body?.language === 'promql') {

@@ -48,17 +48,6 @@ export async function list(): Promise<PostmortemSummary[]> {
   return data.postmortems;
 }
 
-/** An action item of the reader's, with the title of the postmortem it belongs to. */
-export interface OwnedActionItem extends ActionItem {
-  postmortemTitle: string;
-}
-
-/** The reader's action items not done yet, the soonest due first. */
-export async function myOpenActions(): Promise<OwnedActionItem[]> {
-  const { data } = await http.get<{ actions: OwnedActionItem[] }>('/alerts/postmortem-actions/mine');
-  return data.actions;
-}
-
 export async function forIncident(incidentId: string): Promise<PostmortemDetail> {
   const { data } = await http.get<PostmortemDetail>(`/alerts/incidents/${encodeURIComponent(incidentId)}/postmortem`);
   return data;

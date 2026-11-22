@@ -1,84 +1,114 @@
+import { RefreshCw, Rocket } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { OverviewPage } from '@/product/templates';
-import { CriticalAlertBanner } from '@/shell/chrome';
-import { rowsOf } from '@/shell/notifications/model';
+import { ChromeButton } from '@/shell/chrome';
+import { cn } from '@/shell/lib/cn';
+import { FittedSelect } from '@/shell/ui/fitted-select';
 
-import { formatAge } from './canvas/format';
-import { OperationsCanvas } from './canvas/layout';
 import { QuickStartDrawer } from './QuickStartDrawer';
-import { NewMenu } from './workbench/NewMenu';
-import { OnCallCard } from './workbench/OnCallCard';
-import { RecentCard } from './workbench/RecentCard';
-import { ResourcesCard } from './workbench/resources/ResourcesCard';
-import { TodoCard, useIncidents } from './workbench/TodoCard';
-import { UsageCard } from './workbench/UsageCard';
-import { useActivation } from './workbench/useActivation';
-import './workbench/workbench.css';
+import { ChecksPanel } from './status/ChecksPanel';
+import { IncidentsPanel } from './status/IncidentsPanel';
+import { IntakePanel } from './status/IntakePanel';
+import { HOME_WINDOWS, type HomeWindow } from './status/model';
+import { OnCallPanel } from './status/OnCallPanel';
+import { ServicesPanel } from './status/ServicesPanel';
+import { StatusBand } from './status/StatusBand';
+import { useHomeStatus } from './status/useHomeStatus';
+import { useActivation } from './useActivation';
 
-/** The most incidents the banner names; the rest are behind "view all". */
-const BANNER_LIMIT = 5;
+function parseWindow(raw: string | null): HomeWindow {
+  return HOME_WINDOWS.includes(raw as HomeWindow) ? (raw as HomeWindow) : '1h';
+}
 
 /**
- * The workbench: what the reader opened lately and the resources that are theirs on the left, what
- * waits on them, their on-call and the month's intake on the right. Only a critical incident nobody
- * has answered stands above it all.
+ * Home: how the system stands now. A strip of the figures a responder watches, then the services
+ * to look at first and the incidents going on, then the signals arriving, the checks and the
+ * reader's on-call. Each part shows only to whoever can open the page it comes from.
  */
 export function Home() {
   const { t } = useTranslation('onboarding');
   const nav = useNavigate();
-  const [quickStartOpen, setQuickStartOpen] = React.useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const period = parseWindow(searchParams.get('window'));
+  const status = useHomeStatus(period);
   const activation = useActivation();
-  const incidents = useIncidents();
-  const critical = rowsOf(incidents.data).filter(
-    (incident) => incident.status === 'open' && incident.severity === 'critical',
-  );
+  const [quickStartOpen, setQuickStartOpen] = React.useState(false);
+  const remaining = activation.todo?.remaining ?? 0;
+  const { allowed } = status;
+
+  const setWindow = (next: string) => {
+    setSearchParams(
+      (params) => {
+        const updated = new URLSearchParams(params);
+        if (next === '1h') updated.delete('window');
+        else updated.set('window', next);
+        return updated;
+      },
+      { replace: true },
+    );
+  };
 
   return (
     <OverviewPage
-      title={t('workbench.title')}
+      title={t('home.title')}
       appearance="surface"
       headerCompact
       bodyClassName="pb-[24px] pt-0"
-      toolbar={<NewMenu />}
+      toolbar={
+        <div className="flex items-center gap-2">
+          {remaining > 0 && (
+            <span data-home-surface="activation">
+              <ChromeButton
+                className="h-9"
+                aria-label={t('home.quick_start', { count: remaining })}
+                onClick={() => setQuickStartOpen(true)}
+              >
+                <Rocket aria-hidden="true" className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{t('home.quick_start', { count: remaining })}</span>
+              </ChromeButton>
+            </span>
+          )}
+          <FittedSelect
+            aria-label={t('home.window.label')}
+            data-testid="home-window"
+            value={period}
+            onValueChange={setWindow}
+            maxWidth={160}
+            options={HOME_WINDOWS.map((value) => ({ value, label: t(`home.window.${value}`) }))}
+          />
+          <ChromeButton
+            className="h-9 w-9 justify-center px-0"
+            aria-label={t('home.refresh')}
+            title={t('home.refresh')}
+            onClick={status.refresh}
+            data-testid="home-refresh"
+          >
+            <RefreshCw aria-hidden="true" className={cn('h-3.5 w-3.5', status.fetching && 'animate-spin')} />
+          </ChromeButton>
+        </div>
+      }
     >
-      <OperationsCanvas>
-        {critical.length > 0 && (
-          <div className="rounded-md bg-[var(--functional-surface)] p-[12px] [box-shadow:var(--shadow-functional-surface)]">
-            <CriticalAlertBanner
-              title={t('home.critical.title', { count: critical.length })}
-              items={critical.slice(0, BANNER_LIMIT).map((incident) => {
-                const service = incident.affectedServices[0];
-                const age = formatAge(incident.createdAt);
-                return {
-                  id: incident.id,
-                  label: incident.summary || incident.id,
-                  meta: service ? `${service} · ${age}` : age,
-                };
-              })}
-              viewAllLabel={t('home.view_all')}
-              onViewAll={() => nav('/alerts')}
-            />
+      <div className="mx-auto flex w-full max-w-[2200px] flex-col gap-[12px]" data-testid="home">
+        <StatusBand status={status} period={period} />
+        {(allowed.services || allowed.incidents) && (
+          <div className="grid grid-cols-1 gap-[12px] xl:grid-cols-12">
+            {allowed.services && (
+              <ServicesPanel status={status} className={allowed.incidents ? 'xl:col-span-8' : 'xl:col-span-12'} />
+            )}
+            {allowed.incidents && (
+              <IncidentsPanel status={status} className={allowed.services ? 'xl:col-span-4' : 'xl:col-span-12'} />
+            )}
           </div>
         )}
-        <div className="wb-grid" data-testid="workbench">
-          <div className="wb-column">
-            <RecentCard />
-            <ResourcesCard className="wb-fill" />
-          </div>
-          <div className="wb-column">
-            <TodoCard
-              className="wb-todos"
-              activation={activation.todo}
-              onOpenActivation={() => setQuickStartOpen(true)}
-            />
-            <OnCallCard className="wb-fixed" />
-            <UsageCard className="wb-fixed" />
-          </div>
+        <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-3">
+          {allowed.intake && <IntakePanel status={status} />}
+          {allowed.checks && <ChecksPanel status={status} />}
+          <OnCallPanel />
         </div>
-      </OperationsCanvas>
+      </div>
       <QuickStartDrawer
         open={quickStartOpen}
         onOpenChange={setQuickStartOpen}

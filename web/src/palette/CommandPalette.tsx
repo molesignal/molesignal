@@ -380,14 +380,14 @@ function PaletteFooter({ offersAcknowledge }: { offersAcknowledge: boolean }) {
   return (
     <div className="flex items-center justify-between border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
       <div className="flex items-center gap-3">
-        <span><Kbd size="sm">Enter</Kbd> {t('footer.open')}</span>
-        <span><Kbd size="sm">⌘</Kbd><Kbd size="sm">Enter</Kbd> {t('footer.open_new_stack')}</span>
-        <span><Kbd size="sm">⌥</Kbd><Kbd size="sm">Enter</Kbd> {t('footer.stack_on_top')}</span>
+        <span><Kbd variant="plain">Enter</Kbd> {t('footer.open')}</span>
+        <span><Kbd variant="plain">⌘ Enter</Kbd> {t('footer.open_new_stack')}</span>
+        <span><Kbd variant="plain">⌥ Enter</Kbd> {t('footer.stack_on_top')}</span>
         {offersAcknowledge && (
-          <span><Kbd size="sm">⌥</Kbd><Kbd size="sm">A</Kbd> {t('footer.acknowledge')}</span>
+          <span><Kbd variant="plain">⌥ A</Kbd> {t('footer.acknowledge')}</span>
         )}
       </div>
-      <span><Kbd size="sm">Esc</Kbd> {t('footer.close')}</span>
+      <span><Kbd variant="plain">Esc</Kbd> {t('footer.close')}</span>
     </div>
   );
 }

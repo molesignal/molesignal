@@ -114,7 +114,7 @@ const CONNECTED = { id: 'c-1', name: 'Ops mail', connectorType: 'email_smtp', en
 const WITH_KEY = { id: 'p-1', name: 'OpenAI', provider: 'openai', defaultModel: 'gpt-5', enabled: true, keySet: true };
 const SAMPLE_STREAMS = ['sample_app_logs', 'sample_app_metrics', 'sample_app_traces'].map((name) => ({ id: name, name }));
 
-/** The setting-up steps open from their row among the workbench's to-dos. */
+/** The setting-up steps open from the button in Home's head. */
 function openSetup(page: Page) {
   return page.locator('[data-home-surface="activation"] button');
 }
@@ -131,7 +131,7 @@ test.describe('Activation — empty OSS org', () => {
     await page.goto('/home');
 
     // No streams → the streams panel shows its empty state…
-    await expect(page.getByTestId('workbench')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('home')).toBeVisible({ timeout: 10_000 });
     // …and the compact activation strip reports every remaining setup step.
     await expect(page.getByText('8 setup steps remaining')).toBeVisible();
 
@@ -166,10 +166,10 @@ test.describe('Activation — active org', () => {
     // complete (streams + dashboards + alerts) → the strip leads on to on-call.
     const strip = page.locator('[data-home-surface="activation"]');
     await expect(strip.getByText('4 setup steps remaining')).toBeVisible({ timeout: 10_000 });
-    await expect(strip.getByText('Set up an on-call schedule')).toBeVisible();
 
     await openSetup(page).click();
     await expect(setupDrawer(page).getByText('Core workflows are active')).toBeVisible();
+    await expect(setupDrawer(page).getByText('Set up an on-call schedule')).toBeVisible();
   });
 });
 
@@ -189,9 +189,9 @@ test.describe('Activation — sample data', () => {
 
     const strip = page.locator('[data-home-surface="activation"]');
     await expect(strip.getByText('1 setup step remaining')).toBeVisible({ timeout: 10_000 });
-    await expect(strip.getByText('Add a notification channel')).toBeVisible();
 
     await openSetup(page).click();
+    await expect(setupDrawer(page).getByText('Add a notification channel')).toBeVisible();
     await expect(setupDrawer(page).getByRole('button', { name: /Load sample data/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
@@ -209,9 +209,9 @@ test.describe('Activation — sample data', () => {
 
     const strip = page.locator('[data-home-surface="activation"]');
     await expect(strip.getByText('8 setup steps remaining')).toBeVisible({ timeout: 10_000 });
-    await expect(strip.getByText('Connect a datasource')).toBeVisible();
 
     await openSetup(page).click();
+    await expect(setupDrawer(page).getByText('Connect a datasource')).toBeVisible();
     await expect(setupDrawer(page).getByRole('button', { name: /Load sample data/ })).toBeVisible();
   });
 
@@ -275,7 +275,7 @@ test.describe('Activation — sample data', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByTestId('workbench')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('home')).toBeVisible({ timeout: 10_000 });
     await page.waitForLoadState('networkidle');
     await expect(page.locator('[data-home-surface="activation"]')).toHaveCount(0);
   });
@@ -357,7 +357,7 @@ test.describe('Activation — the response steps follow real data', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByTestId('workbench')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('home')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('[data-home-surface="activation"]')).toHaveCount(0);
   });
 
@@ -484,7 +484,7 @@ test.describe('Activation — what the reader may read and do', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByTestId('workbench')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('home')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('[data-home-surface="activation"]')).toHaveCount(0);
   });
 });

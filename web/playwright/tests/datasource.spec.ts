@@ -215,6 +215,8 @@ test.describe('Datasource page', () => {
   });
 
   test('explains an empty check instead of leaving a row of dashes', async ({ page }) => {
+    // Nothing has arrived yet: the overview knows no signal.
+    await page.route('**/api/v1/home/overview**', (route) => route.fulfill({ json: {} }));
     await page.goto('/datasource/recommended/kubernetes');
 
     const verification = page.locator('[data-verification]');

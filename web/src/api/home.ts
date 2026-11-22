@@ -25,6 +25,12 @@ export interface HomeStreamOverview {
   lastReceivedAt: number | null;
 }
 
+/** What a signal's streams took in over one bucket of the window. */
+export interface HomeSignalBucket {
+  rows: number;
+  storedBytes: number;
+}
+
 export interface HomeSignalOverview {
   streamType: Exclude<StreamType, 'extend'>;
   status: HomeHealthStatus;
@@ -33,6 +39,8 @@ export interface HomeSignalOverview {
   rows: number;
   storedBytes: number;
   lastReceivedAt: number | null;
+  /** Bucket by bucket, in the order of the overview's own `buckets`. */
+  buckets: HomeSignalBucket[];
 }
 
 export interface HomeOverviewBucket {
