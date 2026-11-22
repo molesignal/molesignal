@@ -58,8 +58,10 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm -C web install --frozen-lockfile
       - name: build assets for embedding
+        # Vite's production build grows past Node's default heap of about 2 GB.
         env:
           BUILD_HASH: ${{ github.sha }}
+          NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm -C web build
       - uses: actions/upload-artifact@v7
         with:

@@ -64,7 +64,12 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm -C web install --frozen-lockfile
-      - run: pnpm -C web build
+      - name: build web assets
+        # Vite's production build grows past Node's default heap of about 2 GB; the runner has
+        # room for more.
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: pnpm -C web build
 
       - name: install system dependencies
         run: |
