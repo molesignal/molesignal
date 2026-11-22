@@ -105,7 +105,8 @@ test.describe('the status column', () => {
         const heads = [...table.querySelectorAll('thead th')].map((cell) => cell.textContent?.trim());
         const column = heads.findIndex((head) => head === 'Status' || head === 'State');
         return [...table.querySelectorAll('tbody tr')].filter((row) =>
-          row.children[column]?.querySelector('[class*="rounded-full"]'),
+          // A state's solid dot is a mark beside the word, not a chip behind it.
+          row.children[column]?.querySelector('[class*="rounded-full"]:not([data-status-dot])'),
         ).length;
       });
       expect(chips).toBe(0);

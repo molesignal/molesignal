@@ -20,10 +20,10 @@ test('renders a select of the results as a lightweight menu', async ({
   const selected = page.getByRole('option', { name: '100' });
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS('border-top-width', '0px');
-  await expect(menu).toHaveCSS('border-radius', '8px');
+  await expect(menu).toHaveCSS('border-radius', '4px');
   await expect(menu).toHaveCSS('box-shadow', /4px 12px/);
   await expect(selected).toHaveAttribute('data-state', 'checked');
-  await expect(selected).toHaveCSS('border-radius', '6px');
+  await expect(selected).toHaveCSS('border-radius', '3px');
   await expect(selected).toHaveCSS('font-size', '12px');
   expect(
     await selected.evaluate((element) => getComputedStyle(element).color),
@@ -48,7 +48,7 @@ test('uses the same lightweight surface for action dropdowns', async ({
   const selected = menu.getByRole('menuitemradio', { checked: true });
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS('border-top-width', '0px');
-  await expect(menu).toHaveCSS('border-radius', '8px');
+  await expect(menu).toHaveCSS('border-radius', '4px');
   await expect(menu).toHaveCSS('box-shadow', /4px 12px/);
   await expect(selected).toHaveAttribute('data-state', 'checked');
   await expect(selected).toHaveCSS('min-height', '30px');
@@ -83,7 +83,7 @@ test('renders the global time range control as a lightweight workbench popover',
   expect(surfaceBox?.width).toBeLessThanOrEqual(600);
   expect(surfaceBox?.height).toBeLessThan(320);
   await expect(surface).toHaveCSS('border-top-width', '0px');
-  await expect(surface).toHaveCSS('border-radius', '8px');
+  await expect(surface).toHaveCSS('border-radius', '4px');
   await expect(surface).toHaveCSS('box-shadow', /4px 12px/);
   await expect(surface.getByText('Select time range', { exact: true })).toBeVisible();
   const selectedRange = surface.getByRole('button', {

@@ -180,7 +180,7 @@ for (const module of REMAINING_MODULES) {
     for (const side of ['top', 'right', 'bottom', 'left'] as const) {
       await expect(surface).toHaveCSS(`border-${side}-width`, '0px');
     }
-    await expect(surface).toHaveCSS('border-radius', '8px');
+    await expect(surface).toHaveCSS('border-radius', '4px');
 
     const [canvasBackground, surfaceBackground, surfaceShadow] =
       await Promise.all([
@@ -217,7 +217,7 @@ test('keeps module tabs underlined and the Logs field list one surface with its 
     await expect(active).toBeVisible();
     await expect(active).toHaveCSS('border-bottom-width', '0px');
     await expect(active).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-    await expect(navigation).toHaveCSS('border-radius', '8px');
+    await expect(navigation).toHaveCSS('border-radius', '4px');
     await expect(navigation).toHaveCSS('overflow-x', 'hidden');
     // One indicator, a 2px indigo bar that sits under the active tab.
     const indicator = navigation.locator('[data-tab-indicator]');
