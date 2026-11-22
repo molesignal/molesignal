@@ -20,7 +20,6 @@ export function WhereCard({ reads, language }: { reads: Record<WhereKey, Read>; 
   return (
     <OverviewCard
       icon={Crosshair}
-      tone="text-[var(--red-ink)]"
       title={t('errors.drawer.where.title')}
       description={t('errors.drawer.where.description')}
       testId="issue-where"

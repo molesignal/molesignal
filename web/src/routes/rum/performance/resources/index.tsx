@@ -73,7 +73,7 @@ export function ResourcesView({ context }: { context: PerformanceContext }) {
           <CardState query={statementRead} empty={statement === null} emptyTitle={t('performance.resources.empty.title')}>
             {statement && <ResourcesStatement statement={statement} language={language} />}
           </CardState>
-          <div className={open ? 'grid min-w-0 items-start gap-[12px] xl:grid-cols-[minmax(0,1fr)_340px]' : 'min-w-0'}>
+          <div className={open ? 'grid min-w-0 items-start gap-[8px] xl:grid-cols-[minmax(0,1fr)_340px]' : 'min-w-0'}>
             <ResourcesTable
               query={tableRead}
               rows={rows}

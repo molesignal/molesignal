@@ -49,7 +49,6 @@ export function FrustrationCard({
   return (
     <OverviewCard
       icon={MousePointerClick}
-      tone="text-[var(--orange-ink)]"
       title={t('overview.frustration.title')}
       description={t(browser ? 'overview.frustration.description_click' : 'overview.frustration.description_tap')}
       testId="frustration"

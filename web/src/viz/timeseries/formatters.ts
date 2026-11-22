@@ -70,10 +70,101 @@ export function formatTimeSeriesTimestamp(
     : `${parts.month}-${parts.day} ${time}`;
 }
 
+/**
+ * The figures of a value axis, all in one unit: the unit the largest tick reads best in, written once,
+ * on that tick. A zero is a bare `0`. So an axis in microseconds reads `0 / 250 / 500 / 750 ms`, not
+ * `0 μs / 250 ms / …`, and a rate does not repeat `req/s` on every line.
+ */
+export function formatTimeSeriesAxisValues(values: readonly number[], unit?: string): string[] {
+  const finite = values.filter((value) => Number.isFinite(value));
+  if (finite.length === 0) return values.map(() => '');
+  const top = Math.max(...finite);
+  const largest = Math.max(...finite.map((value) => Math.abs(value)));
+  const scale = axisScale(largest, unit);
+  const step = axisStep(finite.map((value) => value * scale.factor));
+
+  return values.map((value) => {
+    if (!Number.isFinite(value)) return '';
+    if (value === 0) return '0';
+    const figure = trimFixed(value * scale.factor, step);
+    return value === top && scale.label ? `${figure}${scale.label}` : figure;
+  });
+}
+
+interface AxisScale {
+  /** What a value is multiplied by to be written. */
+  factor: number;
+  /** What follows the top figure, its space included; empty for a count with no unit. */
+  label: string;
+}
+
+const DURATION_SECONDS: Record<string, number> = {
+  ns: 1e-9,
+  nanoseconds: 1e-9,
+  us: 1e-6,
+  'µs': 1e-6,
+  'μs': 1e-6,
+  microseconds: 1e-6,
+  ms: 1e-3,
+  milliseconds: 1e-3,
+  s: 1,
+  sec: 1,
+  seconds: 1,
+};
+
+const DURATION_STEPS: ReadonlyArray<[string, number]> = [
+  ['s', 1],
+  ['ms', 1e-3],
+  ['μs', 1e-6],
+  ['ns', 1e-9],
+];
+
+function axisScale(largest: number, unit?: string): AxisScale {
+  const normalized = unit?.trim().toLowerCase() ?? '';
+  const seconds = DURATION_SECONDS[normalized];
+  if (seconds !== undefined) {
+    const inSeconds = largest * seconds;
+    const [label, size] = DURATION_STEPS.find(([, step]) => inSeconds >= step) ?? DURATION_STEPS[DURATION_STEPS.length - 1]!;
+    return { factor: seconds / size, label: ` ${label}` };
+  }
+  if (['bytes', 'byte', 'decbytes', 'binb'].includes(normalized)) {
+    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+    let index = 0;
+    while (largest / 1024 ** index >= 1024 && index < units.length - 1) index += 1;
+    return { factor: 1 / 1024 ** index, label: ` ${units[index]}` };
+  }
+  if (['percent', 'percentunit', '%'].includes(normalized)) {
+    return { factor: normalized === 'percentunit' ? 100 : 1, label: '%' };
+  }
+  const magnitudes: ReadonlyArray<[string, number]> = [
+    ['T', 1e12],
+    ['G', 1e9],
+    ['M', 1e6],
+    ['K', 1e3],
+  ];
+  const [suffix, size] = magnitudes.find(([, step]) => largest >= step) ?? ['', 1];
+  const named = unit && !['short', 'none'].includes(normalized) ? ` ${unit}` : '';
+  return { factor: 1 / size, label: `${suffix}${named}` };
+}
+
+/** The decimals the ticks need to stay apart: as many as the gap between neighbours asks, at most three. */
+function axisStep(scaled: readonly number[]): number {
+  const sorted = [...new Set(scaled)].sort((a, b) => a - b);
+  let gap = Infinity;
+  for (let index = 1; index < sorted.length; index += 1) gap = Math.min(gap, sorted[index]! - sorted[index - 1]!);
+  if (!Number.isFinite(gap) || gap <= 0) {
+    const largest = Math.max(...scaled.map((value) => Math.abs(value)));
+    return largest >= 100 ? 0 : largest >= 10 ? 1 : 2;
+  }
+  return Math.min(3, Math.max(0, Math.ceil(-Math.log10(gap) + 1e-9)));
+}
+
 export function formatTimeSeriesAxisTimestamp(
   epochSeconds: number,
   visibleSpanSeconds: number,
   timezone = activeTimeZone(),
+  /** The time between two ticks: seconds are written only when ticks fall within one minute. */
+  tickStepSeconds?: number,
 ): string {
   if (!Number.isFinite(epochSeconds)) return '';
   const parts = isoDateTimeParts(epochSeconds, timezone);
@@ -87,7 +178,7 @@ export function formatTimeSeriesAxisTimestamp(
   if (visibleSpanSeconds > 86_400) {
     return `${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
   }
-  if (visibleSpanSeconds <= 3600) {
+  if (tickStepSeconds !== undefined ? tickStepSeconds < 60 : visibleSpanSeconds <= 3600) {
     return `${parts.hour}:${parts.minute}:${parts.second}`;
   }
   return `${parts.hour}:${parts.minute}`;

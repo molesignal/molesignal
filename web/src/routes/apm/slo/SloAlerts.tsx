@@ -48,7 +48,7 @@ export function SloAlertsCard({
   const { t: ta } = useTranslation('alerts');
 
   return (
-    <ApmCard icon={BellRing} tone="text-[var(--red-ink)]" title={t('slo.alerts.title')} description={t('slo.alerts.card_description')} testId="slo-alerts">
+    <ApmCard icon={BellRing} title={t('slo.alerts.title')} description={t('slo.alerts.card_description')} testId="slo-alerts">
       {rules.length === 0 ? (
         <div className="flex min-h-10 items-center justify-between gap-3 px-3 py-1.5 font-sans text-xs text-tx-2">
           <span>{t('slo.alerts.none')}</span>

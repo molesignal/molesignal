@@ -78,14 +78,10 @@
   /* The rule between the rows of a list, fainter than the one under its head:
      on dark the quiet divider already is. */
   --row-rule:                 var(--bd-0);
-  /* A card has no edge drawn around it: it stands off the canvas by its tone, a step of a few
-     points in lightness, and a soft shadow under it. On dark a shadow hardly shows, so a faint
-     light on its top edge does the work a ring did. Kept faint: one heavy drop shadow under
-     every card stacked the page into blocks. */
-  --shadow-functional-surface:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 6px 16px -8px rgba(0, 0, 0, 0.5);
+  /* A panel lies flat on the canvas, parted from it by a 1px hairline, as a monitoring board
+     sets its panels; soft floating cards read as a template, not an instrument. Drawn as a
+     shadow so it takes no room and keeps the layout. */
+  --shadow-functional-surface: inset 0 0 0 1px rgba(255, 255, 255, 0.075);
 
   /* primary = brand indigo */
   --primary:         var(--indigo);
@@ -184,12 +180,10 @@
   --shortcut-hint:            #767676;
   --tx-disabled:              var(--tx-4);
   --row-rule:                 rgba(19, 24, 37, 0.045);
-  /* White on the #f8f9fb canvas is 1.8 points of lightness, too small a step to carry an edge
-     alone: the soft shadow under the card does most of the work, deep enough that its sides
-     and its foot read without a line. */
-  --shadow-functional-surface:
-    0 1px 2px rgba(19, 24, 37, 0.06),
-    0 6px 16px -8px rgba(19, 24, 37, 0.12);
+  /* A panel lies flat on the canvas, parted from it by a 1px hairline (the user, 2026-11-22: the
+     floating soft-shadow cards read as an admin template; a monitoring tool sets flat panels with
+     thin lines). Drawn as a shadow so it takes no room and keeps the layout. */
+  --shadow-functional-surface: 0 0 0 1px rgba(19, 24, 37, 0.09);
 
   --overlay:         rgba(19, 24, 37, 0.50);
   --overlay-soft:    rgba(19, 24, 37, 0.20);
@@ -323,9 +317,9 @@ pre {
   --pageheader-h:        0px;    /* live PageHeader height — written by PageHeader on mount, read by page bodies */
   --contextbar-h:        0px;    /* live InvestigationContextBar height — 0 when no active investigation stack */
 
-  --radius-sm:   6px;
-  --radius:      8px;
-  --radius-lg:   12px;
+  --radius-sm:   3px;
+  --radius:      4px;
+  --radius-lg:   6px;
   --radius-full: 9999px;
 
   /* semantic component sizing — stable across density modes */
@@ -352,7 +346,7 @@ pre {
      tailwind.config.ts. */
   --font-page-title:    20px;
   --font-heading:       18px;   /* the title of a sub-page inside a card (Settings, Access, Account) */
-  --font-section-title: 16px;   /* the title of a card or a panel */
+  --font-section-title: 14px;   /* the title of a card or a panel: a label over the data, not louder than it */
   --font-data:          13px;
   --font-label:         13px;
   --font-caption:       12px;
@@ -507,7 +501,7 @@ html[data-report-document] [data-sonner-toaster] {
 
 .type-section-title {
   font-size: var(--font-section-title);
-  line-height: 1.5; /* 16 / 24 */
+  line-height: calc(20 / 14);
 }
 
 .type-data {

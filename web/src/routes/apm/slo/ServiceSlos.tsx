@@ -30,7 +30,6 @@ export function ServiceSlos({ address }: { address: ServiceAddress }) {
   return (
     <ApmCard
       icon={Target}
-      tone="text-[var(--green-ink)]"
       title={t('slo.service_title')}
       testId="service-slos"
       actions={

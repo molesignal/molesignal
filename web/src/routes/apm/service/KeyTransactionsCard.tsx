@@ -28,7 +28,6 @@ export function KeyTransactionsCard({ address, transactions }: { address: Servic
   return (
     <ApmCard
       icon={Star}
-      tone="text-[var(--yellow-ink)]"
       title={t('settings.key_transactions.title')}
       description={t('settings.key_transactions.description')}
       testId="service-key-transactions"

@@ -370,7 +370,7 @@
       "apdex_hint": "Requests within T satisfy, within 4T are tolerated. Empty uses the default 500 ms.",
       "aliases": "Also known as",
       "aliases_placeholder": "order_service, Order Center",
-      "aliases_hint":"What logs, metrics and other systems call the service, separated by commas, such as order_service or Order Center. The service is found by these names and Mole Agent reads them; no data is merged. To read what an old name reported as this service, add a service alias in APM settings."
+      "aliases_hint": "What logs, metrics and other systems call the service, separated by commas, such as order_service or Order Center. The service is found by these names and Mole Agent reads them; no data is merged. To read what an old name reported as this service, add a service alias in APM settings."
     },
     "aliases_problem": {
       "length": "A name is at most 128 characters: {{alias}}",
@@ -524,7 +524,9 @@
     "distribution_previous": "Dashed: the same range before",
     "distribution_compared": "Dashed: {{what}}",
     "no_distribution": "No request in this range.",
-    "apdex_threshold": "(T = {{threshold}})"
+    "apdex_threshold": "(T = {{threshold}})",
+    "vs_previous": "Against the stretch before",
+    "points": "{{value}} pp"
   },
   "overview": {
     "downstream": "Time spent downstream",

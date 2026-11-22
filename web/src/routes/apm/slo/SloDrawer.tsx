@@ -134,7 +134,7 @@ export function SloDrawer({
                 {t('slo.facts.requests', { good: formatCount(Math.round(status.goodRequests)), total: formatCount(status.totalRequests) })}
               </span>
             </div>
-            <ApmCard icon={Flame} tone="text-[var(--orange-ink)]" title={t('slo.burn.title')} description={t('slo.burn.description')} testId="slo-burn">
+            <ApmCard icon={Flame} title={t('slo.burn.title')} description={t('slo.burn.description')} testId="slo-burn">
               <div className="grid grid-cols-3 gap-px bg-bd-0">
                 {BURN_WINDOWS.map(([window, field, line, ink]) => {
                   const rate = status.burnRates[field];

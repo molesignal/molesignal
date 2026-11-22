@@ -87,7 +87,6 @@ export function IssuesCard({
   return (
     <OverviewCard
       icon={Bug}
-      tone="text-[var(--red-ink)]"
       title={t('overview.issues.title')}
       description={t('overview.issues.description')}
       testId="issues"

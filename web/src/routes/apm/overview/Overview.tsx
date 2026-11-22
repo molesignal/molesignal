@@ -76,7 +76,7 @@ export function ApmOverview() {
           ((data.serviceCount ?? data.services.length) === 0 ? (
             <ApmFirstRun />
           ) : (
-            <div data-apm-overview="" className="space-y-[12px]">
+            <div data-apm-overview="" className="space-y-[8px]">
               <OverviewPulse data={data} range={range} />
               <RedCharts
                 trend={data.trend}
@@ -85,8 +85,9 @@ export function ApmOverview() {
                 resolution={data.meta.resolution}
                 versions={[]}
                 range={chartRange}
+                figures={insights.data}
               />
-              <div className="grid min-w-0 gap-[12px] xl:grid-cols-2">
+              <div className="grid min-w-0 gap-[8px] xl:grid-cols-2">
                 <HealthCard counts={data.serviceHealth} trend={data.healthTrend ?? []} range={chartRange} />
                 {insights.data && (
                   // A version that did worse, the deployments card says.
@@ -94,11 +95,11 @@ export function ApmOverview() {
                 )}
               </div>
               {data.rankings && <RankingsCard rankings={data.rankings} range={range} searchParams={searchParams} />}
-              <div className="grid min-w-0 gap-[12px] xl:grid-cols-2">
+              <div className="grid min-w-0 gap-[8px] xl:grid-cols-2">
                 <ActiveAlertsCard />
                 <DeploymentsCard deployments={data.deployments ?? []} searchParams={searchParams} />
               </div>
-              <div className="grid min-w-0 gap-[12px] xl:grid-cols-2">
+              <div className="grid min-w-0 gap-[8px] xl:grid-cols-2">
                 <EnvironmentsCard environments={data.environments ?? []} />
                 {data.instrumentation && <InstrumentationCard quality={data.instrumentation} meta={data.meta} />}
               </div>

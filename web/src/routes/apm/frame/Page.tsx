@@ -35,7 +35,7 @@ export function ApmPage({
     <div data-surface-workbench-page="apm" data-apm-page={page} className={surfacePageRootClass}>
       <SurfacePageHeader title={title} subtitle={subtitle} toolbar={toolbar} breadcrumbs={breadcrumbs} />
       {navigation}
-      <SurfacePageBody className="space-y-[12px]">{children}</SurfacePageBody>
+      <SurfacePageBody className="space-y-[8px]">{children}</SurfacePageBody>
     </div>
   );
 }
@@ -58,12 +58,11 @@ const CARD_TITLE = {
 
 /**
  * A card of a page: a head row with its title and actions, and what it shows.
- * An icon in the colour of what the card is about leads its title.
+ * A grey icon may lead its title: colour is kept for the data and the states inside.
  */
 export function ApmCard({
   title,
   icon: Icon,
-  tone = 'text-[var(--chart-1)]',
   description,
   actions,
   className,
@@ -73,8 +72,6 @@ export function ApmCard({
 }: {
   title?: React.ReactNode;
   icon?: LucideIcon;
-  /** The ink of the icon, a text colour class. */
-  tone?: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string | undefined;
@@ -94,7 +91,7 @@ export function ApmCard({
           <div className="min-w-0 flex-1">
             {title && (
               <h2 className={cn(CARD_TITLE[level], Icon && 'flex items-center gap-1.5')}>
-                {Icon && <Icon aria-hidden className={cn('shrink-0', level === 'page' ? 'h-4 w-4' : 'h-3.5 w-3.5', tone)} />}
+                {Icon && <Icon aria-hidden className={cn('shrink-0', level === 'page' ? 'h-4 w-4' : 'h-3.5 w-3.5', 'text-tx-3')} />}
                 {Icon ? <span className="min-w-0 truncate">{title}</span> : title}
               </h2>
             )}

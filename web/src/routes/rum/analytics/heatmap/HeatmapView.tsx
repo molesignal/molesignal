@@ -91,7 +91,7 @@ export function HeatmapView({ context }: { context: ScopeContext }) {
   const empty = kind === 'clicks' ? (clicks.data?.elements.length ?? 0) === 0 : (scroll.data?.views ?? 0) === 0;
 
   return (
-    <div data-rum-analytics="heatmap" className="space-y-[12px]">
+    <div data-rum-analytics="heatmap" className="space-y-[8px]">
       <OverviewCard
         icon={Flame}
         title={t('analytics.heatmap.title')}
@@ -161,7 +161,7 @@ export function HeatmapView({ context }: { context: ScopeContext }) {
           action={<ChromeButton onClick={() => setWindow(widenTimeWindow(window))}>{t('overview.empty.widen')}</ChromeButton>}
         />
       ) : (
-        <div className="grid min-w-0 items-start gap-[12px] xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid min-w-0 items-start gap-[8px] xl:grid-cols-[minmax(0,1fr)_320px]">
           <OverviewCard title={page || t('analytics.heatmap.title')} testId="heatmap-stage" className="min-w-0">
             {drawn ? (
               <HeatmapStage snapshot={drawn} kind={kind} clicks={clicks.data} scroll={scroll.data} onLocated={onLocated} />

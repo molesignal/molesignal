@@ -82,7 +82,6 @@ export function ThresholdsCard({
   return (
     <ApmCard
       icon={Gauge}
-      tone="text-[var(--green-ink)]"
       title={t('org_settings.thresholds.title')}
       description={t('org_settings.thresholds.hint')}
       testId="settings-thresholds"

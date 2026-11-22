@@ -68,7 +68,6 @@ export function ServiceTraces({ address }: { address: ServiceAddress }) {
   return (
     <ApmCard
       icon={Waypoints}
-      tone="text-[var(--chart-1)]"
       testId="service-traces"
       title={t('traces.title')}
       description={t('traces.description')}

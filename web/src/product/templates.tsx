@@ -159,7 +159,7 @@ export function ListPage({
   const headed = surface && contentSurface && Boolean(listHead);
   const figuresUnknown = requestedState?.variant === 'loading' || requestedState?.variant === 'error';
   const { state, children } = listContent(requestedState, list);
-  const stack = surface ? 'space-y-[12px]' : 'space-y-4';
+  const stack = surface ? 'space-y-[8px]' : 'space-y-4';
   const folded = Boolean(sections && sectionNavigation?.collapsed);
   const body = (
     <>
@@ -168,7 +168,7 @@ export function ListPage({
         layout={kpiLayout}
         className={cn(
           surface
-            && 'gap-[12px] [&>div]:border-0 [&>div]:bg-[var(--functional-surface)] [&>div]:[box-shadow:var(--shadow-functional-surface)]',
+            && 'gap-[8px] [&>div]:border-0 [&>div]:bg-[var(--functional-surface)] [&>div]:[box-shadow:var(--shadow-functional-surface)]',
           kpiClassName,
         )}
       />
@@ -247,7 +247,7 @@ export function ListPage({
           sections
             ? cn(
                 'grid items-start',
-                surface ? 'gap-[12px]' : 'gap-6',
+                surface ? 'gap-[8px]' : 'gap-6',
                 folded ? 'lg:grid-cols-1' : 'lg:grid-cols-[var(--subsidebar-w)_minmax(0,1fr)]',
               )
             : stack,
@@ -307,7 +307,7 @@ export function DetailPage({
         )}
       />
       {surface ? (
-        <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>
+        <SurfacePageBody className={cn('space-y-[8px]', bodyClassName)}>
           {state ? <ProductState {...state} /> : children}
         </SurfacePageBody>
       ) : (
@@ -382,7 +382,7 @@ export function ManagementPage({
       appearance={appearance}
       bodyClassName={cn(
         'grid',
-        appearance === 'surface' ? 'gap-[12px]' : 'gap-6',
+        appearance === 'surface' ? 'gap-[8px]' : 'gap-6',
         sections &&
           (collapsed && fullyHidden
             ? 'lg:grid-cols-1'

@@ -79,7 +79,7 @@ export function ApmSettings() {
           onAddRule={(rule) => naming.set([...naming.value, rule])}
           onAddMappings={(mappings) => environments.set([...environments.value, ...mappings])}
         />
-        <div className="grid gap-[12px] xl:grid-cols-2">
+        <div className="grid gap-[8px] xl:grid-cols-2">
           <ThresholdsCard saved={saved} {...shared} onSave={(thresholds, done) => persist(thresholds, done)} />
           <CatalogRulesCard draft={catalogRules} {...shared} onSave={() => persist({ metadataRules: catalogRules.value }, catalogRules.reset)} />
           <NamingRulesCard draft={naming} {...shared} onSave={() => persist({ namingRules: naming.value }, naming.reset)} />

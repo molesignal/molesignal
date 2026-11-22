@@ -29,7 +29,7 @@ export function RankingsCard({
   const { t } = useTranslation('apm');
 
   return (
-    <ApmCard icon={Trophy} tone="text-[var(--chart-3)]" title={t('landing.rankings')} testId="overview-rankings" bodyClassName="grid min-w-0 gap-px bg-bd-0 lg:grid-cols-3">
+    <ApmCard icon={Trophy} title={t('landing.rankings')} testId="overview-rankings" bodyClassName="grid min-w-0 gap-px bg-bd-0 lg:grid-cols-3">
       {LISTS.map((list) => (
         <section key={list} data-apm-ranking={list} className="min-w-0 bg-[var(--functional-surface)]">
           <h3 className="flex h-8 items-center bg-[var(--control-surface)] px-3 font-sans text-xs font-strong text-tx-2">{t(`landing.ranking.${list}`)}</h3>

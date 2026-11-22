@@ -62,7 +62,6 @@ export function TrendCard({
   return (
     <OverviewCard
       icon={Activity}
-      tone="text-[var(--chart-1)]"
       title={t('performance.trend.title', { name })}
       description={t('performance.trend.description')}
       testId={testId}

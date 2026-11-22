@@ -37,7 +37,6 @@ export function NamingRulesCard({
   return (
     <ApmCard
       icon={Tag}
-      tone="text-[var(--blue-ink)]"
       title={t('org_settings.naming.title')}
       description={t('org_settings.naming.hint')}
       testId="settings-naming"
@@ -121,7 +120,6 @@ export function EnvironmentMapCard({
   return (
     <ApmCard
       icon={Waypoints}
-      tone="text-[var(--chart-2)]"
       title={t('org_settings.environments.title')}
       description={t('org_settings.environments.hint')}
       testId="settings-environments"

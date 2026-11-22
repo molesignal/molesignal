@@ -39,7 +39,6 @@ export function MakeupCard({
   return (
     <OverviewCard
       icon={Layers}
-      tone="text-[var(--chart-2)]"
       title={t('performance.makeup.title', { name })}
       description={t(`performance.makeup.description.${metric.key}`)}
       testId="performance-makeup"

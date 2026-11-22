@@ -40,7 +40,6 @@ export function WorstCard({
   return (
     <OverviewCard
       icon={Flame}
-      tone="text-[var(--red-ink)]"
       title={t('performance.worst.title')}
       description={t('performance.worst.description', { name: t(`performance.metrics.${metric.key}`) })}
       testId="performance-worst"

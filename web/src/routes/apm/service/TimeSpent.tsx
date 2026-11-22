@@ -58,7 +58,6 @@ export function TimeSpent({ address, transaction }: { address: ServiceAddress; t
   return (
     <ApmCard
       icon={PieChart}
-      tone="text-[var(--chart-2)]"
       title={t('endpoint.time_spent.title')}
       description={data && data.sampled > 0 ? t('endpoint.time_spent.description', { count: data.sampled }) : t('endpoint.time_spent.about')}
       testId="endpoint-time-spent"

@@ -49,7 +49,6 @@ export function RuntimeProfile({ address }: { address: ServiceAddress }) {
   return (
     <ApmCard
       icon={Flame}
-      tone="text-[var(--orange-ink)]"
       title={t('runtime.profile.title')}
       description={t('runtime.profile.description')}
       testId="runtime-profile"

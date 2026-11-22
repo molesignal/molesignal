@@ -262,10 +262,13 @@ const config: Config = {
         strip: '32px',
         drawer: '720px',
       },
+      // Small radii, as instruments are drawn: 2-6px (the user, 2026-11-22).
       borderRadius: {
-        lg: '12px',
-        md: '8px',
-        sm: '6px',
+        '2xl': '8px',
+        xl: '6px',
+        lg: '6px',
+        md: '4px',
+        sm: '3px',
         full: '9999px',
       },
       boxShadow: {

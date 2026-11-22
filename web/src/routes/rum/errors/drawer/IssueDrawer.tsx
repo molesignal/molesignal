@@ -147,7 +147,6 @@ function DrawerBody({ id, scope, range, onClose }: { id: string; scope: Overview
             {issue.status === 'regressed' && <Banner issue={issue} />}
             <OverviewCard
               icon={History}
-              tone="text-[var(--chart-1)]"
               title={t('errors.trend.title')}
               description={t('errors.trend.description', { days: drawn?.days.length ?? 14 })}
               testId="issue-trend"

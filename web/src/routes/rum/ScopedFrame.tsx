@@ -129,7 +129,7 @@ function Frame({
       }
       navigationViews={missing ? undefined : views?.(params, current)}
     >
-      <div {...{ [`data-rum-${name}`]: '' }} data-rum-platform={current.platform} className="space-y-[12px]">
+      <div {...{ [`data-rum-${name}`]: '' }} data-rum-platform={current.platform} className="space-y-[8px]">
         {missing ?? children(context)}
       </div>
     </RumListPage>

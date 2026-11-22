@@ -51,7 +51,6 @@ export function CanaryCard({ address, pair }: { address: ServiceAddress; pair: C
   return (
     <ApmCard
       icon={Bird}
-      tone="text-[var(--yellow-ink)]"
       testId="canary"
       title={t('deployments.canary.title', { candidate: pair.candidate.version, baseline: pair.baseline.version })}
       description={

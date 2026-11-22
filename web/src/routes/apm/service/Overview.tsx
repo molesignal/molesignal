@@ -46,7 +46,7 @@ export function ServiceOverview({
   const insights = useInsights(address.orgId, address.queryParams(address.range));
 
   return (
-    <div data-apm-service-overview="" className="space-y-[12px]">
+    <div data-apm-service-overview="" className="space-y-[8px]">
       <RedCharts
         trend={detail.trend}
         compared={compared?.trend}
@@ -55,14 +55,15 @@ export function ServiceOverview({
         versions={detail.versions}
         range={range}
         comparedLabel={comparedLabel}
+        figures={insights.data}
       />
       {insights.data && (
         // Where the time goes downstream and to which endpoints, the cards below say.
         <InsightsCard data={insights.data} range={address.range} service={address.identity} hide={['slow_dependency', 'hot_endpoint']} />
       )}
       <ServiceSlos address={address} />
-      <div className="grid min-w-0 gap-[12px] lg:grid-cols-2">
-        <ApmCard icon={ChartColumn} tone="text-[var(--chart-3)]" title={t('charts.distribution')} testId="distribution">
+      <div className="grid min-w-0 gap-[8px] lg:grid-cols-2">
+        <ApmCard icon={ChartColumn} title={t('charts.distribution')} testId="distribution">
           <LatencyDistribution
             buckets={detail.latencyDistribution ?? []}
             compared={compared?.latencyDistribution}
@@ -73,7 +74,6 @@ export function ServiceOverview({
         </ApmCard>
         <ApmCard
           icon={Workflow}
-          tone="text-[var(--chart-2)]"
           title={t('overview.downstream')}
           description={t('overview.downstream_description')}
           testId="downstream"
@@ -90,10 +90,9 @@ export function ServiceOverview({
           />
         </ApmCard>
       </div>
-      <div className="grid min-w-0 gap-[12px] lg:grid-cols-2">
+      <div className="grid min-w-0 gap-[8px] lg:grid-cols-2">
         <ApmCard
           icon={Route}
-          tone="text-[var(--blue-ink)]"
           title={t('overview.top_endpoints')}
           testId="top-endpoints"
           actions={<SeeAll to={servicePath(address.identity, 'endpoints', address.searchParams)} />}
@@ -137,7 +136,7 @@ export function ServiceOverview({
             </>
           )}
         </ApmCard>
-        <ApmCard icon={Bug} tone="text-[var(--red-ink)]" title={t('overview.top_errors')} testId="top-errors" actions={<SeeAll to={servicePath(address.identity, 'errors', address.searchParams)} />}>
+        <ApmCard icon={Bug} title={t('overview.top_errors')} testId="top-errors" actions={<SeeAll to={servicePath(address.identity, 'errors', address.searchParams)} />}>
           {errors.length === 0 ? (
             <Empty>{t('overview.no_errors')}</Empty>
           ) : (

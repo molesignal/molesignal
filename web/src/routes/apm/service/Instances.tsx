@@ -51,7 +51,6 @@ export function ServiceInstances({
   return (
     <ApmCard
       icon={Boxes}
-      tone="text-[var(--blue-ink)]"
       title={t('instances.title')}
       description={t('instances.description')}
       testId="service-instances"

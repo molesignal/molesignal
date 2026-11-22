@@ -54,7 +54,6 @@ export function LimitsCard() {
   return (
     <ApmCard
       icon={Layers}
-      tone="text-[var(--chart-3)]"
       title={t('org_settings.limits.title')}
       description={t('org_settings.limits.hint')}
       testId="settings-limits"
@@ -174,7 +173,6 @@ export function SamplingCard() {
   return (
     <ApmCard
       icon={Filter}
-      tone="text-[var(--chart-4)]"
       title={t('org_settings.sampling.title')}
       description={policy && t('org_settings.sampling.version', { version: policy.version })}
       testId="settings-sampling"

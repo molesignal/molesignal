@@ -27,7 +27,6 @@ export function HealthCard({
   return (
     <ApmCard
       icon={HeartPulse}
-      tone="text-[var(--green-ink)]"
       title={t('landing.health')}
       description={t('landing.health_description')}
       testId="overview-health"

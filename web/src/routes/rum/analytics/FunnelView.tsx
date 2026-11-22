@@ -51,7 +51,7 @@ export function FunnelView({ context }: { context: ScopeContext }) {
   const nobody = overall.isSuccess && !overall.data?.unavailable && (first?.steps[0]?.sessions ?? 0) === 0;
 
   return (
-    <div data-rum-analytics="funnel" className="space-y-[12px]">
+    <div data-rum-analytics="funnel" className="space-y-[8px]">
       <OverviewCard icon={ChartNoAxesColumn} title={t('analytics.funnel.title')} description={t('analytics.funnel.steps_description')} testId="funnel-steps">
         <FunnelBuilder
           steps={steps}
@@ -70,7 +70,7 @@ export function FunnelView({ context }: { context: ScopeContext }) {
         <ProductState variant="empty" compact title={t('analytics.funnel.choose.title')} description={t('analytics.funnel.choose.description')} />
       ) : (
         <>
-          <OverviewCard title={t('analytics.funnel.result')} description={t('analytics.funnel.result_description')} testId="funnel-result" tone="text-[var(--chart-2)]">
+          <OverviewCard title={t('analytics.funnel.result')} description={t('analytics.funnel.result_description')} testId="funnel-result">
             <CardState query={overall} empty={nobody} emptyTitle={t('analytics.funnel.nobody')}>
               {first && <FunnelBars group={first} language={language} />}
             </CardState>
@@ -84,7 +84,6 @@ export function FunnelView({ context }: { context: ScopeContext }) {
             <OverviewCard
               title={t('analytics.funnel.by_title', { field: t(`analytics.breakdowns.${breakdown.replaceAll('.', '_')}`) })}
               testId="funnel-groups"
-              tone="text-[var(--chart-4)]"
             >
               <CardState query={grouped} empty={(grouped.data?.groups.length ?? 0) === 0} emptyTitle={t('analytics.funnel.nobody')}>
                 {grouped.data && <FunnelGroups funnel={grouped.data} field={t(`analytics.breakdowns.${breakdown.replaceAll('.', '_')}`)} language={language} />}

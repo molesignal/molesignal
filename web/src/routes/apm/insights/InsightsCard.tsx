@@ -43,7 +43,7 @@ export function InsightsCard({
   const insights = data.insights.filter((insight) => !hide.includes(insight.kind));
 
   return (
-    <ApmCard icon={Lightbulb} tone="text-[var(--yellow-ink)]" title={t('insights.title')} testId="insights">
+    <ApmCard icon={Lightbulb} title={t('insights.title')} testId="insights">
       <BaselineTable data={data} />
       {insights.length === 0 ? (
         <p className="border-t border-bd-0 px-3 py-4 font-sans text-xs text-tx-3">{t('insights.none')}</p>

@@ -91,10 +91,10 @@ export function Home() {
         </div>
       }
     >
-      <div className="mx-auto flex w-full max-w-[2200px] flex-col gap-[12px]" data-testid="home">
+      <div className="mx-auto flex w-full max-w-[2200px] flex-col gap-[8px]" data-testid="home">
         <StatusBand status={status} period={period} />
         {(allowed.services || allowed.incidents) && (
-          <div className="grid grid-cols-1 gap-[12px] xl:grid-cols-12">
+          <div className="grid grid-cols-1 gap-[8px] xl:grid-cols-12">
             {allowed.services && (
               <ServicesPanel status={status} className={allowed.incidents ? 'xl:col-span-8' : 'xl:col-span-12'} />
             )}
@@ -103,7 +103,7 @@ export function Home() {
             )}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-[8px] md:grid-cols-2 xl:grid-cols-3">
           {allowed.intake && <IntakePanel status={status} />}
           {allowed.checks && <ChecksPanel status={status} />}
           <OnCallPanel />

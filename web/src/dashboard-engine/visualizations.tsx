@@ -90,7 +90,7 @@ const plugins: Array<VisualizationPlugin<Record<string, unknown>>> = [
   plugin('time_series', 'Time series', 'Values over time', TimeSeriesVisualization, {
     drawStyle: 'line',
     lineInterpolation: 'linear',
-    lineWidth: 1.5,
+    lineWidth: 2,
     fillOpacity: 0,
     showPoints: 'auto',
     stackMode: 'none',

@@ -37,7 +37,7 @@ export function StatusCodes({
   const series = statusClassSeries(trend, bucketSeconds(resolution), classLabel);
 
   return (
-    <ApmCard icon={Hash} tone="text-[var(--chart-5)]" title={t('endpoint.status.title')} description={t('endpoint.status.description')} testId="endpoint-status-codes">
+    <ApmCard icon={Hash} title={t('endpoint.status.title')} description={t('endpoint.status.description')} testId="endpoint-status-codes">
       {rows.length === 0 ? (
         <p className="px-3 py-6 text-center font-sans text-xs text-tx-3">{t('endpoint.status.none')}</p>
       ) : (

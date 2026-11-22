@@ -27,7 +27,6 @@ export function SamplesCard({ samples }: { samples: readonly RumIssueSample[] })
   return (
     <OverviewCard
       icon={MonitorPlay}
-      tone="text-[var(--chart-3)]"
       title={t('errors.drawer.samples.title')}
       description={t('errors.drawer.samples.description')}
       testId="issue-samples"
@@ -84,7 +83,6 @@ export function PeopleCard({ people }: { people: readonly Person[] }) {
   return (
     <OverviewCard
       icon={Users}
-      tone="text-[var(--chart-4)]"
       title={t('errors.drawer.people.title')}
       description={t('errors.drawer.people.description')}
       testId="issue-people"

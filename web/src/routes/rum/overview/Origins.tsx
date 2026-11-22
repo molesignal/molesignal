@@ -57,7 +57,6 @@ export function OriginsCard({
   return (
     <OverviewCard
       icon={Globe2}
-      tone="text-[var(--chart-7)]"
       title={t('overview.origins.title')}
       description={t('overview.origins.description')}
       testId="origins"

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatTimeSeriesAxisTimestamp,
+  formatTimeSeriesAxisValues,
   formatTimeSeriesTimestamp,
   formatTimeSeriesValue,
 } from '@/viz/timeseries/formatters';
@@ -35,6 +36,11 @@ describe('time-series timestamp formatting', () => {
       formatTimeSeriesAxisTimestamp(EPOCH_SECONDS, 30 * 60, 'Asia/Shanghai'),
     ).toBe('10:26:13');
   });
+
+  it('writes seconds only when the ticks fall within a minute of each other', () => {
+    expect(formatTimeSeriesAxisTimestamp(EPOCH_SECONDS, 3600, 'Asia/Shanghai', 15 * 60)).toBe('10:26');
+    expect(formatTimeSeriesAxisTimestamp(EPOCH_SECONDS, 300, 'Asia/Shanghai', 30)).toBe('10:26:13');
+  });
 });
 
 describe('time-series value formatting', () => {
@@ -49,5 +55,24 @@ describe('time-series value formatting', () => {
     expect(formatTimeSeriesValue(0, 'ns')).toBe('0 ns');
     expect(formatTimeSeriesValue(0, 's')).toBe('0 s');
     expect(formatTimeSeriesValue(0, 'μs')).toBe('0 μs');
+  });
+});
+
+describe('time-series axis figures', () => {
+  it('writes a duration axis in the unit of its largest tick, once, and its zero bare', () => {
+    expect(formatTimeSeriesAxisValues([0, 250_000, 500_000, 750_000], 'μs')).toEqual(['0', '250', '500', '750 ms']);
+    expect(formatTimeSeriesAxisValues([0, 500, 1_000, 1_500], 'us')).toEqual(['0', '0.5', '1', '1.5 ms']);
+    expect(formatTimeSeriesAxisValues([0, 1_000, 2_000], 'ms')).toEqual(['0', '1', '2 s']);
+  });
+
+  it('writes a rate, a percentage and a size once, on the top tick', () => {
+    expect(formatTimeSeriesAxisValues([0, 0.5, 1, 1.5], 'req/s')).toEqual(['0', '0.5', '1', '1.5 req/s']);
+    expect(formatTimeSeriesAxisValues([0, 1, 2], '%')).toEqual(['0', '1', '2%']);
+    expect(formatTimeSeriesAxisValues([0, 512, 1_024, 1_536], 'bytes')).toEqual(['0', '0.5', '1', '1.5 KiB']);
+  });
+
+  it('keeps one magnitude for a count, so 500 and 1K do not mix', () => {
+    expect(formatTimeSeriesAxisValues([0, 500, 1_000, 1_500])).toEqual(['0', '0.5', '1', '1.5K']);
+    expect(formatTimeSeriesAxisValues([0, 20, 40, 60])).toEqual(['0', '20', '40', '60']);
   });
 });

@@ -161,7 +161,7 @@ function ErrorsPage({ applications }: { applications: readonly RumApplication[] 
       navigationEnd={<TimeRangeControl align="end" className={cn(CONTROL, 'max-w-[220px]')} />}
       navigationScope={scopeRow}
     >
-      <div data-rum-errors="" className="space-y-[12px]">
+      <div data-rum-errors="" className="space-y-[8px]">
         {list.isPending ? (
           <ProductState variant="loading" />
         ) : list.isError ? (

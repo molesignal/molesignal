@@ -42,7 +42,6 @@ export function GradesCard({
   return (
     <OverviewCard
       icon={Gauge}
-      tone="text-[var(--chart-4)]"
       title={t('performance.grades.title')}
       description={t('performance.grades.description')}
       testId="performance-grades"

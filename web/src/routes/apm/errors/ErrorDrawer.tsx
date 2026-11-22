@@ -107,7 +107,7 @@ export function ErrorDrawer() {
               </span>
             </div>
             {group.representativeMessage && <p className="whitespace-pre-wrap break-words font-sans text-sm text-tx-0">{group.representativeMessage}</p>}
-            <ApmCard icon={Activity} tone="text-[var(--red-ink)]" title={t('errors.trend')} testId="error-trend" bodyClassName="px-2 pb-2 pt-1">
+            <ApmCard icon={Activity} title={t('errors.trend')} testId="error-trend" bodyClassName="px-2 pb-2 pt-1">
               <TimeSeriesChart
                 series={[
                   {
@@ -133,7 +133,7 @@ export function ErrorDrawer() {
             </ApmCard>
             {data.breakdown && <ErrorBreakdownCard breakdown={data.breakdown} testId="error-breakdown" />}
             {data.representativeStack.length > 0 && (
-              <ApmCard icon={FileCode2} tone="text-[var(--chart-6)]" title={t('errors.stack')} testId="error-stack">
+              <ApmCard icon={FileCode2} title={t('errors.stack')} testId="error-stack">
                 <ol className="max-h-72 overflow-auto px-3 py-2 font-sans text-xs leading-5 text-tx-1">
                   {data.representativeStack.map((frame, index) => (
                     <li key={`${index}-${frame}`} className="whitespace-pre-wrap break-all">
@@ -144,7 +144,7 @@ export function ErrorDrawer() {
               </ApmCard>
             )}
             <div className="grid min-w-0 gap-3 xl:grid-cols-2">
-              <ApmCard icon={Route} tone="text-[var(--blue-ink)]" title={t('errors.endpoints')} testId="error-endpoints">
+              <ApmCard icon={Route} title={t('errors.endpoints')} testId="error-endpoints">
                 {data.affectedTransactions.length === 0 ? (
                   <p className="px-3 py-6 text-center font-sans text-xs text-tx-3">{t('errors.no_endpoints')}</p>
                 ) : (
@@ -168,7 +168,7 @@ export function ErrorDrawer() {
                   })
                 )}
               </ApmCard>
-              <ApmCard icon={ListTree} tone="text-[var(--chart-1)]" title={t('errors.samples')} description={t('errors.samples_description')} testId="error-samples">
+              <ApmCard icon={ListTree} title={t('errors.samples')} description={t('errors.samples_description')} testId="error-samples">
                 {data.samples.length === 0 ? (
                   <p className="px-3 py-6 text-center font-sans text-xs text-tx-3">{t('errors.no_samples')}</p>
                 ) : (

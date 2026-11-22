@@ -44,6 +44,7 @@ import {
 import {
   formatCompactNumber,
   formatTimeSeriesAxisTimestamp,
+  formatTimeSeriesAxisValues,
   formatTimeSeriesTimestamp,
   formatTimeSeriesValue,
 } from './formatters';
@@ -955,6 +956,7 @@ function buildAxes(
       const min = plot.scales.x?.min ?? splits[0] ?? 0;
       const max = plot.scales.x?.max ?? splits.at(-1) ?? min;
       const span = max - min;
+      const step = splits.length > 1 ? Math.abs((splits[1] ?? 0) - (splits[0] ?? 0)) : span;
       return splits.map((value) => {
         if (
           span > 0 &&
@@ -963,7 +965,7 @@ function buildAxes(
         ) {
           return '';
         }
-        return formatTimeSeriesAxisTimestamp(value, span, timezone);
+        return formatTimeSeriesAxisTimestamp(value, span, timezone, step);
       });
     },
   };
@@ -973,14 +975,13 @@ function buildAxes(
     scale: 'y',
     side: 3,
     size: yAxisSize,
+    // Solid hairlines: a dotted grid read as faint as the lines it frames.
     grid: {
       show: options.leftAxis.showGrid ?? true,
       stroke: palette.grid,
       width: 1,
-      dash: [2, 4],
     },
-    values: (_plot, splits) =>
-      splits.map((value) => formatTimeSeriesValue(value, options.leftAxis.unit)),
+    values: (_plot, splits) => formatTimeSeriesAxisValues(splits, options.leftAxis.unit),
     ...(options.leftAxis.label ? { label: options.leftAxis.label } : {}),
   };
   if (!hasRightAxis) return [xAxis, leftAxis];
@@ -995,8 +996,7 @@ function buildAxes(
       side: 1,
       size: yAxisSize,
       grid: { show: false },
-      values: (_plot, splits) =>
-        splits.map((value) => formatTimeSeriesValue(value, rightOptions.unit)),
+      values: (_plot, splits) => formatTimeSeriesAxisValues(splits, rightOptions.unit),
       ...(rightOptions.label ? { label: rightOptions.label } : {}),
     },
   ];

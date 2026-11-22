@@ -90,10 +90,10 @@ export function ServiceFacts({
           {t('catalog.archived')}
         </span>
       )}
-      <Fact icon={Layers} tone="text-[var(--chart-1)]" label={t('service.facts.system')} value={address.namespace} />
-      <Fact icon={Server} tone="text-[var(--chart-2)]" label={t('service.facts.environment')} value={address.environment} />
+      <Fact icon={Layers} label={t('service.facts.system')} value={address.namespace} />
+      <Fact icon={Server} label={t('service.facts.environment')} value={address.environment} />
       {kinds.length > 0 && (
-        <Fact icon={Network} tone="text-[var(--chart-7)]" label={t('service.facts.type')} value={kinds.map((kind) => t(`service.facts.kinds.${kind}`)).join(' · ')}>
+        <Fact icon={Network} label={t('service.facts.type')} value={kinds.map((kind) => t(`service.facts.kinds.${kind}`)).join(' · ')}>
           {kinds.map((kind, index) => (
             <span key={kind} className={cn('font-strong', ENDPOINT_KIND_TONE[kind])}>
               {index > 0 && <span className="font-body text-tx-3"> · </span>}
@@ -112,7 +112,6 @@ export function ServiceFacts({
       {inView.length > 0 && (
         <Fact
           icon={GitBranch}
-          tone="text-[var(--purple-ink)]"
           label={t('service.facts.version')}
           value={inView.slice(0, 2).join(' · ') + (inView.length > 2 ? ` +${inView.length - 2}` : '')}
           detail={commit ? t('service.facts.commit', { commit: commit.slice(0, 12) }) : undefined}
@@ -120,7 +119,7 @@ export function ServiceFacts({
           strong
         />
       )}
-      {team && <Fact icon={Users} tone="text-[var(--green-ink)]" label={t('service.facts.team')} value={team} detail={people.join(' · ') || undefined} />}
+      {team && <Fact icon={Users} label={t('service.facts.team')} value={team} detail={people.join(' · ') || undefined} />}
       {instances > 0 && (
         <Link
           to={servicePath(address.identity, 'runtime', address.searchParams)}
@@ -134,12 +133,11 @@ export function ServiceFacts({
       {deployed !== null && (
         <Fact
           icon={Rocket}
-          tone="text-[var(--orange-ink)]"
           label={t('service.facts.deployed_label')}
           value={t('service.facts.deployed', { when: formatRelativeMicros(deployed, i18n.language) })}
         />
       )}
-      {region && <Fact icon={MapPin} tone="text-[var(--chart-5)]" label={t('service.facts.region')} value={region.value + (region.more ? ` +${region.more}` : '')} />}
+      {region && <Fact icon={MapPin} label={t('service.facts.region')} value={region.value + (region.more ? ` +${region.more}` : '')} />}
       {repository &&
         (repositoryHref(repository) ? (
           <a
@@ -161,7 +159,6 @@ export function ServiceFacts({
       {aliases.length > 0 && (
         <Fact
           icon={Tag}
-          tone="text-[var(--chart-4)]"
           label={t('service.facts.aliases')}
           value={aliases[0]! + (aliases.length > 1 ? ` +${aliases.length - 1}` : '')}
           detail={aliases.length > 1 ? aliases.join(', ') : undefined}
@@ -175,7 +172,6 @@ export function ServiceFacts({
 /** A fact with its icon in the colour of its kind and its value in the ink of the line. */
 function Fact({
   icon: Icon,
-  tone,
   label,
   value,
   detail,
@@ -184,7 +180,6 @@ function Fact({
   children,
 }: {
   icon: LucideIcon;
-  tone: string;
   label: string;
   value: string;
   detail?: string | undefined;
@@ -198,7 +193,7 @@ function Fact({
       className={cn('inline-flex min-w-0 shrink-0 items-center gap-1', strong ? 'font-strong text-tx-0' : 'text-tx-1')}
       title={detail ? `${label}: ${value} · ${detail}` : `${label}: ${value}`}
     >
-      <Icon aria-hidden className={cn('h-3.5 w-3.5 shrink-0', tone)} />
+      <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-tx-3" />
       <span className="sr-only">{label}</span>
       <span className="max-w-[220px] truncate">{children ?? value}</span>
     </span>

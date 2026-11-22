@@ -30,8 +30,8 @@ export function ServiceSettings({
   const { t } = useTranslation('apm');
 
   return (
-    <div data-apm-service-settings="" className="grid min-w-0 items-start gap-[12px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <ApmCard icon={BookOpen} tone="text-[var(--chart-1)]" title={t('settings.catalog')} description={t('settings.catalog_description')} testId="service-catalog-entry">
+    <div data-apm-service-settings="" className="grid min-w-0 items-start gap-[8px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <ApmCard icon={BookOpen} title={t('settings.catalog')} description={t('settings.catalog_description')} testId="service-catalog-entry">
         <DefinitionForm
           key={`${address.namespace}/${address.name}/${definition?.updatedAt ?? 'new'}`}
           embedded
@@ -39,7 +39,7 @@ export function ServiceSettings({
           onDone={() => undefined}
         />
       </ApmCard>
-      <div className="grid min-w-0 gap-[12px]">
+      <div className="grid min-w-0 gap-[8px]">
         <KeyTransactionsCard address={address} transactions={transactions} />
         <ReportedCard address={address} summary={summary} />
       </div>
@@ -71,7 +71,7 @@ function ReportedCard({ address, summary }: { address: ServiceAddress; summary: 
   ];
 
   return (
-    <ApmCard icon={RadioTower} tone="text-[var(--chart-2)]" title={t('settings.reported.title')} description={t('settings.reported.description')} testId="service-reported">
+    <ApmCard icon={RadioTower} title={t('settings.reported.title')} description={t('settings.reported.description')} testId="service-reported">
       <dl className="divide-y divide-bd-0 font-sans text-xs">
         {rows.map(([label, value]) => (
           <div key={label} data-apm-reported={label} className="grid min-h-8 grid-cols-[136px_minmax(0,1fr)] items-center gap-3 px-3 py-1.5">

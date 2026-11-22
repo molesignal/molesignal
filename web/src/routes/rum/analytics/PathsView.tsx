@@ -75,13 +75,12 @@ export function PathsView({ context }: { context: ScopeContext }) {
   const nobody = read.isSuccess && !read.data?.unavailable && read.data.sessions === 0;
 
   return (
-    <div data-rum-analytics="paths" className="space-y-[12px]">
+    <div data-rum-analytics="paths" className="space-y-[8px]">
       <OverviewCard
         icon={GitBranch}
         title={t('analytics.paths.title')}
         description={t(backward ? 'analytics.paths.description_before' : 'analytics.paths.description_after')}
         testId="paths"
-        tone="text-[var(--chart-5)]"
       >
         <div className="flex flex-wrap items-center gap-2 border-b border-bd-0 px-3 py-2">
           <FittedSelect

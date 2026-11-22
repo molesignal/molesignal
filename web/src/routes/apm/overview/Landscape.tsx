@@ -21,7 +21,7 @@ export function EnvironmentsCard({ environments }: { environments: readonly Envi
   const total = environments.reduce((sum, item) => sum + item.requestCount, 0);
 
   return (
-    <ApmCard icon={Globe} tone="text-[var(--chart-2)]" title={t('landing.environments')} testId="overview-environments">
+    <ApmCard icon={Globe} title={t('landing.environments')} testId="overview-environments">
       {environments.length === 0 ? (
         <Empty>{t('landing.no_environments')}</Empty>
       ) : (
@@ -59,7 +59,7 @@ export function InstrumentationCard({ quality, meta }: { quality: Instrumentatio
   const missing = gaps.filter(([, count]) => count > 0);
 
   return (
-    <ApmCard icon={Radar} tone="text-[var(--blue-ink)]" title={t('landing.instrumentation')} testId="overview-instrumentation" actions={<ApmQualityChip meta={meta} />}>
+    <ApmCard icon={Radar} title={t('landing.instrumentation')} testId="overview-instrumentation" actions={<ApmQualityChip meta={meta} />}>
       {quality.sdks.length === 0 ? (
         <Empty>{t('landing.no_sdks')}</Empty>
       ) : (

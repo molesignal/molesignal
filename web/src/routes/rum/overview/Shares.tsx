@@ -16,7 +16,6 @@ export function SharesCard({
   kind,
   field,
   icon,
-  tone,
   query,
   total,
   scope,
@@ -26,7 +25,6 @@ export function SharesCard({
   /** The column of a session it is told by. */
   field: string;
   icon: LucideIcon;
-  tone: string;
   query: { isPending: boolean; isError: boolean; error: unknown; refetch: () => unknown; data: RumAggregate | undefined };
   total: number;
   scope: OverviewScope;
@@ -46,7 +44,7 @@ export function SharesCard({
   ];
 
   return (
-    <OverviewCard icon={icon} tone={tone} title={t(`overview.shares.${kind}`)} testId={kind}>
+    <OverviewCard icon={icon} title={t(`overview.shares.${kind}`)} testId={kind}>
       <CardState query={query} empty={shown.length === 0} emptyTitle={t('overview.shares.empty')}>
         <BarRows rows={rows} total={total} language={language} testId={kind} />
       </CardState>

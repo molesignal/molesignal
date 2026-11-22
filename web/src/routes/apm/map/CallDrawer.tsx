@@ -88,7 +88,6 @@ export function CallDrawer({ map, params, orgId }: { map: MapResponse | undefine
             {(kind === 'publish' || kind === 'consume') && <MessageWait source={source} target={target} range={range} orgId={orgId} name={name} />}
             <ApmCard
               icon={ListTree}
-              tone="text-[var(--blue-ink)]"
               title={t(data.everyCaller ? 'map.call.endpoints' : 'map.call.operations')}
               description={data.everyCaller ? t('map.call.every_caller') : undefined}
               testId="call-operations"
@@ -107,7 +106,7 @@ export function CallDrawer({ map, params, orgId }: { map: MapResponse | undefine
               )}
             </ApmCard>
             {data.errors.length > 0 && (
-              <ApmCard icon={AlertTriangle} tone="text-[var(--red-ink)]" title={t('map.call.errors', { service: name(target) })} testId="call-errors">
+              <ApmCard icon={AlertTriangle} title={t('map.call.errors', { service: name(target) })} testId="call-errors">
                 {data.errors.map((group) => (
                   <button
                     key={group.error.fingerprint}
@@ -147,7 +146,6 @@ function MessageWait({ source, target, range, orgId, name }: { source: string; t
   return (
     <ApmCard
       icon={Hourglass}
-      tone="text-[var(--orange-ink)]"
       title={t('map.call.wait.title')}
       description={data && data.sampled > 0 ? t('map.call.wait.description', { count: data.sampled, matched: data.matched }) : t('map.call.wait.about')}
       testId="call-wait"

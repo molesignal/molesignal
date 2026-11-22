@@ -69,7 +69,6 @@ export function SlowRequests({ address, transaction }: { address: ServiceAddress
   return (
     <ApmCard
       icon={Hourglass}
-      tone="text-[var(--orange-ink)]"
       title={t('endpoint.slow_requests')}
       description={t('endpoint.slow_requests_description')}
       testId="slow-requests"

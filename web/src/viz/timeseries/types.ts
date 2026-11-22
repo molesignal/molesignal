@@ -129,7 +129,7 @@ export interface TimeSeriesStats {
 export const DEFAULT_TIME_SERIES_OPTIONS: TimeSeriesChartOptions = {
   drawStyle: 'line',
   interpolation: 'linear',
-  lineWidth: 1.5,
+  lineWidth: 2,
   fillOpacity: 0,
   showPoints: 'auto',
   stackMode: 'none',

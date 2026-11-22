@@ -126,8 +126,8 @@ export function ServiceDependencies({ address, detail, compared }: { address: Se
     );
 
   return (
-    <div className="space-y-[12px]">
-      <ApmCard icon={Share2} tone="text-[var(--chart-2)]" title={t('dependencies.map')} description={t('dependencies.map_description')} testId="neighbourhood" bodyClassName="h-[300px]">
+    <div className="space-y-[8px]">
+      <ApmCard icon={Share2} title={t('dependencies.map')} description={t('dependencies.map_description')} testId="neighbourhood" bodyClassName="h-[300px]">
         <ApmQueryState query={map} empty={near.edges.length === 0} emptyTitle={t('dependencies.map_empty')} compact>
           <MapCanvas
             nodes={near.nodes}
@@ -141,8 +141,8 @@ export function ServiceDependencies({ address, detail, compared }: { address: Se
           />
         </ApmQueryState>
       </ApmCard>
-      <div className="grid min-w-0 gap-[12px] xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <ApmCard icon={LogIn} tone="text-[var(--chart-7)]" title={t('dependencies.upstream')} description={t('dependencies.upstream_description')} testId="upstream">
+      <div className="grid min-w-0 gap-[8px] xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <ApmCard icon={LogIn} title={t('dependencies.upstream')} description={t('dependencies.upstream_description')} testId="upstream">
           {near.callers.length === 0 ? (
             <p className="px-3 py-6 text-center font-sans text-xs text-tx-3">{t('dependencies.no_upstream')}</p>
           ) : (
@@ -161,7 +161,7 @@ export function ServiceDependencies({ address, detail, compared }: { address: Se
             ))
           )}
         </ApmCard>
-        <ApmCard icon={LogOut} tone="text-[var(--chart-2)]" title={t('dependencies.downstream')} description={t('dependencies.downstream_description')} testId="downstream-table">
+        <ApmCard icon={LogOut} title={t('dependencies.downstream')} description={t('dependencies.downstream_description')} testId="downstream-table">
           {groups.length === 0 ? (
             <p className="px-3 py-6 text-center font-sans text-xs text-tx-3">{t('dependencies.no_downstream')}</p>
           ) : (
@@ -270,7 +270,7 @@ export function ServiceDependencies({ address, detail, compared }: { address: Se
       </div>
       <CallDrawer map={map.data} params={mapParams} orgId={address.orgId} />
       {statements.length > 0 && (
-        <ApmCard icon={Database} tone="text-[var(--blue-ink)]" title={t('dependencies.slow_sql')} description={t('dependencies.slow_sql_description')} testId="slow-sql">
+        <ApmCard icon={Database} title={t('dependencies.slow_sql')} description={t('dependencies.slow_sql_description')} testId="slow-sql">
           {statements.map((item) => (
             <div
               key={`${item.dependency.target}:${item.dependency.operation}:${item.version ?? ''}`}

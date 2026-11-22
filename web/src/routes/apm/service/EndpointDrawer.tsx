@@ -98,7 +98,7 @@ export function EndpointDrawer({ address }: { address: ServiceAddress }) {
               comparedLabel={comparedLabel}
             />
             <div className="grid min-w-0 gap-3 xl:grid-cols-2">
-              <ApmCard icon={ChartColumn} tone="text-[var(--chart-3)]" title={t('charts.distribution')} testId="endpoint-distribution">
+              <ApmCard icon={ChartColumn} title={t('charts.distribution')} testId="endpoint-distribution">
                 <LatencyDistribution
                   buckets={data.latencyDistribution ?? []}
                   compared={compareParams ? compared.data?.latencyDistribution : null}
@@ -119,7 +119,7 @@ export function EndpointDrawer({ address }: { address: ServiceAddress }) {
               <TimeSpent address={address} transaction={{ name, kind }} />
             </div>
             <div className="grid min-w-0 gap-3 xl:grid-cols-2">
-              <ApmCard icon={Bug} tone="text-[var(--red-ink)]" title={t('endpoint.errors')} testId="endpoint-errors">
+              <ApmCard icon={Bug} title={t('endpoint.errors')} testId="endpoint-errors">
                 {data.errors.length === 0 ? (
                   <p className="px-3 py-6 text-center font-sans text-xs text-tx-3">{t('endpoint.no_errors')}</p>
                 ) : (
@@ -140,7 +140,7 @@ export function EndpointDrawer({ address }: { address: ServiceAddress }) {
                   ))
                 )}
               </ApmCard>
-              <ApmCard icon={Tags} tone="text-[var(--purple-ink)]" title={t('endpoint.versions')} testId="endpoint-versions">
+              <ApmCard icon={Tags} title={t('endpoint.versions')} testId="endpoint-versions">
                 {data.versions.length === 0 ? (
                   <p className="px-3 py-6 text-center font-sans text-xs text-tx-3">{t('endpoint.no_versions')}</p>
                 ) : (

@@ -59,7 +59,6 @@ export function PagesCard({
   return (
     <OverviewCard
       icon={FileText}
-      tone="text-[var(--chart-2)]"
       title={t(browser ? 'overview.pages.title' : 'overview.pages.screens')}
       description={t(browser ? 'overview.pages.description' : 'overview.pages.description_screens')}
       testId="pages"

@@ -38,7 +38,7 @@ export function SloDays({ slo, history, now }: { slo: ServiceLevelObjective; his
   const met = days.filter((day) => day.state === 'met').length;
 
   return (
-    <ApmCard icon={CalendarCheck} tone="text-[var(--green-ink)]" title={t('slo.history.title')} description={t('slo.history.summary', { met, count: counted })} testId="slo-history" bodyClassName="px-3 py-3">
+    <ApmCard icon={CalendarCheck} title={t('slo.history.title')} description={t('slo.history.summary', { met, count: counted })} testId="slo-history" bodyClassName="px-3 py-3">
       <ol aria-label={t('slo.history.title')} className="grid h-8 gap-0.5" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(2px, 1fr))` }}>
         {days.map((day) => {
           const label = t(`slo.history.day.${day.state}`, { date: date(day.start), sli: formatSli(day.sli) });

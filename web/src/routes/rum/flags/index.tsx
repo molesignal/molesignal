@@ -76,7 +76,7 @@ function FlagsView({ context }: { context: ScopeContext }) {
   }
 
   return (
-    <div className="grid min-w-0 items-start gap-[12px] xl:grid-cols-[320px_minmax(0,1fr)]">
+    <div className="grid min-w-0 items-start gap-[8px] xl:grid-cols-[320px_minmax(0,1fr)]">
       <OverviewCard icon={Flag} title={t('flags.list_title')} description={t('flags.list_description')} testId="flags-list" className="min-w-0">
         <CardState query={keys} empty={flags.length === 0} emptyTitle={t('flags.empty.title')}>
           <ul aria-label={t('flags.list_title')} className="m-0 max-h-[calc(100vh-260px)] list-none overflow-auto p-0">

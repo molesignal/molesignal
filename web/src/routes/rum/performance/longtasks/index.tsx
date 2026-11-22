@@ -59,7 +59,7 @@ export function LongTasksView({ context }: { context: PerformanceContext }) {
           <CardState query={statementRead} empty={statement === null} emptyTitle={t('performance.long_tasks.empty.title')}>
             {statement && <LongTasksStatement statement={statement} share={share} language={language} />}
           </CardState>
-          <div className={open ? 'grid min-w-0 items-start gap-[12px] xl:grid-cols-[minmax(0,1fr)_340px]' : 'min-w-0'}>
+          <div className={open ? 'grid min-w-0 items-start gap-[8px] xl:grid-cols-[minmax(0,1fr)_340px]' : 'min-w-0'}>
             <LongTasksTable
               query={tableRead}
               rows={rows}

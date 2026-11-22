@@ -67,7 +67,6 @@ export function DeployTimelineCard({
   return (
     <ApmCard
       icon={Rocket}
-      tone="text-[var(--purple-ink)]"
       title={t('deployments.timeline')}
       testId="deployments"
       actions={

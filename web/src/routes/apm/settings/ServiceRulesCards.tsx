@@ -52,7 +52,6 @@ export function AliasesCard({
   return (
     <ApmCard
       icon={Combine}
-      tone="text-[var(--purple-ink)]"
       title={t('org_settings.aliases.title')}
       description={t('org_settings.aliases.hint')}
       testId="settings-aliases"
@@ -149,7 +148,6 @@ export function CatalogRulesCard({
   return (
     <ApmCard
       icon={ClipboardCheck}
-      tone="text-[var(--orange-ink)]"
       title={t('org_settings.catalog_rules.title')}
       description={t('org_settings.catalog_rules.hint')}
       testId="settings-catalog-rules"

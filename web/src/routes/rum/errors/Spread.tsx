@@ -33,7 +33,6 @@ export function SpreadCard({
   return (
     <OverviewCard
       icon={Crosshair}
-      tone="text-[var(--red-ink)]"
       title={t('errors.spread.title')}
       description={t('errors.spread.description')}
       testId="errors-spread"

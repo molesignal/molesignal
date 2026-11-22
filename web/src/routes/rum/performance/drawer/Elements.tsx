@@ -46,7 +46,6 @@ export function ElementsCard({
   return (
     <OverviewCard
       icon={Crosshair}
-      tone="text-[var(--chart-5)]"
       title={t(`performance.elements.title.${metric.key}`)}
       description={t('performance.elements.description')}
       testId="performance-elements"

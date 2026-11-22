@@ -92,7 +92,7 @@ export function VitalsView({ context }: { context: PerformanceContext }) {
       {core.data && (
         <>
           <PerformanceStatement views={views} levels={levels} metric={view.metric} onPick={(key) => set({ vital: key })} language={language} />
-          <div className="grid min-w-0 gap-[12px] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <div className="grid min-w-0 gap-[8px] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             <TrendCard
               query={trend}
               bars={bars}

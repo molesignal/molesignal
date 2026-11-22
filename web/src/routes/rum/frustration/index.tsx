@@ -104,7 +104,7 @@ function FrustrationView({ context }: { context: ScopeContext }) {
       <CardState query={statementRead} empty={statement === null} emptyTitle={t('frustration.empty.title')}>
         {statement && <FrustrationStatement statement={statement} share={share !== null && share > 0 ? share : null} browser={browser} language={language} />}
       </CardState>
-      <div className={open ? 'grid min-w-0 items-start gap-[12px] xl:grid-cols-[minmax(0,1fr)_340px]' : 'min-w-0'}>
+      <div className={open ? 'grid min-w-0 items-start gap-[8px] xl:grid-cols-[minmax(0,1fr)_340px]' : 'min-w-0'}>
         <FrustrationTable
           query={tableRead}
           rows={rows}

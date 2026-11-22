@@ -9,18 +9,13 @@
  */
 :root,
 [data-theme='dark'] {
-  --shadow-functional-surface-hover:
-    0 0 0 1px rgba(104, 160, 235, 0.32),
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    0 12px 28px -12px rgba(33, 109, 201, 0.4);
+  --shadow-functional-surface-hover: inset 0 0 0 1px rgba(104, 160, 235, 0.45);
   --spotlight: color-mix(in srgb, var(--indigo) 14%, transparent);
 }
 
-/* On light no edge is a line: the trace of the brand colour is in the soft shadow alone. */
+/* A clickable panel under the pointer: its hairline takes the brand's colour. */
 [data-theme='light'] {
-  --shadow-functional-surface-hover:
-    0 2px 4px rgba(19, 24, 37, 0.06),
-    0 10px 24px -10px rgba(0, 100, 200, 0.22);
+  --shadow-functional-surface-hover: 0 0 0 1px rgba(0, 100, 200, 0.45);
   --spotlight: color-mix(in srgb, var(--indigo) 8%, transparent);
 }
 

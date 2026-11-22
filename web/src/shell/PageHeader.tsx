@@ -172,7 +172,7 @@ export function PageHeader({
             <span
               aria-hidden
               data-testid={moduleIconTestId}
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-indigo/10 text-indigo"
+              className="grid h-7 w-7 shrink-0 place-items-center text-tx-3"
             >
               <HeaderIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
             </span>

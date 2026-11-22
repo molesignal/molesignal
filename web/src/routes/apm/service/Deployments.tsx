@@ -42,7 +42,7 @@ export function ServiceDeployments({ address, detail }: { address: ServiceAddres
   };
 
   return (
-    <div className="space-y-[12px]">
+    <div className="space-y-[8px]">
       {canary && <CanaryCard address={address} pair={canary} />}
       <DeployTimelineCard address={address} versions={detail.versions} onCompare={comparePair} />
       {versions.length >= 2 && (
@@ -99,7 +99,6 @@ function Comparison({
   return (
     <ApmCard
       icon={GitCompareArrows}
-      tone="text-[var(--purple-ink)]"
       testId="compare"
       title={t('deployments.compare')}
       actions={

@@ -45,7 +45,6 @@ export function ActiveAlertsCard() {
   return (
     <ApmCard
       icon={BellRing}
-      tone="text-[var(--red-ink)]"
       title={t('landing.alerts')}
       testId="overview-alerts"
       actions={
@@ -88,7 +87,7 @@ export function DeploymentsCard({ deployments, searchParams }: { deployments: re
   const { t, i18n } = useTranslation('apm');
 
   return (
-    <ApmCard icon={Rocket} tone="text-[var(--purple-ink)]" title={t('landing.deployments')} description={t('landing.deployments_description')} testId="overview-deployments">
+    <ApmCard icon={Rocket} title={t('landing.deployments')} description={t('landing.deployments_description')} testId="overview-deployments">
       {deployments.length === 0 ? (
         <Empty>{t('landing.no_deployments')}</Empty>
       ) : (

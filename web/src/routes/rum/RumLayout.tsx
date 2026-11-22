@@ -110,7 +110,7 @@ export function RumListPage({
         backTo={null}
       />
       <RumNavigation settings={settings} end={navigationEnd} scope={navigationScope} views={navigationViews} />
-      <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>
+      <SurfacePageBody className={cn('space-y-[8px]', bodyClassName)}>
         {state ? (
           <ProductState
             {...state}
@@ -173,7 +173,7 @@ export function RumDetailPage({
         toolbar={toolbar}
       />
       <RumNavigation />
-      <SurfacePageBody className={cn('space-y-[12px]', bodyClassName)}>
+      <SurfacePageBody className={cn('space-y-[8px]', bodyClassName)}>
         {lead}
         {state ? (
           <ProductState

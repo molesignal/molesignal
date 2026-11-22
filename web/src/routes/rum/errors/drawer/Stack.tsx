@@ -62,7 +62,6 @@ export function StackCard({ stack }: { stack: RumIssueStack | null }) {
   return (
     <OverviewCard
       icon={Layers}
-      tone="text-[var(--chart-2)]"
       title={t('errors.stack.title')}
       description={
         frames.length === 0

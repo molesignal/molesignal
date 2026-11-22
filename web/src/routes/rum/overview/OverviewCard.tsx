@@ -14,7 +14,6 @@ import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 export function OverviewCard({
   title,
   icon: Icon,
-  tone = 'text-[var(--chart-1)]',
   description,
   action,
   testId,
@@ -24,8 +23,6 @@ export function OverviewCard({
 }: {
   title: React.ReactNode;
   icon?: LucideIcon | undefined;
-  /** The ink of the icon, a text colour class. */
-  tone?: string | undefined;
   description?: React.ReactNode;
   /** What the card offers beside its title, at the far end of its head: a way to the whole of it. */
   action?: React.ReactNode;
@@ -39,7 +36,7 @@ export function OverviewCard({
       <header className="flex min-h-10 items-center gap-3 border-b border-bd-0 px-3 py-[5px]">
         <div className="min-w-0 flex-1">
           <h2 className="m-0 flex items-center gap-1.5 type-section-title font-sans font-display text-tx-0">
-            {Icon && <Icon aria-hidden className={cn('h-4 w-4 shrink-0', tone)} />}
+            {Icon && <Icon aria-hidden className="h-4 w-4 shrink-0 text-tx-3" />}
             <span className="min-w-0 truncate">{title}</span>
           </h2>
           {description && <p className="m-0 mt-0.5 truncate font-sans text-xs text-tx-3">{description}</p>}

@@ -117,17 +117,16 @@ function OverviewPage({ applications }: { applications: readonly RumApplication[
       {numbers && (
         <>
           <OverviewPulse pulse={numbers} vitals={browser ? readVitals(vitals.data) : null} scope={scope} language={language} />
-          <div className={cn('grid min-w-0 gap-[12px]', hasMap && 'xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]')}>
+          <div className={cn('grid min-w-0 gap-[8px]', hasMap && 'xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]')}>
             <PagesCard query={pages} scope={scope} browser={browser} language={language} />
             {hasMap && <OriginsCard query={countries} total={numbers.sessions} scope={scope} language={language} />}
           </div>
-          <div className="grid min-w-0 gap-[12px] [grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))]">
+          <div className="grid min-w-0 gap-[8px] [grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))]">
             {browser && (
               <SharesCard
                 kind="browsers"
                 field="browser.name"
                 icon={AppWindow}
-                tone="text-[var(--chart-1)]"
                 query={browsers}
                 total={numbers.sessions}
                 scope={scope}
@@ -138,7 +137,6 @@ function OverviewPage({ applications }: { applications: readonly RumApplication[
               kind="systems"
               field="os.name"
               icon={Monitor}
-              tone="text-[var(--chart-6)]"
               query={systems}
               total={numbers.sessions}
               scope={scope}
@@ -148,14 +146,13 @@ function OverviewPage({ applications }: { applications: readonly RumApplication[
               kind="devices"
               field="device.type"
               icon={MonitorSmartphone}
-              tone="text-[var(--chart-4)]"
               query={devices}
               total={numbers.sessions}
               scope={scope}
               language={language}
             />
           </div>
-          <div className="grid min-w-0 gap-[12px] xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <div className="grid min-w-0 gap-[8px] xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <IssuesCard scope={scope} range={range} language={language} />
             <FrustrationCard query={frustration} scope={scope} browser={browser} language={language} />
           </div>
@@ -179,7 +176,7 @@ function OverviewPage({ applications }: { applications: readonly RumApplication[
       navigationEnd={<TimeRangeControl align="end" className={cn(CONTROL, 'max-w-[220px]')} />}
       navigationScope={scopeRow}
     >
-      <div data-rum-overview="" data-rum-platform={current.platform} className="space-y-[12px]">
+      <div data-rum-overview="" data-rum-platform={current.platform} className="space-y-[8px]">
         {numbers?.sessions === 0 ? (
           <ProductState
             variant="empty"

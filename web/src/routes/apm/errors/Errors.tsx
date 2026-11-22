@@ -70,7 +70,7 @@ export function ErrorList({ service }: { service?: { namespace: string; name: st
   const breakdown = errors.data?.breakdown;
 
   return (
-    <div className="space-y-[12px]">
+    <div className="space-y-[8px]">
       {breakdown && (errors.data?.items.length ?? 0) > 0 && (
         <ErrorBreakdownCard breakdown={breakdown} description={t('errors.breakdown.listed')} testId="errors-breakdown" />
       )}

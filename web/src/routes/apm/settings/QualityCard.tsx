@@ -143,7 +143,7 @@ export function QualityCard({
   }
 
   return (
-    <ApmCard icon={ShieldCheck} tone="text-[var(--blue-ink)]" title={t('org_settings.quality.title')} description={t('org_settings.quality.hint')} testId="settings-quality">
+    <ApmCard icon={ShieldCheck} title={t('org_settings.quality.title')} description={t('org_settings.quality.hint')} testId="settings-quality">
       <ApmQueryState query={query} empty={false} compact>
         {findings.length === 0 ? (
           <p className="px-3 py-3 font-sans text-xs font-strong text-[var(--green-ink)]">{t('org_settings.quality.clean')}</p>

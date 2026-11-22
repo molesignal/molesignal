@@ -141,8 +141,8 @@ export function RetentionView({ context }: { context: ScopeContext }) {
     read.data.cohorts.every((cohort) => cohort.returned.every((count) => count === null));
 
   return (
-    <div data-rum-analytics="retention" className="space-y-[12px]">
-      <OverviewCard icon={Repeat2} title={t('analytics.retention.title')} description={t('analytics.retention.description')} testId="retention" tone="text-[var(--chart-6)]">
+    <div data-rum-analytics="retention" className="space-y-[8px]">
+      <OverviewCard icon={Repeat2} title={t('analytics.retention.title')} description={t('analytics.retention.description')} testId="retention">
         <div className="flex flex-wrap items-center gap-2 border-b border-bd-0 px-3 py-2">
           <FittedSelect
             aria-label={t('analytics.retention.period')}

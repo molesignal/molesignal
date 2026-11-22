@@ -25,7 +25,7 @@ export function ErrorBreakdownCard({ breakdown, description, testId }: { breakdo
   };
 
   return (
-    <ApmCard icon={ChartBarBig} tone="text-[var(--red-ink)]" title={t('errors.breakdown.title')} description={description} testId={testId}>
+    <ApmCard icon={ChartBarBig} title={t('errors.breakdown.title')} description={description} testId={testId}>
       <div className="grid gap-x-6 gap-y-3 px-3 py-2 md:grid-cols-3">
         {PARTS.map((part) => (
           <section key={part} aria-label={t(`errors.breakdown.${part}`)} data-apm-error-breakdown={part} className="min-w-0">

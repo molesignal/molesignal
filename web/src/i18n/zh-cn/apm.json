@@ -370,7 +370,7 @@
       "apdex_hint": "不超过 T 的请求算满意，不超过 4T 算可容忍；留空使用默认的 500 毫秒",
       "aliases": "其他叫法",
       "aliases_placeholder": "order_service, 订单中心",
-      "aliases_hint":"日志、指标和其他系统对这个服务的叫法，用逗号分隔，例如 order_service、订单中心。按这些叫法也能找到服务，Mole Agent 排查时会读到；数据不会合并。要把旧名字上报的数据算作这个服务，在 APM 设置里添加服务别名。"
+      "aliases_hint": "日志、指标和其他系统对这个服务的叫法，用逗号分隔，例如 order_service、订单中心。按这些叫法也能找到服务，Mole Agent 排查时会读到；数据不会合并。要把旧名字上报的数据算作这个服务，在 APM 设置里添加服务别名。"
     },
     "aliases_problem": {
       "length": "每个叫法最多 128 个字符：{{alias}}",
@@ -524,7 +524,9 @@
     "distribution_previous": "虚线：对比期的分布",
     "distribution_compared": "虚线：{{what}}",
     "no_distribution": "该时间范围内没有请求。",
-    "apdex_threshold": "（T = {{threshold}}）"
+    "apdex_threshold": "（T = {{threshold}}）",
+    "vs_previous": "与上一时段相比",
+    "points": "{{value}} 个百分点"
   },
   "overview": {
     "downstream": "下游耗时",

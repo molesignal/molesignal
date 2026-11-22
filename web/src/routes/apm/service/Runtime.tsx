@@ -89,7 +89,7 @@ export function ServiceRuntime({ address, summary }: { address: ServiceAddress; 
   const choices = (instances.data ?? []).filter((instance) => instance.instanceId !== OTHER_DIMENSION);
 
   return (
-    <div className="space-y-[12px]">
+    <div className="space-y-[8px]">
       <ServiceInstances address={address} query={instances} chosen={chosen} onChoose={choose} />
       {pending ? (
         <ApmQueryState query={{ isPending: true, isError: false, error: null, refetch: () => undefined }} empty={false}>
@@ -126,7 +126,7 @@ export function ServiceRuntime({ address, summary }: { address: ServiceAddress; 
                 <Cpu aria-hidden className="h-3.5 w-3.5 text-[var(--chart-7)]" />
                 {t(`runtime.families.${family.key}`)}
               </h3>
-              <div className="grid min-w-0 gap-[12px] lg:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid min-w-0 gap-[8px] lg:grid-cols-2 2xl:grid-cols-3">
                 {charts.map(({ spec, candidate }) => {
                   const query = answerOf(family.key, spec.chart)!;
                   const series = query.data ? seriesOfResult(query.data, spec.unit) : [];

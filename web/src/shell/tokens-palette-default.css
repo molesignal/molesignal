@@ -117,16 +117,16 @@
   --blue-fill:   #4c86b5;  /* oklch(0.60 0.095 245) */
   --purple-fill: #8d71ae;  /* oklch(0.60 0.095 305) */
 
-  /* data viz series (8-color cycle, OKLCH-equalized for CVD safety). A chart is an area of
-   * colour: chroma 0.12 at most, the hues and lightness as before. */
-  --chart-1: #6473c0;  /* oklch(0.58 0.120 274) indigo — primary series */
-  --chart-2: #1faab0;  /* oklch(0.67 0.109 200) teal — secondary */
-  --chart-3: #d09a45;  /* oklch(0.72 0.120 76) amber — warning series */
-  --chart-4: #5bac6f;  /* oklch(0.68 0.120 150) green — health series */
-  --chart-5: #c2688b;  /* oklch(0.63 0.121 356) pink-magenta — distinct */
-  --chart-6: #935ea5;  /* oklch(0.57 0.121 317) purple — high-dim */
-  --chart-7: #4f9ad6;  /* oklch(0.66 0.117 245) sky blue */
-  --chart-8: #cf7e4d;  /* oklch(0.67 0.120 51) orange */
+  /* data viz series (8-color cycle, OKLCH-equalized for CVD safety): chroma up to 0.13, as much
+   * as each hue holds in sRGB, so lines carry the data rather than the frame. */
+  --chart-1: #6b7fd4;  /* oklch(0.62 0.130 272) indigo — primary series */
+  --chart-2: #1cb3bf;  /* oklch(0.70 0.115 204) teal — secondary */
+  --chart-3: #e49c4a;  /* oklch(0.75 0.130 67) amber — warning series */
+  --chart-4: #55b577;  /* oklch(0.70 0.130 153) green — health series */
+  --chart-5: #cf6e95;  /* oklch(0.66 0.130 356) pink-magenta — distinct */
+  --chart-6: #a16dbd;  /* oklch(0.62 0.130 313) purple — high-dim */
+  --chart-7: #57a0e8;  /* oklch(0.69 0.130 250) sky blue */
+  --chart-8: #dc8050;  /* oklch(0.69 0.130 47) orange */
 }
 
 [data-theme='light'],
@@ -229,13 +229,14 @@
   --blue-fill:   #5a93d8;  /* oklch(0.65 0.120 254) */
   --purple-fill: #a679c6;  /* oklch(0.65 0.121 310) */
 
-  /* chart series — darker on light theme for series legibility, chroma 0.11 at most */
-  --chart-1: #4e5ea2;  /* oklch(0.50 0.110 272) */
-  --chart-2: #1d868f;  /* oklch(0.57 0.090 204) */
-  --chart-3: #be8341;  /* oklch(0.66 0.110 67) */
-  --chart-4: #499562;  /* oklch(0.61 0.109 153) */
-  --chart-5: #ad5d7c;  /* oklch(0.58 0.110 356) */
-  --chart-6: #7f5596;  /* oklch(0.52 0.109 313) */
-  --chart-7: #4e88c3;  /* oklch(0.61 0.109 250) */
-  --chart-8: #b96d47;  /* oklch(0.61 0.110 47) */
+  /* chart series — lightness about 0.64 and chroma up to 0.13 on light: at 0.58 / 0.11 the lines read
+     grey and dim beside the classic monitoring palettes (Grafana's 0.67 / 0.14) */
+  --chart-1: #6073c7;  /* oklch(0.58 0.130 272) indigo — primary series */
+  --chart-2: #189ea9;  /* oklch(0.64 0.105 204) teal — secondary */
+  --chart-3: #d48d39;  /* oklch(0.70 0.130 67) amber — warning series */
+  --chart-4: #41a265;  /* oklch(0.64 0.130 153) green — health series */
+  --chart-5: #c26289;  /* oklch(0.62 0.130 356) pink-magenta — distinct */
+  --chart-6: #9561b1;  /* oklch(0.58 0.130 313) purple — high-dim */
+  --chart-7: #4d97de;  /* oklch(0.66 0.130 250) sky blue */
+  --chart-8: #d27747;  /* oklch(0.66 0.130 47) orange */
 }
