@@ -9,8 +9,8 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use domain::alerting::{
     postmortem::{
-        ActionItem, ActionItemStatus, OwnedActionItem, Postmortem, PostmortemRepository,
-        PostmortemStatus, PostmortemSummary,
+        ActionItem, ActionItemStatus, Postmortem, PostmortemRepository, PostmortemStatus,
+        PostmortemSummary,
     },
     response::{
         IncidentResponse, IncidentResponseRepository, IncidentTask, ResponseRole, ResponseSettings,
@@ -496,60 +496,5 @@ impl PostmortemRepository for PgIncidentResponseRepository {
         .rows_affected();
 
         Ok(deleted > 0)
-    }
-
-    async fn open_actions_owned_by(
-        &self,
-        org_id: &Id,
-        owner_id: &Id,
-        limit: i64,
-    ) -> Result<Vec<OwnedActionItem>> {
-        let rows = sqlx::query(&format!(
-            "SELECT {ACTION_COLS} FROM postmortem_action_items
-              WHERE org_id = $1 AND owner_id = $2 AND status = 'open'
-              ORDER BY due_at NULLS LAST, created_at
-              LIMIT $3"
-        ))
-        .bind(&org_id.0)
-        .bind(&owner_id.0)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_err)?;
-
-        let items = rows.iter().map(row_to_action).collect::<Result<Vec<_>>>()?;
-
-        let postmortem_ids = items
-            .iter()
-            .map(|item| item.postmortem_id.0.clone())
-            .collect::<Vec<_>>();
-
-        let titles = sqlx::query(
-            "SELECT id, title FROM incident_postmortems WHERE org_id = $1 AND id = ANY($2::TEXT[])",
-        )
-        .bind(&org_id.0)
-        .bind(&postmortem_ids)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_err)?
-        .iter()
-        .map(|row| {
-            Ok((
-                row.try_get("id").map_err(sqlx_err)?,
-                row.try_get("title").map_err(sqlx_err)?,
-            ))
-        })
-        .collect::<Result<BTreeMap<String, String>>>()?;
-
-        Ok(items
-            .into_iter()
-            .map(|item| OwnedActionItem {
-                postmortem_title: titles
-                    .get(&item.postmortem_id.0)
-                    .cloned()
-                    .unwrap_or_default(),
-                item,
-            })
-            .collect())
     }
 }

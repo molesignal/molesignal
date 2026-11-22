@@ -109,6 +109,16 @@ struct SignalOverview {
     rows: u64,
     stored_bytes: u64,
     last_received_at: Option<i64>,
+    /// What the signal's streams took in, bucket by bucket over the window, in the order of the
+    /// response's own `buckets`.
+    buckets: Vec<SignalBucket>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SignalBucket {
+    rows: u64,
+    stored_bytes: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -301,7 +311,7 @@ async fn overview(
         .max();
 
     let stats_succeeded = scans.iter().filter(|scan| scan.stats_ok).count();
-    let signals = signal_overviews(&streams);
+    let signals = signal_overviews(&scans, bucket_count);
     let (probe_healthy, probe_reason) = state.telemetry.probe.snapshot();
 
     let intake_status = if !probe_healthy {
@@ -457,7 +467,19 @@ mod tests {
             last_received_at: None,
         };
 
-        let signals = signal_overviews(&[active, empty]);
+        let scan = |overview: StreamOverview| StreamScan {
+            overview,
+            buckets: vec![
+                BucketTotals {
+                    rows: 5,
+                    stored_bytes: 50
+                };
+                2
+            ],
+            stats_ok: true,
+        };
+
+        let signals = signal_overviews(&[scan(active), scan(empty)], 2);
         let logs = signals
             .iter()
             .find(|signal| signal.stream_type == StreamType::LOGS)
@@ -465,6 +487,16 @@ mod tests {
         assert_eq!(logs.status, HealthStatus::Healthy);
         assert_eq!(logs.active_streams, 1);
         assert_eq!(logs.total_streams, 2);
+        assert_eq!(logs.buckets.len(), 2);
+        assert_eq!(logs.buckets[0].rows, 10);
+        assert_eq!(logs.buckets[1].stored_bytes, 100);
+
+        let metrics = signals
+            .iter()
+            .find(|signal| signal.stream_type == StreamType::METRICS)
+            .expect("metrics signal");
+        assert_eq!(metrics.buckets.len(), 2);
+        assert_eq!(metrics.buckets[0].rows, 0);
     }
 
     #[test]

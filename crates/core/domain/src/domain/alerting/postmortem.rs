@@ -135,15 +135,6 @@ pub struct PostmortemSummary {
     pub overdue_actions: i64,
 }
 
-/// 一个人名下的改进项，带上它所在复盘的标题：工作台的待办里列它。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OwnedActionItem {
-    #[serde(flatten)]
-    pub item: ActionItem,
-    pub postmortem_title: String,
-}
-
 #[async_trait]
 pub trait PostmortemRepository: Send + Sync {
     async fn list(&self, org_id: &Id, now: TimestampMicros) -> Result<Vec<PostmortemSummary>>;
@@ -154,13 +145,6 @@ pub trait PostmortemRepository: Send + Sync {
     async fn get_action(&self, org_id: &Id, id: &Id) -> Result<Option<ActionItem>>;
     async fn save_action(&self, item: ActionItem) -> Result<ActionItem>;
     async fn delete_action(&self, org_id: &Id, postmortem_id: &Id, id: &Id) -> Result<bool>;
-    /// 一个人名下还没做完的改进项，到期早的在前，没定到期的在后；最多 `limit` 项。
-    async fn open_actions_owned_by(
-        &self,
-        org_id: &Id,
-        owner_id: &Id,
-        limit: i64,
-    ) -> Result<Vec<OwnedActionItem>>;
 }
 
 #[cfg(test)]

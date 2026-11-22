@@ -10,7 +10,7 @@ use domain::{
 };
 use kernel::time::TimeRange;
 
-use super::{HealthStatus, OverviewBucket, SignalOverview, StreamOverview};
+use super::{HealthStatus, OverviewBucket, SignalBucket, SignalOverview, StreamOverview};
 
 pub(super) const HEALTHY_LAG_MICROS: i64 = 15 * 60 * 1_000_000;
 
@@ -155,7 +155,9 @@ pub(super) fn stream_status(
     }
 }
 
-pub(super) fn signal_overviews(streams: &[StreamOverview]) -> Vec<SignalOverview> {
+/// Each signal's streams together: their state, their totals and, bucket by bucket, what they took
+/// in over the window, so a list of signals can draw each one's trend.
+pub(super) fn signal_overviews(scans: &[StreamScan], bucket_count: usize) -> Vec<SignalOverview> {
     [
         StreamType::LOGS,
         StreamType::METRICS,
@@ -164,10 +166,20 @@ pub(super) fn signal_overviews(streams: &[StreamOverview]) -> Vec<SignalOverview
     ]
     .into_iter()
     .map(|stream_type| {
-        let matching = streams
+        let scans = scans
             .iter()
-            .filter(|stream| stream.stream_type == stream_type)
+            .filter(|scan| scan.overview.stream_type == stream_type)
             .collect::<Vec<_>>();
+
+        let matching = scans.iter().map(|scan| &scan.overview).collect::<Vec<_>>();
+        let mut buckets = vec![BucketTotals::default(); bucket_count];
+
+        for scan in &scans {
+            for (target, source) in buckets.iter_mut().zip(&scan.buckets) {
+                target.rows = target.rows.saturating_add(source.rows);
+                target.stored_bytes = target.stored_bytes.saturating_add(source.stored_bytes);
+            }
+        }
 
         let total_streams = matching.len();
         let active_streams = matching.iter().filter(|stream| stream.rows > 0).count();
@@ -211,6 +223,13 @@ pub(super) fn signal_overviews(streams: &[StreamOverview]) -> Vec<SignalOverview
                 .iter()
                 .filter_map(|stream| stream.last_received_at)
                 .max(),
+            buckets: buckets
+                .into_iter()
+                .map(|bucket| SignalBucket {
+                    rows: bucket.rows,
+                    stored_bytes: bucket.stored_bytes,
+                })
+                .collect(),
         }
     })
     .collect()

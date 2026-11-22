@@ -18,7 +18,6 @@ mod inhibitions;
 mod intake;
 mod oncall_load;
 mod oncall_transfer;
-mod postmortem_actions;
 mod remediation;
 mod remediation_clusters;
 mod resources;
@@ -117,7 +116,6 @@ pub fn routes() -> Router<AppState> {
         .merge(remediation_clusters::routes())
         .merge(tickets::routes())
         .merge(response::routes())
-        .merge(postmortem_actions::routes())
 }
 
 #[derive(Debug, Deserialize)]
