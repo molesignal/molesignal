@@ -11,11 +11,16 @@ pub(super) enum BinaryOutput {
     Comparison(bool),
 }
 
-/// 匹配签名：`on(l...)` 只保留这些 label；`ignoring(l...)` 去掉这些 label；
-/// 无 modifier → 整套 label（默认 1:1）。
+/// 匹配签名：`on(l...)` 只保留这些 label；`ignoring(l...)` 去掉这些 label 与指标名；
+/// 无 modifier → 除指标名外的整套 label（默认 1:1）。
 pub(super) fn match_signature(labels: &LabelSet, matching: Option<&LabelModifier>) -> LabelSet {
     match matching {
-        None => labels.clone(),
+        None => {
+            let mut out = labels.clone();
+
+            drop_name(&mut out);
+            out
+        }
         Some(LabelModifier::Include(on)) => {
             let mut out = LabelSet::new();
 
@@ -34,9 +39,42 @@ pub(super) fn match_signature(labels: &LabelSet, matching: Option<&LabelModifier
                 out.remove(key);
             }
 
+            drop_name(&mut out);
             out
         }
     }
+}
+
+/// 1:1 匹配的结果 label：左侧 label，算术 / `bool` 比较去掉指标名，再按 `on` 只留匹配
+/// label、按 `ignoring` 去掉匹配 label。
+fn one_to_one_labels(
+    lhs: &LabelSet,
+    matching: Option<&LabelModifier>,
+    drops_name: bool,
+) -> LabelSet {
+    let mut out = match matching {
+        Some(LabelModifier::Include(on)) => lhs
+            .iter()
+            .filter(|(name, _)| on.labels.contains(name))
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect(),
+        Some(LabelModifier::Exclude(ignoring)) => {
+            let mut out = lhs.clone();
+
+            for key in ignoring.labels.iter() {
+                out.remove(key);
+            }
+
+            out
+        }
+        None => lhs.clone(),
+    };
+
+    if drops_name {
+        drop_name(&mut out);
+    }
+
+    out
 }
 
 /// vector ↔ vector：按 `binary` 的集合运算 / 匹配基数派生结果项。
@@ -157,8 +195,10 @@ fn one_to_one(
         let output = apply_binary_output(op, *lhs_value, rhs_value)?;
 
         if let Some(value) = sample_binary_value(output, return_bool, *lhs_value) {
-            // 1:1 结果 label 集 = 匹配签名。
-            out.push((sig, value));
+            out.push((
+                one_to_one_labels(labels, matching, binary_drops_name(op, return_bool)),
+                value,
+            ));
         }
     }
 
@@ -208,6 +248,10 @@ fn group_match(
         };
 
         let mut labels = many_labels.clone();
+
+        if binary_drops_name(op, return_bool) {
+            drop_name(&mut labels);
+        }
 
         for key in extra {
             match one_labels.get(key) {
@@ -326,7 +370,15 @@ pub(super) fn apply_binary_instant(
         (false, false) => match_vectors(binary, lhs.items, rhs.items)?,
     };
 
-    Ok(InstantVector { items })
+    let vector = InstantVector { items };
+
+    // vector ↔ scalar：结果 label 就是 vector 侧的 label，算术 / `bool` 比较去掉指标名。
+    // vector ↔ vector 的结果 label 已在匹配时算好。
+    if lhs_is_scalar != rhs_is_scalar && binary_drops_name(binary.op, return_bool) {
+        return drop_name_instant(vector);
+    }
+
+    Ok(vector)
 }
 
 pub(super) fn apply_binary_range_scalar(
@@ -352,7 +404,13 @@ pub(super) fn apply_binary_range_scalar(
         }
     }
 
-    Ok(RangeVector { points })
+    let vector = RangeVector { points };
+
+    if binary_drops_name(binary.op, return_bool) {
+        return drop_name_range(vector);
+    }
+
+    Ok(vector)
 }
 
 pub(super) fn apply_binary_range(

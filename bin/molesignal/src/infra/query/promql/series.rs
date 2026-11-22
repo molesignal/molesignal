@@ -15,8 +15,8 @@ use super::*;
 /// 把 record batches 按 (指标名 + matchers 过滤) + (labels 分组) 转 Vec<Series>。
 ///
 /// 热路径：每行只做「时间裁剪 → 指标名与 matcher 直读列值 → series key 查表」三件事，
-/// 被过滤掉的行不构建 LabelSet；命中行也只在首次见到该 label 组合时构建一次。不带指标名的
-/// 选择器可能命中多个指标，它的 series 带上 `__name__`。
+/// 被过滤掉的行不构建 LabelSet；命中行也只在首次见到该 label 组合时构建一次。选择器的 series
+/// 一律带上 `__name__`；函数、算术与聚合在各自求值处按 PromQL 语义去掉它（见 `metric_name`）。
 /// 物化样本总数超过 `max_samples` 时直接报错（matrix 上限），提示收窄窗口。
 pub(super) fn batches_to_series(
     batches: &[RecordBatch],
@@ -26,7 +26,8 @@ pub(super) fn batches_to_series(
     end_us: i64,
     max_samples: usize,
 ) -> Result<Vec<Series>> {
-    let keep_name = filter.name().is_none();
+    // 固定指标名的选择器每行指标名都一样，series key 里不必再放它。
+    let key_has_name = filter.name().is_none();
     let mut by_key: HashMap<String, usize> = HashMap::new();
     let mut series: Vec<Series> = Vec::new();
     let mut total = 0usize;
@@ -110,7 +111,7 @@ pub(super) fn batches_to_series(
 
             key_buf.clear();
 
-            if keep_name {
+            if key_has_name {
                 key_buf.push_str(metric_name_arr.value(row));
                 key_buf.push('\u{2}');
             }
@@ -131,9 +132,10 @@ pub(super) fn batches_to_series(
                 None => {
                     let mut labels = LabelSet::new();
 
-                    if keep_name {
-                        labels.insert("__name__".into(), metric_name_arr.value(row).to_string());
-                    }
+                    labels.insert(
+                        METRIC_NAME_LABEL.into(),
+                        metric_name_arr.value(row).to_string(),
+                    );
 
                     for (name, arr) in &label_cols {
                         if !arr.is_null(row) {

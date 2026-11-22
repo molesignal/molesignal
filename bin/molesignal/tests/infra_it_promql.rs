@@ -653,6 +653,96 @@ async fn streaming_agg_cache_slide_recomputes_only_new_bucket() {
     assert_eq!(res2.rows, res_nocache.rows, "slid cached == no-cache");
 }
 
+/// 诊断 C7 的两处缓存偏差：start 不在整分钟上时步点必须是 `start + n*step`，且先查过大窗口
+/// 再查小窗口时不能吐出小窗口之外的已封存点。三次查询（小 → 大 → 小）缓存路径都与无缓存路径
+/// 逐行一致。
+#[tokio::test]
+async fn streaming_agg_cache_keeps_the_request_grid_and_window() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store: Arc<dyn ObjectStore> =
+        Arc::new(LocalFileSystem::new_with_prefix(tmp.path()).unwrap());
+    let writer = ParquetWriter::new(store.clone());
+    let repo: Arc<InMemQueryFile> = Arc::new(InMemQueryFile::default());
+    let stream = metric_stream();
+
+    let step_us: i64 = 60_000_000;
+    let minute_aligned: i64 = (1_700_000_000_000_000 / step_us) * step_us;
+    let narrow_start = minute_aligned + 25_000_000;
+    let narrow_end = narrow_start + 5 * step_us;
+    let wide_start = narrow_start - 60 * step_us;
+    let wide_end = narrow_start + 60 * step_us;
+    let range_us: i64 = 300_000_000;
+
+    for (method, code) in &[("GET", "200"), ("POST", "200")] {
+        flush_counter_range(
+            &writer,
+            &stream,
+            &repo,
+            wide_start - range_us,
+            wide_end + step_us,
+            15_000_000,
+            method,
+            code,
+        )
+        .await;
+    }
+
+    let mk_req = |s: i64, e: i64| QueryRequest {
+        org_id: stream.org_id.clone(),
+        language: QueryLanguage::Promql,
+        statement: "rate(http_requests_total[5m])".into(),
+        time_range: TimeRange::new(TimestampMicros(s), TimestampMicros(e)),
+        stream: None,
+        limit: None,
+        step: Some(step_us),
+        federation_clusters: Vec::new(),
+    };
+
+    let cache = Arc::new(StreamingAggCache::new(&StreamAggCacheSettings {
+        max_size: 64,
+        ..Default::default()
+    }));
+    let cached = engine(&repo, &store)
+        .await
+        .with_streaming_cache(cache.clone(), Duration::from_secs(300));
+    let nocache = engine(&repo, &store).await;
+
+    for (s, e) in [
+        (narrow_start, narrow_end),
+        (wide_start, wide_end),
+        (narrow_start, narrow_end),
+    ] {
+        let expected = nocache.execute(mk_req(s, e)).await.expect("nocache");
+        let got = cached.execute(mk_req(s, e)).await.expect("cached");
+
+        assert_eq!(got.columns, expected.columns);
+        assert_eq!(got.rows, expected.rows, "cached == no-cache for [{s}, {e}]");
+    }
+
+    // 小窗口：两条 series 各 6 个步点，第一个就是 start。
+    let narrow = cached
+        .execute(mk_req(narrow_start, narrow_end))
+        .await
+        .expect("narrow");
+    let ts_col = narrow
+        .columns
+        .iter()
+        .position(|c| c == "_timestamp")
+        .unwrap();
+    let mut timestamps: Vec<i64> = narrow
+        .rows
+        .iter()
+        .map(|row| row[ts_col].as_i64().expect("timestamp"))
+        .collect();
+    timestamps.sort_unstable();
+    timestamps.dedup();
+
+    assert_eq!(narrow.rows.len(), 12);
+    assert_eq!(timestamps.len(), 6);
+    assert_eq!(timestamps[0], narrow_start);
+    assert_eq!(*timestamps.last().unwrap(), narrow_end);
+}
+
 /// queryable 闸门（PromQL 路径）：装配 StreamRepository 后，命中的 metric stream 若被标记
 /// 不可查询则整条查询返回 Forbidden；标记为可查询时照常求值。
 #[tokio::test]

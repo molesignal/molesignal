@@ -94,8 +94,13 @@ impl SealedSeries {
 
     /// 把一批新算出的封存桶并入。`new_buckets` 的每项是 `(labels, [(bucket_ts, value)])`，
     /// 且这些桶都 `<= watermark`（由调用方保证）。`sealed_from..=sealed_through` 是本次封存
-    /// 覆盖的 grid 桶区间。`step_us` + `max_buckets`（每 series 桶数上限，0 = 不限）决定老桶
-    /// prune（统一下界，保封存区间不变量）；`max_series`（0 = 不限）限制单指纹缓存的 series 数。
+    /// 覆盖的 grid 桶区间：区间内每个桶的所有 series 都已算入。`step_us` + `max_buckets`
+    /// （每 series 桶数上限，0 = 不限）决定老桶 prune（统一下界，保封存区间不变量）；
+    /// `max_series`（0 = 不限）限制单指纹缓存的 series 数。
+    ///
+    /// 两种情况会破坏「区间内全 series 覆盖」，此时丢掉已有内容、只留本次封存（或什么都不留）：
+    /// - 本次区间与已有区间既不重叠也不相邻：合并会把中间没算过的桶算作已封存；
+    /// - series 数超出 `max_series`：被挤掉的 series 在封存区间里会缺席。
     pub fn seal(
         &mut self,
         new_buckets: Vec<(CachedLabels, Vec<(i64, f64)>)>,
@@ -109,12 +114,19 @@ impl SealedSeries {
             return; // 没有可封存的桶（活跃区为空 / 水位早于查询）
         }
 
-        if self.series.is_empty() {
-            self.stable_from = sealed_from;
-            self.stable_through = sealed_through;
-        } else {
+        let has_range = self.stable_from <= self.stable_through;
+
+        let joins = has_range
+            && sealed_from <= self.stable_through.saturating_add(step_us)
+            && sealed_through.saturating_add(step_us) >= self.stable_from;
+
+        if joins {
             self.stable_from = self.stable_from.min(sealed_from);
             self.stable_through = self.stable_through.max(sealed_through);
+        } else {
+            self.series.clear();
+            self.stable_from = sealed_from;
+            self.stable_through = sealed_through;
         }
 
         for (labels, buckets) in new_buckets {
@@ -126,8 +138,12 @@ impl SealedSeries {
                 existing.extend(buckets);
             } else if max_series == 0 || self.series.len() < max_series {
                 self.series.insert(labels, buckets.into_iter().collect());
+            } else {
+                // 本次结果已含这条 series 的点（调用方已 emit），但缓存装不下它：整条目作废，
+                // 下次全量重算，不服务缺了 series 的封存区间。
+                *self = Self::default();
+                return;
             }
-            // 超 max_series 的新 series：本次结果已含其计算点（调用方已 emit），仅不进缓存。
         }
 
         // 统一按 grid 从老端 prune，封顶单 series 桶数；统一下界保证封存区间不变量不破。
@@ -401,9 +417,44 @@ mod tests {
             0,
             2, // cap = 2 series
         );
-        let mut count = 0u64;
-        s.serve(100, 100, |_, _, _| count += 1);
-        assert_eq!(count, 2, "third series skipped by cap");
+        assert!(s.is_empty(), "an entry missing a series must not be served");
+        assert!(s.stable_from() > s.stable_through(), "no sealed range left");
+    }
+
+    #[test]
+    fn seal_does_not_bridge_a_gap() {
+        // 已封存 [100,200]，这次封存 [500,600]：300、400 从没算过，不能算作已封存。
+        let mut s = SealedSeries::default();
+        let a = labels(&[("m", "a")]);
+        let b = labels(&[("m", "b")]);
+        s.seal(vec![(b, vec![(100, 9.0), (200, 9.0)])], 100, 200, 100, 0, 0);
+        s.seal(
+            vec![(a.clone(), vec![(500, 5.0), (600, 6.0)])],
+            500,
+            600,
+            100,
+            0,
+            0,
+        );
+
+        assert_eq!(s.stable_from(), 500);
+        assert_eq!(s.stable_through(), 600);
+
+        let mut got = Vec::new();
+        s.serve(0, 1000, |l, ts, _| got.push((l.clone(), ts)));
+        got.sort();
+        assert_eq!(got, vec![(a.clone(), 500), (a, 600)]);
+    }
+
+    #[test]
+    fn seal_joins_an_adjacent_range() {
+        let mut s = SealedSeries::default();
+        let a = labels(&[("m", "a")]);
+        s.seal(vec![(a.clone(), vec![(100, 1.0)])], 100, 200, 100, 0, 0);
+        s.seal(vec![(a, vec![(300, 3.0)])], 300, 300, 100, 0, 0);
+
+        assert_eq!(s.stable_from(), 100);
+        assert_eq!(s.stable_through(), 300);
     }
 
     #[test]

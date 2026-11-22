@@ -87,6 +87,7 @@ mod functions;
 mod incremental;
 mod labels;
 mod math;
+mod metric_name;
 mod metric_source;
 mod range_funcs;
 mod rate;
@@ -110,6 +111,7 @@ use functions::*;
 use incremental::StreamingAgg;
 use labels::*;
 use math::*;
+use metric_name::*;
 use metric_source::{MetricFilter, MetricSources};
 use range_funcs::*;
 use rate::*;
@@ -305,7 +307,11 @@ impl PromQLEngine {
             Expr::Unary(unary) => self.eval_range_unary(unary, req).await,
             Expr::Binary(binary) => self.eval_range_binary(binary, req).await,
             Expr::Aggregate(agg) => self.eval_range_aggregate(agg, req).await,
-            Expr::Call(call) => self.eval_range_call(call, req).await,
+            Expr::Call(call) => self
+                .eval_range_call(call, req)
+                .await?
+                .map(|vector| after_function_range(call.func.name, vector))
+                .transpose(),
             Expr::VectorSelector(vs) => self.eval_range_vector_selector(vs, req).await.map(Some),
             _ => Ok(None),
         }
@@ -320,7 +326,7 @@ impl PromQLEngine {
             return Ok(None);
         };
 
-        Ok(Some(negate_range_vector(inner)))
+        drop_name_range(negate_range_vector(inner)).map(Some)
     }
 
     async fn eval_range_binary(
@@ -637,7 +643,10 @@ impl PromQLEngine {
             Expr::Unary(unary) => self.eval_unary(unary, req, at_us).await,
             Expr::Binary(binary) => self.eval_binary(binary, req, at_us).await,
             Expr::Aggregate(agg) => self.eval_aggregate(agg, req, at_us).await,
-            Expr::Call(call) => self.eval_call(call, req, at_us).await,
+            Expr::Call(call) => self
+                .eval_call(call, req, at_us)
+                .await
+                .and_then(|vector| after_function_instant(call.func.name, vector)),
             Expr::VectorSelector(vs) => self.eval_instant_vector(vs, req, at_us).await,
             Expr::MatrixSelector(_) => Err(Error::invalid(
                 "MatrixSelector cannot appear standalone; wrap with rate()/increase()/...",
@@ -655,7 +664,7 @@ impl PromQLEngine {
         at_us: i64,
     ) -> Result<InstantVector> {
         let inner = Box::pin(self.eval(&unary.expr, req, at_us)).await?;
-        Ok(negate_instant_vector(inner))
+        drop_name_instant(negate_instant_vector(inner))
     }
 
     async fn eval_binary(

@@ -4,9 +4,10 @@
 //! range PromQL 的按窗口分桶增量缓存接入层（缓存类型见
 //! [`crate::infra::caching::streaming_agg`]）。
 //!
-//! 思路：把 range 求值点归一到 **step 绝对网格**（`floor(t/step)*step`），让仪表盘
-//! 滑动刷新时相邻两次查询的步点落在同一批 grid 桶上 → 可跨刷新复用。每个 grid 桶按
-//! 「窗口右端 vs 水位」分稳定 / 活跃：
+//! 思路：range 求值点就是请求的步点 `start + n*step`。同一 step、同一网格相位
+//! （`start mod step`）的请求步点落在同一套网格上，仪表盘滑动刷新（start 平移整数倍 step）
+//! 时相邻两次查询的步点重合 → 可跨刷新复用；相位不同的请求进不同的缓存条目，绝不共用
+//! 求值结果。每个网格桶按「窗口右端 vs 水位」分稳定 / 活跃：
 //! - **稳定**（`t <= watermark`）：值已封存，入缓存、跨刷新命中。
 //! - **活跃**（`t > watermark`）：每次重算、不缓存（规避晚到数据）。
 //!
@@ -30,17 +31,12 @@ pub(super) struct StreamingAgg {
     pub(super) safe_lookback_us: i64,
 }
 
-/// 把时间戳向上取到 step 网格（第一个 `>= t` 的 step 倍数）。
-fn grid_ceil(t: i64, step_us: i64) -> i64 {
+/// 把时间戳向下取到相位为 `phase` 的 step 网格：最后一个 `<= t` 的 `phase + n*step`。
+fn grid_floor(t: i64, step_us: i64, phase: i64) -> i64 {
     let step = step_us.max(1);
-    let r = t.rem_euclid(step);
-    if r == 0 { t } else { t + (step - r) }
-}
+    let shifted = t - phase;
 
-/// 把时间戳向下取到 step 网格（最后一个 `<= t` 的 step 倍数）。
-fn grid_floor(t: i64, step_us: i64) -> i64 {
-    let step = step_us.max(1);
-    t - t.rem_euclid(step)
+    shifted - shifted.rem_euclid(step) + phase
 }
 
 fn match_op_tag(op: &MatchOp) -> &'static str {
@@ -52,15 +48,16 @@ fn match_op_tag(op: &MatchOp) -> &'static str {
     }
 }
 
-/// 查询指纹：`blake3(org + 函数指纹 + 选择器 + window + step)`。选择器 matcher 经规范化
-/// 排序，使语义相同但书写顺序不同的查询命中同一缓存。`step` 入指纹是因为它决定网格与窗口
-/// 划分——请求的 step 不同即另一套桶，不可混用。
+/// 查询指纹：`blake3(org + 函数指纹 + 选择器 + window + step + 网格相位)`。选择器 matcher
+/// 经规范化排序，使语义相同但书写顺序不同的查询命中同一缓存。`step` 与相位
+/// （`start mod step`）入指纹是因为二者决定求值时刻——任一不同即另一套桶，不可混用。
 fn selector_fingerprint(
     org_id: &str,
     func_key: &str,
     vs: &VectorSelector,
     range_us: i64,
     step_us: i64,
+    phase: i64,
 ) -> String {
     let mut matcher_parts: Vec<String> = vs
         .matchers
@@ -99,6 +96,8 @@ fn selector_fingerprint(
     s.push_str(&range_us.to_string());
     s.push('\u{1}');
     s.push_str(&step_us.to_string());
+    s.push('\u{1}');
+    s.push_str(&phase.to_string());
 
     for p in matcher_parts {
         s.push('\u{2}');
@@ -122,12 +121,14 @@ struct ComputePlan {
     serve: Option<(i64, i64)>,
 }
 
-/// 给定缓存已封存区间 `[stable_from, stable_through]` 与本次查询的 grid 边界
-/// `[q_lo, q_hi]` + 水位 `watermark`，规划「服务哪段缓存、从哪个桶起重算」。
+/// 给定缓存已封存区间 `[stable_from, stable_through]` 与本次查询的网格边界
+/// `[q_lo, q_hi]` + 已落到网格上的水位 `watermark`，规划「服务哪段缓存、从哪个桶起重算」。
+/// 所有入参都在同一套网格上。
 ///
 /// - 查询下界落在缓存覆盖之下（`q_lo < stable_from`）→ 全量重算、重新封存这段。
 /// - 否则仅信任 `[stable_from, min(stable_through, watermark)]`（水位回退时强制重算
-///   `(watermark, stable_through]`），其余从 `min(through, wm) + step` 起重算。
+///   `(watermark, stable_through]`），只服务其中落在 `[q_lo, q_hi]` 的部分，其余从
+///   `min(through, wm) + step` 起重算。
 fn plan_compute_range(
     stable_from: i64,
     stable_through: i64,
@@ -144,9 +145,10 @@ fn plan_compute_range(
     }
 
     let trusted = stable_through.min(watermark);
+    let serve_hi = trusted.min(q_hi);
 
-    let serve = if q_lo <= trusted {
-        Some((q_lo, trusted))
+    let serve = if q_lo <= serve_hi {
+        Some((q_lo, serve_hi))
     } else {
         None
     };
@@ -226,7 +228,7 @@ impl PromQLEngine {
 
     /// range 函数（rate / `*_over_time` / delta 等）的增量缓存求值。`compute` 是纯窗口
     /// 求值（`(step_ts, 窗口样本, 样本元数据) -> Option<value>`），与未缓存路径共用
-    /// 同一份逻辑，保证同一 (step_ts, 窗口) 取值一致——仅输出落在 step 网格上的步点。
+    /// 同一份逻辑，保证同一 (step_ts, 窗口) 取值一致——只输出请求的步点 `start + n*step`。
     pub(super) async fn eval_windowed_cached<F>(
         &self,
         vs: &VectorSelector,
@@ -246,17 +248,29 @@ impl PromQLEngine {
         let cache = &agg.cache;
         let step_us = range_step_us(req);
         let range_us = (range.as_micros() as i64).max(1);
-        let q_lo = grid_ceil(req.time_range.start.0, step_us);
-        let q_hi = grid_floor(req.time_range.end.0, step_us);
+        let q_lo = req.time_range.start.0;
+        let phase = q_lo.rem_euclid(step_us);
+        let q_hi = grid_floor(req.time_range.end.0.max(q_lo), step_us, phase);
 
-        // 水位 = min(now - safe_lookback, intake 水位)。
+        // 水位 = min(now - safe_lookback, intake 水位)，落到请求网格上：网格点 t 稳定当且仅当
+        // t <= watermark。早于 q_lo 的水位一律按 q_lo - step 算（本次无可封存桶）。
         let intake_wm = self.intake_watermark(vs, req).await?;
 
         let watermark = now_micros()
             .saturating_sub(agg.safe_lookback_us)
-            .min(intake_wm);
+            .min(intake_wm)
+            .max(q_lo.saturating_sub(step_us));
 
-        let fp = selector_fingerprint(req.org_id.0.as_str(), func_key, vs, range_us, step_us);
+        let watermark = grid_floor(watermark, step_us, phase);
+
+        let fp = selector_fingerprint(
+            req.org_id.0.as_str(),
+            func_key,
+            vs,
+            range_us,
+            step_us,
+            phase,
+        );
         let entry = cache.get(&fp).await;
 
         // 规划：从快照读已封存区间，决定 compute_lo / serve。
@@ -289,9 +303,12 @@ impl PromQLEngine {
         let mut points: Vec<RangePoint> = Vec::new();
         let mut sealed: std::collections::HashMap<LabelSet, Vec<(i64, f64)>> =
             std::collections::HashMap::new();
-        let mut sealed_lo = i64::MAX;
-        let mut sealed_hi = i64::MIN;
         let mut miss_points = 0u64;
+
+        // 本次重算覆盖的稳定网格桶区间：区间里每个桶的所有 series 都算过，可整段封存
+        // （没有点的桶也算覆盖过，之后照样服务成「无点」）。
+        let seal_lo = plan.compute_lo;
+        let seal_hi = q_hi.min(watermark);
 
         // 重算活跃 + 未缓存稳定区：只扫 [compute_lo - range, end]。
         if plan.compute_lo <= q_hi {
@@ -326,10 +343,8 @@ impl PromQLEngine {
                             value: v,
                         });
 
-                        if t <= watermark {
+                        if t <= seal_hi {
                             sealed.entry(s.labels.clone()).or_default().push((t, v));
-                            sealed_lo = sealed_lo.min(t);
-                            sealed_hi = sealed_hi.max(t);
                             miss_points += 1;
                         }
                     },
@@ -356,7 +371,7 @@ impl PromQLEngine {
         cache.record_misses(miss_points);
 
         // 回填本次新封存的桶。
-        if sealed_lo <= sealed_hi {
+        if plan.compute_lo <= q_hi && seal_lo <= seal_hi {
             let new_buckets: Vec<(LabelSet, Vec<(i64, f64)>)> = sealed.into_iter().collect();
             let max_buckets = cache.max_buckets_per_series();
             let max_series = cache.max_series_per_query();
@@ -365,8 +380,8 @@ impl PromQLEngine {
                 Some(e) => {
                     e.write().unwrap().seal(
                         new_buckets,
-                        sealed_lo,
-                        sealed_hi,
+                        seal_lo,
+                        seal_hi,
                         step_us,
                         max_buckets,
                         max_series,
@@ -380,8 +395,8 @@ impl PromQLEngine {
 
                     fresh.seal(
                         new_buckets,
-                        sealed_lo,
-                        sealed_hi,
+                        seal_lo,
+                        seal_hi,
                         step_us,
                         max_buckets,
                         max_series,
@@ -401,16 +416,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn grid_alignment_rounds_to_step_multiples() {
-        assert_eq!(grid_ceil(100, 50), 100);
-        assert_eq!(grid_ceil(101, 50), 150);
-        assert_eq!(grid_ceil(149, 50), 150);
-        assert_eq!(grid_floor(100, 50), 100);
-        assert_eq!(grid_floor(149, 50), 100);
-        assert_eq!(grid_floor(150, 50), 150);
-        // 同一 grid 跨「滑动」复现：start 平移整数倍 step 时 grid 点集合相同。
-        let step = 60;
-        assert_eq!(grid_ceil(1_000, step), grid_ceil(1_000 + step, step) - step);
+    fn grid_floor_keeps_the_request_phase() {
+        assert_eq!(grid_floor(100, 50, 0), 100);
+        assert_eq!(grid_floor(149, 50, 0), 100);
+        assert_eq!(grid_floor(150, 50, 0), 150);
+        assert_eq!(grid_floor(149, 50, 25), 125);
+        assert_eq!(grid_floor(124, 50, 25), 75);
+        assert_eq!(grid_floor(-1, 50, 25), -25);
+    }
+
+    /// 诊断里的原始请求：start 不在整分钟上、5 分钟、step 60s，应有 6 个步点，
+    /// 第一个就是 start，而不是下一个整分钟。
+    #[test]
+    fn request_grid_starts_at_start_and_keeps_every_step() {
+        let start = 1_793_845_125_000_000_i64;
+        let end = 1_793_845_425_000_000_i64;
+        let step = 60_000_000_i64;
+        let phase = start.rem_euclid(step);
+        let q_hi = grid_floor(end, step, phase);
+
+        assert_eq!(q_hi, end);
+        assert_eq!((q_hi - start) / step + 1, 6);
     }
 
     #[test]
@@ -441,6 +467,15 @@ mod tests {
     }
 
     #[test]
+    fn plan_never_serves_past_the_query_end() {
+        // 先查过大窗口，缓存已封存到 5000；再查小窗口 [300,700]，只能服务到 700。
+        let p = plan_compute_range(100, 5000, 300, 700, 6000, 100);
+
+        assert_eq!(p.serve, Some((300, 700)));
+        assert!(p.compute_lo > 700, "nothing left to compute");
+    }
+
+    #[test]
     fn plan_no_slide_refresh_serves_all() {
         // 同一窗口再查一次、且上次已全封存（through == q_hi <= watermark）→ 全服务、零重算。
         let p = plan_compute_range(100, 1300, 300, 1300, 5000, 100);
@@ -467,34 +502,39 @@ mod tests {
         let (vs_a, r_a) = vs_of("rate(http_requests_total{method=\"GET\",code=\"200\"}[1m])");
         // matcher 书写顺序不同，语义相同 → 同指纹。
         let (vs_b, r_b) = vs_of("rate(http_requests_total{code=\"200\",method=\"GET\"}[1m])");
-        let fa = selector_fingerprint("org", "rate", &vs_a, r_a.as_micros() as i64, 1000);
-        let fb = selector_fingerprint("org", "rate", &vs_b, r_b.as_micros() as i64, 1000);
+        let fa = selector_fingerprint("org", "rate", &vs_a, r_a.as_micros() as i64, 1000, 0);
+        let fb = selector_fingerprint("org", "rate", &vs_b, r_b.as_micros() as i64, 1000, 0);
         assert_eq!(fa, fb, "matcher order must not change fingerprint");
 
-        // 不同 step / window / 函数 / org → 不同指纹。
+        // 不同 step / 网格相位 / window / 函数 / org → 不同指纹。
         assert_ne!(
             fa,
-            selector_fingerprint("org", "rate", &vs_a, r_a.as_micros() as i64, 2000)
+            selector_fingerprint("org", "rate", &vs_a, r_a.as_micros() as i64, 2000, 0)
         );
         assert_ne!(
             fa,
-            selector_fingerprint("org", "increase", &vs_a, r_a.as_micros() as i64, 1000)
+            selector_fingerprint("org", "rate", &vs_a, r_a.as_micros() as i64, 1000, 500),
+            "same step, different phase → different evaluation times"
         );
         assert_ne!(
             fa,
-            selector_fingerprint("org2", "rate", &vs_a, r_a.as_micros() as i64, 1000)
+            selector_fingerprint("org", "increase", &vs_a, r_a.as_micros() as i64, 1000, 0)
+        );
+        assert_ne!(
+            fa,
+            selector_fingerprint("org2", "rate", &vs_a, r_a.as_micros() as i64, 1000, 0)
         );
         let (vs_c, r_c) = vs_of("rate(http_requests_total{method=\"GET\",code=\"200\"}[5m])");
         assert_ne!(
             fa,
-            selector_fingerprint("org", "rate", &vs_c, r_c.as_micros() as i64, 1000),
+            selector_fingerprint("org", "rate", &vs_c, r_c.as_micros() as i64, 1000, 0),
             "different window → different fingerprint"
         );
         // 不同 metric → 不同指纹。
         let (vs_d, r_d) = vs_of("rate(other_metric{method=\"GET\",code=\"200\"}[1m])");
         assert_ne!(
             fa,
-            selector_fingerprint("org", "rate", &vs_d, r_d.as_micros() as i64, 1000)
+            selector_fingerprint("org", "rate", &vs_d, r_d.as_micros() as i64, 1000, 0)
         );
     }
 

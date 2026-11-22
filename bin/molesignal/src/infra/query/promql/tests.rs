@@ -213,7 +213,10 @@ fn batches_to_series_filters_container_metric_and_hides_storage_identity() {
         series[0].samples,
         vec![(10_000_000, 1.0), (20_000_000, 2.0)]
     );
-    assert_eq!(series[0].labels, ls(&[("node.id", "node-1")]));
+    assert_eq!(
+        series[0].labels,
+        ls(&[("__name__", "requests_total"), ("node.id", "node-1")])
+    );
     assert!(!series[0].labels.contains_key("metric_name"));
     assert!(!series[0].labels.contains_key("metric_kind"));
     assert_eq!(series[0].sample_metadata.len(), 2);
@@ -2141,7 +2144,7 @@ fn batches_to_series_matches_columns_and_merges_across_schemas() {
         batches_to_series(&batches, &matchers, &metric("m"), 0, i64::MAX, usize::MAX).unwrap();
 
     assert_eq!(series.len(), 1, "host=b filtered, host=a merged");
-    assert_eq!(series[0].labels, ls(&[("host", "a")]));
+    assert_eq!(series[0].labels, ls(&[("__name__", "m"), ("host", "a")]));
     assert_eq!(series[0].samples, vec![(1_000_000, 1.0), (3_000_000, 3.0)]);
 }
 
@@ -2220,5 +2223,116 @@ fn a_selector_without_a_name_keeps_each_metric_apart() {
     assert_eq!(
         MetricFilter::of(&selector(r#"{"cpu.usage"}"#)),
         MetricFilter::Name("cpu.usage".into())
+    );
+}
+
+#[test]
+fn a_named_selector_keeps_its_metric_name() {
+    let batch = named(
+        RecordBatch::try_new(
+            Arc::new(arrow::datatypes::Schema::new(vec![
+                arrow::datatypes::Field::new(
+                    "_timestamp",
+                    DataType::Timestamp(arrow::datatypes::TimeUnit::Microsecond, None),
+                    false,
+                ),
+                arrow::datatypes::Field::new("value", DataType::Float64, false),
+                arrow::datatypes::Field::new("job", DataType::Utf8, false),
+            ])),
+            vec![
+                Arc::new(TimestampMicrosecondArray::from(vec![1])),
+                Arc::new(Float64Array::from(vec![1.0])),
+                Arc::new(StringArray::from(vec!["api"])),
+            ],
+        )
+        .unwrap(),
+        "up",
+    );
+
+    let series =
+        batches_to_series(&[batch], &Matchers::empty(), &metric("up"), 0, i64::MAX, 10).unwrap();
+
+    assert_eq!(series[0].labels, ls(&[("__name__", "up"), ("job", "api")]));
+}
+
+#[test]
+fn arithmetic_drops_the_metric_name_and_filtering_keeps_it() {
+    let lhs = || InstantVector {
+        items: vec![(ls(&[("__name__", "cpu"), ("host", "a")]), 81.0)],
+    };
+
+    let scaled = apply_binary_instant(
+        &binary_expr("cpu / 100"),
+        lhs(),
+        scalar_vector(100.0),
+        false,
+        true,
+    )
+    .unwrap();
+    assert_eq!(scaled.items[0].0, ls(&[("host", "a")]));
+
+    let filtered = apply_binary_instant(
+        &binary_expr("cpu > 80"),
+        lhs(),
+        scalar_vector(80.0),
+        false,
+        true,
+    )
+    .unwrap();
+    assert_eq!(
+        filtered.items[0].0,
+        ls(&[("__name__", "cpu"), ("host", "a")])
+    );
+
+    let flagged = apply_binary_instant(
+        &binary_expr("cpu > bool 80"),
+        lhs(),
+        scalar_vector(80.0),
+        false,
+        true,
+    )
+    .unwrap();
+    assert_eq!(flagged.items[0].0, ls(&[("host", "a")]));
+
+    let negated = drop_name_instant(negate_instant_vector(lhs())).unwrap();
+    assert_eq!(negated.items[0].0, ls(&[("host", "a")]));
+}
+
+#[test]
+fn vector_matching_ignores_the_metric_name() {
+    let lhs = || vec![(ls(&[("__name__", "used"), ("host", "a")]), 6.0)];
+    let rhs = || vec![(ls(&[("__name__", "total"), ("host", "a")]), 8.0)];
+
+    let ratio = match_vectors(&binary_expr("used / total"), lhs(), rhs()).unwrap();
+    assert_eq!(ratio, vec![(ls(&[("host", "a")]), 0.75)]);
+
+    let below = match_vectors(&binary_expr("used < total"), lhs(), rhs()).unwrap();
+    assert_eq!(
+        below,
+        vec![(ls(&[("__name__", "used"), ("host", "a")]), 6.0)]
+    );
+
+    let both = match_vectors(&binary_expr("used and total"), lhs(), rhs()).unwrap();
+    assert_eq!(both, lhs());
+}
+
+#[test]
+fn without_drops_the_metric_name_and_by_keeps_only_what_it_names() {
+    let labels = ls(&[("__name__", "up"), ("job", "api"), ("pod", "1")]);
+
+    let without = Some(LabelModifier::Exclude(promql_parser::label::Labels::new(
+        vec!["pod"],
+    )));
+    assert_eq!(
+        project_labels(&labels, without.as_ref()),
+        ls(&[("job", "api")])
+    );
+
+    let by = Some(LabelModifier::Include(promql_parser::label::Labels::new(
+        vec!["__name__"],
+    )));
+    assert_eq!(
+        project_labels(&labels, by.as_ref()),
+        ls(&[("__name__", "up")])
     );
 }

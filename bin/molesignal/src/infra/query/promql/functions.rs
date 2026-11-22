@@ -420,6 +420,7 @@ pub(super) fn project_labels(ls: &LabelSet, modifier: Option<&LabelModifier>) ->
 
             out
         }
+        // `without` 总是去掉指标名。
         Some(LabelModifier::Exclude(labels)) => {
             let mut out = ls.clone();
 
@@ -427,6 +428,7 @@ pub(super) fn project_labels(ls: &LabelSet, modifier: Option<&LabelModifier>) ->
                 out.remove(k);
             }
 
+            drop_name(&mut out);
             out
         }
     }
