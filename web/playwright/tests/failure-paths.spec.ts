@@ -66,7 +66,8 @@ test.describe('a list the server could not give', () => {
 
     await page.goto('/home');
 
-    await expect(page.getByText('Could not be fetched').first()).toBeVisible();
+    await expect(page.getByTestId('home-incidents')).toContainText('Could not load');
+    await expect(page.getByTestId('home-incidents-empty')).toHaveCount(0);
     await expect(page.getByText('Could not load the schedules')).toBeVisible();
   });
 });

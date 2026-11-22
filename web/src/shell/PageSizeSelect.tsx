@@ -41,7 +41,7 @@ export function PageSizeSelect({ value, options, ariaLabel, onChange }: PageSize
           <SelectItem
             key={option}
             value={String(option)}
-            className="justify-end pl-[10px] font-sans text-xs tabular-nums [&>span:first-child]:hidden"
+            className="justify-end px-[10px] font-sans text-xs tabular-nums [&>span:first-child]:hidden"
           >
             {numbers.format(option)}
           </SelectItem>

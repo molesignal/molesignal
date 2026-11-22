@@ -39,7 +39,7 @@
   --tx-0: #e6e8ec;        /* oklch(0.93 0.006 265) — primary text (not pure white) */
   --tx-1: #c2c6cd;        /* oklch(0.82 0.010 260) — secondary text */
   --tx-2: #9499a2;        /* oklch(0.68 0.013 264) — muted / auxiliary; AA on bg-3 keyboard hints */
-  --tx-3: #858a93;        /* oklch(0.63 0.013 264) — dim, a step under tx-2; 4.6:1 on bg-3 */
+  --tx-3: #8a8e96;        /* oklch(0.645 0.013 264) — dim, a step under tx-2; 4.7:1 on bg-3 */
   --tx-4: #3b3e45;        /* oklch(0.36 0.013 267) — weakest, rarely used */
 
   /* layer 1 — the brand: light's #0064C8 at the dark ramp's lightness, white on it 5.1:1 */
@@ -47,29 +47,30 @@
   --indigo-soft: #68a0eb;  /* oklch(0.70 0.126 256) — readable brand foreground on indigo-dim */
   --indigo-dim:  rgba(33, 109, 201, 0.16);
 
-  /* layer 1 — status palette. A step under the text in lightness and chroma: the base tone (dots,
-     marks) at L 0.68 C 0.12, words (soft, ink) at L 0.74 C 0.11, areas (fill) at L 0.60 C 0.095.
-     At the chroma the light theme carries, the colours outshone the words beside them. */
+  /* layer 1 — status palette. A step under the text in chroma: the base tone (dots, marks) at
+     C 0.12 and as light as its contrast floor asks (L 0.64-0.74: red holds AAA for alerts, green
+     and yellow hold AA on their own tint), words (soft, ink) at C 0.10-0.11, areas (fill) at
+     L 0.60 C 0.095. At the chroma the light theme carries, the colours outshone the words. */
 
   /* red — error / firing */
-  --red:         #d87972;  /* oklch(0.68 0.120 25) — 6.2:1 on bg-0 */
-  --red-soft:    #e88f87;  /* oklch(0.74 0.110 25) — 6.4:1 on bg-3 */
-  --red-dim:     rgba(216, 121, 114, 0.14);
+  --red:         #eb8d86;  /* oklch(0.74 0.115 25) — 7.4:1 on bg-1, AAA for alerts */
+  --red-soft:    #f19e97;  /* oklch(0.78 0.100 25) — 7.4:1 on bg-3 */
+  --red-dim:     rgba(235, 141, 134, 0.14);
 
   /* green — success / healthy */
-  --green:       #59ad73;  /* oklch(0.68 0.120 152) — 6.9:1 on bg-0 */
+  --green:       #5fb479;  /* oklch(0.70 0.120 152) — 4.8:1 on its tint over bg-3 */
   --green-soft:  #73bf88;  /* oklch(0.74 0.110 152) — 7.0:1 on bg-3 */
-  --green-dim:   rgba(89, 173, 115, 0.14);
+  --green-dim:   rgba(95, 180, 121, 0.14);
 
   /* yellow — warning / pending (amber, AA on bg-0) */
-  --yellow:      #bd9033;  /* oklch(0.68 0.120 82) — 6.5:1 on bg-0 */
+  --yellow:      #c7993e;  /* oklch(0.71 0.120 82) — 4.7:1 on its tint over bg-3 */
   --yellow-soft: #cda454;  /* oklch(0.74 0.110 82) — 6.6:1 on bg-3 */
-  --yellow-dim:  rgba(189, 144, 51, 0.14);
+  --yellow-dim:  rgba(199, 153, 62, 0.14);
 
   /* blue — info / link (separated from brand indigo) */
-  --blue:        #519fdd;  /* oklch(0.68 0.120 245) — 6.6:1 on bg-0 */
+  --blue:        #4493d0;  /* oklch(0.64 0.120 245) — white on it 3.3:1 */
   --blue-soft:   #6cb2ec;  /* oklch(0.74 0.110 245) — 6.7:1 on bg-3 */
-  --blue-dim:    rgba(81, 159, 221, 0.14);
+  --blue-dim:    rgba(68, 147, 208, 0.14);
 
   /* orange — secondary brand / KPI accent (NOT primary) */
   --orange:      #d1834b;  /* oklch(0.68 0.120 55) — 6.4:1 on bg-0 */

@@ -242,9 +242,9 @@ test.describe('the main menu of the platform organization', () => {
   test('reaches a settings page from a permission over that page alone', async ({ page, mockServer }) => {
     await mountPlatform(page, mockServer.port, ['sys.settings.retention.read']);
 
-    // The workbench is open to every member, whatever they hold.
+    // Home is open to every member, whatever they hold.
     await page.goto('/home');
-    await expect(page.getByTestId('workbench')).toBeVisible();
+    await expect(page.getByTestId('home')).toBeVisible();
 
     await page.getByTestId('main-menu-trigger').click();
     const menu = page.getByTestId('main-menu');

@@ -261,8 +261,11 @@ test('APM opens on an overview of every service: what they did, which weigh most
 test('APM keyboard navigation opens the service catalog', async ({ page, mockServer }) => {
   await boot(page, mockServer.port);
   await page.goto('/investigate');
-  await page.keyboard.press('Meta+Alt+S');
-  await expect(page).toHaveURL(/\/apm\/services$/);
+  // Right after a load the shortcut may not be listened for yet: press again until it is.
+  await expect(async () => {
+    await page.keyboard.press('Meta+Alt+S');
+    await expect(page).toHaveURL(/\/apm\/services$/, { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   await expect(page.getByRole('heading', { name: 'Application Performance Monitoring' })).toBeVisible();
 });
 
