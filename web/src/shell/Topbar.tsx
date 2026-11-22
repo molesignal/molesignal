@@ -25,6 +25,7 @@ import { AboutDialog } from '@/shell/AboutDialog';
 import { chromeIconButtonSizeClass, uiUserAvatarClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { MenuButton } from '@/shell/menu/MenuButton';
+import type { HoverOpen } from '@/shell/menu/useHoverOpen';
 import { NotificationCenter } from '@/shell/notifications/NotificationCenter';
 import { OrgSwitcher } from '@/shell/OrgSwitcher';
 import {
@@ -53,7 +54,8 @@ import { useCurrentOrgSelection, useOrgStore } from '@/stores/useOrgStore';
 interface TopbarProps {
   /** Whether the main menu hangs open from its button. */
   menuOpen: boolean;
-  onToggleMenu: () => void;
+  /** How the menu button opens it: under a resting mouse, or by a click. */
+  menuHover: HoverOpen;
   onPaletteOpen: () => void;
   onNocOpen: () => void;
   surfaceWorkbench?: boolean;
@@ -61,7 +63,7 @@ interface TopbarProps {
 
 export function Topbar({
   menuOpen,
-  onToggleMenu,
+  menuHover,
   onPaletteOpen,
   onNocOpen,
   surfaceWorkbench = false,
@@ -187,7 +189,12 @@ export function Topbar({
       />
 
       {/* The whole navigation hangs from here, on every screen. */}
-      <MenuButton open={menuOpen} onToggle={onToggleMenu} />
+      <MenuButton
+        open={menuOpen}
+        onToggle={menuHover.toggle}
+        onPointerEnter={menuHover.onPointerEnter}
+        onPointerLeave={menuHover.onPointerLeave}
+      />
 
       {/* Global search — the product's "launch anything" control surface. It is a card on the bar,
           not a field: no ring drawn round it, a soft shadow that lifts under the pointer, and a

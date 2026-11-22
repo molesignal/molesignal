@@ -35,6 +35,41 @@ test('drops every area from under the top bar, by group, with the current one ma
   await expect(current).toBeFocused();
 });
 
+test('opens under a resting mouse, stays while the mouse is over it, and closes once it leaves', async ({ page }) => {
+  await page.goto('/metrics');
+  await expect(trigger(page)).toBeVisible();
+
+  await trigger(page).hover();
+  await expect(menu(page)).toBeVisible();
+  await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
+
+  // Down from the button into the menu: it stays.
+  const entry = menu(page).locator('[data-menu-entry="logs"]');
+  await entry.hover();
+  await page.waitForTimeout(400);
+  await expect(menu(page)).toBeVisible();
+
+  // Out to the page below it: it closes.
+  const box = (await menu(page).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height + 120);
+  await expect(menu(page)).toHaveCount(0);
+});
+
+test('a click on the button pins a menu the mouse opened, and a second click closes it', async ({ page }) => {
+  await page.goto('/metrics');
+  await trigger(page).hover();
+  await expect(menu(page)).toBeVisible();
+
+  await trigger(page).click();
+  const box = (await menu(page).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height + 120);
+  await page.waitForTimeout(400);
+  await expect(menu(page)).toBeVisible();
+
+  await trigger(page).click();
+  await expect(menu(page)).toHaveCount(0);
+});
+
 test('closes on Escape, on a press outside it and on a choice', async ({ page }) => {
   await page.goto('/metrics');
 

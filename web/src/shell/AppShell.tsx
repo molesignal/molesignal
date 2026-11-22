@@ -13,6 +13,7 @@ import { cn } from '@/shell/lib/cn';
 import { activeNavigationEntry } from '@/shell/menu/entries';
 import { MainMenu } from '@/shell/menu/MainMenu';
 import { useMenuPreference } from '@/shell/menu/preference';
+import { useHoverOpen } from '@/shell/menu/useHoverOpen';
 import { MoleAgentPanel } from '@/shell/MoleAgentPanel';
 import { useSpotlight } from '@/shell/polish/useSpotlight';
 import { Topbar } from '@/shell/Topbar';
@@ -64,6 +65,7 @@ export function AppShell(_props: AppShellProps) {
   const { t } = useTranslation('shell');
   const [menuOpen, setMenuOpen] = React.useState(false);
   const closeMenu = React.useCallback(() => setMenuOpen(false), []);
+  const menuHover = useHoverOpen(menuOpen, setMenuOpen);
   const location = useLocation();
   const isSurfaceWorkbench = isSurfaceWorkbenchRoute(location.pathname);
   const nav = useNavigate();
@@ -127,13 +129,13 @@ export function AppShell(_props: AppShellProps) {
 
       <Topbar
         menuOpen={menuOpen}
-        onToggleMenu={() => setMenuOpen((open) => !open)}
+        menuHover={menuHover}
         onPaletteOpen={_props.onPaletteOpen}
         onNocOpen={() => nav('/noc')}
         surfaceWorkbench={isSurfaceWorkbench}
       />
 
-      <MainMenu open={menuOpen} onClose={closeMenu} />
+      <MainMenu open={menuOpen} onClose={closeMenu} hover={menuHover} />
 
       <main
         id="main"

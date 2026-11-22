@@ -11,6 +11,7 @@ import { useMenuEntries } from './entries';
 import { MAIN_MENU_ID } from './MenuButton';
 import { MenuEntry } from './MenuEntry';
 import { useMenuPreference } from './preference';
+import type { HoverOpen } from './useHoverOpen';
 
 /** How many of the latest areas the menu offers, besides the one open now. */
 const RECENT_SHOWN = 5;
@@ -23,7 +24,16 @@ const EYEBROW = 'type-eyebrow px-2.5 pb-1.5 font-sans text-tx-2';
  * search and to open entries in new tabs. The page under it is dimmed; a click there, Escape, a
  * Tab out of it or opening an entry closes it, and Escape gives the focus back to the button.
  */
-export function MainMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function MainMenu({
+  open,
+  onClose,
+  hover,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Keeps a menu the mouse opened while the mouse is over it, and closes it once the mouse leaves. */
+  hover?: Pick<HoverOpen, 'onPointerEnter' | 'onPointerLeave'>;
+}) {
   const { t } = useTranslation('nav');
   const { pathname } = useLocation();
   const { home, columns, byId } = useMenuEntries();
@@ -82,6 +92,8 @@ export function MainMenu({ open, onClose }: { open: boolean; onClose: () => void
         id={MAIN_MENU_ID}
         ref={panel}
         data-testid="main-menu"
+        onPointerEnter={hover?.onPointerEnter}
+        onPointerLeave={hover?.onPointerLeave}
         onBlur={(event) => {
           const next = event.relatedTarget as Node | null;
           const trigger = document.querySelector('[data-testid="main-menu-trigger"]');

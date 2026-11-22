@@ -1,4 +1,5 @@
 import { Menu, X } from 'lucide-react';
+import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { chromeIconButtonSizeClass } from '@/shell/chrome';
@@ -9,10 +10,22 @@ import { IconSwap } from '@/shell/polish/IconSwap';
 export const MAIN_MENU_ID = 'main-menu';
 
 /**
- * The button the whole navigation hangs from, beside the organization in the top bar. While the
- * menu is open it stands in the brand's tint and shows the cross that closes it.
+ * The button the whole navigation hangs from, beside the organization in the top bar. A mouse
+ * resting on it opens the menu, a click opens, pins or closes it. While the menu is open it stands
+ * in the brand's tint and shows the cross that closes it.
  */
-export function MenuButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+export function MenuButton({
+  open,
+  onToggle,
+  onPointerEnter,
+  onPointerLeave,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  /** A mouse resting on the button opens the menu; leaving it closes a menu the mouse opened. */
+  onPointerEnter?: (event: React.PointerEvent) => void;
+  onPointerLeave?: (event: React.PointerEvent) => void;
+}) {
   const { t } = useTranslation('nav');
   const label = t(open ? 'menu.close' : 'menu.open');
 
@@ -25,6 +38,8 @@ export function MenuButton({ open, onToggle }: { open: boolean; onToggle: () => 
       aria-label={label}
       title={label}
       onClick={onToggle}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       className={cn(
         'ms-press relative flex shrink-0 items-center justify-center rounded-md transition-colors duration-fast',
         chromeIconButtonSizeClass,
