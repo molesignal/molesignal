@@ -194,7 +194,6 @@
   },
   "datasource_page": {
     "title": "Datasource onboarding",
-    "subtitle": "Choose a source, deploy its collector, and verify real data receipt",
     "search_placeholder": "Search all sources…",
     "clear_search": "Clear search",
     "matching": "{{count}} matching",
@@ -221,7 +220,8 @@
       "logs": "Logs",
       "metrics": "Metrics",
       "traces": "Traces",
-      "profiles": "Profiles"
+      "profiles": "Profiles",
+      "rum": "RUM"
     },
     "group_protocol": "Protocol",
     "group_source": "Integration source",
@@ -232,7 +232,8 @@
     "steps": {
       "prepare": {
         "title": "Endpoint and token",
-        "description": "Where to send data and what to authenticate with. The commands below already carry both."
+        "description": "Where to send data and what to authenticate with. The commands below already carry both.",
+        "description_no_token": "Where to send data and what to authenticate with."
       },
       "deploy": {
         "title": "Set up the source"
@@ -307,6 +308,7 @@
     "copied": "Copied",
     "copy": "Copy",
     "expand_code": "Expand code",
-    "collapse_code": "Collapse code"
+    "collapse_code": "Collapse code",
+    "token_missing": "No intake token is available; create one under token management."
   }
 }

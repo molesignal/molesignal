@@ -194,7 +194,6 @@
   },
   "datasource_page": {
     "title": "数据源接入中心",
-    "subtitle": "选择数据源、部署采集器并验证真实数据接收",
     "search_placeholder": "搜索全部数据源…",
     "clear_search": "清除搜索",
     "matching": "{{count}} 个匹配项",
@@ -221,7 +220,8 @@
       "logs": "日志",
       "metrics": "指标",
       "traces": "链路",
-      "profiles": "Profiles"
+      "profiles": "Profiles",
+      "rum": "RUM"
     },
     "group_protocol": "协议接入",
     "group_source": "集成来源",
@@ -232,7 +232,8 @@
     "steps": {
       "prepare": {
         "title": "端点与 Token",
-        "description": "数据发往哪里、用什么鉴权。下方命令已自动填入这两项。"
+        "description": "数据发往哪里、用什么鉴权。下方命令已自动填入这两项。",
+        "description_no_token": "数据发往哪里、用什么鉴权。"
       },
       "deploy": {
         "title": "配置数据源"
@@ -307,6 +308,7 @@
     "copied": "已复制",
     "copy": "复制",
     "expand_code": "展开代码",
-    "collapse_code": "收起代码"
+    "collapse_code": "收起代码",
+    "token_missing": "没有可用的接入 Token，可在 Token 管理中创建。"
   }
 }

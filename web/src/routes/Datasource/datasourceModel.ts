@@ -12,9 +12,24 @@ export type PrimaryCategory =
   | 'security'
   | 'custom';
 
-export type SignalFilter = 'all' | Signal;
+/**
+ * What a reader narrows the catalogue by: a signal, or RUM. A RUM source stores its events in
+ * the streams of a signal, but what it sends is real-user data, and it is named and found so.
+ */
+export type SignalFilter = 'all' | Signal | 'rum';
 
 export const SIGNALS: readonly Signal[] = ['logs', 'metrics', 'traces', 'profiles'];
+
+export const SIGNAL_FILTERS: readonly Exclude<SignalFilter, 'all'>[] = [...SIGNALS, 'rum'];
+
+export function isSignalFilter(value: string | null | undefined): value is Exclude<SignalFilter, 'all'> {
+  return SIGNAL_FILTERS.includes(value as Exclude<SignalFilter, 'all'>);
+}
+
+/** What a source is said to send: RUM for a RUM source, its signals otherwise. */
+export function shownSignals(source: Pick<Source, 'signals' | 'rumPlatform'>): Exclude<SignalFilter, 'all'>[] {
+  return source.rumPlatform ? ['rum'] : source.signals;
+}
 
 export const PRIMARY_CATEGORIES: readonly PrimaryCategory[] = [
   'recommended',
@@ -97,8 +112,8 @@ export function categoryForSource(source: Source, preferred: PrimaryCategory): P
   );
 }
 
-export function sendsSignal(source: Pick<Source, 'signals'>, signal: SignalFilter): boolean {
-  return signal === 'all' || source.signals.includes(signal);
+export function sendsSignal(source: Pick<Source, 'signals' | 'rumPlatform'>, signal: SignalFilter): boolean {
+  return signal === 'all' || shownSignals(source).includes(signal);
 }
 
 /** One category of the catalogue, narrowed to the sources that send `signal`. */

@@ -6,11 +6,11 @@ import { useSearchParams } from 'react-router-dom';
 import type * as homeApi from '@/api/home';
 import * as rumIntakeApi from '@/api/rumIntake';
 import { toApiError } from '@/lib/http';
-import { Pill, type PillTone } from '@/shell/chrome';
+import { Pill } from '@/shell/chrome';
 
 import { intakePathForSignal } from '../../streams/datasourceLink';
 import { sourceIcon } from '../catalogue/sourceIcon';
-import { summarizeSourceSignals } from '../datasourceModel';
+import { shownSignals, summarizeSourceSignals } from '../datasourceModel';
 import { substitute, useIntakeContext } from '../intakeContext';
 import { ApplicationField } from '../mobileRum/ApplicationField';
 import type { Signal, Source } from '../sources';
@@ -20,13 +20,6 @@ import { probeHealth, rumSourceSummary, type ValidationState } from './receipt';
 import { GuideSection } from './Section';
 import { StepBlock } from './StepBlock';
 import { Verification } from './Verification';
-
-const SIGNAL_TONE: Record<Signal, PillTone> = {
-  logs: 'orange',
-  metrics: 'blue',
-  traces: 'green',
-  profiles: 'purple',
-};
 
 /**
  * How to connect one source, in the three things there are to do: take the
@@ -114,7 +107,7 @@ export function Guide({
       <header className="flex items-start gap-[14px]">
         <span
           aria-hidden
-          className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-lg bg-indigo-dim text-indigo-soft"
+          className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-lg bg-[var(--inset-surface)] text-tx-2"
         >
           <Icon className="h-5 w-5" strokeWidth={1.8} />
         </span>
@@ -123,8 +116,9 @@ export function Guide({
             <h2 className="m-0 font-sans text-xl font-display-strong tracking-tight text-tx-0">
               {text.name(source)}
             </h2>
-            {source.signals.map((item) => (
-              <Pill key={item} tone={SIGNAL_TONE[item]}>
+            {/* What it sends is said in grey: colour is kept for data and states. */}
+            {shownSignals(source).map((item) => (
+              <Pill key={item} tone="neutral">
                 {t(`datasource_page.signals.${item}`)}
               </Pill>
             ))}
@@ -153,7 +147,12 @@ export function Guide({
           number={1}
           state={prepared ? 'done' : 'current'}
           title={t('datasource_page.steps.prepare.title')}
-          description={t('datasource_page.steps.prepare.description')}
+          // Say the commands carry the token only once there is one to carry.
+          description={t(
+            context.token || context.tokenLoading
+              ? 'datasource_page.steps.prepare.description'
+              : 'datasource_page.steps.prepare.description_no_token',
+          )}
         >
           <ConnectionDetails
             endpoints={guideEndpoints(source, signal, streamName, context.endpoint)}

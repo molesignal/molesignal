@@ -1,4 +1,4 @@
-import type { Source } from './sources';
+import type { Source } from './types';
 
 /**
  * Pipelines that report each deployment to `POST /api/v1/apm/deployments`,

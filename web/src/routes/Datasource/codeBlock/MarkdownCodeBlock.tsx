@@ -122,9 +122,9 @@ export function MarkdownCodeBlock({
   };
 
   return (
-    // One well, a step darker than the card it sits on: no frame, and the
-    // language is a quiet label rather than a header bar of its own.
-    <figure className={cn('m-0 min-w-0 overflow-hidden rounded-md bg-bg-0', className)}>
+    // One well, the card's inset surface: no frame, and the language is a
+    // quiet label rather than a header bar of its own.
+    <figure className={cn('m-0 min-w-0 overflow-hidden rounded-md bg-[var(--inset-surface)]', className)}>
       <figcaption className="flex h-9 min-w-0 items-center pl-4 pr-1">
         <span className="type-micro truncate font-mono font-semibold tracking-[-0.01em] text-tx-3">
           {languageLabel}

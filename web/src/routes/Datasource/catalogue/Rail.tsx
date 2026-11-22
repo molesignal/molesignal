@@ -7,6 +7,7 @@ import { ChromeButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { surfacePanelClass } from '@/shell/SurfaceWorkbench';
 
+import { shownSignals } from '../datasourceModel';
 import type { Source } from '../sources';
 import type { SourceText } from '../sourceText';
 import { sourceIcon } from './sourceIcon';
@@ -117,7 +118,7 @@ export function CatalogueRail({
                   name={text.name(source)}
                   detail={[
                     ...(searching ? [categoryOf(source)] : []),
-                    ...source.signals.map((signal) => t(`datasource_page.signals.${signal}`)),
+                    ...shownSignals(source).map((signal) => t(`datasource_page.signals.${signal}`)),
                   ].join(' · ')}
                 />
               </li>

@@ -1,7 +1,5 @@
-import type { Source } from '../sources';
+import { ENDPOINT, type Source, TOKEN } from './types';
 
-const ENDPOINT = '{{ENDPOINT}}';
-const TOKEN = '{{TOKEN}}';
 const APPLICATION_ID = '{{APPLICATION_ID}}';
 
 export const MOBILE_RUM_SOURCES: Source[] = [

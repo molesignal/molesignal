@@ -4,10 +4,12 @@ import type { HomeOverview } from '@/api/home';
 
 import {
   categoryForSource,
+  isSignalFilter,
   maskToken,
   primaryCategoryFromRoute,
   searchSources,
   sendsSignal,
+  shownSignals,
   sourceInPrimaryCategory,
   sourcesInCategory,
   summarizeSourceSignals,
@@ -55,6 +57,19 @@ describe('datasourceModel', () => {
     expect(sourcesInCategory(sources, 'recommended', 'profiles')).toEqual([]);
     expect(sendsSignal(sources[0]!, 'all')).toBe(true);
     expect(sendsSignal(sources[1]!, 'metrics')).toBe(false);
+  });
+
+  it('names a RUM source RUM and finds it under RUM, not under the logs it is stored as', () => {
+    const rum = source({ id: 'rum', signals: ['logs'], rumPlatform: 'browser' });
+    const linux = source({ id: 'linux', signals: ['logs', 'metrics'] });
+
+    expect(shownSignals(rum)).toEqual(['rum']);
+    expect(shownSignals(linux)).toEqual(['logs', 'metrics']);
+    expect(sendsSignal(rum, 'rum')).toBe(true);
+    expect(sendsSignal(rum, 'logs')).toBe(false);
+    expect(sendsSignal(linux, 'rum')).toBe(false);
+    expect(isSignalFilter('rum')).toBe(true);
+    expect(isSignalFilter('events')).toBe(false);
   });
 
   it('keeps a source under the category in view, or sends it to a home of its own', () => {

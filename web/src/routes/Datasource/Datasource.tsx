@@ -14,15 +14,15 @@ import {
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
 
-import { isIntakeSignal } from '../streams/datasourceLink';
 import { CatalogueRail } from './catalogue/Rail';
 import {
   categoryForSource,
+  isSignalFilter,
   PRIMARY_CATEGORIES,
   primaryCategoryFromRoute,
   searchSources,
   sendsSignal,
-  SIGNALS,
+  SIGNAL_FILTERS,
   sourcesInCategory,
   type SignalFilter,
 } from './datasourceModel';
@@ -50,7 +50,7 @@ export function Datasource() {
   const [query, setQuery] = React.useState('');
 
   const signalParam = searchParams.get('signal');
-  const signal: SignalFilter = isIntakeSignal(signalParam) ? signalParam : 'all';
+  const signal: SignalFilter = isSignalFilter(signalParam) ? signalParam : 'all';
   const streamName = searchParams.get('stream')?.trim() || DEFAULT_STREAM;
 
   // A source named by the address is shown under a category that holds it, whatever category
@@ -148,7 +148,6 @@ export function Datasource() {
     >
       <SurfacePageHeader
         title={t('datasource_page.title')}
-        subtitle={t('datasource_page.subtitle')}
         breadcrumbs={null}
         backTo={null}
       />
@@ -174,7 +173,7 @@ export function Datasource() {
             label={t('datasource_page.signal_filter')}
             items={[
               { key: 'all', label: t('datasource_page.signals.all') },
-              ...SIGNALS.map((item) => ({
+              ...SIGNAL_FILTERS.map((item) => ({
                 key: item,
                 label: t(`datasource_page.signals.${item}`),
               })),
@@ -225,7 +224,7 @@ export function Datasource() {
               // What was typed and checked belongs to the source, not to the signal in view.
               key={selected.id}
               source={selected}
-              signal={signal === 'all' ? undefined : signal}
+              signal={signal === 'all' || signal === 'rum' ? undefined : signal}
               streamName={streamName}
               overview={overviewQuery.data}
               refreshOverview={refreshOverview}

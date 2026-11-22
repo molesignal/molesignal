@@ -53,6 +53,26 @@ export function TokenField({ context }: { context: IntakeContext }) {
 
   const unavailable = context.tokenLoading || !context.token;
 
+  // No token came back: say so, and where one is made, instead of a dash over facts of no token.
+  if (!context.tokenLoading && !context.token) {
+    return (
+      <p
+        data-intake-token-missing
+        className="m-0 flex min-h-9 flex-wrap items-center gap-x-3 font-sans text-sm leading-relaxed text-tx-2"
+      >
+        {t('datasource_page.token_missing')}
+        {!tokenManageAccess.disabled && (
+          <Link
+            to={manageTokensPath}
+            className="rounded font-strong text-indigo-soft outline-none hover:underline focus-visible:underline"
+          >
+            {t('datasource_page.manage_tokens')}
+          </Link>
+        )}
+      </p>
+    );
+  }
+
   return (
     <>
       <CopyField

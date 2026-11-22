@@ -227,9 +227,10 @@ describe('Datasource page', () => {
     fireEvent.click(screen.getByRole('option', { name: 'Checkout app · checkout-app' }));
     await waitFor(() => expect(mocks.getRumClient).toHaveBeenCalledWith('checkout-app'));
 
-    fireEvent.click(signal('Logs'));
+    // A RUM source is found under RUM, not under the logs its events are stored as.
+    fireEvent.click(signal('RUM'));
 
-    await waitFor(() => expect(address()).toBe('/datasource/recommended/rum?signal=logs'));
+    await waitFor(() => expect(address()).toBe('/datasource/recommended/rum?signal=rum'));
     expect(screen.getByRole('combobox', { name: 'RUM application' }).textContent).toContain(
       'Checkout app · checkout-app',
     );

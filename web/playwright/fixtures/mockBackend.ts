@@ -2740,7 +2740,27 @@ export function registerRoutes(app: Express): void {
         rows: signals.reduce((sum, signal) => sum + signal.buckets[index]!.rows, 0),
       })),
       signals,
-      streams: [],
+      // The streams behind the signals, the busiest of each first.
+      streams: [
+        ['app_logs', 'logs', 0.6],
+        ['nginx_access', 'logs', 0.3],
+        ['k8s_events', 'logs', 0.1],
+        ['http_metrics', 'metrics', 0.7],
+        ['host_metrics', 'metrics', 0.3],
+        ['traces', 'traces', 1],
+      ].map(([name, streamType, share]) => {
+        const signal = signals.find((item) => item.streamType === streamType)!;
+        return {
+          id: `${streamType}/${name}`,
+          name,
+          streamType,
+          status: signal.status,
+          rows: Math.round(signal.rows * (share as number)),
+          storedBytes: Math.round(signal.storedBytes * (share as number)),
+          firstReceivedAt: start,
+          lastReceivedAt: signal.lastReceivedAt,
+        };
+      }),
     });
   });
   type AskedQuery = { language?: string; timeRange?: { start?: number | undefined; end?: number | undefined } } | undefined;
