@@ -206,7 +206,7 @@ service:
   <img src="assets/architecture/overview_zh-Hans_light.svg" alt="MoleSignal 架构：客户端经 Router 写入 Intake、查询 Querier，数据存到对象存储，元数据存到 PostgreSQL，Alert 负责规则、值班升级和通知">
 </picture>
 
-写入先进 WAL 和内存缓冲，再刷写成 Parquet 和索引放到对象存储；查询时合并已刷写的文件和还在缓冲里的数据。网页界面内置在二进制里，不用单独部署前端。
+写入的 WAL 记录进入对象存储后才确认，随后在内存缓冲里攒批，刷写成 Parquet 和索引；节点本地盘不保存已确认的数据，任何节点都可以随时替换。查询时合并已刷写的文件和还在缓冲里的数据。网页界面内置在二进制里，不用单独部署前端。
 
 默认一个进程跑全部角色，需要时再[按角色拆分](https://docs.molesignal.com/zh-Hans/deployment/role-based)。详见[架构文档](https://docs.molesignal.com/zh-Hans/architecture)，源码结构见 [ARCHITECTURE.md](ARCHITECTURE.md)，图的可编辑源文件是 [`overview.zh-Hans.excalidraw`](assets/architecture/overview.zh-Hans.excalidraw)。
 

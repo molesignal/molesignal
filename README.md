@@ -206,7 +206,7 @@ See the [intake docs](https://docs.molesignal.com/en-US/intake) for more.
   <img src="assets/architecture/overview_en_light.svg" alt="MoleSignal architecture: clients go through the Router to write to Intake and query Querier, data goes to object storage, metadata goes to PostgreSQL, and Alert handles rules, escalation and notifications">
 </picture>
 
-Writes go to a WAL and an in-memory buffer, then flush to Parquet and indexes in object storage. Queries merge the flushed files with what is still in the buffer. The web UI is built into the binary, so there is no separate frontend to deploy.
+A write is acknowledged once its WAL record is in object storage; it then waits in an in-memory buffer and is flushed to Parquet and indexes. No node keeps acknowledged data on its own disk, so any node can be replaced. Queries merge the flushed files with what is still in the buffer. The web UI is built into the binary, so there is no separate frontend to deploy.
 
 By default one process runs every role. [Split by role](https://docs.molesignal.com/en-US/deployment/role-based) when you need to. See the [architecture docs](https://docs.molesignal.com/en-US/architecture) and, for the source layout, [ARCHITECTURE.md](ARCHITECTURE.md). The diagram's editable source is [`overview.en.excalidraw`](assets/architecture/overview.en.excalidraw).
 
