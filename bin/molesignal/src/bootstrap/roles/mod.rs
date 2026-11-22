@@ -265,7 +265,9 @@ async fn run_shutdown(
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_millis(200)) => {}
             _ = &mut deadline => {
-                tracing::warn!("drain timeout reached; forcing exit (un-flushed WAL replays on restart)");
+                tracing::warn!(
+                    "drain timeout reached; forcing exit (unflushed WAL is taken over by another intake node)"
+                );
                 return Ok(());
             }
             _ = term.recv() => { tracing::warn!("second signal; forcing immediate exit"); return Ok(()); }

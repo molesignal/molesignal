@@ -101,7 +101,7 @@ impl IntakeWorker {
 
         // Nothing to replay: unflushed data of earlier processes is in object storage and taken
         // over in the background, so this node can take writes at once.
-        probe.set_replay_done(true);
+        probe.set_intake_ready(true);
 
         Self {
             sink,

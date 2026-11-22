@@ -70,10 +70,6 @@ impl BufferPool {
         self.memory.try_reserve(stream_type, bytes)
     }
 
-    pub fn force_reserve(&self, bytes: usize) -> Result<MemoryReservation> {
-        self.memory.force_reserve(bytes)
-    }
-
     pub fn release_memory(&self, bytes: usize) {
         self.memory.release(bytes);
     }
@@ -169,15 +165,13 @@ mod tests {
     }
 
     #[test]
-    fn committed_and_replay_reservations_need_explicit_release() {
+    fn committed_reservations_need_explicit_release() {
         let pool = BufferPool::with_memory_limit_bytes(5);
         let accounted = pool.try_reserve(StreamType::LOGS, 5).unwrap().commit();
         assert_eq!(accounted, 5);
         assert_eq!(pool.reserved_bytes(), 5);
 
-        let replayed = pool.force_reserve(3).unwrap().commit();
-        assert_eq!(pool.reserved_bytes(), 8);
-        pool.release_memory(accounted + replayed);
+        pool.release_memory(accounted);
         assert_eq!(pool.reserved_bytes(), 0);
     }
 }

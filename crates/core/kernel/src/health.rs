@@ -5,8 +5,9 @@
 //! and object_store probes.
 //!
 //! Currently covers:
-//! - `replay_done`: until the intake WAL replay completes, the whole process returns 503
-//!   externally.
+//! - `intake_ready`: until the intake worker is up, the whole process returns 503 externally.
+//!   It is set while the process starts, before it serves: nothing is replayed on start, since
+//!   unflushed data lives in the object-storage WAL and lost writers are taken over.
 //! - `object_store_degraded`: set when N consecutive object store round-trips fail
 //!   (design / spec 16.9).
 
@@ -17,7 +18,7 @@ use std::sync::{
 
 #[derive(Debug)]
 pub struct Probe {
-    replay_done: AtomicBool,
+    intake_ready: AtomicBool,
     object_store_degraded: AtomicBool,
 }
 
@@ -30,16 +31,15 @@ impl Default for Probe {
 impl Probe {
     pub fn new() -> Self {
         Self {
-            replay_done: AtomicBool::new(false),
+            intake_ready: AtomicBool::new(false),
             object_store_degraded: AtomicBool::new(false),
         }
     }
 
-    /// A process without the intake role (such as a standalone querier-only process) is ready
-    /// at startup, so this helper directly builds a probe with `replay_done=true`.
+    /// A probe that is ready from the start, with `intake_ready=true`.
     pub fn ready() -> Self {
         let p = Self::new();
-        p.set_replay_done(true);
+        p.set_intake_ready(true);
         p
     }
 
@@ -47,12 +47,12 @@ impl Probe {
         Arc::new(Self::new())
     }
 
-    pub fn set_replay_done(&self, b: bool) {
-        self.replay_done.store(b, Ordering::Release);
+    pub fn set_intake_ready(&self, b: bool) {
+        self.intake_ready.store(b, Ordering::Release);
     }
 
-    pub fn is_replay_done(&self) -> bool {
-        self.replay_done.load(Ordering::Acquire)
+    pub fn is_intake_ready(&self) -> bool {
+        self.intake_ready.load(Ordering::Acquire)
     }
 
     pub fn set_object_store_degraded(&self, b: bool) {
@@ -63,15 +63,16 @@ impl Probe {
         self.object_store_degraded.load(Ordering::Acquire)
     }
 
-    /// Overall health status: unhealthy if replay has not finished or object_store is degraded.
+    /// Overall health status: unhealthy until the intake worker is up, or while object_store is
+    /// degraded.
     pub fn is_healthy(&self) -> bool {
-        self.is_replay_done() && !self.is_object_store_degraded()
+        self.is_intake_ready() && !self.is_object_store_degraded()
     }
 
     /// Returns (healthy, reason): when unhealthy, reason gives the main cause.
     pub fn snapshot(&self) -> (bool, Option<&'static str>) {
-        if !self.is_replay_done() {
-            return (false, Some("intake wal replay in progress"));
+        if !self.is_intake_ready() {
+            return (false, Some("intake is starting"));
         }
 
         if self.is_object_store_degraded() {
@@ -90,7 +91,7 @@ mod tests {
     fn default_is_not_healthy() {
         let p = Probe::new();
         assert!(!p.is_healthy());
-        assert!(!p.snapshot().0);
+        assert_eq!(p.snapshot(), (false, Some("intake is starting")));
     }
 
     #[test]

@@ -67,15 +67,16 @@ pub(crate) async fn healthz(State(state): State<AppState>) -> impl IntoResponse 
     }
 }
 
-/// `readyz` 单独检查 replay：未 replay 完返 503，已 replay 完即使 object_store degraded 也返 ready
-/// （便于 k8s 在写路径降级时仍认为 pod 可被读流量使用）。
+/// `readyz` only asks whether the intake worker is up, which it is once the process serves (nothing
+/// is replayed on start). A degraded object store does not make it unready, so Kubernetes keeps
+/// sending read traffic to a pod whose write path is degraded.
 pub(crate) async fn readyz(State(state): State<AppState>) -> impl IntoResponse {
-    if state.telemetry.probe.is_replay_done() {
+    if state.telemetry.probe.is_intake_ready() {
         (StatusCode::OK, Json(json!({"status": "ready"}))).into_response()
     } else {
         (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(json!({"status": "not-ready", "reason": "wal replay in progress"})),
+            Json(json!({"status": "not-ready", "reason": "intake is starting"})),
         )
             .into_response()
     }

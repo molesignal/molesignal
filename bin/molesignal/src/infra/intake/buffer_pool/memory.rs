@@ -41,18 +41,6 @@ impl MemoryBudget {
         Ok(MemoryReservation::new(self.clone(), bytes))
     }
 
-    /// WAL replay 已经代表 durable 数据，必须恢复进内存并显式计费，即使暂时超过当前 cap。
-    pub(super) fn force_reserve(self: &Arc<Self>, bytes: usize) -> Result<MemoryReservation> {
-        self.reserved_bytes
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
-                current.checked_add(bytes)
-            })
-            .map_err(|_| Error::internal("intake buffer memory accounting overflow"))?;
-
-        add_reserved_buffer_bytes(bytes_as_i64(bytes));
-        Ok(MemoryReservation::new(self.clone(), bytes))
-    }
-
     pub(super) fn release(&self, bytes: usize) {
         if bytes == 0 {
             return;
