@@ -26,6 +26,7 @@ import { ConfirmDialog, DataTable, TableNoMatch } from '@/admin';
 import * as schedulesApi from '@/api/schedules';
 import * as teamsApi from '@/api/teams';
 import type { Team } from '@/api/teams';
+import { isMainlandChinese } from '@/i18n/locales';
 import { toApiError } from '@/lib/http';
 import { type ActionAccess, useActionAccess } from '@/product/actionAccess';
 import { productStateFor } from '@/product/states';
@@ -644,7 +645,7 @@ export function AlertsSchedules() {
                             {display.technical}
                           </div>
                           <div className="mt-0.5 truncate text-type-micro text-tx-3">
-                            {i18n.language.startsWith('zh')
+                            {isMainlandChinese(i18n.language)
                               ? display.label
                               : row.schedule.timezone}
                           </div>

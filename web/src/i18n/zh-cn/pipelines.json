@@ -1113,5 +1113,6 @@
       "whole": "整个步骤",
       "others": "其余的桶"
     }
-  }
+  },
+  "schedule_every": "每 {{interval}}"
 }

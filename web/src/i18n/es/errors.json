@@ -1,0 +1,8 @@
+{
+  "sign_in_failed": "No se pudo iniciar sesión",
+  "switch_org_success": "Cambiaste a {{name}}",
+  "switch_org_failure": "No se pudo cambiar de organización: {{message}}",
+  "request_failed": "La solicitud falló",
+  "link_copied": "Enlace copiado",
+  "generic": "Algo salió mal"
+}

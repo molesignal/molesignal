@@ -1,0 +1,8 @@
+{
+  "sign_in_failed": "サインインに失敗しました",
+  "switch_org_success": "{{name}}に切り替えました",
+  "switch_org_failure": "組織を切り替えられませんでした：{{message}}",
+  "request_failed": "リクエストに失敗しました",
+  "link_copied": "リンクをコピーしました",
+  "generic": "問題が発生しました"
+}

@@ -1,0 +1,1928 @@
+{
+  "title": "ユーザーエクスペリエンス",
+  "subtitle": "実際のユーザーのセッション、ビュー、アクション、エラー、リクエストを調べることができます。",
+  "refresh": "更新",
+  "geo_credit": "IP アドレスによる位置情報：DB-IP",
+  "map": {
+    "zoom_in": "拡大",
+    "zoom_out": "縮小",
+    "zoom_reset": "地図全体を表示",
+    "zoom_level": "表示倍率 {{level}}×",
+    "no_data": "データなし",
+    "keys": "+ キーと − キーで拡大・縮小し、0 キーで地図全体を表示できます。拡大表示中は矢印キーで地図を移動できます。ドラッグで移動し、マウスホイールで拡大・縮小することもできます。",
+    "wheel_hint": "Ctrl キー（Mac では ⌘ キー）を押しながらスクロールすると、地図を拡大・縮小できます"
+  },
+  "onboarding": {
+    "eyebrow": "RUM データのセットアップ",
+    "title": "実際のユーザー体験データの収集を開始",
+    "description": "アプリケーションを作成し、そのクライアントトークンを MoleSignal RUM SDK に設定します。最初のイベントを受信すると、セッション、ページのパフォーマンス、フロントエンドのエラーがここに表示されます。",
+    "create": "アプリケーションを作成",
+    "view_docs": "セットアップ手順を表示",
+    "steps": {
+      "1": "アプリケーションを作成",
+      "2": "トークンを設定して SDK をインストール",
+      "3": "テストイベントを送信",
+      "4": "分析を開始"
+    }
+  },
+  "nav": {
+    "overview": "概要",
+    "explorer": "エクスプローラー",
+    "playlists": "プレイリスト",
+    "errors": "エラー",
+    "performance": "パフォーマンス",
+    "applications": "アプリケーション",
+    "source_maps": "ソースマップとシンボル",
+    "upload_source_maps": "デバッグアーティファクトをアップロード",
+    "frustration": "フラストレーション",
+    "analytics": "分析",
+    "feature_flags": "機能フラグ"
+  },
+  "overview": {
+    "retry": "再試行",
+    "open_dashboard": "ダッシュボードで開く",
+    "scope": {
+      "application": "アプリケーション",
+      "environment": "環境",
+      "all_environments": "すべての環境"
+    },
+    "empty": {
+      "title": "この時間範囲にセッションはありません",
+      "description": "表示中の時間範囲には、このアプリケーションのデータが記録されていません。時間範囲を広げるか、SDK がデータを送信しているか確認してください。",
+      "widen": "時間範囲を広げる"
+    },
+    "unavailable": {
+      "time_budget": "集計が制限時間を超えました。時間範囲を狭めてください。",
+      "busy": "他のユーザーの集計を処理しています。しばらくしてからもう一度お試しください。",
+      "timestamp_masked": "お使いのロールでは時刻がマスクされているため、時系列で集計できません。"
+    },
+    "pulse": {
+      "aria": "セッションと Core Web Vitals",
+      "sessions_one": "<n>{{formatted}}</n>件のセッション",
+      "sessions_other": "<n>{{formatted}}</n>件のセッション",
+      "people_one": "<n>{{formatted}}</n>人のユーザー",
+      "people_other": "<n>{{formatted}}</n>人のユーザー",
+      "browser": "<people/>による< sessions/>のうち、<n>{{share}}</n>でエラーが発生しませんでした。",
+      "app": "<people/>による<sessions/>がありました。セッションの<n>{{sessionShare}}</n>とユーザーの<n>{{userShare}}</n>では、クラッシュが発生しませんでした。"
+    },
+    "vitals": {
+      "label": "{{name}} · p75",
+      "names": {
+        "lcp": "LCP",
+        "inp": "INP",
+        "cls": "CLS"
+      },
+      "grade": {
+        "good": "良好",
+        "needs_improvement": "改善が必要",
+        "poor": "不良"
+      },
+      "good_at": "≤ {{value}}：良好",
+      "poor_at": "> {{value}}：不良",
+      "aria": "{{name}}、75パーセンタイル値：{{value}}（{{grade}}）",
+      "open": "パフォーマンスページで{{name}}を開く",
+      "none_aria": "{{name}}：計測されたビューはありません"
+    },
+    "pages": {
+      "title": "ページ",
+      "screens": "画面",
+      "description": "ビュー数上位のページと各指標の75パーセンタイル値",
+      "description_screens": "ビュー数上位の画面",
+      "table": "ビュー数上位のページ",
+      "columns": {
+        "page": "ページ",
+        "screen": "画面",
+        "views": "ビュー数",
+        "errors": "エラーあり"
+      },
+      "open": "{{page}}のビューをエクスプローラーで開く",
+      "empty": "この期間にビューはありません"
+    },
+    "origins": {
+      "title": "訪問者の所在地",
+      "description": "国別のセッション数",
+      "map": "セッションの発生元を示す世界地図",
+      "value_one": "{{formatted}}件のセッション",
+      "value_other": "{{formatted}}件のセッション",
+      "legend": "セッション数"
+    },
+    "shares": {
+      "browsers": "ブラウザー",
+      "systems": "オペレーティングシステム",
+      "devices": "デバイス",
+      "other": "その他",
+      "empty": "値が記録されたセッションはありません",
+      "device_types": {
+        "desktop": "デスクトップ",
+        "mobile": "モバイル",
+        "tablet": "タブレット",
+        "bot": "ボット",
+        "other": "その他"
+      }
+    },
+    "frustration": {
+      "title": "ユーザーの不満につながった要素",
+      "description_click": "レイジクリック、デッドクリック、エラークリックが発生した操作",
+      "description_tap": "レイジタップまたはエラータップが発生した操作",
+      "empty": "この期間にユーザーの不満につながった操作はありません",
+      "unnamed": "名前のない要素",
+      "kinds": {
+        "rage": "レイジクリック",
+        "dead": "デッドクリック",
+        "error": "エラークリック",
+        "rage_tap": "レイジタップ",
+        "dead_tap": "デッドタップ",
+        "error_tap": "エラータップ"
+      }
+    },
+    "issues": {
+      "title": "最新の問題",
+      "description": "新規・再発の問題（影響を受けたセッション数順）",
+      "all": "すべての問題",
+      "empty": "この期間に新規または再発の問題はありません",
+      "sessions_one": "{{formatted}} 件のセッション",
+      "sessions_other": "{{formatted}} 件のセッション",
+      "first_seen": "初回検出：{{ago}} · {{version}}",
+      "first_seen_plain": "初回検出：{{ago}}",
+      "regressed": "{{resolved}} で解決後、{{ago}}に {{version}} で再発",
+      "regressed_plain": "解決後、{{ago}}に再発"
+    },
+    "test_traffic": {
+      "title": "これらの数値は実ユーザーのデータに基づいています。シンセティックチェックと CI テストのセッションは集計に含まれません。テストセッションはこちらから確認できます。",
+      "note_one": "テストセッション {{value}} 件を集計から除外",
+      "note_other": "テストセッション {{value}} 件を集計から除外"
+    }
+  },
+  "performance": {
+    "empty": {
+      "title": "この期間にページビューはありません"
+    },
+    "not_browser": {
+      "title": "Web Vitals はブラウザーで計測されます",
+      "description": "このアプリケーションはブラウザーからデータを送信しないため、評価対象のページ読み込みはありません。画面は概要ページで、クラッシュはエラーページで確認できます。"
+    },
+    "metrics": {
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "fcp": "FCP",
+      "ttfb": "TTFB"
+    },
+    "dimensions": {
+      "page": "ページ",
+      "browser": "ブラウザー",
+      "os": "オペレーティングシステム",
+      "device": "デバイス",
+      "country": "国または地域",
+      "version": "バージョン"
+    },
+    "statement": {
+      "aria": "ページビューと Web Vitals",
+      "sentence": "<views/>。75 パーセンタイルでは、LCP は <lcp/>、INP は <inp/>、CLS は <cls/> です。",
+      "views_one": "<n>{{formatted}}</n> ページビュー",
+      "views_other": "<n>{{formatted}}</n> ページビュー",
+      "reading": "<figure>{{value}}</figure> (<grade>{{grade}}</grade>)",
+      "not_measured": "未計測"
+    },
+    "picker": {
+      "aria": "下に表示する評価レベル"
+    },
+    "trend": {
+      "title": "{{name}} の推移",
+      "description": "各期間の 75 パーセンタイルです。破線は「良好」と「改善が必要」、「改善が必要」と「不良」の境界を示します。",
+      "good": "良好",
+      "poor": "不良",
+      "empty": "この範囲では、この指標を計測したページビューがありません。",
+      "aria": "{{name}} の 75 パーセンタイルの推移"
+    },
+    "grades": {
+      "title": "評価別のページビュー",
+      "description": "評価レベル別の内訳（良好、改善が必要、不良）",
+      "empty": "この範囲では、評価できるページビューがありません。",
+      "aria": "{{name}}：ページビューのうち {{good}} が良好でした。",
+      "range": {
+        "good": "≤ {{good}}",
+        "needs_improvement": "{{good}} ～ {{poor}}",
+        "poor": "> {{poor}}"
+      },
+      "note": "{{name}} を計測したページビュー：{{formatted}}"
+    },
+    "table": {
+      "by": "分類項目",
+      "search": "値を検索",
+      "search_label": "テーブル内の値を検索",
+      "count_one": "{{count}} 件の値",
+      "count_other": "{{count}} 件の値",
+      "most_viewed_one": "ページビュー数が最多の値",
+      "most_viewed_other": "ページビュー数の上位 {{count}} 件",
+      "few_note": "{{views}} ページビュー未満：グレー",
+      "views": "ページビュー",
+      "good": "{{name}}：良好",
+      "none": "(なし)",
+      "empty": "この範囲にはページビューがありません。",
+      "no_match": "一致する値がありません。",
+      "aria": "{{dimension}}別の評価レベル",
+      "open": "{{value}}のビューの内訳を表示",
+      "few": "ビュー数が{{views}}件未満のため、順位付けできません"
+    },
+    "drawer": {
+      "title": "これらのビューの遅延要因",
+      "tabs": "Web Vital",
+      "explore": "エクスプローラーで表示",
+      "alert": "この指標のアラートを作成",
+      "close": "閉じる",
+      "views_one": "{{formatted}}件のビュー",
+      "views_other": "{{formatted}}件のビュー",
+      "none": "この値に該当するビューでは、{{name}}は記録されていません。",
+      "level": "<n>{{formatted}}</n>件のビューで、{{name}}の75パーセンタイル値は<reading/>です。",
+      "longest": "最も時間がかかったのは<n>{{part}}</n>で、{{value}}（全体の{{share}}）です。"
+    },
+    "makeup": {
+      "title": "{{name}}の内訳",
+      "description": {
+        "lcp": "最初のバイトの受信までの時間、画像の読み込み開始までの待ち時間、読み込みにかかった時間、描画までの待ち時間",
+        "inp": "ハンドラーの実行開始までの待ち時間、実行にかかった時間、次のフレームが描画されるまでの待ち時間"
+      },
+      "empty": "この範囲には、{{name}}の内訳が記録されたビューがありません。",
+      "aria": "{{name}}の内訳（合計{{total}}）",
+      "cohort": "75パーセンタイル値の±10%以内にある{{formatted}}件のビューを対象に、各項目の平均を算出しています。"
+    },
+    "parts": {
+      "first_byte": "最初のバイトの受信までの時間",
+      "load_delay": "読み込み開始までの遅延",
+      "load_time": "読み込み時間",
+      "render_delay": "描画遅延",
+      "input_delay": "入力遅延",
+      "processing_duration": "処理時間",
+      "presentation_delay": "表示遅延"
+    },
+    "elements": {
+      "title": {
+        "lcp": "最後に描画された要素",
+        "inp": "操作対象の要素",
+        "cls": "位置がずれた要素"
+      },
+      "description": "要素ごとの該当ビュー数順",
+      "empty": "この範囲には、要素が記録されたビューがありません",
+      "columns": {
+        "element": "要素",
+        "resource": "ファイル"
+      },
+      "open": "{{selector}}を含むビューをエクスプローラーで開く",
+      "no_resource": "テキスト"
+    },
+    "worst": {
+      "title": "パフォーマンスが最も悪いビュー",
+      "description": "{{name}}の値が最も高いビュー",
+      "empty": "順位付けに使える値が記録されたビューがありません",
+      "explore": "エクスプローラーで開く",
+      "session": "セッション",
+      "load": "読み込みウォーターフォール"
+    },
+    "views": {
+      "aria": "パフォーマンスビュー",
+      "vitals": "Web Vitals",
+      "resources": "リソース",
+      "long_tasks": "ロングタスク"
+    },
+    "long_tasks": {
+      "invokers": {
+        "user-callback": "コールバック",
+        "event-listener": "イベントリスナー",
+        "resolve-promise": "Promise の解決",
+        "reject-promise": "Promise の拒否",
+        "classic-script": "クラシックスクリプト",
+        "module-script": "モジュールスクリプト"
+      },
+      "statement": {
+        "aria": "ページのロングタスク",
+        "tasks_one": "<n>{{formatted}}</n> 件のロングタスク",
+        "tasks_other": "<n>{{formatted}}</n> 件のロングタスク",
+        "sentence": "メインスレッドで<tasks/>が実行され、ページビューの<share>{{share}}</share>でロングタスクが 1 件以上発生しました。75 パーセンタイルでは、ロングタスクの実行時間は<n>{{duration}}</n>、入力のブロック時間は<n>{{blocking}}</n>でした。",
+        "sentence_alone": "メインスレッドで<tasks/>が実行されました。75 パーセンタイルでは、ロングタスクの実行時間は<n>{{duration}}</n>、入力のブロック時間は<n>{{blocking}}</n>でした。",
+        "sentence_share": "メインスレッドで<tasks/>が実行され、ページビューの<share>{{share}}</share>でロングタスクが 1 件以上発生しました。",
+        "sentence_count": "メインスレッドで<tasks/>が実行されました。"
+      },
+      "empty": {
+        "title": "この範囲にロングタスクはありません",
+        "description": "メインスレッドを 50 ms 以上ブロックすることがないページでは、ロングタスクは発生しません。"
+      },
+      "groups": {
+        "script": "スクリプトと関数",
+        "page": "ページ",
+        "version": "バージョン",
+        "invoker": "トリガー"
+      },
+      "heads": {
+        "script": "スクリプト",
+        "function": "関数",
+        "page": "ページ",
+        "version": "バージョン",
+        "invoker": "トリガー"
+      },
+      "table": {
+        "by": "グループ化",
+        "search": "スクリプトを検索",
+        "search_label": "テーブル内のスクリプトを検索",
+        "count_one": "{{count}} グループ",
+        "count_other": "{{count}} グループ",
+        "most_tasks_one": "ロングタスクが最も多いグループ",
+        "most_tasks_other": "ロングタスク数の上位 {{count}} グループ",
+        "few_note": "ロングタスクが {{tasks}} 件未満：グレー",
+        "empty": "この範囲にロングタスクはありません",
+        "no_match": "一致するグループはありません",
+        "aria": "{{group}}別のロングタスク",
+        "open": "{{value}}のロングタスクの内訳を開く",
+        "few": "ロングタスクが{{tasks}}件未満のため、順位を付けられません",
+        "none": "（なし）",
+        "unattributed": "発生元不明",
+        "tasks": "ロングタスク",
+        "views": "ビュー",
+        "time": "実行時間（p75）",
+        "blocking": "ブロック時間（p75）"
+      },
+      "panel": {
+        "aria": "グループのロングタスク",
+        "close": "閉じる",
+        "tasks_one": "ロングタスク{{formatted}}件",
+        "tasks_other": "ロングタスク{{formatted}}件",
+        "unattributed_note": "SafariとFirefoxは、ロングタスクの発生元スクリプトを報告しません。MoleSignalがスクリプトを特定できるようになる前に受信したロングタスクにも、発生元の情報はありません。これらのタスクも集計に含まれます。",
+        "sentence": "75パーセンタイルでの実行時間は<n>{{duration}}</n>で、そのうち<b>{{blocking}}</b>は入力がブロックされていました。",
+        "sentence_time": "実行時間の75パーセンタイルは<n>{{duration}}</n>でした。",
+        "page": "最も多く発生したページは<code>{{page}}</code>でした。",
+        "invokers": "起動トリガー",
+        "invokers_empty": "このグループのロングタスクには、起動トリガーの情報がありません",
+        "unknown": "情報なし",
+        "pages": "発生ページ",
+        "pages_empty": "発生ページの情報がありません",
+        "samples": "実行時間が長いタスク · 選択すると該当ビューの読み込み詳細が開きます",
+        "samples_empty": "実行時間が記録されたロングタスクはありません",
+        "open_load": "{{page}}のビューの読み込み詳細を開く"
+      }
+    },
+    "section": {
+      "failed": "データを取得できませんでした。"
+    },
+    "resources": {
+      "statement": {
+        "aria": "ページのリクエスト",
+        "requests_one": "<n>{{formatted}}</n>件のリクエスト",
+        "requests_other": "<n>{{formatted}}</n>件のリクエスト",
+        "sentence": "ページから<requests/>が送信されました。所要時間の75パーセンタイルは<n>{{duration}}</n>で、<rate>{{rate}}</rate>が失敗しました（エラーステータスまたは応答なし）。",
+        "sentence_time": "ページから<requests/>が送信されました。所要時間の75パーセンタイルは<n>{{duration}}</n>でした。",
+        "sentence_count": "ページから<requests/>が送信されました。",
+        "per_view": "1ページビューあたり、平均<n>{{resources}}</n>件のリソースがリクエストされ、合計サイズは平均<n>{{size}}</n>でした。"
+      },
+      "empty": {
+        "title": "この範囲にリクエストはありません"
+      },
+      "groups": {
+        "host_type": "ホストと種類",
+        "path": "ホストとパス",
+        "type": "種類",
+        "protocol": "プロトコル",
+        "delivery": "配信",
+        "blocking": "レンダリングブロック"
+      },
+      "heads": {
+        "host": "ホスト",
+        "type": "種類",
+        "path": "パス",
+        "protocol": "プロトコル",
+        "delivery": "配信",
+        "blocking": "レンダリングブロック"
+      },
+      "statuses": {
+        "4xx": "クライアントエラー (4xx)",
+        "5xx": "サーバーエラー (5xx)",
+        "none": "応答なし"
+      },
+      "table": {
+        "by": "グループ化の基準",
+        "type": "種類",
+        "status": "ステータス",
+        "all": "すべて",
+        "search": "ホストまたはパスを検索",
+        "search_label": "テーブル内のリクエストを検索",
+        "count_one": "{{count}} グループ",
+        "count_other": "{{count}} グループ",
+        "most_requested_one": "リクエスト数が最も多いグループ",
+        "most_requested_other": "リクエスト数の上位 {{count}} グループ",
+        "few_note": "{{requests}} 件未満のリクエストはグレー表示",
+        "empty": "この期間にリクエストはありません",
+        "no_match": "一致するグループはありません",
+        "aria": "{{group}}別のリクエスト",
+        "open": "{{value}} のリクエストの内訳を表示",
+        "few": "リクエストが {{requests}} 件未満のため、ランキング対象外",
+        "none": "（なし）",
+        "requests": "リクエスト数",
+        "time": "所要時間 (p75)",
+        "failed": "失敗率",
+        "size": "サイズ (p75)",
+        "cache": "キャッシュから取得"
+      },
+      "panel": {
+        "aria": "グループ内のリクエスト",
+        "close": "閉じる",
+        "requests_one": "リクエスト {{formatted}} 件",
+        "requests_other": "リクエスト {{formatted}} 件",
+        "sentence": "所要時間の75パーセンタイルは <n>{{duration}}</n> で、リクエストの <rate>{{rate}}</rate> が失敗しました。",
+        "sentence_time": "所要時間の75パーセンタイルは <n>{{duration}}</n> でした。",
+        "longest": "最も時間がかかったのは <n>{{part}}</n> で、所要時間は {{value}} です。",
+        "trend": "所要時間の推移",
+        "trend_series": "75パーセンタイル",
+        "trend_empty": "この期間に、このグループのリクエストはありません",
+        "trend_aria": "このグループのリクエスト所要時間の75パーセンタイルの推移",
+        "parts": "75パーセンタイル付近のリクエストの所要時間の内訳",
+        "parts_empty": "このグループのリクエストには、所要時間の内訳が記録されていません。",
+        "statuses": "レスポンスステータス",
+        "statuses_empty": "このグループのリクエストには、レスポンスステータスが記録されていません。",
+        "slowest": "所要時間が長いリクエスト · 選択すると該当ビューの読み込み詳細を表示",
+        "slowest_empty": "所要時間が記録されたリクエストはありません。",
+        "open_load": "{{path}} をリクエストしたビューの読み込み詳細を開く",
+        "traced": "リクエストの{{share}}%にトレースIDが含まれています。",
+        "explore": "エクスプローラーで表示"
+      }
+    }
+  },
+  "frustration": {
+    "empty": {
+      "title": "この期間にフラストレーションの兆候はありません",
+      "description_click": "表示期間内に、連続クリック、反応のないクリック、エラーにつながったクリックはありませんでした。期間を広げるか、別のアプリケーションを確認してください。",
+      "description_tap": "表示期間内に、連続タップ、反応のないタップ、エラーにつながったタップはありませんでした。期間を広げるか、別のアプリケーションを確認してください。"
+    },
+    "statement": {
+      "aria": "フラストレーションの兆候",
+      "sentence": "セッションの<share>{{share}}</share>でフラストレーションの兆候が見られました：<kinds/>。",
+      "sentence_count_one": "<n>{{sessions}}</n>件のセッションでフラストレーションの兆候が見られました：<kinds/>。",
+      "sentence_count_other": "<n>{{sessions}}</n>件のセッションでフラストレーションの兆候が見られました：<kinds/>。",
+      "join": "、 ",
+      "sessions_one": "<n>{{formatted}}</n>件のセッション",
+      "sessions_other": "<n>{{formatted}}</n>件のセッション",
+      "kinds": {
+        "rage_one": "<k>レイジクリック</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "rage_other": "<k>レイジクリック</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "dead_one": "<k>デッドクリック</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "dead_other": "<k>デッドクリック</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "error_one": "<k>エラークリック</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "error_other": "<k>エラークリック</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "rage_tap_one": "<k>レイジタップ</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "rage_tap_other": "<k>レイジタップ</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "dead_tap_one": "<k>デッドタップ</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "dead_tap_other": "<k>デッドタップ</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "error_tap_one": "<k>エラータップ</k>：<n>{{formatted}}</n>回（<sessions/>）",
+        "error_tap_other": "<k>エラータップ</k>：<n>{{formatted}}</n>回（<sessions/>）"
+      }
+    },
+    "groups": {
+      "element": "要素",
+      "page": "ページ",
+      "screen": "画面",
+      "version": "バージョン",
+      "browser": "ブラウザー",
+      "system": "システム"
+    },
+    "table": {
+      "by": "グループ化の基準",
+      "kind": "兆候",
+      "kinds_all": "すべて",
+      "search": "要素またはページを検索",
+      "search_label": "テーブル内の要素またはページを検索",
+      "count_one": "{{count}} グループ",
+      "count_other": "{{count}} グループ",
+      "most_one": "影響を受けたセッション数が最も多いグループ",
+      "most_other": "影響を受けたセッション数の上位 {{count}} グループ",
+      "empty": "この期間にフラストレーションの兆候はありません",
+      "no_match": "一致するグループはありません",
+      "aria": "{{group}}別のフラストレーションの兆候",
+      "open": "{{value}}のフラストレーションの兆候の内訳を開く",
+      "none": "（なし）",
+      "unnamed": "（名前なし）",
+      "selector": "セレクター",
+      "sessions": "セッション"
+    },
+    "panel": {
+      "aria": "グループのフラストレーションの兆候",
+      "close": "閉じる",
+      "sentence_one": "この{{noun}}では、<n>{{formatted}}</n> 件のセッションでフラストレーションの兆候が見られました。",
+      "sentence_other": "この{{noun}}では、<n>{{formatted}}</n> 件のセッションでフラストレーションの兆候が見られました。",
+      "page": "最も多く発生したページは <code>{{page}}</code> です。",
+      "trend": "影響を受けたセッション数",
+      "trend_series": "影響を受けたセッション数",
+      "trend_aria": "時間区間ごとのフラストレーションの兆候が見られたセッション数",
+      "trend_empty": "この期間に影響を受けたセッションはありません",
+      "kinds": "兆候",
+      "kinds_empty": "表示できる兆候はありません",
+      "versions": "バージョン",
+      "versions_empty": "表示できるバージョンはありません",
+      "pages": "ページ",
+      "screens": "画面",
+      "pages_empty": "表示できるページはありません",
+      "unknown": "不明",
+      "samples": "最新のセッション · 兆候が現れる5秒前から再生",
+      "samples_empty": "表示できるセッションはありません",
+      "anonymous": "匿名 {{id}}",
+      "with_error": "エラーあり",
+      "replay": "リプレイ",
+      "replay_at": "{{time}}のリプレイ",
+      "session": "セッション",
+      "replay_aria": "{{time}}のセッションを再生",
+      "session_aria": "{{time}}のセッションを開く",
+      "nouns": {
+        "element": "要素",
+        "page": "ページ",
+        "screen": "画面",
+        "version": "バージョン",
+        "browser": "ブラウザー",
+        "system": "システム"
+      }
+    }
+  },
+  "analytics": {
+    "views": {
+      "aria": "分析ビュー",
+      "funnel": "ファネル",
+      "paths": "パス",
+      "retention": "リテンション",
+      "heatmap": "ヒートマップ"
+    },
+    "kinds": {
+      "views": "ページ",
+      "views_app": "画面",
+      "actions": "アクション"
+    },
+    "fields": {
+      "view_url_path_group": "ページグループ",
+      "view_url_path": "完全一致パス",
+      "view_name": "ビュー名",
+      "action_target_name": "ターゲット名",
+      "action_target_selector": "ターゲットセレクター",
+      "action_type": "タイプ"
+    },
+    "ops": {
+      "eq": "一致する",
+      "contains": "含む"
+    },
+    "breakdowns": {
+      "version": "バージョン",
+      "browser_name": "ブラウザー",
+      "os_name": "システム",
+      "device_type": "デバイスタイプ",
+      "geo_country_iso_code": "国"
+    },
+    "value": {
+      "search": "値を検索または入力",
+      "use": "「{{value}}」を使用"
+    },
+    "funnel": {
+      "title": "ファネル",
+      "steps_description": "ユーザーがたどるステップを順番に設定します。各ステップは、ユーザーが開いたページ、または実行したアクションです。",
+      "step_kind": "ステップ{{number}}の対象",
+      "step_field": "ステップ{{number}}のフィールド",
+      "step_op": "ステップ{{number}}の比較条件",
+      "step_value": "ステップ{{number}}の値",
+      "step_placeholder": "値を選択または入力",
+      "remove_step": "ステップ{{number}}を削除",
+      "add_step": "ステップを追加",
+      "window": "制限時間",
+      "window_none": "時間制限なし",
+      "window_within": "{{time}}以内",
+      "minutes_one": "{{count}}分",
+      "minutes_other": "{{count}}分",
+      "hours_one": "{{count}}時間",
+      "hours_other": "{{count}}時間",
+      "days_one": "{{count}}日",
+      "days_other": "{{count}}日",
+      "breakdown": "セッションの集計軸",
+      "breakdown_none": "全セッションをまとめて集計",
+      "breakdown_by": "{{field}}別",
+      "choose": {
+        "title": "各ステップの条件を設定",
+        "description": "ファネルでは、各ステップを順に完了したセッションを集計します。ステップごとにページまたはアクションを選択してください。"
+      },
+      "result": "ステップを通過したセッション",
+      "result_description": "各ステップでは、直前のステップに続いてそのステップを完了したセッションを集計します。",
+      "nobody": "この期間に最初のステップに到達したセッションはありません。",
+      "by_title": "{{field}}別のファネル",
+      "no_value": "未設定",
+      "columns": {
+        "step": "ステップ",
+        "sessions": "セッション数",
+        "conversion": "初回ステップからの到達率",
+        "from_previous": "離脱率",
+        "median": "所要時間の中央値",
+        "overall": "最初から最後まで"
+      }
+    },
+    "paths": {
+      "title": "ページ遷移",
+      "description_after": "セッションが次に閲覧したページを、遷移ごとに閲覧数の多い順に列で表示します。",
+      "description_before": "セッションが直前に閲覧したページを、遷移ごとに閲覧数の多い順に列で表示します。",
+      "direction": "遷移方向",
+      "after": "基準ページ以降",
+      "before": "基準ページ以前",
+      "anchor": "遷移の基準ページ",
+      "anchor_first": "最初のページを起点にする",
+      "anchor_last": "最後のページを終点にする",
+      "clear": "クリア",
+      "depth": "表示するページ数",
+      "depth_pages_one": "{{count}}ページ",
+      "depth_pages_other": "{{count}}ページ",
+      "told_by": "ページの集計単位",
+      "by": {
+        "view_url_path_group": "ページグループ",
+        "view_url_path": "個別のURLパス",
+        "view_name": "ビュー名"
+      },
+      "nobody": "この期間にパスはありません",
+      "other": "その他のページ",
+      "pick": "{{page}}をパスの起点に設定",
+      "ends_one": "{{count}}件のセッションがここで終了しました",
+      "ends_other": "{{count}}件のセッションがここで終了しました",
+      "begins_one": "{{count}}件のセッションがここで開始しました",
+      "begins_other": "{{count}}件のセッションがここで開始しました",
+      "chart_aria": "{{sessions}}件のセッションのパス"
+    },
+    "retention": {
+      "title": "リテンション",
+      "description": "ある期間に初めて訪問したユーザーのうち、その後の各期間に再訪問したユーザーの割合です。日と週の区切りはUTC基準です。",
+      "period": "コホートの集計単位",
+      "periods": "追跡する期間数",
+      "by_day": "日",
+      "by_week": "週",
+      "days_after_one": "{{count}}日後",
+      "days_after_other": "{{count}}日後",
+      "weeks_after_one": "{{count}}週間後",
+      "weeks_after_other": "{{count}}週間後",
+      "cohort_day": "初回訪問日",
+      "cohort_week": "初回訪問週",
+      "people": "ユーザー数",
+      "average": "平均",
+      "nobody": "この期間に訪問したユーザーはいません",
+      "too_short": "指定した範囲では、最初の期間に続く期間がまだ終了していないため、再訪問を集計できません。時間範囲を広げてください。",
+      "cell_one": "{{total}}人中{{count}}人が再訪問しました",
+      "cell_other": "{{total}}人中{{count}}人が再訪問しました"
+    },
+    "heatmap": {
+      "title": "ヒートマップ",
+      "description_clicks": "ページの記録に、ユーザーがクリックした位置を重ねて表示します。",
+      "description_scroll": "ユーザーがページのどこまでスクロールしたかを示します。色が濃いほど、その位置まで到達したユーザーが少ないことを示します。",
+      "page": "ページ",
+      "page_placeholder": "ページを選択",
+      "kind": "マップの種類",
+      "kinds": {
+        "clicks": "クリック",
+        "scroll": "スクロール"
+      },
+      "device": "ウィンドウサイズ",
+      "devices": {
+        "desktop": "デスクトップ",
+        "tablet": "タブレット",
+        "mobile": "スマートフォン",
+        "all": "すべて"
+      },
+      "recording": "録画",
+      "recording_number": "No. {{number}}",
+      "open_session": "このセッションを開く",
+      "elements": "クリックされた要素",
+      "depths": "スクロールの深さ",
+      "clicks_total_one": "{{count}}クリック",
+      "clicks_total_other": "{{count}}クリック",
+      "views_total_one": "{{count}}件の訪問",
+      "views_total_other": "{{count}}件の訪問",
+      "sessions_one": "{{count}}件のセッション",
+      "sessions_other": "{{count}}件のセッション",
+      "frustrated_one": "フラストレーションあり：{{count}}件",
+      "frustrated_other": "フラストレーションあり：{{count}}件",
+      "off_snapshot": "このページの録画には含まれていません",
+      "median_depth": "訪問の半数が到達した位置",
+      "page_height": "ページの高さ",
+      "scroll_line": "訪問の{{share}}%がここまで到達しました",
+      "no_clicks": "この範囲では、このページのクリックはありません",
+      "no_scroll": "この範囲では、このページのスクロールデータはありません",
+      "reading_recording": "録画されたページを読み込み中…",
+      "no_recording": "指定した範囲と時間枠には、このページのセッション録画がないため、ヒートマップを描画できません。集計値はそのまま表示されます。",
+      "recording_denied": "リプレイを視聴する権限がないため、ヒートマップを描画できません。集計値はそのまま表示されます。",
+      "stage_failed": "録画されたページを開けませんでした：{{reason}}",
+      "not_browser": {
+        "title": "ヒートマップはブラウザーアプリケーション専用です",
+        "description": "アプリのリプレイはスクリーンショットで構成されるため、ページ上の要素を特定できません。"
+      },
+      "no_pages": {
+        "title": "この範囲にページがありません",
+        "description": "範囲を広げるか、SDKがデータを送信しているか確認してください。"
+      }
+    },
+    "segment": {
+      "label": "セグメント",
+      "everyone": "すべてのユーザー"
+    }
+  },
+  "playlists": {
+    "title": "プレイリスト",
+    "create": "新規プレイリスト",
+    "result_count_one": "{{count}}件のプレイリスト",
+    "result_count_other": "{{count}}件のプレイリスト",
+    "application_filter": "アプリケーション",
+    "all_applications": "すべてのアプリケーション",
+    "columns": {
+      "name": "名前",
+      "application": "アプリケーション",
+      "sessions": "セッション",
+      "updated": "更新日時",
+      "created_by": "作成者"
+    },
+    "empty_title": "プレイリストはまだありません",
+    "empty_description": "確認したいセッションをまとめて、順に再生できます。プレイリストはここからでも、セッションのページからでも作成できます。",
+    "empty_no_application": "プレイリストはアプリケーションに紐づきます。先にアプリケーションを作成してください。",
+    "not_found": "このプレイリストが見つかりませんでした",
+    "play": "最初から再生",
+    "rename": "名前を変更",
+    "delete": "プレイリストを削除",
+    "cancel": "キャンセル",
+    "all": "すべてのプレイリスト",
+    "delete_confirm_title": "{{name}}を削除しますか？",
+    "delete_confirm_description": "プレイリストのみが削除されます。含まれるセッションは削除されません。",
+    "form": {
+      "create_title": "新規プレイリスト",
+      "edit_title": "プレイリスト名を変更",
+      "subtitle": "セッションを順に再生するためのリストです。",
+      "name": "名前",
+      "name_placeholder": "購入手続きの失敗",
+      "description": "説明",
+      "description_hint": "セッションの共通点を入力します。",
+      "application": "アプリケーション",
+      "application_fixed": "紐づけ先のアプリケーションは変更できません。",
+      "create": "作成",
+      "save": "保存"
+    },
+    "sessions": {
+      "title": "セッション",
+      "count_one": "{{count}}件のセッション",
+      "count_other": "{{count}}件のセッション",
+      "empty": "このプレイリストにセッションはありません。セッションのページから追加してください。",
+      "session": "セッション",
+      "person": "ユーザー",
+      "started": "開始時刻",
+      "duration": "継続時間",
+      "signs": "発生した事象",
+      "opens_at": "再生開始位置",
+      "remove": "{{id}}をプレイリストから削除",
+      "remove_column": "削除",
+      "gone": "データが見つかりません",
+      "errors_one": "{{count}}件のエラー",
+      "errors_other": "{{count}}件のエラー",
+      "frustrations_one": "{{count}}件のフラストレーションの兆候",
+      "frustrations_other": "{{count}}件のフラストレーションの兆候"
+    },
+    "link": {
+      "moment": "この再生位置へのリンクをコピー",
+      "session": "リンクをコピー",
+      "copied": "リンクをコピーしました"
+    },
+    "menu": {
+      "button": "プレイリストに追加",
+      "title": "このアプリケーションのプレイリスト",
+      "description": "このセッションをプレイリストに追加したり、プレイリストから削除したりできます。",
+      "none": "このアプリケーションにはまだプレイリストがありません。",
+      "at_moment": "リプレイのこの時点から開く",
+      "new_placeholder": "新しいプレイリスト",
+      "new_name": "新しいプレイリストの名前",
+      "new": "作成して追加"
+    },
+    "bar": {
+      "place": "{{total}} 件中 {{index}} 件目",
+      "not_in": "このセッションはプレイリストに含まれていません",
+      "previous": "前へ",
+      "next": "次へ"
+    }
+  },
+  "errors": {
+    "state": {
+      "open": "オープン",
+      "investigating": "調査中",
+      "regressed": "再発",
+      "resolved": "解決済み",
+      "ignored": "無視"
+    },
+    "filter": {
+      "unresolved": "未解決",
+      "regressed": "再発",
+      "investigating": "調査中",
+      "resolved": "解決済み",
+      "ignored": "無視",
+      "all": "すべてのイシュー"
+    },
+    "filters": {
+      "status": "ステータス",
+      "holder": "担当者",
+      "source": "ソース"
+    },
+    "holder": {
+      "anyone": "すべて",
+      "nobody": "未割り当て"
+    },
+    "search": {
+      "label": "イシューを検索",
+      "placeholder": "イシューを検索：メッセージ、タイプ、ファイル"
+    },
+    "count_one": "イシュー {{count}} 件",
+    "count_other": "イシュー {{count}} 件",
+    "picked": {
+      "clear": "{{dimension}}：{{value}} をクリア"
+    },
+    "saved": "イシューを更新しました",
+    "table": {
+      "label": "イシュー",
+      "issue": "イシュー",
+      "status": "ステータス",
+      "holder": "担当者",
+      "sessions": "セッション",
+      "users": "ユーザー",
+      "trend": "傾向",
+      "versions": "バージョン",
+      "last_seen": "最終検出"
+    },
+    "overflow": {
+      "title": "その他のエラー",
+      "description": "アプリケーションが1時間あたりのイシュー作成上限に達した後に発生したエラーです。"
+    },
+    "spread": {
+      "title": "発生環境",
+      "description": "一覧のイシューが発生したセッションを、バージョン、ページ、ブラウザー別に表示します。",
+      "version": "バージョン",
+      "page": "ページ",
+      "browser": "ブラウザー",
+      "empty": "セッションなし"
+    },
+    "empty": {
+      "unresolved": "この期間に未解決のイシューはありません",
+      "none": "この期間にイシューはありません",
+      "description": "アプリケーションから送信されたエラーは、種類、メッセージ、発生箇所ごとにグループ化されます。",
+      "show_all": "すべてのイシューを表示"
+    },
+    "controls": {
+      "status": "状態",
+      "team": "チーム",
+      "no_team": "チームなし",
+      "holder": "担当者"
+    },
+    "drawer": {
+      "title": "イシュー",
+      "untyped": "エラー",
+      "explore": "エクスプローラーで表示",
+      "close": "閉じる",
+      "source": "ソース",
+      "handling": "エラー処理",
+      "issue_id": "イシューID",
+      "anonymous": "匿名 {{id}}",
+      "unknown": "不明",
+      "facts": {
+        "state": "状態",
+        "sessions": "セッション",
+        "users": "ユーザー",
+        "first_seen": "初回検出",
+        "last_seen": "最終検出",
+        "versions": "バージョン"
+      },
+      "where": {
+        "title": "発生環境",
+        "description": "このイシューに属するエラーのみを表示します。",
+        "browser": "ブラウザー",
+        "system": "システム",
+        "country": "国"
+      },
+      "samples": {
+        "title": "最新のセッション",
+        "description": "直近のエラーを、それぞれが発生したセッションで確認できます",
+        "empty": "直近のエラーはありません",
+        "replay": "リプレイ",
+        "timeline": "タイムライン",
+        "not_kept": "セッションは保存されていません"
+      },
+      "people": {
+        "title": "影響を受けたユーザー",
+        "description": "発生回数順",
+        "empty": "該当するユーザーはいません",
+        "times_one": "{{count}} 回",
+        "times_other": "{{count}} 回"
+      }
+    },
+    "trend": {
+      "title": "推移",
+      "description": "過去 {{days}} 日間の日別セッション数（バージョン別の積み上げ）",
+      "empty": "この期間のセッションはありません",
+      "aria": "過去 {{days}} 日間の {{count}} セッション（バージョン別）",
+      "others": "その他のバージョン",
+      "no_version": "バージョンなし",
+      "resolved": "解決済み",
+      "resolved_in": "解決済み · {{version}}"
+    },
+    "stack": {
+      "title": "例外の発生箇所",
+      "view": "表示するフレーム",
+      "restored": "復元済み",
+      "raw": "オリジナル",
+      "restored_tag": "復元済み",
+      "library": "ライブラリ",
+      "anonymous": "（匿名）",
+      "empty": "このエラーにはスタックトレースが送信されていません",
+      "symbolication": {
+        "completed": "ソースマップ、マッピング、またはシンボルファイルを使用して復元しました",
+        "partial": "一部のフレームを復元しました",
+        "missing": "このリリースに対応するデバッグファイルがないため、復元できませんでした",
+        "none": "SDK が送信したフレームをそのまま表示しています"
+      }
+    },
+    "banner": {
+      "resolved": "{{when}} に解決しました。",
+      "resolved_by": "{{when}} に {{who}} が解決しました。",
+      "resolved_in": "{{when}} に {{version}} で解決しました。",
+      "resolved_by_in": "{{when}} に {{who}} が {{version}} で解決しました。",
+      "back": "{{when}} に再発しました。",
+      "back_in": "{{when}} に {{version}} で再発しました。",
+      "older": "{{version}} 以前でエラーが発生しても、この問題は再オープンされません。"
+    }
+  },
+  "applications": {
+    "title": "アプリケーション",
+    "list_title": "RUM アプリケーション",
+    "result_count_one": "{{count}} 件のアプリケーション",
+    "result_count_other": "{{count}} 件のアプリケーション",
+    "create_button": "アプリケーションを作成",
+    "empty_title": "アプリケーションがまだありません",
+    "empty_description": "まずアプリケーションを作成し、そのクライアントトークンを SDK に設定します。存在しないアプリケーションに送信されたイベントは拒否されます。",
+    "columns": {
+      "application": "アプリケーション",
+      "platform": "プラットフォーム",
+      "collection": "収集項目",
+      "created": "作成日時"
+    },
+    "collection": {
+      "ip": "IP",
+      "geo": "位置情報"
+    },
+    "platforms": {
+      "browser": "ブラウザー",
+      "android": "Android",
+      "ios": "iOS",
+      "flutter": "Flutter",
+      "react-native": "React Native",
+      "other": "その他"
+    },
+    "create": {
+      "title": "アプリケーションを作成",
+      "subtitle": "SDK は、設定されたクライアントトークンを使用し、識別子で指定されたアプリケーションにイベントを送信します。",
+      "submit": "作成",
+      "name": "名前",
+      "name_placeholder": "購入手続き用 Web アプリ",
+      "id": "識別子",
+      "id_hint": "空欄にすると {{id}} が使用されます。識別子は後から変更できません。",
+      "id_invalid": "英数字と . _ : - のみを使用し、64 文字以内で入力してください。",
+      "platform": "プラットフォーム"
+    },
+    "drawer": {
+      "close": "閉じる",
+      "save": "保存",
+      "saving": "保存中",
+      "cancel": "キャンセル",
+      "token_title": "クライアントトークン",
+      "token_description": "このトークンを SDK に設定してください。このトークンでは、このアプリケーションにのみイベントを書き込めます。",
+      "show_token": "トークンを表示",
+      "hide_token": "トークンを非表示",
+      "copy_token": "トークンをコピー",
+      "collection_title": "収集設定",
+      "collection_description": "各イベントとともに保存する情報を設定します。IP アドレスを保存しない場合でも、クライアントの位置情報は取得されます。",
+      "collect_ip": "IP アドレスを保存",
+      "collect_ip_hint": "サーバーが判定したリクエスト送信元の IP アドレスです。",
+      "collect_geo": "位置情報を保持",
+      "collect_geo_hint": "アドレスから国、地域、市区町村を特定します。",
+      "privacy": "デフォルトのプライバシー設定",
+      "privacy_hint": "セットアップ用のコードスニペットで推奨されるセッションリプレイのプライバシーレベルです。",
+      "privacy_mask": "テキストと入力内容をマスク",
+      "privacy_allow": "表示内容をすべて記録",
+      "setup_title": "SDKのセットアップ",
+      "setup_description": "セットアップガイドでは、エンドポイント、トークン、識別子が自動入力されます。",
+      "open_guide": "セットアップガイドを開く",
+      "no_guide": "このプラットフォームは取り込みエンドポイントにイベントを自動で送信します。詳しくはドキュメントを参照してください。",
+      "delete_title": "削除",
+      "delete_description": "このアプリケーションのクライアントトークンは無効になります。送信済みのデータは、各ストリームの保持期間が終了するまで残ります。",
+      "delete": "アプリケーションを削除",
+      "delete_confirm_title": "{{name}}を削除しますか？",
+      "delete_confirm_description": "以降、このトークンを設定したSDKからの送信は拒否されます。",
+      "scrub_title": "機密データ",
+      "scrub_description": "イベントを保存する前に、アドレス、エラーメッセージ、名前、リクエストの詳細から機密データを除去します。セッションリプレイの記録時にSDKが適用するマスキングには影響しません。",
+      "scrub": {
+        "secrets": "トークン、キー、パスワード",
+        "secrets_hint": "BearerトークンとJWTトークン、APIキー、password=の後に続く値、認証ヘッダーの値が対象です。",
+        "emails": "メールアドレス",
+        "emails_hint": "それぞれ[ email ]ではなく[email]に置き換えます。",
+        "phones": "電話番号",
+        "phones_hint": "国際形式の電話番号と、中国および北米で一般的な形式の電話番号が対象です。",
+        "cards": "決済カード番号",
+        "cards_hint": "先頭の数字とチェックディジットが決済カード番号の規則に合う番号が対象です。",
+        "national_ids": "個人識別番号",
+        "national_ids_hint": "中国の住民身分証番号と米国の社会保障番号が対象です。",
+        "url_params": "機密情報を含むURLパラメーター",
+        "url_params_hint": "token、code、password、session、emailなどのパラメーターの値と、ホスト名の前にあるユーザー名とパスワードが対象です。"
+      },
+      "sampling_title": "セッションの保持",
+      "sampling_description": "SDKによるサンプリング後に保持するセッションの割合を設定します。各セッションは、リプレイも含めて丸ごと保持または破棄されます。最初に一致したフィルターの保持率が適用され、どのフィルターにも一致しないセッションには以下の保持率が適用されます。",
+      "sample_rate": "セッションの保持率（%）",
+      "sample_rate_hint": "100に設定すると、すべてのセッションが保持されます。保持対象外のセッションのイベントは保存されず、取り込みエンドポイントの応答に除外したイベント数が示されます。",
+      "retention": {
+        "new_name": "フィルター {{number}}",
+        "add_filter": "フィルターを追加",
+        "remove_filter": "このフィルターを削除",
+        "filter_up": "このフィルターを上に移動",
+        "filter_down": "このフィルターを下に移動",
+        "no_filters": "フィルターがない場合は、すべてのセッションに以下の保持率が適用されます。フィルターを使うと、本番環境の全セッションなど、条件に一致するセッションに個別の保持率を設定できます。",
+        "filter_name": "フィルター名",
+        "filter_rate": "条件に一致するセッションの保持率 (%)",
+        "add_condition": "条件を追加",
+        "remove_condition": "この条件を削除",
+        "condition_field": "条件の対象フィールド",
+        "condition_op": "比較演算子",
+        "condition_values": "値",
+        "values_placeholder": "prod, production (* は任意の文字列)",
+        "ops": {
+          "is": "一致する",
+          "is_not": "一致しない"
+        },
+        "fields": {
+          "env": "環境",
+          "service": "サービス",
+          "version": "バージョン",
+          "source": "プラットフォーム",
+          "session_type": "セッションの種類",
+          "geo_country_iso_code": "国コード",
+          "browser_name": "ブラウザー",
+          "os_name": "OS",
+          "device_type": "デバイスの種類"
+        },
+        "rest_rate": "その他のセッションの保持率 (%)",
+        "rest_rate_hint": "どのフィルターにも一致しないセッションが対象です。100 に設定すると、対象のセッションをすべて保持します。インテークのレスポンスには、除外されたイベント数が示されます。",
+        "keep_errors": "すべてのエラーを保持",
+        "keep_errors_hint": "保持されないセッションのエラーも保存し、発生した分だけカウントします。この設定を無効にすると、まれなエラーもセッションとともに失われます。"
+      },
+      "issues_title": "イシュー",
+      "issues_description": "このアプリケーションのエラーをイシューにまとめる方法を設定します。",
+      "issues_per_hour": "1 時間あたりの新規イシュー数の上限",
+      "issues_per_hour_hint": "上限を超えると、新しいエラーは「その他のエラー」という 1 つのイシューにまとめてカウントされます。",
+      "privacy_mask_user_input": "ユーザーの入力内容をマスク",
+      "sdk": {
+        "title": "SDK のリモート設定",
+        "description": "remoteConfiguration: true で初期化された SDK は、起動時にこの設定を読み込みます。ページを再リリースせずに設定を変更できます。空欄の項目には、ページ側の設定が適用されます。",
+        "not_said": "ページ側の設定に従う",
+        "session_sample_rate": "セッションのサンプリング率 (%)",
+        "session_sample_rate_hint": "SDK が送信するセッションの割合です。アプリケーションの保持設定は、送信後に適用されます。",
+        "session_replay_sample_rate": "セッションリプレイのサンプリング率 (%)",
+        "session_replay_sample_rate_hint": "送信されるセッションのうち、リプレイを記録するセッションの割合です。",
+        "privacy": "プライバシーレベル",
+        "clicks": "クリックの収集",
+        "on": "収集する",
+        "off": "収集しない",
+        "console": "コンソール出力の転送",
+        "console_hint": "ログストリームにも出力するコンソールメソッドを指定します。",
+        "console_none": "転送しない",
+        "console_from": "{{level}} 以上"
+      },
+      "segments": {
+        "title": "セグメント",
+        "description": "セグメントは、ユーザーや利用地域に基づいてセッションをグループ化し、分析ページの表示を絞り込むために使います。",
+        "new_name": "セグメント {{number}}",
+        "add": "セグメントを追加",
+        "remove": "セグメントを削除",
+        "none": "セグメントはまだありません。",
+        "name": "セグメント名",
+        "property_key": "プロパティ名（例：plan）",
+        "fields": {
+          "geo_country_iso_code": "国（ISO コード）",
+          "geo_continent_code": "大陸",
+          "geo_city": "都市",
+          "browser_name": "ブラウザー",
+          "os_name": "OS",
+          "device_type": "デバイスの種類",
+          "usr_id": "ユーザー ID",
+          "usr_email": "ユーザーのメールアドレス",
+          "account_id": "アカウント ID",
+          "service": "サービス",
+          "version": "バージョン",
+          "source": "プラットフォーム",
+          "property": "ユーザープロパティ"
+        }
+      }
+    }
+  },
+  "session_detail": {
+    "title_error": "エラーのあるセッション",
+    "no_events": "このセッションには再生できるイベントがありません。",
+    "replay_player": "リプレイプレーヤー",
+    "replay_recorded": "記録済みのリプレイ",
+    "action_timeline_fallback": "操作タイムライン",
+    "replay_loading": "DOM の記録を読み込み中…",
+    "replay_request_error": "セッションの記録を読み込めませんでした。",
+    "replay_load_error": "記録されたページを再構築できませんでした。",
+    "replay_unavailable": "このセッションには DOM の記録がありません",
+    "replay_unavailable_description": "このセッションは DOM 記録のサンプリング対象外でしたが、ページ遷移やアプリケーションのイベントは下のイベントタイムラインで確認できます。",
+    "events_unit": "イベント",
+    "restart": "最初から再生",
+    "play": "再生",
+    "pause": "一時停止",
+    "seek": "セッションリプレイの再生位置を変更",
+    "user_context": "ユーザーコンテキスト",
+    "device": "デバイス",
+    "ip_address": "IP アドレス",
+    "detected_issues": "検出された問題",
+    "no_detected_issues": "明らかな問題は検出されませんでした",
+    "event_timeline": "イベントタイムライン",
+    "event_timeline_description": "ページ遷移、クリック、エラー、ネットワークリクエスト、パフォーマンスイベントを発生順に表示します。",
+    "related_traces_title": "関連トレース",
+    "related_traces_subtitle": "このユーザーセッションに直接紐づくか、時間的な相関があるバックエンドトレースです。",
+    "related_empty": "このセッションに関連するバックエンドトレースはありません。",
+    "relation_direct": "直接",
+    "relation_time_correlated": "時間的相関",
+    "primary_service_label": "プライマリサービス",
+    "title": "セッション",
+    "related_columns": {
+      "spans": "スパン"
+    },
+    "not_found": "過去30日間にこのセッションは見つかりませんでした。",
+    "title_frustration": "不満を示すクリックがあったセッション",
+    "user": "ユーザー",
+    "anonymous_user": "匿名",
+    "location": "場所",
+    "application": "アプリケーション",
+    "environment": "環境",
+    "version": "バージョン",
+    "duration": "継続時間",
+    "journey": "ページ",
+    "issue": {
+      "error": "エラー",
+      "crash": "クラッシュ",
+      "frustration": "不満の兆候",
+      "long_task": "ロングタスク"
+    },
+    "timeline_truncated": "{{types}} の先頭の行のみを表示しています。",
+    "location_unknown": "不明",
+    "tools": {
+      "aria": "開発者ツール",
+      "tabs_aria": "開発者ツールのタブ",
+      "tabs": {
+        "errors": "エラー",
+        "network": "ネットワーク",
+        "performance": "パフォーマンス",
+        "logs": "ログ",
+        "comments": "コメント"
+      },
+      "view": "ビュー",
+      "follow": "リプレイに追従",
+      "all_views": "すべてのビュー",
+      "display": {
+        "label": "表示",
+        "list": "リスト",
+        "waterfall": "ウォーターフォール"
+      },
+      "seek": "{{time}}に移動",
+      "network": {
+        "aria": "このセッションのリクエスト",
+        "time": "時刻",
+        "method": "メソッド",
+        "name": "名前",
+        "status": "ステータス",
+        "type": "タイプ",
+        "duration": "所要時間",
+        "size": "サイズ",
+        "empty": "このビューではリクエストが発生しませんでした",
+        "empty_all": "このセッションではリクエストが発生しませんでした",
+        "no_match": "条件に一致するリクエストはありません"
+      },
+      "errors": {
+        "aria": "このセッションのエラー",
+        "time": "時刻",
+        "type": "タイプ",
+        "message": "メッセージ",
+        "issue": "イシュー",
+        "issue_id": "イシュー {{id}}",
+        "open_issue": "イシュー {{id}} を開く",
+        "crash": "クラッシュ",
+        "empty": "このセッションではエラーが発生しませんでした"
+      },
+      "performance": {
+        "aria": "このセッションのビューごとのパフォーマンス",
+        "view": "ビュー",
+        "resources": "リクエスト",
+        "long_tasks": "ロングタスク",
+        "open": "{{view}}の読み込み詳細を開く",
+        "empty": "このセッションにはビューがありません"
+      },
+      "logs": {
+        "aria": "このセッションのログ",
+        "time": "時刻",
+        "level": "レベル",
+        "message": "メッセージ",
+        "logger": "ロガー",
+        "empty": "このセッションにはログがありません。SDKのロガーでログを出力するか、forwardConsoleLogsを有効にしてコンソールログを転送してください。"
+      },
+      "comments": {
+        "aria": "このリプレイのコメント",
+        "time": "時刻",
+        "body": "コメント",
+        "author": "投稿者",
+        "nobody": "（退出済み）",
+        "write": "コメントを書く",
+        "placeholder": "{{time}} のコメント",
+        "add": "コメントを投稿",
+        "edit": "コメントを編集",
+        "save": "保存",
+        "cancel": "キャンセル",
+        "delete": "コメントを削除",
+        "empty": "コメントはまだありません"
+      }
+    },
+    "session_type": "セッションタイプ",
+    "session_types": {
+      "synthetics": "合成チェック",
+      "ci_test": "CI テスト",
+      "user": "実ユーザー"
+    },
+    "summary": {
+      "title": "AI 要約",
+      "generate": "要約する",
+      "regenerate": "再要約する",
+      "generating": "要約中…",
+      "none": "要約はまだありません。要約には Mole Agent のモデルを使用し、Mole Agent の 1 日あたりの利用枠を消費します。",
+      "chapters": "チャプター",
+      "by": "{{model}} · {{tokens}} トークン"
+    }
+  },
+  "settings": {
+    "title": "RUM 設定",
+    "nav": {
+      "sdk": "SDK セットアップ",
+      "source_maps": "ソースマップ",
+      "sampling": "データサンプリング",
+      "privacy": "プライバシー",
+      "session_replay": "セッションリプレイ"
+    },
+    "docs_title": "セットアップと設定のドキュメント",
+    "docs_description": "ブラウザー RUM SDK のセットアップ、ソースマップ、サンプリング、プライバシー、セッションリプレイについて確認できます。",
+    "view_docs": "ドキュメントを表示",
+    "sections": {
+      "sdk": {
+        "title": "SDK セットアップ",
+        "subtitle": "プラットフォームを選択し、最初の実ユーザーイベントを確認します。",
+        "heading": "RUM SDK のインストール",
+        "description": "アプリケーション、環境、バージョンは、すべての RUM 分析で共通のコンテキストとして使われます。",
+        "steps": {
+          "1": "お使いのプラットフォームに対応する MoleSignal RUM SDK をインストールします。",
+          "2": "アプリケーション、環境、バージョン、データ受信エンドポイントを設定します。",
+          "3": "テストセッションを送信し、エクスプローラーで確認します。"
+        }
+      },
+      "sampling": {
+        "title": "データサンプリング",
+        "subtitle": "セッション、パフォーマンスデータ、セッションリプレイの収集率を調整します。",
+        "heading": "サンプリング方針の設定",
+        "description": "セッションとセッションリプレイのサンプリングは個別に設定します。セッションリプレイのサンプリングは、サンプリングされたセッションにのみ適用されます。",
+        "steps": {
+          "1": "セッションの基準サンプリング率を設定します。",
+          "2": "サンプリングされたセッションのうち、リプレイを記録する割合を設定します。",
+          "3": "設定をリリースし、データ量とカバレッジを監視します。"
+        }
+      },
+      "privacy": {
+        "title": "プライバシー",
+        "subtitle": "テキスト、入力内容、ネットワークデータ、ユーザー識別子の収集を制御します。",
+        "heading": "ユーザーのプライバシー保護",
+        "description": "クライアント側でマスキングとブロックを適用し、機密データがユーザーのデバイスから送信されないようにします。",
+        "steps": {
+          "1": "入力内容、テキスト、メディアのデフォルトのマスキングを設定します。",
+          "2": "機密性の高いページ、リクエストフィールド、ユーザー識別子をブロックします。",
+          "3": "テストセッションで機密情報が隠されていることを確認します。"
+        }
+      },
+      "session-replay": {
+        "title": "セッションリプレイ設定",
+        "subtitle": "リプレイのサンプリング、マスキング、記録範囲を設定します。",
+        "heading": "セッションリプレイの設定",
+        "description": "プライバシー保護のためのマスキング設定に従い、ユーザー体験の問題を調査するのに必要な操作だけを記録します。",
+        "steps": {
+          "1": "リプレイを有効にし、リプレイ専用のサンプリングレートを設定します。",
+          "2": "ページ、要素、メディアの記録ルールを設定します。",
+          "3": "テストセッションを送信し、リプレイのタイムラインを確認します。"
+        }
+      }
+    }
+  },
+  "source_maps": {
+    "title": "ソースマップとシンボル",
+    "subtitle": "Web、Flutter、Android、iOS のスタックトレースの復元に使用するアーティファクトを管理します。",
+    "upload_cta": "デバッグアーティファクトをアップロード",
+    "load_error": "デバッグアーティファクトを読み込めませんでした",
+    "active_maps": "アップロード済みのデバッグアーティファクト",
+    "active_maps_description": "現在、{{count}} 件のファイルをスタックトレースの復元に使用できます。",
+    "status_active": "有効",
+    "columns": {
+      "application": "アプリケーション ID",
+      "service": "サービス",
+      "release": "バージョン",
+      "kind": "アーティファクトの種類",
+      "platform": "プラットフォーム",
+      "filename": "ファイル",
+      "status": "ステータス",
+      "uploaded": "アップロード日時",
+      "matched_errors": "一致したエラー"
+    },
+    "kinds": {
+      "javascript_sourcemap": "JavaScript ソースマップ",
+      "flutter_symbols": "Flutter シンボル",
+      "android_mapping": "Android mapping.txt",
+      "android_native_symbols": "Android ネイティブシンボル",
+      "apple_dsym": "Apple dSYM"
+    },
+    "empty_title": "アップロード済みのデバッグアーティファクトはありません",
+    "empty_description": "ミニファイされたコード、難読化されたコード、ネイティブコードのスタックトレースを復元するには、モバイルまたは Web の各リリースに対応するアーティファクトをアップロードします。",
+    "onboarding_title": "元のソースコードの位置を復元",
+    "onboarding_description": "ソースマップ、Flutter シンボル、Android のマッピングファイルやネイティブシンボル、Apple の dSYM ファイルをアップロードします。MoleSignal はアプリケーションとリリースに基づいてファイルを照合し、関数名と行番号を復元します。",
+    "view_docs": "セットアップドキュメントを表示",
+    "stack_example": "スタックトレースの復元例",
+    "before": "圧縮済み",
+    "after": "復元済み",
+    "demangle": "ソースマップによる復元",
+    "delete": "削除",
+    "toast_deleted": "削除しました",
+    "delete_confirm_title": "デバッグアーティファクトを削除しますか？",
+    "delete_confirm_description": "既存のスタックトレースは保持されますが、このリリースで今後発生するエラーのスタックトレースは復元されなくなります。"
+  },
+  "upload_source_maps": {
+    "title": "デバッグアーティファクトのアップロード",
+    "application_label": "アプリケーション ID",
+    "service_label": "サービス",
+    "release_label": "バージョン",
+    "kind_label": "アーティファクトの種類",
+    "platform_label": "プラットフォーム",
+    "platform_hint": "アーティファクトの種類によって選択肢が変わります。",
+    "architecture_label": "アーキテクチャ（任意）",
+    "architecture_hint": "ネイティブアーティファクトでは指定を推奨します（例：arm64、armeabi-v7a、x86_64）。",
+    "debug_id_label": "デバッグ ID / UUID（任意）",
+    "debug_id_hint": "同じリリースに複数のビルドアーティファクトがある場合に、それらを識別します。",
+    "debug_id_placeholder": "UUID またはビルド ID",
+    "file_label": "デバッグアーティファクトファイル",
+    "file_hint": ".map、mapping.txt、Flutter の .symbols、シンボルを保持した .so、dSYM 内の DWARF ファイル、およびそれぞれの .gz 形式に対応しています。最大 50 MiB です。",
+    "submit": "アップロード",
+    "uploading": "アップロード中…",
+    "file_required": "ファイルを選択してください",
+    "success": "デバッグアーティファクトをアップロードしました",
+    "back": "デバッグアーティファクト一覧に戻る"
+  },
+  "explorer": {
+    "title": "エクスプローラー",
+    "types": {
+      "sessions": "セッション",
+      "views": "ビュー",
+      "actions": "アクション",
+      "errors": "エラー",
+      "resources": "リソース",
+      "long_tasks": "ロングタスク",
+      "vitals": "バイタル",
+      "logs": "ログ"
+    },
+    "toolbar": {
+      "refresh": "更新"
+    },
+    "query": {
+      "run": "クエリを実行",
+      "running": "クエリを実行中",
+      "clear_query": "クエリをクリア",
+      "collapse_editor": "クエリエディターを折りたたむ",
+      "expand_editor": "クエリエディターを展開",
+      "empty_summary": "すべての{{type}}",
+      "free_text_label": "テキスト:",
+      "ignored_label": "無視:",
+      "help_title": "RUM フィールドクエリ",
+      "help_description": "表示中の行をフィールドの値で絞り込めます。比較条件を指定していない語句は、テキスト列から検索されます。",
+      "example_equals": "特定のユーザー",
+      "example_contains": "特定のページ",
+      "example_exclude": "特定のブラウザーを除外",
+      "example_number": "1秒超（ナノ秒単位）"
+    },
+    "histogram": {
+      "show": "ヒストグラムを表示",
+      "hide": "ヒストグラムを非表示",
+      "label": "{{type}}の推移",
+      "ok": "行",
+      "troubled": {
+        "sessions": "エラーのあるセッション",
+        "views": "エラーのあるビュー",
+        "actions": "フラストレーションのあるアクション",
+        "errors": "エラー",
+        "resources": "失敗したリクエスト",
+        "long_tasks": "ロングタスク",
+        "logs": "エラーログ"
+      }
+    },
+    "columns": {
+      "time": "時刻",
+      "user": "ユーザー",
+      "landing_page": "ランディングページ",
+      "duration": "継続時間",
+      "views": "ビュー",
+      "actions": "アクション",
+      "errors": "エラー",
+      "session_id": "セッション",
+      "browser": "ブラウザー",
+      "country": "国",
+      "page": "ページ",
+      "loading_time": "読み込み時間",
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "view_id": "ビュー",
+      "type": "タイプ",
+      "target": "ターゲット",
+      "frustration": "フラストレーション",
+      "action_id": "アクション",
+      "message": "メッセージ",
+      "error_type": "エラータイプ",
+      "source": "ソース",
+      "handling": "処理",
+      "version": "バージョン",
+      "error_id": "エラー",
+      "method": "メソッド",
+      "url": "URL",
+      "status": "ステータス",
+      "size": "サイズ",
+      "resource_type": "タイプ",
+      "resource_id": "リクエスト",
+      "entry_type": "種別",
+      "blocking": "ブロッキング",
+      "long_task_id": "タスク"
+    },
+    "fields": {
+      "title": "フィールド",
+      "resize": "フィールド一覧のサイズ変更",
+      "collapse": "フィールド一覧を折りたたむ",
+      "expand": "フィールド一覧を展開",
+      "summary": "{{total}} 件のフィールドのうち {{shown}} 件",
+      "filter_placeholder": "フィールドを検索",
+      "filter_aria": "フィールドを検索",
+      "displayed_fields": "表示中のフィールド",
+      "indexed_fields": "インデックス済みフィールド",
+      "other_fields": "その他のフィールド",
+      "no_match": "一致するフィールドがありません",
+      "hide_field_aria": "テーブルで {{name}} を非表示",
+      "show_field_aria": "テーブルに {{name}} を表示",
+      "add_field_aria": "{{name}} で絞り込み",
+      "json_query_required": "{{name}} にはドキュメントが格納されているため、比較できません",
+      "values_loading": "{{name}} の値を読み込み中",
+      "values_failed": "値を読み込めませんでした。",
+      "no_values": "これらの行には値がありません。",
+      "values_top": "上位 {{shown}} 件の値",
+      "filter_for": "この値で絞り込み",
+      "filter_out": "この値を除外",
+      "filter_remove": "フィルターを削除",
+      "filter_for_aria": "{{name}} が {{value}} の行のみ表示",
+      "filter_out_aria": "{{name}} が {{value}} の行を除外",
+      "unavailable": {
+        "time_budget": "件数の集計がタイムアウトしました。",
+        "busy": "実行中のクエリが多すぎます。"
+      }
+    },
+    "results": {
+      "loaded_count_one": "{{count}} 行を読み込みました",
+      "loaded_count_other": "{{count}} 行を読み込みました",
+      "reset_columns": "デフォルトの列に戻す",
+      "export": "CSV でダウンロード（最大 5,000 行）",
+      "export_more": "ファイルには最新の {{count}} 行が含まれています。クエリに一致する行はほかにもあります。"
+    },
+    "viz": {
+      "label": "表示形式",
+      "names": {
+        "list": "リスト",
+        "timeseries": "時系列",
+        "toplist": "トップリスト",
+        "table": "テーブル",
+        "map": "マップ",
+        "distribution": "分布"
+      },
+      "map_unavailable": "この種類の行には国情報がないため、マップに表示できません。",
+      "map_group": "国ごとに行をグループ化してマップに表示します",
+      "map_empty": "この範囲内に国情報を含む行がありません。アプリケーションが位置情報を保存していないか、GeoIP データベースがインストールされていません。",
+      "aggregate": "集計対象",
+      "measure": "集計指標",
+      "measure_edit": "集計指標 {{measure}} を変更",
+      "measure_add": "集計指標を追加",
+      "measure_remove": "集計指標 {{measure}} を削除",
+      "function": "関数",
+      "group": "グループ化の基準",
+      "group_then": "次のグループ化の基準",
+      "group_edit": "グループ {{field}} を変更",
+      "group_add": "グループを追加",
+      "group_remove": "グループ {{field}} を削除",
+      "bucket": "バケット",
+      "bucket_auto_of": "自動 · {{bucket}}",
+      "top": "上位",
+      "search_fields": "フィールドを検索",
+      "no_fields": "一致するフィールドがありません。",
+      "no_value": "（なし）",
+      "count_of": "{{type}} の件数",
+      "title_by": "{{groups}} 別の {{measure}}",
+      "vital_good": "良好",
+      "vital_poor": "不良",
+      "status": {
+        "unavailable": "利用不可",
+        "per_point": "1ポイントあたり{{bucket}}",
+        "groups_one": "{{count}}グループ",
+        "groups_other": "{{count}}グループ",
+        "top_groups_one": "上位{{count}}グループ",
+        "top_groups_other": "上位{{count}}グループ",
+        "countries_one": "{{count}}か国",
+        "countries_other": "{{count}}か国",
+        "rows_one": "{{count}}行",
+        "rows_other": "{{count}}行"
+      },
+      "field": "フィールド",
+      "field_edit": "フィールド「{{field}}」を変更",
+      "distribution": {
+        "title": "{{field}}の分布",
+        "aria": "{{title}}（対象：{{rows}}行）",
+        "bar": "{{from}}〜{{to}}：{{rows}}行",
+        "rows": "行数",
+        "p50": "P50",
+        "p75": "P75",
+        "p95": "P95",
+        "p99": "P99",
+        "max": "最大値"
+      }
+    },
+    "pagination": {
+      "aria": "RUM結果のページ切り替え",
+      "page_size_aria": "1ページあたりの行数",
+      "previous": "前のページ",
+      "next": "次のページ"
+    },
+    "drawer": {
+      "title": "行の詳細",
+      "resize": "詳細パネルのサイズを変更",
+      "previous": "前の行",
+      "next": "次の行",
+      "open_session": "セッションを開く",
+      "close": "詳細を閉じる",
+      "loading": "行を読み込み中",
+      "sections": {
+        "aria": "詳細のセクション",
+        "waterfall": "読み込みのウォーターフォール",
+        "stack": "スタック",
+        "fields": "フィールド",
+        "json": "JSON"
+      },
+      "failed": "この行を読み込めませんでした。",
+      "position": "{{total}}行中{{current}}行目",
+      "copy_json": "行をJSONとしてコピー",
+      "copied_json": "コピーしました",
+      "replay": "リプレイを再生",
+      "find_field": "フィールドを検索",
+      "no_field_match": "一致するフィールドがありません",
+      "facts": {
+        "frustrations": "フラストレーション",
+        "email": "メールアドレス",
+        "os": "OS",
+        "device": "デバイス",
+        "location": "場所",
+        "application": "アプリケーション",
+        "env": "環境",
+        "resources": "リソース",
+        "long_tasks": "ロングタスク",
+        "trace": "トレース",
+        "issue": "問題",
+        "logger": "ロガー"
+      }
+    },
+    "recovery": {
+      "query_failed": "クエリの実行に失敗しました",
+      "no_data_title": "この時間範囲にデータがありません",
+      "no_data_description": "この時間範囲にデータが送信されていないか、クエリに一致するデータがありません。",
+      "clear_filters": "クエリをクリア",
+      "expand_time": "時間範囲を広げる",
+      "query_docs": "エクスプローラーのドキュメントを表示"
+    },
+    "saved_views": {
+      "label": "保存済みビュー",
+      "none": "保存したビューがここに表示されます。",
+      "delete": "ビュー「{{name}}」を削除",
+      "name": "ビュー名",
+      "save": "保存"
+    },
+    "export": {
+      "dashboard": {
+        "action": "ダッシュボードに追加",
+        "title": "ダッシュボードに追加",
+        "description": "パネルは、ダッシュボードの時間範囲を対象に、ここで指定したフィルター、集計項目、グループを使ってSQLで行を取得します。ここでの表示と同様に、シンセティックテストやCIで実行されたセッションは、クエリで明示的に指定しない限り除外されます。",
+        "shapes": {
+          "timeseries": "時系列で表示します。件数と合計はグループ別の積み上げ棒グラフ、その他の集計項目は折れ線グラフで表示します。",
+          "toplist": "最初の集計項目の値に基づくランキングを横棒グラフで表示します。",
+          "table": "集計項目ごとに1列を設けたテーブルで表示します。単位はここでの表示と同じです。",
+          "distribution": "最小値からp99までを40区間に分け、棒グラフで表示します。区間はダッシュボードの時間範囲に合わせて再計算します。"
+        },
+        "list_as_count": "リストは、上のヒストグラムと同様に、一致する行数の推移として表示します。",
+        "map_as_top": "ダッシュボードでは地図を表示できないため、上位{{count}}か国を横棒グラフで表示します。",
+        "interval": "時間はダッシュボードの「間隔」変数に従って区切ります。初期値は{{interval}}です。",
+        "interval_added": "このダッシュボードには「間隔」変数がないため、パネルと一緒に追加します。",
+        "interval_label": "間隔",
+        "intervals": {
+          "1m": "1分",
+          "5m": "5分",
+          "15m": "15分",
+          "1h": "1時間",
+          "1d": "1日"
+        },
+        "target": "追加先のダッシュボード",
+        "targets": {
+          "new": "新規ダッシュボード",
+          "existing": "既存のダッシュボード"
+        },
+        "name": "ダッシュボード名",
+        "dashboard": "ダッシュボード",
+        "choose": "ダッシュボードを選択",
+        "none": "パネルを追加できるダッシュボードがまだありません。",
+        "panel": "パネルのタイトル",
+        "create": "作成",
+        "add": "追加",
+        "saving": "保存中…",
+        "created": "ダッシュボード「{{name}}」を作成しました",
+        "added": "ダッシュボード「{{name}}」に追加しました",
+        "open": "開く",
+        "distribution_title": "{{field}}の分布"
+      },
+      "alert": {
+        "action": "新規アラート",
+        "watches": "このルールは{{measure}}を監視します。",
+        "watches_distribution": "このルールは{{field}}のp75を監視します。",
+        "left": "次の項目は引き継がれません：{{parts}}。",
+        "left_viz": "表示形式（{{viz}}）",
+        "left_groups": "グループ（{{groups}}）",
+        "left_measures": "その他の測定値（{{measures}}）",
+        "separator": ", ",
+        "application": "ルールの対象は1つのアプリケーションです。エディターで選択してください。",
+        "kinds": {
+          "threshold": "しきい値アラート",
+          "threshold_hint": "値がしきい値を上回るか下回ったときにアラートを発します",
+          "anomaly": "異常検知アラート",
+          "anomaly_hint": "過去数日の同じ時間帯の値から大きく外れたときにアラートを発します"
+        }
+      }
+    }
+  },
+  "alerts": {
+    "button": "アラート",
+    "button_aria_one": "アラート、{{count}}件発生中",
+    "button_aria_other": "アラート、{{count}}件発生中",
+    "drawer": {
+      "title": "アラート",
+      "subtitle": "このページのアプリケーションと環境に対応するアラートを表示します",
+      "close": "閉じる"
+    },
+    "going_on": {
+      "title": "発生中",
+      "empty": "このアプリケーションで発報中のアラートはありません。",
+      "open": "開く"
+    },
+    "rules": {
+      "title": "このアプリケーションのルール",
+      "new": "新規ルール",
+      "empty": "このアプリケーションを監視するルールはまだありません。以下のテンプレートから作成できます。",
+      "edit": "編集",
+      "status": {
+        "firing": "発報中",
+        "dropped": "パイプラインで破棄",
+        "no_data": "データなし",
+        "pending": "保留中",
+        "healthy": "正常",
+        "off": "無効"
+      }
+    },
+    "templates": {
+      "title": "テンプレート",
+      "hint_browser": "ブラウザーアプリケーション · 「作成」でルールを作成して有効にします",
+      "hint_app": "アプリ · 「作成」でルールを作成して有効にします",
+      "recommended": "推奨",
+      "optional": "任意",
+      "create": "作成",
+      "creating": "作成中…",
+      "created": "作成済み（有効）",
+      "created_off": "作成済み（無効）",
+      "created_toast": "ルール「{{name}}」を作成して有効にしました",
+      "view": "ルールを表示",
+      "now": "現在",
+      "no_value": "値なし：{{window}}の間の{{kind}}が{{rows}}件未満です",
+      "unreadable": "現在の値を取得できませんでした",
+      "would_trip": "作成直後に重要度「{{severity}}」で発報します",
+      "sessions_per_one": "{{window}}あたり{{count}}セッション",
+      "sessions_per_other": "{{window}}あたり{{count}}セッション",
+      "list_separator": "、 ",
+      "line": "{{bands}} · {{window}}",
+      "at_least": "{{kind}}が{{rows}}件以上",
+      "any_environment": "すべての環境",
+      "name": "{{application}} · {{title}}",
+      "name_environment": "{{application}} · {{environment}} · {{title}}",
+      "items": {
+        "lcp": {
+          "title": "ページの読み込み遅延"
+        },
+        "inp": {
+          "title": "操作への応答遅延"
+        },
+        "cls": {
+          "title": "レイアウトシフト"
+        },
+        "error_rate": {
+          "title": "ページエラー",
+          "title_app": "画面エラー"
+        },
+        "failed_requests": {
+          "title": "失敗したリクエスト"
+        },
+        "frustration": {
+          "title": "ユーザーが不満を感じたセッション"
+        },
+        "crash_free": {
+          "title": "クラッシュ数の増加"
+        },
+        "new_issues": {
+          "title": "新規イシュー",
+          "rule": "評価期間内に{{where}}で初めて検出されたイシューが1件以上 → {{severity}} · {{window}}"
+        },
+        "regressions": {
+          "title": "再発したイシュー",
+          "rule": "{{where}}で解決済みのイシューが再発 → {{severity}} · {{window}}"
+        },
+        "high_impact": {
+          "title": "影響が最も大きいイシュー"
+        },
+        "traffic": {
+          "title": "トラフィックの停止",
+          "rule": "評価期間内のセッション数が1件未満 → {{severity}} · {{window}}（夜間にトラフィックが少ないアプリケーションには不向き）"
+        }
+      }
+    }
+  },
+  "waterfall": {
+    "failed": "このビューのリクエストを読み込めませんでした。",
+    "none": "このビューではリソースが報告されていません",
+    "no_match": "条件に一致するリソースはありません",
+    "more": "ほかに{{count}}件のリソースがあり、その大半は{{duration}}以内に読み込みが完了しました",
+    "expand": "残りを表示",
+    "collapse": "表示を減らす",
+    "late": "ほかに{{count}}件のリソースの読み込みがページの読み込み完了後に始まりました",
+    "sentence": {
+      "join": "、",
+      "end": "。 ",
+      "loaded": "このビューの読み込みには<n>{{value}}</n>かかりました",
+      "first_byte": "最初のバイトは<n>{{value}}</n>後に届きました",
+      "lcp": "LCPは<n>{{value}}</n>（<grade>{{grade}}</grade>）でした",
+      "lcp_element": "LCPは<n>{{value}}</n>（<grade>{{grade}}</grade>、<code>{{element}}</code>）でした",
+      "resources_one": "<n>{{count}}</n>件のリソース",
+      "resources_other": "<n>{{count}}</n>件のリソース",
+      "long_tasks_one": "<n>{{count}}</n>件のロングタスク",
+      "long_tasks_other": "<n>{{count}}</n>件のロングタスク",
+      "during": "その間に<resources/>がリクエストされ、<tasks/>が発生しました。"
+    },
+    "filters": {
+      "type": "タイプ",
+      "all": "すべて",
+      "show": "表示",
+      "shows": {
+        "all": "すべて",
+        "blocking": "レンダリングをブロック",
+        "slow": "低速（500 ms以上）",
+        "failed": "失敗"
+      }
+    },
+    "legend": {
+      "wait": "待機中",
+      "download": "ダウンロード中",
+      "long_task": "ロングタスク"
+    },
+    "marks": {
+      "first_byte": "最初のバイト",
+      "fcp": "FCP",
+      "dcl": "DCL",
+      "lcp": "LCP",
+      "load": "ロード"
+    },
+    "lane": {
+      "title": "メインスレッド",
+      "count_one": "ロングタスク {{count}} 件",
+      "count_other": "ロングタスク {{count}} 件",
+      "task": "ロングタスク（{{duration}}）"
+    },
+    "row": {
+      "blocking": "ブロック中",
+      "lcp": "LCP"
+    },
+    "phases": {
+      "title": "フェーズ",
+      "aria": "リクエストのフェーズ（全 {{total}} 件）",
+      "redirect": "リダイレクト",
+      "dns": "DNS",
+      "connect": "接続",
+      "tls": "TLS",
+      "first_byte": "最初のバイト",
+      "download": "ダウンロード"
+    },
+    "detail": {
+      "aria": "リクエスト",
+      "close": "閉じる",
+      "lcp_file": "LCP の待機対象ファイル",
+      "trace": "トレース",
+      "yes": "はい",
+      "no": "いいえ",
+      "size": "{{size}}（転送量: {{transfer}}）",
+      "sentence": {
+        "lcp": "最初のバイトを受信してから <n>{{delay}}</n> 後にロードが始まり、ロードに <n>{{load}}</n>、画面に表示されるまでにさらに <n>{{render}}</n> かかりました。",
+        "unanswered": "<n>{{duration}}</n> 経過しても応答がありませんでした。",
+        "failed": "ステータス <n>{{status}}</n> で失敗しました（経過時間: <n>{{duration}}</n>）。",
+        "phases": "最初のバイトの受信までに <n>{{wait}}</n>、ダウンロードに <n>{{download}}</n> かかりました。",
+        "total": "<n>{{duration}}</n> かかりました。"
+      },
+      "fields": {
+        "address": "アドレス",
+        "status": "ステータス",
+        "size": "サイズ",
+        "delivery": "配信元",
+        "blocking": "レンダリングのブロック",
+        "start": "開始時点"
+      },
+      "delivery": {
+        "cache": "キャッシュ",
+        "network": "ネットワーク",
+        "other": "ネットワーク",
+        "navigational-prefetch": "プリフェッチ"
+      },
+      "after_load": "ビューの開始から <n>{{start}}</n> 後、ページのロード完了後にリクエストが始まったため、時間軸には表示されません。"
+    },
+    "task": {
+      "unattributed": "ロングタスク",
+      "subtitle": "ロングタスク · {{duration}}",
+      "none": "ブラウザーから名前が報告されていません",
+      "sentence": "<n>{{duration}}</n>実行されました。",
+      "sentence_blocking": "<n>{{duration}}</n>実行され、そのうち<n>{{blocking}}</n>はページへの入力処理をブロックしました。",
+      "fields": {
+        "script": "スクリプト",
+        "function": "関数",
+        "invoker": "呼び出し元"
+      }
+    },
+    "truncated": "このビューではさらに多くのリクエストが発生しましたが、ここには最新の{{count}}件を表示しています。"
+  },
+  "agent": {
+    "investigate": "Mole Agentで調査",
+    "investigate_short": "調査",
+    "investigate_title": "この内容についてMole Agentとのチャットを開始します。用意された質問の下書きを確認して送信できます。",
+    "investigate_element": "この要素を調査",
+    "investigate_session": "このセッションを調査",
+    "investigate_row": "{{value}}をMole Agentで調査",
+    "all_environments": "すべての環境",
+    "prompt": {
+      "overview": "{{from}}から{{to}}までの{{application}}（{{environment}}）の状況を調査してください。まず概要と最新のイシューを確認し、通常と異なる点、考えられる原因、次に取るべき対応を示してください。",
+      "errors": "{{from}}から{{to}}までの{{application}}（{{environment}}）のエラーを調査してください。影響を受けたセッション数が多いイシュー、新規または再発したイシューとそれぞれが発生し始めたバージョン、考えられる原因、優先すべき対応を示してください。",
+      "performance": "{{from}}から{{to}}までの{{application}}（{{environment}}）のページ表示パフォーマンスを調査してください。Core Web Vitalsの値と評価、指標の悪化に影響しているページ、バージョン、ブラウザー、最も遅いビューで何の処理を待っていたか、優先して修正すべき点を示してください。",
+      "vital": "{{from}}から{{to}}までの{{application}}（{{environment}}）の{{vital}}を調査してください。指標の評価、悪化に影響しているページ、バージョン、ブラウザー、最も遅いビューで何の処理を待っていたか、優先して修正すべき点を示してください。",
+      "frustration": "{{from}}から{{to}}までの{{application}}（{{environment}}）でユーザーが操作に不満を感じた要因を調査してください。レイジクリック、デッドクリック、エラークリックが発生した要素、ページ、バージョン、クリック時に何が起きたか、考えられる原因を示してください。",
+      "issue": "{{from}}から{{to}}までの{{application}}（{{environment}}）のイシュー「{{error}}」（ID: {{issue}}）を調査してください。影響を受けたセッション数とユーザー数、発生し始めた時期とバージョン、再発の有無、スタックとセッションから推定される原因、次に取るべき対応を示してください。",
+      "slice": "{{from}}から{{to}}までの{{application}}（{{environment}}）で、{{dimension}}が{{value}}のビューを調査してください。全体の状況、遅延や失敗が発生している箇所、考えられる原因、次に取るべき対応を示してください。",
+      "slice_figure": "{{from}}から{{to}}までの{{application}}（{{environment}}）で、{{dimension}}が{{value}}のビューを調査してください。これらのビューの{{vital}}の75パーセンタイルは{{figure}}です。指標を悪化させている要因、影響の大きいバージョンとブラウザー、最も遅いビューで何の処理を待っていたか、優先して修正すべき点を示してください。",
+      "element": "{{from}}から{{to}}までの{{application}}（{{environment}}）で、要素「{{element}}」を調査してください。この要素ではレイジクリック、デッドクリック、エラークリックが発生しています。クリック時に何が起きたか、発生したページとバージョン、考えられる原因を示してください。",
+      "element_selector": "{{from}}から{{to}}までの{{application}}（{{environment}}）で、要素「{{element}}」（{{selector}}）を調査してください。この要素ではレイジクリック、デッドクリック、エラークリックが発生しています。クリック時に何が起きたか、発生したページとバージョン、考えられる原因を示してください。",
+      "session": "{{application}}（{{environment}}）で{{from}}から{{to}}まで続いたセッション{{session}}を調査してください。ユーザーの操作を時系列で整理し、発生した問題と考えられる原因を示してください。",
+      "incident": "{{from}}から{{to}}までの{{application}}（{{environment}}）のアラート「{{summary}}」を調査してください。指標の変動要因、影響の大きいページ、バージョン、ブラウザー、考えられる原因、次に取るべき対応を示してください。最初に調査計画を示し、その後、根拠を項目ごとに説明してください。本番環境は変更しないでください。",
+      "incident_sessions": "{{from}}から{{to}}までの{{application}}（{{environment}}）のアラート「{{summary}}」を調査してください。指標の変動要因、影響の大きいページ、バージョン、ブラウザー、考えられる原因、次に取るべき対応を示してください。このアラートに関連するセッションは{{sessions}}です。最初に調査計画を示し、その後、根拠を項目ごとに説明してください。本番環境は変更しないでください。"
+    }
+  },
+  "estimate": {
+    "note": "推定値 · セッションの{{share}}を保持",
+    "hint": "この期間に保持されたセッションは全体の{{share}}のみです。ここでの件数は各セッションの保持率に応じて補正されていますが、観測されたユーザー数、最小値、最大値は補正されていません。エクスプローラーには保持されたセッションのみが表示されます。"
+  },
+  "flags": {
+    "list_title": "機能フラグ",
+    "list_description": "この期間に評価された機能フラグ（セッション数の多い順）",
+    "sessions_one": "{{value}}件のセッション",
+    "sessions_other": "{{value}}件のセッション",
+    "compare_description": "この機能フラグの値ごとのセッション状況",
+    "compare_aria": "{{flag}}の値の比較",
+    "no_values": "この期間にこの機能フラグを含むビューはありません",
+    "not_evaluated": "（未評価）",
+    "open": "該当するビューを表示",
+    "columns": {
+      "value": "値",
+      "sessions": "セッション",
+      "errors": "エラーが発生したビュー",
+      "frustration": "フラストレーションが検出されたビュー"
+    },
+    "empty": {
+      "title": "この期間にフィーチャーフラグはありません",
+      "description": "SDK が addFeatureFlagEvaluation を呼び出すと、フィーチャーフラグがここに表示されます。"
+    }
+  }
+}

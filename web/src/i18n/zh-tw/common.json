@@ -1,0 +1,567 @@
+{
+  "app_name": "MoleSignal",
+  "access": {
+    "super_administrator": "超級管理員",
+    "loading": "存取權限仍在載入中。",
+    "read_only": "目前僅能唯讀存取。",
+    "page_unavailable": "目前的權限無法存取此頁面。",
+    "permission_required": "需要 {{permission}} 權限。",
+    "form_invalid": "請先填寫必填欄位，再儲存。",
+    "no_changes": "沒有未儲存的變更。",
+    "operation_pending": "另一個請求仍在處理中。",
+    "immutable": "工作區建立後，無法修改此值。",
+    "current_workspace": "無法刪除目前的工作區。",
+    "last_workspace": "無法刪除最後一個工作區。",
+    "system_workspace": "System Organization 永遠無法變更。"
+  },
+  "timezone": {
+    "label": "時區",
+    "browser": "瀏覽器時區",
+    "use_personal_default_option": "使用個人預設 · {{zone}}",
+    "browser_option": "瀏覽器時區 · {{zone}}",
+    "page_override_label": "{{zone}} · 僅限目前頁面",
+    "search": "搜尋時區…",
+    "empty": "沒有符合的時區。",
+    "set_as_default": "設為我的預設時區",
+    "saving_default": "正在儲存預設時區…",
+    "default_saved": "預設時區已更新",
+    "change": "變更",
+    "done": "完成"
+  },
+  "query_syntax_help": {
+    "aria": "開啟查詢語法速查",
+    "trigger": "查詢語法速查",
+    "title": "語法速查",
+    "description": "{{mode}} 查詢模式，按 Cmd/Ctrl + Enter 執行。",
+    "mode_shortcut": "{{mode}} · Cmd/Ctrl + Enter",
+    "modes": {
+      "fields": "欄位",
+      "sql": "SQL",
+      "promql": "PromQL"
+    },
+    "labels": {
+      "equals": "欄位等於",
+      "contains": "欄位包含",
+      "exclude": "排除值",
+      "either": "任一條件",
+      "substring": "子字串比對",
+      "full_text": "全文搜尋",
+      "basic": "基本查詢",
+      "filter": "欄位篩選",
+      "aggregate": "彙總",
+      "sort": "排序"
+    }
+  },
+  "query_tabs": {
+    "list": "已開啟的查詢",
+    "new": "新增分頁",
+    "untitled": "查詢 {{number}}",
+    "close": "關閉 {{name}}",
+    "close_tab": "關閉",
+    "close_others": "關閉其他分頁",
+    "rename": "重新命名",
+    "duplicate": "複製分頁",
+    "name": "分頁名稱",
+    "running": "查詢中",
+    "limit": "最多可同時開啟 {{count}} 個分頁",
+    "split": "分成兩欄",
+    "unsplit": "合併為一欄",
+    "move_right": "移到右側",
+    "move_left": "移到左側"
+  },
+  "query_mode": {
+    "aria": "查詢編輯模式",
+    "code": "程式碼",
+    "builder": "查詢建構器"
+  },
+  "query_fold": {
+    "expand": "展開",
+    "collapse": "收合"
+  },
+  "query_language": {
+    "label": "查詢"
+  },
+  "query_builder": {
+    "filters": "篩選條件",
+    "add": "條件",
+    "add_aria": "新增篩選條件",
+    "add_in_group": "在第 {{number}} 組新增篩選條件",
+    "add_alternative": "或",
+    "add_alternative_aria": "新增一組「或」條件",
+    "or": "或",
+    "group": "第 {{number}} 組",
+    "edit": "編輯條件 {{filter}}",
+    "remove": "移除條件 {{filter}}",
+    "unsupported": "不是篩選條件",
+    "remove_unsupported": "移除 {{part}}",
+    "search_fields": "搜尋欄位…",
+    "no_fields": "沒有符合的欄位",
+    "use_field": "使用「{{field}}」",
+    "change_field": "更換欄位",
+    "operator": "比較方式",
+    "value": "值",
+    "value_placeholder": "值…",
+    "suggestions": "曾出現在結果中",
+    "submit_add": "新增條件",
+    "submit_update": "更新",
+    "cancel": "取消",
+    "text": "搜尋文字",
+    "text_in_group": "第 {{number}} 組的搜尋文字",
+    "text_placeholder": "搜尋文字…",
+    "sql_active": "程式碼模式目前使用 SQL 陳述式，無法以篩選條件表示。在此新增條件會開始新的欄位查詢。"
+  },
+  "query_recommendations": {
+    "title": "查詢最佳化建議",
+    "dismiss": "關閉建議",
+    "inline_title": "查詢可最佳化：",
+    "view": "查看建議",
+    "items": {
+      "slow_query": {
+        "title": "查詢耗時較長",
+        "detail": "這次查詢耗時 {{took_ms}} 毫秒，掃描了 {{scanned_rows}} 列。請縮小時間範圍或新增選擇性較高的篩選條件。"
+      },
+      "wide_time_range": {
+        "title": "掃描時間範圍過大",
+        "detail": "目前的查詢在未設限或跨週的時間範圍內進行了大規模掃描。請將時間範圍縮小至足以回答目前問題的最小區間。"
+      },
+      "low_selectivity": {
+        "title": "篩選條件的選擇性較低",
+        "detail": "掃描了 {{scanned_rows}} 列，只傳回 {{returned_rows}} 列。請為索引欄位或分割區欄位新增條件，以減少讀取量。"
+      },
+      "select_star": {
+        "title": "避免使用 SELECT *",
+        "detail": "讀取所有欄會掃描不必要的資料。請只選取實際需要的欄。"
+      },
+      "missing_filter": {
+        "title": "缺少篩選條件",
+        "detail": "若未使用 WHERE 子句，大規模掃描會讀取整個時間視窗。請新增篩選條件以減少 I/O。"
+      },
+      "missing_limit": {
+        "title": "新增 LIMIT",
+        "detail": "目前的查詢未使用 LIMIT，傳回了 {{returned_rows}} 列。如果只需要樣本或排名較前的結果，請新增 LIMIT。"
+      },
+      "promql_wide_range": {
+        "title": "區間選擇器範圍過大",
+        "detail": "此區間選擇器會讀取每個序列的大量樣本。可考慮使用記錄規則或縮小時間視窗。"
+      },
+      "promql_subquery": {
+        "title": "子查詢成本較高",
+        "detail": "子查詢（[..:..]）會在每個步進間隔重新計算內部查詢，成本較高。可使用記錄規則預先計算頻繁執行的查詢。"
+      },
+      "promql_regex_matcher": {
+        "title": "使用規則運算式比對標籤",
+        "detail": "規則運算式比對器（=~ / !~）比完全比對掃描的序列更多。請盡量使用 = / !=，或在規則運算式中加上邊界限制。"
+      }
+    }
+  },
+  "actions": {
+    "ok": "確定",
+    "cancel": "取消",
+    "save": "儲存",
+    "create": "建立",
+    "delete": "刪除",
+    "edit": "編輯",
+    "enable": "啟用",
+    "disable": "停用",
+    "close": "關閉",
+    "open": "開啟",
+    "retry": "重試",
+    "sign_in": "登入",
+    "sign_out": "登出",
+    "settings": "設定",
+    "preferences": "偏好設定",
+    "reset": "重設",
+    "renew": "續期",
+    "rotate": "輪替",
+    "add": "新增",
+    "choose_file": "選擇檔案",
+    "copied": "已複製",
+    "confirm": "確認"
+  },
+  "error_state": {
+    "unknown": "未知錯誤",
+    "copy_error_id": "複製錯誤 ID",
+    "copied": "已複製",
+    "report": "回報問題",
+    "details": "詳細資訊",
+    "status": "狀態",
+    "code": "代碼",
+    "message": "訊息",
+    "error_id": "錯誤 ID",
+    "empty": "（空）",
+    "request_id": "請求 ID",
+    "copy_request_id": "複製請求 ID"
+  },
+  "status": {
+    "loading": "載入中…",
+    "saving": "儲存中…",
+    "empty": "暫無資料",
+    "no_results": "沒有符合的結果",
+    "saved": "已儲存",
+    "created": "已建立",
+    "deleted": "已刪除",
+    "updated": "已更新",
+    "yes": "是",
+    "no": "否",
+    "on": "開",
+    "off": "關",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "working": "處理中…"
+  },
+  "labels": {
+    "email": "電子郵件",
+    "password": "密碼",
+    "workspace": "工作區",
+    "remember_me": "記住我",
+    "search": "搜尋",
+    "filter": "篩選",
+    "time_window": "時間範圍",
+    "name": "名稱",
+    "enabled": "啟用",
+    "updated": "更新時間",
+    "description": "描述",
+    "format": "格式"
+  },
+  "sharing": {
+    "title": "分享資源",
+    "access_scope": "存取範圍",
+    "access_scope_hint": "選擇存取者的身分及其權限範圍。",
+    "modes": {
+      "authenticated": "目前工作區的成員",
+      "authenticated_hint": "存取者必須登入，且仍須通過目前工作區的 IAM 權限驗證。",
+      "cross_org": "指定組織的成員",
+      "cross_org_hint": "存取者登入後，須取得明確的跨組織授權才能存取。",
+      "public_link": "任何取得連結的人",
+      "public_link_hint": "不必登入帳號，連結將作為可撤銷且權限受限的臨時身分憑證。",
+      "admin_only": "僅具備跨組織授權管理權限的成員可以建立。",
+      "public_disabled": "工作區原則不允許這類公開分享。",
+      "public_links_disabled": "工作區已停用公開連結。",
+      "public_dashboards_disabled": "工作區已停用即時儀表板的公開分享功能。",
+      "production_disabled": "此儀表板帶有 production 或 prod 標籤，工作區原則禁止公開分享正式環境的儀表板。工作區內分享和跨組織分享不受影響。"
+    },
+    "policy_blocked_title": "公開分享受工作區原則限制",
+    "policy_blocked_action": "前往分享與公開存取設定",
+    "policy_blocked_admin": "如需公開分享，請聯絡工作區管理員調整原則。",
+    "target_organization": "目標組織",
+    "target_organization_hint": "為此組織建立明確的跨組織 Grant。",
+    "select_organization": "選擇組織",
+    "expiry": "有效期限",
+    "expiry_hint": "公開連結到期後會立即失效。",
+    "authenticated_expiry_hint": "驗證連結到期後，就不能再用來前往資源。",
+    "expiry_options": {
+      "one_day": "1 天",
+      "seven_days": "7 天",
+      "thirty_days": "30 天"
+    },
+    "max_views": "最多存取次數",
+    "max_views_hint": "每建立一個新的分享工作階段即計為一次，留空表示不限制。",
+    "unlimited": "不限制",
+    "password": "存取密碼",
+    "password_hint": "選填；密碼驗證成功後才會建立受限工作階段。",
+    "password_required": "工作區原則要求公開報告必須設定密碼。",
+    "dashboard_password_required": "公開儀表板必須設定存取密碼。",
+    "validation": {
+      "organization_required": "請選擇要授權的組織。",
+      "password_required": "請輸入公開報告的存取密碼。",
+      "dashboard_password_required": "請輸入公開儀表板的存取密碼。"
+    },
+    "public_warning_title": "這是 Bearer Credential",
+    "public_warning": "任何取得連結的人都能以受限身分檢視內容。請勿在公開資源中包含敏感資料。",
+    "report_snapshot_hint": "公開報告固定為建立連結時產生的不可變快照，存取時不會重新查詢即時資料。",
+    "allow_download": "允許下載",
+    "allow_download_hint": "關閉後只允許線上預覽靜態報告。",
+    "csv_download_disabled": "工作區原則已禁止公開下載 CSV。",
+    "dashboard_restrictions": "儀表板存取限制",
+    "dashboard_restrictions_hint": "公開頁面只能執行已儲存的面板查詢，無法檢視查詢運算式或前往原始探索頁面。",
+    "max_time_range": "資料時間範圍上限",
+    "time_ranges": {
+      "one_hour": "1 小時",
+      "six_hours": "6 小時",
+      "twenty_four_hours": "24 小時"
+    },
+    "allow_time_changes": "允許調整時間範圍",
+    "allow_time_changes_hint": "訪客只能在上方設定的範圍上限內選擇預設時間範圍。",
+    "allowed_variables": "可公開的變數",
+    "allowed_variables_hint": "未選取的變數不會出現在公開模型或請求中。",
+    "allow_variable_changes": "允許修改允許清單中的變數",
+    "allow_variable_changes_hint": "關閉後，變數會固定為建立連結時允許的預設值。",
+    "create_link": "建立分享連結",
+    "created": "已建立分享連結",
+    "create_failed": "無法建立分享連結",
+    "errors": {
+      "public_links_disabled": "工作區已停用公開連結。請調整分享與公開存取設定，或改用需要登入的分享方式。",
+      "public_dashboards_disabled": "工作區已停用即時儀表板的公開分享。請調整分享與公開存取設定，或改用需要登入的分享方式。",
+      "production_dashboard": "工作區原則禁止公開分享帶有 production 或 prod 標籤的儀表板。請調整原則，或改用需要登入的分享方式。",
+      "csv_download_disabled": "工作區原則禁止公開下載 CSV；請關閉「允許下載」後再試一次。",
+      "report_password_required": "工作區原則要求公開報告必須設定存取密碼。",
+      "dashboard_password_required": "公開儀表板必須設定存取密碼後，才能建立分享連結。"
+    },
+    "link_ready": "分享連結已就緒",
+    "link_ready_hint": "連結會安全地儲存，可隨時在現有分享中檢視及複製。",
+    "copy_link": "複製連結",
+    "copy_existing_link": "複製現有分享連結",
+    "copied": "已複製連結",
+    "copy_failed": "無法複製連結",
+    "rotate_to_show_link": "此分享是在連結持續顯示功能啟用前建立的；輪替一次即可顯示新連結。",
+    "create_another": "建立另一個連結",
+    "existing": "現有分享",
+    "existing_hint": "連結可隨時複製，也可立即停用或輪替。",
+    "views": "已瀏覽 {{count}} 次",
+    "no_expiry": "永不過期",
+    "stop": "停用",
+    "revoked": "已停用分享連結",
+    "revoke_failed": "無法停用分享連結",
+    "rotated": "已輪替分享連結",
+    "rotate_failed": "無法輪替分享連結",
+    "workspace_policy": "檢視工作區分享政策",
+    "public": {
+      "read_only": "受限唯讀",
+      "snapshot": "靜態快照",
+      "dashboard": "分享的儀表板",
+      "report": "分享的報告",
+      "download": "下載",
+      "time_range": "時間範圍",
+      "expires_at": "有效期限至 {{value}}",
+      "watermark": "公開存取 · {{value}}",
+      "password_title": "此分享受密碼保護",
+      "password_hint": "輸入建立者設定的存取密碼以繼續。",
+      "password_placeholder": "存取密碼",
+      "password_invalid": "密碼不正確，請再試一次。",
+      "visit_ended": "本次存取已結束，請重新開啟分享連結。",
+      "password_unchecked": "暫時無法驗證密碼，請稍後再試。",
+      "continue": "繼續存取",
+      "invalid_dashboard": "儀表板快照無法使用",
+      "invalid_dashboard_hint": "公開模型未通過結構安全性驗證，請聯絡分享建立者重新產生連結。",
+      "unavailable_title": "連結無法使用",
+      "unavailable_hint": "此連結已失效，或分享內容已遭刪除。請聯絡分享建立者重新產生連結。",
+      "open_failed": "暫時無法開啟此分享，請稍後再試。",
+      "loading_title": "正在開啟安全分享",
+      "loading_hint": "正在驗證連結和存取限制…",
+      "trust_label": "MoleSignal 受限分享",
+      "ranges": {
+        "fifteen_minutes": "15 分鐘",
+        "one_hour": "1 小時",
+        "six_hours": "6 小時",
+        "twenty_four_hours": "24 小時",
+        "seven_days": "7 天",
+        "seconds": "{{count}} 秒"
+      }
+    }
+  },
+  "date_time_picker": {
+    "placeholder": "選擇日期和時間",
+    "open": "開啟日期和時間選擇器：{{value}}",
+    "time": "時間",
+    "hour": "時",
+    "minute": "分",
+    "second": "秒",
+    "clear": "清除",
+    "apply": "套用",
+    "calendar_navigation": "行事曆導覽",
+    "choose_month": "選擇月份",
+    "choose_year": "選擇年份",
+    "next_month": "下個月",
+    "previous_month": "上個月",
+    "today": "今天",
+    "selected": "已選取",
+    "week_number": "第 {{value}} 週",
+    "week_number_header": "週次"
+  },
+  "share_query": {
+    "button": "分享",
+    "title": "分享這筆查詢",
+    "description": "已登入此組織且有權讀取這些資料的成員，開啟連結即可查看這筆查詢。",
+    "time_label": "連結的時間範圍",
+    "time_fixed": "目前選取的時間範圍",
+    "time_moving": "{{range}}（以開啟連結的時間為準）",
+    "link_aria": "這筆查詢的連結",
+    "copy": "複製連結",
+    "copied": "已複製連結",
+    "copy_failed": "無法複製連結"
+  },
+  "field_list": {
+    "group_aria_one": "{{name}}：{{count}} 個欄位",
+    "group_aria_other": "{{name}}：{{count}} 個欄位"
+  },
+  "field_analysis": {
+    "open": "分析",
+    "open_aria": "分析欄位 {{name}}",
+    "close": "關閉欄位分析",
+    "title_aria": "{{name}} 欄位分析",
+    "loading": "正在分析 {{name}}",
+    "basics": "基本分布",
+    "distinct": "不重複值總數",
+    "estimated": "估算值",
+    "subjects": {
+      "logs": {
+        "total": "日誌總行數",
+        "present": "有值行數",
+        "missing": "缺值行數",
+        "none": "這些日誌中的此欄位沒有值。"
+      },
+      "spans": {
+        "total": "Span 總數",
+        "present": "有值 Span 數",
+        "missing": "缺值 Span 數",
+        "none": "這些 Span 中的此欄位沒有值。"
+      },
+      "traces": {
+        "total": "Trace 總數",
+        "present": "有值 Trace 數",
+        "missing": "缺值 Trace 數",
+        "none": "這些 Trace 中的此欄位沒有值。"
+      }
+    },
+    "statistics": "統計指標",
+    "max": "最大值",
+    "min": "最小值",
+    "avg": "平均值",
+    "median": "中位數",
+    "q1": "四分位數 Q1",
+    "q3": "四分位數 Q3",
+    "stddev_samp": "樣本標準差",
+    "stddev_pop": "母體標準差",
+    "kurtosis": "峰度",
+    "kurtosis_hint": "超額峰度：常態分布為 0，數值越大，尾部越重",
+    "skewness": "偏度",
+    "skewness_hint": "大於 0 時尾部向右延伸，小於 0 時尾部向左延伸",
+    "quartiles_estimated": "中位數與四分位數為估算值。",
+    "earliest": "最早",
+    "latest": "最晚",
+    "distribution": "數值分布",
+    "distribution_aria": "{{name}} 的數值分布：共 {{count}} 個值，範圍為 {{from}} 至 {{to}}，每個柱寬為 {{width}}，每個柱最多有 {{max}} 個值。使用左右方向鍵在各柱之間移動。",
+    "bar_width": "每個柱寬為 {{width}}",
+    "bar_range": "{{from}} – {{to}}",
+    "bar_count_one": "{{formatted}} 個值",
+    "bar_count_other": "{{formatted}} 個值",
+    "bar_readout": "{{from}} 至 {{to}}：{{formatted}} 個值",
+    "trend_one": "最常見值的時間序列圖",
+    "trend_other": "前 {{count}} 個最常見值的時間序列圖",
+    "trend_aria_one": "{{name}} 最常見的值隨時間的變化",
+    "trend_aria_other": "{{name}} 最常見的 {{count}} 個值隨時間的變化",
+    "top": "最常見的值",
+    "all_different": "各個值幾乎都只出現一次，沒有更常見的值。",
+    "protected": "此欄位已遮蔽或加密，不提供分析。",
+    "unavailable": "暫時無法分析此欄位。",
+    "fallback": {
+      "time_budget": "統計所有相符結果時逾時",
+      "busy": "目前查詢較多，未能統計所有相符結果",
+      "failed": "未能統計所有相符結果"
+    }
+  },
+  "histogram": {
+    "bar_width": "每柱 {{width}}",
+    "unit_ms": "{{value}} 毫秒",
+    "unit_s": "{{value}} 秒",
+    "unit_min": "{{value}} 分鐘",
+    "unit_h": "{{value}} 小時",
+    "unit_d": "{{value}} 天",
+    "summary": "{{name}}。{{scope}}，{{from}} 至 {{to}}，每柱 {{width}}，單柱最多 {{max}} 筆。按左右方向鍵可在柱之間移動，按 Enter 鍵可將時間範圍縮小至該柱。",
+    "bar_readout": "{{from}} 至 {{to}}：共 {{total}} 筆，其中有 {{errors}} 筆錯誤",
+    "bar_readout_whole": "{{from}} 至 {{to}}：共 {{total}} 筆",
+    "scope_all_one": "所有相符結果共 1 筆",
+    "scope_all_other": "所有相符結果共 {{total}} 筆",
+    "scope_loaded_one": "僅包含已載入的 1 筆結果",
+    "scope_loaded_other": "僅包含已載入的 {{total}} 筆結果",
+    "scope_because": "{{scope}}（{{reason}}）",
+    "counting": "正在統計所有相符結果…",
+    "unavailable": {
+      "time_budget": "統計所有相符結果時逾時",
+      "busy": "目前查詢過多，未統計所有相符結果",
+      "scan_limit": "範圍內的資料量超過單次查詢上限，未統計所有相符結果",
+      "timestamp_masked": "此串流的時間欄位已遮蔽",
+      "failed": "未能統計所有相符結果"
+    }
+  },
+  "time_picker": {
+    "title": "選擇時間範圍",
+    "button_aria": "時間範圍：{{value}}",
+    "quick_ranges": "快速選取範圍",
+    "absolute": "絕對時間",
+    "zone_time": "以 {{zone}} 的時間為準",
+    "from": "開始",
+    "to": "結束",
+    "apply": "套用",
+    "invalid": "請輸入有效的開始和結束時間。",
+    "presets": {
+      "last_5m": "近 5 分鐘",
+      "last_15m": "近 15 分鐘",
+      "last_30m": "近 30 分鐘",
+      "last_1h": "近 1 小時",
+      "last_6h": "近 6 小時",
+      "last_12h": "近 12 小時",
+      "last_24h": "近 24 小時",
+      "last_2d": "近 2 天",
+      "last_7d": "近 7 天",
+      "last_30d": "近 30 天"
+    }
+  },
+  "weekly_ranges": {
+    "add": "新增時段",
+    "remove": "刪除時段",
+    "weekdays": "星期",
+    "start": "開始（HH:MM）",
+    "end": "結束（HH:MM）",
+    "hint": "結束時間不晚於開始時間，表示時段跨午夜，算在開始當天；全天請填 00:00–24:00。",
+    "problems": {
+      "no_days": "至少選擇一天。",
+      "same_time": "開始與結束時間不得相同；全天請填 00:00–24:00。",
+      "bad_time": "時間請使用 HH:MM 格式，例如 09:30；只有結束時間可填 24:00。"
+    },
+    "timezone": "時區"
+  },
+  "time_condition": {
+    "label": "時間",
+    "any": "任何時間",
+    "inside": "僅限這些時段內",
+    "outside": "僅限這些時段外"
+  },
+  "people": {
+    "someone": "某人",
+    "non_member": "非組織成員"
+  },
+  "holidays": {
+    "label": "國定假日",
+    "calendar": "國定假日行事曆",
+    "modes": {
+      "none": "不考慮國定假日",
+      "exclude": "不計入國定假日",
+      "only": "僅限國定假日"
+    },
+    "hints": {
+      "none": "國定假日比照平常計算。",
+      "exclude": "國定假日不計入這些時段；補班日比照週一的時段計算。",
+      "only": "這些時段只在國定假日才計入。"
+    },
+    "no_calendars": "請先在「設定 → 警示 → 國定假日行事曆」中建立一份行事曆。"
+  },
+  "confirm_dialog": {
+    "type_to_confirm": "輸入 {{name}} 以確認",
+    "type_required": "請先輸入名稱"
+  },
+  "unsaved": {
+    "discard_title": "要捨棄未儲存的變更嗎？",
+    "discard_description": "這裡填寫的內容尚未儲存，捨棄後將無法復原。",
+    "keep_editing": "繼續編輯",
+    "discard": "捨棄變更",
+    "leave_title": "要不儲存就離開嗎？",
+    "leave_description": "此頁面的變更尚未儲存，離開後將無法復原。",
+    "leave": "離開"
+  },
+  "table": {
+    "select_all": "選取所有列",
+    "select_row": "選取此列",
+    "selected_one": "已選取 {{count}} 項",
+    "selected_other": "已選取 {{count}} 項",
+    "clear_selection": "取消選取",
+    "bulk_label": "對所選列的操作",
+    "export_csv": "匯出 CSV",
+    "export_empty": "沒有可匯出的列",
+    "bulk_done_one": "已處理 {{count}} 項",
+    "bulk_done_other": "已處理 {{count}} 項",
+    "bulk_failed_one": "{{total}} 項中有 {{count}} 項失敗：{{reason}}",
+    "bulk_failed_other": "{{total}} 項中有 {{count}} 項失敗：{{reason}}",
+    "clear_filters": "清除篩選"
+  }
+}

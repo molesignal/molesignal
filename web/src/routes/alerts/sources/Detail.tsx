@@ -9,6 +9,7 @@ import * as alertSourcesApi from '@/api/alertSources';
 import type { IssuedAlertSource } from '@/api/alertSources';
 import * as incidentsApi from '@/api/incidents';
 import * as instanceApi from '@/api/instance';
+import { docsLocale } from '@/i18n';
 import { toApiError } from '@/lib/http';
 import { resolvePublicBaseUrl } from '@/lib/publicUrl';
 import { useActionAccess } from '@/product/actionAccess';
@@ -127,7 +128,7 @@ export function AlertsSourceDetail() {
   // Where the token goes is said once: in the setup, or in the address when that is the whole setup.
   const setup = source ? setupSnippet(source.kind, address) : null;
   const requests = requestsQuery.data ?? [];
-  const docsLocale = i18n.language.toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US';
+  const docsLanguage = docsLocale(i18n.language);
   // The steps are checked once the sender has evidently been set up: a request came through.
   const settled = source ? ['receiving', 'quiet'].includes(sourceState(source, requests).state) : false;
   const stepState = settled ? 'done' : 'todo';
@@ -182,7 +183,7 @@ export function AlertsSourceDetail() {
               title={t(source.kind === 'email' ? 'alert_sources.detail.intake_email' : 'alert_sources.detail.intake')}
               action={
                 <a
-                  href={`https://docs.molesignal.com/${docsLocale}/alerting/sources#${t(`alert_sources.setup_docs_anchor.${source.kind}`)}`}
+                  href={`https://docs.molesignal.com/${docsLanguage}/alerting/sources#${t(`alert_sources.setup_docs_anchor.${source.kind}`)}`}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex shrink-0 items-center gap-1 rounded font-sans text-sm font-strong text-tx-2 outline-none transition-colors hover:text-tx-0 focus-visible:text-tx-0 focus-visible:underline"

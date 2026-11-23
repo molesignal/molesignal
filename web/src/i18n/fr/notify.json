@@ -1,0 +1,1027 @@
+{
+  "nav": {
+    "label": "Gestion des notifications",
+    "root": "Notifications",
+    "connectors": "Connecteurs",
+    "users": "Utilisateurs",
+    "policies": "Politiques",
+    "defaults": "Routes de secours",
+    "deliveries": "Envois",
+    "templates": "Modèles"
+  },
+  "common": {
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "configured": "Configuré",
+    "not_configured": "Non configuré",
+    "verified": "Vérifié",
+    "unverified": "Non vérifié",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "test": "Envoyer un test",
+    "verify": "Vérifier",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "loading": "Chargement…",
+    "loading_error": "Impossible de charger les données de notification",
+    "json_error": "{{field}} doit contenir du JSON valide.",
+    "saved": "Paramètres de notification enregistrés",
+    "deleted": "Élément de notification supprimé",
+    "test_sent": "Message de test envoyé",
+    "test_failed": "Échec de l’envoi du message de test"
+  },
+  "connector_types": {
+    "email_smtp": "E-mail via SMTP",
+    "slack_app": "Application Slack",
+    "slack_webhook": "Webhook Slack",
+    "lark_app": "Application Lark",
+    "lark_webhook": "Webhook Lark",
+    "dingtalk_app": "Application DingTalk",
+    "dingtalk_webhook": "Webhook DingTalk",
+    "wecom_app": "Application WeCom",
+    "wecom_webhook": "Webhook WeCom",
+    "wecom_bot": "Bot intelligent WeCom",
+    "teams_app": "Bot Microsoft Teams",
+    "teams_webhook": "Webhook Microsoft Teams",
+    "google_chat_app": "Application Google Chat",
+    "google_chat_webhook": "Webhook Google Chat",
+    "aliyun_voice": "Appels vocaux Alibaba Cloud",
+    "aliyun_sms": "SMS Alibaba Cloud",
+    "tencent_voice": "Appels vocaux Tencent Cloud",
+    "tencent_sms": "SMS Tencent Cloud",
+    "huawei_voice": "Appels vocaux Huawei Cloud",
+    "huawei_sms": "SMS Huawei Cloud",
+    "twilio_voice": "Appels vocaux Twilio",
+    "twilio_sms": "SMS Twilio",
+    "aws_voice": "Appels vocaux AWS",
+    "aws_sms": "SMS AWS",
+    "http_sms": "SMS via HTTP générique",
+    "webhook": "Webhook",
+    "telegram_bot": "Bot Telegram",
+    "discord_webhook": "Webhook Discord",
+    "mattermost_bot": "Bot Mattermost",
+    "mattermost_webhook": "Webhook Mattermost",
+    "webex_bot": "Bot Webex",
+    "webex_webhook": "Webhook Webex",
+    "matrix_bot": "Bot Matrix",
+    "twilio_whatsapp": "WhatsApp via Twilio",
+    "aws_sns": "Amazon SNS",
+    "pagerduty": "PagerDuty"
+  },
+  "connector_channels": {
+    "im": "Messagerie instantanée",
+    "phone": "Appels téléphoniques",
+    "sms": "SMS",
+    "email": "E-mail",
+    "webhook": "Intégrations",
+    "other": "Autre"
+  },
+  "capabilities": {
+    "directUser": "Envoi direct à un utilisateur",
+    "group": "Groupe",
+    "richText": "Texte enrichi",
+    "interactive": "Interactif",
+    "acknowledgement": "Accusé de réception",
+    "attachments": "Pièces jointes"
+  },
+  "connectors": {
+    "title": "Connecteurs",
+    "subtitle": "Gérez les identifiants de l’espace de travail indépendamment des destinataires et du routage.",
+    "new": "Nouveau connecteur",
+    "empty_title": "Aucun connecteur",
+    "empty_description": "Ajoutez un connecteur avant d’associer des points de terminaison utilisateur ou des routes de secours.",
+    "columns": {
+      "name": "Nom",
+      "type": "Type",
+      "capabilities": "Fonctionnalités",
+      "last_test": "Dernier test",
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "status": {
+      "unknown": "Inconnu",
+      "connected": "Connecté",
+      "error": "Erreur",
+      "disabled": "Désactivé"
+    },
+    "drawer": {
+      "new_title": "Nouveau connecteur",
+      "edit_title": "Modifier {{name}}",
+      "subtitle": "Les identifiants sont chiffrés au repos et ne sont jamais renvoyés en clair.",
+      "identity": "Connecteur",
+      "configuration": "Configuration du fournisseur",
+      "name": "Nom",
+      "type": "Type de connecteur",
+      "enabled": "Autoriser les envois via ce connecteur",
+      "test_target": "Destinataire du test",
+      "target_type": "Type de destinataire",
+      "target": "Destinataire",
+      "test_template": "Modèle de test",
+      "test_template_hint": "Ce fournisseur n’autorise que les modèles approuvés : le test utilise ce modèle et remplace ses variables par des valeurs d’exemple.",
+      "test_template_none": "Aucun modèle {{channel}} n’a encore été créé pour ce fournisseur : créez-en un dans la section « Modèles de notification ».",
+      "test_card_hint": "Choisissez un modèle de messagerie instantanée pour envoyer sa carte avec des valeurs d’exemple à la place des variables. Sans modèle, le test envoie un simple message texte.",
+      "test_without_template": "Aucun modèle",
+      "save": "Enregistrer le connecteur",
+      "test": "Tester la connexion",
+      "save_before_test": "Enregistrez ce connecteur avant d’envoyer un message de test.",
+      "field": {
+        "host": "Hôte SMTP",
+        "port": "Port",
+        "username": "Nom d’utilisateur",
+        "password": "Mot de passe",
+        "from": "Adresse de l’expéditeur",
+        "tls": "Mode TLS",
+        "timeoutSecs": "Délai d’expiration (secondes)",
+        "bodyFormat": "Format du corps",
+        "body": "Corps",
+        "phoneFormat": "Format du numéro de téléphone",
+        "successField": "Champ de réussite",
+        "successValue": "Valeur de réussite",
+        "botToken": "Jeton du bot",
+        "clientId": "ID client",
+        "clientSecret": "Secret client",
+        "apiBaseUrl": "URL de base de l’API",
+        "webhookUrl": "URL du webhook",
+        "appId": "ID de l’application",
+        "appSecret": "AppSecret",
+        "receiveIdType": "Type d’ID du destinataire",
+        "secret": "Secret de signature",
+        "url": "URL par défaut",
+        "method": "Méthode HTTP",
+        "headers": "En-têtes (JSON)",
+        "appToken": "Jeton au niveau de l’application",
+        "robotCode": "Code du robot",
+        "cardTemplateId": "ID du modèle de carte",
+        "corpId": "ID de l’entreprise",
+        "corpSecret": "Secret de l’application",
+        "agentId": "AgentId",
+        "callbackToken": "Jeton de rappel",
+        "callbackAesKey": "EncodingAESKey",
+        "tenantId": "ID du locataire",
+        "serviceUrl": "URL du service",
+        "credentials": "Clé du compte de service (JSON)",
+        "botId": "ID du bot",
+        "botSecret": "Secret de la connexion persistante",
+        "wsUrl": "Adresse de la connexion persistante",
+        "pubsubBaseUrl": "URL de Pub/Sub",
+        "subscription": "Abonnement Pub/Sub",
+        "accessKeyId": "ID de la clé d’accès",
+        "secretId": "SecretId",
+        "sdkAppId": "ID de l’application (SdkAppId)",
+        "appKey": "AppKey",
+        "signature": "Nom de la signature",
+        "accessKeySecret": "Secret de la clé d’accès",
+        "showNumber": "Numéro de l’appelant",
+        "signName": "Signature",
+        "playTimes": "Nombre de lectures",
+        "accountSid": "SID du compte",
+        "authToken": "Jeton d’authentification",
+        "fromNumber": "Numéro d’appelant",
+        "language": "Langue",
+        "voice": "Voix",
+        "sender": "Expéditeur",
+        "region": "Région",
+        "site": "Plateforme",
+        "cloud": "Cloud",
+        "auth": "Authentification",
+        "accessKey": "ID de la clé d’accès",
+        "secretKey": "Clé d’accès secrète",
+        "sessionToken": "Jeton de session",
+        "roleArn": "ARN du rôle",
+        "originationIdentity": "Identité d’origine",
+        "voiceId": "Voix Polly",
+        "externalId": "ID externe",
+        "signingSecret": "Secret de signature",
+        "replies": "Traiter les réponses",
+        "replyTopicArn": "ARN de la rubrique SNS de réponse",
+        "avatarUrl": "URL de l’avatar",
+        "serverUrl": "URL du serveur",
+        "homeserverUrl": "URL du serveur d’accueil",
+        "accessToken": "Jeton d’accès",
+        "topicArn": "ARN de la rubrique",
+        "routingKey": "Clé d’intégration",
+        "loginBaseUrl": "URL de connexion"
+      },
+      "hints": {
+        "slack_app": "Le jeton du bot permet d’envoyer des notifications. L’ID client et le secret client permettent aux visiteurs d’une page de statut de l’ajouter à leurs propres canaux Slack. Pour cela, sélectionnez ce connecteur dans les paramètres Slack de la page. Renseignez au moins l’une de ces deux options. Le jeton d’application (xapp-) permet à Mole Agent de répondre dans Slack via Socket Mode.",
+        "lark_app": "Si l’application reçoit les événements via une connexion persistante, elle permet aussi à Mole Agent de répondre dans Feishu. Activez-la dans Mole Agent → Paramètres → Messagerie instantanée.",
+        "dingtalk_app": "Bot d’une application interne. Le code du bot correspond à l’ID client, sauf si le bot possède son propre code. Pour un destinataire individuel, indiquez un ID utilisateur. Pour un groupe, indiquez un openConversationId. Si le bot reçoit ses messages via Stream, il permet aussi à Mole Agent de répondre dans DingTalk. Pour ajouter les boutons « Prendre en compte » et « Résoudre » aux notifications d’alerte, créez un modèle de carte interactive sur la plateforme de cartes DingTalk en suivant la documentation, saisissez son ID ici et activez le bot dans Mole Agent → Paramètres → Messagerie instantanée.",
+        "dingtalk_webhook": "Bot personnalisé d’un groupe. Si le bot signe ses requêtes, renseignez le secret de signature.",
+        "wecom_app": "Pour une application personnalisée, renseignez l’ID de l’entreprise, le secret de l’application et son AgentId. Pour un destinataire individuel, indiquez l’ID utilisateur d’un membre. Pour un groupe, indiquez l’ID d’une conversation de l’application. Ajoutez l’adresse du serveur aux adresses IP de confiance de l’application. Pour ajouter les boutons « Prendre en compte » et « Résoudre » aux notifications d’alerte envoyées aux membres, configurez la réception via l’API dans la section « Réception des messages » de l’application. Saisissez ici le jeton et la valeur EncodingAESKey générés, enregistrez, puis reportez dans cette section l’URL de rappel affichée ci-dessous.",
+        "wecom_webhook": "Adresse du webhook d’un bot de groupe.",
+        "wecom_bot": "Pour un bot intelligent WeCom en mode API, renseignez son Bot ID et le secret de la connexion persistante. Une fois le bot activé dans Mole Agent → Paramètres → Messagerie instantanée, Mole Agent peut répondre dans WeCom et le bot peut envoyer des notifications, avec les boutons « Prendre en compte » et « Résoudre » sur les notifications d’alerte. Pour un destinataire individuel, indiquez le userid d’un membre. Pour un groupe, indiquez le chatid d’une conversation. Le bot ne peut écrire qu’aux personnes qui lui ont envoyé un message direct et dans les conversations où il a été mentionné.",
+        "teams_app": "Pour un bot Bot Framework, renseignez l’ID de l’application, un secret client et son locataire (botframework.com pour un ancien bot multilocataire). Sélectionnez le cloud : Global, GCC ou l’un des clouds du gouvernement américain, GCC High et DoD. L’URL du service dépend de ce choix. Pour un destinataire individuel, indiquez un ID utilisateur. Pour un groupe, indiquez un ID de conversation. Le bot doit être installé pour les utilisateurs et les équipes auxquels il envoie des messages. Pour permettre à Mole Agent de répondre dans Teams, activez le bot dans Mole Agent → Paramètres → Messagerie instantanée, puis utilisez l’adresse de rappel affichée comme point de terminaison de messagerie d’Azure Bot.",
+        "teams_webhook": "Webhook de canal issu d’un flux Workflows ou webhook entrant classique. Les messages sont envoyés sous forme de cartes adaptatives.",
+        "google_chat_app": "Collez la clé JSON du compte de service de l’application Chat. Pour un groupe, indiquez un espace (spaces/…). Pour un destinataire individuel, indiquez un utilisateur (users/…) qui a envoyé un message à l’application. Avec un abonnement Pub/Sub (projects/…/subscriptions/…), l’application permet aussi à Mole Agent de répondre dans Google Chat. Activez-la dans Mole Agent → Paramètres → Messagerie instantanée.",
+        "google_chat_webhook": "Adresse du webhook entrant d’un espace.",
+        "aliyun_voice": "Seuls les numéros de Chine continentale peuvent être appelés. Demandez un modèle de synthèse vocale (TTS_…) dans la console Alibaba Cloud Voice Service. Renseignez son code et ses variables dans un modèle de notification par appel, puis sélectionnez ce modèle pour le canal téléphonique dans les politiques de notification. Laissez le numéro d’appelant vide pour le mode partagé ou saisissez votre numéro pour le mode dédié. Le modèle doit correspondre au mode choisi. Chaque numéro peut être appelé au maximum une fois par minute, 5 fois par heure et 20 fois par jour.",
+        "aliyun_sms": "Demandez une signature et un modèle de notification (SMS_…) dans la console Alibaba Cloud SMS. Saisissez la signature ici. Renseignez le code et les variables du modèle dans un modèle de notification par SMS, puis sélectionnez ce modèle pour le canal SMS dans les politiques de notification. Par défaut, chaque variable d’un modèle de notification est limitée à 35 caractères et ne peut contenir ni lien ni adresse IP.",
+        "tencent_voice": "Créez une application et demandez la validation d’un modèle vocal dans la console Tencent Cloud Voice Message. Renseignez l’ID du modèle et ses variables dans un modèle de notification par téléphone, en nommant les variables 1, 2, 3 selon leur position. Sélectionnez ensuite ce modèle pour le canal téléphonique dans les politiques de notification. Les appels sont prépayés : une fois le forfait épuisé, les appels sont refusés et l’erreur s’affiche dans les détails de l’envoi.",
+        "tencent_sms": "Créez une application et demandez la validation d’une signature et d’un modèle dans la console Tencent Cloud SMS. Saisissez ici le texte de la signature (obligatoire en Chine continentale). Renseignez l’ID du modèle et ses variables dans un modèle de notification par SMS, en nommant les variables 1, 2, 3 selon leur position. Pour les comptes ouverts après le 25 janvier 2024 ou inactifs depuis longtemps, la limite par défaut est de 6 caractères par variable. Si Tencent Cloud relève cette limite, indiquez la nouvelle valeur dans le modèle de notification.",
+        "huawei_voice": "Créez une application, commandez un numéro de téléphone fixe et soumettez un modèle vocal dans la console Huawei Cloud VoiceCall. L’AppKey, l’AppSecret et l’adresse de l’application se trouvent dans App Management. Copiez l’adresse telle quelle, car aucune API ne la fournit. Le numéro d’appelant comprend l’indicatif du pays, l’indicatif régional et le numéro. Renseignez l’ID du modèle et ses variables dans un modèle de notification par téléphone, en nommant les variables 1, 2, 3 selon leur position. Chaque variable est limitée à 32 octets et un caractère chinois en occupe 3.",
+        "huawei_sms": "Créez une application et configurez une signature et un modèle dans la console Huawei Cloud Message & SMS. L’AppKey, l’AppSecret et l’adresse de l’application se trouvent dans App Management. Copiez l’adresse telle quelle, car aucune API ne la fournit. L’expéditeur est le numéro de canal de la signature. Un modèle universel nécessite aussi le nom de la signature. Renseignez l’ID du modèle et ses variables dans un modèle de notification par SMS, en nommant les variables 1, 2, 3 selon leur position.",
+        "twilio_voice": "Le numéro d’appelant est un numéro du compte compatible avec les appels vocaux, par exemple +14155550100. La langue est une balise telle que en-US ou cmn-CN. Indiquez un nom de voix, comme Polly.Joanna ou Polly.Zhiyu, ou laissez le champ vide pour utiliser la voix par défaut de Twilio.",
+        "twilio_sms": "L’expéditeur est un numéro du compte, un Messaging Service (MG…) ou un ID d’expéditeur alphanumérique. L’envoi de SMS vers des numéros américains nécessite une inscription préalable à A2P 10DLC.",
+        "aws_voice": "Messages vocaux envoyés via AWS End User Messaging et lus par Amazon Polly. L’identité d’origine est un numéro de téléphone compatible avec les appels vocaux, un pool ou l’ARN de l’un des deux. Si le champ de la voix Polly est vide, MATTHEW est utilisé par défaut. Pour le mandarin, choisissez ZHIYU. Un compte en environnement de test ne peut appeler que des numéros vérifiés. Choisissez une région activée pour le compte. L’autorisation ec2:DescribeRegions est nécessaire pour afficher la liste des régions.",
+        "aws_sms": "SMS transactionnels envoyés via AWS End User Messaging. Si vous ne renseignez pas d’identité d’origine, AWS choisit un numéro du compte adapté à la destination. Vous pouvez aussi indiquer un numéro de téléphone, un ID d’expéditeur ou un pool. Un compte en environnement de test ne peut envoyer des SMS qu’à des numéros vérifiés. Choisissez une région activée pour le compte. L’autorisation ec2:DescribeRegions est nécessaire pour afficher la liste des régions.",
+        "http_sms": "Transmet les SMS à votre propre passerelle SMS ou à un fournisseur sans connecteur dédié. Insérez des variables dans l’URL, les en-têtes et le corps de la requête : {{phone}} pour le numéro, {{content}} pour le message (une ligne de titre et une ligne de texte, 320 caractères au maximum), {{title}} pour le titre, {{text}} pour le texte et {{secret}} pour le secret ci-dessous, stocké sous forme chiffrée. Les valeurs sont échappées selon les règles JSON dans un corps JSON et encodées au format URL dans un formulaire ou dans l’URL. Une réponse 2xx indique que l’envoi a réussi. Si un champ de réussite est configuré, sa valeur doit aussi correspondre à la valeur de réussite attendue.",
+        "webhook": "Chaque requête contient X-MoleSignal-Event (le type de notification) et X-MoleSignal-Delivery (l’ID d’envoi, qui permet d’écarter les doublons). Si un secret de signature est configuré (au moins 16 caractères, par exemple généré avec openssl rand -hex 32), la requête contient aussi X-MoleSignal-Timestamp et X-MoleSignal-Sign : sha256=<hex>, le HMAC-SHA256 de « <timestamp>.<body> » calculé avec ce secret. Les connexions se limitent aux adresses obtenues lors de la résolution du nom d’hôte. Les adresses de métadonnées cloud sont bloquées et les redirections ne sont pas suivies.",
+        "telegram_bot": "Créez un bot avec @BotFather dans Telegram (/newbot) et utilisez le jeton fourni comme jeton du bot. Pour un envoi direct, indiquez l’ID utilisateur numérique du destinataire, qui doit d’abord envoyer /start au bot. Pour un envoi groupé, indiquez l’ID de discussion du groupe ou du canal (négatif, -100… pour les supergroupes et les canaux) ou le @username du canal. Ajoutez le bot au groupe ou donnez-lui le rôle d’administrateur du canal. Après activation dans Mole Agent → Paramètres → Messagerie instantanée, Mole Agent répond aussi dans Telegram et les notifications d’alerte affichent les boutons Accuser réception et Résoudre.",
+        "discord_webhook": "Créez un webhook pour le canal Discord dans les paramètres du canal, sous Intégrations → Webhooks, puis copiez son URL. Le nom d’affichage et l’URL de l’avatar sont facultatifs. Si vous ne les renseignez pas, les valeurs du webhook sont utilisées. Les messages sont envoyés sous forme de contenu intégré, sans mention.",
+        "mattermost_bot": "Une fois la création de comptes de bot autorisée dans la console système de Mattermost, ajoutez un compte dans Intégrations → Comptes de bot et utilisez son jeton d’accès comme jeton du bot. L’URL du serveur est l’adresse de votre instance Mattermost, par exemple https://chat.example.com. Pour un envoi direct, indiquez un nom d’utilisateur (avec ou sans @) ou un ID utilisateur. Pour un envoi groupé, indiquez un ID de canal ou utilisez le format team-name/channel-name. Ajoutez le bot à l’équipe et au canal concernés. Si l’URL externe est configurée, les notifications d’alerte affichent les boutons Accuser réception et Résoudre. La personne qui clique sur un bouton est identifiée par sa méthode de notification sur ce connecteur. Si l’URL externe se trouve sur un réseau interne, ajoutez-la au paramètre « Allow untrusted internal connections » dans la console système de Mattermost.",
+        "mattermost_webhook": "Ajoutez un webhook entrant pour le canal dans Mattermost, sous Intégrations → Webhooks entrants.",
+        "webex_bot": "Créez un bot dans My Webex Apps sur developer.webex.com et utilisez son jeton d’accès comme jeton du bot. Pour un envoi direct, indiquez l’adresse e-mail du compte Webex du destinataire ou son ID utilisateur. Pour un envoi groupé, indiquez l’ID de l’espace (salle) et ajoutez-y le bot. Les messages sont envoyés au format Adaptive Cards.",
+        "webex_webhook": "Utilisez l’URL fournie par l’intégration Incoming Webhooks dans le Webex App Hub (https://webexapis.com/v1/webhooks/incoming/…). Les messages sont envoyés à l’espace sélectionné lors de la création du webhook.",
+        "matrix_bot": "Pour configurer un compte de bot Matrix, indiquez l’URL du serveur d’accueil (par exemple https://matrix.org) et le jeton d’accès du compte. Pour trouver ce jeton, connectez-vous au compte dans Element et ouvrez Paramètres → Aide et à propos → Avancé. Pour un envoi groupé, indiquez l’ID (!…) ou l’alias (#…) d’un salon. Le bot doit être membre du salon ou pouvoir le rejoindre. Pour un envoi direct, indiquez un ID utilisateur (@name:server). Le bot crée un salon de discussion directe et y invite le destinataire. Les messages ne sont pas chiffrés.",
+        "twilio_whatsapp": "Envoie des messages WhatsApp via Twilio. L’expéditeur est un numéro compatible avec WhatsApp au format E.164 (par exemple +14155550100) ou un Messaging Service (MG…). Pour engager une conversation, une entreprise doit utiliser un modèle approuvé par WhatsApp. Créez-en un dans Content Template Builder de Twilio et faites-le approuver pour WhatsApp. Renseignez ensuite son Content SID (HX…) et ses variables dans le bloc WhatsApp d’un modèle de notification par SMS, en nommant les variables 1, 2, 3 selon leur position. Sélectionnez ce modèle pour le canal SMS dans les politiques de notification.",
+        "aws_sns": "Publie les notifications sur une rubrique Amazon SNS. Les abonnements les transmettent ensuite à Lambda, à SQS, à des points de terminaison HTTPS ou à des adresses e-mail. L’ARN de la rubrique se présente sous la forme arn:aws:sns:us-east-1:123456789012:alerts. Sélectionnez la région où se trouve la rubrique. L’autorisation ec2:DescribeRegions permet de lister les régions, et sns:Publish de publier les notifications. Une rubrique chiffrée nécessite aussi kms:GenerateDataKey et kms:Decrypt. Les messages incluent les attributs event_type et severity pour les politiques de filtrage des abonnements. Une rubrique FIFO (.fifo) regroupe les messages par alerte et élimine les envois en double.",
+        "pagerduty": "PagerDuty Events API v2 : ajoutez une intégration Events API V2 dans l’onglet Intégrations du service, puis saisissez ici sa clé d’intégration (clé de routage). Sélectionnez EU si votre compte utilise la région de service de l’UE. Lorsqu’une alerte se déclenche ou fait l’objet d’une escalade, une alerte est déclenchée dans PagerDuty. La prise en compte et la résolution sont répercutées dans PagerDuty, avec une seule alerte PagerDuty par alerte MoleSignal."
+      },
+      "options": {
+        "auth": {
+          "access_key": "Clé d’accès",
+          "temporary_key": "Clé temporaire",
+          "node_role": "Identité du nœud",
+          "assume_role": "Endosser un rôle",
+          "web_identity": "Identité web",
+          "password": "Nom d’utilisateur et mot de passe",
+          "microsoft": "Microsoft 365 (OAuth 2.0)",
+          "google": "Google Workspace (OAuth 2.0)"
+        },
+        "site": {
+          "feishu": "Feishu",
+          "lark": "Lark",
+          "slack": "Slack",
+          "govslack": "GovSlack"
+        },
+        "cloud": {
+          "global": "Mondial",
+          "gcc": "GCC",
+          "gcc_high": "GCC High",
+          "dod": "DoD"
+        },
+        "method": {
+          "post": "POST",
+          "put": "PUT",
+          "patch": "PATCH",
+          "get": "GET"
+        },
+        "bodyFormat": {
+          "json": "JSON",
+          "form": "Formulaire (x-www-form-urlencoded)"
+        },
+        "phoneFormat": {
+          "e164": "+8613800138000 (E.164)",
+          "digits": "8613800138000 (sans +)",
+          "mainland": "13800138000 (numéros de Chine continentale sans indicatif international)"
+        },
+        "body": {
+          "event": "Événement MoleSignal",
+          "template": "Corps du modèle de notification"
+        },
+        "region": {
+          "us": "États-Unis",
+          "eu": "UE"
+        }
+      },
+      "option_hints": {
+        "auth": {
+          "access_key": "Clé à longue durée de vie d’un utilisateur IAM. N’accordez à cet utilisateur que les autorisations nécessaires : sms-voice:SendTextMessage et sms-voice:SendVoiceMessage pour envoyer des SMS et passer des appels, sns:Publish pour publier sur une rubrique SNS et ec2:DescribeRegions pour lister les régions.",
+          "temporary_key": "Clé à courte durée de vie fournie par AWS STS, valide uniquement avec son jeton de session. Elle cesse de fonctionner à son expiration et doit alors être remplacée ici.",
+          "node_role": "Aucune clé n’est stockée. MoleSignal utilise l’identité du nœud sur lequel il s’exécute : EKS IRSA ou Pod Identity, un rôle de tâche ECS ou un profil d’instance EC2. Toutes les organisations de ce déploiement peuvent choisir cette option.",
+          "assume_role": "MoleSignal endosse ce rôle via AWS STS en utilisant la clé d’accès si vous en fournissez une, ou l’identité du nœud dans le cas contraire. La politique d’approbation du rôle doit autoriser l’identité utilisée et exiger l’ID externe ci-dessous.",
+          "web_identity": "MoleSignal endosse ce rôle à l’aide du jeton d’identité web disponible sur le nœud, par exemple le jeton de compte de service qu’EKS projette pour IRSA. Son chemin est indiqué dans AWS_WEB_IDENTITY_TOKEN_FILE.",
+          "password": "Nom d’utilisateur et mot de passe du compte SMTP. Si le fournisseur de messagerie l’exige, utilisez comme mot de passe le code d’autorisation ou le mot de passe d’application qu’il vous fournit.",
+          "microsoft": "Envoie des messages depuis une boîte aux lettres Microsoft 365 (cloud mondial) via OAuth 2.0. Inscrivez une application dans Microsoft Entra ID et accordez-lui l’autorisation d’application SMTP.SendAsApp d’Office 365 Exchange Online avec le consentement de l’administrateur. Un administrateur Exchange doit ensuite inscrire le principal de service de l’application et lui donner accès à la boîte aux lettres d’envoi. L’ID du locataire et l’ID client figurent sur la page Vue d’ensemble de l’application. Créez le secret client dans Certificats et secrets. Le nom d’utilisateur est l’adresse de la boîte aux lettres d’envoi. Serveur : smtp.office365.com, port 587, STARTTLS.",
+          "google": "Envoie des messages depuis une boîte aux lettres Google Workspace via OAuth 2.0. Créez un compte de service et collez sa clé JSON. Dans la section Délégation au niveau du domaine de la console d’administration Google, autorisez l’ID client numérique du compte de service pour le champ d’application https://mail.google.com/. Le nom d’utilisateur est l’adresse de la boîte aux lettres d’envoi dans votre domaine. Serveur : smtp.gmail.com, port 587, STARTTLS."
+        },
+        "cloud": {
+          "gcc_high": "Cloud du gouvernement américain : les jetons proviennent de login.microsoftonline.us et les messages envoyés à Mole Agent sont vérifiés par le Bot Framework gouvernemental.",
+          "dod": "Cloud du gouvernement américain : les jetons proviennent de login.microsoftonline.us et les messages envoyés à Mole Agent sont vérifiés par le Bot Framework gouvernemental."
+        },
+        "site": {
+          "govslack": "Slack du gouvernement américain : l’API et l’autorisation de la page de statut sont hébergées sur slack-gov.com."
+        },
+        "body": {
+          "event": "Envoie l’événement dans un format exploitable par les machines : version, event, alert, rule et escalation, avec la cible et le message généré. Le schéma évolue uniquement par ajout de champs.",
+          "template": "Envoie tel quel le corps du modèle sélectionné par la politique de notification pour le canal webhook. Si le modèle est au format JSON, il est envoyé en JSON avec les caractères spéciaux de ses valeurs échappés."
+        },
+        "region": {
+          "eu": "Pour les comptes PagerDuty dont l’adresse se termine par .eu.pagerduty.com."
+        }
+      },
+      "switch_hints": {
+        "replies": {
+          "twilio_sms": "La personne qui reçoit un SMS d’alerte peut y répondre pendant 24 heures avec le code indiqué, par exemple 31 pour accuser réception ou 32 pour résoudre l’alerte. Les réponses sont traitées au nom du destinataire, avec ses autorisations.",
+          "aws_sms": "La personne qui reçoit un SMS d’alerte peut y répondre pendant 24 heures avec le code indiqué, par exemple 31 pour accuser réception ou 32 pour résoudre l’alerte. Les réponses sont traitées au nom du destinataire, avec ses autorisations, et transitent par SNS via le service de SMS bidirectionnels.",
+          "http_sms": "La personne qui reçoit un SMS d’alerte peut y répondre pendant 24 heures avec le code indiqué, par exemple 31 pour accuser réception ou 32 pour résoudre l’alerte. Les réponses sont traitées au nom du destinataire, avec ses autorisations. La passerelle doit transmettre les réponses qu’elle reçoit.",
+          "aliyun_sms": "Alibaba Cloud n’envoie que des modèles approuvés. Ajoutez les variables reply.ack et reply.resolve aux paramètres du modèle. Le destinataire peut répondre avec ces codes pendant 24 heures pour accuser réception ou résoudre l’alerte. Les réponses sont traitées au nom du destinataire, avec ses autorisations.",
+          "twilio_voice": "La personne qui décroche appuie sur 1 pour accuser réception ou sur 2 pour résoudre l’alerte. L’action est effectuée en son nom, avec ses autorisations.",
+          "aliyun_voice": "Les appels passent par le service vocal interactif IvrCall. La personne qui décroche appuie sur 1 pour accuser réception ou sur 2 pour résoudre l’alerte. Le numéro d’appelant affiché doit être un numéro réel acheté pour IvrCall.",
+          "tencent_sms": "Tencent Cloud n’envoie que des modèles approuvés. Ajoutez les variables reply.ack et reply.resolve aux paramètres du modèle. Le destinataire peut répondre avec ces codes pendant 24 heures pour accuser réception ou résoudre l’alerte. Les réponses sont traitées au nom du destinataire, avec ses autorisations.",
+          "tencent_voice": "La personne qui décroche appuie sur 1 pour accuser réception ou sur 2 pour résoudre l’alerte. Le modèle doit indiquer ces choix et le rappel sur appui d’une touche doit être activé dans la console. L’appui est associé au dernier appel passé à ce numéro.",
+          "huawei_sms": "Huawei Cloud n’envoie que des modèles approuvés. Ajoutez les variables reply.ack et reply.resolve aux paramètres du modèle. Le destinataire peut répondre avec ces codes pendant 24 heures pour accuser réception ou résoudre l’alerte. Les réponses sont traitées au nom du destinataire, avec ses autorisations.",
+          "huawei_voice": "Après la lecture du modèle, un seul appui est enregistré. La personne qui décroche appuie sur 1 pour accuser réception ou sur 2 pour résoudre l’alerte. Le modèle doit indiquer ces choix.",
+          "twilio_whatsapp": "WhatsApp n’envoie que des modèles approuvés. Ajoutez reply.ack et reply.resolve aux variables du modèle. Le destinataire peut répondre avec ces codes pendant 24 heures pour accuser réception ou résoudre l’alerte. Les réponses sont traitées au nom du destinataire, avec ses autorisations."
+        }
+      },
+      "type_fields": {
+        "http_sms": {
+          "url": "URL de la passerelle",
+          "secret": "Secret"
+        },
+        "twilio_voice": {
+          "replies": "Traiter les appuis sur les touches"
+        },
+        "aliyun_voice": {
+          "replies": "Traiter les appuis sur les touches"
+        },
+        "tencent_voice": {
+          "replies": "Traiter les appuis sur les touches",
+          "secretKey": "SecretKey"
+        },
+        "tencent_sms": {
+          "secretKey": "SecretKey"
+        },
+        "huawei_voice": {
+          "replies": "Réagir aux appuis sur les touches",
+          "apiBaseUrl": "Adresse de l’application"
+        },
+        "huawei_sms": {
+          "apiBaseUrl": "Adresse de l’application",
+          "sender": "Numéro du canal"
+        },
+        "discord_webhook": {
+          "username": "Nom d’affichage"
+        },
+        "twilio_whatsapp": {
+          "sender": "Expéditeur WhatsApp"
+        },
+        "aws_sns": {
+          "body": "Message"
+        },
+        "pagerduty": {
+          "region": "Région du service"
+        }
+      },
+      "copy": "Copier",
+      "copied": "Copié",
+      "copy_external_id": "Copier l’identifiant externe",
+      "external_id_hint": "Cette organisation endosse des rôles à l’aide de cet identifiant externe, qui ne peut pas être modifié. Exigez cet identifiant dans la politique d’approbation du rôle au moyen d’une condition sts:ExternalId. Ainsi, aucune autre organisation ne pourra endosser le rôle, même si elle connaît son ARN.",
+      "address_by_region": "Défini par la région",
+      "regions_loading": "Récupération des régions auprès du fournisseur…",
+      "regions_need_credentials": "Renseignez les identifiants pour afficher les régions activées sur ce compte.",
+      "regions_failed": "Impossible de récupérer la liste des régions : {{error}}",
+      "callbacks": {
+        "label": "URL de rappel",
+        "after_save": "S’affiche ici une fois le connecteur enregistré.",
+        "no_external_url": "Le serveur n’a pas d’URL externe. Le fournisseur ne peut donc pas envoyer de rappel.",
+        "per_call": "L’URL de rappel pour les appuis sur les touches est transmise à Twilio à chaque appel. Vous n’avez rien à configurer.",
+        "hints": {
+          "twilio_sms": "Dans les paramètres « Messaging » du numéro Twilio, sélectionnez « Webhook » pour « A message comes in », puis indiquez cette URL et choisissez la méthode HTTP POST.",
+          "aws_sms": "Ajoutez un abonnement HTTPS utilisant ce point de terminaison à la rubrique SNS qui reçoit les réponses. L’abonnement est confirmé automatiquement.",
+          "aliyun_sms": "Dans Alibaba Cloud SMS, configurez l’envoi des messages entrants vers cette URL via HTTP.",
+          "aliyun_voice": "Dans Alibaba Cloud Voice, configurez l’envoi des accusés de réception vers cette URL via HTTP. Les appuis sur les touches y sont également transmis.",
+          "tencent_sms": "Dans les paramètres de rappel de la console Tencent Cloud SMS, utilisez cette URL pour les rappels de réponse.",
+          "tencent_voice": "Dans les paramètres de rappel d’événements de la console Tencent Cloud Voice Message, utilisez cette URL pour les rappels liés aux appuis sur les touches.",
+          "huawei_sms": "Lors de la création de l’application SMS, saisissez cette URL comme adresse de réception des messages entrants. Son dernier segment est le jeton de rappel.",
+          "huawei_voice": "Dans « App Management », saisissez cette URL comme adresse de réception des statuts d’appel. Son dernier segment est le jeton de rappel.",
+          "http_sms": "Configurez la passerelle pour qu’elle envoie les réponses reçues à cette URL via HTTP POST, au format JSON, avec les champs phone et text.",
+          "wecom_app": "Dans la section « Receive messages » de l’application, configurez la réception via l’API avec cette URL, puis renseignez le jeton et EncodingAESKey à l’aide des deux champs ci-dessus. Le domaine de l’URL doit figurer dans un enregistrement ICP de l’entreprise.",
+          "twilio_whatsapp": "Dans Twilio, configurez le webhook des messages entrants de l’expéditeur WhatsApp (ou de son Messaging Service) avec cette URL et la méthode HTTP POST."
+        }
+      }
+    },
+    "delete_title": "Supprimer le connecteur ?",
+    "delete_description": "Pour supprimer un connecteur utilisé, réaffectez d’abord ses points de terminaison, ses politiques et ses routes de secours."
+  },
+  "users": {
+    "title": "Notifications des utilisateurs",
+    "subtitle": "Associez les identités chez les fournisseurs et définissez l’ordre d’envoi par catégorie.",
+    "empty_title": "Aucun utilisateur dans l’espace de travail",
+    "empty_description": "Les membres de l’espace de travail s’affichent ici une fois qu’ils ont rejoint l’organisation.",
+    "columns": {
+      "user": "Utilisateur",
+      "endpoints": "Points de terminaison associés",
+      "alert": "Canal principal des alertes",
+      "oncall": "Canal principal de l’astreinte",
+      "report": "Canal principal des rapports",
+      "status": "Statut"
+    },
+    "drawer_title": "Paramètres de notification · {{name}}",
+    "drawer_subtitle": "Gérez les identités, l’ordre d’envoi, les plages de silence et les tests."
+  },
+  "endpoints": {
+    "title": "Identités de notification",
+    "description": "Chaque identité est rattachée à un seul connecteur.",
+    "add": "Associer un mode de notification",
+    "empty": "Aucune identité de notification n’est associée.",
+    "identity": "Identité externe",
+    "display_name": "Libellé",
+    "connector": "Connecteur",
+    "enabled": "Utiliser ce point de terminaison",
+    "verified": "Confirmer que ce point de terminaison a été vérifié",
+    "new_title": "Associer un mode de notification",
+    "edit_title": "Modifier le mode de notification",
+    "save": "Enregistrer le point de terminaison",
+    "delete_title": "Supprimer le point de terminaison ?",
+    "delete_description": "Retirez d’abord ce point de terminaison de toutes les préférences d’envoi.",
+    "phone_hint": "Un numéro de téléphone avec le signe + et l’indicatif du pays, par exemple +14155550100 ; les connecteurs SMS Alibaba Cloud, Tencent Cloud, Huawei Cloud et HTTP génériques acceptent aussi les numéros mobiles à 11 chiffres de Chine continentale.",
+    "identity_hints": {
+      "telegram_bot": "Un identifiant utilisateur Telegram numérique, et non le nom d’utilisateur précédé de @. @userinfobot permet à chacun de connaître son identifiant. Pour que le bot puisse lui envoyer des messages, la personne doit d’abord ouvrir le bot dans Telegram et appuyer sur « Démarrer ».",
+      "mattermost_bot": "Un nom d’utilisateur Mattermost en minuscules, avec ou sans @, ou un identifiant utilisateur de 26 caractères. Cet identifiant sert à vérifier qui clique sur les boutons des cartes.",
+      "webex_bot": "L’adresse e-mail du compte Webex ou l’identifiant de la personne dans Webex.",
+      "matrix_bot": "Un identifiant utilisateur Matrix, par exemple @name:matrix.org. Lors de la première notification, le bot invite la personne à rejoindre un salon de discussion directe. Les messages s’affichent une fois l’invitation acceptée.",
+      "twilio_whatsapp": "Un numéro WhatsApp avec le signe + et l’indicatif du pays, par exemple +14155550100."
+    }
+  },
+  "preferences": {
+    "title": "Préférences d’envoi",
+    "description": "Les modes d’envoi sont essayés dans l’ordre choisi avant de recourir aux options de secours de l’équipe et de l’organisation.",
+    "alert": "Événements d’alerte",
+    "oncall": "Événements d’astreinte",
+    "report": "Rapports",
+    "escalation": "Escalade des alertes",
+    "security": "Sécurité",
+    "system": "Système",
+    "enabled": "Recevoir les notifications de cette catégorie",
+    "endpoint_order": "Ordre des points de terminaison",
+    "move_up": "Remonter l’étape",
+    "move_down": "Descendre l’étape",
+    "no_endpoints": "Associez un point de terminaison avant de configurer cette catégorie.",
+    "quiet_enabled": "Utiliser les plages de silence",
+    "timezone": "Fuseau horaire",
+    "start": "Début (HH:MM)",
+    "end": "Fin (HH:MM)",
+    "save": "Enregistrer {{category}}",
+    "wait_label": "Minutes avant l’étape {{step}}",
+    "wait_unit": "min plus tard",
+    "wait_hint": "La première notification est envoyée immédiatement. Pour chaque étape suivante, le délai que vous indiquez est compté à partir de la première notification. L’étape ne s’exécute que si personne n’a accusé réception de l’alerte à l’expiration de ce délai. Si deux étapes consécutives ont le même délai, la seconde ne s’exécute qu’en cas d’échec de l’envoi à l’étape précédente. En cas d’échec, le processus passe immédiatement à l’étape suivante.",
+    "high_urgency_steps": "Alertes à forte urgence, dans l’ordre",
+    "low_urgency_steps": "Alertes à faible urgence, dans l’ordre",
+    "low_urgency_hint": "Si vous laissez cette liste vide, seul le premier mode de notification ci-dessus est utilisé.",
+    "high_urgency_bypass": "Recevoir les alertes à forte urgence même pendant les heures silencieuses",
+    "quiet_low_urgency": "Les alertes à faible urgence ne sont jamais envoyées pendant les heures silencieuses.",
+    "add_step": "Ajouter une étape : {{method}}",
+    "remove_step": "Supprimer l’étape {{step}}",
+    "boost_label": "Notification urgente à l’étape {{step}}",
+    "boosts": {
+      "default": {
+        "none": "Non urgent",
+        "app": "Urgent dans l’application",
+        "sms": "Urgent par SMS",
+        "phone": "Urgent par téléphone"
+      },
+      "lark_app": {
+        "none": "Pas de buzz",
+        "app": "Buzz dans l’application",
+        "sms": "Buzz par SMS",
+        "phone": "Buzz par téléphone"
+      },
+      "dingtalk_app": {
+        "none": "Pas de DING",
+        "app": "DING dans l’application",
+        "sms": "DING par SMS",
+        "phone": "DING par téléphone"
+      }
+    },
+    "boost_hint": "La notification urgente est envoyée après le message, sous forme d’alerte dans l’application, de SMS ou d’appel.",
+    "boost_wait_hint": "La notification urgente est envoyée après le message, sous forme d’alerte dans l’application, de SMS ou d’appel. Vous pouvez utiliser deux fois le même mode de notification avec des réglages d’urgence différents : par exemple, envoyer d’abord un message, puis utiliser à nouveau le même mode avec un appel si personne n’a accusé réception dans les 5 minutes.",
+    "boost_notes": {
+      "lark_app": "Sur le site international de Lark, seuls les buzz dans l’application fonctionnent.",
+      "dingtalk_app": "La fonction DING nécessite DingTalk Professional ou Exclusive. Les DING par SMS ou par téléphone nécessitent l’achat d’un quota."
+    }
+  },
+  "event_types": {
+    "alert": {
+      "triggered": "Alerte déclenchée",
+      "acknowledged": "Alerte acquittée",
+      "resolved": "Alerte résolue",
+      "escalated": "Alerte escaladée"
+    },
+    "oncall": {
+      "shift": {
+        "starting": "Prise d’astreinte imminente",
+        "started": "Astreinte démarrée"
+      },
+      "override": {
+        "created": "Dérogation au planning d’astreinte créée"
+      },
+      "coverage": {
+        "missing": "Astreinte non couverte"
+      },
+      "swap": {
+        "updated": "Échange de créneaux d’astreinte mis à jour"
+      },
+      "member": {
+        "unreachable": "Membre d’astreinte injoignable"
+      }
+    },
+    "incident": {
+      "status_update": "Mise à jour d’un incident majeur"
+    },
+    "agent": {
+      "approval": {
+        "requested": "Demande d’approbation pour Mole Agent"
+      }
+    }
+  },
+  "resolver_types": {
+    "alert_owner": "Responsable de l’alerte",
+    "current_oncall": "Personne actuellement d’astreinte",
+    "event_users": "Utilisateurs indiqués dans l’événement",
+    "fixed_users": "Utilisateurs sélectionnés",
+    "next_oncall": "Prochaine personne d’astreinte",
+    "schedule_members": "Membres du planning d’astreinte",
+    "team_lead": "Responsable d’équipe",
+    "team_members": "Membres de l’équipe"
+  },
+  "policies": {
+    "title": "Politiques de notification",
+    "subtitle": "Filtrez les événements, identifiez les destinataires, envoyez les notifications selon leurs préférences et déclenchez une escalade en l’absence d’accusé de réception.",
+    "new": "Nouvelle politique",
+    "empty_title": "Aucune politique de notification",
+    "empty_description": "Créez une politique pour associer les événements métier à des destinataires et à des circuits d’envoi.",
+    "columns": {
+      "name": "Politique",
+      "event": "Événement",
+      "recipient": "Sélection des destinataires",
+      "delivery": "Envoi",
+      "fallback": "Solutions de repli",
+      "status": "Statut"
+    },
+    "drawer": {
+      "new_title": "Nouvelle politique de notification",
+      "edit_title": "Modifier {{name}}",
+      "subtitle": "L’aperçu identifie les destinataires et les circuits d’envoi réels de l’espace de travail, sans envoyer de notification.",
+      "trigger": "1 · Déclencheur",
+      "recipient": "2 · Destinataires",
+      "delivery": "3 · Envoi",
+      "failure": "4 · Échec et escalade",
+      "preview": "Aperçu de l’envoi en temps réel",
+      "name": "Nom",
+      "event_type": "Type d’événement",
+      "category": "Catégorie",
+      "priority": "Priorité",
+      "matchers": "Critères de correspondance (JSON)",
+      "resolver": "Sélection des destinataires",
+      "resolver_config": "Configuration de la sélection des destinataires (JSON)",
+      "delivery_mode": "Mode d’envoi",
+      "template": "Modèle par défaut",
+      "template_hint": "Chaque canal sans modèle propre utilise ce modèle, renseigné à partir des attributs de l’événement.",
+      "default_template": "Utiliser le message généré pour l’événement",
+      "channel_templates": "Modèles par canal",
+      "use_general_template": "Utiliser le modèle général",
+      "connectors": "Connecteurs sélectionnés",
+      "user_fallbacks": "Utiliser les points de terminaison de secours de l’utilisateur",
+      "team_defaults": "Utiliser les routes de secours de l’équipe",
+      "organization_defaults": "Utiliser les routes de secours de l’organisation",
+      "merge_window": "Regrouper les notifications",
+      "merge_window_hint": "Les notifications d’alerte destinées à la même personne ou au même groupe sont regroupées sur cette période : la première est envoyée immédiatement, les autres ensemble à la fin de la période. Les appels sont regroupés sur une période d’au moins 60 secondes ; les webhooks ne sont jamais regroupés.",
+      "merge_off": "Ne pas regrouper",
+      "merge_seconds_one": "{{count}} seconde",
+      "merge_seconds_other": "{{count}} secondes",
+      "merge_minutes_one": "{{count}} minute",
+      "merge_minutes_other": "{{count}} minutes",
+      "ack_timeout": "Délai d’acquittement (secondes)",
+      "escalation_resolver": "Résolveur d’escalade",
+      "escalation_config": "Configuration du résolveur d’escalade (JSON)",
+      "escalation_delivery": "Mode d’envoi pour l’escalade",
+      "escalation_connectors": "Connecteurs d’escalade",
+      "event_attributes": "Attributs de l’événement de prévisualisation (JSON)",
+      "preview_event": "Prévisualiser l’événement",
+      "preview_waiting": "Renseignez les champs obligatoires pour déterminer le plan d’envoi.",
+      "ack_disabled": "Laissez ce champ vide pour désactiver l’escalade",
+      "refresh_preview": "Actualiser l’aperçu",
+      "matched": "Critères de la politique remplis",
+      "not_matched": "Critères de la politique non remplis",
+      "no_recipients": "Aucun destinataire identifié.",
+      "resolved_by": "Résolution par {{resolver}}",
+      "step_template": "Modèle : {{name}}",
+      "save": "Enregistrer la politique",
+      "restore": "Rétablir les paramètres par défaut",
+      "builtin_name_hint": "Une politique intégrée conserve son nom.",
+      "time_hint": "La période s’applique à la date et à l’heure de l’événement qui a déclenché la notification. En dehors de cette période, cette politique n’envoie rien ; les autres politiques continuent de s’appliquer.",
+      "merge_seconds_many": "{{count}} secondes",
+      "merge_minutes_many": "{{count}} minutes"
+    },
+    "delivery_modes": {
+      "prefer_user": "Respecter la préférence de l’utilisateur",
+      "force_connector": "Imposer un seul connecteur",
+      "multi_connector": "Envoyer via plusieurs connecteurs"
+    },
+    "delete_title": "Supprimer la politique ?",
+    "delete_description": "L’historique des envois reste disponible.",
+    "builtin_label": "Intégrée",
+    "builtin_not_deletable": "Vous pouvez désactiver une politique intégrée, mais pas la supprimer.",
+    "builtin": {
+      "alert_triggered": "Alerte déclenchée : notifier le propriétaire",
+      "alert_resolved": "Alerte résolue : notifier le propriétaire",
+      "alert_acknowledged": "Alerte acquittée : notifier le propriétaire",
+      "alert_escalated_to_users": "Escalade : notifier les personnes désignées à cette étape",
+      "alert_escalated_to_teams": "Escalade : notifier l’équipe désignée à cette étape",
+      "oncall_shift_starting": "Relève d’astreinte : notifier les deux personnes",
+      "oncall_coverage_missing": "Période d’astreinte non couverte : notifier les responsables du planning",
+      "oncall_override_created": "Dérogation au planning d’astreinte : notifier les personnes concernées",
+      "oncall_swap_updated": "Échange de créneaux d’astreinte : notifier les personnes concernées",
+      "incident_status_update": "Mise à jour d’un incident majeur : notifier les parties prenantes",
+      "oncall_member_unreachable": "Personne d’astreinte injoignable : la notifier ainsi que les responsables du planning",
+      "intake_budget_warning": "Budget d’ingestion presque épuisé : notifier les personnes désignées dans le budget",
+      "intake_budget_exceeded": "Budget d’ingestion dépassé : notifier les personnes désignées dans le budget",
+      "agent_approval_requested": "Approbation requise : notifier les personnes habilitées à approuver"
+    },
+    "restore_title": "Restaurer les paramètres par défaut ?",
+    "restore_description": "Les paramètres par défaut de la politique intégrée seront restaurés et les modifications apportées seront perdues.",
+    "restored": "Paramètres par défaut restaurés"
+  },
+  "defaults": {
+    "title": "Routes de secours",
+    "subtitle": "Définissez les routes de l’équipe et de l’organisation à utiliser en cas d’échec des routes d’envoi personnelles.",
+    "scope": "Portée des routes",
+    "organization_scope": "Paramètres par défaut de l’organisation",
+    "team_scope": "Équipe · {{name}}",
+    "category": "Catégorie",
+    "enabled": "Activer ce routage de secours pour l’organisation",
+    "routes": "Routes",
+    "connector": "Connecteur",
+    "target_type": "Type de cible",
+    "target": "Cible",
+    "add_route": "Ajouter une route",
+    "remove_route": "Supprimer la route",
+    "save": "Enregistrer les routes de secours",
+    "delete": "Supprimer le routage de secours",
+    "empty": "Aucune route de secours n’est configurée pour cette portée et cette catégorie.",
+    "configured_hint": "Les routes sont essayées dans l’ordre affiché."
+  },
+  "deliveries": {
+    "title": "Envois de notifications",
+    "subtitle": "Consultez chaque tentative d’envoi, étape de secours, acquittement et escalade.",
+    "empty_title": "Aucun envoi",
+    "empty_description": "Les tentatives d’envoi s’affichent ici après le traitement d’un événement de notification correspondant.",
+    "filters": {
+      "event": "ID de l’événement",
+      "status": "Statut",
+      "stage": "Étape",
+      "all": "Toutes"
+    },
+    "columns": {
+      "event": "Événement",
+      "recipient": "Destinataire",
+      "source": "Résolu par",
+      "connector": "Connecteur",
+      "stage": "Étape",
+      "status": "Statut",
+      "latency": "Latence",
+      "sent": "Envoyé"
+    },
+    "detail_title": "Chaîne d’acheminement",
+    "detail_subtitle": "Tentative {{attempt}} · {{status}}",
+    "target": "Destinataire masqué",
+    "error": "Échec",
+    "skip_reason": "Motif",
+    "ack": "Acquitter l’événement",
+    "retry": "Relancer les routes en échec",
+    "acknowledged": "Événement acquitté",
+    "retried": "Nouvelle tentative lancée",
+    "views_label": "Mode d’affichage des envois",
+    "views": {
+      "events": "Par alerte",
+      "attempts": "Par tentative"
+    },
+    "by_event": {
+      "channels": "Canaux et tentatives",
+      "first_delivered": "Première réception",
+      "not_delivered": "Non reçu",
+      "failed_tries": "En échec",
+      "open_try": "Ouvrir la tentative {{attempt}} : {{status}}"
+    }
+  },
+  "templates": {
+    "conditions": {
+      "title": "Conditions",
+      "description": "Le contenu du bloc n’est conservé que si la condition est remplie. Les comparaisons avec != et les branches else sont prises en charge, et les blocs peuvent être imbriqués.",
+      "items": {
+        "triggered": "Uniquement au déclenchement de l’alerte",
+        "resolved": "Uniquement à la résolution de l’alerte",
+        "severity": "Texte différent selon la gravité",
+        "runbook": "Lien vers la procédure, si elle existe"
+      },
+      "problem": "Une condition est incorrecte : {{problem}}"
+    },
+    "title": "Modèles de notification",
+    "subtitle": "Messages de notification réutilisables : un modèle général s’applique à tous les canaux, mais chaque canal (SMS, téléphone, etc.) peut avoir son propre modèle.",
+    "new": "Nouveau modèle",
+    "empty_title": "Aucun modèle de notification",
+    "empty_description": "Créez un corps de message réutilisable, puis sélectionnez-le dans une politique de notification.",
+    "channel_filter": "Filtrer par canal",
+    "all": "Tous",
+    "columns": {
+      "name": "Modèle",
+      "channel": "Canal",
+      "format": "Format",
+      "category": "Catégorie",
+      "updated": "Dernière mise à jour",
+      "actions": "Actions"
+    },
+    "new_title": "Nouveau modèle de notification",
+    "edit_title": "Modifier {{name}}",
+    "editor_subtitle": "Choisissez une catégorie de notification, insérez ses variables ou partez d’un modèle prédéfini.",
+    "name": "Nom",
+    "category": "Catégorie de notification",
+    "channel": "Canal",
+    "channels": {
+      "general": "Général",
+      "im": "Messagerie instantanée",
+      "phone": "Téléphone",
+      "sms": "SMS",
+      "email": "E-mail",
+      "webhook": "Webhook"
+    },
+    "format": "Format",
+    "body": "Corps du message",
+    "variables_hint": "Ouvrez le panneau Variables à droite et sélectionnez une variable pour l’insérer à la position du curseur.",
+    "body_hint_sms": "Le SMS contient uniquement le corps du message, sans le titre de la notification.",
+    "body_hint_phone": "Lors de l’appel, seul le corps du message est lu, sans le titre de la notification.",
+    "preview_attributes": "Attributs de l’événement pour l’aperçu (JSON)",
+    "preview": "Aperçu du message",
+    "preview_empty": "Commencez à saisir le corps du message.",
+    "length": "{{chars}} / {{limit}} caractères",
+    "length_over_sms": "{{chars}} caractères : seuls les {{limit}} premiers caractères sont envoyés par SMS.",
+    "length_over_phone": "{{chars}} caractères : seuls les {{limit}} premiers caractères sont lus lors de l’appel.",
+    "attributes_object": "Les attributs de l’aperçu doivent former un objet JSON.",
+    "reference": {
+      "title": "Variables",
+      "description": "Sélectionnez une variable pour l’insérer à la position du curseur.",
+      "loading": "Chargement des variables…",
+      "error": "Impossible de charger les variables.",
+      "dynamic_key": "Clé dynamique trouvée dans cet espace de travail",
+      "tabs": {
+        "common": "Commun",
+        "rule": "Règle",
+        "incident": "Alerte",
+        "metadata": "Étiquettes et annotations",
+        "schedule": "Planning",
+        "oncall": "Passation",
+        "override": "Dérogation",
+        "escalation": "Escalade"
+      },
+      "groups": {
+        "event": "Événement",
+        "message": "Message",
+        "rule": "Règle d’alerte",
+        "incident": "Incident",
+        "trigger": "Valeur de déclenchement",
+        "labels": "Étiquettes",
+        "annotations": "Annotations",
+        "escalation": "Escalade",
+        "schedule": "Planning d’astreinte",
+        "oncall": "Relève d’astreinte",
+        "override": "Dérogation"
+      },
+      "fields": {
+        "event_id": "Identifiant unique de l’événement",
+        "event_type": "Type d’événement",
+        "event_occurred_at": "Horodatage de l’événement en microsecondes",
+        "event_time": "Horodatage de l’événement (UTC)",
+        "message_title": "Titre du message généré par le système",
+        "message_text": "Message par défaut généré par le système",
+        "event_attribute": "Tout attribut de l’événement ; remplacez <key>",
+        "rule_id": "Identifiant de la règle d’alerte",
+        "rule_name": "Nom de la règle d’alerte",
+        "rule_description": "Description de la règle d’alerte",
+        "incident_id": "Identifiant de l’incident",
+        "incident_fingerprint": "Empreinte de l’incident",
+        "incident_status": "Statut de l’incident",
+        "incident_summary": "Résumé de l’incident",
+        "incident_url": "Adresse de l’alerte dans MoleSignal (URL externe requise)",
+        "incident_started_time": "Heure de déclenchement de l’alerte (UTC)",
+        "incident_duration": "Durée de l’alerte, par exemple 1h 5m",
+        "incident_acknowledged_time": "Heure de prise en compte de l’alerte (UTC)",
+        "incident_acknowledged_by": "Identifiant de la personne qui a pris en compte l’alerte",
+        "incident_resolved_time": "Heure de résolution de l’alerte (UTC)",
+        "incident_resolved_by": "Identifiant de la personne qui a résolu l’alerte",
+        "incident_assignees": "Identifiants des personnes assignées, séparés par des virgules",
+        "service": "Service indiqué dans les étiquettes ou les annotations",
+        "environment": "Environnement indiqué dans les étiquettes ou les annotations",
+        "affected_services": "Services affectés, séparés par des virgules",
+        "severity": "Gravité de l’alerte",
+        "value": "Valeur observée au déclenchement",
+        "threshold": "Seuil de la règle",
+        "evaluated_at": "Horodatage de l’évaluation de la règle en microsecondes",
+        "labels_all": "Toutes les étiquettes, par exemple service=api, env=production",
+        "labels_key": "Valeur de l’étiquette ; remplacez <key>",
+        "annotations_key": "Valeur de l’annotation ; remplacez <key>",
+        "reply_ack": "Code à utiliser dans une réponse pour accuser réception, par exemple 31 ; renseigné uniquement dans les messages des connecteurs qui traitent les réponses",
+        "reply_resolve": "Code à utiliser dans une réponse pour marquer l’alerte comme résolue, par exemple 32",
+        "escalation_step": "Étape d’escalade, numérotée à partir de 1",
+        "escalation_loop": "Cycle d’escalade, numéroté à partir de 1",
+        "escalation_target": "Destinataire de la notification à cette étape : utilisateur, planning ou équipe",
+        "escalation_reason": "Motif de la notification : step (passage à l’étape suivante de la politique), manual (escalade manuelle), reassigned, responder_added, snooze_ended, ack_timeout (alerte dont la réception a été confirmée, mais qui n’a pas été résolue dans le délai imparti) ou severity_raised",
+        "schedule_id": "ID du planning d’astreinte",
+        "schedule_name": "Nom du planning d’astreinte",
+        "schedule_team_id": "ID de l’équipe associée au planning d’astreinte",
+        "schedule_timezone": "Fuseau horaire du planning d’astreinte",
+        "oncall_current_user": "ID de l’utilisateur actuellement d’astreinte",
+        "oncall_next_user": "ID du prochain utilisateur d’astreinte",
+        "oncall_transition_at": "Horodatage de la relève en microsecondes",
+        "oncall_transition_time": "Heure de la relève (UTC)",
+        "override_id": "ID du remplacement d’astreinte",
+        "override_user": "ID de l’utilisateur remplaçant",
+        "override_original_user": "ID de l’utilisateur initialement prévu pour l’astreinte",
+        "override_start_at": "Horodatage du début du remplacement en microsecondes",
+        "override_end_at": "Horodatage de la fin du remplacement en microsecondes",
+        "override_start_time": "Début du remplacement (UTC)",
+        "override_end_time": "Fin du remplacement (UTC)",
+        "override_reason": "Motif du remplacement",
+        "urgency": "Urgence : clé du niveau, par exemple high ou low",
+        "priority": "Priorité P1–P9 ; vide si aucune priorité n’est définie",
+        "urgency_name": "Nom donné au niveau d’urgence par l’organisation ; vide si aucun nom n’est défini",
+        "priority_name": "Nom donné à la priorité par l’organisation ; vide si aucun nom n’est défini"
+      }
+    },
+    "provider": {
+      "title": "Modèles approuvés par le fournisseur",
+      "description_sms": "Alibaba Cloud, Tencent Cloud et Huawei Cloud n’envoient que les modèles SMS qu’ils ont approuvés, et WhatsApp uniquement les modèles Content qu’il a approuvés. Leurs connecteurs envoient le modèle indiqué ici ; les autres connecteurs SMS envoient le corps du message ci-dessus.",
+      "description_phone": "Alibaba Cloud, Tencent Cloud et Huawei Cloud ne lisent à voix haute que les modèles vocaux qu’ils ont approuvés. Leurs connecteurs téléphoniques lisent le modèle indiqué ici ; les autres lisent le corps du message ci-dessus.",
+      "names": {
+        "aliyun": "Alibaba Cloud",
+        "tencent": "Tencent Cloud",
+        "huawei": "Huawei Cloud",
+        "whatsapp": "WhatsApp"
+      },
+      "code": "Code du modèle",
+      "code_labels": {
+        "whatsapp": "SID du contenu"
+      },
+      "max_chars": "Caractères par variable",
+      "max_chars_placeholder": {
+        "aliyun_sms": "35 (par défaut)",
+        "aliyun_phone": "35 (par défaut)",
+        "tencent_sms": "6 (par défaut)",
+        "tencent_phone": "20 (par défaut)",
+        "huawei_sms": "20 (par défaut)",
+        "huawei_phone": "32 (par défaut)",
+        "whatsapp_sms": "300 (par défaut)"
+      },
+      "params": "Variables",
+      "param_name": "Variable",
+      "param_value": "Valeur",
+      "add_param": "Ajouter une variable",
+      "remove_param": "Supprimer la variable",
+      "params_hint": "Reprenez le nom indiqué dans {{variable}} dans le modèle. La valeur peut inclure les variables à droite. Si vous en sélectionnez une, elle s’insère à la position du curseur.",
+      "params_hint_position": "Ce fournisseur renseigne les variables selon leur position : nommez-les 1, 2 et 3 pour désigner les trois premières variables du modèle, dans l’ordre. La valeur peut inclure les variables à droite. Si vous en sélectionnez une, elle s’insère à la position du curseur.",
+      "preview": "{{provider}} reçoit {{code}}",
+      "problem_elsewhere": "Complétez le modèle de {{provider}} avant d’enregistrer.",
+      "problems": {
+        "code": "Saisissez le code du modèle fourni, en utilisant uniquement des lettres, des chiffres, des tirets bas et des traits d’union.",
+        "content_sid": "Saisissez le SID du contenu Twilio : HX suivi de 32 caractères hexadécimaux.",
+        "param_name": "Le nom d’une variable ne peut contenir que des lettres, des chiffres et des tirets bas.",
+        "param_twice": "Une variable est définie deux fois.",
+        "param_value": "Chaque variable doit avoir une valeur.",
+        "max_chars": "Le nombre de caractères par variable doit être compris entre 1 et 500."
+      }
+    },
+    "card": {
+      "title": "Carte",
+      "description": "Les applications et les bots de groupe de Lark, DingTalk, WeCom, Slack, Teams et Google Chat envoient la notification sous forme de carte contenant le corps du message ci-dessus. Si l’option est désactivée, ils continuent à l’envoyer sous forme de texte.",
+      "toggle": "Envoyer sous forme de carte",
+      "card_title": "Titre de la carte",
+      "card_title_placeholder": "Par défaut, le titre de la notification",
+      "color": "Couleur du titre",
+      "colors": {
+        "severity": "Selon la gravité",
+        "blue": "Bleu",
+        "green": "Vert",
+        "yellow": "Jaune",
+        "orange": "Orange",
+        "red": "Rouge",
+        "grey": "Gris"
+      },
+      "fields": "Champs",
+      "field_label": "Nom du champ",
+      "field_value": "Valeur du champ",
+      "add_field": "Ajouter un champ",
+      "remove_field": "Supprimer le champ",
+      "links": "Boutons de lien",
+      "link_label": "Texte du bouton",
+      "link_url": "Adresse du lien",
+      "add_link": "Ajouter un lien",
+      "remove_link": "Supprimer le lien",
+      "note": "Pied de carte",
+      "hint": "Chaque partie accepte des variables. Sélectionnez-en une à droite pour l’insérer à l’emplacement du curseur. Si les données de l’événement ne permettent pas de renseigner un champ ou un lien, celui-ci n’est pas affiché. La couleur dépend de la gravité : rouge pour un niveau critique, orange pour une erreur, jaune pour un avertissement, bleu dans les autres cas et vert après résolution.",
+      "starting": {
+        "severity": "Gravité",
+        "status": "Statut",
+        "service": "Service",
+        "schedule": "Planning",
+        "next": "Prochaine personne d’astreinte",
+        "runbook": "Guide d’intervention"
+      },
+      "problems": {
+        "too_many": "Une carte peut contenir au maximum 10 champs et 5 liens.",
+        "field": "Chaque champ doit avoir un nom et une valeur.",
+        "link": "Chaque lien doit avoir un texte de bouton et une adresse.",
+        "link_url": "L’adresse du lien doit commencer par http:// ou https://, ou être renseignée par une variable qui fournit une telle adresse.",
+        "too_long": "Une limite de longueur est dépassée : 200 caractères pour le titre et le pied de carte, 40 pour les noms de champ, 500 pour leurs valeurs et 30 pour le texte des boutons."
+      }
+    },
+    "presets": {
+      "title": "Modèles prédéfinis",
+      "description": "Le corps de chaque modèle prédéfini reste entièrement modifiable.",
+      "items": {
+        "alert_text": "Alerte en texte brut",
+        "alert_markdown": "Alerte en Markdown",
+        "alert_html": "Alerte en HTML",
+        "oncall_shift": "Rappel de relève d’astreinte",
+        "oncall_override": "Notification de remplacement d’astreinte",
+        "oncall_coverage": "Notification de créneau sans astreinte",
+        "oncall_html": "Relève d’astreinte en HTML",
+        "escalation_text": "Escalade d’alerte en texte brut",
+        "escalation_markdown": "Escalade d’alerte en Markdown",
+        "escalation_html": "Escalade d’alerte en HTML",
+        "report_text": "Rapport en texte brut",
+        "report_markdown": "Rapport en Markdown",
+        "report_html": "Rapport en HTML",
+        "security_text": "Sécurité en texte brut",
+        "security_markdown": "Sécurité en Markdown",
+        "security_html": "Sécurité en HTML",
+        "system_text": "Système en texte brut",
+        "system_markdown": "Notification système en Markdown",
+        "system_html": "Notification système en HTML",
+        "alert_sms": "SMS d’alerte",
+        "alert_phone": "Appel d’alerte",
+        "escalation_sms": "SMS d’escalade",
+        "escalation_phone": "Appel d’escalade",
+        "oncall_sms": "SMS de relève d’astreinte",
+        "alert_resolved_text": "Alerte résolue en texte brut",
+        "alert_resolved_markdown": "Alerte résolue en Markdown",
+        "alert_acknowledged_markdown": "Alerte prise en compte en Markdown",
+        "alert_im_markdown": "Alerte en Markdown avec lien",
+        "alert_email_html": "E-mail d’alerte avec tableau",
+        "alert_resolved_sms": "SMS de résolution d’alerte",
+        "oncall_phone": "Appel de relève d’astreinte",
+        "oncall_coverage_sms": "SMS d’absence de couverture d’astreinte"
+      }
+    },
+    "delete_title": "Supprimer le modèle de notification ?",
+    "delete_description": "Impossible de supprimer {{name}} tant qu’une politique de notification y fait référence."
+  },
+  "account": {
+    "title": "Mes paramètres de notification",
+    "subtitle": "Gérez vos identités dans l’espace de travail, vos préférences par catégorie et vos plages sans notification.",
+    "unavailable": "L’identité de votre compte connecté n’est pas disponible.",
+    "reachability": {
+      "none": "Vous ne pouvez pas recevoir d’alertes pour le moment : aucun canal ne fonctionne pour les notifications d’alerte ou d’escalade, et aucune règle de routage de votre équipe ou de votre organisation ne les envoie à un groupe. Associez un canal ci-dessous et ajoutez-le à vos étapes de notification.",
+      "group_only": "Vous n’avez pas de canal personnel. Vous recevez donc les alertes uniquement via un groupe de votre équipe ou de votre organisation. Associez un canal ci-dessous et ajoutez-le à vos étapes de notification."
+    }
+  },
+  "action_link": {
+    "loading": "Lecture du lien…",
+    "acknowledge": "Prendre en compte l’alerte",
+    "resolve": "Résoudre l’alerte",
+    "acknowledging": "Prise en compte…",
+    "resolving": "Résolution…",
+    "explain_acknowledge": "Prend en compte l’alerte au nom du destinataire de la notification. Ce lien est à usage unique et reste valide jusqu’à {{until}}.",
+    "explain_resolve": "Résout l’alerte au nom du destinataire de la notification. Ce lien est à usage unique et reste valide jusqu’à {{until}}.",
+    "started": "Début : {{at}}",
+    "acknowledged": "L’alerte a été prise en compte.",
+    "resolved": "L’alerte est résolue.",
+    "used": "Ce lien a déjà été utilisé.",
+    "used_at": "Ce lien a été utilisé le {{at}}.",
+    "inactive": "Cette action n’est plus nécessaire : l’alerte a déjà été traitée ou la situation est revenue à la normale.",
+    "no_access": "Vous n’avez plus l’autorisation d’agir sur cette alerte. Le lien n’a donc eu aucun effet.",
+    "expired": "Ce lien a expiré.",
+    "failed": "Impossible de terminer l’action : {{error}}",
+    "unavailable_title": "Ce lien ne fonctionne plus",
+    "unavailable_hint": "Ce lien a expiré ou n’est pas valide. Traitez l’alerte dans MoleSignal.",
+    "load_failed_title": "Impossible de lire ce lien",
+    "open_alert": "Ouvrir l’alerte dans MoleSignal",
+    "open_alerts": "Ouvrir MoleSignal"
+  },
+  "target_types": {
+    "direct_user": "Utilisateur direct",
+    "fixed_address": "Adresse fixe",
+    "fixed_group": "Groupe fixe",
+    "webhook": "Webhook"
+  },
+  "stages": {
+    "user_primary": "Contact principal de l’utilisateur",
+    "user_fallback": "Contact de secours de l’utilisateur",
+    "team_fallback": "Contact de secours de l’équipe",
+    "organization_fallback": "Contact de secours de l’organisation",
+    "escalation": "Escalade",
+    "test": "Test",
+    "direct": "Direct"
+  },
+  "statuses": {
+    "pending": "En attente",
+    "sending": "En cours d’envoi",
+    "success": "Réussi",
+    "failed": "Échec",
+    "skipped": "Ignoré",
+    "acknowledged": "Pris en compte",
+    "queued": "En attente de fusion"
+  }
+}

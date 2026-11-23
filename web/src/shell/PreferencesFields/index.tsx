@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type * as meApi from '@/api/me';
+import { LOCALE_LABELS, SUPPORTED_LOCALES } from '@/i18n';
 import { LAST_VISITED_HOME } from '@/lib/homeRoute';
 import { buildTimezoneOptions, FOLLOW_TZ_SENTINEL } from '@/lib/time';
 import {
@@ -256,16 +257,10 @@ export function PreferencesFields({
                 onChange({ language: language as meApi.PreferenceLanguage })
               }
               ariaLabel={t('preferences.fields.language')}
-              options={[
-                {
-                  value: 'zh-cn',
-                  label: t('preferences.values.language_zh_cn'),
-                },
-                {
-                  value: 'en-us',
-                  label: t('preferences.values.language_en_us'),
-                },
-              ]}
+              options={SUPPORTED_LOCALES.map((locale) => ({
+                value: locale,
+                label: LOCALE_LABELS[locale],
+              }))}
             />
           </PreferenceRow>
         ) : null}

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as streamsApi from '@/api/streams';
 import * as webApi from '@/api/web';
+import { docsLocale } from '@/i18n';
 import { widenTimeWindow } from '@/investigation/timeRangeRecovery';
 import type { QueryEditorMode } from '@/shell/query/ModeSwitch';
 import { type QueryRecoveryActions, type QueryRecoveryCopy } from '@/shell/query/RecoveryState';
@@ -288,7 +289,7 @@ export function Traces() {
     onRetry: () => void activeList.refetch(),
     onClearFilters: clearRecoveryFilters,
     onWidenRange: widenRecoveryRange,
-    docsHref: `https://docs.molesignal.com/${(i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US'}/traces`,
+    docsHref: `https://docs.molesignal.com/${docsLocale(i18n.resolvedLanguage ?? i18n.language)}/traces`,
   };
 
   // A tag of a span added to the query from the drawer narrows the list it was opened from.

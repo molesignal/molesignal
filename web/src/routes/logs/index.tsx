@@ -7,6 +7,7 @@ import * as fieldMaskingApi from '@/api/fieldMasking';
 import * as queryApi from '@/api/query';
 import * as streamsApi from '@/api/streams';
 import type { LogListResponse } from '@/api/web';
+import { docsLocale } from '@/i18n';
 import { widenTimeWindow } from '@/investigation/timeRangeRecovery';
 import {
   type DateFormat,
@@ -749,9 +750,7 @@ export function Logs() {
   const widenRecoveryRange = React.useCallback(() => {
     setTimeWindow(widenTimeWindow(timeWindow));
   }, [setTimeWindow, timeWindow]);
-  const queryDocsHref = `https://docs.molesignal.com/${
-    (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US'
-  }/logs`;
+  const queryDocsHref = `https://docs.molesignal.com/${docsLocale(i18n.resolvedLanguage ?? i18n.language)}/logs`;
 
   React.useEffect(() => {
     if (previousTimeWindowRef.current === timeWindow) return;

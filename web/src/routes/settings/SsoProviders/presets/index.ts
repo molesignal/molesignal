@@ -1,4 +1,5 @@
 import type * as ssoApi from '@/api/sso';
+import { isMainlandChinese } from '@/i18n/locales';
 
 import { LDAP_PRESETS } from './ldap';
 import { OAUTH2_PRESETS } from './oauth2';
@@ -65,7 +66,7 @@ export function platformGroups(
     'keycloak',
     'authentik',
   ];
-  const popular = language.toLowerCase().startsWith('zh')
+  const popular = isMainlandChinese(language)
     ? ['feishu' as const, ...international]
     : [...international, 'feishu' as const];
   const directory: ssoApi.SsoPlatform[] = [

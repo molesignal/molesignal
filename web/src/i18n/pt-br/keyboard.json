@@ -1,0 +1,29 @@
+{
+  "help_title": "Atalhos de teclado",
+  "categories": {
+    "general": "Geral",
+    "navigation": "Navegação",
+    "investigation": "Investigação",
+    "time": "Tempo"
+  },
+  "bindings": {
+    "open_palette": "Abrir a paleta de comandos",
+    "show_help": "Mostrar atalhos de teclado",
+    "open_time_picker": "Abrir o seletor de intervalo de tempo",
+    "stack_back": "Histórico de investigação: voltar",
+    "stack_forward": "Histórico de investigação: avançar",
+    "goto_services": "Ir para Serviços",
+    "goto_apm_services": "Ir para Serviços de APM",
+    "goto_incidents": "Ir para Incidentes",
+    "goto_dashboards": "Ir para Dashboards",
+    "goto_investigate_trace": "Ir para Investigar (traces)",
+    "goto_investigate_log": "Ir para Investigar (logs)",
+    "goto_rum": "Ir para Experiência do usuário",
+    "goto_user_experience": "Ir para Experiência do usuário (RUM)",
+    "goto_functions": "Ir para Funções",
+    "goto_iam": "Ir para IAM",
+    "pin_anchor": "Fixar ou desafixar a âncora de tempo",
+    "copy_link": "Copiar o link da investigação",
+    "dismiss_overlay": "Fechar a sobreposição em primeiro plano"
+  }
+}

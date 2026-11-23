@@ -1,3 +1,4 @@
+import { type Locale, toLocale } from '@/i18n/locales';
 import { http, toApiError } from '@/lib/http';
 import type {
   BulkAction,
@@ -198,15 +199,15 @@ export async function getRca(id: string): Promise<IncidentRca | null> {
   }
 }
 
-export type RcaLocale = 'en-us' | 'zh-cn';
+export type RcaLocale = Locale;
 
 /**
- * RCA only supports the product's two UI languages. Keep this normalization
- * client-side as well as server-side so arbitrary locale text never becomes
- * part of the model prompt.
+ * RCA is written in one of the product's interface languages. Keep this
+ * normalization client-side as well as server-side so arbitrary locale text
+ * never becomes part of the model prompt.
  */
 export function normalizeRcaLocale(locale?: string): RcaLocale {
-  return locale?.trim().toLowerCase().startsWith('zh') ? 'zh-cn' : 'en-us';
+  return toLocale(locale);
 }
 
 /**

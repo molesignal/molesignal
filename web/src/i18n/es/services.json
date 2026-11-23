@@ -1,0 +1,31 @@
+{
+  "title": "Servicios",
+  "subtitle": "Catálogo de servicios derivado de la topología de las trazas.",
+  "kpis": {
+    "services": "Servicios",
+    "rps": "RPS totales",
+    "degraded": "Degradados (≥1 % de errores)"
+  },
+  "list": {
+    "columns": {
+      "name": "Servicio",
+      "rps": "RPS",
+      "error_rate": "Tasa de errores",
+      "p95": "p95",
+      "spans": "Spans"
+    }
+  },
+  "states": {
+    "empty_title": "No se detectaron servicios",
+    "empty_description": "Los servicios aparecen cuando se reciben spans de trazas dentro del intervalo de tiempo seleccionado."
+  },
+  "detail": {
+    "not_found_title": "No hay tráfico para este servicio",
+    "not_found_description": "Este servicio no tiene spans de trazas en el intervalo de tiempo seleccionado.",
+    "upstream": "Ascendentes (servicios que llaman)",
+    "downstream": "Descendentes (dependencias)",
+    "no_upstream": "Ningún servicio llamó en este intervalo.",
+    "no_downstream": "No hay dependencias en este intervalo.",
+    "edge_rps": "{{rps}} rps"
+  }
+}

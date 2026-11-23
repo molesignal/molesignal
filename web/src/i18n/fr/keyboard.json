@@ -1,0 +1,29 @@
+{
+  "help_title": "Raccourcis clavier",
+  "categories": {
+    "general": "Général",
+    "navigation": "Navigation",
+    "investigation": "Investigation",
+    "time": "Temps"
+  },
+  "bindings": {
+    "open_palette": "Ouvrir la palette de commandes",
+    "show_help": "Afficher les raccourcis clavier",
+    "open_time_picker": "Ouvrir le sélecteur de plage temporelle",
+    "stack_back": "Historique d’investigation : précédent",
+    "stack_forward": "Historique d’investigation : suivant",
+    "goto_services": "Accéder à Services",
+    "goto_apm_services": "Accéder à Services APM",
+    "goto_incidents": "Accéder à Incidents",
+    "goto_dashboards": "Accéder à Tableaux de bord",
+    "goto_investigate_trace": "Accéder à Investigation (traces)",
+    "goto_investigate_log": "Accéder à Investigation (logs)",
+    "goto_rum": "Accéder à Expérience utilisateur",
+    "goto_user_experience": "Accéder à Expérience utilisateur RUM",
+    "goto_functions": "Accéder à Fonctions",
+    "goto_iam": "Accéder à IAM",
+    "pin_anchor": "Épingler ou désépingler le repère temporel",
+    "copy_link": "Copier le lien de l’investigation",
+    "dismiss_overlay": "Fermer la fenêtre au premier plan"
+  }
+}

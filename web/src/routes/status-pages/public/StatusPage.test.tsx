@@ -363,7 +363,8 @@ describe('PublicStatusPage domain routing', () => {
     await waitFor(() => {
       expect(screen.getByTestId('location-search').textContent).toBe('?lang=zh-cn');
     });
-    expect(screen.getByRole('combobox', { name: '状态页语言' }).textContent).toContain('简体中文');
+    // The page's Chinese copy arrives with its chunk.
+    expect((await screen.findByRole('combobox', { name: '状态页语言' })).textContent).toContain('简体中文');
   });
 
   it('owns a scroll container so the footer remains reachable', async () => {

@@ -1,0 +1,258 @@
+{
+  "explore": {
+    "title": "指標",
+    "subtitle": "查詢器",
+    "toolbar": {
+      "refresh": "重新整理",
+      "running": "查詢中…",
+      "add_to_dashboard": "新增至儀表板",
+      "clear_query": "清空查詢",
+      "collapse_editor": "收合查詢",
+      "expand_editor": "展開查詢",
+      "empty_query_summary": "選擇指標或輸入 PromQL"
+    },
+    "editor": {
+      "label": "查詢",
+      "aria": "PromQL 編輯器",
+      "placeholder": "rate(metric_name{...}[5m])",
+      "run": "查詢",
+      "running_promql": "正在執行 PromQL…"
+    },
+    "function_hint": {
+      "aria": "開啟 PromQL 函式提示",
+      "title": "常用 PromQL 函式",
+      "description": "目前查詢後端支援的常用函式與彙總操作。",
+      "functions": {
+        "rate": "計算區間向量的每秒平均成長率。",
+        "increase": "計算區間內的累計增量。",
+        "sum": "將多個時間序列加總。",
+        "avg": "計算多個時間序列的平均值。"
+      },
+      "docs": "所有函式",
+      "docs_aria": "開啟 PromQL 函式文件"
+    },
+    "query": {
+      "datasource": "資料來源",
+      "metrics_browser": "指標瀏覽器",
+      "options": "選項",
+      "legend": "圖例",
+      "auto": "自動",
+      "verbose": "詳細",
+      "custom": "自訂",
+      "format": "格式",
+      "time_series": "時間序列",
+      "table": "表格",
+      "step": "步長",
+      "step_placeholder": "auto、30s、1m…",
+      "step_invalid": "請輸入 auto 或 30s、5m 等時間長度。",
+      "type": "類型",
+      "range": "範圍查詢",
+      "instant": "即時查詢",
+      "exemplars": "Exemplar",
+      "on": "開啟",
+      "off": "關閉"
+    },
+    "catalog": {
+      "title": "指標",
+      "browser_title": "指標瀏覽器",
+      "search_trigger": "搜尋指標",
+      "search_description": "依指標名稱搜尋，選取後會寫入查詢 A 並立即執行。",
+      "search_aria": "搜尋指標名稱",
+      "result_count": "{{count}} 筆結果",
+      "collapse": "收合指標",
+      "expand": "展開指標",
+      "resize": "拖曳以調整指標寬度，按兩下即可恢復預設寬度",
+      "filter_placeholder": "篩選指標…",
+      "loading": "正在載入指標目錄…",
+      "load_error": "載入指標目錄失敗：{{error}}",
+      "unknown_error": "未知錯誤",
+      "no_filter_match": "沒有符合此篩選條件的指標。",
+      "empty": "尚未定義任何指標。請建立一個 stream_type = metrics 的資料串流。",
+      "no_indexed_labels": "無標籤",
+      "metric_meta": "{{labels}} 個標籤 · {{fields}} 個欄位",
+      "select": "選取",
+      "selected": "已選取",
+      "pagination": {
+        "page_summary": "{{page}} / {{pages}}",
+        "aria": "指標目錄分頁",
+        "page_size_aria": "每頁指標數",
+        "first_aria": "指標目錄第一頁",
+        "previous_aria": "指標目錄上一頁",
+        "next_aria": "指標目錄下一頁",
+        "previous": "上一頁",
+        "next": "下一頁",
+        "last_aria": "指標目錄最後一頁"
+      }
+    },
+    "types": {
+      "counter": "計數器",
+      "histogram": "直方圖",
+      "gauge": "儀表"
+    },
+    "chart": {
+      "mode_line": "折線",
+      "mode_bar": "長條",
+      "mode_points": "點",
+      "draw_style": "繪製樣式",
+      "stack_mode": "堆疊",
+      "stack_none": "關閉",
+      "stack_normal": "一般",
+      "stack_percent": "百分比",
+      "stack_requires_multiple_series": "至少需要兩個序列才能使用堆疊",
+      "http_request_rate": "HTTP 請求速率",
+      "query_result": "指標查詢結果",
+      "generic_rate": "{{metric}} 速率",
+      "zoom_hint": "拖曳框選 · 拖曳 X 軸平移 · 按兩下縮小",
+      "zoom_aria": "指標時間序列圖。橫向拖曳可選取時間範圍；拖曳 X 軸可即時平移；在圖表上按兩下可將目前的時間範圍加倍。",
+      "reset_zoom": "還原時間範圍",
+      "reset_zoom_hint": "還原操作圖表前的時間範圍",
+      "select_prompt": "請在上方輸入 PromQL 或搜尋指標，再執行查詢。",
+      "empty": "這項查詢在指定的時間範圍內沒有資料點。"
+    },
+    "start": {
+      "heading": "從一個指標開始",
+      "browse": "瀏覽所有指標",
+      "metric_aria": "繪製 {{metric}}",
+      "no_metrics": "尚未收到指標資料。",
+      "connect": "連接指標資料來源"
+    },
+    "recovery": {
+      "query_failed": "PromQL 查詢失敗",
+      "promql_docs": "PromQL 文件",
+      "no_data_title": "目前的調查時間範圍內沒有指標資料",
+      "no_data_description": "查詢語法有效。修改運算式前，可以先擴大時間範圍或移除已釘選的篩選條件。",
+      "expand_time": "將時間範圍擴大至 4 倍",
+      "clear_filters": "清除篩選條件並重試"
+    },
+    "exemplars": {
+      "title": "Exemplar",
+      "count": "{{count}} 筆",
+      "open_trace": "檢視 Trace {{traceId}}",
+      "no_trace": "這筆 Exemplar 沒有 Trace ID",
+      "hint": "按一下菱形標記即可檢視相關的 Trace。",
+      "query_error": "Exemplar 暫時無法使用"
+    },
+    "series": {
+      "title": "序列",
+      "empty": "目前沒有序列。",
+      "collapse": "收合",
+      "show_all": "顯示全部 {{count}} 個序列",
+      "label_count": "{{count}} 個標籤",
+      "expand_labels": "展開 {{metric}} 的標籤",
+      "collapse_labels": "收合 {{metric}} 的標籤",
+      "columns": {
+        "name": "名稱",
+        "last": "最後值",
+        "current": "目前值",
+        "average": "平均值",
+        "max": "最大值"
+      }
+    },
+    "query_stats": {
+      "title": "查詢統計",
+      "empty": "目前沒有查詢統計。",
+      "series": "序列數",
+      "points": "資料點",
+      "scanned": "掃描列數",
+      "duration": "查詢耗時",
+      "range": "時間範圍",
+      "step": "步長"
+    },
+    "results": {
+      "graph": "圖表",
+      "table": "表格",
+      "inspector": "查詢檢查器",
+      "series_count": "{{count}} 條序列",
+      "query_time": "{{ms}} ms",
+      "no_table": "執行查詢後即可查看原始列資料。",
+      "table_limit": "共 {{total}} 列，目前顯示 {{shown}} 列。",
+      "query": "查詢",
+      "views_aria": "結果檢視"
+    },
+    "quality": {
+      "title": "資料品質",
+      "healthy": "未偵測到明顯異常",
+      "attention": "有需要留意的資料",
+      "distinguishes_missing": "空值、實際零值與負值分別統計。",
+      "negative_points": "負值點",
+      "missing_data": "缺漏資料",
+      "timestamp_anomalies": "時間戳記異常",
+      "negative_rate_title": "偵測到 Counter 的變化速率為負值",
+      "negative_rate_description": "此指標宣告為 Counter，但查詢結果包含 {{count}} 個負值點，可能是計數值倒退、資料順序錯亂或類型設定錯誤。",
+      "view_raw": "查看原始資料",
+      "view_anomalies": "查看異常點",
+      "inspect_type": "檢查指標類型"
+    },
+    "top_labels": {
+      "title": "主要標籤",
+      "empty": "—",
+      "value": "標籤值",
+      "avg": "平均值"
+    },
+    "summary": {
+      "title": "統計摘要",
+      "empty": "—"
+    },
+    "cardinality": {
+      "title": "基數",
+      "active_series": "活躍序列 · 掃描 {{rows}} 列 · {{ms}} ms"
+    },
+    "schema": {
+      "title": "結果 schema",
+      "empty": "—",
+      "columns": {
+        "name": "欄位",
+        "kind": "類型",
+        "rows": "列數"
+      },
+      "kinds": {
+        "time": "時間",
+        "value": "數值",
+        "label": "標籤"
+      }
+    },
+    "scan": {
+      "title": "掃描統計",
+      "label": "掃描列數 · {{ms}} ms"
+    }
+  },
+  "builder": {
+    "metric_label": "指標",
+    "metric_select_aria": "指標名稱",
+    "metric_select_placeholder": "選擇指標",
+    "label_matchers": "標籤比對器",
+    "matcher_name_aria": "第 {{index}} 個比對器的名稱",
+    "matcher_name_placeholder": "status",
+    "matcher_op_aria": "第 {{index}} 個比對器的運算子",
+    "matcher_value_aria": "第 {{index}} 個比對器的值",
+    "matcher_value_placeholder": "200",
+    "add_matcher": "新增標籤篩選條件",
+    "remove_matcher_aria": "刪除第 {{index}} 個標籤篩選條件",
+    "no_matchers": "目前沒有標籤篩選條件，可新增條件以縮小指標範圍。",
+    "no_labels": "此指標沒有可選擇的標籤。",
+    "function": "函式",
+    "function_select_aria": "PromQL 函式",
+    "available_functions": "建構器可用",
+    "code_only_functions": "需要額外參數 · 請使用程式碼模式",
+    "functions": {
+      "none": "原始指標",
+      "rate": "速率",
+      "irate": "瞬時速率",
+      "increase": "增量"
+    },
+    "aggregation": "彙總",
+    "aggregation_select_aria": "PromQL 彙總方式",
+    "aggregations": {
+      "none": "不彙總",
+      "sum": "加總",
+      "avg": "平均值",
+      "max": "最大值",
+      "min": "最小值"
+    },
+    "range": "時間視窗",
+    "range_select_aria": "時間視窗",
+    "editor_label": "PromQL",
+    "preview_empty": "請選擇指標以產生 PromQL",
+    "unsupported_expression": "目前的 PromQL 無法安全地轉換為建構器控制項；在您修改任何建構器欄位之前，會保留原本的運算式。"
+  }
+}

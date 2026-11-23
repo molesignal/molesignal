@@ -1,0 +1,58 @@
+{
+  "placeholder": "Rechercher des commandes et des ressources…",
+  "no_results": "Aucun résultat.",
+  "groups": {
+    "results": "Résultats",
+    "actions": "Actions",
+    "attention": "En attente de votre intervention",
+    "recent": "Récents",
+    "kinds": {
+      "action": "Actions",
+      "incident": "Incidents",
+      "alert": "Règles d’alerte",
+      "service": "Services",
+      "dashboard": "Tableaux de bord",
+      "stream": "Flux",
+      "saved_view": "Vues enregistrées"
+    }
+  },
+  "footer": {
+    "open": "ouvrir",
+    "open_new_stack": "ouvrir dans une nouvelle pile",
+    "stack_on_top": "empiler au-dessus",
+    "close": "fermer",
+    "acknowledge": "accuser réception"
+  },
+  "actions": {
+    "goto_investigate": "Accéder à Investigation",
+    "goto_services": "Accéder aux services",
+    "goto_apm": "Accéder aux services APM",
+    "goto_dashboards": "Accéder aux tableaux de bord",
+    "goto_incidents": "Accéder aux incidents",
+    "goto_saved_views": "Accéder aux vues enregistrées",
+    "run_sql": "Exécuter une requête SQL…",
+    "run_promql": "Exécuter une requête PromQL…",
+    "time_last_5m": "Période : 5m écoulées",
+    "time_last_15m": "Période : 15m écoulées",
+    "time_last_1h": "Période : 1h écoulée",
+    "time_last_6h": "Période : 6h écoulées",
+    "time_last_24h": "Période : 24h écoulées",
+    "time_last_7d": "Période : 7d écoulés",
+    "pin_anchor": "Épingler l’heure actuelle",
+    "copy_link": "Copier le lien de l’investigation",
+    "toggle_theme": "Changer de thème",
+    "toggle_density": "Changer la densité d’affichage",
+    "help": "Afficher les raccourcis clavier",
+    "sign_out": "Se déconnecter",
+    "open_settings": "Ouvrir les paramètres",
+    "create_dashboard": "Créer un tableau de bord",
+    "create_alert": "Créer une alerte",
+    "create_pipeline": "Créer un pipeline",
+    "connect_source": "Connecter une source de données"
+  },
+  "show_all_one": "Afficher {{count}} élément de plus",
+  "show_all_other": "Afficher {{count}} éléments de plus",
+  "acknowledge": "Acquitter",
+  "acknowledged": "Incident acquitté",
+  "show_all_many": "Afficher {{count}} éléments de plus"
+}

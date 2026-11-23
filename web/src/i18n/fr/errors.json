@@ -1,0 +1,8 @@
+{
+  "sign_in_failed": "Échec de la connexion",
+  "switch_org_success": "Organisation active : {{name}}",
+  "switch_org_failure": "Impossible de changer d’organisation : {{message}}",
+  "request_failed": "La requête a échoué",
+  "link_copied": "Lien copié",
+  "generic": "Une erreur s’est produite"
+}

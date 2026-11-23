@@ -1,0 +1,24 @@
+{
+  "states": {
+    "loading": {
+      "title": "読み込み中",
+      "description": "最新のデータを取得しています。"
+    },
+    "empty": {
+      "title": "まだデータがありません",
+      "description": "最初の項目を作成するか、現在のフィルターを調整してください。"
+    },
+    "error": {
+      "title": "リクエスト失敗",
+      "description": "バックエンドからエラーが返されました。"
+    },
+    "backend-pending": {
+      "title": "バックエンドの準備待ち",
+      "description": "この画面は準備できていますが、対応するエンドポイントはまだ利用できません。"
+    },
+    "permission-denied": {
+      "title": "アクセス権限が必要",
+      "description": "現在のロールでは、このワークフローにアクセスできません。"
+    }
+  }
+}

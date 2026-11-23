@@ -1,8 +1,9 @@
+import type { Locale } from '@/i18n/locales';
 import { http } from '@/lib/http';
 
 export type PreferenceTheme = 'system' | 'dark' | 'light';
 export type PreferenceDensity = 'compact' | 'normal' | 'comfortable';
-export type PreferenceLanguage = 'en-us' | 'zh-cn';
+export type PreferenceLanguage = Locale;
 export type PreferenceTimeFormat = 'iso_24h' | 'local_12h';
 export type PreferenceDateFormat =
   | 'yyyy_mm_dd_dash'

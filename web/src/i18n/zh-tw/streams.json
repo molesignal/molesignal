@@ -1,0 +1,583 @@
+{
+  "title": "資料流",
+  "subtitle": "查看資料是否持續流入、占用多少儲存空間，以及查詢與保留設定是否合理。",
+  "pagination": {
+    "aria": "資料流清單分頁",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "每頁資料流數量",
+    "first_aria": "第一頁",
+    "previous_aria": "上一頁",
+    "next_aria": "下一頁",
+    "last_aria": "最後一頁"
+  },
+  "list": {
+    "refresh": "重新整理",
+    "create": "建立資料流",
+    "search_placeholder": "搜尋名稱或描述…",
+    "status_filter": "篩選運作狀態",
+    "result_count": "{{count}} 個資料流",
+    "updated_at": "統計更新於{{time}}",
+    "stats_unavailable": "運作統計暫時無法使用",
+    "retention_days": "{{days}} 天",
+    "query": "查詢",
+    "view_detail": "查看詳細資訊",
+    "copy_id": "複製資料流 ID",
+    "id_copied": "已複製資料流 ID",
+    "more_actions": "{{name}} 的更多操作",
+    "kpis": {
+      "healthy": "正常接收",
+      "healthy_sub": "共 {{total}} 個資料流",
+      "attention": "需要留意",
+      "attention_sub": "接收延遲、資料流中斷或統計異常",
+      "compressed_24h": "24h 壓縮資料",
+      "rows_24h": "已寫入 {{count}} 列",
+      "compressed_window": "{{window}} 壓縮資料",
+      "rows_window": "目前時間範圍內寫入 {{count}} 列",
+      "current_storage": "目前儲存量",
+      "current_storage_sub": "已持久化的資料"
+    },
+    "status": {
+      "all": "所有狀態",
+      "attention": "需要留意",
+      "healthy": "正常",
+      "idle": "閒置",
+      "delayed": "接收延遲",
+      "interrupted": "資料流中斷",
+      "unused": "未使用",
+      "unknown": "統計異常"
+    },
+    "tabs": {
+      "all": "全部",
+      "logs": "日誌",
+      "metrics": "指標",
+      "traces": "追蹤",
+      "profiles": "效能剖析",
+      "extend": "擴充表"
+    },
+    "tabs_label": "資料流類型",
+    "columns": {
+      "stream": "資料流",
+      "type": "類型",
+      "status": "狀態",
+      "rate": "接收速率",
+      "last_received": "上次接收",
+      "volume_24h": "24h 壓縮資料量",
+      "volume_window": "{{window}} 壓縮資料量",
+      "storage": "目前儲存量",
+      "retention": "保留期限",
+      "actions": "操作",
+      "data_count": "資料筆數",
+      "collected_size": "收集的資料大小",
+      "stored_size": "實際儲存大小",
+      "index_size": "索引大小"
+    },
+    "explore": "探索",
+    "not_queryable": "無法查詢",
+    "empty_title": "尚無資料流",
+    "empty_description": "建立資料流，或透過資料來源傳送事件以註冊第一個資料流。",
+    "storage_notes": {
+      "data_count": "目前保留且已永久儲存的記錄筆數，不受健康狀態時間範圍影響。",
+      "collected_size": "通過驗證的事件在轉換前，其正規化 JSON 的累計位元組數；寫入磁碟後更新，不含傳輸封裝。≥ 表示歷史計量不完整，— 表示尚無計量。",
+      "stored_size": "目前有效的主要資料檔案的實際位元組數，不含索引。",
+      "index_size": "目前有效且已就緒的獨立索引檔案大小。"
+    },
+    "no_match_title": "沒有符合條件的資料流",
+    "no_match_description": "請試試其他名稱、類型或狀態。"
+  },
+  "drawer": {
+    "title": "建立資料流",
+    "subtitle": "建立資料來源入口，然後設定傳送端。",
+    "identity": "識別資訊",
+    "stream_name": "資料流名稱",
+    "stream_name_hint": "snake_case · 長度 ≤ 64",
+    "stream_name_placeholder": "my-app-logs",
+    "description": "描述（選填）",
+    "description_placeholder": "這個資料流包含哪些資料？",
+    "signal_type": "訊號類型",
+    "signal_type_description": "決定儲存行為與查詢語言。",
+    "types": {
+      "logs": {
+        "label": "日誌",
+        "hint": "SQL 查詢、全文索引與欄式 Parquet 儲存"
+      },
+      "metrics": {
+        "label": "指標",
+        "hint": "相容於 PromQL 的 TSDB 儲存"
+      },
+      "traces": {
+        "label": "追蹤",
+        "hint": "OTLP spans、火焰圖與服務拓撲"
+      }
+    },
+    "storage": "儲存",
+    "retention": "保留期限（天）",
+    "retention_hint": "超過保留期限後，會封存至物件儲存空間。",
+    "shards": "分片數",
+    "shards_hint": "資料來源可並行寫入的通道數，建議不少於寫入節點數。",
+    "indexed_fields": "索引欄位",
+    "indexed_fields_hint": "以逗號分隔欄位，用於加快等值與前綴查詢。",
+    "encrypted_fields": "加密欄位",
+    "encrypted_fields_hint": "以逗號分隔欄位。寫入磁碟前會先加密，查詢時可用 decrypt(欄位) 解密；建立後無法變更此設定。",
+    "queryable": "可查詢",
+    "queryable_hint": "關閉後，此資料串流仍會照常收集並保留資料，但不會顯示在查詢選擇器中，查詢和搜尋也會遭到拒絕。適用於「僅作為入口，由 pipeline 將記錄分流至其他資料串流」的來源資料串流。建立後仍可在設定中調整。"
+  },
+  "toast": {
+    "create_pending": "資料串流 {{name}} 會在資料來源首次寫入時註冊；目前尚無用於建立資料串流的 /streams API。"
+  },
+  "detail": {
+    "back": "資料串流",
+    "fallback_title": "資料串流",
+    "subtitle": "資料串流詳細資訊",
+    "query_logs": "在日誌中查詢",
+    "not_found_title": "找不到資料串流",
+    "not_found_description": "資料來源可能尚未註冊此資料串流。",
+    "fields": {
+      "id": "id",
+      "label": "label",
+      "subtitle": "subtitle"
+    }
+  },
+  "explore": {
+    "subtitle": "運作狀態、查詢效率、儲存與保留原則",
+    "system_stream_immutable": "系統資料串流只能設定欄位索引、遮罩、保留期限與降取樣。名稱、類型、加密與刪除作業均由系統管理。",
+    "toolbar": {
+      "refresh": "重新整理",
+      "query_data": "查詢資料",
+      "more": "更多操作",
+      "copy_id": "複製資料串流 ID",
+      "id_copied": "已複製資料串流 ID",
+      "delete": "刪除資料串流",
+      "discard": "捨棄變更",
+      "save": "儲存並套用",
+      "saving": "套用中…"
+    },
+    "metadata": {
+      "type": "類型",
+      "status": "運作狀態",
+      "last_received": "上次接收",
+      "retention": "預設保留",
+      "active_type": "目前類型：{{type}}",
+      "switch_type": "切換至 {{type}} 資料流",
+      "switch_blocked": "請先儲存或捨棄目前類型的變更，再切換類型。"
+    },
+    "tabs": {
+      "overview": "總覽",
+      "schema": "欄位與索引",
+      "retention": "保留原則",
+      "usage": "使用位置",
+      "settings": "設定"
+    },
+    "tabs_label": "資料流分區",
+    "index_options": {
+      "none": "未建立索引",
+      "full_text": "全文搜尋",
+      "exact": "精確比對",
+      "bloom": "Bloom 篩選器",
+      "skip": "跳過索引",
+      "ngram": "N-gram 子字串",
+      "ip": "IP 位址",
+      "key_value": "JSON 鍵值",
+      "range": "數值範圍"
+    },
+    "kpis": {
+      "events_24h": "24h 寫入列數",
+      "receive_rate": "平均接收速率",
+      "compressed_24h": "24h 壓縮資料",
+      "current_storage": "目前儲存量",
+      "index_coverage": "索引欄位涵蓋率",
+      "from_catalog": "取自實際儲存檔案的中繼資料",
+      "average_24h": "依最近 24 小時計算",
+      "compressed_note": "壓縮後的 Parquet 資料",
+      "live_parquet": "現存且未刪除的檔案",
+      "index_coverage_note": "以欄位數計算，而非索引的位元組數",
+      "index_backfill": "正在為歷史資料補建索引，還有 {{count}} 個檔案"
+    },
+    "overview": {
+      "stats_unavailable": "運作統計暫時無法使用。仍可檢視及編輯設定，重新整理後會再次偵測儲存中繼資料。",
+      "no_data_title": "尚未收到資料",
+      "no_data_description": "請讓資料來源寫入「{{stream}}」，或傳送一筆測試資料，驗證資料接收路徑。",
+      "configure_source": "設定資料來源",
+      "send_test": "傳送測試資料",
+      "sending_test": "傳送中…",
+      "test_sent": "測試資料已提交：接收 {{accepted}} 筆，拒絕 {{rejected}} 筆",
+      "operational_state": "運作狀態",
+      "first_received": "首次接收",
+      "queryability": "查詢能力",
+      "queryable": "可查詢",
+      "not_queryable": "僅接收，不可查詢",
+      "trend_title": "接收與儲存趨勢",
+      "trend_subtitle": "最近 24 小時 · 來自實際的 Parquet 檔案",
+      "metric_rows": "寫入列數",
+      "metric_storage": "壓縮資料",
+      "no_chart_data": "目前時間範圍內沒有可繪製的資料",
+      "now": "現在"
+    },
+    "schema": {
+      "summary": "{{fields}} 個欄位 · {{indexed}} 個已建立索引 · {{encrypted}} 個已加密",
+      "readonly_hint": "預設為唯讀。按一下欄位右側的編輯按鈕，即可修改索引與遮罩規則。",
+      "search_placeholder": "搜尋欄位",
+      "fts_title": "全文搜尋取決於欄位層級的索引",
+      "fts_description": "為 message、body 等文字欄位啟用全文索引，可加快 MATCH 查詢；歷史資料的索引不會自動重建。",
+      "configure_index": "設定欄位索引",
+      "storage_type": "儲存類型：{{type}}",
+      "field_types": {
+        "boolean": "布林值",
+        "integer": "整數",
+        "decimal": "浮點數",
+        "string": "字串",
+        "timestamp": "時間戳記",
+        "json": "JSON"
+      },
+      "columns": {
+        "name": "欄位名稱",
+        "type": "欄位類型",
+        "index_type": "索引類型",
+        "encryption": "加密"
+      },
+      "index_type_hint": "完全比對適用於 ID 與可能值較少的維度；全文搜尋適用於日誌本文；N-gram 適用於依片段查詢 URL 或路徑；IP 適用於依網段查詢位址；JSON 鍵值適用於依特定鍵篩選 JSON 欄位。",
+      "encrypted": "已加密",
+      "encrypted_hint": "此欄位會在寫入磁碟前加密。為避免現有資料無法讀取，這項設定無法在此變更。",
+      "edit_field": "編輯欄位 {{name}}",
+      "drawer_title": "編輯欄位 · {{name}}",
+      "drawer_fallback": "編輯欄位",
+      "drawer_subtitle": "設定查詢索引與傳回時的欄位遮罩，不會變更欄位類型。",
+      "cancel": "取消",
+      "apply": "套用至草稿",
+      "no_schema": "此資料流尚無結構描述。寫入第一批資料後，欄位會自動顯示。",
+      "no_match": "沒有符合的欄位。",
+      "masking": {
+        "title": "傳回時套用欄位遮罩",
+        "description": "後端會在傳回最終查詢結果、匯出資料與 API 回應前套用遮罩；篩選、排序與彙總仍使用原始值。",
+        "mode": "資料流層級策略",
+        "modes": {
+          "inherit": "繼承全域規則",
+          "custom": "自訂資料流規則",
+          "none": "明確不遮罩此資料流的欄位"
+        },
+        "no_global_rule": "目前沒有相符的全域規則",
+        "no_global_rule_hint": "維持繼承時，此欄位目前不會被遮罩；日後新增相符的規則時，規則會自動生效。",
+        "explicit_none_hint": "此資料流的這個欄位會略過全域遮罩規則。恢復「繼承全域規則」後，才會重新套用全域設定。",
+        "metrics_disabled": "Metrics 指標資料流不套用欄位遮罩；指標值和標籤維持原樣，仍可設定欄位索引。"
+      }
+    },
+    "retention": {
+      "default_policy": "預設保留策略",
+      "data_retention_days": "資料保留期限（天）",
+      "days_default_hint": "留空時，使用平台預設的保留期限（{{days}} 天）。",
+      "days_placeholder": "預設 {{days}} 天",
+      "default_explanation": "超過保留期限的資料會在下次清理時刪除；縮短保留期限後，已超過新期限的資料也會一併刪除。",
+      "downsample": "降取樣",
+      "downsample_toggle": "對較早的樣本降取樣",
+      "downsample_hint": "超過設定天數的樣本會按時間桶彙總：同一個 series 在同一時間桶內的樣本會合併為一個資料點（數值取平均，增量計數取總和），原始樣本則會刪除。查詢較長的時間範圍時，讀取的資料量會大幅減少，但較早的資料只保留時間桶層級的解析度。",
+      "downsample_after_days": "原始樣本保留天數",
+      "downsample_after_days_hint": "超過此天數的樣本會彙總，彙總後無法還原原始樣本。",
+      "downsample_interval": "時間桶",
+      "intervals": {
+        "60": "1 分鐘",
+        "300": "5 分鐘",
+        "900": "15 分鐘",
+        "3600": "1 小時",
+        "86400": "1 天"
+      }
+    },
+    "usage": {
+      "loading": "正在檢查使用位置…",
+      "write_source": "寫入來源",
+      "write_source_hint": "接收該 stream name 的資料擷取端點",
+      "intake_endpoint": "資料擷取端點",
+      "pipelines": "關聯的管線",
+      "pipelines_hint": "以此資料流為來源或目的地",
+      "saved_queries": "已儲存的查詢",
+      "saved_queries_hint": "明確繫結至此資料流的查詢",
+      "alert_rules": "警示規則",
+      "alert_rules_hint": "以此資料流為評估目標",
+      "enabled": "已啟用",
+      "disabled": "已停用",
+      "none": "目前沒有關聯項目",
+      "partial_unavailable": "部分相依服務暫時無法使用，目前的結果可能不完整。"
+    },
+    "runtime": {
+      "basic": "基本資訊",
+      "basic_hint": "說明此資料流承載的業務資料及其用途。",
+      "description_label": "描述",
+      "description_placeholder": "這個資料流承載哪些資料？",
+      "query_capabilities": "查詢功能",
+      "query_capabilities_hint": "控制是否可查詢及可查詢的範圍。關閉查詢功能後仍會繼續接收資料。",
+      "max_query_range": "查詢時間範圍上限（小時）",
+      "max_query_range_hint": "單次查詢可涵蓋的最大小時數，超出此時間範圍的查詢會遭拒絕。留空或填入 0 表示不限制。",
+      "storage_behavior": "儲存行為",
+      "storage_behavior_hint": "影響資料檔案的合併與分片方式。",
+      "queryable": "可查詢",
+      "queryable_hint": "關閉後，此資料流仍會照常收集並保留資料，但不會顯示在查詢選擇器中，查詢與搜尋也會遭拒絕。適用於「來源資料流僅作為入口，由 pipeline 將記錄分流至其他資料流」的情境。",
+      "daily_merge": "每日合併小檔案",
+      "daily_merge_hint": "一天結束後一小時，若當日資料的總大小未超過合併目標大小，就會合併成單一檔案，讓跨日查詢需要開啟的檔案大幅減少。保留期限也會按日計算：合併後的檔案要等當日所有資料都到期後才會刪除。",
+      "partition_field": "依欄位分片",
+      "partition_field_hint": "新寫入的資料會依這些欄位的值分片。包含這些欄位條件的查詢只會讀取可能符合條件的分片，適合用於幾乎每次查詢都會用到的欄位，例如服務、租用戶。雜湊分片分布均勻，能加快 = 和 IN 查詢；依首字元分片時，每個數字和字母各占一片（不區分大小寫），其餘字元共用一片，也能加快以固定文字開頭的 LIKE 查詢（如 'abc%'）。最多可選兩個欄位，分片數的乘積不可超過 256。",
+      "partition_none": "不分片",
+      "partition_total": "共 {{count}} 片",
+      "partition_add": "新增分片欄位",
+      "partition_remove": "移除此分片欄位",
+      "partition_method": "分片方式",
+      "partition_methods": {
+        "hash": "雜湊 · {{count}} 片",
+        "prefix": "首字元 · {{count}} 片"
+      },
+      "partition_too_many": "與另一個欄位的分片數相乘後會超過 {{max}}。",
+      "clustering_field": "依欄位叢集",
+      "clustering_field_hint": "新寫入的日誌檔案中，資料列會先依時間片排序，各時間片內再依這些欄位的值排序。查詢若包含這些欄位的等值條件（如 service = 'checkout'），在每個時間片中只會讀取含有該值的幾個資料頁。適合用於查詢常用且相異值不多的欄位，例如服務、層級。每個檔案也會按分鐘及這些欄位預先統計資料列數，因此，依這些欄位篩選或分組的計數和以整分鐘為單位的直方圖都無須讀取原始資料。最多可選兩個欄位。時間片越長，能略過的資料頁越多，但擷取最新幾筆資料時也得多排序一個時間片。",
+      "clustering_none": "依時間排序",
+      "clustering_slices": "每 {{interval}} 一片",
+      "clustering_add": "新增叢集欄位",
+      "clustering_remove": "移除此叢集欄位",
+      "clustering_interval": "時間片",
+      "clustering_minutes_one": "{{count}} 分鐘",
+      "clustering_minutes_other": "{{count}} 分鐘",
+      "clustering_seconds_one": "{{count}} 秒",
+      "clustering_seconds_other": "{{count}} 秒",
+      "field_indexes": "欄位索引",
+      "field_indexes_hint": "資料流中首次出現的欄位會依名稱自動選用索引。",
+      "index_pattern": "新欄位的索引",
+      "index_pattern_name": "欄位名稱模式",
+      "index_pattern_hint": "依規則順序套用第一條名稱相符且型別適用的規則：* 可比對任意一段文字，? 可比對單一字元，例如 *_id、http.*。規則僅適用於之後首次出現的欄位。若要修改現有欄位，請前往「欄位與索引」；在該處為個別欄位設定的索引優先適用。",
+      "index_pattern_add": "新增規則",
+      "index_pattern_remove": "刪除此規則",
+      "index_pattern_up": "上移",
+      "index_pattern_down": "下移"
+    },
+    "changes": {
+      "unsaved": "有未儲存的變更",
+      "review": "儲存後會立即套用新設定。",
+      "index_risk": "新寫入的資料會立即依新的索引類型建立索引；先前寫入的資料會在背景補建索引，進度請見總覽中的「索引欄位涵蓋率」。",
+      "retention_risk": "保留期限將縮短為 {{days}} 天，超過期限的資料可能會遭到刪除。",
+      "query_risk": "關閉查詢後，此資料流仍會接收資料，但會拒絕查詢和搜尋。",
+      "downsample_risk": "超過 {{days}} 天的原始樣本會依時間區間彙總，之後原始樣本將刪除且無法復原。",
+      "partition_risk": "分片設定只影響新寫入的資料，現有檔案維持原樣。",
+      "clustering_risk": "叢集只影響新寫入的資料，現有檔案維持原樣。"
+    },
+    "validation": {
+      "retention_days": "資料保留天數必須是 1 到 {{max}} 之間的整數。",
+      "max_query_range": "查詢時段的上限必須是 0 到 {{max}} 之間的整數小時。",
+      "downsample_after_days": "保留原始樣本的天數必須是 1 到 {{max}} 之間的整數。",
+      "index_pattern_length": "欄位名稱模式最多可有 {{max}} 個字元。",
+      "index_pattern_duplicate": "欄位名稱模式不得重複。"
+    },
+    "delete_confirm_title": "要刪除此資料流嗎？",
+    "delete_confirm_description": "將刪除「{{stream}}」及其設定，此操作無法復原。",
+    "toast": {
+      "updated": "資料流設定已更新",
+      "deleted": "資料流已刪除"
+    },
+    "delete_consequences": {
+      "stored": "已儲存的資料",
+      "rows": "資料列"
+    }
+  },
+  "jobs": {
+    "title": "搜尋工作",
+    "subtitle": "在背景非同步執行的查詢（Search Job）：先排入佇列再執行，結果會保留至到期",
+    "entry": "搜尋工作",
+    "views_label": "工作狀態",
+    "states": {
+      "all": "全部",
+      "pending": "佇列中",
+      "running": "執行中",
+      "done": "已完成",
+      "failed": "失敗",
+      "cancelled": "已取消"
+    },
+    "kinds": {
+      "query": "查詢",
+      "backfill": "回填"
+    },
+    "scope_own": "只顯示你提交的工作",
+    "live": "有工作正在執行，每 {{seconds}} 秒重新整理",
+    "columns": {
+      "kind": "類型",
+      "job": "工作",
+      "status": "狀態",
+      "time_range": "查詢時間範圍",
+      "submitted": "提交",
+      "duration": "耗時 / 結束",
+      "rows": "結果列數",
+      "attempt": "嘗試",
+      "expires": "到期",
+      "actions": "操作"
+    },
+    "cells": {
+      "request_unreadable": "無法讀取工作的查詢內容",
+      "pipeline": "檢視管線",
+      "finished_at": "結束於 {{time}}",
+      "not_finished": "尚未結束",
+      "attempt_title": "第 {{number}} 次嘗試",
+      "expired": "已過期",
+      "expired_title": "已過期，等待清理",
+      "error": "失敗原因：{{error}}"
+    },
+    "actions": {
+      "cancel": "取消工作",
+      "cancel_named": "取消工作 {{id}}",
+      "retry": "重試",
+      "retry_named": "重試工作 {{id}}",
+      "download": "下載結果",
+      "download_named": "下載工作 {{id}} 的結果",
+      "download_empty": "這項工作沒有結果列",
+      "delete": "刪除",
+      "delete_named": "刪除工作 {{id}}"
+    },
+    "cancel_confirm": {
+      "title": "要取消這項工作嗎？",
+      "description": "工作將停止執行。之後可以重試，但會從頭開始。",
+      "confirm": "取消工作",
+      "keep": "繼續執行",
+      "busy": "取消中…"
+    },
+    "delete_confirm": {
+      "title": "要刪除這項工作嗎？",
+      "description": "工作記錄和已儲存的結果將會刪除，無法復原。",
+      "description_active": "工作尚未結束，系統會先取消工作，再刪除記錄。刪除後無法復原。",
+      "confirm": "刪除",
+      "busy": "刪除中…"
+    },
+    "toast": {
+      "cancelled": "工作已取消",
+      "retried": "工作已重新排入佇列",
+      "deleted": "工作已刪除",
+      "downloaded": "已下載 {{count}} 列結果"
+    },
+    "empty": {
+      "title": "目前沒有搜尋工作",
+      "title_own": "你尚未提交過搜尋工作",
+      "description": "搜尋工作（Search Job）是在背景非同步執行的查詢，結果會保留至到期。工作有三種來源：",
+      "source_async": "查詢請求帶有 Prefer: respond-async，或預估結果過大時，會自動轉為工作",
+      "source_backfill": "資料管線的回填",
+      "source_agent": "Mole Agent 提交的查詢",
+      "filtered_hint": "切換狀態，或查看所有工作。",
+      "filtered": {
+        "pending": "沒有排隊中的工作",
+        "running": "沒有執行中的工作",
+        "done": "沒有已完成的工作",
+        "failed": "沒有失敗的工作",
+        "cancelled": "沒有已取消的工作"
+      }
+    },
+    "denied": {
+      "title": "沒有查看搜尋工作的權限",
+      "description": "需要 query.jobs.read 或 sys.telemetry.read 權限。"
+    },
+    "pagination": {
+      "aria": "工作清單分頁",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "每頁工作數",
+      "first_aria": "第一頁",
+      "previous_aria": "上一頁",
+      "next_aria": "下一頁",
+      "last_aria": "最後一頁"
+    }
+  },
+  "usage": {
+    "entry": "資料擷取用量",
+    "title": "資料擷取用量",
+    "subtitle": "查看各來源的資料擷取量和預算使用情形。預算僅用於提醒，不影響資料擷取。",
+    "dimensions_label": "分組方式",
+    "dimensions": {
+      "credential": "憑證",
+      "stream": "資料串流",
+      "service": "服務"
+    },
+    "search_placeholder": "搜尋來源…",
+    "window_label": "時間範圍",
+    "windows": {
+      "24h": "最近 24 小時",
+      "7d": "最近 7 天",
+      "30d": "最近 30 天"
+    },
+    "total": "共 {{bytes}} · {{events}} 筆事件",
+    "metering_since": "自 {{time}} 起計量，不含更早的資料",
+    "truncated": "僅列出擷取量最大的 5000 個來源",
+    "unavailable": "暫時無法讀取用量",
+    "not_metered": "尚無資料擷取紀錄",
+    "no_match": "沒有符合條件的來源",
+    "empty": {
+      "credential": "這段期間沒有透過憑證傳入的資料",
+      "stream": "這段期間沒有透過資料串流傳入的資料",
+      "service": "這段期間沒有標註服務的事件",
+      "hint": "資料擷取後會在一分鐘內顯示於此。"
+    },
+    "columns": {
+      "source": "來源",
+      "source_key": "來源識別碼",
+      "intake_bytes": "資料擷取量",
+      "events": "事件數",
+      "share": "占比",
+      "budget": "預算",
+      "used": "本週期已用量",
+      "used_ratio": "預算使用率",
+      "state": "狀態"
+    },
+    "states": {
+      "ok": "正常",
+      "warning": "接近上限",
+      "exceeded": "超出預算"
+    },
+    "source": {
+      "internal": "平台內部",
+      "unnamed_service": "未標註的服務",
+      "other_services": "其他服務",
+      "connector": "連接器 · {{kind}}",
+      "user": "已登入的使用者",
+      "missing": "已刪除"
+    },
+    "token_kinds": {
+      "personal": "個人 Token",
+      "default_intake": "預設資料擷取 Token",
+      "rum_client": "RUM 用戶端 Token",
+      "service_account": "服務帳號 Token"
+    },
+    "budget": {
+      "none": "未設定",
+      "none_hint": "這個來源尚未設定預算。",
+      "set": "設定預算",
+      "change": "修改",
+      "remove": "移除預算",
+      "per_day": "{{limit}} / 天",
+      "per_month": "{{limit}} / 月",
+      "set_title": "設定預算",
+      "change_title": "修改預算",
+      "many_subtitle": "為 {{count}} 個來源設定相同的預算",
+      "period": "週期",
+      "periods": {
+        "day": "每天",
+        "day_hint": "以 UTC 的每日零時為界計算。",
+        "month": "每月",
+        "month_hint": "以 UTC 的每月 1 日零時為界計算。"
+      },
+      "limit": "額度",
+      "limit_hint": "1 MiB 到 1 PiB。",
+      "unit": "單位",
+      "warn_percent": "預警比例（%）",
+      "warn_percent_hint": "用量達到這個比例時提醒一次，用完時再提醒一次。填 0 則只在用完時提醒。",
+      "notify": "通知對象",
+      "notify_hint": "依通知策略，使用每個人設定的接收方式傳送通知。",
+      "notify_self": "無法讀取成員清單，因此只會通知你。",
+      "notify_required": "請至少選取一人。",
+      "save": "儲存預算",
+      "saved_one": "預算已儲存",
+      "saved_other": "已儲存 {{count}} 筆預算",
+      "save_failed": "{{total}} 筆預算中有 {{count}} 筆未儲存：{{reason}}",
+      "remove_title_one": "要移除這筆預算嗎？",
+      "remove_title_other": "要移除 {{count}} 筆預算嗎？",
+      "remove_description": "這些來源不再傳送提醒，但用量仍會顯示在這個頁面上。",
+      "removed_one": "預算已移除",
+      "removed_other": "已移除 {{count}} 筆預算",
+      "remove_failed": "{{total}} 筆預算中有 {{count}} 筆未移除：{{reason}}"
+    },
+    "detail": {
+      "trend": "這段期間的資料擷取量",
+      "by_credential": "依憑證",
+      "by_stream": "依資料串流",
+      "by_service": "依服務",
+      "nothing": "這段期間沒有資料。",
+      "used": "已用 {{used}}（{{percent}}）"
+    }
+  }
+}

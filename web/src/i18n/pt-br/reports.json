@@ -1,0 +1,307 @@
+{
+  "title": "Relatórios",
+  "subtitle": "Gerencie os agendamentos, a geração e os resultados de entrega dos relatórios em um só lugar.",
+  "actions": {
+    "instant_export": "Exportar agora",
+    "new_report": "Novo relatório",
+    "share": "Compartilhar",
+    "export": "Exportar",
+    "edit": "Editar",
+    "view": "Ver",
+    "enable": "Ativar",
+    "pause": "Pausar",
+    "delete": "Excluir agendamento",
+    "cancel": "Cancelar",
+    "add": "Adicionar",
+    "save_and_enable": "Salvar e ativar",
+    "save_changes": "Salvar alterações",
+    "use_template": "Usar modelo",
+    "view_error": "Ver erro",
+    "close": "Fechar",
+    "remove": "Remover"
+  },
+  "tabs": {
+    "schedules": "Agendamentos",
+    "history": "Histórico de geração",
+    "templates": "Biblioteca de modelos"
+  },
+  "pagination": {
+    "aria": "Paginação da central de relatórios",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Itens por página",
+    "first_aria": "Primeira página",
+    "previous_aria": "Página anterior",
+    "next_aria": "Próxima página",
+    "last_aria": "Última página"
+  },
+  "kpis": {
+    "running": "Ativos",
+    "next_24h": "Entregas nas próximas 24h",
+    "success_rate": "Taxa de sucesso em 30 dias",
+    "failed": "Falhas não resolvidas"
+  },
+  "filters": {
+    "search_schedules": "Buscar relatórios ou fontes…",
+    "search_history": "Buscar relatórios ou destinatários…",
+    "all_statuses": "Todos os status",
+    "all_sources": "Todas as fontes",
+    "all_results": "Todos os resultados",
+    "enabled": "Ativos",
+    "paused": "Pausados",
+    "dashboard": "Dashboard",
+    "saved_view": "Visualização salva",
+    "sent": "Com sucesso",
+    "failed": "Com falha",
+    "pending": "Em processamento"
+  },
+  "empty": {
+    "title": "Comece com um relatório padrão",
+    "description": "Escolha um modelo, depois selecione uma fonte de dados e os destinatários — ou comece com um relatório em branco.",
+    "custom_title": "Relatório personalizado",
+    "custom_description": "Configure o conteúdo, o agendamento e o envio do zero.",
+    "no_results_title": "Nenhum relatório encontrado",
+    "no_results_description": "Tente outro termo de busca ou filtro."
+  },
+  "table": {
+    "name_source": "Relatório e fonte",
+    "schedule": "Agendamento",
+    "next_run": "Próxima geração",
+    "last_result": "Último resultado",
+    "recipients": "Destinatários",
+    "status": "Status",
+    "actions": "Ações",
+    "never": "Nunca gerado",
+    "first_run": "Aguardando a primeira geração",
+    "recipient_more": "Mais {{count}}"
+  },
+  "status": {
+    "enabled": "Em execução",
+    "paused": "Pausado",
+    "sent": "Com sucesso",
+    "failed": "Com falha",
+    "pending": "Em processamento",
+    "unknown": "Desconhecido"
+  },
+  "schedule": {
+    "hourly": "A cada hora",
+    "every_6_hours": "A cada 6 horas",
+    "every_12_hours": "A cada 12 horas",
+    "daily": "A cada 24 horas",
+    "weekly": "A cada 7 dias",
+    "custom": "Cron avançado",
+    "custom_summary": "Cron: {{value}}",
+    "timezone_suffix": "{{schedule}} · {{timezone}}",
+    "advanced_hint": "Por enquanto, o cron avançado usa o intervalo de contingência de 24 horas do agendador. Sempre que possível, prefira um dos intervalos acima."
+  },
+  "source": {
+    "dashboard": "Dashboard",
+    "saved_view": "Visualização salva",
+    "missing": "Nenhuma fonte selecionada",
+    "unavailable": "Fonte indisponível"
+  },
+  "history": {
+    "empty_title": "Nenhum relatório gerado",
+    "empty_description": "O formato, o destinatário e o resultado da entrega aparecem aqui após a primeira execução do relatório.",
+    "partial_error": "O histórico de entregas de alguns relatórios está temporariamente indisponível.",
+    "columns": {
+      "report": "Relatório",
+      "generated_at": "Gerado em",
+      "recipient": "Destino da entrega",
+      "attempt": "Tentativa",
+      "result": "Resultado",
+      "details": "Detalhes"
+    },
+    "error_title": "Detalhes da falha na entrega",
+    "error_description": "A última entrega para este destinatário falhou.",
+    "error_report": "Relatório",
+    "error_recipient": "Destinatário",
+    "error_time": "Ocorreu em",
+    "error_message": "Mensagem de erro",
+    "no_error_message": "O backend não retornou detalhes do erro."
+  },
+  "templates": {
+    "api_warning": "Não foi possível carregar os modelos personalizados. Os modelos integrados continuam disponíveis.",
+    "source_badge": "Modelo {{source}}",
+    "builtin_badge": "Integrado",
+    "custom_badge": "Personalizado",
+    "new_template": "Novo modelo",
+    "new_title": "Novo modelo de relatório",
+    "edit_title": "Editar modelo de relatório",
+    "editor_description": "Defina fontes de conteúdo reutilizáveis e configurações padrão de saída.",
+    "basic_information": "Informações básicas",
+    "default_output": "Saída padrão",
+    "source_hint": "Escolha o tipo de conteúdo que pode ser vinculado ao usar este modelo.",
+    "source_binding_hint": "O modelo armazena apenas o tipo de fonte. Escolha um dashboard ou uma visualização salva ao criar um agendamento de relatório.",
+    "dashboard_format_hint": "Os dashboards incluem gráficos e layout, por isso seus modelos sempre geram relatórios em PDF.",
+    "custom_range_hint": "Escolha o intervalo de dados ao criar um agendamento de relatório.",
+    "source_descriptions": {
+      "dashboard": "Inclui gráficos e layout para facilitar a leitura dos relatórios em PDF",
+      "saved_view": "Inclui resultados de consultas para gerar dados detalhados e listas de auditoria"
+    },
+    "format_descriptions": {
+      "pdf": "Ideal para leitura e compartilhamento",
+      "csv": "Ideal para análise em planilhas",
+      "json": "Ideal para automação"
+    },
+    "create_template": "Criar modelo",
+    "save_changes": "Salvar alterações",
+    "delete_template": "Excluir modelo",
+    "toast_created": "Modelo personalizado criado",
+    "toast_updated": "Modelo personalizado atualizado",
+    "toast_deleted": "Modelo personalizado excluído",
+    "confirm_delete": "Excluir “{{name}}”? Os relatórios já criados com esse modelo não serão afetados.",
+    "fields": {
+      "name": "Nome do modelo",
+      "description": "Descrição",
+      "description_optional": "Descrição (opcional)",
+      "source_type": "Tipo de fonte",
+      "format": "Formato padrão",
+      "time_range": "Período padrão dos dados"
+    },
+    "placeholders": {
+      "name": "Por exemplo: Relatório mensal dos serviços essenciais",
+      "description": "Descreva o caso de uso, o conteúdo incluído e o público-alvo."
+    },
+    "errors": {
+      "name_required": "Insira um nome para o modelo."
+    },
+    "platform_health": {
+      "name": "Resumo semanal da saúde da plataforma",
+      "description": "Resuma a disponibilidade, a latência, os erros e as tendências de capacidade dos serviços essenciais."
+    },
+    "rum_experience": {
+      "name": "Resumo diário da experiência do usuário",
+      "description": "Consolide dados de desempenho na web, taxa de erros e mudanças na experiência nas páginas principais."
+    },
+    "alert_review": {
+      "name": "Revisão de alertas",
+      "description": "Revise o volume de alertas, o tempo de recuperação, os serviços afetados e as regras que geram ruído."
+    },
+    "sla_compliance": {
+      "name": "Resumo mensal do cumprimento do SLA",
+      "description": "Resuma a disponibilidade dos serviços, o cumprimento do SLA, a taxa de consumo do orçamento de erros e o risco de violação do SLA."
+    },
+    "saved_query": {
+      "name": "Instantâneo dos resultados da consulta",
+      "description": "Exporte uma visualização salva de forma programada para análises detalhadas ou listas de auditoria."
+    }
+  },
+  "workbench": {
+    "new_title": "Novo relatório",
+    "edit_title": "Editar relatório",
+    "view_title": "Detalhes do relatório",
+    "subtitle": "Configure o conteúdo, a geração e o envio. A estrutura do relatório é atualizada à direita.",
+    "view_subtitle": "O que o relatório contém, quando é gerado e para onde é enviado.",
+    "view_notice": "Para alterar este relatório, você precisa da permissão {{permission}}.",
+    "steps": {
+      "content": "Conteúdo e escopo",
+      "schedule": "Agendamento da geração",
+      "delivery": "Envio"
+    },
+    "step_descriptions": {
+      "content": "Escolha a fonte de dados e o escopo do relatório.",
+      "schedule": "Use um intervalo fácil de entender e só insira uma expressão cron se necessário.",
+      "delivery": "Adicione destinatários e escolha o formato de saída."
+    },
+    "fields": {
+      "name": "Nome do relatório",
+      "description": "Finalidade",
+      "source_type": "Tipo de fonte",
+      "source": "Fonte de dados",
+      "time_range": "Período dos dados",
+      "frequency": "Frequência de geração",
+      "cron": "Expressão cron",
+      "timezone": "Fuso horário do relatório",
+      "recipients": "Destinos de entrega",
+      "format": "Formato de saída",
+      "enabled": "Ativar após salvar"
+    },
+    "placeholders": {
+      "name": "Por exemplo: Relatório semanal de saúde da plataforma",
+      "description": "Descreva o público e o objetivo deste relatório…",
+      "source": "Escolha um dashboard ou uma visualização salva",
+      "cron": "0 9 * * 1",
+      "recipient": "E-mail, URL do webhook ou caminho no S3"
+    },
+    "hints": {
+      "source_empty": "Não há fontes disponíveis. Primeiro, crie um dashboard ou uma visualização salva.",
+      "recipients": "Aceita e-mail, webhooks HTTPS e caminhos no S3. O resultado da entrega é registrado separadamente para cada destino.",
+      "enabled": "Desative esta opção para salvar o relatório como pausado."
+    },
+    "ranges": {
+      "previous_1_hour": "Última hora",
+      "previous_24_hours": "Últimas 24 horas",
+      "previous_7_days": "Últimos 7 dias",
+      "previous_30_days": "Últimos 30 dias",
+      "previous_calendar_day": "Dia anterior",
+      "previous_calendar_week": "Semana anterior",
+      "previous_calendar_month": "Mês anterior",
+      "custom": "Personalizado"
+    },
+    "recipient_kinds": {
+      "email": "E-mail",
+      "webhook": "Webhook",
+      "s3": "S3",
+      "slack": "Slack"
+    },
+    "formats": {
+      "pdf_description": "Ideal para leitura e arquivamento",
+      "png_description": "Ideal para ferramentas de colaboração",
+      "csv_description": "Ideal para análises detalhadas",
+      "json_description": "Ideal para integrações com sistemas",
+      "svg_description": "Ideal para incorporar um cartão de resumo"
+    },
+    "preview": {
+      "title": "Prévia em tempo real",
+      "sample_badge": "Dados de exemplo",
+      "report_label": "Relatório do MoleSignal",
+      "range_label": "Período dos dados",
+      "source_label": "Fonte de dados",
+      "availability": "Disponibilidade",
+      "latency": "Latência P95",
+      "alerts": "Alertas",
+      "trend": "Tendência principal",
+      "footer": "{{format}} · {{schedule}}"
+    }
+  },
+  "export_dialog": {
+    "title": "Exportar agora",
+    "description": "Escolha um relatório salvo e gere um arquivo para baixar com o conteúdo e o formato atuais do relatório.",
+    "report": "Relatório",
+    "format": "Formato",
+    "range": "Período dos dados",
+    "download": "Gerar e baixar",
+    "empty": "Crie e salve um agendamento de relatório primeiro."
+  },
+  "toast": {
+    "created": "Agendamento de relatório criado",
+    "updated": "Agendamento de relatório atualizado",
+    "enabled": "Agendamento de relatório ativado",
+    "paused": "Agendamento de relatório pausado",
+    "deleted": "Agendamento de relatório excluído",
+    "exported": "Prévia do relatório gerada",
+    "link_copied": "Link curto do relatório copiado: {{name}}",
+    "recipient_exists": "Esse destino de envio já existe"
+  },
+  "confirm": {
+    "delete": "Excluir “{{name}}”? O histórico de geração existente não pode ser restaurado a partir deste armazenamento."
+  },
+  "run_as": {
+    "label": "Executado como",
+    "you": "{{name}} (você)",
+    "takeover": "Depois que você salvar, o relatório será executado com suas permissões de acesso.",
+    "missing": "Este relatório não tem um usuário associado à execução, por isso os envios no formato {{format}} falham.",
+    "missing_fix": "Salve o relatório para executá-lo com suas permissões de acesso.",
+    "missing_needs_saver": "Um usuário conectado com permissão para agendar relatórios precisa salvar este relatório.",
+    "toggle_hint": "Ao ativar ou desativar esta opção, o relatório é salvo e passa a ser executado com suas permissões de acesso."
+  },
+  "errors": {
+    "name_required": "Digite um nome para o relatório.",
+    "source_required": "Escolha uma fonte de dados.",
+    "recipient_required": "Adicione pelo menos um destino de envio.",
+    "recipient_empty": "Informe um destino de envio.",
+    "recipient_unsupported": "O envio pelo Slack ainda não está integrado ao backend. Use e-mail, webhook ou S3.",
+    "recipient_invalid_email": "Informe um endereço de e-mail, uma URL HTTPS de webhook ou um caminho do S3 válido.",
+    "share_failed": "Não foi possível criar ou copiar o link curto do relatório"
+  }
+}

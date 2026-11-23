@@ -1,0 +1,40 @@
+/* Chinese characters, kana and Hangul by the language of the page.
+ *
+ * `--font-sans` (tokens.css) draws Chinese in Alibaba PuHuiTi 3.0, subset to
+ * Simplified Chinese. A page in Traditional Chinese, Japanese or Korean would
+ * then mix faces inside a word, and draw kanji with Chinese forms. Those pages
+ * keep Alibaba Sans for Latin and take every other character from the
+ * platform's face for that language, which `<html lang>` selects. */
+
+/* Alibaba Sans alone: Latin, Greek and Cyrillic, with no Chinese file behind
+ * it at any weight. Labels (500) take the Regular file. */
+@font-face {
+  font-family: 'MoleSignal Latin';
+  src: url('./alibaba-sans-regular.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MoleSignal Latin';
+  src: url('./alibaba-sans-bold.woff2') format('woff2');
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root:lang(zh-TW) {
+  --font-sans: 'MoleSignal Latin', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'PingFang TC', 'Microsoft JhengHei', monospace;
+}
+
+:root:lang(ja) {
+  --font-sans: 'MoleSignal Latin', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', Meiryo, 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Hiragino Sans', 'Yu Gothic UI', monospace;
+}
+
+:root:lang(ko) {
+  --font-sans: 'MoleSignal Latin', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Apple SD Gothic Neo', 'Malgun Gothic', monospace;
+}

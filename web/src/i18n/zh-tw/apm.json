@@ -1,0 +1,1266 @@
+{
+  "title": "應用程式效能監控",
+  "subtitle": "根據取樣前的 Trace，查看服務、相依性與錯誤。",
+  "nav": {
+    "overview": "總覽",
+    "services": "服務",
+    "map": "服務地圖",
+    "errors": "錯誤",
+    "slos": "SLO",
+    "settings": "設定"
+  },
+  "landing": {
+    "pulse_aria": "所有服務在目前時間範圍內的整體表現",
+    "kpi": {
+      "services": "活躍服務",
+      "services_detail_one": "共 {{count}} 個服務，{{idle}} 個無流量",
+      "services_detail_other": "共 {{count}} 個服務，{{idle}} 個無流量",
+      "throughput": "輸送量",
+      "requests_one": "{{formatted}} 個請求",
+      "requests_other": "{{formatted}} 個請求",
+      "error_rate": "錯誤率",
+      "errors_one": "{{formatted}} 個錯誤",
+      "errors_other": "{{formatted}} 個錯誤",
+      "p95": "P95 延遲",
+      "average": "平均 {{value}}",
+      "apdex": "Apdex",
+      "apdex_detail": "T = {{threshold}}"
+    },
+    "health": "服務健全狀態",
+    "health_description": "各狀態的服務數量隨時間的變化",
+    "rankings": "服務排行",
+    "ranking": {
+      "slowest": "最慢（P95）",
+      "most_errors": "錯誤率最高",
+      "busiest": "流量最大",
+      "empty": "這段時間內的請求太少，無法排名。"
+    },
+    "alerts": "進行中的警示",
+    "alerts_loading": "正在讀取警示…",
+    "alerts_denied": "沒有查看警示的權限。",
+    "alerts_unavailable": "暫時無法讀取警示。",
+    "no_alerts": "沒有與服務相關的進行中警示。",
+    "deployments": "近期部署",
+    "deployments_description": "這段時間內首次出現的版本",
+    "no_deployments": "這段時間內沒有新版本。",
+    "environments": "環境分布",
+    "no_environments": "這段時間內沒有服務。",
+    "environment_services_one": "{{count}} 個服務",
+    "environment_services_other": "{{count}} 個服務",
+    "instrumentation": "蒐集品質",
+    "no_sdks": "服務尚未回報 SDK 資訊。",
+    "unknown": "未知",
+    "gap_one": "{{formatted}} 個服務",
+    "gap_other": "{{formatted}} 個服務",
+    "gap_attribute": "未回報",
+    "gap_action": "查看 OpenTelemetry 整合指南"
+  },
+  "alerts": {
+    "active_one": "{{count}} 個警示",
+    "active_other": "{{count}} 個警示",
+    "new": "新增警示",
+    "related": "相關警示",
+    "kind": {
+      "threshold": "閾值警示",
+      "threshold_hint": "指標跨越設定的閾值時發出警示",
+      "anomaly": "異常偵測警示",
+      "anomaly_hint": "指標明顯偏離過去幾天同一時刻的數值時發出警示"
+    }
+  },
+  "slo": {
+    "title": "SLO",
+    "table": "服務等級目標",
+    "summary_one": "{{count}} 個 SLO",
+    "summary_other": "{{count}} 個 SLO",
+    "search": "搜尋 SLO 或服務",
+    "all_states": "所有狀態",
+    "new": "新增 SLO",
+    "empty": "尚無 SLO",
+    "empty_description": "為服務或端點設定可用性或延遲目標，這裡會顯示達成率、剩餘錯誤預算和消耗速率。",
+    "filtered_empty": "沒有符合條件的 SLO。",
+    "removed": "已刪除 SLO",
+    "edit": "編輯 SLO",
+    "remove": "刪除 SLO",
+    "remove_title": "刪除 SLO「{{name}}」？",
+    "remove_description": "只會刪除此目標，不影響 APM 資料。",
+    "remove_with_alerts_one": "此目標的 {{count}} 個消耗速率警示也會一併刪除，不影響 APM 資料。",
+    "remove_with_alerts_other": "此目標的 {{count}} 個消耗速率警示也會一併刪除，不影響 APM 資料。",
+    "removing": "正在刪除…",
+    "remove_watched": "仍有警示規則在監控此 SLO，請先到「警示 → 警示規則」刪除這些規則。",
+    "service_title": "服務等級目標",
+    "service_empty": "此服務尚無 SLO。",
+    "budget_left": "剩餘預算 {{value}}",
+    "window_one": "{{count}} 天",
+    "window_other": "{{count}} 天",
+    "state": {
+      "healthy": "健康",
+      "at_risk": "有風險",
+      "breached": "已違約",
+      "no_data": "無資料"
+    },
+    "kind": {
+      "availability": "請求成功",
+      "latency": "成功且不超過閾值"
+    },
+    "target": {
+      "availability": "請求成功",
+      "latency": "成功且不超過 {{threshold}}"
+    },
+    "columns": {
+      "name": "SLO",
+      "target": "達標條件",
+      "objective": "目標",
+      "sli": "達成率",
+      "budget": "剩餘預算",
+      "burn_1h": "1 小時消耗率",
+      "burn_6h": "6 小時消耗率",
+      "state": "狀態"
+    },
+    "facts": {
+      "sli": "達成率",
+      "budget": "剩餘錯誤預算",
+      "requests": "{{good}} / {{total}} 筆請求達標"
+    },
+    "burn": {
+      "title": "錯誤預算消耗速度",
+      "description": "相對於目標容許速度的倍數；1 小時消耗率超過 14.4 倍或 6 小時消耗率超過 6 倍，即視為有風險",
+      "one_hour": "1 小時",
+      "six_hours": "6 小時",
+      "one_day": "24 小時"
+    },
+    "history": {
+      "title": "每日達成情形",
+      "summary": "有請求的 {{count}} 天中，有 {{met}} 天達標",
+      "day": {
+        "met": "{{date}}：{{sli}}，達標",
+        "missed": "{{date}}：{{sli}}，未達標",
+        "no_data": "{{date}}：無請求"
+      }
+    },
+    "alerts": {
+      "create": "建立消耗率警示",
+      "created_one": "已建立 {{count}} 則消耗率警示",
+      "created_other": "已建立 {{count}} 則消耗率警示",
+      "fast_name": "{{name}} 快速消耗",
+      "slow_name": "{{name}} 慢速消耗",
+      "description": "SLO「{{name}}」的錯誤預算消耗過快",
+      "title": "消耗率警示",
+      "card_description": "監控此 SLO 錯誤預算消耗速度的警示規則",
+      "none": "尚無警示監控此 SLO。",
+      "rule": "{{window}} 內超過 {{threshold}} 倍",
+      "off": "已停用",
+      "window_hours_one": "{{count}} 小時",
+      "window_hours_other": "{{count}} 小時",
+      "window_minutes_one": "{{count}} 分鐘",
+      "window_minutes_other": "{{count}} 分鐘"
+    },
+    "form": {
+      "new_title": "新增 SLO",
+      "edit_title": "編輯 SLO",
+      "description": "服務承諾在滑動時間視窗內達標的請求比例。",
+      "name": "名稱",
+      "service": "服務",
+      "environment": "環境",
+      "endpoint": "端點",
+      "endpoint_hint": "若未選擇，則以整個服務計算",
+      "whole_service": "整個服務",
+      "kind": "達標條件",
+      "threshold": "延遲閾值（毫秒）",
+      "objective": "目標（%）",
+      "objective_hint": "例如 99.9",
+      "window": "時間視窗",
+      "notes": "說明",
+      "choose": "請選擇",
+      "saved": "已儲存 SLO"
+    }
+  },
+  "time": {
+    "compare": "比較",
+    "compare_off": "不比較",
+    "compare_day": "與前一天比較",
+    "compare_week": "與上週同期比較",
+    "compare_env": "與 {{environment}} 環境比較",
+    "resolution": "解析度",
+    "resolution_auto": "自動解析度",
+    "resolution_minute": "依分鐘",
+    "resolution_hour": "依小時"
+  },
+  "quality": {
+    "activation": "資料起點在此範圍內",
+    "activation_title": "APM 資料起點在目前範圍內",
+    "activation_description": "投影於 {{time}} 啟動，此前的資料無法使用。",
+    "stale": "資料延遲",
+    "stale_title": "APM 彙總有延遲",
+    "stale_description": "最新的完整時間區間截至 {{time}}。投影補齊最新資料前，仍會顯示現有資料。",
+    "partial": "資料不完整",
+    "partial_title": "APM 資料不完整",
+    "partial_description_one": "{{count}} 個投影缺口影響目前範圍。數值仍可供參考，但可能低於實際流量。",
+    "partial_description_other": "{{count}} 個投影缺口影響目前範圍。數值仍可供參考，但可能低於實際流量。",
+    "overflow": "部分名稱計入「其他」",
+    "overflow_title": "名稱超出基數上限",
+    "overflow_description": "超出上限的名稱會合併計入名為「其他」的一列，總量仍完整。",
+    "overflow_dimensions": "計入「其他」的維度",
+    "complete_through": "完整資料截至 {{time}}",
+    "dimension": {
+      "service": "服務",
+      "transaction": "端點",
+      "dependency": "相依項目",
+      "error": "錯誤"
+    }
+  },
+  "health": {
+    "critical": "嚴重",
+    "warning": "警告",
+    "healthy": "健康",
+    "no_traffic": "無流量",
+    "with_reasons": "{{health}}：{{reasons}}",
+    "reason_separator": "；",
+    "reason": {
+      "error_rate": "錯誤率 {{value}}，達到 {{threshold}}",
+      "p95": "P95 {{value}}，達到 {{threshold}}"
+    }
+  },
+  "actions": {
+    "cancel": "取消",
+    "save": "儲存",
+    "retry": "重試",
+    "see_all": "查看全部",
+    "previous": "上一頁",
+    "next": "下一頁"
+  },
+  "states": {
+    "empty": "這段時間內沒有資料",
+    "activation_empty": "尚無 APM 資料",
+    "activation_empty_description": "傳送後端追蹤資料後，即可開始產生取樣前的應用程式彙總資料。"
+  },
+  "first_run": {
+    "eyebrow": "應用程式效能",
+    "connect": "連接服務",
+    "explore_traces": "開啟追蹤",
+    "steps": {
+      "instrument": {
+        "title": "為服務加入監測工具",
+        "description": "在後端服務中加入 OpenTelemetry SDK 或 Agent。"
+      },
+      "send": {
+        "title": "傳送追蹤資料",
+        "description": "將匯出器指向此工作區的 OTLP 端點。"
+      },
+      "watch": {
+        "title": "等待資料顯示",
+        "description": "輸送量、錯誤和延遲會在一分鐘內顯示在這裡。"
+      }
+    }
+  },
+  "drawer": {
+    "close": "關閉",
+    "resize": "調整抽屜寬度",
+    "trail": "開啟來源",
+    "back_to": "回到 {{name}}"
+  },
+  "columns": {
+    "title": "欄位設定",
+    "visible": "顯示的欄位",
+    "reorder_hint": "拖曳或按 Alt + ↑↓",
+    "drag_aria": "{{name}}：拖曳，或按 Alt 加方向鍵移動",
+    "reset": "還原預設欄位",
+    "available": "新增欄位"
+  },
+  "catalog": {
+    "table": "服務",
+    "search": "搜尋服務",
+    "environment": "環境",
+    "all_environments": "所有環境",
+    "team": "團隊",
+    "all_teams": "所有團隊",
+    "declare": "登記服務",
+    "more": "載入更多服務",
+    "not_reporting": "未回報",
+    "filtered_empty": "沒有符合條件的服務",
+    "filtered_empty_description": "請修改搜尋或篩選條件。",
+    "summary": {
+      "services_one": "{{count}} 個服務",
+      "services_other": "{{count}} 個服務",
+      "throughput": "吞吐量",
+      "error_rate": "錯誤率"
+    },
+    "columns": {
+      "service": "服務",
+      "environment": "環境",
+      "type": "服務類型",
+      "team": "團隊",
+      "owner": "負責人",
+      "on_call": "值班",
+      "tier": "等級",
+      "alerts": "警示",
+      "lifecycle": "生命週期",
+      "language": "語言 / 框架",
+      "throughput": "吞吐量",
+      "error_rate": "錯誤率",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "平均耗時",
+      "apdex": "Apdex",
+      "instances": "執行個體",
+      "region": "區域",
+      "version": "版本",
+      "last_deploy": "最近部署",
+      "tags": "標籤",
+      "last_seen": "上次活躍",
+      "favorite": "收藏"
+    },
+    "favorite": "收藏 {{name}}",
+    "unfavorite": "取消收藏 {{name}}",
+    "favorites_one": "收藏 {{count}}",
+    "favorites_other": "收藏 {{count}}",
+    "archived": "已封存",
+    "inactive": "未活躍",
+    "namespace": "命名空間",
+    "all_namespaces": "所有命名空間",
+    "tag": "標籤",
+    "all_tags": "所有標籤",
+    "show_archived_one": "已封存 {{count}}",
+    "show_archived_other": "已封存 {{count}}",
+    "group": {
+      "label": "分組",
+      "off": "不分組",
+      "by": {
+        "team": "團隊",
+        "namespace": "命名空間",
+        "tier": "等級"
+      },
+      "by_tag": "標籤 {{tag}}",
+      "none": {
+        "team": "未設定團隊",
+        "namespace": "無命名空間",
+        "tier": "未設定等級",
+        "tag": "沒有標籤 {{tag}}"
+      }
+    },
+    "missing": "缺少{{fields}}",
+    "missing_and": "、",
+    "missing_fields": {
+      "team": "團隊",
+      "owner": "負責人",
+      "repository": "程式碼儲存庫"
+    },
+    "missing_hint": "依 APM 設定中的服務目錄規則，此等級必須填寫這些欄位"
+  },
+  "definition": {
+    "title": "描述 {{name}}",
+    "declare_title": "登記服務",
+    "description": "服務由誰負責、有多重要。負責人從這個組織的團隊和成員中選取。",
+    "fields": {
+      "name": "服務名稱",
+      "namespace": "命名空間",
+      "namespace_hint": "即 service.namespace；留空時與服務名稱相同。",
+      "team": "負責團隊",
+      "owner": "負責人",
+      "owner_hint": "負責這項服務的人。",
+      "tier": "等級",
+      "lifecycle": "生命週期",
+      "repository": "程式碼儲存庫",
+      "repository_hint": "https 或 git 網址，例如 git@github.com:acme/checkout.git；網址中的密碼會儲存為 ****。服務未回報 vcs.repository.url.full 時使用",
+      "description": "職責",
+      "tags": "標籤",
+      "tags_hint": "輸入 key=value 或只輸入 key，以逗號分隔。key 只能使用小寫字母、數字和 _ . - /",
+      "apdex": "Apdex 閾值 T（毫秒）",
+      "apdex_hint": "不超過 T 的請求視為滿意，超過 T 但不超過 4T 則視為可容忍；留空時使用預設值 500 毫秒",
+      "aliases": "其他稱呼",
+      "aliases_placeholder": "order_service, 訂單中心",
+      "aliases_hint": "日誌、指標和其他系統對這項服務的稱呼，以逗號分隔，例如 order_service、訂單中心。也可以用這些稱呼找到服務，Mole Agent 在排查問題時也會讀取這些稱呼；資料不會合併。若要將以舊名稱回報的資料歸入這項服務，請在 APM 設定中新增服務別名。"
+    },
+    "aliases_problem": {
+      "length": "每個稱呼最多 128 個字元：{{alias}}",
+      "own_name": "{{alias}} 是服務本身的名稱",
+      "twice": "{{alias}} 重複輸入了兩次",
+      "too_many": "每項服務最多可有 20 個其他稱呼"
+    },
+    "sources": {
+      "title": "資料入口",
+      "hint": "指定這項服務的資料所在的日誌串流、指標、儀表板和頁面。Mole Agent 排查這項服務時會從這裡開始。",
+      "logs": "日誌串流",
+      "metrics": "指標",
+      "dashboards": "儀表板",
+      "links": "連結",
+      "add": "新增",
+      "remove": "刪除",
+      "open": "開啟",
+      "stream": "資料串流",
+      "filter": "篩選條件：SQL 條件，留空表示整個資料串流",
+      "selector": "PromQL 選擇器",
+      "dashboard": "儀表板",
+      "choose_dashboard": "選擇儀表板",
+      "link_name": "名稱",
+      "link_url": "網址",
+      "problem": {
+        "too_many": "每類最多 10 筆",
+        "stream": "請填寫日誌所在的資料串流",
+        "filter": "篩選條件最多 2000 個字元",
+        "selector": "請填寫選擇器，例如 {service=\"checkout\"}，或含有標籤的指標名稱",
+        "link_name": "請填寫連結名稱，最多 120 個字元",
+        "link_url": "請填寫不含空格的 http 或 https 網址",
+        "dashboard_twice": "同一個儀表板列了兩次"
+      }
+    },
+    "none": "無",
+    "docs_hint": "文件和 Runbook 放在 Mole Agent 知識庫的 {{path}} 下，Mole Agent 排查問題時也會讀取。",
+    "remove": "刪除描述",
+    "saved": "服務描述已儲存",
+    "removed": "服務描述已刪除",
+    "edit": "編輯負責人",
+    "declare_owner": "設定負責人",
+    "on_call": "值班",
+    "tier": {
+      "p0": "P0",
+      "p1": "P1",
+      "p2": "P2",
+      "p3": "P3",
+      "p4": "P4",
+      "p5": "P5"
+    },
+    "lifecycle": {
+      "production": "正式環境",
+      "staging": "預備環境",
+      "experimental": "實驗性",
+      "deprecated": "已淘汰"
+    },
+    "tags_problem": {
+      "key": "標籤鍵「{{tag}}」只能使用小寫字母、數字和 _ . - /，最多 64 個字元",
+      "value": "標籤 {{tag}} 的值最多 128 個字元",
+      "too_many": "每個服務最多可有 32 個標籤",
+      "twice": "標籤 {{tag}} 填了兩次"
+    },
+    "apdex_problem": "請輸入大於 0 且不超過 60000 的毫秒數",
+    "archive": "封存",
+    "unarchive": "取消封存",
+    "archive_hint": "封存後，服務目錄預設不會顯示這個服務，但仍會照常收集資料",
+    "unarchive_hint": "讓這個服務重新顯示在服務目錄中",
+    "archived": "已封存",
+    "unarchived": "已取消封存",
+    "repository_problem": "請輸入 http、https、ssh 或 git 位址，或採用 git@主機:路徑 格式的位址，不可包含空格"
+  },
+  "docs": {
+    "title": "文件",
+    "where": "知識庫 {{folder}}",
+    "none": "這個服務還沒有文件。",
+    "team": "團隊",
+    "start_runbook": "新增 Runbook",
+    "runbook_template": "# {{name}} 維運手冊\n\n## 服務職責\n\n## 負責人與通報升級流程\n\n## 常見警示與處理方式\n\n## 儀表板與連結\n"
+  },
+  "service": {
+    "navigation": "服務分區",
+    "environment": "環境",
+    "version": "版本",
+    "all_versions": "所有版本",
+    "sections": {
+      "overview": "總覽",
+      "endpoints": "端點",
+      "traces": "呼叫鏈",
+      "dependencies": "相依性",
+      "errors": "錯誤",
+      "deployments": "部署",
+      "runtime": "執行階段",
+      "settings": "設定"
+    },
+    "related": {
+      "logs": "記錄",
+      "metrics": "指標",
+      "profiles": "Profiles",
+      "rum": "RUM"
+    },
+    "facts": {
+      "no_data": "此時間範圍內沒有資料",
+      "last_seen": "上次回報於{{when}}",
+      "system": "所屬系統",
+      "environment": "環境",
+      "type": "服務類型",
+      "kinds": {
+        "http": "HTTP",
+        "rpc": "RPC",
+        "messaging": "訊息取用",
+        "span": "背景工作"
+      },
+      "stack": "語言 / 框架",
+      "version": "版本",
+      "commit": "提交 {{commit}}",
+      "team": "負責團隊",
+      "instances_one": "{{count}} 個執行個體",
+      "instances_other": "{{count}} 個執行個體",
+      "deployed_label": "最近部署",
+      "deployed": "於{{when}}部署",
+      "region": "部署區域",
+      "repository": "程式碼儲存庫",
+      "aliases": "別名"
+    },
+    "coverage": {
+      "missing": {
+        "logs": "過去一天未收到此服務的記錄，點選以查看如何整合",
+        "metrics": "過去一小時沒有此服務的指標，點選以查看如何整合",
+        "profiles": "過去一天沒有此服務的 Profile，點選以查看如何整合"
+      },
+      "reported": {
+        "logs": "記錄所在的串流：{{found}}",
+        "metrics": "過去一小時有 {{found}} 條此服務的指標序列",
+        "profiles": "已回報的 Profile 類型：{{found}}",
+        "rum": "此服務的呼叫鏈中有來自瀏覽器工作階段的請求，點選以查看其中一個工作階段"
+      }
+    },
+    "favorite": "收藏",
+    "favorited": "已收藏"
+  },
+  "charts": {
+    "requests": "請求",
+    "error_rate": "錯誤率",
+    "latency": "延遲",
+    "ok": "成功",
+    "errors": "失敗",
+    "previous": "比較時段",
+    "compared_env": "{{environment}} 環境",
+    "distribution": "延遲分布",
+    "distribution_row": "{{range}}：{{count}} 個請求，占 {{share}}；累計 {{below}}",
+    "distribution_previous": "虛線：比較時段的分布",
+    "distribution_compared": "虛線：{{what}}",
+    "no_distribution": "此時間範圍內沒有請求。",
+    "apdex_threshold": "（T = {{threshold}}）",
+    "vs_previous": "與上一時段相比",
+    "points": "{{value}} 個百分點"
+  },
+  "overview": {
+    "downstream": "下游耗時",
+    "downstream_description": "服務等待各項相依資源的時間占比",
+    "no_downstream": "此時間範圍內沒有下游呼叫。",
+    "top_endpoints": "耗時最多的端點",
+    "no_endpoints": "此時間範圍內沒有端點。",
+    "top_errors": "最常見的錯誤",
+    "no_errors": "此時間範圍內沒有後端錯誤。"
+  },
+  "overflow": {
+    "other": "其他",
+    "other_hint": "超出基數上限的名稱會合併計入此列。"
+  },
+  "endpoints": {
+    "search": "搜尋端點",
+    "kind_filter": "類型",
+    "kinds": {
+      "all": "所有類型",
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "訊息",
+      "span": "背景工作"
+    },
+    "kind": {
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "MQ",
+      "span": "背景工作",
+      "other": "其他"
+    },
+    "count_one": "{{count}} 個端點",
+    "count_other": "{{count}} 個端點",
+    "empty": "沒有符合條件的端點。",
+    "table": "端點",
+    "columns": {
+      "kind": "類型",
+      "endpoint": "端點",
+      "requests": "請求數",
+      "throughput": "輸送量",
+      "error_rate": "錯誤率",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "平均耗時",
+      "apdex": "Apdex",
+      "total_time": "耗時占比"
+    },
+    "key": "關鍵交易",
+    "key_only_one": "關鍵交易 {{count}}",
+    "key_only_other": "關鍵交易 {{count}}",
+    "long_tasks_one": "長時間任務 {{count}}",
+    "long_tasks_other": "長時間任務 {{count}}",
+    "long_tasks_hint": "P99 達到或超過 {{threshold}} 的端點",
+    "mark_key": "將 {{name}} 設為關鍵交易",
+    "unmark_key": "取消將 {{name}} 設為關鍵交易"
+  },
+  "endpoint": {
+    "errors": "錯誤",
+    "no_errors": "這個端點沒有錯誤。",
+    "versions": "版本",
+    "no_versions": "未觀測到版本。",
+    "summary": "{{requests}} 個請求 · 失敗 {{rate}} · P95 {{p95}}",
+    "slow_requests": "最慢的請求",
+    "slow_requests_description": "取自 Trace 儲存區，點選即可開啟呼叫鏈",
+    "in_traces": "在 Traces 中查看",
+    "other_has_no_requests": "「其他」合併了多個端點，請開啟其中一個端點查看請求。",
+    "no_requests": "這段期間內沒有保留這個端點的請求。",
+    "status": {
+      "title": "狀態碼",
+      "description": "依狀態碼統計回應，包含 HTTP 和 gRPC",
+      "none": "這段期間內沒有狀態碼統計資料。",
+      "row": "{{status}}：{{count}} 個回應，占 {{share}}",
+      "other": "其他 {{protocol}}",
+      "trend": "狀態碼趨勢",
+      "classes": {
+        "1xx": "1xx",
+        "2xx": "2xx",
+        "3xx": "3xx",
+        "4xx": "4xx",
+        "5xx": "5xx",
+        "grpc_ok": "gRPC 成功",
+        "grpc_error": "gRPC 錯誤",
+        "other": "其他"
+      }
+    },
+    "time_spent": {
+      "title": "耗時明細",
+      "description_one": "取自 Trace 儲存空間中最近一筆請求",
+      "description_other": "取自 Trace 儲存空間中最近 {{count}} 筆請求",
+      "about": "取自 Trace 儲存空間中的近期請求，最多 200 筆",
+      "none": "這段時間內未保留此端點的請求。",
+      "unavailable": "Trace 儲存空間未能及時傳回資料，請縮短時間範圍後再試一次。",
+      "row": "{{part}}：占 {{share}}，每筆請求 {{each}}",
+      "each": "每筆請求 {{time}}",
+      "parts": {
+        "own": "自身耗時",
+        "database": "資料庫",
+        "cache": "快取",
+        "http": "HTTP 呼叫",
+        "rpc": "RPC 呼叫",
+        "messaging": "訊息",
+        "internal": "內部處理",
+        "other": "其他"
+      }
+    }
+  },
+  "traces": {
+    "title": "呼叫鏈",
+    "description": "此服務參與的 Trace",
+    "open_explorer": "在 Traces 中開啟",
+    "empty": "這段時間內沒有此服務的 Trace。"
+  },
+  "dependencies": {
+    "map": "上下游",
+    "map_description": "呼叫此服務的服務，以及此服務呼叫的服務",
+    "map_empty": "這段時間內沒有服務間的呼叫。",
+    "upstream": "上游呼叫端",
+    "upstream_description": "呼叫的錯誤率和 P95",
+    "no_upstream": "這段時間內沒有其他服務呼叫此服務。",
+    "downstream": "下游呼叫",
+    "downstream_description": "依目標分組，將操作列在各目標下方",
+    "no_downstream": "這段時間內沒有下游呼叫。",
+    "columns": {
+      "target": "目標",
+      "category": "類型",
+      "requests": "請求數",
+      "error_rate": "錯誤率",
+      "p95": "P95",
+      "health": "健康狀態",
+      "change": "比較"
+    },
+    "operations_one": "{{count}} 個操作",
+    "operations_other": "{{count}} 個操作",
+    "no_operation": "無操作名稱",
+    "category": {
+      "service": "服務",
+      "database": "資料庫",
+      "cache": "快取",
+      "messaging": "訊息",
+      "external_http": "HTTP",
+      "external_rpc": "RPC",
+      "other": "其他"
+    },
+    "timeouts_one": "逾時 {{count}}",
+    "timeouts_other": "逾時 {{count}}",
+    "retries_one": "重試 {{count}}",
+    "retries_other": "重試 {{count}}",
+    "slowest_operation": "最慢操作的 P95",
+    "score": {
+      "errors": "呼叫失敗扣 {{points}} 分",
+      "timeouts": "呼叫逾時扣 {{points}} 分",
+      "latency": "P95 變慢扣 {{points}} 分",
+      "none": "未扣分"
+    },
+    "slow_sql": "慢速 SQL",
+    "slow_sql_description": "依 P95 排序的資料庫陳述式範本，常值已替換為 ?",
+    "new_target": "新出現"
+  },
+  "deployments": {
+    "timeline": "發佈時間軸",
+    "report": "回報發佈",
+    "none": "這段時間內沒有發佈，也未觀察到任何版本。",
+    "current": "目前",
+    "columns": {
+      "time": "時間",
+      "version": "版本",
+      "event": "事件",
+      "change": "變更",
+      "requests": "請求數",
+      "error_rate": "錯誤率",
+      "p95": "P95",
+      "verdict": "與上一個版本比較"
+    },
+    "kind": {
+      "deployed": "發佈",
+      "failed": "發佈失敗",
+      "rolled_back": "復原",
+      "returned": "退回",
+      "first_seen": "首次出現",
+      "configuration": "設定變更",
+      "feature_flag": "功能開關"
+    },
+    "from": "自 {{version}}",
+    "pull_request": "PR",
+    "ci_run": "CI 執行",
+    "compare": "比較兩個版本",
+    "baseline": "從",
+    "candidate": "到",
+    "regressed_endpoints": "變慢的端點",
+    "regressed_errors": "增加的錯誤",
+    "none_regressed": "沒有",
+    "status": {
+      "insufficient_data": "請求數不足",
+      "regressed": "變差",
+      "improved": "變好",
+      "neutral": "無明顯變化"
+    },
+    "verdict_title": "與 {{previous}} 比較：錯誤率 {{rate}}，P95 {{p95}}",
+    "worse": {
+      "error_rate": "錯誤率 {{delta}}",
+      "latency": "P95 {{delta}}"
+    },
+    "delta": {
+      "requests": "請求數",
+      "error_rate": "錯誤率",
+      "p95": "P95"
+    },
+    "insufficient": "其中一個版本的請求數太少，無法判斷。",
+    "canary": {
+      "title": "{{candidate}} 與 {{baseline}} 同時執行中",
+      "since": "自 {{since}} 起",
+      "share": "新版本承接 {{share}} 的流量",
+      "figures": "並列比較兩個版本",
+      "rows": {
+        "requests": "請求數",
+        "error_rate": "錯誤率",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      }
+    }
+  },
+  "errors": {
+    "title": "錯誤分組",
+    "table": "錯誤分組",
+    "search": "搜尋錯誤",
+    "status": "狀態",
+    "status_filter": "顯示",
+    "assignee": "處理人",
+    "unassigned": "未指派",
+    "team": "團隊",
+    "no_team": "未指派團隊",
+    "saved": "錯誤分組已更新",
+    "count_one": "{{count}} 個分組",
+    "count_other": "{{count}} 個分組",
+    "none": "這段時間內沒有錯誤分組",
+    "none_open": "這段時間內沒有待處理的錯誤分組",
+    "none_description": "後端 Span 的錯誤會依類型和擲出位置分組顯示在這裡。",
+    "filter": {
+      "all": "所有分組",
+      "unresolved": "待處理",
+      "investigating": "調查中",
+      "resolved": "已解決",
+      "ignored": "已忽略"
+    },
+    "set": {
+      "open": "待處理",
+      "investigating": "調查中",
+      "resolved": "已解決",
+      "ignored": "忽略"
+    },
+    "state": {
+      "open": "待處理",
+      "investigating": "調查中",
+      "regressed": "復發",
+      "resolved": "已解決",
+      "ignored": "已忽略"
+    },
+    "columns": {
+      "error": "錯誤",
+      "service": "服務",
+      "state": "狀態",
+      "assignee": "處理人",
+      "occurrences": "次數",
+      "last_seen": "最近出現",
+      "first_seen": "首次出現"
+    },
+    "facts": {
+      "occurrences": "次數",
+      "first_seen": "首次出現",
+      "last_seen": "最近出現",
+      "versions": "版本"
+    },
+    "trend": "出現次數",
+    "stack": "擲出位置",
+    "endpoints": "端點",
+    "no_endpoints": "沒有記錄任何端點。",
+    "samples": "樣本",
+    "samples_description": "點選即可開啟呼叫鏈（若有保留）",
+    "no_samples": "沒有保留樣本。",
+    "logs": "相關日誌",
+    "sample_logs": "日誌",
+    "breakdown": {
+      "title": "分布",
+      "listed": "所列群組的出現次數",
+      "versions": "版本",
+      "environments": "環境",
+      "languages": "語言",
+      "unknown": "未回報",
+      "none": "沒有",
+      "row": "{{value}}：{{count}} 次，占 {{share}}"
+    },
+    "rules": {
+      "open": "彙總規則",
+      "title": "錯誤彙總規則",
+      "new": "新增規則",
+      "new_title": "新增彙總規則",
+      "edit_title": "編輯彙總規則",
+      "description": "後續出現的錯誤會依序比對規則，並套用第一條符合的規則：將每個服務的錯誤合併為一組，或不再歸組（請求仍計為失敗）。儲存後半分鐘內會在所有節點生效。",
+      "none": "尚無彙總規則。",
+      "action": {
+        "merge": "合併",
+        "ignore": "忽略"
+      },
+      "action_long": {
+        "merge": "合併為一組",
+        "ignore": "不再歸組"
+      },
+      "disabled": "已停用",
+      "every_service": "所有服務",
+      "fields": {
+        "name": "名稱",
+        "name_hint": "合併後的群組會以此命名。",
+        "action": "動作",
+        "service": "服務",
+        "error_type": "錯誤類型",
+        "message": "錯誤訊息",
+        "frame": "擲回位置",
+        "endpoint": "端點",
+        "enabled": "啟用"
+      },
+      "placeholder": {
+        "error_type": "*TimeoutException",
+        "message": "*connection reset*",
+        "frame": "com.shop.client.*",
+        "endpoint": "GET /orders/*"
+      },
+      "patterns_hint": "每個欄位都會比對整段文字，不區分大小寫，* 代表任意文字；留空表示不限。請至少填寫一項。",
+      "preview_one": "所列群組中有 {{count}} 個符合這條規則。現有群組不變，規則只會套用到後續出現的錯誤。",
+      "preview_other": "所列群組中有 {{count}} 個符合這條規則。現有群組不變，規則只會套用到後續出現的錯誤。",
+      "pattern": {
+        "error_type": "類型 {{pattern}}",
+        "message": "訊息 {{pattern}}",
+        "frame": "位置 {{pattern}}",
+        "endpoint": "端點 {{pattern}}"
+      },
+      "move_up": "上移 {{name}}",
+      "move_down": "下移 {{name}}",
+      "edit": "編輯 {{name}}",
+      "remove": "刪除 {{name}}",
+      "remove_title": "刪除規則「{{name}}」？",
+      "remove_description": "之後發生的錯誤不再依這條規則分組，這條規則已合併的群組會保留。",
+      "remove_confirm": "刪除",
+      "removing": "正在刪除…",
+      "saved": "規則已儲存",
+      "removed": "規則已刪除",
+      "from_error": "依此錯誤建立規則"
+    }
+  },
+  "runtime": {
+    "language": "語言",
+    "sdk": "SDK",
+    "instances": "近期執行個體",
+    "none_title": "這項服務還沒有執行階段指標",
+    "none_description": "服務回報執行階段指標並附上 service.name 後，這裡會依語言顯示程序指標，以及 JVM、Go、Node.js、.NET、Python、Ruby、PHP、Rust（Tokio）、Erlang / Elixir 的執行階段指標圖表。支援 OpenTelemetry 語意慣例和各語言常用的 Prometheus 用戶端。",
+    "none_action": "使用 OpenTelemetry 回報指標",
+    "chart_empty": "這段時間範圍內沒有數值。",
+    "charts": {
+      "cpu": "CPU 使用率",
+      "memory": "記憶體",
+      "threads": "執行緒",
+      "file_descriptors": "已開啟的檔案控制代碼",
+      "heap": "堆積記憶體",
+      "non_heap": "非堆積記憶體",
+      "gc_time": "GC 耗時（每秒）",
+      "gc_count": "GC 次數（每秒）",
+      "classes": "已載入的類別",
+      "goroutines": "Goroutine",
+      "scheduler": "排程延遲",
+      "event_loop_delay": "事件迴圈延遲 P99",
+      "event_loop_utilization": "事件迴圈使用率",
+      "thread_pool_queue": "執行緒集區佇列",
+      "exceptions": "例外狀況（每秒）",
+      "heap_slots": "堆積中存活物件的槽位",
+      "allocations": "物件配置（每秒）",
+      "workers": "工作程序 / 執行緒",
+      "queue": "等待佇列",
+      "slow_requests": "回應緩慢的請求（每秒）",
+      "opcache": "OPcache 記憶體",
+      "tasks": "作用中的工作 / 控制代碼",
+      "busy": "忙碌時間（每秒）",
+      "processes": "Erlang 處理程序",
+      "run_queue": "執行佇列",
+      "reductions": "Reductions（每秒）"
+    },
+    "instance": "執行個體",
+    "all_instances": "所有執行個體",
+    "each_instance": "每條線代表一個執行個體",
+    "one_instance": "只顯示選取的執行個體",
+    "families": {
+      "process": "處理程序",
+      "jvm": "JVM",
+      "go": "Go",
+      "nodejs": "Node.js",
+      "dotnet": ".NET",
+      "python": "Python",
+      "ruby": "Ruby",
+      "php": "PHP",
+      "rust": "Rust / Tokio",
+      "beam": "Erlang / Elixir（BEAM）"
+    },
+    "profile": {
+      "title": "Profiling",
+      "description": "將這段時間內此服務的 Profile 合併成火焰圖，一次查看一種類型",
+      "open": "在 Profiles 中開啟",
+      "none": "這段時間內，此服務沒有 Profile",
+      "none_description": "啟用持續效能剖析後，這裡會顯示 CPU、實際經過時間、記憶體配置、堆積、鎖定等火焰圖。",
+      "types": "Profile 類型",
+      "empty": "這段時間內沒有這種類型的樣本"
+    }
+  },
+  "map": {
+    "not_in_apm": "{{name}} 未出現在 APM 目前時間範圍的服務清單中。",
+    "namespace": "命名空間",
+    "all_namespaces": "所有命名空間",
+    "search": "搜尋節點",
+    "clear_search": "清除",
+    "fold": "依命名空間摺疊",
+    "unfold": "展開命名空間",
+    "critical": "關鍵路徑",
+    "change": {
+      "new": "新增",
+      "gone": "已消失"
+    },
+    "group_figures_one": "{{count}} 個服務",
+    "group_figures_other": "{{count}} 個服務",
+    "none": "這段時間內沒有呼叫",
+    "none_description": "服務的 span 傳送到 MoleSignal 後會顯示在這裡；如果某個 span 的父 span 屬於另一個服務，就會繪出兩者之間的呼叫。",
+    "truncated": "只繪出最繁忙的節點。",
+    "reach": "上游 {{callers}} 個 · 下游 {{callees}} 個",
+    "open_service": "開啟服務",
+    "close_chosen": "關閉",
+    "kind": {
+      "service": "服務",
+      "external": "被呼叫方",
+      "topic": "Topic",
+      "group": "命名空間"
+    },
+    "category": {
+      "service": "未回報資料的服務",
+      "database": "資料庫",
+      "cache": "快取",
+      "messaging": "訊息系統",
+      "external_http": "外部 HTTP",
+      "external_rpc": "外部 RPC",
+      "other": "其他"
+    },
+    "call": {
+      "title": "呼叫",
+      "requests": "請求數",
+      "error_rate": "錯誤率",
+      "kinds": {
+        "call": "呼叫",
+        "publish": "發布至 Topic",
+        "consume": "從 Topic 取用訊息"
+      },
+      "operations": "此呼叫上的操作",
+      "endpoints": "被呼叫服務的端點",
+      "every_caller": "包含所有呼叫方的請求",
+      "no_operations": "未記錄到任何操作。",
+      "unnamed": "未命名",
+      "errors": "{{service}} 的錯誤",
+      "wait": {
+        "title": "在 Topic 中的等待時間",
+        "about": "取自 Trace 儲存空間中最近的訊息取用紀錄，最多 200 筆",
+        "description": "最近 {{count}} 次訊息取用中，有 {{matched}} 次找到對應的發布紀錄",
+        "p50": "P50",
+        "p95": "P95",
+        "max": "最長",
+        "none": "沒有訊息取用紀錄可對應到發布紀錄：span 必須有 links 或父 span。",
+        "unavailable": "Trace 儲存空間未及時回應，請縮短時間範圍後再試一次。"
+      }
+    },
+    "calls": "呼叫",
+    "calls_out": "呼叫",
+    "calls_in": "被呼叫",
+    "gone_figures": "上一時段後沒有呼叫"
+  },
+  "pagination": {
+    "aria": "清單分頁",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "每頁列數",
+    "first_aria": "第一頁",
+    "previous_aria": "上一頁",
+    "next_aria": "下一頁",
+    "last_aria": "最後一頁"
+  },
+  "settings": {
+    "catalog": "服務目錄",
+    "catalog_description": "由人工維護，未回報遙測資料時使用",
+    "reported": {
+      "title": "服務回報的資訊",
+      "description": "目前時間範圍和版本下，由執行個體回報的內容",
+      "instances": "執行個體數",
+      "hosts": "主機數",
+      "language": "語言",
+      "runtime": "執行階段",
+      "framework": "框架",
+      "sdk": "SDK",
+      "cluster": "叢集",
+      "k8s_namespace": "K8s 命名空間",
+      "workload": "工作負載",
+      "commit": "提交",
+      "none": "未回報"
+    },
+    "key_transactions": {
+      "title": "關鍵交易",
+      "description": "最重要的端點，可在端點清單或端點詳細資料中加上星號",
+      "empty": "尚無關鍵交易。在端點清單中按一下星號即可新增。",
+      "no_traffic": "目前時間範圍內沒有請求"
+    }
+  },
+  "org_settings": {
+    "save": "儲存",
+    "reset": "復原變更",
+    "remove": "刪除",
+    "saved": "設定已儲存",
+    "thresholds": {
+      "title": "健康狀態判定與閾值",
+      "hint": "健康狀態、Apdex 和長時間工作皆依這些閾值判定",
+      "error_rate": "錯誤率",
+      "warning": "警告",
+      "critical": "嚴重",
+      "apdex": "預設 Apdex",
+      "apdex_hint": "服務定義中未設定 T 時使用",
+      "long_task": "長時間工作",
+      "issues": {
+        "error_rates": "警告錯誤率須大於 0 且小於嚴重錯誤率，嚴重錯誤率不得超過 100%。",
+        "p95": "警告 P95 須大於 0 且小於嚴重 P95，嚴重 P95 不得超過 10 分鐘。",
+        "apdex": "Apdex T 必須大於 0，最多 1 分鐘。",
+        "long_task": "長任務閾值須介於 1 毫秒到 10 分鐘之間。",
+        "numbers": "每一項都要填入數字。"
+      }
+    },
+    "naming": {
+      "title": "服務命名",
+      "hint": "讀取 Span 時，依序比對規則，並以第一條符合的規則重新命名服務",
+      "add": "新增規則",
+      "empty": "沒有命名規則：服務會依回報的名稱讀取。",
+      "pattern": "比對",
+      "pattern_placeholder": "正規表示式，例如 ^(checkout)-[a-z0-9]{5}$",
+      "replacement": "改為",
+      "replacement_placeholder": "例如 $1",
+      "try": "測試服務名稱",
+      "read_as": "讀作",
+      "unchanged": "名稱不變",
+      "traces_keep": "呼叫鏈中會保留 Span 回報的原始名稱",
+      "unread": "有些規則無法在此解析；伺服器會依照 Rust 正規表示式解析，並在儲存時指出無法解析的規則。"
+    },
+    "environments": {
+      "title": "環境對應",
+      "hint": "讀取 Span 時，將指定的環境名稱視為另一個名稱，不區分大小寫",
+      "add": "新增對應",
+      "empty": "沒有對應：環境會依回報的名稱讀取。",
+      "from": "原始名稱",
+      "to": "讀作",
+      "twice": "有環境被對應了兩次。"
+    },
+    "aliases": {
+      "title": "服務別名",
+      "hint": "以別名回報的資料在所有 APM 頁面都會視為正式服務的資料，已寫入的資料也一樣；刪除別名後就會恢復分開顯示",
+      "add": "新增別名",
+      "empty": "沒有別名。",
+      "alias_namespace": "別名 Namespace",
+      "alias": "別名",
+      "namespace": "Namespace",
+      "service": "正式服務",
+      "issues": {
+        "incomplete": "別名和正式服務都要填寫。",
+        "itself": "服務不能是自己的別名。",
+        "twice": "同一個名稱被設定為別名兩次。",
+        "chained": "別名指向的服務本身也是別名。"
+      }
+    },
+    "catalog_rules": {
+      "title": "服務目錄要求",
+      "hint": "依服務等級指定目錄中的必填資訊，缺少必填資訊的服務會被標示",
+      "never": "不要求",
+      "from_tier": "{{tier}} 及以上",
+      "team_from_tier": "團隊",
+      "owner_from_tier": "負責人",
+      "repository_from_tier": "程式碼儲存庫"
+    },
+    "limits": {
+      "title": "基數上限",
+      "hint": "適用於整個平台：每小時超出上限的部分會計入「其他」",
+      "issue": "每個上限都必須是 1 到 100000 之間的整數。",
+      "servicesPerOrgHour": "每個組織的服務",
+      "transactionsPerServiceHour": "每項服務的端點",
+      "dependenciesPerServiceHour": "每項服務的相依項目",
+      "operationsPerDependencyHour": "每個相依項目的操作",
+      "errorGroupsPerServiceHour": "每項服務的錯誤群組",
+      "versionsPerServiceHour": "每項服務的版本",
+      "instancesPerServiceHour": "每項服務的執行個體"
+    },
+    "sampling": {
+      "title": "追蹤取樣",
+      "version": "適用於整個平台，第 {{version}} 版",
+      "ratio": "一般追蹤保留比例",
+      "ratio_hint": "發生錯誤、耗時較長或符合下列規則的追蹤會另行保留；APM 會在取樣前統計所有追蹤",
+      "off": "追蹤儲存功能已關閉",
+      "add": "新增規則",
+      "empty": "沒有規則：依一般追蹤保留比例決定。",
+      "name": "名稱",
+      "service": "服務",
+      "route": "路由",
+      "operation": "操作",
+      "minimum": "耗時下限 ms",
+      "errors_only": "僅限錯誤",
+      "action": "動作",
+      "rule_ratio": "保留比例 %",
+      "actions": {
+        "keep": "保留",
+        "drop": "捨棄",
+        "ratio": "依比例保留"
+      },
+      "issue": "規則必須有名稱，耗時下限須為整數（毫秒），保留比例須介於 0% 和 100% 之間。",
+      "published": "已發布第 {{version}} 版取樣策略"
+    },
+    "quality": {
+      "title": "資料收集品質",
+      "hint": "過去一天",
+      "clean": "過去一天沒有需要處理的問題。",
+      "tone": {
+        "warning": "需處理",
+        "suggestion": "建議"
+      },
+      "overflow": "以下維度超出基數上限，超出的部分已計入「其他」：{{kinds}}。",
+      "kinds": {
+        "service": "服務",
+        "transaction": "端點",
+        "dependency": "相依性",
+        "error": "錯誤群組",
+        "instance": "執行個體",
+        "version": "版本"
+      },
+      "and": "、",
+      "raise_limits": "調整基數上限",
+      "limits_by_platform": "由平台管理員設定",
+      "gaps_one": "APM 漏讀了 {{count}} 段 Span。",
+      "gaps_other": "APM 漏讀了 {{count}} 段 Span。",
+      "stale": "APM 資料延遲：最近一個完整的分鐘是 {{at}}。",
+      "missing_one": "{{formatted}} 個服務未回報",
+      "missing_other": "{{formatted}} 個服務未回報",
+      "instrument": "前往設定",
+      "environments": "{{names}} 僅有大小寫不同。",
+      "map_to": "一律視為 {{name}}",
+      "generated": "{{name}} 看起來是 {{base}} 加上自動產生的後綴。",
+      "add_rule": "新增命名規則"
+    }
+  },
+  "instances": {
+    "title": "執行個體",
+    "description": "在目前時間範圍內執行此服務所選版本的處理程序",
+    "empty": "此時間範圍內沒有執行個體回報",
+    "columns": {
+      "instance": "執行個體",
+      "version": "版本",
+      "where": "工作負載 / 主機",
+      "runtime": "執行階段",
+      "last_seen": "最近回報",
+      "throughput": "輸送量",
+      "error_rate": "錯誤率",
+      "p95": "P95",
+      "signals": "日誌 / 指標"
+    },
+    "other": "其他執行個體",
+    "other_hint": "超出上限的執行個體會合併到這一列",
+    "only_charts": "點選後，執行階段圖表只會顯示此執行個體",
+    "all_charts": "點選後，執行階段圖表會顯示所有執行個體"
+  },
+  "apdex": {
+    "threshold_title": "Apdex 閾值 T = {{threshold}}"
+  },
+  "insights": {
+    "title": "洞察",
+    "none": "這段時間沒有值得注意的情況。",
+    "separator": "；",
+    "and": "，",
+    "before": "上一時段 {{value}}",
+    "week_before": "上週同時段 {{value}}",
+    "since": "{{at}}起",
+    "changes_near": "這段時間前後的變更：",
+    "severity": {
+      "critical": "嚴重",
+      "warning": "警告",
+      "info": "建議"
+    },
+    "kind": {
+      "anomaly": "突變",
+      "regression": "版本表現退步",
+      "slow_dependency": "瓶頸",
+      "repeated_call": "N+1",
+      "slow_query": "緩慢的 SQL",
+      "hot_endpoint": "熱點端點"
+    },
+    "metric": {
+      "error_rate": "錯誤率",
+      "p95": "P95",
+      "throughput": "吞吐量"
+    },
+    "sentence": {
+      "anomaly_up": "{{metric}}升到 {{value}}（{{before}}）",
+      "anomaly_down": "{{metric}}降到 {{value}}（{{before}}）",
+      "regression": "{{version}} 的表現不如 {{previous}}：{{metric}}為 {{value}}，先前為 {{before}}",
+      "slow_dependency": "請求有 {{share}} 的時間花在 {{target}} 上",
+      "repeated_call": "每個請求平均呼叫 {{operation}} {{each}} 次（共 {{calls}} 次），疑似有 N+1 問題，可合併為一次呼叫",
+      "slow_query": "{{operation}}：P95 {{p95}}，共 {{calls}} 次",
+      "hot_endpoint": "{{endpoint}} 佔服務總耗時的 {{share}}（P95 {{p95}}）"
+    },
+    "change": {
+      "deployment": "發布",
+      "configuration": "設定變更",
+      "feature_flag": "功能開關",
+      "observed": "（從 Span 觀測到）"
+    },
+    "baseline": {
+      "previous": "與上一時段相比：",
+      "last_week": "與上週同時段相比：",
+      "throughput": "吞吐量",
+      "error_rate": "錯誤率",
+      "points": "{{value}} 個百分點"
+    }
+  },
+  "agent": {
+    "investigate": "調查",
+    "investigate_title": "讓 Mole Agent 調查",
+    "prompt": {
+      "service": "調查 {{service}}（{{environment}}）在 {{from}} 至 {{to}} 的表現：哪些指標有變化、原因是什麼，以及這段時間前後有哪些變更。",
+      "endpoint": "調查 {{service}}（{{environment}}）的端點 {{endpoint}} 在 {{from}} 至 {{to}} 變慢或發生錯誤的原因：時間花在哪裡，這段時間前後有哪些變更。",
+      "error": "調查 {{service}}（{{environment}}）的錯誤 {{error}}（指紋 {{fingerprint}}）：何時開始、影響多少個請求，以及最可能的原因。",
+      "finding": "調查 {{service}}（{{environment}}）在 {{from}} 至 {{to}} 的這項發現：{{finding}}"
+    }
+  }
+}

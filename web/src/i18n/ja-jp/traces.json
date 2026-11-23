@@ -1,0 +1,653 @@
+{
+  "detail": {
+    "title": "トレースの詳細",
+    "back": "トレース",
+    "trace_id": "trace_id",
+    "copy_trace_id": "トレース ID をコピー",
+    "copy_span_id": "スパン ID をコピー",
+    "total_duration": "合計",
+    "share_of_trace": "トレース全体の {{percent}}%",
+    "share_key": "全体に占める割合",
+    "share_key_aria": "バーの色は、トレースの所要時間に占めるスパンの割合を示します：{{low}}% 未満、{{low}}～{{mid}}%、{{mid}}～{{high}}%、{{high}}% 以上。失敗したスパンは赤色で表示されます。",
+    "trace_label": "トレース",
+    "truncated": "一部省略",
+    "search_spans": "サービス、オペレーション、スパン ID で検索...",
+    "expand_all": "展開",
+    "collapse_all": "折りたたむ",
+    "column_span": "サービス / オペレーション",
+    "inspect_span_aria": "スパンの詳細を表示：{{operation}}、{{service}}、{{duration}}",
+    "toggle_children": "子スパンの表示を切り替え",
+    "leaf_span": "子スパンなし",
+    "span_error": "エラー",
+    "span_match": "一致",
+    "close_span": "スパンの詳細を閉じる",
+    "span_id": "スパン ID",
+    "span_start_offset": "開始位置：{{offset}}（{{percent}}%）",
+    "span_events": "イベント",
+    "span_count_one": "スパン {{count}} 件",
+    "span_count_other": "スパン {{count}} 件",
+    "service_count_one": "サービス {{count}} 件",
+    "service_count_other": "サービス {{count}} 件",
+    "error_count_one": "エラー {{count}} 件",
+    "error_count_other": "エラー {{count}} 件",
+    "related_logs": "関連ログ",
+    "service_metrics": "サービスメトリクス",
+    "search_logs": "前後のログを検索",
+    "view_user_session": "ユーザーセッションを表示",
+    "missing_title": "トレース ID がありません",
+    "missing_description": "トレース ID と時間範囲を引き継ぐには、トレース一覧の行から詳細を開いてください。",
+    "not_found_title": "トレースが見つかりません",
+    "not_found_description": "選択した時間範囲に、このトレース ID に対応するスパンがありません。ログとトレースは別々に保存されるため、ログ行にトレース ID があっても、対応するトレースが存在しない場合があります。",
+    "load_error_title": "トレースを読み込めませんでした",
+    "malformed_title": "トレースを表示できません",
+    "malformed_multiple_roots": "このトレースにはルートスパンが{{count}}個あります。ウォーターフォールを表示するには、ルートスパンが1つだけ必要です。",
+    "malformed_no_root": "このトレースにはルートスパンがありません。ウォーターフォールを表示するには、ルートスパンが1つだけ必要です。",
+    "malformed_empty": "このトレースにはスパンがありません。"
+  },
+  "session": {
+    "title": "セッションのトレース",
+    "session_id": "session_id",
+    "empty_title": "このセッションにトレースはありません",
+    "empty_description": "過去7日間に、このセッションIDに一致するトレースはありません。",
+    "result_count_one": "トレース{{count}}件",
+    "result_count_other": "トレース{{count}}件",
+    "columns": {
+      "trace_id": "trace_id",
+      "service": "サービス",
+      "operation": "操作",
+      "duration_ms": "duration_ms"
+    }
+  },
+  "explore": {
+    "title": "トレース",
+    "subtitle": "エクスプローラー",
+    "toolbar": {
+      "refresh": "更新"
+    },
+    "tabs": {
+      "spans": "スパン",
+      "traces": "トレース",
+      "red": "REDドリルダウン",
+      "service_graph": "サービスグラフ"
+    },
+    "service_graph": {
+      "title": "サービスグラフ",
+      "search_placeholder": "サービスを検索",
+      "search_aria": "グラフ内のサービスを検索",
+      "clear_search": "サービス検索をクリア",
+      "layout_aria": "サービスグラフのレイアウト",
+      "tree_view": "ツリービュー",
+      "graph_view": "グラフビュー",
+      "direction_aria": "サービスグラフの向き",
+      "horizontal": "横方向",
+      "vertical": "縦方向",
+      "loading": "サービスグラフを読み込み中…",
+      "health_legend": "サービスの稼働状態の凡例",
+      "border_color": "枠線の色",
+      "health": {
+        "healthy": "正常 <1%",
+        "degraded": "劣化 1–5%",
+        "warning": "警告 5–10%",
+        "critical": "重大 >10%"
+      },
+      "entity_count": "サービス{{count}}件",
+      "match_count": "サービス{{visible}} / {{total}}件",
+      "show_types": "タイプ別アイコン",
+      "hide_types": "タイプアイコンを非表示",
+      "no_match": "「{{query}}」に一致するサービスはありません。",
+      "empty": "過去1時間のサービスグラフデータはありません。"
+    },
+    "query": {
+      "editor_label": "クエリエディター",
+      "sql_hint": "トレースストリームに対してSQLを実行します。",
+      "field_hint_full": "trace_id = \"...\" / service_name contains \"checkout\" のようなフィールド条件を使用できます。",
+      "clear": "クリア",
+      "clear_query": "クエリをクリア",
+      "run": "クエリを実行",
+      "running": "クエリを実行中…",
+      "free_text_label": "フリーテキスト:",
+      "ignored_label": "無視:",
+      "empty_summary": "トレース",
+      "collapse_editor": "クエリを折りたたむ",
+      "expand_editor": "クエリを展開"
+    },
+    "histogram": {
+      "label": "ヒストグラム",
+      "ok": "エラーなし",
+      "errors": "エラー",
+      "hide": "ヒストグラムを非表示",
+      "show": "ヒストグラムを表示",
+      "latency_label": "トレースの所要時間",
+      "span_label": "スパン数の推移",
+      "span_ok": "スパン",
+      "span_errors": "失敗したスパン"
+    },
+    "results": {
+      "no_match": "選択したクエリに一致するトレースはありません。",
+      "loaded_count_one": "{{count}}件のトレースを読み込みました。",
+      "loaded_count_other": "{{count}}件のトレースを読み込みました。",
+      "close_detail": "トレースの詳細を閉じる"
+    },
+    "recovery": {
+      "query_failed": "トレースクエリの実行に失敗しました。",
+      "no_data_title": "一致するトレースなし",
+      "no_data_description": "この時間範囲には関連するトレースが見つかりませんでした。ストリームを切り替える前に、クエリをクリアするか、時間範囲を広げてください。",
+      "expand_time": "時間範囲を4倍に拡大",
+      "clear_filters": "クエリをクリアして再試行",
+      "query_docs": "トレースクエリのドキュメント"
+    },
+    "pagination": {
+      "aria": "トレース結果のページ切り替え",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "1ページあたりのトレース数",
+      "previous": "前へ",
+      "next": "次へ",
+      "first_aria": "トレース結果の最初のページ",
+      "previous_aria": "前のページ",
+      "next_aria": "次のページ",
+      "last_aria": "トレース一覧の最終ページ"
+    },
+    "table": {
+      "columns": {
+        "status": "ステータス",
+        "http": "HTTP",
+        "start": "開始時刻",
+        "service": "サービス",
+        "operation": "オペレーション",
+        "duration": "所要時間",
+        "spans": "スパン",
+        "errors": "エラー",
+        "trace": "トレース ID",
+        "kind": "種別"
+      },
+      "sort_by": "{{column}}で並べ替え",
+      "sorted_descending": "{{column}}の降順（値が大きい順または時刻が新しい順）で表示しています。クリックすると順序が反転します。",
+      "sorted_ascending": "{{column}}の昇順（値が小さい順または時刻が古い順）で表示しています。クリックすると順序が反転します。",
+      "open_aria": "トレースを開く: {{operation}}、{{service}}、{{duration}}",
+      "open_span_aria": "スパンを開く: {{operation}}、{{service}}、{{duration}}",
+      "status_ok": "OK",
+      "status_error": "エラー"
+    },
+    "columns": {
+      "title": "列",
+      "visible": "表示中の列",
+      "reorder_hint": "ドラッグして並べ替え",
+      "drag_aria": "{{name}}の位置を変更するには、ドラッグするか、Alt+Up または Alt+Down を押します。",
+      "reset": "デフォルトに戻す",
+      "available": "追加可能な列",
+      "root_fields": "ルートスパンのフィールド",
+      "full": "表示できる列は最大{{count}}列です。先に列を1つ削除してください。"
+    },
+    "labels": {
+      "title": "フィールド",
+      "collapse": "フィールドを折りたたむ",
+      "expand": "フィールドを展開",
+      "resize": "ドラッグしてフィールド領域のサイズを変更し、ダブルクリックして元に戻します。",
+      "filter_placeholder": "フィールドを検索",
+      "filter_aria": "トレースのフィールドを絞り込む",
+      "common_fields": "共通フィールド",
+      "displayed_fields": "表示中のフィールド",
+      "indexed_fields": "インデックス付きフィールド",
+      "no_indexed_fields": "このストリームにはインデックス付きフィールドがありません。",
+      "other_fields": "その他のフィールド",
+      "show_field_aria": "各トレースのルートスパンの{{name}}を列として表示",
+      "hide_field_aria": "{{name}} 列を削除",
+      "add_field_aria": "クエリに {{name}} を追加",
+      "json_query_required": "SQL モードで {{name}} をクエリするには、JSON パスを使用する必要があります",
+      "direct_query_unavailable": "{{name}} は直接クエリできません",
+      "fields_summary": "{{shown}} / {{total}} フィールド",
+      "values_count_one": "{{count}} 件の値",
+      "values_count_other": "{{count}} 件の値",
+      "values_top": "全 {{count}} 件の値のうち上位 {{shown}} 件",
+      "values_in_traces_one": "トレース {{count}} 件中 {{matched}} 件に出現",
+      "values_in_traces_other": "トレース {{count}} 件中 {{matched}} 件に出現",
+      "analysis_scope_spans_one": "読み込み済みのトレース {{count}} 件に含まれる全スパンが対象",
+      "analysis_scope_spans_other": "読み込み済みのトレース {{count}} 件に含まれる全スパンが対象",
+      "analysis_scope_traces_one": "読み込み済みのトレース {{count}} 件が対象",
+      "analysis_scope_traces_other": "読み込み済みのトレース {{count}} 件が対象",
+      "values_loading": "{{name}} の値を読み込み中",
+      "values_failed": "値を読み込めませんでした。",
+      "no_values": "読み込み済みのトレースには、このフィールドの値がありません。",
+      "no_traces": "読み込み済みのトレースはありません。",
+      "value_trace_count_one": "トレース {{count}} 件",
+      "value_trace_count_other": "トレース {{count}} 件",
+      "value_span_count_one": "スパン {{count}} 件",
+      "value_span_count_other": "スパン {{count}} 件",
+      "filter_for": "この値で絞り込み",
+      "filter_out": "この値を除外",
+      "filter_at_least": "この値以上",
+      "filter_at_most": "この値以下",
+      "filter_remove": "このフィルターを削除",
+      "filter_for_aria": "{{name}} = {{value}} で絞り込み",
+      "filter_out_aria": "{{name}} = {{value}} を除外",
+      "filter_at_least_aria": "{{name}} が {{value}} 以上のものに絞り込み",
+      "filter_at_most_aria": "{{name}} が {{value}} 以下のものに絞り込み",
+      "range_min": "最小値",
+      "range_avg": "平均値",
+      "range_max": "最大値",
+      "range_earliest": "最も早い時刻",
+      "range_latest": "最も遅い時刻"
+    },
+    "red": {
+      "select_range": "チャート上でドラッグして時間範囲を絞り込めます",
+      "lead_hint": "この指標で下の内訳を並べ替え",
+      "ok": "成功",
+      "rate": {
+        "title": "リクエストレート",
+        "aria": "リクエストレートの推移",
+        "detail": "合計 {{requests}} 件"
+      },
+      "errors": {
+        "title": "エラー",
+        "rate": "エラー率",
+        "aria": "エラー率の推移",
+        "detail": "失敗 {{errors}} 件",
+        "untold": "このストリームには、失敗を判定するためのステータスが記録されていません。",
+        "only": "失敗したリクエストのみ"
+      },
+      "duration": {
+        "title": "所要時間",
+        "aria": "所要時間のパーセンタイルの推移",
+        "view_label": "所要時間の表示形式",
+        "trend": "推移",
+        "distribution": "分布",
+        "distribution_name": "所要時間の分布",
+        "distribution_aria": "{{name}}：最も高い棒には {{max}} 件のリクエストが含まれます。矢印キーで棒の間を移動し、Enter キーでその棒が示す所要時間の範囲に該当するリクエストに絞り込めます。ドラッグすると複数の棒を選択できます。",
+        "bar_readout": "{{range}}：リクエスト {{total}} 件（うち失敗 {{errors}} 件）",
+        "percentiles_aria": "p95 {{p95}}、p99 {{p99}}"
+      },
+      "scope": {
+        "label": "集計対象のリクエスト",
+        "entry": "エントリースパン",
+        "all": "すべてのスパン",
+        "hint": "エントリースパンは、サービスがリクエストを受け付ける箇所を示します。サーバースパンとコンシューマースパンのほか、各トレースのルートスパンも対象ですが、ルートスパン自体がクライアントまたはプロデューサーの呼び出しを表す場合は除きます。各エントリースパンをリクエスト 1 件として集計します。"
+      },
+      "path": {
+        "label": "ドリルダウンパス",
+        "root": "すべて",
+        "back_to": "{{step}} に戻る",
+        "remove": "{{step}} を削除"
+      },
+      "breakdown": {
+        "by": "<field></field> 別の内訳",
+        "dimension": "内訳に使用するフィールド",
+        "no_dimension": "フィールドを選択",
+        "search": "フィールドを検索",
+        "no_match": "一致するフィールドがありません。",
+        "common": "よく使うフィールド",
+        "other": "その他のフィールド",
+        "values": "{{count}} 個の値",
+        "values_more": "上位 {{count}} 個の値",
+        "value": "値",
+        "requests": "リクエスト",
+        "error_rate": "エラー率",
+        "p95": "p95",
+        "trend": "推移",
+        "actions": "アクション",
+        "no_value": "（値なし）",
+        "drill": "{{clause}}を掘り下げる",
+        "open_spans": "これらのリクエストのトレースを表示",
+        "loading": "内訳を集計中…",
+        "empty": "内訳の集計に使える値がありません",
+        "failed": "内訳を読み込めませんでした"
+      },
+      "states": {
+        "sql_title": "SQL ステートメントでは RED 指標を表示できません",
+        "sql_description": "RED は、フィールドクエリに一致するリクエストを集計します。SQL ステートメントをクリアするか、フィールドクエリに書き換えてください。",
+        "sql_action": "SQL ステートメントをクリア",
+        "empty_entry_title": "条件に一致するエントリースパンがありません",
+        "empty_entry_description": "内部スパンまたは下流のスパンだけが条件に一致している可能性があります。代わりに、すべてのスパンを集計してください。",
+        "empty_entry_action": "すべてのスパンを集計",
+        "empty_title": "条件に一致するスパンがありません",
+        "empty_description": "この時間範囲には、条件に一致するスパンがありません。時間範囲を広げてください。",
+        "empty_action": "時間範囲を広げる",
+        "failed_title": "RED 指標を読み込めませんでした",
+        "unavailable_title": "RED 指標を利用できません",
+        "retry": "再試行",
+        "unavailable": {
+          "time_budget": "集計がタイムアウトしました。時間範囲を狭めるか、条件を追加してから再試行してください。",
+          "busy": "実行中のクエリが多すぎます。しばらくしてから再試行してください。",
+          "scan_limit": "指定した時間範囲のスパン数が、1 回のクエリで読み取れる上限を超えています。時間範囲を狭めるか、条件を追加してください。",
+          "timestamp_masked": "現在の権限ではタイムスタンプがマスクされているため、時系列で表示できません。",
+          "field_protected": "現在の権限ではこのフィールドがマスクされているため、リクエストの内訳を集計できません。"
+        }
+      }
+    },
+    "spans": {
+      "loaded_count_one": "{{count}} 件のスパンを読み込みました",
+      "loaded_count_other": "{{count}} 件のスパンを読み込みました"
+    },
+    "compare": {
+      "start": "比較するトレースを 2 件選択",
+      "stop": "トレースの選択を終了",
+      "bar": "比較対象のトレース",
+      "hint": "比較するトレースを 2 件選択してください。",
+      "ready": "A を基準に B を比較：",
+      "unpick": "{{operation}}の選択を解除",
+      "compare": "比較",
+      "cancel": "キャンセル",
+      "pick_aria": "トレース（{{operation}}、{{service}}、{{duration}}）を比較対象に選択"
+    }
+  },
+  "attributes": {
+    "view": "属性ビュー",
+    "list": "テーブル",
+    "json": "未加工の JSON",
+    "search": "タグを検索",
+    "copy_failed": "クリップボードにコピーできませんでした",
+    "no_matches": "一致するタグがありません。",
+    "copy_value_for": "{{key}} の値をコピー",
+    "copied": "コピーしました",
+    "actions": "{{key}} の操作",
+    "copy_key": "キーをコピー",
+    "copy_value": "値をコピー",
+    "copy_pair": "key=value をコピー",
+    "include": "クエリに追加",
+    "exclude": "この値を除外",
+    "fields_only": "このフィルターを追加するには、フィールドモードに切り替えてください。",
+    "scalar_only": "フィルタリングには、空でないスカラー値とサポート対象のフィールド名が必要です。"
+  },
+  "view": {
+    "views": {
+      "label": "トレースビュー",
+      "waterfall": "ウォーターフォール",
+      "flame": "フレームグラフ",
+      "spans": "スパン一覧",
+      "map": "サービスマップ"
+    },
+    "summary": {
+      "duration": "所要時間",
+      "start": "開始時刻",
+      "size": "サイズ",
+      "trace_id": "トレース ID",
+      "errors_one": "エラー {{count}} 件",
+      "errors_other": "エラー {{count}} 件",
+      "spans_one": "スパン {{count}} 件",
+      "spans_other": "スパン {{count}} 件",
+      "services_one": "サービス {{count}} 件",
+      "services_other": "サービス {{count}} 件",
+      "depth": "深さ {{depth}}",
+      "orphans_one": "親スパンのないスパン {{count}} 件",
+      "orphans_other": "親スパンのないスパン {{count}} 件",
+      "orphans_hint": "親スパンを受信していないため、それぞれをルートスパンとして表示しています。",
+      "links_one": "他のスパンへのリンク {{count}} 件",
+      "links_other": "他のスパンへのリンク {{count}} 件",
+      "jumps": "関連シグナル",
+      "jump": {
+        "logs": "関連ログ",
+        "metrics": "サービスメトリクス",
+        "profiles": "プロファイル",
+        "session": "ユーザーセッション"
+      }
+    },
+    "toolbar": {
+      "search": "スパンを検索",
+      "search_placeholder": "スパンを検索（例: service:api, duration>100ms）",
+      "no_match": "一致なし",
+      "previous_match": "前の一致項目 (Shift+Enter)",
+      "next_match": "次の一致 (Enter)",
+      "errors_only_one": "失敗したスパンのみ ({{count}})",
+      "errors_only_other": "失敗したスパンのみ ({{count}})",
+      "expand_all": "すべて展開",
+      "collapse_all": "すべて折りたたむ",
+      "focused": "{{operation}} にフォーカス中",
+      "unfocus": "トレース全体を表示",
+      "zoomed": "{{from}} – {{to}} の範囲を拡大表示中",
+      "unzoom": "時間軸全体を表示",
+      "open_panel": "スパンの詳細を表示",
+      "critical_path": "クリティカルパス"
+    },
+    "legend": {
+      "aria": "トレース内のサービス",
+      "item": "{{service}}: トレース全体の自己時間の {{percent}}%",
+      "more_one": "ほか {{count}} 件",
+      "more_other": "ほか {{count}} 件",
+      "critical": "クリティカルパス {{duration}}",
+      "critical_aria": "クリティカルパス上のサービス",
+      "critical_item": "{{service}}: クリティカルパスの {{percent}}%（{{duration}}）"
+    },
+    "overview": {
+      "aria": "トレース全体",
+      "hint": "時間軸をドラッグして選択範囲を拡大し、ダブルクリックで全体を表示します"
+    },
+    "waterfall": {
+      "column": "スパン",
+      "resize_names": "スパン名の列幅を変更"
+    },
+    "row": {
+      "select_aria": "スパンを選択: {{operation}}、{{service}}、{{duration}}",
+      "expand": "呼び出したスパンを表示",
+      "collapse": "呼び出したスパンを非表示",
+      "descendants_one": "配下のスパン: {{count}} 件",
+      "descendants_other": "配下のスパン: {{count}} 件",
+      "failed": "失敗",
+      "links_one": "他のスパンへのリンク: {{count}} 件",
+      "links_other": "他のスパンへのリンク: {{count}} 件",
+      "critical": "クリティカルパス上",
+      "profiled": "プロファイルのサンプルに保持されたスパン"
+    },
+    "groups": {
+      "name": "サービス / オペレーション",
+      "spans": "スパン",
+      "errors": "エラー",
+      "average": "平均",
+      "total": "合計",
+      "self": "自己時間",
+      "share": "自己時間の割合",
+      "fold": "{{service}} のオペレーションを非表示",
+      "unfold": "{{service}}のオペレーションを表示"
+    },
+    "map": {
+      "entry": "エントリ",
+      "calls_one": "{{count}}件の呼び出し",
+      "calls_other": "{{count}}件の呼び出し",
+      "errors_one": "{{count}}件失敗",
+      "errors_other": "{{count}}件失敗",
+      "spans_one": "{{count}}件のスパン",
+      "spans_other": "{{count}}件のスパン",
+      "share": "自己実行時間 {{percent}}%"
+    },
+    "panel": {
+      "aria": "スパンの詳細",
+      "tabs": "スパン詳細のセクション",
+      "focus": "このスパンと呼び出し先のみを表示",
+      "close": "スパンの詳細を非表示",
+      "resize": "スパン詳細パネルのサイズを変更",
+      "duration": "所要時間",
+      "self": "自己実行時間",
+      "offset": "開始時刻",
+      "share": "トレース全体の{{percent}}%",
+      "span_id": "スパンID",
+      "parent": "親スパン"
+    },
+    "kind": {
+      "unspecified": "未指定",
+      "internal": "内部",
+      "server": "サーバー",
+      "client": "クライアント",
+      "producer": "プロデューサー",
+      "consumer": "コンシューマー"
+    },
+    "status": {
+      "ok": "OK",
+      "error": "エラー",
+      "unset": "未設定"
+    },
+    "tabs": {
+      "attributes": "属性",
+      "resource": "リソース",
+      "events": "イベント",
+      "links": "リンク",
+      "logs": "ログ",
+      "metrics": "メトリクス",
+      "profile": "プロファイル"
+    },
+    "tags": {
+      "empty": "このスパン自体には属性がありません。",
+      "empty_resource": "このスパンのリソースには属性がありません。",
+      "groups": {
+        "http": "HTTP",
+        "database": "データベース",
+        "rpc": "RPC",
+        "messaging": "メッセージング",
+        "error": "エラー",
+        "code": "コード",
+        "service": "サービス",
+        "deployment": "デプロイメント",
+        "host": "ホスト",
+        "process": "プロセス",
+        "container": "コンテナとクラウド",
+        "telemetry": "テレメトリ SDK",
+        "other": "その他"
+      }
+    },
+    "metadata": {
+      "title": "記録",
+      "scope": "インストルメンテーション",
+      "trace_state": "トレース状態",
+      "trace_flags": "トレースフラグ",
+      "sampling": "保持理由",
+      "dropped_attributes": "破棄された属性",
+      "dropped_events": "破棄されたイベント",
+      "dropped_links": "破棄されたリンク",
+      "notes": "注記",
+      "flags": {
+        "partial": "一部のみ",
+        "late": "到着遅延",
+        "duplicate": "重複受信",
+        "conflict": "コピー間の不一致"
+      }
+    },
+    "events": {
+      "empty": "このスパンにはイベントが記録されていません。"
+    },
+    "links": {
+      "outgoing": "このスパンからのリンク",
+      "incoming": "このスパンへのリンク元スパン",
+      "none_outgoing": "このスパンにはリンクが記録されていません。",
+      "none_incoming": "このトレースの時刻から前後1時間以内に、このスパンにリンクする別のトレースのスパンはありません。",
+      "searching": "このスパンにリンクするスパンを検索中…",
+      "failed": "このスパンにリンクするスパンを読み込めませんでした。",
+      "more": "表示されているほかにも、このスパンにリンクするスパンがあります。",
+      "trace": "トレース",
+      "this_trace": "このトレース",
+      "span": "スパン",
+      "unavailable": {
+        "time_budget": "検索がタイムアウトしました。しばらくしてからトレースを開き直してください。",
+        "busy": "実行中のクエリが多すぎます。しばらくしてから再試行してください。",
+        "scan_limit": "トレースの時刻を中心とした1時間のスパン数が、1回のクエリで読み込める上限を超えています。"
+      }
+    },
+    "logs": {
+      "scope": "ログの対象",
+      "span": "このスパン",
+      "trace": "トレース全体",
+      "open": "ログで開く",
+      "loading": "ログを読み込み中…",
+      "no_stream": "トレース ID を保持するログストリームがありません。",
+      "failed": "ログを読み込めませんでした。",
+      "none_span": "このスパンに対応するログ行がありません。",
+      "none_trace": "このトレースに対応するログ行がありません。"
+    },
+    "metrics": {
+      "window": "スパンの前後 15 分間を 1 分ごとに表示します。",
+      "service": "サービス",
+      "operation": "オペレーション",
+      "requests": "リクエスト数",
+      "errors": "エラー数",
+      "p95": "p95 所要時間",
+      "open_red": "RED で開く",
+      "loading": "読み込み中…",
+      "failed": "メトリクスを読み込めませんでした。"
+    },
+    "drawer": {
+      "back": "直前に表示したトレースに戻る",
+      "previous": "リストの前の項目 (K)",
+      "next": "リストの次の項目 (J)",
+      "open_page": "トレースの詳細ページを開く",
+      "resize": "トレースドロワーのサイズを変更"
+    },
+    "export": {
+      "label": "トレースをダウンロード",
+      "json": "JSON",
+      "json_hint": "トレース API が返す形式のスパン",
+      "otlp": "OTLP JSON",
+      "otlp_hint": "コレクターが受け取る形式の resourceSpans"
+    },
+    "profile": {
+      "loading": "プロファイルを検索中…",
+      "none": "このスパンに紐づくプロファイルサンプルがありません。",
+      "none_hint": "OTLP プロファイルのように、プロファイラーがサンプルをトレースコンテキストとともに記録すると、サンプルは取得時のスパンに紐づきます。",
+      "around": "このスパンの前後のプロファイル",
+      "linked_one": "{{count}} 件のプロファイルがこのスパンに紐づいています。",
+      "linked_other": "{{count}} 件のプロファイルがこのスパンに紐づいています。",
+      "samples_one": "{{samples}} 件のサンプル",
+      "samples_other": "{{samples}} 件のサンプル",
+      "types": "プロファイルの種類",
+      "top": "上位の関数",
+      "top_of": "{{type}} の上位（関数自身の値のみ）",
+      "failed": "フレームグラフを読み込めませんでした。",
+      "empty": "サンプルにスタックフレームが含まれていません。",
+      "open_flame": "フレームグラフを開く",
+      "open_page": "プロファイルで開く",
+      "dialog_title": "{{operation}} のプロファイル",
+      "dialog_description_one": "{{service}} · {{type}} · {{count}} 件のプロファイルを統合",
+      "dialog_description_other": "{{service}} · {{type}} · {{count}} 件のプロファイルを統合"
+    }
+  },
+  "compare": {
+    "page_title": "トレース比較",
+    "side": "トレース {{side}}",
+    "open": "開く",
+    "loading": "読み込み中…",
+    "swap": "A と B を入れ替え",
+    "stop": "比較を終了",
+    "duration": {
+      "same": "どちらも {{duration}} かかりました。",
+      "longer": "B は A より時間がかかりました：",
+      "shorter": "B は A より短時間で完了しました："
+    },
+    "change": {
+      "none": "差なし",
+      "new": "新規",
+      "gone": "B になし"
+    },
+    "tabs": {
+      "label": "比較",
+      "services": "サービス別",
+      "operations": "オペレーション別",
+      "calls": "片方のトレースのみ"
+    },
+    "columns": {
+      "service": "サービス",
+      "operation": "サービス / オペレーション",
+      "spans_a": "A のスパン数",
+      "spans_b": "B のスパン数",
+      "time_a": "A の時間",
+      "time_b": "B の時間",
+      "time_hint": "自己時間：各スパンが自身の処理に費やした時間です。呼び出し先のスパンの完了待ち時間は含みません。",
+      "change": "A に対する B の変化"
+    },
+    "more_one": "ほか {{count}} 行は表示されていません",
+    "more_other": "ほか {{count}} 行は表示されていません",
+    "calls": {
+      "only_a": "A のみ",
+      "only_b": "B のみ",
+      "spans_one": "{{count}} 件のスパン",
+      "spans_other": "{{count}} 件のスパン",
+      "none": "このトレースの呼び出しは、すべてもう一方のトレースにも含まれています。",
+      "same": "両方のトレースで、呼び出しの種類と回数が一致しています。",
+      "under_one": "および呼び出し先のスパン {{count}} 件",
+      "under_other": "および呼び出し先のスパン {{count}} 件"
+    },
+    "unavailable_title": "2 つのトレースを比較できません",
+    "unavailable_description": "一方のトレースが見つかりませんでした。1 日以上前のトレースを開くには、トレース一覧の行など、実行時刻が含まれるリンクを使用してください。",
+    "with": {
+      "label": "別のトレースと比較",
+      "field": "比較対象のトレースID",
+      "placeholder": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "same": "表示中のトレースと同じです。",
+      "submit": "比較"
+    }
+  }
+}

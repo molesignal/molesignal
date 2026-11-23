@@ -1,0 +1,583 @@
+{
+  "title": "ストリーム",
+  "subtitle": "データの受信が続いているか、保存にかかるコスト、クエリや保持期間の設定による影響を確認できます。",
+  "pagination": {
+    "aria": "ストリーム一覧のページ切り替え",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "1ページあたりのストリーム数",
+    "first_aria": "最初のページ",
+    "previous_aria": "前のページ",
+    "next_aria": "次のページ",
+    "last_aria": "最後のページ"
+  },
+  "list": {
+    "refresh": "更新",
+    "create": "ストリームを作成",
+    "search_placeholder": "名前または説明で検索…",
+    "status_filter": "稼働ステータスで絞り込み",
+    "result_count": "{{count}} 件のストリーム",
+    "updated_at": "統計の更新：{{time}}",
+    "stats_unavailable": "稼働統計を取得できません",
+    "retention_days": "{{days}} 日",
+    "query": "クエリ",
+    "view_detail": "詳細を表示",
+    "copy_id": "ストリーム ID をコピー",
+    "id_copied": "ストリーム ID をコピーしました",
+    "more_actions": "{{name}} のその他の操作",
+    "kpis": {
+      "healthy": "正常に受信中",
+      "healthy_sub": "全 {{total}} 件のストリーム",
+      "attention": "要確認",
+      "attention_sub": "受信の遅延・中断、または統計を取得できない状態",
+      "compressed_24h": "過去24時間の圧縮後データ量",
+      "rows_24h": "書き込み：{{count}} 行",
+      "compressed_window": "{{window}} の圧縮後データ量",
+      "rows_window": "この期間の書き込み：{{count}} 行",
+      "current_storage": "現在のストレージ使用量",
+      "current_storage_sub": "保存済みデータ"
+    },
+    "status": {
+      "all": "すべてのステータス",
+      "attention": "要確認",
+      "healthy": "正常",
+      "idle": "アイドル",
+      "delayed": "遅延",
+      "interrupted": "中断",
+      "unused": "未使用",
+      "unknown": "統計を取得できません"
+    },
+    "tabs": {
+      "all": "すべて",
+      "logs": "ログ",
+      "metrics": "メトリクス",
+      "traces": "トレース",
+      "profiles": "プロファイル",
+      "extend": "ルックアップテーブル"
+    },
+    "tabs_label": "ストリームの種類",
+    "columns": {
+      "stream": "ストリーム",
+      "type": "種類",
+      "status": "ステータス",
+      "rate": "受信レート",
+      "last_received": "最終受信",
+      "volume_24h": "24h の圧縮後サイズ",
+      "volume_window": "{{window}} の圧縮後サイズ",
+      "storage": "現在のストレージ使用量",
+      "retention": "保持期間",
+      "actions": "操作",
+      "data_count": "レコード数",
+      "collected_size": "収集サイズ",
+      "stored_size": "保存サイズ",
+      "index_size": "インデックスサイズ"
+    },
+    "explore": "探索",
+    "not_queryable": "クエリ不可",
+    "empty_title": "ストリームはまだありません",
+    "empty_description": "最初のストリームを登録するには、ストリームを作成するか、データソース経由でイベントを送信します。",
+    "storage_notes": {
+      "data_count": "永続化され、現在保持されているレコードの数です。ヘルス判定の対象期間には依存しません。",
+      "collected_size": "受け付けたイベントの変換前の正規化 JSON の累計バイト数です。フラッシュ後に更新され、転送時のフレーミングは含みません。≥ は過去の集計が不完全であることを、— は未計測であることを示します。",
+      "stored_size": "アクティブなプライマリデータファイルのディスク上のバイト数です。インデックスは含みません。",
+      "index_size": "アクティブなセグメントで使用可能なインデックスファイルのディスク上のバイト数です。"
+    },
+    "no_match_title": "条件に一致するストリームはありません",
+    "no_match_description": "別の名前、種類、またはステータスでお試しください。"
+  },
+  "drawer": {
+    "title": "ストリームの作成",
+    "subtitle": "データソースのエントリを作成してから、送信元を設定します。",
+    "identity": "基本情報",
+    "stream_name": "ストリーム名",
+    "stream_name_hint": "snake_case · 64 文字以下",
+    "stream_name_placeholder": "my-app-logs",
+    "description": "説明（任意）",
+    "description_placeholder": "このストリームにはどのようなデータが流れますか？",
+    "signal_type": "シグナルの種類",
+    "signal_type_description": "ストレージの動作とクエリ言語を指定します。",
+    "types": {
+      "logs": {
+        "label": "ログ",
+        "hint": "SQL クエリ、全文検索インデックス、列指向の Parquet ストレージ"
+      },
+      "metrics": {
+        "label": "メトリクス",
+        "hint": "PromQL 互換の TSDB ストレージ"
+      },
+      "traces": {
+        "label": "トレース",
+        "hint": "OTLP スパン、フレームグラフ、サービスマップ"
+      }
+    },
+    "storage": "ストレージ",
+    "retention": "保持期間（日）",
+    "retention_hint": "保持期間が経過すると、オブジェクトストレージにアーカイブします。",
+    "shards": "シャード",
+    "shards_hint": "データソースから並列に書き込むためのシャード数です。書き込みノード数以上に設定してください。",
+    "indexed_fields": "インデックス対象フィールド",
+    "indexed_fields_hint": "完全一致検索と前方一致検索を高速化するフィールドを、カンマ区切りで指定します。",
+    "encrypted_fields": "暗号化対象フィールド",
+    "encrypted_fields_hint": "保存時に暗号化するフィールドをカンマ区切りで指定します。読み出すには decrypt(field) を使います。暗号化の有効・無効は後から切り替えられません。",
+    "queryable": "クエリを許可",
+    "queryable_hint": "オフにしても、このストリームはデータの受け入れと保持を続けますが、クエリの選択肢には表示されず、検索の対象にもできません。ルーティングパイプラインへの入力専用ストリームに使用してください。この設定は後から変更できます。"
+  },
+  "toast": {
+    "create_pending": "ストリーム {{name}} は、データソースからの初回書き込み時に登録されます。作成用の /streams エンドポイントはまだありません。"
+  },
+  "detail": {
+    "back": "ストリーム",
+    "fallback_title": "ストリーム",
+    "subtitle": "ストリームの詳細",
+    "query_logs": "ログでクエリ",
+    "not_found_title": "ストリームが見つかりません",
+    "not_found_description": "データソースがまだストリームを登録していない可能性があります。",
+    "fields": {
+      "id": "id",
+      "label": "label",
+      "subtitle": "subtitle"
+    }
+  },
+  "explore": {
+    "subtitle": "稼働状態、クエリ効率、ストレージ、保持期間",
+    "system_stream_immutable": "システムストリームで設定できるのは、フィールドのインデックス化、マスキング、保持期間、ダウンサンプリングのみです。識別情報、暗号化、削除はシステムが管理します。",
+    "toolbar": {
+      "refresh": "更新",
+      "query_data": "データをクエリ",
+      "more": "その他の操作",
+      "copy_id": "ストリーム ID をコピー",
+      "id_copied": "ストリーム ID をコピーしました",
+      "delete": "ストリームを削除",
+      "discard": "変更を破棄",
+      "save": "保存して適用",
+      "saving": "適用中…"
+    },
+    "metadata": {
+      "type": "タイプ",
+      "status": "稼働ステータス",
+      "last_received": "最終受信日時",
+      "retention": "デフォルトの保持期間",
+      "active_type": "現在のタイプ: {{type}}",
+      "switch_type": "{{type}} ストリームに切り替え",
+      "switch_blocked": "タイプを切り替える前に、現在のタイプへの変更を保存または破棄してください。"
+    },
+    "tabs": {
+      "overview": "概要",
+      "schema": "フィールドとインデックス",
+      "retention": "保持期間",
+      "usage": "使用状況",
+      "settings": "設定"
+    },
+    "tabs_label": "ストリームのセクション",
+    "index_options": {
+      "none": "インデックスなし",
+      "full_text": "全文検索",
+      "exact": "完全一致",
+      "bloom": "ブルームフィルター",
+      "skip": "スキップインデックス",
+      "ngram": "N-gram 部分文字列",
+      "ip": "IP アドレス",
+      "key_value": "JSON キー",
+      "range": "数値範囲"
+    },
+    "kpis": {
+      "events_24h": "過去24時間の書き込み行数",
+      "receive_rate": "平均受信レート",
+      "compressed_24h": "過去24時間の圧縮後データ量",
+      "current_storage": "現在のストレージ使用量",
+      "index_coverage": "インデックス付きフィールドの割合",
+      "from_catalog": "現在のストレージメタデータに基づく値",
+      "average_24h": "過去24時間のデータに基づく値",
+      "compressed_note": "圧縮済みの Parquet データ",
+      "live_parquet": "削除されていない有効なファイル",
+      "index_coverage_note": "インデックスのバイト数ではなく、フィールド数に基づく値",
+      "index_backfill": "過去のデータのインデックスを再作成中です（残り {{count}} ファイル）"
+    },
+    "overview": {
+      "stats_unavailable": "稼働統計を取得できません。設定は引き続き編集できます。ストレージメタデータを再確認するには、ページを更新してください。",
+      "no_data_title": "データをまだ受信していません",
+      "no_data_description": "「{{stream}}」にデータソースからデータを送信するか、テストイベントを送信して取り込み経路を確認してください。",
+      "configure_source": "データソースの設定",
+      "send_test": "テストデータを送信",
+      "sending_test": "送信中…",
+      "test_sent": "テストデータを送信しました（受理: {{accepted}} 件、拒否: {{rejected}} 件）",
+      "operational_state": "稼働状態",
+      "first_received": "初回受信時刻",
+      "queryability": "クエリ可否",
+      "queryable": "クエリ可能",
+      "not_queryable": "受信のみ",
+      "trend_title": "受信とストレージの推移",
+      "trend_subtitle": "過去24時間 · 実際のParquetファイル",
+      "metric_rows": "書き込み行数",
+      "metric_storage": "圧縮後のデータ量",
+      "no_chart_data": "この期間にグラフに表示できるデータはありません",
+      "now": "現在"
+    },
+    "schema": {
+      "summary": "{{fields}}フィールド · インデックス済み {{indexed}} · 暗号化済み {{encrypted}}",
+      "readonly_hint": "デフォルトでは読み取り専用です。インデックスとマスキングの設定を変更するには、編集操作を使用します。",
+      "search_placeholder": "フィールドを検索",
+      "fts_title": "全文検索はフィールドごとに設定します",
+      "fts_description": "messageやbodyなどのフィールドで全文インデックスを有効にすると、MATCHクエリが高速になります。既存データのインデックスは自動で再作成されません。",
+      "configure_index": "フィールドのインデックスを設定",
+      "storage_type": "ストレージ型: {{type}}",
+      "field_types": {
+        "boolean": "真偽値",
+        "integer": "整数",
+        "decimal": "10進数",
+        "string": "文字列",
+        "timestamp": "タイムスタンプ",
+        "json": "JSON"
+      },
+      "columns": {
+        "name": "フィールド名",
+        "type": "型",
+        "index_type": "インデックスタイプ",
+        "encryption": "暗号化"
+      },
+      "index_type_hint": "完全一致はIDや値の種類が少ないディメンションに、全文はログのテキストに、N-gramはURLやパスの部分検索に適しています。IPはネットワーク単位でアドレスを検索する場合に、JSONキーはJSONフィールド内のキーを指定して絞り込む場合に適しています。",
+      "encrypted": "暗号化済み",
+      "encrypted_hint": "このフィールドは保存前に暗号化されます。ここで暗号化の設定を切り替えると、既存データを読み取れなくなります。",
+      "edit_field": "フィールド {{name}} を編集",
+      "drawer_title": "フィールドを編集 · {{name}}",
+      "drawer_fallback": "フィールドを編集",
+      "drawer_subtitle": "フィールドの型を変更せずに、クエリ用のインデックスと結果のマスキングを設定します。",
+      "cancel": "キャンセル",
+      "apply": "下書きに適用",
+      "no_schema": "このストリームにはまだスキーマがありません。データソースから初めてデータが書き込まれると、フィールドが表示されます。",
+      "no_match": "一致するフィールドはありません。",
+      "masking": {
+        "title": "結果フィールドのマスキング",
+        "description": "バックエンドは、最終的なクエリ結果、エクスポート、APIレスポンスにマスキングを適用します。フィルタリング、並べ替え、集計には引き続き元の値を使用します。",
+        "mode": "ストリーム単位のポリシー",
+        "modes": {
+          "inherit": "グローバルルールを継承",
+          "custom": "カスタムストリームルール",
+          "none": "このストリームではマスキングしない"
+        },
+        "no_global_rule": "現在、一致するグローバルルールはありません",
+        "no_global_rule_hint": "継承が選択されていますが、現在このフィールドはマスキングされていません。今後、一致するグローバルルールが追加されると、自動的に適用されます。",
+        "explicit_none_hint": "このストリームでは、このフィールドにグローバルマスキングを適用しません。グローバルルールに従うには、継承を選択してください。",
+        "metrics_disabled": "メトリクスストリームはフィールドマスキングの対象外です。メトリクスの値とラベルは変更されず、インデックス設定は引き続き変更できます。"
+      }
+    },
+    "retention": {
+      "default_policy": "デフォルトの保持期間",
+      "data_retention_days": "データ保持期間（日）",
+      "days_default_hint": "空欄にすると、プラットフォームのデフォルト値である{{days}}日が適用されます。",
+      "days_placeholder": "デフォルト：{{days}}日",
+      "default_explanation": "保持期間を過ぎたデータは、次回のクリーンアップ時に削除されます。保持期間を短縮すると、新しい保持期間を超えたデータも削除されます。",
+      "downsample": "ダウンサンプリング",
+      "downsample_toggle": "古いサンプルをダウンサンプリング",
+      "downsample_hint": "設定した日数を超えたサンプルは、時間バケットごとに集約されます。同じ時系列のサンプルはバケットごとに1つのデータポイントにまとめられ（値は平均、デルタカウントは合計）、元のサンプルは削除されます。長期間を対象とするクエリの読み取り量は大幅に減り、古いデータはバケット単位の粒度でのみ保持されます。",
+      "downsample_after_days": "元のサンプルの保持日数",
+      "downsample_after_days_hint": "この日数を超えたサンプルは集約されます。集約後は元のサンプルを復元できません。",
+      "downsample_interval": "時間バケット",
+      "intervals": {
+        "60": "1分",
+        "300": "5分",
+        "900": "15分",
+        "3600": "1時間",
+        "86400": "1日"
+      }
+    },
+    "usage": {
+      "loading": "使用状況を確認中…",
+      "write_source": "書き込み元",
+      "write_source_hint": "このストリーム名を受け取る取り込みエンドポイント",
+      "intake_endpoint": "取り込みエンドポイント",
+      "pipelines": "パイプライン",
+      "pipelines_hint": "このストリームを入力元または出力先として使用します。",
+      "saved_queries": "保存済みクエリ",
+      "saved_queries_hint": "このストリームに明示的に関連付けられています。",
+      "alert_rules": "アラートルール",
+      "alert_rules_hint": "このストリームのデータを対象に評価します。",
+      "enabled": "有効",
+      "disabled": "無効",
+      "none": "関連項目なし",
+      "partial_unavailable": "一部の依存サービスを利用できないため、結果が不完全な可能性があります。"
+    },
+    "runtime": {
+      "basic": "基本情報",
+      "basic_hint": "このストリームが扱う業務データと、ストリームの用途を記入してください。",
+      "description_label": "説明",
+      "description_placeholder": "このストリームにはどのようなデータが流れますか？",
+      "query_capabilities": "クエリ設定",
+      "query_capabilities_hint": "クエリの実行可否と対象期間を設定します。クエリを無効にしても、データの取り込みは続きます。",
+      "max_query_range": "クエリの最大対象期間（時間）",
+      "max_query_range_hint": "1 回のクエリで指定できる対象期間の上限です。上限を超えるクエリは拒否されます。空欄または 0 の場合は無制限です。",
+      "storage_behavior": "ストレージ設定",
+      "storage_behavior_hint": "データファイルの統合と分割の方法を設定します。",
+      "queryable": "クエリの実行を許可",
+      "queryable_hint": "オフにしても、このストリームはデータの受信と保持を続けますが、クエリの選択肢には表示されず、検索も拒否されます。ルーティングパイプラインにデータを渡すだけのソースストリームに使用します。",
+      "daily_merge": "小さいファイルを日単位で統合",
+      "daily_merge_hint": "各日の終了から 1 時間後、その日のファイルの合計サイズが統合時の目標サイズ以下であれば、1 つのファイルに統合します。これにより、複数日にわたるクエリで開くファイル数が大幅に減ります。保持期間は日単位で適用され、その日全体が保持期間外になると統合ファイルが削除されます。",
+      "partition_field": "フィールドで分割",
+      "partition_field_hint": "新しいデータは、指定したフィールドの値に基づいてシャードに分割されます。これらのフィールドを条件に含むクエリは、条件に一致する可能性があるシャードだけを読み取ります。サービスやテナントなど、ほぼすべてのクエリで指定されるフィールドに適しています。「ハッシュ」はデータを均等に分散し、= と IN の条件を効率化します。「先頭文字」は数字と英字の各文字に 1 つずつシャードを割り当て（英字の大文字と小文字は区別しません）、その他の文字は 1 つのシャードにまとめます。'abc%' のように固定の文字列で始まる LIKE 条件も効率化します。最大 2 フィールドまで指定でき、各フィールドのシャード数の積は 256 以下である必要があります。",
+      "partition_none": "分割なし",
+      "partition_total": "合計 {{count}} シャード",
+      "partition_add": "フィールドを追加",
+      "partition_remove": "このフィールドを削除",
+      "partition_method": "分割方法",
+      "partition_methods": {
+        "hash": "ハッシュ · {{count}} シャード",
+        "prefix": "先頭文字 · {{count}} シャード"
+      },
+      "partition_too_many": "もう一方のフィールドのシャード数を掛けると、上限の {{max}} を超えます。",
+      "clustering_field": "フィールドでクラスタリング",
+      "clustering_field_hint": "新しく書き込まれるログファイルでは、行を時間スライスに分け、各スライス内で指定したフィールドの値に基づいて並べます。service = 'checkout' のような等価条件を含むクエリは、各スライスで該当する値を含む少数のページだけを読み取ります。サービスやレベルなど、クエリでよく使われ、取り得る値の種類が少ないフィールドに適しています。各ファイルには 1 分単位かつ指定フィールドの値ごとの行数も記録されます。そのため、これらのフィールドで絞り込みやグループ化を行う件数集計や 1 分単位のヒストグラムでは、元データを読み取る必要がありません。指定できるのは最大 2 フィールドです。スライスの間隔を長くすると、読み取りを省略できるページが増えます。最新の行を読み取る際は、追加で 1 スライスを並べ替えます。",
+      "clustering_none": "時刻順",
+      "clustering_slices": "{{interval}}ごとのスライス",
+      "clustering_add": "フィールドを追加",
+      "clustering_remove": "このフィールドを削除",
+      "clustering_interval": "時間スライス",
+      "clustering_minutes_one": "{{count}} 分",
+      "clustering_minutes_other": "{{count}} 分",
+      "clustering_seconds_one": "{{count}} 秒",
+      "clustering_seconds_other": "{{count}} 秒",
+      "field_indexes": "フィールドのインデックス",
+      "field_indexes_hint": "このストリームに初めて現れるフィールドには、フィールド名に基づいてインデックスが設定されます。",
+      "index_pattern": "新規フィールドのインデックス",
+      "index_pattern_name": "フィールド名のパターン",
+      "index_pattern_hint": "パターンがフィールド名に一致し、インデックスがフィールドの型に適合する最初のルールが適用されます。パターンの * は任意の文字列、? は任意の 1 文字を表します（例：*_id、http.*）。この設定は今後初めて現れるフィールドにのみ適用されます。既存のフィールドは「フィールドとインデックス」で変更できます。個別のフィールド名に対して設定したインデックスが優先されます。",
+      "index_pattern_add": "ルールを追加",
+      "index_pattern_remove": "このルールを削除",
+      "index_pattern_up": "上に移動",
+      "index_pattern_down": "下に移動"
+    },
+    "changes": {
+      "unsaved": "未保存の変更があります",
+      "review": "新しい設定は保存直後に適用されます。",
+      "index_risk": "新しいデータには新しい設定で直ちにインデックスが作成されます。既存データはバックグラウンドで再インデックスされ、進捗は概要の「インデックス済みフィールドのカバレッジ」で確認できます。",
+      "retention_risk": "保持期間が{{days}}日に短縮され、保持期限を過ぎたデータは削除される場合があります。",
+      "query_risk": "クエリアクセスを無効にしても、このストリームは引き続きデータを受け付けますが、クエリと検索は拒否されます。",
+      "downsample_risk": "取得から{{days}}日を超えたサンプルは時間バケットごとに集約され、元のサンプルは削除されます。この操作は元に戻せません。",
+      "partition_risk": "分割は新しいデータにのみ適用され、既存のファイルは変更されません。",
+      "clustering_risk": "クラスタリングは新しいデータにのみ適用され、既存のファイルは変更されません。"
+    },
+    "validation": {
+      "retention_days": "データの保持期間は、1～{{max}}の整数で日数を指定してください。",
+      "max_query_range": "クエリの最大時間範囲は、0～{{max}}の整数で時間数を指定してください。",
+      "downsample_after_days": "元のサンプルの保持日数は、1～{{max}}の整数で指定してください。",
+      "index_pattern_length": "フィールド名のパターンは{{max}}文字以内で指定してください。",
+      "index_pattern_duplicate": "フィールド名のパターンは重複しないように指定してください。"
+    },
+    "delete_confirm_title": "このストリームを削除しますか？",
+    "delete_confirm_description": "「{{stream}}」とその設定が削除されます。この操作は元に戻せません。",
+    "toast": {
+      "updated": "ストリームの設定を更新しました",
+      "deleted": "ストリームを削除しました"
+    },
+    "delete_consequences": {
+      "stored": "保存済みデータ",
+      "rows": "行数"
+    }
+  },
+  "jobs": {
+    "title": "検索ジョブ",
+    "subtitle": "クエリはキューに追加され、バックグラウンドで実行されます。有効期限までは実行結果とともに保持されます",
+    "entry": "検索ジョブ",
+    "views_label": "ジョブの状態",
+    "states": {
+      "all": "すべて",
+      "pending": "待機中",
+      "running": "実行中",
+      "done": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み"
+    },
+    "kinds": {
+      "query": "クエリ",
+      "backfill": "バックフィル"
+    },
+    "scope_own": "自分が送信したジョブのみ",
+    "live": "処理中のジョブがあります。{{seconds}} s ごとに更新します",
+    "columns": {
+      "kind": "タイプ",
+      "job": "ジョブ",
+      "status": "状態",
+      "time_range": "クエリ対象の時間範囲",
+      "submitted": "送信日時",
+      "duration": "実行時間 / 完了時刻",
+      "rows": "結果行数",
+      "attempt": "試行",
+      "expires": "有効期限",
+      "actions": "操作"
+    },
+    "cells": {
+      "request_unreadable": "このジョブのクエリを読み取れません",
+      "pipeline": "パイプラインを開く",
+      "finished_at": "完了: {{time}}",
+      "not_finished": "未完了",
+      "attempt_title": "試行 {{number}} 回目",
+      "expired": "期限切れ",
+      "expired_title": "期限切れ（クリーンアップ待ち）",
+      "error": "失敗: {{error}}"
+    },
+    "actions": {
+      "cancel": "ジョブをキャンセル",
+      "cancel_named": "ジョブ {{id}} をキャンセル",
+      "retry": "再試行",
+      "retry_named": "ジョブ {{id}} を再試行",
+      "download": "結果をダウンロード",
+      "download_named": "ジョブ {{id}} の結果をダウンロード",
+      "download_empty": "このジョブに結果行はありません",
+      "delete": "削除",
+      "delete_named": "ジョブ {{id}} を削除"
+    },
+    "cancel_confirm": {
+      "title": "このジョブをキャンセルしますか？",
+      "description": "ジョブの実行が停止します。後で再試行できますが、最初からやり直しになります。",
+      "confirm": "ジョブをキャンセル",
+      "keep": "実行を続ける",
+      "busy": "キャンセル中…"
+    },
+    "delete_confirm": {
+      "title": "このジョブを削除しますか？",
+      "description": "ジョブと保存された結果が削除され、復元できません。",
+      "description_active": "ジョブはまだ完了していないため、キャンセルしてから削除します。削除後は復元できません。",
+      "confirm": "削除",
+      "busy": "削除中…"
+    },
+    "toast": {
+      "cancelled": "ジョブをキャンセルしました",
+      "retried": "ジョブを再度キューに追加しました",
+      "deleted": "ジョブを削除しました",
+      "downloaded": "結果を {{count}} 行ダウンロードしました"
+    },
+    "empty": {
+      "title": "検索ジョブはまだありません",
+      "title_own": "検索ジョブをまだ送信していません",
+      "description": "検索ジョブはバックグラウンドで実行されるクエリで、結果は有効期限まで保持されます。検索ジョブが作成されるのは、次の3つの場合です。",
+      "source_async": "Prefer: respond-async を指定して送信されたクエリ、または結果のサイズが大きすぎると見込まれるクエリ",
+      "source_backfill": "データパイプラインのバックフィル",
+      "source_agent": "Mole Agent が送信したクエリ",
+      "filtered_hint": "別のステータスを選択するか、すべてのジョブを表示してください。",
+      "filtered": {
+        "pending": "キューに入っているジョブはありません",
+        "running": "実行中のジョブはありません",
+        "done": "完了したジョブはありません",
+        "failed": "失敗したジョブはありません",
+        "cancelled": "キャンセルされたジョブはありません"
+      }
+    },
+    "denied": {
+      "title": "検索ジョブを表示できません",
+      "description": "query.jobs.read または sys.telemetry.read 権限が必要です。"
+    },
+    "pagination": {
+      "aria": "検索ジョブのページ切り替え",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "1 ページあたりのジョブ数",
+      "first_aria": "最初のページ",
+      "previous_aria": "前のページ",
+      "next_aria": "次のページ",
+      "last_aria": "最後のページ"
+    }
+  },
+  "usage": {
+    "entry": "データ取り込み使用量",
+    "title": "データ取り込み使用量",
+    "subtitle": "ソースごとのデータ取り込み量と、予算に対する使用状況を確認できます。予算は通知のみに使われ、超過してもデータの取り込みは続きます。",
+    "dimensions_label": "グループ化の基準",
+    "dimensions": {
+      "credential": "認証情報",
+      "stream": "ストリーム",
+      "service": "サービス"
+    },
+    "search_placeholder": "ソースを検索…",
+    "window_label": "期間",
+    "windows": {
+      "24h": "過去 24 時間",
+      "7d": "過去 7 日間",
+      "30d": "過去 30 日間"
+    },
+    "total": "合計 {{bytes}} · {{events}} 件のイベント",
+    "metering_since": "{{time}} から計測しています。それより前のデータは集計に含まれません",
+    "truncated": "取り込み量の多い上位 5,000 件のソースのみ表示しています",
+    "unavailable": "現在、使用量を取得できません",
+    "not_metered": "使用量はまだ記録されていません",
+    "no_match": "検索条件に一致するソースはありません",
+    "empty": {
+      "credential": "この期間にデータ送信に使われた認証情報はありません",
+      "stream": "この期間にデータを取り込んだストリームはありません",
+      "service": "この期間にサービス名が設定されたイベントはありません",
+      "hint": "データの取り込みから 1 分以内に、ここに使用量が表示されます。"
+    },
+    "columns": {
+      "source": "ソース",
+      "source_key": "ソースキー",
+      "intake_bytes": "取り込み量",
+      "events": "イベント数",
+      "share": "構成比",
+      "budget": "予算",
+      "used": "今期の使用量",
+      "used_ratio": "予算消化率",
+      "state": "ステータス"
+    },
+    "states": {
+      "ok": "予算内",
+      "warning": "予算上限間近",
+      "exceeded": "予算超過"
+    },
+    "source": {
+      "internal": "プラットフォーム内部",
+      "unnamed_service": "サービス名なし",
+      "other_services": "その他のサービス",
+      "connector": "コネクタ · {{kind}}",
+      "user": "ログイン中のユーザー",
+      "missing": "削除済み"
+    },
+    "token_kinds": {
+      "personal": "個人用トークン",
+      "default_intake": "デフォルトの取り込みトークン",
+      "rum_client": "RUMクライアントトークン",
+      "service_account": "サービスアカウントトークン"
+    },
+    "budget": {
+      "none": "未設定",
+      "none_hint": "このソースには予算が設定されていません。",
+      "set": "予算を設定",
+      "change": "変更",
+      "remove": "予算を削除",
+      "per_day": "{{limit}} / 日",
+      "per_month": "{{limit}} / 月",
+      "set_title": "予算を設定",
+      "change_title": "予算を変更",
+      "many_subtitle": "{{count}} 件のソースに同じ予算を設定",
+      "period": "期間",
+      "periods": {
+        "day": "日次",
+        "day_hint": "UTCの暦日ごとに集計します。",
+        "month": "月次",
+        "month_hint": "UTCの暦月ごとに集計します。"
+      },
+      "limit": "上限",
+      "limit_hint": "1 MiBから1 PiBまで設定できます。",
+      "unit": "単位",
+      "warn_percent": "警告しきい値 (%)",
+      "warn_percent_hint": "使用量が上限のこの割合に達したときと、上限に達したときに通知します。0 に設定すると、上限に達したときのみ通知します。",
+      "notify": "通知先",
+      "notify_hint": "通知ポリシーに従い、各メンバーが選択した方法で通知します。",
+      "notify_self": "メンバーの一覧を表示できないため、あなたに通知します。",
+      "notify_required": "通知先を 1 人以上選択してください。",
+      "save": "予算を保存",
+      "saved_one": "予算を保存しました",
+      "saved_other": "{{count}} 件の予算を保存しました",
+      "save_failed": "{{total}} 件中 {{count}} 件の予算を保存できませんでした：{{reason}}",
+      "remove_title_one": "この予算を削除しますか？",
+      "remove_title_other": "{{count}} 件の予算を削除しますか？",
+      "remove_description": "これらのソースに関する通知は送信されなくなります。使用量は引き続きこのページに表示されます。",
+      "removed_one": "予算を削除しました",
+      "removed_other": "{{count}} 件の予算を削除しました",
+      "remove_failed": "{{total}} 件中 {{count}} 件の予算を削除できませんでした：{{reason}}"
+    },
+    "detail": {
+      "trend": "対象期間の取り込み量の推移",
+      "by_credential": "認証情報別",
+      "by_stream": "ストリーム別",
+      "by_service": "サービス別",
+      "nothing": "対象期間にデータはありません。",
+      "used": "使用量：{{used}}（{{percent}}）"
+    }
+  }
+}

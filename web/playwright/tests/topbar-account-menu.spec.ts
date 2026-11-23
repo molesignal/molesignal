@@ -248,21 +248,31 @@ test.describe('language in the user menu', () => {
     await language.click();
     const options = page.locator("[data-ui='language-menu']").getByRole('menuitemradio');
     // Each language is named in itself, whatever language is on screen.
-    await expect(options).toHaveText(['中文（简体）', 'English']);
-    await expect(options.nth(1)).toHaveAttribute('aria-checked', 'true');
+    await expect(options).toHaveText([
+      'English',
+      '简体中文',
+      '繁體中文',
+      '日本語',
+      '한국어',
+      'Deutsch',
+      'Español',
+      'Français',
+      'Português (Brasil)',
+    ]);
+    await expect(options.first()).toHaveAttribute('aria-checked', 'true');
 
     const saved = page.waitForRequest(
       (request) => request.method() === 'PUT' && request.url().includes('/api/v1/me/preferences'),
     );
-    await options.first().click();
+    await options.nth(1).click();
     expect((await saved).postDataJSON()).toMatchObject({ language: 'zh-cn' });
-    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-cn');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
 
     // Still Chinese after a reload, and the menu says so.
     await page.reload();
     await page.getByRole('button', { name: '用户菜单' }).click();
     await expect(page.locator("[data-ui='language-trigger']")).toContainText('语言');
-    await expect(page.locator("[data-ui='language-current']")).toHaveText('中文（简体）');
+    await expect(page.locator("[data-ui='language-current']")).toHaveText('简体中文');
   });
 
   test('what the backend names in the reader\'s language is read again once the language is kept', async ({
@@ -287,7 +297,7 @@ test.describe('language in the user menu', () => {
 
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.locator("[data-ui='language-trigger']").click();
-    await page.getByRole('menuitemradio', { name: '中文（简体）' }).click();
+    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
 
     // After the save, not before it: the backend goes by the language it has kept.
     await expect.poll(() => order).toEqual(['functions read', 'language kept', 'functions read']);
@@ -303,10 +313,10 @@ test.describe('language in the user menu', () => {
     await page.goto('/account/settings/profile');
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.locator("[data-ui='language-trigger']").click();
-    await page.getByRole('menuitemradio', { name: '中文（简体）' }).click();
+    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
 
     await expect(page.getByText('preferences unavailable')).toBeVisible();
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en-us');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
   });
 });
 

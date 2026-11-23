@@ -8,6 +8,7 @@ import type {
   StatusPageLanguage,
   StatusPageIncident,
 } from '@/api/statusPages';
+import { LOCALE_LABELS, SUPPORTED_LOCALES } from '@/i18n/locales';
 import type { PillTone } from '@/shell/chrome';
 
 export const COMPONENT_STATUSES: ComponentStatus[] = [
@@ -21,10 +22,7 @@ export const COMPONENT_STATUSES: ComponentStatus[] = [
 export const STATUS_PAGE_LANGUAGES: Array<{
   value: StatusPageLanguage;
   label: string;
-}> = [
-  { value: 'en-us', label: 'English' },
-  { value: 'zh-cn', label: '简体中文' },
-];
+}> = SUPPORTED_LOCALES.map((value) => ({ value, label: LOCALE_LABELS[value] }));
 
 export const DEFAULT_STATUS_PAGE_HISTORY_DAYS = 90;
 export const MAX_STATUS_PAGE_HISTORY_DAYS = 365;

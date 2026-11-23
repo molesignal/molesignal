@@ -1,0 +1,36 @@
+{
+  "templates": {
+    "overview": "Vue d’ensemble",
+    "list": "Liste",
+    "detail": "Détails",
+    "builder": "Éditeur",
+    "settings": "Paramètres",
+    "gate": "Contrôle d’accès",
+    "fixture_title": "Modèles de test",
+    "fixture_subtitle": "Structures de page réutilisables avec des données d’exemple locales"
+  },
+  "actions": {
+    "create": "Créer",
+    "refresh": "Actualiser"
+  },
+  "fixture": {
+    "alerts": "Alertes",
+    "cost": "Coût",
+    "dashboards": "Tableaux de bord",
+    "errors": "Erreurs",
+    "filters": "Filtres",
+    "general": "Général",
+    "healthy": "Opérationnel",
+    "datasource": "Source de données",
+    "last_24h": "Dernières 24 h",
+    "latency": "Latence",
+    "month_to_date": "Depuis le début du mois",
+    "name": "Nom",
+    "organization": "Organisation",
+    "owner": "Propriétaire",
+    "search": "Rechercher",
+    "selected": "Sélection : {{count}}",
+    "state": "État",
+    "updated": "Dernière mise à jour"
+  }
+}

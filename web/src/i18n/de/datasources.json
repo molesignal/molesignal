@@ -1,0 +1,591 @@
+{
+  "kubernetes": {
+    "name": "Kubernetes",
+    "description": "Erfassen Sie mit einem Fluent Bit DaemonSet stdout- und stderr-Logs aus allen Pods im Cluster.",
+    "steps": {
+      "1": {
+        "title": "Namespace und ConfigMap erstellen"
+      },
+      "2": {
+        "title": "Fluent Bit DaemonSet bereitstellen",
+        "description": "Speichern Sie die folgende YAML-Konfiguration als fluent-bit-daemonset.yaml und wenden Sie sie an."
+      },
+      "3": {
+        "title": "Log-Eingang prüfen",
+        "description": "Öffnen Sie nach einer Minute „Logs“ und wählen Sie den Stream app-logs aus. Die Felder kubernetes.* sollten dort angezeigt werden."
+      }
+    }
+  },
+  "linux": {
+    "name": "Linux-Hosts",
+    "description": "Erfassen Sie mit Vector die journald-Logs von Linux-Hosts.",
+    "steps": {
+      "1": {
+        "title": "Vector installieren"
+      },
+      "2": {
+        "title": "/etc/vector/vector.yaml konfigurieren"
+      }
+    }
+  },
+  "windows": {
+    "name": "Windows-Hosts",
+    "description": "Leiten Sie Ereignisprotokolle mit Windows Event Forwarding und winlogbeat weiter.",
+    "steps": {
+      "1": {
+        "title": "winlogbeat installieren"
+      },
+      "2": {
+        "title": "winlogbeat.yml bearbeiten"
+      }
+    }
+  },
+  "aws": {
+    "name": "AWS (CloudWatch + S3)",
+    "description": "Senden Sie Logs über ein CloudWatch Logs-Abonnement und Kinesis Firehose an MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "Firehose-Bereitstellungsstream mit HTTP-Endpunkt als Ziel erstellen",
+        "description": "Firehose kann kein Bearer-Token senden, daher erfolgt die Übertragung über einen Push-Connector. Verwenden Sie die unten angegebene Adresse als Endpunkt-URL und das unter „Datenquellen → Connectors“ erstellte Push-Token des Connectors als Zugriffsschlüssel."
+      },
+      "2": {
+        "title": "CloudWatch Logs abonnieren"
+      }
+    }
+  },
+  "gcp": {
+    "name": "GCP (Cloud Logging)",
+    "description": "Senden Sie Logs aus Cloud Logging über eine Pub/Sub-Senke an den HTTP-Endpunkt von MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "Cloud Logging-Senke mit einem Pub/Sub-Thema als Ziel erstellen"
+      },
+      "2": {
+        "title": "Abonnieren und an MoleSignal weiterleiten",
+        "description": "Lesen Sie die Nachrichten aus Pub/Sub mit einer Cloud Run-Funktion und senden Sie sie per POST an {{ENDPOINT}}/api/v1/intake/logs/default mit dem Header Authorization: Bearer <token>."
+      }
+    }
+  },
+  "azure": {
+    "name": "Azure (Event Hubs)",
+    "description": "Leiten Sie Logs über „Diagnoseeinstellungen → Event Hub → Azure Function“ an MoleSignal weiter.",
+    "steps": {
+      "1": {
+        "title": "Diagnoseeinstellungen im Azure-Portal konfigurieren",
+        "description": "Wählen Sie einen Event Hub als Ziel aus. Stellen Sie dann eine Azure Function bereit, die die Ereignisse daraus liest und sie per POST an {{ENDPOINT}}/api/v1/intake/logs/default sendet. Verwenden Sie dabei den Header Authorization: Bearer <token>."
+      }
+    }
+  },
+  "rum": {
+    "name": "Web-RUM",
+    "description": "Real User Monitoring im Browser: Seitenperformance, Frontend-Fehler, Ressourcen und Benutzersitzungen.",
+    "steps": {
+      "1": {
+        "title": "Browser-SDK installieren"
+      },
+      "2": {
+        "title": "Anwendung initialisieren"
+      },
+      "3": {
+        "title": "Source Maps für die Produktion hochladen",
+        "description": "Laden Sie die .map-Dateien unter „RUM-Einstellungen → Source Maps und Symbole“ hoch. Anwendungs-ID, Service und Release müssen exakt mit den Angaben in den Ereignissen übereinstimmen.",
+        "note": "Verwenden Sie für Uploads nicht das RUM-Client-Token. Zum Hochladen von Debug-Artefakten müssen Sie angemeldet sein und die Berechtigung zum Konfigurieren des Streams haben."
+      },
+      "4": {
+        "title": "Fehlerereignis überprüfen",
+        "description": "Lösen Sie einen Testfehler aus und prüfen Sie dann im RUM-Explorer auf der Registerkarte „Fehler“ die Anwendung, die Version und die Stelle im Quellcode."
+      }
+    }
+  },
+  "rum-flutter": {
+    "name": "Flutter-RUM",
+    "description": "Erfassen Sie mit dem MoleSignal Flutter SDK Ansichten, Interaktionen, Fehler, Ressourcen, langsame Frames und Sitzungsaufzeichnungen.",
+    "steps": {
+      "1": {
+        "title": "Flutter SDK installieren"
+      },
+      "2": {
+        "title": "Navigations-Observer initialisieren und installieren"
+      },
+      "3": {
+        "title": "Flutter-AOT-Symbole generieren",
+        "description": "Bewahren Sie für jedes Release und jede Architektur die passende .symbols-Datei auf."
+      },
+      "4": {
+        "title": "Symbole hochladen und prüfen",
+        "description": "Wählen Sie unter RUM-Einstellungen → Source Maps & Symbole die Option „Flutter-Symbole“. Geben Sie dieselbe Anwendungs-ID, denselben Service, dasselbe Release, dieselbe Plattform, dieselbe Architektur und dieselbe Debug-ID wie beim Build an und laden Sie jede .symbols-Datei hoch."
+      },
+      "5": {
+        "title": "Sitzungen und Fehler überprüfen",
+        "description": "Führen Sie einen Release-Build aus und lösen Sie eine Testausnahme aus. Prüfen Sie, ob die RUM-Sitzung, der Fehler und die Sitzungsaufzeichnung zu dieser Anwendung gehören."
+      }
+    }
+  },
+  "rum-android": {
+    "name": "Android RUM",
+    "description": "Native Android-Apps melden Fehler im RUM-Ereignisformat über HTTP. Stacktraces werden mithilfe von R8- und NDK-Debug-Artefakten wiederhergestellt.",
+    "steps": {
+      "1": {
+        "title": "RUM-Ereignisse über HTTP senden",
+        "description": "Nutzen Sie für die Integration Ihre bestehende Netzwerkschicht, bis das native Android SDK verfügbar ist. Unten sehen Sie ein Fehlerereignis als Beispiel. Ansichten, Aktionen, Anfragen und andere Ereignisse verwenden dasselbe Format und werden an POST /api/v1/rum/events gesendet. Sitzungsaufzeichnungen gehen an /api/v1/rum/replay. Alle Daten werden der Anwendung zugeordnet, an die das Client-Token gebunden ist."
+      },
+      "2": {
+        "title": "R8-Datei mapping.txt aufbewahren",
+        "description": "Speichern Sie nach einem Release-Build die Datei app/build/outputs/mapping/release/mapping.txt. Sie ändert sich mit jedem Release."
+      },
+      "3": {
+        "title": "NDK-Symbole vollständig aufbewahren",
+        "description": "Bewahren Sie bei C/C++-Code für jede ABI die .so-Dateien mit vollständigen Symbolen auf. Sie können sie vor dem Upload mit gzip komprimieren. Laden Sie nicht nur die .so-Dateien aus dem APK hoch, aus denen die Symbole entfernt wurden."
+      },
+      "4": {
+        "title": "Adressen von NDK-Stackframes melden",
+        "description": "Stackframes nativer Abstürze müssen das Modul, die Instruktionsadresse, die Ladeadresse des Binärabbilds und die Build-ID enthalten. Der Server rechnet die Adressen in modulrelative Adressen um."
+      },
+      "5": {
+        "title": "Android-Debug-Artefakte hochladen",
+        "description": "Laden Sie unter RUM-Einstellungen → Source Maps & Symbole die Android-Datei mapping.txt und die nativen Android-Symbole separat hoch. Geben Sie die Anwendungs-ID, die Version, die ABI und die Build-ID an."
+      },
+      "6": {
+        "title": "Deobfuskierten Stacktrace überprüfen",
+        "description": "Lösen Sie in einem Release-Build eine Testausnahme aus und prüfen Sie, ob Klassennamen, Methodennamen und Quellcodezeilen wiederhergestellt werden."
+      }
+    }
+  },
+  "rum-ios": {
+    "name": "iOS RUM",
+    "description": "Native iOS-Apps melden Fehleradressen im RUM-Ereignisformat über HTTP. Mithilfe von dSYM werden Funktionen und Quellcodepositionen wiederhergestellt.",
+    "steps": {
+      "1": {
+        "title": "RUM-Ereignisse über HTTP senden",
+        "description": "Nutzen Sie für die Integration URLSession, bis das native iOS SDK verfügbar ist. Unten sehen Sie ein Fehlerereignis als Beispiel. Ansichten, Aktionen, Anfragen und andere Ereignisse verwenden dasselbe Format und werden an POST /api/v1/rum/events gesendet. Sitzungsaufzeichnungen gehen an /api/v1/rum/replay. Alle Daten werden der Anwendung zugeordnet, an die das Client-Token gebunden ist."
+      },
+      "2": {
+        "title": "dSYM archivieren und aufbewahren",
+        "description": "Bewahren Sie die .xcarchive-Datei nach der Archivierung mit Xcode Archive auf. Die App-Binärdatei und die dSYM-Datei müssen dieselbe UUID haben."
+      },
+      "3": {
+        "title": "DWARF-Datei aus dem dSYM-Bundle hochladen",
+        "description": "Wählen Sie unter RUM-Einstellungen → Source Maps & Symbole die Option „Apple dSYM“. Laden Sie die Datei Contents/Resources/DWARF/<AppName> aus dem dSYM-Bundle (oder die entsprechende .gz-Datei) hoch und geben Sie die UUID an."
+      },
+      "4": {
+        "title": "Stacktrace des Release-Builds überprüfen",
+        "description": "Lösen Sie auf einem Gerät mit einem TestFlight- oder Release-Build einen Testfehler aus und prüfen Sie, ob Funktionen, Dateien und Zeilennummern wiederhergestellt werden."
+      }
+    }
+  },
+  "continuous-profiling": {
+    "name": "Kontinuierliches Profiling",
+    "description": "Kontinuierliches Profiling mit Flamegraphs über OTLP Profiles, Pyroscope oder direkten pprof-Upload, um Engpässe bei CPU, Speicher und Sperren zu erkennen.",
+    "steps": {
+      "1": {
+        "title": "OTLP Profiles (OpenTelemetry)",
+        "description": "Konfigurieren Sie den OTel-eBPF-Profiler oder das SDK so, dass Profile an den integrierten Endpunkt für OTLP Profiles (Alpha) gesendet werden."
+      },
+      "2": {
+        "title": "Pyroscope SDK",
+        "description": "Ein vorhandener Pyroscope-Agent kann Daten direkt an den kompatiblen Empfangsendpunkt senden (format=pprof|folded|lines)."
+      },
+      "3": {
+        "title": "Direkter pprof-Upload",
+        "description": "Laden Sie eine mit gzip komprimierte pprof-Datei direkt hoch (z. B. aus runtime/pprof) oder verwenden Sie die Upload-Schaltfläche oben rechts auf der Seite „Profile“."
+      }
+    }
+  },
+  "curl": {
+    "name": "curl (unverarbeitetes JSON)",
+    "description": "Der einfachste Weg: Senden Sie ein JSON-Array per HTTP POST an den Aufnahme-Endpunkt.",
+    "steps": {
+      "1": {
+        "title": "Ereignisse senden"
+      },
+      "2": {
+        "title": "Antwort"
+      }
+    }
+  },
+  "bulk-ndjson": {
+    "name": "Bulk-NDJSON",
+    "description": "Senden Sie Daten gesammelt über die Elasticsearch-kompatible _bulk-API oder als JSON-Array direkt an den nativen Aufnahme-Endpunkt.",
+    "steps": {
+      "1": {
+        "title": "Elasticsearch-kompatibles _bulk",
+        "description": "Aktions- und Dokumentzeilen wechseln sich ab (NDJSON). _index legt den Zielstream fest. Fehlt _index, wird der Header stream-name oder andernfalls der Standardstream verwendet."
+      },
+      "2": {
+        "title": "Nativer Bulk-Import (JSON-Array)",
+        "description": "Wenn Sie das ES-Format nicht benötigen, senden Sie ein JSON-Array per POST an den Aufnahme-Endpunkt. Pro Anfrage sind bis zu 5 MB möglich."
+      }
+    }
+  },
+  "opentelemetry": {
+    "name": "OpenTelemetry",
+    "description": "OpenTelemetry-SDKs und -Anwendungen senden Daten direkt per OTLP/HTTP. Logs, Metriken und Traces laufen über dieselbe Integration.",
+    "steps": {
+      "1": {
+        "title": "OTLP/HTTP-Endpunkt",
+        "description": "Setzen Sie den Endpunkt auf /api. Das SDK hängt /v1/{signal} an (→ /api/v1/traces usw.). Der optionale Header stream-name legt den Zielstream fest."
+      },
+      "2": {
+        "title": "Umgebungsvariablen (SDK / automatische Instrumentierung)"
+      },
+      "3": {
+        "title": "OTLP gRPC (:4317)",
+        "description": "OTLP gRPC lauscht immer auf :4317. Im Abschnitt [otlp_grpc] können Sie die Bind-Adresse, den Port und die Nachrichtengröße ändern.",
+        "note": "Offener Port: Sichern Sie :4317 in Produktionsumgebungen mit TLS und Firewall-Regeln ab."
+      }
+    }
+  },
+  "otel-collector": {
+    "name": "OTel Collector",
+    "description": "Leiten Sie Logs, Metriken und Traces über den Exporter otlphttp des OpenTelemetry Collector an MoleSignal weiter.",
+    "steps": {
+      "1": {
+        "title": "Collector-Konfiguration (Exporter otlphttp)",
+        "description": "Der Collector leitet Daten per OTLP/HTTP weiter. Setzen Sie den Endpunkt auf /api; /v1/{signal} wird automatisch angehängt."
+      },
+      "2": {
+        "title": "Collector-Konfiguration (otlp-gRPC-Exporter, :4317)",
+        "description": "Verwenden Sie stattdessen das integrierte OTLP gRPC (:4317). Fügen Sie für unverschlüsselte Verbindungen tls.insecure: true hinzu und entfernen Sie die Einstellung, wenn Sie in Produktionsumgebungen TLS verwenden."
+      }
+    }
+  },
+  "nginx": {
+    "name": "NGINX",
+    "description": "Lesen Sie neue Einträge in access.log und error.log mit Fluent Bit ein.",
+    "steps": {
+      "1": {
+        "title": "Eingabekonfiguration für Fluent Bit"
+      }
+    }
+  },
+  "apache": {
+    "name": "Apache httpd",
+    "description": "Vector liest neue Log-Einträge im Standardformat von mod_log_config ein.",
+    "steps": {
+      "1": {
+        "title": "NGINX-Beispiel mit dem Parser apache verwenden",
+        "description": "Lesen Sie neue Einträge in /var/log/apache2/access.log mit Fluent Bit oder Vector ein."
+      }
+    }
+  },
+  "haproxy": {
+    "name": "HAProxy",
+    "description": "Über den Statistik-Socket und ein JSON-Logformat.",
+    "steps": {
+      "1": {
+        "title": "haproxy.cfg"
+      }
+    }
+  },
+  "postgres": {
+    "name": "PostgreSQL",
+    "description": "Erfassen Sie das Log für langsame Abfragen und die Metriken von pg_stat_statements.",
+    "steps": {
+      "1": {
+        "title": "Log für langsame Abfragen aktivieren"
+      },
+      "2": {
+        "title": "Mit Fluent Bit erfassen",
+        "description": "Lesen Sie neue Einträge in /var/log/postgresql/postgresql-*.log mit parser=postgres ein."
+      }
+    }
+  },
+  "mysql": {
+    "name": "MySQL",
+    "description": "general_log und slow_query_log.",
+    "steps": {
+      "1": {
+        "title": "my.cnf"
+      }
+    }
+  },
+  "mongodb": {
+    "name": "MongoDB",
+    "description": "systemLog von mongod und Atlas-Datenbankmetriken.",
+    "steps": {
+      "1": {
+        "title": "mongod.conf"
+      }
+    }
+  },
+  "clickhouse": {
+    "name": "ClickHouse",
+    "description": "Senden Sie system.query_log an MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "query_log exportieren (JSONEachRow)"
+      }
+    }
+  },
+  "redis": {
+    "name": "Redis",
+    "description": "redis-exporter (Prometheus) und das Slow Log.",
+    "steps": {
+      "1": {
+        "title": "redis-exporter bereitstellen"
+      },
+      "2": {
+        "title": "Prometheus remote_write",
+        "description": "Rufen Sie die Metriken unter :9121/metrics ab und senden Sie sie per remote_write an {{ENDPOINT}}/api/v1/prometheus/api/v1/write mit dem Header Authorization: Bearer <token>."
+      }
+    }
+  },
+  "falco": {
+    "name": "Falco",
+    "description": "Sicherheitsereignisse zur Laufzeit in Kubernetes.",
+    "steps": {
+      "1": {
+        "title": "Über falcosidekick weiterleiten",
+        "description": "Der native http_output von Falco unterstützt keine benutzerdefinierten Anfrage-Header. falcosidekick fügt das Bearer-Token hinzu."
+      }
+    }
+  },
+  "osquery": {
+    "name": "osquery",
+    "description": "Host-Audits und Konfigurationsabweichungen.",
+    "steps": {
+      "1": {
+        "title": "osquery.conf"
+      }
+    }
+  },
+  "crowdstrike": {
+    "name": "CrowdStrike Falcon",
+    "description": "Über die Falcon Streaming API.",
+    "steps": {
+      "1": {
+        "title": "Falcon SIEM Connector mit sink=MoleSignal HTTP verwenden",
+        "description": "Erfordert einen Falcon-API-Client und ein zugehöriges Secret."
+      }
+    }
+  },
+  "github-actions": {
+    "name": "GitHub Actions",
+    "description": "Melden Sie jedes Deployment aus einem Workflow an die APM-Deployment-Zeitleiste.",
+    "steps": {
+      "1": {
+        "title": "Token als Repository-Secret speichern",
+        "description": "Die Rolle des Tokens benötigt die Berechtigung apm.deploy. Ein Intake-Token hat diese Berechtigung."
+      },
+      "2": {
+        "title": "Deployment nach dem Deployment-Schritt melden",
+        "description": "Fügen Sie diesen Schritt zum Job hinzu, der das Deployment ausführt. Verwenden Sie die Version, die in den Spans des Dienstes als service.version angegeben ist."
+      }
+    }
+  },
+  "gitlab-ci": {
+    "name": "GitLab CI/CD",
+    "description": "Melden Sie jedes Deployment aus einer Pipeline an die APM-Deployment-Zeitleiste.",
+    "steps": {
+      "1": {
+        "title": "Token als CI/CD-Variable hinzufügen",
+        "description": "Legen Sie unter Einstellungen → CI/CD → Variablen die maskierte Variable MOLESIGNAL_TOKEN an. Hinterlegen Sie ein Token, dessen Rolle die Berechtigung apm.deploy hat."
+      },
+      "2": {
+        "title": "Deployment aus dem Deployment-Job melden",
+        "description": "after_script wird unabhängig vom Erfolg des Deployments ausgeführt. So werden auch fehlgeschlagene Deployments gemeldet."
+      }
+    }
+  },
+  "argocd": {
+    "name": "ArgoCD",
+    "description": "Synchronisierungsereignisse und Anwendungszustand.",
+    "steps": {
+      "1": {
+        "title": "argocd-notifications-cm",
+        "description": "Konfigurieren Sie einen Webhook-Trigger für den HTTP-Endpunkt von MoleSignal."
+      }
+    }
+  },
+  "jenkins": {
+    "name": "Jenkins",
+    "description": "Melden Sie jedes Deployment einer Pipeline an die APM-Deployment-Zeitleiste.",
+    "steps": {
+      "1": {
+        "title": "Token als Zugangsdaten hinzufügen",
+        "description": "Legen Sie Zugangsdaten vom Typ „Secret text“ mit der ID molesignal-token an. Hinterlegen Sie darin ein Token, dessen Rolle über die Berechtigung apm.deploy verfügt."
+      },
+      "2": {
+        "title": "In post melden",
+        "description": "post { always } meldet auch fehlgeschlagene Builds. Ein Passwort in GIT_URL wird maskiert, wenn das Deployment gespeichert wird."
+      }
+    }
+  },
+  "envoy": {
+    "name": "Envoy",
+    "description": "Zugriffslogs im JSON-Format, statsd-Metriken und OTel-Traces.",
+    "steps": {
+      "1": {
+        "title": "Konfiguration der Zugriffslogs"
+      }
+    }
+  },
+  "traefik": {
+    "name": "Traefik",
+    "description": "Zugriffslogs im JSON-Format und Prometheus-Metriken.",
+    "steps": {
+      "1": {
+        "title": "traefik.yaml"
+      }
+    }
+  },
+  "cloudflare": {
+    "name": "Cloudflare Logpush",
+    "description": "Senden Sie HTTP-Anfragelogs per Logpush an den MoleSignal-Endpunkt.",
+    "steps": {
+      "1": {
+        "title": "Logpush-Job konfigurieren",
+        "description": "Setzen Sie destination_conf auf {{ENDPOINT}}/api/v1/_cloudflare und verwenden Sie den Header X-Connector-Token=<connector-push-token> (Push-Konnektoren authentifizieren sich selbst; kein Bearer-Token)."
+      }
+    }
+  },
+  "kafka": {
+    "name": "Apache Kafka",
+    "description": "Senden Sie Daten über einen Kafka Connect-Sink-Konnektor oder kafka-exporter.",
+    "steps": {
+      "1": {
+        "title": "Kafka Connect → HTTP Sink"
+      }
+    }
+  },
+  "rabbitmq": {
+    "name": "RabbitMQ",
+    "description": "rabbitmq_prometheus und das Shovel-Plug-in.",
+    "steps": {
+      "1": {
+        "title": "rabbitmq_prometheus aktivieren"
+      }
+    }
+  },
+  "nats": {
+    "name": "NATS",
+    "description": "Die Monitoring-Endpunkte /varz und /connz des NATS-Servers.",
+    "steps": {
+      "1": {
+        "title": "/metrics auf :7777 abrufen",
+        "description": "Erfassen Sie die Metriken über Prometheus remote_write."
+      }
+    }
+  },
+  "python": {
+    "name": "Python",
+    "description": "OpenTelemetry-SDK für Python.",
+    "steps": {
+      "1": {
+        "title": "Installieren"
+      },
+      "2": {
+        "title": "Ausführen"
+      }
+    }
+  },
+  "go": {
+    "name": "Go",
+    "description": "Das SDK go.opentelemetry.io/otel mit otlptracehttp.",
+    "steps": {
+      "1": {
+        "title": "main.go"
+      }
+    }
+  },
+  "java": {
+    "name": "Java",
+    "description": "OpenTelemetry-Agent für Java (keine Codeänderungen).",
+    "steps": {
+      "1": {
+        "title": "Agent beim JVM-Start hinzufügen"
+      }
+    }
+  },
+  "node": {
+    "name": "Node.js",
+    "description": "@opentelemetry/auto-instrumentations-node.",
+    "steps": {
+      "1": {
+        "title": "Installieren"
+      },
+      "2": {
+        "title": "Starten"
+      }
+    }
+  },
+  "rust": {
+    "name": "Rust",
+    "description": "tracing-opentelemetry mit opentelemetry-otlp.",
+    "steps": {
+      "1": {
+        "title": "Cargo.toml"
+      },
+      "2": {
+        "title": "Initialisieren"
+      }
+    }
+  },
+  "dotnet": {
+    "name": ".NET",
+    "description": "OpenTelemetry.AutoInstrumentation für .NET.",
+    "steps": {
+      "1": {
+        "title": "Mit Umgebungsvariablen starten",
+        "description": "Verwenden Sie wie bei Java die automatische OTel-Instrumentierung mit OTLP_PROTOCOL=http/protobuf und einem Endpunkt, der auf /api zeigt."
+      }
+    }
+  },
+  "openai": {
+    "name": "OpenAI",
+    "description": "Erfassen Sie Prompt, Completion, Tokenanzahl und Latenz für jeden OpenAI-API-Aufruf.",
+    "steps": {
+      "1": {
+        "title": "OpenLLMetry-SDK verwenden"
+      }
+    }
+  },
+  "anthropic": {
+    "name": "Anthropic",
+    "description": "Instrumentieren Sie Claude-API-Aufrufe und erfassen Sie Modell, Prompt, Ausgabe und Tokenverbrauch.",
+    "steps": {
+      "1": {
+        "title": "Python"
+      }
+    }
+  },
+  "langchain": {
+    "name": "LangChain",
+    "description": "Traces für jeden Schritt von Chains und Agenten.",
+    "steps": {
+      "1": {
+        "title": "Callback-Handler"
+      }
+    }
+  },
+  "llamaindex": {
+    "name": "LlamaIndex",
+    "description": "Verfolgen Sie die RAG-Pipeline (Abfragen → Abrufen → Synthese).",
+    "steps": {
+      "1": {
+        "title": "set_global_handler(\"molesignal\")",
+        "description": "Verwenden Sie wie bei LangChain die OpenInference-Instrumentierung."
+      }
+    }
+  },
+  "webhook": {
+    "name": "Generisches HTTP",
+    "description": "Jeder Dienst kann JSON per HTTP POST senden, um Ereignisse in einen ausgewählten Stream einzuspeisen.",
+    "steps": {
+      "1": {
+        "title": "Endpunkt",
+        "description": "Ersetzen Sie <stream-name> durch den Namen des Zielstreams. Falls dieser noch nicht existiert, wird er bei der Datenannahme automatisch erstellt."
+      }
+    }
+  },
+  "graphql-subscription": {
+    "name": "GraphQL-Abonnements",
+    "description": "Verarbeiten Sie Ereignisse aus GraphQL-Abonnements als Stream.",
+    "steps": {
+      "1": {
+        "title": "WebSocket-Relay verwenden",
+        "description": "Stellen Sie einen Relay-Knoten bereit, der Abonnementdaten an MoleSignal weiterleitet."
+      }
+    }
+  }
+}

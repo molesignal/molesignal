@@ -1,0 +1,36 @@
+{
+  "templates": {
+    "overview": "개요",
+    "list": "목록",
+    "detail": "상세 정보",
+    "builder": "빌더",
+    "settings": "설정",
+    "gate": "게이트",
+    "fixture_title": "템플릿 픽스처",
+    "fixture_subtitle": "로컬 샘플 데이터가 포함된 재사용 가능한 페이지 틀"
+  },
+  "actions": {
+    "create": "만들기",
+    "refresh": "새로 고침"
+  },
+  "fixture": {
+    "alerts": "알림",
+    "cost": "비용",
+    "dashboards": "대시보드",
+    "errors": "오류",
+    "filters": "필터",
+    "general": "일반",
+    "healthy": "정상",
+    "datasource": "데이터 소스",
+    "last_24h": "최근 24시간",
+    "latency": "지연 시간",
+    "month_to_date": "이번 달 누계",
+    "name": "이름",
+    "organization": "조직",
+    "owner": "소유자",
+    "search": "검색",
+    "selected": "{{count}}개 선택됨",
+    "state": "상태",
+    "updated": "업데이트 시간"
+  }
+}

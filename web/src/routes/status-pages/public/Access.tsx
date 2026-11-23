@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import * as statusPagesApi from '@/api/statusPages';
+import { fixedT } from '@/i18n';
 import { toApiError } from '@/lib/http';
 import { cn } from '@/shell/lib/cn';
 import { Button } from '@/shell/ui/button';
@@ -22,7 +23,7 @@ export function PublicStatusAccess({
   source: PublicStatusSource;
   slug: string;
 }) {
-  const { t, i18n } = useTranslation('status-pages');
+  const { t } = useTranslation('status-pages');
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [email, setEmail] = React.useState('');
@@ -77,7 +78,7 @@ export function PublicStatusAccess({
   }
   const page = metadata.data;
   const language = resolveStatusPageLanguage(page.language, page.languages, searchParams.get('lang'));
-  const copy = i18n.getFixedT(language, 'status-pages');
+  const copy = fixedT(language, 'status-pages');
   const consumeError = consume.error ? toApiError(consume.error).message : null;
   const requestError = request.error ? toApiError(request.error).message : null;
 

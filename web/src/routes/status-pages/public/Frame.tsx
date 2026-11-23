@@ -9,6 +9,7 @@ import type {
   PublicStatusPageSnapshot,
   StatusPageLanguage,
 } from '@/api/statusPages';
+import { fixedT } from '@/i18n';
 import { toApiError } from '@/lib/http';
 
 import { resolveStatusPageLanguage, statusPageLanguages } from '../model';
@@ -59,7 +60,7 @@ export function PublicStatusFrame({
 }) {
   const { slug = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t, i18n } = useTranslation('status-pages');
+  const { t } = useTranslation('status-pages');
   const query = useQuery(publicStatusPageQuery(source, slug));
 
   if (query.isLoading) {
@@ -84,7 +85,7 @@ export function PublicStatusFrame({
   const snapshot = query.data;
   const { page } = snapshot;
   const language = resolveStatusPageLanguage(page.language, page.languages, searchParams.get('lang'));
-  const copy = i18n.getFixedT(language, 'status-pages');
+  const copy = fixedT(language, 'status-pages');
   const paths = publicStatusPaths(source, slug, language);
 
   return (

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
+import { intlLocale } from '@/i18n';
 import { useThemeStore } from '@/stores/useThemeStore';
 
 type ThemePreference = 'system' | 'dark' | 'light';
@@ -103,7 +104,7 @@ export function ThemeBootstrap({ children }: { children: React.ReactNode }) {
     if (i18n.language !== language) {
       void i18n.changeLanguage(language);
     }
-    document.documentElement.setAttribute('lang', language);
+    document.documentElement.setAttribute('lang', intlLocale(language));
   }, [language, i18n]);
 
   // Resolve the system preference continuously so OS changes apply live.

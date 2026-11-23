@@ -1,0 +1,24 @@
+{
+  "states": {
+    "loading": {
+      "title": "載入中",
+      "description": "正在取得最新資料。"
+    },
+    "empty": {
+      "title": "目前沒有資料",
+      "description": "建立第一筆記錄，或調整目前的篩選條件。"
+    },
+    "error": {
+      "title": "請求失敗",
+      "description": "後端傳回錯誤。"
+    },
+    "backend-pending": {
+      "title": "等待後端",
+      "description": "介面已就緒，但對應的後端端點尚未開放使用。"
+    },
+    "permission-denied": {
+      "title": "需要權限",
+      "description": "目前的角色無法存取此工作流程。"
+    }
+  }
+}

@@ -1,0 +1,1025 @@
+{
+  "nav": {
+    "label": "通知管理",
+    "root": "通知管理",
+    "connectors": "連接器",
+    "users": "使用者通知",
+    "policies": "通知策略",
+    "defaults": "備援路由",
+    "deliveries": "傳送記錄",
+    "templates": "通知範本"
+  },
+  "common": {
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "configured": "已設定",
+    "not_configured": "未設定",
+    "verified": "已驗證",
+    "unverified": "未驗證",
+    "edit": "編輯",
+    "delete": "刪除",
+    "test": "傳送測試",
+    "verify": "驗證",
+    "save": "儲存",
+    "saving": "儲存中…",
+    "cancel": "取消",
+    "close": "關閉",
+    "loading": "載入中…",
+    "loading_error": "無法載入通知資料",
+    "json_error": "{{field}} 必須是有效的 JSON。",
+    "saved": "通知設定已儲存",
+    "deleted": "通知項目已刪除",
+    "test_sent": "測試訊息已傳送",
+    "test_failed": "測試訊息傳送失敗"
+  },
+  "connector_types": {
+    "email_smtp": "Email SMTP",
+    "slack_app": "Slack App",
+    "slack_webhook": "Slack Webhook",
+    "lark_app": "飛書 App",
+    "lark_webhook": "飛書 Webhook",
+    "dingtalk_app": "釘釘 App",
+    "dingtalk_webhook": "釘釘 Webhook",
+    "wecom_app": "企業微信 App",
+    "wecom_webhook": "企業微信 Webhook",
+    "wecom_bot": "企業微信智慧機器人",
+    "teams_app": "Microsoft Teams 機器人",
+    "teams_webhook": "Microsoft Teams Webhook",
+    "google_chat_app": "Google Chat 應用程式",
+    "google_chat_webhook": "Google Chat Webhook",
+    "aliyun_voice": "阿里雲語音通知",
+    "aliyun_sms": "阿里雲簡訊",
+    "tencent_voice": "騰訊雲語音訊息",
+    "tencent_sms": "騰訊雲簡訊",
+    "huawei_voice": "華為雲語音通知",
+    "huawei_sms": "華為雲簡訊",
+    "twilio_voice": "Twilio 電話",
+    "twilio_sms": "Twilio 簡訊",
+    "aws_voice": "AWS 語音",
+    "aws_sms": "AWS 簡訊",
+    "http_sms": "通用 HTTP 簡訊",
+    "webhook": "Webhook",
+    "telegram_bot": "Telegram 機器人",
+    "discord_webhook": "Discord Webhook",
+    "mattermost_bot": "Mattermost 機器人",
+    "mattermost_webhook": "Mattermost Webhook",
+    "webex_bot": "Webex 機器人",
+    "webex_webhook": "Webex Webhook",
+    "matrix_bot": "Matrix 機器人",
+    "twilio_whatsapp": "Twilio WhatsApp",
+    "aws_sns": "Amazon SNS",
+    "pagerduty": "PagerDuty"
+  },
+  "connector_channels": {
+    "im": "即時通訊",
+    "phone": "電話",
+    "sms": "簡訊",
+    "email": "電子郵件",
+    "webhook": "整合",
+    "other": "其他"
+  },
+  "capabilities": {
+    "directUser": "個人",
+    "group": "群組",
+    "richText": "格式化文字",
+    "interactive": "互動",
+    "acknowledgement": "確認",
+    "attachments": "附件"
+  },
+  "connectors": {
+    "title": "連接器",
+    "subtitle": "將企業的傳送憑證與收件人、路由規則分開管理。",
+    "new": "新增連接器",
+    "empty_title": "尚無連接器",
+    "empty_description": "繫結使用者端點或設定備援路由前，請先新增連接器。",
+    "columns": {
+      "name": "名稱",
+      "type": "類型",
+      "capabilities": "功能",
+      "last_test": "上次測試",
+      "status": "狀態",
+      "actions": "操作"
+    },
+    "status": {
+      "unknown": "未知",
+      "connected": "已連線",
+      "error": "異常",
+      "disabled": "已停用"
+    },
+    "drawer": {
+      "new_title": "新增連接器",
+      "edit_title": "編輯 {{name}}",
+      "subtitle": "憑證會加密儲存，介面不會傳回明文。",
+      "identity": "連接器",
+      "configuration": "服務設定",
+      "name": "名稱",
+      "type": "連接器類型",
+      "enabled": "允許此連接器傳送訊息",
+      "test_target": "測試目標",
+      "target_type": "目標類型",
+      "target": "目標",
+      "test_template": "測試用範本",
+      "test_template_hint": "這家服務供應商只允許傳送已審核的範本。測試時會套用此範本，並以範例值填入預留位置。",
+      "test_template_none": "尚未建立適用於這家服務供應商的{{channel}}範本。請先在通知範本中建立一個。",
+      "test_card_hint": "選擇即時通訊範本後，測試時會傳送該範本的卡片，並以範例值填入預留位置。若未選擇，則會傳送一則測試訊息。",
+      "test_without_template": "不套用範本",
+      "save": "儲存連接器",
+      "test": "測試連線",
+      "save_before_test": "請先儲存連接器，再傳送測試訊息。",
+      "field": {
+        "host": "SMTP 主機",
+        "port": "連接埠",
+        "username": "使用者名稱",
+        "password": "密碼",
+        "from": "寄件者地址",
+        "tls": "TLS 模式",
+        "timeoutSecs": "逾時（秒）",
+        "bodyFormat": "請求本文格式",
+        "body": "請求本文",
+        "phoneFormat": "電話號碼格式",
+        "successField": "成功欄位",
+        "successValue": "成功值",
+        "botToken": "Bot Token",
+        "clientId": "Client ID",
+        "clientSecret": "Client Secret",
+        "apiBaseUrl": "API 基礎網址",
+        "webhookUrl": "Webhook 網址",
+        "appId": "App ID",
+        "appSecret": "AppSecret",
+        "receiveIdType": "收件者 ID 類型",
+        "secret": "簽章金鑰",
+        "url": "預設網址",
+        "method": "HTTP 方法",
+        "headers": "請求標頭（JSON）",
+        "appToken": "App-Level Token",
+        "robotCode": "機器人 RobotCode",
+        "cardTemplateId": "互動卡片範本 ID",
+        "corpId": "企業 ID",
+        "corpSecret": "應用程式 Secret",
+        "agentId": "AgentId",
+        "callbackToken": "接收訊息 Token",
+        "callbackAesKey": "EncodingAESKey",
+        "tenantId": "租用戶 ID",
+        "serviceUrl": "服務網址",
+        "credentials": "服務帳號金鑰（JSON）",
+        "botId": "Bot ID",
+        "botSecret": "長連線 Secret",
+        "wsUrl": "長連線網址",
+        "pubsubBaseUrl": "Pub/Sub 網址",
+        "subscription": "Pub/Sub 訂閱",
+        "accessKeyId": "AccessKey ID",
+        "secretId": "SecretId",
+        "sdkAppId": "應用程式 ID（SdkAppId）",
+        "appKey": "AppKey",
+        "signature": "簽名名稱",
+        "accessKeySecret": "AccessKey Secret",
+        "showNumber": "來電顯示號碼",
+        "signName": "簡訊簽名",
+        "playTimes": "播放次數",
+        "accountSid": "Account SID",
+        "authToken": "Auth Token",
+        "fromNumber": "來電號碼",
+        "language": "語言",
+        "voice": "語音",
+        "sender": "傳送方",
+        "region": "區域",
+        "site": "平台",
+        "cloud": "雲端環境",
+        "auth": "驗證方式",
+        "accessKey": "Access key ID",
+        "secretKey": "Secret access key",
+        "sessionToken": "工作階段權杖",
+        "roleArn": "角色 ARN",
+        "originationIdentity": "傳送方身分",
+        "voiceId": "Polly 語音",
+        "externalId": "外部 ID",
+        "signingSecret": "簽章金鑰",
+        "replies": "透過回覆處理警示",
+        "replyTopicArn": "回覆用的 SNS 主題 ARN",
+        "avatarUrl": "頭像網址",
+        "serverUrl": "伺服器位址",
+        "homeserverUrl": "Homeserver 位址",
+        "accessToken": "Access Token",
+        "topicArn": "主題 ARN",
+        "routingKey": "Integration Key",
+        "loginBaseUrl": "登入網址"
+      },
+      "hints": {
+        "slack_app": "Bot Token 用於傳送通知。填寫 Client ID 和 Client Secret 後，狀態頁訪客就能將頁面加到自己的 Slack 頻道，只要在狀態頁的 Slack 設定中選用此連接器即可。這兩種設定至少要填一種。填寫 App-Level Token（xapp-）後，Mole Agent 就能透過 Socket Mode 在 Slack 中回覆。",
+        "lark_app": "飛書 App 透過長連線接收事件後，Mole Agent 也能在飛書中回覆。請在 Mole Agent → 設定 → IM 串接中啟用。",
+        "dingtalk_app": "企業內部應用程式的機器人。未填寫機器人的 RobotCode 時，會使用 Client ID。私聊對象使用 userId，群組對象使用 openConversationId。機器人透過 Stream 模式接收訊息後，Mole Agent 也能在釘釘中回覆。若要在警示通知中加入「確認」和「解決」按鈕，請依照文件在釘釘卡片平台建立互動卡片範本，將範本 ID 填在這裡，再到 Mole Agent → 設定 → IM 串接啟用這個機器人。",
+        "dingtalk_webhook": "群組中的自訂機器人。如果機器人已啟用簽章，請填寫簽章金鑰。",
+        "wecom_app": "自行建立的應用程式：填寫企業 ID、應用程式的 Secret 和 AgentId。私聊對象使用成員的 UserID，群組對象使用應用程式群組聊天的 chatid。請將伺服器對外連線的 IP 位址加入應用程式的企業信任 IP 清單。若要在傳送給成員的警示通知中加入「確認」和「解決」按鈕，請在應用程式的「接收訊息」中設定透過 API 接收，並將隨機產生的 Token 和 EncodingAESKey 填在這裡。儲存後，再將下方的回呼網址填回應用程式。",
+        "wecom_webhook": "群組機器人的 Webhook 網址。",
+        "wecom_bot": "企業微信的智慧機器人（API 模式，使用長連線）：填寫 Bot ID 和長連線專用的 Secret。在 Mole Agent → 設定 → IM 串接中啟用後，Mole Agent 就能在企業微信中回覆，機器人也能傳送通知，警示通知會附上「確認」和「解決」按鈕。私聊對象使用成員的 userid，群組對象使用群組的 chatid。機器人只能傳送訊息給曾私聊機器人的人，或傳送到曾有人 @ 提及機器人的群組。",
+        "teams_app": "Bot Framework 機器人：填寫應用程式 ID、用戶端密碼和租用戶（較早的多租用戶機器人請填 botframework.com）。雲端環境可選全球、GCC，或美國政府雲端的 GCC High、DoD，服務位址會依選項決定。私聊對象使用使用者 ID，群組對象使用交談 ID。必須先為要接收訊息的使用者或團隊安裝機器人。Mole Agent 也能在 Teams 中回覆：請在 Mole Agent → 設定 → IM 串接中啟用，再將該處提供的回呼網址填入 Azure Bot 的 Messaging endpoint。",
+        "teams_webhook": "頻道的 Webhook：使用 Workflows 流程產生的網址，或舊版 Incoming Webhook。訊息會以 Adaptive Card 傳送。",
+        "google_chat_app": "Chat 應用程式的服務帳號：貼上該帳號的 JSON 金鑰。群組對象是聊天室（spaces/…），私聊對象是使用者（users/…）。對方必須先傳送過訊息給應用程式。填寫 Pub/Sub 訂閱（projects/…/subscriptions/…）後，Mole Agent 也能在 Google Chat 中回覆。請在 Mole Agent → 設定 → IM 串接中啟用。",
+        "google_chat_webhook": "聊天室的 Incoming Webhook 網址。",
+        "aliyun_voice": "僅能撥打中國大陸的電話號碼。請在阿里雲語音服務主控台申請文字轉語音範本（以 TTS_ 開頭），將範本編號和變數填入電話管道的通知範本，再到通知策略中為電話管道選用該通知範本。來電顯示號碼留空時為共用模式，填寫後為專用模式，範本須與模式相符。同一號碼每分鐘最多撥打 1 次、每小時 5 次、每天 20 次。",
+        "aliyun_sms": "請在阿里雲簡訊服務主控台申請簽名和通知類範本（以 SMS_ 開頭）。將簽名填在這裡，並將範本編號和變數填入簡訊管道的通知範本，再到通知策略中為簡訊管道選用該通知範本。通知類範本的每個變數預設最多 35 個字，不可包含網址或 IP 位址。",
+        "tencent_voice": "在騰訊雲語音訊息主控台建立應用程式，申請語音通知範本；將範本 ID 和變數填入電話管道的通知範本，變數依位置填為 1、2、3，再在通知策略中為電話管道選用此範本。語音服務採預付制：用完方案額度後就無法撥出，錯誤會記在傳送記錄中。",
+        "tencent_sms": "在騰訊雲簡訊主控台建立應用程式，申請簽名和範本；將簽名文字填在這裡（中國大陸簡訊必填），並將範本 ID 和變數填入簡訊管道的通知範本，變數依位置填為 1、2、3。2024 年 1 月 25 日之後開通的帳號和長期未使用的帳號，每個變數預設最多 6 個字元；向騰訊雲申請放寬後，請在通知範本中填寫上限。",
+        "huawei_voice": "在華為雲語音通話主控台建立應用程式、訂購市話號碼、提交語音範本。AppKey、AppSecret 和 APP 連線位址都在「應用管理」中，請原樣複製位址（無法透過 API 查詢）。來電顯示號碼請填國碼加區碼加電話號碼。將範本 ID 和變數填入電話管道的通知範本，變數依位置填為 1、2、3；每個變數最多 32 個位元組，每個中文字占 3 個位元組。",
+        "huawei_sms": "在華為雲訊息與簡訊主控台建立應用程式，申請簽名和範本。AppKey、AppSecret 和 APP 連線位址都在「應用管理」中，請原樣複製位址（無法透過 API 查詢）。寄件者請填簽名對應的通道號碼；通用範本還需填寫簽名名稱。將範本 ID 和變數填入簡訊管道的通知範本，變數依位置填為 1、2、3。",
+        "twilio_voice": "來電號碼是帳號中可撥打電話的號碼，例如 +14155550100。語言例如 en-US、cmn-CN；語音例如 Polly.Joanna、Polly.Zhiyu，留空則使用 Twilio 的預設語音。",
+        "twilio_sms": "寄件者可以是帳號中的號碼、Messaging Service（以 MG 開頭）或字母格式的寄件者 ID。傳送至美國號碼前，須先完成 A2P 10DLC 註冊。",
+        "aws_voice": "AWS End User Messaging 的語音訊息由 Amazon Polly 朗讀。寄件者身分請填可撥打電話的號碼、號碼集區或其 ARN；Polly 語音留空時使用 MATTHEW，中文請使用 ZHIYU。沙箱中的帳號只能撥打已驗證的號碼。請從此帳號已啟用的區域中選擇，列出區域需有 ec2:DescribeRegions 權限。",
+        "aws_sms": "AWS End User Messaging 的交易型簡訊。寄件者身分留空時，由 AWS 依目的地選擇號碼；也可以填寫號碼、寄件者 ID 或號碼集區。沙箱中的帳號只能傳送至已驗證的號碼。請從此帳號已啟用的區域中選擇，列出區域需有 ec2:DescribeRegions 權限。",
+        "http_sms": "將簡訊交給自己的簡訊閘道，或未提供專用連接器的服務供應商。閘道位址、請求標頭和請求主體可使用下列預留位置：{{phone}} 是號碼，{{content}} 是簡訊內容（標題一行、內文一行，最多 320 字），另有 {{title}}、{{text}} 及 {{secret}}（下方的金鑰，會加密儲存）。JSON 請求主體中的值會依 JSON 規則逸出，表單和位址中的值會依 URL 規則編碼。閘道回傳 2xx 即視為已傳送；若已填寫成功欄位，該欄位的值還必須等於成功值。",
+        "webhook": "每個請求都會附上 X-MoleSignal-Event（通知類型）和 X-MoleSignal-Delivery（傳送 ID，可用於去除重複項目）。若填了簽章金鑰（至少 16 個字元，例如用 openssl rand -hex 32 產生），還會附上 X-MoleSignal-Timestamp 和 X-MoleSignal-Sign: sha256=<十六進制>，後者是以金鑰對「時間戳記.請求主體」計算的 HMAC-SHA256。只連線到解析出的位址，一律封鎖雲端中繼資料位址，不跟隨重新導向。",
+        "telegram_bot": "在 Telegram 中找到 @BotFather，用 /newbot 建立機器人，再將取得的權杖填入 Bot Token。私訊目標是對方的數字使用者 ID，對方須先傳送 /start 給機器人；群組目標是群組或頻道的 chat ID（負數，超級群組和頻道以 -100 開頭），或頻道的 @使用者名稱。機器人須先加入群組，或成為頻道管理員。在 Mole Agent → 設定 → IM 整合 中啟用後，Mole Agent 也能在 Telegram 中回覆，告警通知會附上確認和解決按鈕。",
+        "discord_webhook": "Discord 頻道的 Webhook：在頻道設定的「整合 → Webhook」中新增 Webhook，並複製其位址。顯示名稱和頭像網址可留空，使用 Webhook 本身的設定。訊息會以嵌入式卡片傳送，不會提及任何人。",
+        "mattermost_bot": "Mattermost 的機器人帳號：在系統主控台允許建立機器人帳號後，到「整合 → 機器人帳號」新增一個，並將產生的存取權杖填入 Bot Token；伺服器位址請填 Mattermost 的存取網址，例如 https://chat.example.com。私訊目標是使用者名稱（可加或不加 @）或使用者 ID；群組目標是頻道 ID 或「團隊名稱/頻道名稱」，機器人須先加入該團隊和頻道。設定好對外位址後，告警通知會附上確認和解決按鈕，並依按下按鈕的人在此連接器上綁定的通知方式辨識身分；若對外位址位於內部網路，須在 Mattermost 系統主控台的「允許不受信任的內部連線」中加入該位址。",
+        "mattermost_webhook": "頻道的傳入 Webhook 位址：在 Mattermost 的「整合 → 傳入 Webhook」中新增。",
+        "webex_bot": "在 developer.webex.com 的 My Webex Apps 中新增 Bot，並將其 Bot Access Token 填入 Bot Token。私訊目標是對方 Webex 帳號的電子郵件地址或 personId；群組目標是空間（room）的 ID，機器人須先加入該空間。訊息會以 Adaptive Card 傳送。",
+        "webex_webhook": "填入 Webex App Hub 中 Incoming Webhooks 整合提供的位址（https://webexapis.com/v1/webhooks/incoming/…）。訊息會傳送到建立 Webhook 時選擇的空間。",
+        "matrix_bot": "Matrix 機器人帳號：填寫 Homeserver 位址（例如 https://matrix.org）和此帳號的 Access Token（使用此帳號登入 Element 後，可在「設定 → 說明與關於 → 進階」中查看）。群組目標是聊天室 ID（以 ! 開頭）或別名（以 # 開頭），機器人須已在聊天室內，或聊天室須允許它加入；私訊目標是使用者 ID（@name:server），機器人會建立私人聊天室並邀請對方。訊息不會加密。",
+        "twilio_whatsapp": "透過 Twilio 傳送 WhatsApp 訊息。寄件者是已啟用 WhatsApp 的號碼（E.164，例如 +14155550100）或 Messaging Service（以 MG 開頭）。WhatsApp 只允許企業使用已通過審核的範本主動傳送訊息：請在 Twilio 的 Content Template Builder 中建立範本並通過 WhatsApp 審核，再將 Content SID（以 HX 開頭）和變數填入簡訊管道通知範本的 WhatsApp 欄位，變數依位置填為 1、2、3，最後在通知策略中為簡訊管道選用此範本。",
+        "aws_sns": "將通知發佈至 Amazon SNS 主題，再由該主題的訂閱轉送至 Lambda、SQS、HTTPS 端點或電子郵件信箱。主題 ARN 格式如 arn:aws:sns:us-east-1:123456789012:alerts，區域請選擇主題所在的區域。列出區域需有 ec2:DescribeRegions 權限，發佈需有 sns:Publish 權限，主題已加密時還需有 kms:GenerateDataKey 和 kms:Decrypt 權限。訊息含有 event_type 和 severity 兩個屬性，可用於訂閱的篩選策略；FIFO 主題（.fifo）會依告警分組，並依傳送記錄去除重複項目。",
+        "pagerduty": "PagerDuty Events API v2：在服務的 Integrations 中新增 Events API V2 整合，並將其 Integration Key（即 Routing Key）填在這裡；若帳號位於歐盟服務區域，請將服務區域設為「歐盟」。告警觸發或升級時，會在 PagerDuty 觸發告警；告警確認或解決時，PagerDuty 的告警也會同步確認或解決。重複項目會依 MoleSignal 告警去除。"
+      },
+      "options": {
+        "auth": {
+          "access_key": "存取金鑰",
+          "temporary_key": "暫時金鑰",
+          "node_role": "節點身分",
+          "assume_role": "擔任角色",
+          "web_identity": "Web Identity",
+          "password": "使用者名稱和密碼",
+          "microsoft": "Microsoft 365（OAuth 2.0）",
+          "google": "Google Workspace（OAuth 2.0）"
+        },
+        "site": {
+          "feishu": "飛書",
+          "lark": "Lark",
+          "slack": "Slack",
+          "govslack": "GovSlack（美國政府）"
+        },
+        "cloud": {
+          "global": "全球",
+          "gcc": "GCC（美國政府社群雲端）",
+          "gcc_high": "GCC High（美國政府）",
+          "dod": "DoD（美國國防部）"
+        },
+        "method": {
+          "post": "POST",
+          "put": "PUT",
+          "patch": "PATCH",
+          "get": "GET"
+        },
+        "bodyFormat": {
+          "json": "JSON",
+          "form": "表單（x-www-form-urlencoded）"
+        },
+        "phoneFormat": {
+          "e164": "+8613800138000（E.164）",
+          "digits": "8613800138000（不含 +）",
+          "mainland": "13800138000（中國大陸門號，不含國碼）"
+        },
+        "body": {
+          "event": "MoleSignal 事件",
+          "template": "通知範本的本文"
+        },
+        "region": {
+          "us": "美國",
+          "eu": "歐盟"
+        }
+      },
+      "option_hints": {
+        "auth": {
+          "access_key": "IAM 使用者的長期金鑰。只授予該使用者所需的權限：傳送簡訊和撥打電話的 sms-voice:SendTextMessage 與 sms-voice:SendVoiceMessage、發佈至 SNS 主題的 sns:Publish，以及列出區域的 ec2:DescribeRegions。",
+          "temporary_key": "AWS STS 核發的短期金鑰，必須搭配工作階段權杖使用。到期後即失效，需在此更換。",
+          "node_role": "不儲存任何金鑰，使用 MoleSignal 所在節點的身分：EKS 的 IRSA 或 Pod Identity、ECS 任務角色，或 EC2 執行個體設定檔。此部署中的每個組織都可選用。",
+          "assume_role": "透過 AWS STS 擔任此角色：若已填寫存取金鑰，就使用該金鑰，否則使用節點身分。角色的信任政策必須允許此身分，並要求提供下方的外部 ID。",
+          "web_identity": "使用節點上的 Web Identity 權杖直接擔任此角色，例如 EKS 為 IRSA 投射的服務帳號權杖（路徑由 AWS_WEB_IDENTITY_TOKEN_FILE 指定）。",
+          "password": "SMTP 帳號的使用者名稱和密碼。若電子郵件服務供應商有要求，請在密碼欄位填入其提供的授權碼或應用程式專用密碼。",
+          "microsoft": "使用全球版 Microsoft 365 的信箱寄信（OAuth 2.0）：在 Microsoft Entra ID 中註冊一個應用程式，加入 Office 365 Exchange Online 的應用程式權限 SMTP.SendAsApp，並由管理員授與同意。接著由 Exchange 管理員為此應用程式註冊服務主體，並授與寄件信箱的權限。租用戶 ID 和 Client ID 位於應用程式的概觀頁面，Client Secret 則在「憑證與祕密」中建立。使用者名稱填入寄件信箱，伺服器為 smtp.office365.com，連接埠為 587，使用 STARTTLS。",
+          "google": "使用 Google Workspace 的信箱寄信（OAuth 2.0）：建立服務帳號並貼上其 JSON 金鑰；在 Google 管理控制台的全網域委派設定中，為服務帳號的數字用戶端 ID 授予 https://mail.google.com/ 範圍的存取權。使用者名稱填入此網域的寄件信箱，伺服器為 smtp.gmail.com，連接埠為 587，使用 STARTTLS。"
+        },
+        "cloud": {
+          "gcc_high": "美國政府雲端：向 login.microsoftonline.us 取得權杖，Mole Agent 收到的訊息會依政府雲端的 Bot Framework 驗證。",
+          "dod": "美國政府雲端：向 login.microsoftonline.us 取得權杖，Mole Agent 收到的訊息會依政府雲端的 Bot Framework 驗證。"
+        },
+        "site": {
+          "govslack": "美國政府專用的 Slack：API 與狀態頁面的授權均在 slack-gov.com 進行。"
+        },
+        "body": {
+          "event": "送出供機器讀取的事件，包含版本、事件、警示、規則、升級、目標及已轉譯的訊息。欄位只會新增，不會變更。",
+          "template": "依通知政策為 Webhook 管道選用的範本送出，本文維持原樣。若範本為 JSON 格式，則以 JSON 送出，並自動對變數值進行逸出處理。"
+        },
+        "region": {
+          "eu": "若 PagerDuty 帳號的網址以 .eu.pagerduty.com 結尾，請選用此選項。"
+        }
+      },
+      "switch_hints": {
+        "replies": {
+          "twilio_sms": "收到警示簡訊的人可回覆簡訊中的代碼來處理，例如回覆 31 確認、回覆 32 解決。代碼一天內有效，並依收件人的身分與權限處理。",
+          "aws_sms": "收到警示簡訊的人可回覆簡訊中的代碼來處理，例如回覆 31 確認、回覆 32 解決。代碼一天內有效，並依收件人的身分與權限處理；雙向簡訊的回覆會透過 SNS 推送。",
+          "http_sms": "收到警示簡訊的人可回覆簡訊中的代碼來處理，例如回覆 31 確認、回覆 32 解決。代碼一天內有效，並依收件人的身分與權限處理；閘道必須轉送收到的回覆。",
+          "aliyun_sms": "阿里雲只傳送通過審核的範本：在範本參數中填入變數 reply.ack、reply.resolve，收件人回覆對應的代碼即可確認或解決。代碼一天內有效，並依收件人的身分與權限處理。",
+          "twilio_voice": "接聽者按 1 確認、按 2 解決。依接聽者的身分與權限處理。",
+          "aliyun_voice": "改用互動式語音（IvrCall）撥打，接聽者按 1 確認、按 2 解決。必須填寫來電號碼：為 IvrCall 購買的實際電話號碼。",
+          "tencent_sms": "騰訊雲只傳送通過審核的範本：在範本變數中填入 reply.ack、reply.resolve，收件人回覆對應的代碼即可確認或解決。代碼一天內有效，並依收件人的身分與權限處理。",
+          "tencent_voice": "接聽者按 1 確認、按 2 解決。請自行在範本中加入這句提示，並在控制台啟用按鍵回呼；按鍵輸入會依該受話號碼最近一通電話處理。",
+          "huawei_sms": "華為雲只傳送通過審核的範本：在範本變數中填入 reply.ack、reply.resolve，收件人回覆對應的代碼即可確認或解決。代碼一天內有效，並依收件人的身分與權限處理。",
+          "huawei_voice": "語音播放完畢後會接收一個按鍵輸入，接聽者按 1 確認、按 2 解決。請自行在範本中加入這句提示。",
+          "twilio_whatsapp": "WhatsApp 只傳送通過審核的範本：在範本變數中填入 reply.ack、reply.resolve，收件人回覆對應的代碼即可確認或解決。代碼一天內有效，並依收件人的身分與權限處理。"
+        }
+      },
+      "type_fields": {
+        "http_sms": {
+          "url": "閘道網址",
+          "secret": "金鑰"
+        },
+        "twilio_voice": {
+          "replies": "以按鍵處理警示"
+        },
+        "aliyun_voice": {
+          "replies": "以按鍵處理警示"
+        },
+        "tencent_voice": {
+          "replies": "以按鍵處理警示",
+          "secretKey": "SecretKey"
+        },
+        "tencent_sms": {
+          "secretKey": "SecretKey"
+        },
+        "huawei_voice": {
+          "replies": "按鍵處理警報",
+          "apiBaseUrl": "APP 存取位址"
+        },
+        "huawei_sms": {
+          "apiBaseUrl": "APP 存取位址",
+          "sender": "通道號碼"
+        },
+        "discord_webhook": {
+          "username": "顯示名稱"
+        },
+        "twilio_whatsapp": {
+          "sender": "WhatsApp 傳送方"
+        },
+        "aws_sns": {
+          "body": "訊息內容"
+        },
+        "pagerduty": {
+          "region": "服務區域"
+        }
+      },
+      "copy": "複製",
+      "copied": "已複製",
+      "copy_external_id": "複製外部 ID",
+      "external_id_hint": "本組織擔任角色時一律會帶上這個外部 ID，且無法修改。請在角色的信任政策中使用 sts:ExternalId 條件，要求提供此外部 ID。其他組織即使知道角色的 ARN，也無法擔任該角色。",
+      "address_by_region": "由區域決定",
+      "regions_loading": "正在向服務供應商查詢可用區域…",
+      "regions_need_credentials": "填妥憑證後，即可列出此帳號已啟用的區域。",
+      "regions_failed": "無法讀取區域：{{error}}",
+      "callbacks": {
+        "label": "回呼位址",
+        "after_save": "儲存後，回呼位址會顯示在這裡。",
+        "no_external_url": "伺服器未設定對外位址，無法接收服務供應商的回呼。",
+        "per_call": "每次通話都會將按鍵回呼位址傳給 Twilio，不必另外設定。",
+        "hints": {
+          "twilio_sms": "在 Twilio 號碼的 Messaging 設定中，將 A message comes in 設為 Webhook，方法選擇 HTTP POST，並填入此位址。",
+          "aws_sms": "在接收回覆的 SNS 主題下新增 HTTPS 訂閱，並將端點設為此位址。訂閱會自動確認。",
+          "aliyun_sms": "在阿里雲簡訊服務的上行簡訊設定中，選擇 HTTP 推送並填入此位址。",
+          "aliyun_voice": "在阿里雲語音服務的回執設定中，選擇 HTTP 推送並填入此位址。按鍵結果會推送到此位址。",
+          "tencent_sms": "在騰訊雲簡訊主控台的回呼設定中，將簡訊回覆的回呼位址設為此位址。",
+          "tencent_voice": "在騰訊雲語音訊息主控台的事件回呼設定中，將按鍵回呼位址設為此位址。",
+          "huawei_sms": "建立簡訊應用程式時，將上行簡訊接收位址設為此位址；位址的最後一段是回呼 Token。",
+          "huawei_voice": "在應用程式管理中，將通話狀態接收位址設為此位址；位址的最後一段是回呼 Token。",
+          "http_sms": "讓閘道使用 HTTP POST 將收到的回覆以 JSON 格式傳送至此位址，並附上 phone 和 text 兩個欄位。",
+          "wecom_app": "在應用程式的「接收訊息」中設定 API 接收：URL 填入此位址，Token 和 EncodingAESKey 須與上方兩欄一致。此位址的網域須已由企業主體完成備案。",
+          "twilio_whatsapp": "在 Twilio 的 WhatsApp 傳送方（或其所屬的 Messaging Service）設定中，將接收訊息的 Webhook 設為此位址，方法選擇 HTTP POST。"
+        }
+      }
+    },
+    "delete_title": "要刪除連接器嗎？",
+    "delete_description": "若連接器仍由使用者端點、通知政策或備援路由引用，就無法刪除。"
+  },
+  "users": {
+    "title": "使用者通知",
+    "subtitle": "繫結各平台的身分，並依通知類別設定傳送優先順序。",
+    "empty_title": "目前沒有工作區使用者",
+    "empty_description": "成員加入組織後會顯示在這裡。",
+    "columns": {
+      "user": "使用者",
+      "endpoints": "已繫結的端點",
+      "alert": "警示首選",
+      "oncall": "值班首選",
+      "report": "報告首選",
+      "status": "狀態"
+    },
+    "drawer_title": "通知設定 · {{name}}",
+    "drawer_subtitle": "管理通知身分、傳送順序及勿擾設定，並傳送測試通知。"
+  },
+  "endpoints": {
+    "title": "通知身分",
+    "description": "每個身分會繫結一個連接器。",
+    "add": "繫結通知方式",
+    "empty": "尚未繫結通知身分。",
+    "identity": "外部身分",
+    "display_name": "顯示名稱",
+    "connector": "連接器",
+    "enabled": "啟用此端點",
+    "verified": "確認此端點已驗證",
+    "new_title": "繫結通知方式",
+    "edit_title": "編輯通知方式",
+    "save": "儲存端點",
+    "delete_title": "要刪除此端點嗎？",
+    "delete_description": "請先從所有傳送偏好設定中移除此端點。",
+    "phone_hint": "手機號碼須以 + 和國碼開頭，例如 +8613800138000；阿里雲、騰訊雲、華為雲和通用 HTTP 簡訊連接器也接受 11 碼的中國大陸手機號碼。",
+    "identity_hints": {
+      "telegram_bot": "請填寫 Telegram 的純數字使用者 ID，而非 @使用者名稱。可私訊 @userinfobot 查詢。請先在 Telegram 開啟與機器人的對話並點選「開始」，機器人才能傳送私訊。",
+      "mattermost_bot": "Mattermost 使用者名稱（全小寫，可加上或省略 @），或 26 碼的使用者 ID。點選卡片上的按鈕時，系統會依此處填寫的值辨識使用者。",
+      "webex_bot": "Webex 帳號的電子郵件地址，或 Webex 的 personId。",
+      "matrix_bot": "Matrix 使用者 ID，例如 @name:matrix.org。第一次傳送通知時，機器人會邀請對方加入私人聊天室；接受邀請後即可查看通知。",
+      "twilio_whatsapp": "WhatsApp 號碼須以 + 和國碼開頭，例如 +14155550100。"
+    }
+  },
+  "preferences": {
+    "title": "傳送偏好設定",
+    "description": "系統會依所選順序嘗試傳送。若皆未成功，再依序採用團隊和組織的備援設定。",
+    "alert": "警示事件",
+    "oncall": "值班通知",
+    "report": "報告",
+    "escalation": "警示升級",
+    "security": "安全性",
+    "system": "系統",
+    "enabled": "接收這類通知",
+    "endpoint_order": "端點順序",
+    "move_up": "將此步驟上移",
+    "move_down": "將此步驟下移",
+    "no_endpoints": "請先繫結端點，再設定此類別。",
+    "quiet_enabled": "啟用勿擾模式",
+    "timezone": "時區",
+    "start": "開始（HH:MM）",
+    "end": "結束（HH:MM）",
+    "save": "儲存{{category}}",
+    "wait_label": "第 {{step}} 步的等待分鐘數",
+    "wait_unit": "分鐘後",
+    "wait_hint": "第一步會立即傳送。後續每一步請填寫等待分鐘數：從首次通知起算，時間一到若仍無人確認告警，就用這一步再傳送一次。若等待時間與上一步相同，則只在上一步傳送失敗時使用。任何一步傳送失敗，都會立即進到下一步。",
+    "high_urgency_steps": "高緊急度告警的接收順序",
+    "low_urgency_steps": "低緊急度告警的接收順序",
+    "low_urgency_hint": "未設定時，只使用上方的第一種方式。",
+    "high_urgency_bypass": "勿擾期間仍接收高緊急度告警",
+    "quiet_low_urgency": "勿擾時段內不會傳送低緊急度告警。",
+    "add_step": "新增步驟：{{method}}",
+    "remove_step": "移除第 {{step}} 步",
+    "boost_label": "第 {{step}} 步的加急方式",
+    "boosts": {
+      "default": {
+        "none": "不加急",
+        "app": "App 內加急",
+        "sms": "簡訊加急",
+        "phone": "電話加急"
+      },
+      "lark_app": {
+        "none": "不加急",
+        "app": "App 內加急",
+        "sms": "簡訊加急",
+        "phone": "電話加急"
+      },
+      "dingtalk_app": {
+        "none": "不使用 DING",
+        "app": "App 內 DING",
+        "sms": "簡訊 DING",
+        "phone": "電話 DING"
+      }
+    },
+    "boost_hint": "加急：訊息送出後，再透過 App 內提醒、簡訊或電話催促一次。",
+    "boost_wait_hint": "加急：訊息送出後，再透過 App 內提醒、簡訊或電話催促一次。你可以新增一步，沿用同一種通知方式，但改用另一種加急方式。例如，第 1 步傳送訊息，若 5 分鐘後仍無人確認，第 2 步就沿用同一種通知方式，並以電話加急。",
+    "boost_notes": {
+      "lark_app": "Lark 國際版僅支援 App 內加急。",
+      "dingtalk_app": "釘釘的 DING 功能需要專業版或專屬版，簡訊和電話 DING 還需購買額度。"
+    }
+  },
+  "event_types": {
+    "alert": {
+      "triggered": "告警已觸發",
+      "acknowledged": "告警已確認",
+      "resolved": "告警已恢復",
+      "escalated": "告警已升級"
+    },
+    "oncall": {
+      "shift": {
+        "starting": "值班即將開始",
+        "started": "值班已開始"
+      },
+      "override": {
+        "created": "已建立臨時代班"
+      },
+      "coverage": {
+        "missing": "無人值班"
+      },
+      "swap": {
+        "updated": "換班申請已更新"
+      },
+      "member": {
+        "unreachable": "接班人收不到警示"
+      }
+    },
+    "incident": {
+      "status_update": "重大事件進度"
+    },
+    "agent": {
+      "approval": {
+        "requested": "Mole Agent 等待核准"
+      }
+    }
+  },
+  "resolver_types": {
+    "alert_owner": "警示負責人",
+    "current_oncall": "目前值班人員",
+    "event_users": "事件指定的使用者",
+    "fixed_users": "指定使用者",
+    "next_oncall": "下一位值班人員",
+    "schedule_members": "排班成員",
+    "team_lead": "團隊負責人",
+    "team_members": "團隊成員"
+  },
+  "policies": {
+    "title": "通知策略",
+    "subtitle": "比對事件、解析收件人、依偏好傳送通知，並自動升級處理尚未確認的事件。",
+    "new": "新增策略",
+    "empty_title": "目前沒有通知策略",
+    "empty_description": "建立策略，將業務事件對應至收件人和傳送路由。",
+    "columns": {
+      "name": "策略",
+      "event": "事件",
+      "recipient": "收件人解析",
+      "delivery": "傳送方式",
+      "fallback": "備援",
+      "status": "狀態"
+    },
+    "drawer": {
+      "new_title": "新增通知策略",
+      "edit_title": "編輯 {{name}}",
+      "subtitle": "預覽會解析工作區中的實際使用者和路由，但不會真的傳送通知。",
+      "trigger": "1 · 觸發條件",
+      "recipient": "2 · 收件人",
+      "delivery": "3 · 傳送方式",
+      "failure": "4 · 失敗與升級",
+      "preview": "即時傳送預覽",
+      "name": "名稱",
+      "event_type": "事件類型",
+      "category": "通知類別",
+      "priority": "優先順序",
+      "matchers": "比對條件（JSON）",
+      "resolver": "收件人解析器",
+      "resolver_config": "解析設定（JSON）",
+      "delivery_mode": "傳送模式",
+      "template": "通用範本",
+      "template_hint": "未另選範本的管道都會使用此範本，並依事件屬性填入預留位置。",
+      "default_template": "使用事件預設訊息",
+      "channel_templates": "依管道另選範本",
+      "use_general_template": "使用通用範本",
+      "connectors": "指定連接器",
+      "user_fallbacks": "使用使用者的備用端點",
+      "team_defaults": "使用團隊備援路由",
+      "organization_defaults": "使用組織備援路由",
+      "merge_window": "合併通知",
+      "merge_window_hint": "傳給同一人或同一群組的警示通知，會在合併時段內整併：第一則照常立即傳送，其餘等到時段結束再合併成一則傳送。電話通知的合併時段至少為 60 秒；Webhook 不合併。",
+      "merge_off": "不合併",
+      "merge_seconds_one": "{{count}} 秒",
+      "merge_seconds_other": "{{count}} 秒",
+      "merge_minutes_one": "{{count}} 分鐘",
+      "merge_minutes_other": "{{count}} 分鐘",
+      "ack_timeout": "確認逾時（秒）",
+      "escalation_resolver": "升級收件人解析器",
+      "escalation_config": "升級解析設定（JSON）",
+      "escalation_delivery": "升級傳送模式",
+      "escalation_connectors": "升級時指定的連接器",
+      "event_attributes": "預覽事件屬性（JSON）",
+      "preview_event": "預覽事件",
+      "preview_waiting": "填寫必填欄位後即可解析傳送計畫。",
+      "ack_disabled": "留空則不會因未確認而升級",
+      "refresh_preview": "重新整理預覽",
+      "matched": "符合原則",
+      "not_matched": "不符合原則",
+      "no_recipients": "未解析出任何收件人。",
+      "resolved_by": "解析來源：{{resolver}}",
+      "step_template": "範本：{{name}}",
+      "save": "儲存原則",
+      "restore": "還原預設值",
+      "builtin_name_hint": "無法修改內建原則的名稱。",
+      "time_hint": "依通知事件發生的時間判斷。若不符合條件，此原則不會傳送通知，其他原則仍會照常比對。"
+    },
+    "delivery_modes": {
+      "prefer_user": "依使用者偏好傳送",
+      "force_connector": "強制使用指定的連接器",
+      "multi_connector": "透過多個管道同時傳送"
+    },
+    "delete_title": "要刪除原則嗎？",
+    "delete_description": "現有的傳送記錄會保留。",
+    "builtin_label": "內建",
+    "builtin_not_deletable": "無法刪除內建原則，不使用時可停用。",
+    "builtin": {
+      "alert_triggered": "警示觸發：通知負責人",
+      "alert_resolved": "警示解除：通知負責人",
+      "alert_acknowledged": "警示確認：通知負責人",
+      "alert_escalated_to_users": "警示升級：通知此步驟指定的人員",
+      "alert_escalated_to_teams": "警示升級：通知此步驟指定的團隊",
+      "oncall_shift_starting": "值班交接：通知交班與接班人員",
+      "oncall_coverage_missing": "值班空檔：通知值班表管理員",
+      "oncall_override_created": "代班：通知相關人員",
+      "oncall_swap_updated": "換班：通知相關人員",
+      "incident_status_update": "重大事件進度：通知關注者",
+      "oncall_member_unreachable": "接班人收不到警示：通知本人和排班管理員",
+      "intake_budget_warning": "資料接收預算即將用完：通知預算指定的人員",
+      "intake_budget_exceeded": "資料接收超出預算：通知預算指定的人員",
+      "agent_approval_requested": "待核准：通知有權核准的人員"
+    },
+    "restore_title": "要還原成預設設定嗎？",
+    "restore_description": "這項內建原則將還原成預設設定，所有修改都會遺失。",
+    "restored": "已還原預設設定"
+  },
+  "defaults": {
+    "title": "備援路由",
+    "subtitle": "設定個人通知傳送失敗後使用的團隊和組織備援路由。",
+    "scope": "路由範圍",
+    "organization_scope": "組織預設",
+    "team_scope": "團隊 · {{name}}",
+    "category": "類別",
+    "enabled": "啟用此組織的備援路由",
+    "routes": "路由",
+    "connector": "連接器",
+    "target_type": "目標類型",
+    "target": "目標",
+    "add_route": "新增路由",
+    "remove_route": "移除路由",
+    "save": "儲存備援路由",
+    "delete": "刪除備援設定",
+    "empty": "目前的範圍和類別尚未設定備援路由。",
+    "configured_hint": "系統會依照目前顯示的順序逐一嘗試。"
+  },
+  "deliveries": {
+    "title": "傳送記錄",
+    "subtitle": "查看每次傳送嘗試、備援階段，以及確認與升級的過程。",
+    "empty_title": "目前沒有傳送記錄",
+    "empty_description": "通知事件比對成功並處理完畢後，傳送嘗試就會顯示在這裡。",
+    "filters": {
+      "event": "事件 ID",
+      "status": "狀態",
+      "stage": "階段",
+      "all": "全部"
+    },
+    "columns": {
+      "event": "事件",
+      "recipient": "收件人",
+      "source": "解析來源",
+      "connector": "連接器",
+      "stage": "階段",
+      "status": "狀態",
+      "latency": "耗時",
+      "sent": "傳送時間"
+    },
+    "detail_title": "完整傳送流程",
+    "detail_subtitle": "第 {{attempt}} 次 · {{status}}",
+    "target": "已遮蔽的目標",
+    "error": "失敗原因",
+    "skip_reason": "原因",
+    "ack": "確認此事件",
+    "retry": "重試失敗的路由",
+    "acknowledged": "事件已確認",
+    "retried": "已開始重試",
+    "views_label": "傳送記錄的顯示方式",
+    "views": {
+      "events": "依警示",
+      "attempts": "依傳送嘗試"
+    },
+    "by_event": {
+      "channels": "管道與傳送嘗試",
+      "first_delivered": "首次送達",
+      "not_delivered": "未送達",
+      "failed_tries": "失敗",
+      "open_try": "開啟第 {{attempt}} 次傳送嘗試：{{status}}"
+    }
+  },
+  "templates": {
+    "conditions": {
+      "title": "條件",
+      "description": "條件成立時才保留中間的內容。也可用 != 比較、加入 else 分支，並支援巢狀條件。",
+      "items": {
+        "triggered": "僅在觸發時",
+        "resolved": "僅在恢復時",
+        "severity": "依嚴重程度使用不同文字",
+        "runbook": "有處理手冊時附上連結"
+      },
+      "problem": "條件寫法有誤：{{problem}}"
+    },
+    "title": "通知範本",
+    "subtitle": "定義可重複使用的通知內容：通用範本適用於所有管道，也可為簡訊、電話等管道各寫一份。",
+    "new": "新增範本",
+    "empty_title": "目前沒有通知範本",
+    "empty_description": "建立可重複使用的訊息內文，並在通知策略中選用。",
+    "channel_filter": "依管道篩選",
+    "all": "全部",
+    "columns": {
+      "name": "範本",
+      "channel": "管道",
+      "format": "格式",
+      "category": "類別",
+      "updated": "更新時間",
+      "actions": "操作"
+    },
+    "new_title": "新增通知範本",
+    "edit_title": "編輯 {{name}}",
+    "editor_subtitle": "選擇通知類別後，可以插入該類通知的變數，或從內建範本開始。",
+    "name": "名稱",
+    "category": "通知類別",
+    "channel": "管道",
+    "channels": {
+      "general": "通用",
+      "im": "即時通訊",
+      "phone": "電話",
+      "sms": "簡訊",
+      "email": "電子郵件",
+      "webhook": "Webhook"
+    },
+    "format": "格式",
+    "body": "訊息內文",
+    "variables_hint": "展開右側的變數清單，選取一個變數插入游標所在位置。",
+    "body_hint_sms": "簡訊只會傳送這段內文，不包含通知標題。",
+    "body_hint_phone": "電話只會朗讀這段內文，不包含通知標題。",
+    "preview_attributes": "預覽事件屬性（JSON）",
+    "preview": "訊息預覽",
+    "preview_empty": "輸入訊息內文後會顯示預覽。",
+    "length": "{{chars}} / {{limit}} 字",
+    "length_over_sms": "{{chars}} 字：每則簡訊最多傳送 {{limit}} 字，超出的部分會截斷。",
+    "length_over_phone": "{{chars}} 字：每通電話最多朗讀 {{limit}} 字，超出的部分會截斷。",
+    "attributes_object": "預覽事件屬性必須是 JSON 物件。",
+    "reference": {
+      "title": "變數",
+      "description": "點選變數，即可插入游標所在位置。",
+      "loading": "正在讀取變數…",
+      "error": "無法讀取變數。",
+      "dynamic_key": "在目前工作區中找到的動態鍵",
+      "tabs": {
+        "common": "常用",
+        "rule": "規則",
+        "incident": "警示",
+        "metadata": "標籤與註解",
+        "schedule": "排班",
+        "oncall": "交接",
+        "override": "代班",
+        "escalation": "升級"
+      },
+      "groups": {
+        "event": "事件",
+        "message": "訊息",
+        "rule": "告警規則",
+        "incident": "告警事件",
+        "trigger": "觸發值",
+        "labels": "標籤",
+        "annotations": "註解",
+        "escalation": "告警升級",
+        "schedule": "值班排程",
+        "oncall": "值班交接",
+        "override": "臨時代班"
+      },
+      "fields": {
+        "event_id": "事件唯一識別碼",
+        "event_type": "事件類型",
+        "event_occurred_at": "事件發生時間（微秒時間戳記）",
+        "event_time": "事件發生時間（UTC）",
+        "message_title": "系統產生的訊息標題",
+        "message_text": "系統產生的預設訊息",
+        "event_attribute": "任意事件屬性，請替換 <key>",
+        "rule_id": "告警規則 ID",
+        "rule_name": "告警規則名稱",
+        "rule_description": "告警規則說明",
+        "incident_id": "告警事件 ID",
+        "incident_fingerprint": "告警指紋",
+        "incident_status": "告警狀態",
+        "incident_summary": "告警摘要",
+        "incident_url": "告警在 MoleSignal 中的網址（須設定對外網址）",
+        "incident_started_time": "告警開始時間（UTC）",
+        "incident_duration": "告警持續時間，例如 1h 5m",
+        "incident_acknowledged_time": "確認時間（UTC）",
+        "incident_acknowledged_by": "確認者的使用者 ID",
+        "incident_resolved_time": "解決時間（UTC）",
+        "incident_resolved_by": "解決者的使用者 ID",
+        "incident_assignees": "處理者的使用者 ID，以逗號分隔",
+        "service": "服務（取自標籤或註解）",
+        "environment": "環境（取自標籤或註解）",
+        "affected_services": "受影響的服務，以逗號分隔",
+        "severity": "警示等級",
+        "value": "本次觸發值",
+        "threshold": "規則閾值",
+        "evaluated_at": "規則評估時間（微秒時間戳記）",
+        "labels_all": "所有標籤，例如 service=api, env=production",
+        "labels_key": "標籤值，請替換 <key>",
+        "annotations_key": "註解值，請替換 <key>",
+        "reply_ack": "回覆此代碼以確認警示，例如 31；只有啟用「回覆處理警示」的簡訊才會填入此值",
+        "reply_resolve": "回覆此代碼以解決警示，例如 32",
+        "escalation_step": "升級至第幾層（從 1 開始）",
+        "escalation_loop": "第幾輪升級（從 1 開始）",
+        "escalation_target": "這一層的通知對象：user、schedule 或 team",
+        "escalation_reason": "通知原因：step（照常升級）、manual（立即升級）、reassigned（轉派）、responder_added（增派）、snooze_ended（暫緩期滿）、ack_timeout（確認後逾時未解決）或 severity_raised（提高嚴重程度）",
+        "schedule_id": "排班 ID",
+        "schedule_name": "排班名稱",
+        "schedule_team_id": "排班所屬團隊 ID",
+        "schedule_timezone": "排班時區",
+        "oncall_current_user": "目前值班使用者 ID",
+        "oncall_next_user": "下一位值班使用者 ID",
+        "oncall_transition_at": "交接時間（微秒時間戳記）",
+        "oncall_transition_time": "交接時間（UTC）",
+        "override_id": "代班記錄 ID",
+        "override_user": "代班使用者 ID",
+        "override_original_user": "原值班使用者 ID",
+        "override_start_at": "代班開始時間（微秒時間戳記）",
+        "override_end_at": "代班結束時間（微秒時間戳記）",
+        "override_start_time": "代班開始時間（UTC）",
+        "override_end_time": "代班結束時間（UTC）",
+        "override_reason": "代班原因",
+        "urgency": "緊急程度：等級的鍵值，例如 high（高）、low（低）",
+        "priority": "優先順序 P1–P9；未設定時為空白",
+        "urgency_name": "組織為此緊急程度等級設定的名稱；未命名時為空白",
+        "priority_name": "組織為此優先順序等級設定的名稱；未命名時為空白"
+      }
+    },
+    "provider": {
+      "title": "服務供應商審核的範本",
+      "description_sms": "阿里云、腾讯云、华为云只會傳送通過審核的簡訊範本，WhatsApp 只會傳送通過審核的 Content 範本。這些服務的連接器會使用此處指定的範本，其他簡訊連接器則會傳送上方的正文。",
+      "description_phone": "阿里云、腾讯云、华为云只會朗讀通過審核的語音範本。這些服務的電話連接器會朗讀此處指定的範本，其他電話連接器則會朗讀上方的正文。",
+      "names": {
+        "aliyun": "阿里云",
+        "tencent": "腾讯云",
+        "huawei": "华为云",
+        "whatsapp": " WhatsApp "
+      },
+      "code": "範本編號",
+      "code_labels": {
+        "whatsapp": "Content SID"
+      },
+      "max_chars": "每個變數的字數上限",
+      "max_chars_placeholder": {
+        "aliyun_sms": "35（預設）",
+        "aliyun_phone": "35（預設）",
+        "tencent_sms": "6（預設）",
+        "tencent_phone": "20（預設）",
+        "huawei_sms": "20（預設）",
+        "huawei_phone": "32（預設）",
+        "whatsapp_sms": "300（預設）"
+      },
+      "params": "變數",
+      "param_name": "變數名稱",
+      "param_value": "填入內容",
+      "add_param": "新增變數",
+      "remove_param": "刪除變數",
+      "params_hint": "變數名稱是範本中 {{variable}} 裡的名稱。填入內容時可以使用右側的變數，點選即可插入游標所在位置。",
+      "params_hint_position": "這家服務商的範本變數要依位置填寫：變數名稱填 1、2、3，對應範本中變數的順序。填入內容時可以使用右側的變數，點選即可插入游標所在位置。",
+      "preview": "{{provider}} 收到 {{code}}",
+      "problem_elsewhere": "{{provider}} 的範本還沒填好，填好後才能儲存。",
+      "problems": {
+        "code": "請填入服務商提供的範本編號，只能使用英文字母、數字、底線和連字號。",
+        "content_sid": "請填入 Twilio 的 Content SID：以 HX 開頭，後面接 32 個十六進位字元。",
+        "param_name": "變數名稱只能使用英文字母、數字和底線。",
+        "param_twice": "同一個變數填了兩次。",
+        "param_value": "每個變數都要填入內容。",
+        "max_chars": "每個變數的字數上限必須介於 1 到 500 之間。"
+      }
+    },
+    "card": {
+      "title": "卡片",
+      "description": "飛書、釘釘、企業微信、Slack、Teams、Google Chat 的 App 和群組機器人會以卡片傳送通知，卡片內文就是上方的訊息內文。關閉時仍以純文字傳送。",
+      "toggle": "以卡片傳送",
+      "card_title": "卡片標題",
+      "card_title_placeholder": "留空時使用通知標題",
+      "color": "標題顏色",
+      "colors": {
+        "severity": "依嚴重程度",
+        "blue": "藍色",
+        "green": "綠色",
+        "yellow": "黃色",
+        "orange": "橘色",
+        "red": "紅色",
+        "grey": "灰色"
+      },
+      "fields": "欄位",
+      "field_label": "欄位名稱",
+      "field_value": "欄位值",
+      "add_field": "新增欄位",
+      "remove_field": "刪除欄位",
+      "links": "連結按鈕",
+      "link_label": "按鈕文字",
+      "link_url": "連結網址",
+      "add_link": "新增連結",
+      "remove_link": "刪除連結",
+      "note": "頁尾",
+      "hint": "各處都可以使用變數，點選右側的變數即可插入游標所在位置。無法帶入值的欄位和連結不會顯示。依嚴重程度顯示時，嚴重為紅色、錯誤為橘色、警告為黃色，其餘為藍色；已恢復則為綠色。",
+      "starting": {
+        "severity": "等級",
+        "status": "狀態",
+        "service": "服務",
+        "schedule": "排班",
+        "next": "接班人",
+        "runbook": "處理手冊"
+      },
+      "problems": {
+        "too_many": "每張卡片最多可有 10 個欄位和 5 個連結。",
+        "field": "每個欄位都必須有名稱和值。",
+        "link": "每個連結都必須有按鈕文字和網址。",
+        "link_url": "連結網址必須以 http:// 或 https:// 開頭，也可以使用會帶入這類網址的變數。",
+        "too_long": "有一處超過字數上限：標題和頁尾各 200 字，欄位名稱 40 字、欄位值 500 字，按鈕文字 30 字。"
+      }
+    },
+    "presets": {
+      "title": "預設範本",
+      "description": "套用後仍可繼續編輯。",
+      "items": {
+        "alert_text": "告警純文字",
+        "alert_markdown": "告警 Markdown",
+        "alert_html": "告警 HTML",
+        "oncall_shift": "值班交接提醒",
+        "oncall_override": "臨時代班通知",
+        "oncall_coverage": "排班缺班通知",
+        "oncall_html": "值班交接 HTML",
+        "escalation_text": "告警升級純文字",
+        "escalation_markdown": "告警升級 Markdown",
+        "escalation_html": "告警升級 HTML",
+        "report_text": "報告純文字",
+        "report_markdown": "報告 Markdown",
+        "report_html": "報告 HTML",
+        "security_text": "安全純文字",
+        "security_markdown": "安全 Markdown",
+        "security_html": "安全 HTML",
+        "system_text": "系統純文字",
+        "system_markdown": "系統 Markdown",
+        "system_html": "系統 HTML",
+        "alert_sms": "告警簡訊",
+        "alert_phone": "告警電話",
+        "escalation_sms": "告警升級簡訊",
+        "escalation_phone": "告警升級電話",
+        "oncall_sms": "值班交接簡訊",
+        "alert_resolved_text": "告警恢復純文字",
+        "alert_resolved_markdown": "告警恢復 Markdown",
+        "alert_acknowledged_markdown": "告警確認 Markdown",
+        "alert_im_markdown": "告警 Markdown（含連結）",
+        "alert_email_html": "告警電子郵件（表格）",
+        "alert_resolved_sms": "告警恢復簡訊",
+        "oncall_phone": "值班交接電話",
+        "oncall_coverage_sms": "排班空缺簡訊"
+      }
+    },
+    "delete_title": "要刪除通知範本嗎？",
+    "delete_description": "通知策略仍引用 {{name}} 時，無法刪除。"
+  },
+  "account": {
+    "title": "我的通知設定",
+    "subtitle": "管理目前工作區的通知身分、分類偏好與勿擾時段。",
+    "unavailable": "無法取得目前登入的使用者身分。",
+    "reachability": {
+      "none": "你目前收不到告警：告警和升級通知都沒有可用的通知方式，團隊和組織也沒有將通知傳送到群組的預設路由。請在下方綁定通知方式，並將它加入通知步驟。",
+      "group_only": "你沒有可用的個人通知方式，告警只會傳送到團隊或組織的群組。請在下方綁定通知方式，並將它加入通知步驟。"
+    }
+  },
+  "action_link": {
+    "loading": "正在讀取連結…",
+    "acknowledge": "確認告警",
+    "resolve": "解決告警",
+    "acknowledging": "正在確認…",
+    "resolving": "正在解決…",
+    "explain_acknowledge": "以這則通知的收件者身分確認告警。連結只能使用一次，並在 {{until}} 前有效。",
+    "explain_resolve": "以這則通知的收件者身分解決告警。連結只能使用一次，並在 {{until}} 前有效。",
+    "started": "開始時間：{{at}}",
+    "acknowledged": "告警已確認。",
+    "resolved": "告警已解決。",
+    "used": "此連結已使用過。",
+    "used_at": "此連結已於 {{at}} 使用。",
+    "inactive": "這則告警已處理或已恢復，不需要執行此操作。",
+    "no_access": "你已沒有處理這則告警的權限，連結未生效。",
+    "expired": "連結已過期。",
+    "failed": "無法完成：{{error}}",
+    "unavailable_title": "連結已失效",
+    "unavailable_hint": "連結已過期或無效。請前往 MoleSignal 處理告警。",
+    "load_failed_title": "無法載入這個連結",
+    "open_alert": "在 MoleSignal 中查看警示",
+    "open_alerts": "開啟 MoleSignal"
+  },
+  "target_types": {
+    "direct_user": "個人",
+    "fixed_address": "固定地址",
+    "fixed_group": "固定群組",
+    "webhook": "Webhook"
+  },
+  "stages": {
+    "user_primary": "使用者首選",
+    "user_fallback": "使用者備援",
+    "team_fallback": "團隊備援",
+    "organization_fallback": "組織備援",
+    "escalation": "升級",
+    "test": "測試",
+    "direct": "直接傳送"
+  },
+  "statuses": {
+    "pending": "等待中",
+    "sending": "傳送中",
+    "success": "成功",
+    "failed": "失敗",
+    "skipped": "已略過",
+    "acknowledged": "已確認",
+    "queued": "排隊等待合併"
+  }
+}

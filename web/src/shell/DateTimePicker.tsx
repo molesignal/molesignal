@@ -2,6 +2,7 @@ import { CalendarDays } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { intlLocale } from '@/i18n/locales';
 import { ChromeButton } from '@/shell/chrome';
 import { DisabledControl } from '@/shell/DisabledControl';
 import { FormSelect } from '@/shell/FormDrawer';
@@ -360,6 +361,6 @@ export function formatDateTimeDisplay(
   }).format(date);
 }
 
-export function toIntlLocale(language: string | undefined): 'en-US' | 'zh-CN' {
-  return language?.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US';
+export function toIntlLocale(language: string | undefined): string {
+  return intlLocale(language);
 }

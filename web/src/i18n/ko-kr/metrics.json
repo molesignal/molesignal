@@ -1,0 +1,258 @@
+{
+  "explore": {
+    "title": "메트릭",
+    "subtitle": "탐색기",
+    "toolbar": {
+      "refresh": "새로 고침",
+      "running": "실행 중…",
+      "add_to_dashboard": "대시보드에 추가",
+      "clear_query": "쿼리 지우기",
+      "collapse_editor": "쿼리 접기",
+      "expand_editor": "쿼리 펼치기",
+      "empty_query_summary": "메트릭을 선택하거나 PromQL을 입력합니다"
+    },
+    "editor": {
+      "label": "쿼리",
+      "aria": "PromQL 편집기",
+      "placeholder": "rate(metric_name{...}[5m])",
+      "run": "실행",
+      "running_promql": "PromQL 실행 중…"
+    },
+    "function_hint": {
+      "aria": "PromQL 함수 도움말 열기",
+      "title": "자주 사용하는 PromQL 함수",
+      "description": "쿼리 백엔드에서 지원하는 주요 함수와 집계입니다.",
+      "functions": {
+        "rate": "범위 벡터의 초당 평균 변화율을 계산합니다.",
+        "increase": "지정된 범위의 누적 증가량을 계산합니다.",
+        "sum": "여러 시계열을 합산하여 집계합니다.",
+        "avg": "여러 시계열의 평균을 계산하여 집계합니다."
+      },
+      "docs": "모든 함수",
+      "docs_aria": "PromQL 함수 문서 열기"
+    },
+    "query": {
+      "datasource": "데이터 소스",
+      "metrics_browser": "메트릭 브라우저",
+      "options": "옵션",
+      "legend": "범례",
+      "auto": "자동",
+      "verbose": "상세",
+      "custom": "사용자 지정",
+      "format": "형식",
+      "time_series": "시계열",
+      "table": "테이블",
+      "step": "평가 간격",
+      "step_placeholder": "auto, 30s, 1m…",
+      "step_invalid": "auto 또는 30s, 5m 등의 시간 간격을 입력합니다.",
+      "type": "유형",
+      "range": "범위",
+      "instant": "즉시",
+      "exemplars": "예시 데이터",
+      "on": "켜기",
+      "off": "끄기"
+    },
+    "catalog": {
+      "title": "메트릭",
+      "browser_title": "메트릭 브라우저",
+      "search_trigger": "메트릭 검색",
+      "search_description": "메트릭 이름으로 검색한 후 메트릭을 선택하면 쿼리 A에 삽입됩니다.",
+      "search_aria": "메트릭 이름 검색",
+      "result_count": "결과 {{count}}개",
+      "collapse": "메트릭 접기",
+      "expand": "메트릭 펼치기",
+      "resize": "드래그하여 메트릭 패널 크기 조절, 더블 클릭하여 초기화",
+      "filter_placeholder": "메트릭 필터링...",
+      "loading": "카탈로그 로드 중…",
+      "load_error": "메트릭 카탈로그를 로드하지 못했습니다: {{error}}",
+      "unknown_error": "알 수 없는 오류",
+      "no_filter_match": "이 필터와 일치하는 메트릭이 없습니다.",
+      "empty": "아직 정의된 메트릭이 없습니다. stream_type = metrics로 스트림을 생성하세요.",
+      "no_indexed_labels": "레이블 없음",
+      "metric_meta": "레이블 {{labels}}개 · 필드 {{fields}}개",
+      "select": "선택",
+      "selected": "선택됨",
+      "pagination": {
+        "page_summary": "{{page}} / {{pages}}",
+        "aria": "메트릭 카탈로그 페이지 탐색",
+        "page_size_aria": "페이지당 메트릭 수",
+        "first_aria": "메트릭 목록의 첫 페이지",
+        "previous_aria": "메트릭 목록의 이전 페이지",
+        "next_aria": "메트릭 목록의 다음 페이지",
+        "previous": "이전",
+        "next": "다음",
+        "last_aria": "메트릭 목록의 마지막 페이지"
+      }
+    },
+    "types": {
+      "counter": "카운터",
+      "histogram": "히스토그램",
+      "gauge": "게이지"
+    },
+    "chart": {
+      "mode_line": "선",
+      "mode_bar": "막대",
+      "mode_points": "점",
+      "draw_style": "그리기 스타일",
+      "stack_mode": "누적",
+      "stack_none": "끄기",
+      "stack_normal": "일반",
+      "stack_percent": "백분율",
+      "stack_requires_multiple_series": "누적 표시에는 시리즈가 두 개 이상 필요합니다",
+      "http_request_rate": "HTTP 요청 빈도",
+      "query_result": "메트릭 쿼리 결과",
+      "generic_rate": "{{metric}} 변화율",
+      "zoom_hint": "드래그하여 범위 선택 · X축을 드래그하여 이동 · 두 번 클릭하여 축소",
+      "zoom_aria": "메트릭 시계열입니다. 가로로 드래그하여 범위를 선택하고, X축을 드래그하여 실시간으로 이동합니다. 차트 영역을 두 번 클릭하면 현재 시간 범위가 두 배로 늘어납니다.",
+      "reset_zoom": "시간 범위 초기화",
+      "reset_zoom_hint": "차트를 조작하기 전의 시간 범위로 복원합니다",
+      "select_prompt": "위에 PromQL을 입력하거나 메트릭을 검색한 다음 쿼리를 실행합니다.",
+      "empty": "이 쿼리와 시간 범위에 해당하는 데이터 포인트가 없습니다."
+    },
+    "start": {
+      "heading": "메트릭에서 시작",
+      "browse": "모든 메트릭 찾아보기",
+      "metric_aria": "{{metric}} 차트 보기",
+      "no_metrics": "아직 수신된 메트릭이 없습니다.",
+      "connect": "메트릭 소스 연결"
+    },
+    "recovery": {
+      "query_failed": "PromQL 쿼리 실패",
+      "promql_docs": "PromQL 문서",
+      "no_data_title": "이 조사 시간 범위에 메트릭 데이터 없음",
+      "no_data_description": "쿼리는 유효합니다. 표현식을 변경하기 전에 시간 범위를 넓히거나 고정된 필터를 제거합니다.",
+      "expand_time": "시간 범위를 4배로 확대",
+      "clear_filters": "필터 지우고 다시 시도"
+    },
+    "exemplars": {
+      "title": "예시",
+      "count": "예시 {{count}}개",
+      "open_trace": "트레이스 {{traceId}} 열기",
+      "no_trace": "예시에 트레이스 ID가 없습니다",
+      "hint": "마름모를 선택하면 연결된 트레이스를 확인할 수 있습니다.",
+      "query_error": "예시를 불러올 수 없습니다"
+    },
+    "series": {
+      "title": "시리즈",
+      "empty": "시리즈가 없습니다.",
+      "collapse": "접기",
+      "show_all": "시리즈 {{count}}개 모두 보기",
+      "label_count": "레이블 {{count}}개",
+      "expand_labels": "{{metric}} 레이블 표시",
+      "collapse_labels": "{{metric}} 레이블 숨기기",
+      "columns": {
+        "name": "이름",
+        "last": "마지막 값",
+        "current": "현재 값",
+        "average": "평균",
+        "max": "최댓값"
+      }
+    },
+    "query_stats": {
+      "title": "쿼리 통계",
+      "empty": "쿼리 통계가 없습니다.",
+      "series": "시계열",
+      "points": "데이터 포인트",
+      "scanned": "스캔한 행 수",
+      "duration": "쿼리 실행 시간",
+      "range": "시간 범위",
+      "step": "시간 간격"
+    },
+    "results": {
+      "graph": "그래프",
+      "table": "테이블",
+      "inspector": "쿼리 검사기",
+      "series_count": "시계열 {{count}}개",
+      "query_time": "{{ms}} ms",
+      "no_table": "쿼리를 실행하면 결과 행을 확인할 수 있습니다.",
+      "table_limit": "전체 {{total}}개 행 중 {{shown}}개를 표시합니다.",
+      "query": "쿼리",
+      "views_aria": "결과 보기"
+    },
+    "quality": {
+      "title": "데이터 품질",
+      "healthy": "뚜렷한 이상이 감지되지 않았습니다.",
+      "attention": "일부 데이터를 확인해야 합니다.",
+      "distinguishes_missing": "누락된 값, 실제 값이 0인 경우, 음수 값을 각각 집계합니다.",
+      "negative_points": "음수 데이터 포인트",
+      "missing_data": "누락 데이터",
+      "timestamp_anomalies": "타임스탬프 이상",
+      "negative_rate_title": "카운터의 음수 변화율 감지",
+      "negative_rate_description": "이 메트릭은 카운터로 선언되어 있지만 결과에 음수 데이터 포인트가 {{count}}개 있습니다. 카운터 값이 감소했거나, 데이터가 시간 순서와 다르게 도착했거나, 메트릭 유형이 잘못 지정되었을 수 있습니다.",
+      "view_raw": "원시 데이터 보기",
+      "view_anomalies": "이상 항목 보기",
+      "inspect_type": "메트릭 유형 확인"
+    },
+    "top_labels": {
+      "title": "상위 레이블",
+      "empty": "—",
+      "value": "값",
+      "avg": "평균"
+    },
+    "summary": {
+      "title": "통계 요약",
+      "empty": "—"
+    },
+    "cardinality": {
+      "title": "카디널리티",
+      "active_series": "활성 시계열 · {{rows}}개 행 스캔 · {{ms}} ms"
+    },
+    "schema": {
+      "title": "결과 스키마",
+      "empty": "—",
+      "columns": {
+        "name": "열",
+        "kind": "유형",
+        "rows": "행 수"
+      },
+      "kinds": {
+        "time": "시간",
+        "value": "값",
+        "label": "레이블"
+      }
+    },
+    "scan": {
+      "title": "스캔 통계",
+      "label": "스캔한 행 · {{ms}} ms"
+    }
+  },
+  "builder": {
+    "metric_label": "메트릭",
+    "metric_select_aria": "메트릭 이름",
+    "metric_select_placeholder": "메트릭 선택",
+    "label_matchers": "레이블 일치 조건",
+    "matcher_name_aria": "일치 조건 {{index}}의 이름",
+    "matcher_name_placeholder": "status",
+    "matcher_op_aria": "일치 조건 {{index}}의 연산자",
+    "matcher_value_aria": "일치 조건 {{index}}의 값",
+    "matcher_value_placeholder": "200",
+    "add_matcher": "레이블 필터 추가",
+    "remove_matcher_aria": "레이블 필터 {{index}} 제거",
+    "no_matchers": "레이블 필터가 없습니다. 필터를 추가해 선택한 메트릭의 조회 범위를 좁힐 수 있습니다.",
+    "no_labels": "이 메트릭에는 선택할 수 있는 레이블이 없습니다.",
+    "function": "함수",
+    "function_select_aria": "PromQL 함수",
+    "available_functions": "빌더에서 사용 가능",
+    "code_only_functions": "추가 매개변수 · 코드 모드 사용",
+    "functions": {
+      "none": "원본 메트릭",
+      "rate": "변화율",
+      "irate": "순간 변화율",
+      "increase": "증가량"
+    },
+    "aggregation": "집계",
+    "aggregation_select_aria": "PromQL 집계",
+    "aggregations": {
+      "none": "없음",
+      "sum": "합계",
+      "avg": "평균",
+      "max": "최댓값",
+      "min": "최솟값"
+    },
+    "range": "범위",
+    "range_select_aria": "시간 범위",
+    "editor_label": "PromQL",
+    "preview_empty": "PromQL을 작성하려면 메트릭을 선택하세요.",
+    "unsupported_expression": "이 PromQL 표현식은 빌더에서 안전하게 표현할 수 없습니다. 빌더의 필드를 변경하기 전까지 원래 표현식을 유지합니다."
+  }
+}

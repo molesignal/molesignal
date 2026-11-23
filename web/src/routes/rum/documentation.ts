@@ -1,3 +1,5 @@
+import { docsLocale } from '@/i18n/locales';
+
 export type RumDocumentationSection =
   | 'explorer'
   | 'sdk'
@@ -16,7 +18,7 @@ const DOCUMENTATION_PATHS: Record<RumDocumentationSection, string> = {
 };
 
 export function rumDocumentationLocale(language?: string): 'en-US' | 'zh-Hans' {
-  return language?.toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US';
+  return docsLocale(language);
 }
 
 export function rumDocumentationUrl(

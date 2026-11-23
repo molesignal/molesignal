@@ -186,7 +186,7 @@ test.describe('personal preferences page', () => {
     );
     await page.getByRole('button', { name: 'User menu' }).click();
     await page.locator("[data-ui='language-trigger']").click();
-    await page.getByRole('menuitemradio', { name: '中文（简体）' }).click();
+    await page.getByRole('menuitemradio', { name: '简体中文' }).click();
 
     // Kept with the reader's other preferences, without a save button.
     expect((await saved).postDataJSON()).toMatchObject({ language: 'zh-cn' });

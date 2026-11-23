@@ -1,0 +1,82 @@
+{
+  "title": "Grupos semânticos",
+  "subtitle": "Agrupe incidentes relacionados pelos valores dos rótulos (group_by no estilo do Alertmanager).",
+  "actions": {
+    "new": "Novo grupo",
+    "import": "Importar",
+    "delete": "Excluir",
+    "edit_named": "Editar {{name}}",
+    "delete_named": "Excluir {{name}}"
+  },
+  "states": {
+    "empty_title": "Nenhum grupo semântico ainda",
+    "empty_description": "Defina um grupo para reunir incidentes relacionados com base nos rótulos em comum."
+  },
+  "list": {
+    "columns": {
+      "name": "Nome",
+      "matchers": "Critérios de correspondência",
+      "group_by": "Agrupar por",
+      "enabled": "Ativado",
+      "actions": "Ações"
+    }
+  },
+  "enabled": {
+    "yes": "Ativado",
+    "no": "Desativado"
+  },
+  "toast": {
+    "saved": "Grupo “{{name}}” salvo",
+    "deleted": "Grupo excluído"
+  },
+  "confirm": {
+    "delete_title": "Excluir grupo semântico?",
+    "delete": "Excluir este grupo? Os incidentes serão mantidos; apenas a regra de agrupamento será removida.",
+    "cancel": "Cancelar"
+  },
+  "errors": {
+    "name_required": "O nome é obrigatório."
+  },
+  "drawer": {
+    "edit_title": "Editar {{name}}",
+    "subtitle": "Os critérios de correspondência determinam a quais incidentes o grupo se aplica; group_by define a chave de agrupamento.",
+    "save": "Salvar alterações",
+    "create": "Criar grupo",
+    "add_matcher": "Adicionar critério de correspondência",
+    "remove_matcher": "Remover critério de correspondência",
+    "matchers_description": "Para que o grupo se aplique a um incidente, seus rótulos devem atender a todos os critérios de correspondência. Sem critérios, o grupo se aplica a todos os incidentes.",
+    "group_by_description": "Incidentes com os mesmos valores para essas chaves de rótulo são reunidos em um único grupo.",
+    "sections": {
+      "identity": "Identificação",
+      "matchers": "Critérios de correspondência",
+      "group_by": "Agrupar por"
+    },
+    "fields": {
+      "name": "Nome",
+      "enabled": "Ativado",
+      "matcher_label": "Rótulo do critério",
+      "matcher_value": "Valor do critério",
+      "group_by": "Rótulos de agrupamento"
+    },
+    "hints": {
+      "enabled": "Grupos desativados são ignorados durante o agrupamento.",
+      "group_by": "Chaves de rótulo separadas por vírgulas, por exemplo: service, region."
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "Importar grupos semânticos",
+    "subtitle": "Cole um array JSON de grupos (ou { groups: [...] }).",
+    "submit": "Importar",
+    "editor_label": "JSON dos grupos",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
+    "toast_imported": "{{count}} grupo(s) importado(s)",
+    "invalid_json": "JSON inválido: {{message}}",
+    "expects_array": "Esperava-se um array de grupos não vazio."
+  }
+}

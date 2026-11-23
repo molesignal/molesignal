@@ -1,0 +1,591 @@
+{
+  "kubernetes": {
+    "name": "Kubernetes",
+    "description": "透過 Fluent Bit DaemonSet 收集叢集中所有 Pod 的 stdout/stderr 日誌。",
+    "steps": {
+      "1": {
+        "title": "建立命名空間與 ConfigMap"
+      },
+      "2": {
+        "title": "部署 Fluent Bit DaemonSet",
+        "description": "將下方的 YAML 儲存為 fluent-bit-daemonset.yaml，然後執行 apply。"
+      },
+      "3": {
+        "title": "確認已收到日誌",
+        "description": "一分鐘後回到 Logs 頁面，將資料流選為 app-logs，應該就能看到 kubernetes.* 欄位。"
+      }
+    }
+  },
+  "linux": {
+    "name": "Linux 主機",
+    "description": "使用 Vector 收集 Linux 主機上的 journald 日誌。",
+    "steps": {
+      "1": {
+        "title": "安裝 Vector"
+      },
+      "2": {
+        "title": "設定 /etc/vector/vector.yaml"
+      }
+    }
+  },
+  "windows": {
+    "name": "Windows 主機",
+    "description": "使用 Windows Event Forwarding 和 winlogbeat 推送事件記錄。",
+    "steps": {
+      "1": {
+        "title": "安裝 winlogbeat"
+      },
+      "2": {
+        "title": "編輯 winlogbeat.yml"
+      }
+    }
+  },
+  "aws": {
+    "name": "AWS (CloudWatch + S3)",
+    "description": "透過 CloudWatch Logs 訂閱和 Kinesis Firehose 將日誌推送至 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "建立 Firehose 傳遞資料流（以 HTTP 端點為目的地）",
+        "description": "Firehose 無法使用 Bearer 驗證，請改用推送連接器：端點 URL 填入下方的位址，存取金鑰填入在「資料來源 → 連接器」中建立的連接器推送權杖。"
+      },
+      "2": {
+        "title": "訂閱 CloudWatch Logs"
+      }
+    }
+  },
+  "gcp": {
+    "name": "GCP (Cloud Logging)",
+    "description": "透過 Pub/Sub 接收器將 Cloud Logging 日誌推送至 MoleSignal 的 HTTP 端點。",
+    "steps": {
+      "1": {
+        "title": "建立 Cloud Logging 接收器 → Pub/Sub 主題"
+      },
+      "2": {
+        "title": "訂閱並轉送至 MoleSignal",
+        "description": "使用 Cloud Run 函式讀取 Pub/Sub 訊息，透過 POST 傳送至 {{ENDPOINT}}/api/v1/intake/logs/default，並附上 Authorization: Bearer <Token>。"
+      }
+    }
+  },
+  "azure": {
+    "name": "Azure (Event Hubs)",
+    "description": "透過診斷設定 → Event Hub → Function 轉送至 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "在 Azure 入口網站中設定診斷設定",
+        "description": "將 Event Hub 設為目的地，再部署 Azure Function 讀取 Event Hub 訊息，並透過 POST 傳送至 {{ENDPOINT}}/api/v1/intake/logs/default（附上 Authorization: Bearer <Token>）。"
+      }
+    }
+  },
+  "rum": {
+    "name": "Web RUM",
+    "description": "瀏覽器真實使用者監控：頁面效能、前端錯誤、資源與使用者工作階段。",
+    "steps": {
+      "1": {
+        "title": "安裝瀏覽器 SDK"
+      },
+      "2": {
+        "title": "初始化應用程式"
+      },
+      "3": {
+        "title": "上傳正式環境的 Source Map",
+        "description": "在「RUM 設定 → Source Maps 與 Symbols」上傳 .map 檔案，應用程式 ID、service 和 release 必須與事件中的值完全一致。",
+        "note": "請勿使用 RUM Client Token 上傳；上傳偵錯產物前，必須先登入並具備資料流設定權限。"
+      },
+      "4": {
+        "title": "驗證錯誤事件",
+        "description": "觸發一個測試錯誤，再到 RUM 探索的「錯誤」頁面確認應用程式、版本和原始碼位置。"
+      }
+    }
+  },
+  "rum-flutter": {
+    "name": "Flutter RUM",
+    "description": "使用 MoleSignal Flutter SDK 收集頁面、互動、錯誤、資源、慢速影格與工作階段重播資料。",
+    "steps": {
+      "1": {
+        "title": "安裝 Flutter SDK"
+      },
+      "2": {
+        "title": "初始化並安裝導覽觀察器"
+      },
+      "3": {
+        "title": "產生 Flutter AOT 符號",
+        "description": "每個發行版本和架構都要保留對應的 .symbols 檔案。"
+      },
+      "4": {
+        "title": "上傳並驗證符號",
+        "description": "在「RUM 設定 → Source Maps 與 Symbols」中選取 Flutter Symbols，填寫相同的應用程式 ID、service、release、平台、架構及建置時使用的 Debug ID，逐一上傳 .symbols 檔案。"
+      },
+      "5": {
+        "title": "驗證工作階段與錯誤",
+        "description": "執行 release 套件以觸發測試例外，確認 RUM 工作階段、錯誤和重播皆歸屬於目前的應用程式。"
+      }
+    }
+  },
+  "rum-android": {
+    "name": "Android 原生 RUM",
+    "description": "Android 原生應用程式依照 RUM 事件格式透過 HTTP 回報錯誤，並支援 R8/NDK 堆疊還原。",
+    "steps": {
+      "1": {
+        "title": "透過 HTTP 傳送 RUM 事件",
+        "description": "Android 原生 SDK 發行前，可先透過現有的網路層整合。以下示範一筆錯誤事件；檢視、操作、要求等其他事件採用相同格式，傳送至 POST /api/v1/rum/events；工作階段重播則傳送至 /api/v1/rum/replay。事件歸屬於 Client Token 繫結的應用程式。"
+      },
+      "2": {
+        "title": "保留 R8 mapping.txt",
+        "description": "完成 Release 建置後，請儲存 app/build/outputs/mapping/release/mapping.txt；這個檔案每次發行都會變更。"
+      },
+      "3": {
+        "title": "保留 NDK 未剝除的符號",
+        "description": "若包含 C/C++，請保留各 ABI 未剝除符號的 .so 檔案。上傳前可用 gzip 壓縮，但不要只上傳 APK 內已用 strip 剝除符號的 .so 檔案。"
+      },
+      "4": {
+        "title": "回報 NDK 堆疊框架位址",
+        "description": "原生程式當機的堆疊框架必須包含模組、指令位址、映像載入位址和 Build ID；伺服器端會換算成模組相對位址。"
+      },
+      "5": {
+        "title": "上傳 Android 偵錯產物",
+        "description": "在「RUM 設定 → Source Maps 與 Symbols」中分別上傳 Android mapping.txt 與 Android Native Symbols，並填寫應用程式 ID、版本、ABI 和 Build ID。"
+      },
+      "6": {
+        "title": "驗證混淆後的堆疊",
+        "description": "使用 release 套件觸發測試例外，確認類別名稱、方法名稱和原始碼行號已還原。"
+      }
+    }
+  },
+  "rum-ios": {
+    "name": "iOS 原生 RUM",
+    "description": "iOS 原生應用程式依照 RUM 事件格式透過 HTTP 回報錯誤位址，並使用 dSYM 還原函式名稱與原始碼位置。",
+    "steps": {
+      "1": {
+        "title": "透過 HTTP 傳送 RUM 事件",
+        "description": "iOS 原生 SDK 發行前，可先透過 URLSession 整合。以下示範一筆錯誤事件；檢視、操作、要求等其他事件採用相同格式，傳送至 POST /api/v1/rum/events；工作階段重播則傳送至 /api/v1/rum/replay。事件歸屬於 Client Token 繫結的應用程式。"
+      },
+      "2": {
+        "title": "封存並保留 dSYM",
+        "description": "使用 Xcode Archive 封存後，請保留 .xcarchive；應用程式二進位檔與 dSYM 的 UUID 必須一致。"
+      },
+      "3": {
+        "title": "上傳 dSYM DWARF 檔案",
+        "description": "在「RUM 設定 → Source Maps 與 Symbols」中選取 Apple dSYM，上傳 dSYM 套件內的 Contents/Resources/DWARF/<AppName> 檔案或其 .gz 檔案，並填寫 UUID。"
+      },
+      "4": {
+        "title": "驗證 release 堆疊",
+        "description": "使用 TestFlight 或裝置用的 release 套件觸發測試錯誤，確認函式名稱、檔案和行號已還原。"
+      }
+    }
+  },
+  "continuous-profiling": {
+    "name": "持續效能分析",
+    "description": "持續效能分析（火焰圖）：支援 OTLP Profiles、Pyroscope 和直接上傳 pprof 三種整合方式，可找出 CPU、記憶體和鎖定競爭問題。",
+    "steps": {
+      "1": {
+        "title": "OTLP Profiles (OpenTelemetry)",
+        "description": "將 OTel eBPF 效能分析工具或 SDK 指向所提供的固定 OTLP profiles 端點（Alpha）。"
+      },
+      "2": {
+        "title": "Pyroscope SDK",
+        "description": "現有的 Pyroscope 代理程式可直接連接相容的接收端點（format=pprof|folded|lines）。"
+      },
+      "3": {
+        "title": "上傳原始 pprof",
+        "description": "直接上傳以 gzip 壓縮的 pprof（例如來自 runtime/pprof），或使用 Profiles 頁面右上角的上傳按鈕。"
+      }
+    }
+  },
+  "curl": {
+    "name": "curl（原始 JSON）",
+    "description": "最簡單的方式：透過 HTTP POST 將 JSON 陣列傳送到擷取端點。",
+    "steps": {
+      "1": {
+        "title": "傳送事件"
+      },
+      "2": {
+        "title": "回應"
+      }
+    }
+  },
+  "bulk-ndjson": {
+    "name": "批次 NDJSON",
+    "description": "批次推送：使用與 Elasticsearch 相容的 _bulk，或讓原生擷取端點直接接收 JSON 陣列。",
+    "steps": {
+      "1": {
+        "title": "與 Elasticsearch 相容的 _bulk",
+        "description": "action 和 doc 交替排列，每行一筆（NDJSON）；由 _index 決定目標串流，未指定時使用 stream-name 標頭或 default。"
+      },
+      "2": {
+        "title": "原生批次（JSON 陣列）",
+        "description": "不需要 ES 格式時，可直接將 JSON 陣列 POST 到擷取端點，每次最多 5 MB。"
+      }
+    }
+  },
+  "opentelemetry": {
+    "name": "OpenTelemetry",
+    "description": "OpenTelemetry SDK 或應用程式可直接連線至 OTLP/HTTP，統一擷取記錄、指標和追蹤三種信號。",
+    "steps": {
+      "1": {
+        "title": "OTLP/HTTP 端點",
+        "description": "端點填寫至 /api，SDK 會自動附加 /v1/{signal}（→ /api/v1/traces 等）；可透過 stream-name 標頭指定目標串流。"
+      },
+      "2": {
+        "title": "環境變數（SDK / 自動檢測）"
+      },
+      "3": {
+        "title": "OTLP gRPC（:4317）",
+        "description": "OTLP gRPC 固定在 :4317 監聽，可透過 [otlp_grpc] 調整監聽位址、連接埠和訊息大小。",
+        "note": "對外連接埠：正式環境建議為 :4317 設定 TLS 和防火牆規則。"
+      }
+    }
+  },
+  "otel-collector": {
+    "name": "OTel Collector",
+    "description": "透過 OpenTelemetry Collector 的 otlphttp 匯出器，將記錄、指標和追蹤轉送至 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "Collector 設定（otlphttp 匯出器）",
+        "description": "Collector 透過 OTLP/HTTP 轉送：端點填寫至 /api，SDK 會自動附加 /v1/{signal}。"
+      },
+      "2": {
+        "title": "Collector 設定（otlp gRPC 匯出器，:4317）",
+        "description": "改用固定提供的 OTLP gRPC（:4317）。使用未加密連線時加入 tls.insecure: true；正式環境使用 TLS 時請移除這項設定。"
+      }
+    }
+  },
+  "nginx": {
+    "name": "NGINX",
+    "description": "透過 Fluent Bit tail 讀取 access.log 和 error.log。",
+    "steps": {
+      "1": {
+        "title": "Fluent Bit 輸入設定"
+      }
+    }
+  },
+  "apache": {
+    "name": "Apache httpd",
+    "description": "使用 mod_log_config 標準格式搭配 Vector tail。",
+    "steps": {
+      "1": {
+        "title": "參考 NGINX 範例（改用 apache 剖析器）",
+        "description": "使用 Fluent Bit 或 Vector 持續讀取 /var/log/apache2/access.log。"
+      }
+    }
+  },
+  "haproxy": {
+    "name": "HAProxy",
+    "description": "使用 stats socket 搭配 JSON 格式的 log-format。",
+    "steps": {
+      "1": {
+        "title": "haproxy.cfg"
+      }
+    }
+  },
+  "postgres": {
+    "name": "PostgreSQL",
+    "description": "收集慢速查詢記錄和 pg_stat_statements 指標。",
+    "steps": {
+      "1": {
+        "title": "啟用慢速查詢記錄"
+      },
+      "2": {
+        "title": "使用 Fluent Bit 收集",
+        "description": "持續讀取 /var/log/postgresql/postgresql-*.log，設定 parser=postgres。"
+      }
+    }
+  },
+  "mysql": {
+    "name": "MySQL",
+    "description": "general_log + slow_query_log。",
+    "steps": {
+      "1": {
+        "title": "my.cnf"
+      }
+    }
+  },
+  "mongodb": {
+    "name": "MongoDB",
+    "description": "mongod 的 systemLog + Atlas DB 指標。",
+    "steps": {
+      "1": {
+        "title": "mongod.conf"
+      }
+    }
+  },
+  "clickhouse": {
+    "name": "ClickHouse",
+    "description": "將 system.query_log 推送至 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "匯出 query_log（JSONEachRow）"
+      }
+    }
+  },
+  "redis": {
+    "name": "Redis",
+    "description": "redis-exporter (Prometheus) + 慢速記錄。",
+    "steps": {
+      "1": {
+        "title": "部署 redis-exporter"
+      },
+      "2": {
+        "title": "Prometheus remote_write",
+        "description": "擷取 :9121/metrics 後，透過 remote_write 寫入 {{ENDPOINT}}/api/v1/prometheus/api/v1/write（附上 Authorization: Bearer <Token>）。"
+      }
+    }
+  },
+  "falco": {
+    "name": "Falco",
+    "description": "Kubernetes 執行階段安全事件。",
+    "steps": {
+      "1": {
+        "title": "透過 falcosidekick 轉送",
+        "description": "Falco 原生的 http_output 無法加入自訂請求標頭，請用 falcosidekick 注入 Bearer。"
+      }
+    }
+  },
+  "osquery": {
+    "name": "osquery",
+    "description": "主機稽核 + 設定漂移。",
+    "steps": {
+      "1": {
+        "title": "osquery.conf"
+      }
+    }
+  },
+  "crowdstrike": {
+    "name": "CrowdStrike Falcon",
+    "description": "透過 Falcon Streaming API。",
+    "steps": {
+      "1": {
+        "title": "使用 Falcon SIEM Connector，sink=MoleSignal HTTP",
+        "description": "需要 Falcon API client+secret。"
+      }
+    }
+  },
+  "github-actions": {
+    "name": "GitHub Actions",
+    "description": "從工作流程將每次發布回報至 APM 發布時間軸。",
+    "steps": {
+      "1": {
+        "title": "將 Token 儲存為儲存庫的 Secret",
+        "description": "Token 的角色須具備 apm.deploy 權限，整合用的 Token 預設已具備此權限。"
+      },
+      "2": {
+        "title": "在部署步驟後回報",
+        "description": "將這個步驟加入負責部署的 job。version 必須與服務 Span 中的 service.version 一致。"
+      }
+    }
+  },
+  "gitlab-ci": {
+    "name": "GitLab CI/CD",
+    "description": "從管線將每次發布回報至 APM 發布時間軸。",
+    "steps": {
+      "1": {
+        "title": "將 Token 新增為 CI/CD 變數",
+        "description": "設定 → CI/CD → 變數：新增 MOLESIGNAL_TOKEN，勾選「隱藏」，填入角色具備 apm.deploy 權限的 Token。"
+      },
+      "2": {
+        "title": "在部署的 job 中回報",
+        "description": "無論部署成功或失敗，after_script 都會執行，因此失敗的發布也會回報。"
+      }
+    }
+  },
+  "argocd": {
+    "name": "ArgoCD",
+    "description": "同步事件 + 應用程式健康狀態。",
+    "steps": {
+      "1": {
+        "title": "argocd-notifications-cm",
+        "description": "設定 webhook 觸發條件，將通知傳送至 MoleSignal HTTP 端點。"
+      }
+    }
+  },
+  "jenkins": {
+    "name": "Jenkins",
+    "description": "從管線將每次發佈回報到 APM 發佈時間軸。",
+    "steps": {
+      "1": {
+        "title": "將權杖新增為憑證",
+        "description": "類型選擇 Secret text，ID 填入 molesignal-token，內容填入角色具備 apm.deploy 權限的權杖。"
+      },
+      "2": {
+        "title": "在 post 中回報",
+        "description": "post { always } 即使在建置失敗時也會回報。GIT_URL 中的密碼會在儲存時遮蔽。"
+      }
+    }
+  },
+  "envoy": {
+    "name": "Envoy",
+    "description": "JSON 存取日誌 + statsd 指標 + OTel 追蹤。",
+    "steps": {
+      "1": {
+        "title": "存取日誌設定"
+      }
+    }
+  },
+  "traefik": {
+    "name": "Traefik",
+    "description": "JSON 存取日誌 + Prometheus 指標。",
+    "steps": {
+      "1": {
+        "title": "traefik.yaml"
+      }
+    }
+  },
+  "cloudflare": {
+    "name": "Cloudflare Logpush",
+    "description": "將 HTTP 請求日誌推送至 MoleSignal 端點。",
+    "steps": {
+      "1": {
+        "title": "設定 Logpush 工作",
+        "description": "將 destination_conf 指向 {{ENDPOINT}}/api/v1/_cloudflare，並附上標頭 X-Connector-Token=<connector-push-token>（推送連接器自行驗證，不使用 Bearer）。"
+      }
+    }
+  },
+  "kafka": {
+    "name": "Apache Kafka",
+    "description": "透過 Kafka Connect Sink Connector 或 kafka-exporter 推送。",
+    "steps": {
+      "1": {
+        "title": "Kafka Connect → HTTP Sink"
+      }
+    }
+  },
+  "rabbitmq": {
+    "name": "RabbitMQ",
+    "description": "rabbitmq_prometheus + shovel 外掛程式。",
+    "steps": {
+      "1": {
+        "title": "啟用 rabbitmq_prometheus"
+      }
+    }
+  },
+  "nats": {
+    "name": "NATS",
+    "description": "NATS 伺服器監控端點 /varz、/connz。",
+    "steps": {
+      "1": {
+        "title": "從 :7777 的 /metrics 擷取指標",
+        "description": "使用 Prometheus remote_write 整合。"
+      }
+    }
+  },
+  "python": {
+    "name": "Python",
+    "description": "OpenTelemetry Python SDK。",
+    "steps": {
+      "1": {
+        "title": "安裝"
+      },
+      "2": {
+        "title": "執行"
+      }
+    }
+  },
+  "go": {
+    "name": "Go",
+    "description": "go.opentelemetry.io/otel SDK + otlptracehttp。",
+    "steps": {
+      "1": {
+        "title": "main.go"
+      }
+    }
+  },
+  "java": {
+    "name": "Java",
+    "description": "OpenTelemetry Java Agent（無需修改程式碼）。",
+    "steps": {
+      "1": {
+        "title": "啟動 JVM 時加入代理程式"
+      }
+    }
+  },
+  "node": {
+    "name": "Node.js",
+    "description": "@opentelemetry/auto-instrumentations-node。",
+    "steps": {
+      "1": {
+        "title": "安裝"
+      },
+      "2": {
+        "title": "啟動"
+      }
+    }
+  },
+  "rust": {
+    "name": "Rust",
+    "description": "tracing-opentelemetry + opentelemetry-otlp。",
+    "steps": {
+      "1": {
+        "title": "初始化"
+      },
+      "2": {
+        "title": "初始化"
+      }
+    }
+  },
+  "dotnet": {
+    "name": ".NET",
+    "description": "適用於 .NET 的 OpenTelemetry.AutoInstrumentation。",
+    "steps": {
+      "1": {
+        "title": "設定環境變數後啟動",
+        "description": "與 Java 類似，使用 OTel 自動插樁，設定 OTLP_PROTOCOL=http/protobuf，並將 ENDPOINT 指向 /api。"
+      }
+    }
+  },
+  "openai": {
+    "name": "OpenAI",
+    "description": "收集每次 OpenAI API 呼叫的提示詞、生成結果、token 數和延遲。",
+    "steps": {
+      "1": {
+        "title": "使用 OpenLLMetry SDK"
+      }
+    }
+  },
+  "anthropic": {
+    "name": "Anthropic",
+    "description": "為 Claude API 呼叫加上插樁，記錄模型、提示詞、輸出和 token 用量。",
+    "steps": {
+      "1": {
+        "title": "Python"
+      }
+    }
+  },
+  "langchain": {
+    "name": "LangChain",
+    "description": "逐步追蹤 Chain 和 Agent 的執行過程。",
+    "steps": {
+      "1": {
+        "title": "回呼處理常式"
+      }
+    }
+  },
+  "llamaindex": {
+    "name": "LlamaIndex",
+    "description": "追蹤 RAG 管線（查詢 → 檢索 → 合成）。",
+    "steps": {
+      "1": {
+        "title": "set_global_handler(\"molesignal\")",
+        "description": "與 LangChain 類似，使用 OpenInference 插樁。"
+      }
+    }
+  },
+  "webhook": {
+    "name": "通用 HTTP 整合",
+    "description": "任何服務都可透過 HTTP POST 傳送 JSON，將事件寫入指定的串流。",
+    "steps": {
+      "1": {
+        "title": "端點",
+        "description": "將 <stream-name> 換成目標串流名稱；若該串流不存在，則由接收端視需要建立。"
+      }
+    }
+  },
+  "graphql-subscription": {
+    "name": "GraphQL Subscriptions",
+    "description": "訂閱 GraphQL 的訂閱事件，並將事件作為串流。",
+    "steps": {
+      "1": {
+        "title": "使用 WebSocket 中繼",
+        "description": "部署中繼節點，將訂閱資料轉送至 MoleSignal。"
+      }
+    }
+  }
+}

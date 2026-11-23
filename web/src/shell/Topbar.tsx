@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import * as meApi from '@/api/me';
+import { docsLocale } from '@/i18n';
 import { resolveDefaultHomeRoute } from '@/lib/homeRoute';
 import { toApiError } from '@/lib/http';
 import {
@@ -243,7 +244,7 @@ export function Topbar({
           aboutLabel={t('shell:topbar.about')}
           onAbout={() => setAboutOpen(true)}
           onDocs={() => {
-            const docsLang = i18n.language?.toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US';
+            const docsLang = docsLocale(i18n.language);
             window.open(`https://docs.molesignal.com/${docsLang}`, '_blank', 'noopener,noreferrer');
           }}
           onKeyboard={() => window.dispatchEvent(new CustomEvent('molesignal:open-help'))}

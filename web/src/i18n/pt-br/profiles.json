@@ -1,0 +1,258 @@
+{
+  "title": "Profiling contínuo",
+  "subtitle": "Gráficos de chama de CPU, memória e contenção de bloqueios nos seus serviços.",
+  "refresh": "Atualizar",
+  "live": {
+    "label": "Ao vivo",
+    "hint": "Atualização automática a cada 10s"
+  },
+  "filters": {
+    "service": "Serviço",
+    "service_all": "Todos os serviços",
+    "type": "Tipo de perfil",
+    "label": "Filtro por rótulo",
+    "label_placeholder": "chave:valor",
+    "apply": "Aplicar"
+  },
+  "profile_types": {
+    "cpu": "CPU",
+    "wall": "Tempo decorrido",
+    "alloc_space": "Memória alocada",
+    "alloc_objects": "Objetos alocados",
+    "inuse_space": "Memória em uso",
+    "inuse_objects": "Objetos em uso",
+    "goroutines": "Goroutines",
+    "lock": "Contenção de bloqueios",
+    "samples": "Amostras"
+  },
+  "analysis": {
+    "filter_bar_aria": "Filtros de análise de perfis",
+    "clear_trace": "Limpar filtro de trace",
+    "summary_aria": "Resultados da análise",
+    "hottest": "Maior custo",
+    "hot_share": "{{percent}}% de custo próprio",
+    "no_hotspot": "Nenhuma função de alto custo",
+    "samples": "{{count}} amostras",
+    "service_count_one": "{{count}} serviço",
+    "service_count_other": "{{count}} serviços",
+    "captured": "{{duration}} de captura",
+    "profiles_button": "{{selected}} / {{total}} perfis",
+    "profiles_button_aria": "Escolher os perfis para esta análise: {{selected}} de {{total}} selecionados",
+    "workspace_aria": "Área de análise de perfis",
+    "loading_flamegraph": "Combinando os perfis selecionados…",
+    "no_selection_title": "Nenhum perfil selecionado para análise",
+    "no_selection_description": "O gráfico de chama combina os perfis que você seleciona. Selecione pelo menos um.",
+    "no_selection_action": "Escolher perfis",
+    "service_count_many": "{{count}} serviços"
+  },
+  "first_run": {
+    "eyebrow": "Profiling contínuo",
+    "steps": {
+      "send": {
+        "title": "Enviar perfis",
+        "description": "Envie perfis pprof via OTLP ou Pyroscope, ou carregue um arquivo para testar."
+      },
+      "narrow": {
+        "title": "Restrinja a análise",
+        "description": "Escolha um serviço, um tipo de perfil e os perfis a mesclar."
+      },
+      "read": {
+        "title": "Leia o gráfico de chamas",
+        "description": "Os quadros mais largos têm o maior custo. A função de maior custo aparece no topo da página."
+      }
+    }
+  },
+  "selection": {
+    "title": "Perfis nesta análise",
+    "selected_summary": "{{selected}} / {{total}} selecionados",
+    "description": "Os perfis selecionados são mesclados no gráfico de chamas. Clique em uma linha para abrir apenas o perfil correspondente.",
+    "select_all": "Selecionar todos os perfis",
+    "select_none": "Desmarcar todos os perfis",
+    "row_aria": "Alternar a seleção do perfil {{id}} na análise"
+  },
+  "units": {
+    "nanoseconds": "ns",
+    "bytes": "bytes",
+    "count": "contagem",
+    "samples": "amostras"
+  },
+  "list": {
+    "title": "Perfis",
+    "kpi": {
+      "total_value": "Total",
+      "samples": "Amostras",
+      "services": "Serviços",
+      "hot_function": "Função de maior custo"
+    },
+    "columns": {
+      "service": "Serviço",
+      "type": "Tipo",
+      "timestamp": "Data e hora da captura",
+      "duration": "Duração",
+      "samples": "Amostras",
+      "total_value": "Total",
+      "trace": "Rastreamento"
+    },
+    "tooltip": {
+      "duration": "Tempo real decorrido durante a captura",
+      "total": "Tempo acumulado de execução na CPU (soma dos valores das amostras)"
+    },
+    "view_flamegraph": "Ver gráfico de chamas",
+    "open_profile": "Abrir perfil",
+    "empty_title": "Nenhum perfil neste intervalo",
+    "empty_description": "Configure a ingestão em Fonte de dados (OTLP / Pyroscope / pprof) ou use Enviar para enviar um arquivo pprof diretamente."
+  },
+  "flamegraph": {
+    "title": "Gráfico de chamas",
+    "search_placeholder": "Destacar quadros…",
+    "reset_zoom": "Redefinir zoom",
+    "fit_canvas": "Redefinir visualização",
+    "fullscreen": "Análise em tela cheia",
+    "exit_fullscreen": "Sair da tela cheia",
+    "resize": "Arraste para redimensionar a área de análise. Clique duas vezes para restaurar o tamanho original.",
+    "value_type": "Valor",
+    "no_data_title": "Nenhuma amostra para exibir",
+    "no_data_description": "Nenhum perfil corresponde ao serviço, ao tipo e ao intervalo de tempo selecionados.",
+    "truncated_notice": "Exibindo uma amostra representativa dos perfis correspondentes — o intervalo excedeu o limite de mesclagem.",
+    "frame_aria": "Analisar a função {{name}}",
+    "root_aria": "Analisar todas as amostras",
+    "root_note": "Todas as amostras",
+    "frame_self": "próprio",
+    "frame_total": "total",
+    "frame_share": "do total",
+    "self_help": "Custo desta função, sem incluir as chamadas filhas",
+    "total_help": "Custo acumulado, incluindo todas as chamadas filhas",
+    "profiles_merged": "{{count}} perfis mesclados",
+    "view": {
+      "flame": "Gráfico de chama",
+      "tree": "Árvore de chamadas",
+      "top": "Principais funções"
+    },
+    "top": {
+      "function": "Função",
+      "self": "Próprio",
+      "self_pct": "Próprio (%)",
+      "cum": "Total",
+      "cum_pct": "Total (%)",
+      "select_hint": "Selecione esta função para inspecionar seus detalhes",
+      "jump_hint": "Clique para destacar esta função no gráfico de chama"
+    },
+    "tree": {
+      "expand": "Expandir chamadas filhas",
+      "collapse": "Recolher chamadas filhas"
+    },
+    "details": {
+      "title": "Detalhes da função",
+      "focus": "Focalizar no gráfico de chama",
+      "call_tree": "Ver na árvore de chamadas",
+      "compare": "Comparar",
+      "occurrences": "Ocorrências",
+      "service": "Serviço",
+      "all_services": "Todos os serviços",
+      "call_path": "Caminho de chamadas",
+      "children": "Chamadas filhas diretas",
+      "no_children": "Nenhuma chamada filha direta",
+      "depth": "Profundidade da chamada"
+    },
+    "tooltip": {
+      "focus_hint": "Clique para focalizar este quadro e inspecionar a função."
+    },
+    "legend": {
+      "width": "Largura",
+      "cumulative": "custo acumulado",
+      "color": "Cor",
+      "self": "custo próprio",
+      "cold": "frio",
+      "hot": "quente"
+    }
+  },
+  "compare": {
+    "title": "Comparar perfis",
+    "subtitle": "Veja onde o custo aumentou ou diminuiu de um período para o outro. Você pode definir os dois períodos livremente.",
+    "filters_aria": "O que está sendo comparado",
+    "baseline_aria": "Referência: {{value}}",
+    "baseline_title": "Escolha o período de referência",
+    "baseline_relative": "Vinculado ao período comparado",
+    "baseline_overlaps": "O período de referência ficaria sobreposto ao período comparado.",
+    "baselines": {
+      "previous": "Período anterior",
+      "day": "Mesmo horário no dia anterior",
+      "week": "Mesmo horário na semana anterior",
+      "custom": "Período personalizado"
+    },
+    "statement_aria": "Os dois períodos comparados",
+    "comparison": "Comparação",
+    "baseline": "Referência",
+    "period_profiles_one": "{{count}} perfil",
+    "period_profiles_other": "{{count}} perfis",
+    "overall": "Variação geral",
+    "unequal_counts": "Os períodos têm quantidades diferentes de perfis ({{comparison}} contra {{baseline}}), então parte da variação se deve à diferença no volume coletado.",
+    "overlap": "Os períodos se sobrepõem: os perfis coletados no intervalo em comum contam nos dois períodos.",
+    "loading": "Comparando os dois períodos…",
+    "legend_increase": "Aumento",
+    "legend_decrease": "Redução",
+    "changed": {
+      "title": "Funções com maior variação",
+      "count_one": "{{count}} função com variação",
+      "count_other": "{{count}} funções com variação",
+      "function": "Função",
+      "baseline": "Referência",
+      "comparison": "Comparação",
+      "change": "Variação no custo próprio",
+      "new": "nova",
+      "gone": "ausente",
+      "show_all": "Mostrar todas ({{count}})",
+      "show_top": "Mostrar as {{count}} com maior variação",
+      "none": "O custo próprio de todas as funções permaneceu igual nos dois períodos.",
+      "select_hint": "Destacar esta função no gráfico de chama",
+      "count_many": "{{count}} funções com variação"
+    },
+    "empty": {
+      "none_title": "Nenhum perfil nos dois períodos",
+      "none_description": "Nenhum perfil deste tipo foi coletado para este serviço nos dois períodos. Selecione períodos em que houve coleta de perfis ou escolha outro tipo.",
+      "baseline_title": "Sem dados de referência para comparar",
+      "baseline_description": "O período de referência não tem perfis, então todas as funções apareceriam como novas. Selecione um período de referência em que houve captura de perfis.",
+      "comparison_title": "Nenhum perfil capturado no período de comparação",
+      "comparison_description": "O período selecionado não tem perfis para comparar com o período de referência. Selecione um período em que houve captura de perfis.",
+      "open_analysis": "Abrir este período na análise"
+    },
+    "period_profiles_many": "{{count}} perfis"
+  },
+  "detail": {
+    "title": "Perfil",
+    "back": "Voltar aos perfis",
+    "download": "Baixar pprof",
+    "downloading": "Baixando…",
+    "open_trace": "Abrir rastreamento correlacionado",
+    "view_span_flamegraph": "Ver gráfico de chamas deste span",
+    "metadata": {
+      "service": "Serviço",
+      "type": "Tipo",
+      "captured": "Capturado em",
+      "duration": "Duração",
+      "samples": "Amostras",
+      "trace": "Rastreamento",
+      "span": "Span"
+    },
+    "unsymbolized": "Contém quadros de pilha sem símbolos"
+  },
+  "upload": {
+    "button": "Enviar",
+    "title": "Enviar um perfil",
+    "description": "Envie um perfil pprof compactado com gzip ou sem compactação. Para configurar OTLP / Pyroscope, consulte Fonte de dados.",
+    "service": "Serviço",
+    "service_placeholder": "my-service",
+    "type": "Tipo de perfil",
+    "file": "Arquivo pprof",
+    "choose_file": "Escolher arquivo…",
+    "submit": "Enviar",
+    "uploading": "Enviando…",
+    "success": "Perfil enviado",
+    "error": "Falha ao enviar o perfil",
+    "datasource_link": "Configurar OTLP / Pyroscope"
+  },
+  "errors": {
+    "load_failed": "Falha ao carregar os perfis",
+    "flamegraph_failed": "Falha ao gerar o gráfico de chamas"
+  }
+}

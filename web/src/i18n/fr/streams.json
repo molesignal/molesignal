@@ -1,0 +1,588 @@
+{
+  "title": "Flux",
+  "subtitle": "Vérifiez si les données continuent d’arriver, combien coûte leur stockage et quel est l’impact des paramètres de requête et de rétention.",
+  "pagination": {
+    "aria": "Pagination de la liste des flux",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Flux par page",
+    "first_aria": "Première page",
+    "previous_aria": "Page précédente",
+    "next_aria": "Page suivante",
+    "last_aria": "Dernière page"
+  },
+  "list": {
+    "refresh": "Actualiser",
+    "create": "Créer un flux",
+    "search_placeholder": "Rechercher par nom ou description…",
+    "status_filter": "Filtrer par état de fonctionnement",
+    "result_count": "{{count}} flux",
+    "updated_at": "Dernière mise à jour des statistiques : {{time}}",
+    "stats_unavailable": "Statistiques de fonctionnement indisponibles",
+    "retention_days": "{{days}} jours",
+    "query": "Interroger",
+    "view_detail": "Voir les détails",
+    "copy_id": "Copier l’ID du flux",
+    "id_copied": "ID du flux copié",
+    "more_actions": "Plus d’actions pour {{name}}",
+    "kpis": {
+      "healthy": "Réception normale",
+      "healthy_sub": "{{total}} flux au total",
+      "attention": "À surveiller",
+      "attention_sub": "Réception retardée ou interrompue, ou statistiques indisponibles",
+      "compressed_24h": "Données compressées sur 24 h",
+      "rows_24h": "{{count}} lignes écrites",
+      "compressed_window": "Données compressées sur {{window}}",
+      "rows_window": "{{count}} lignes écrites sur cette période",
+      "current_storage": "Stockage actuel",
+      "current_storage_sub": "Données conservées"
+    },
+    "status": {
+      "all": "Tous les états",
+      "attention": "À surveiller",
+      "healthy": "Opérationnel",
+      "idle": "Inactif",
+      "delayed": "En retard",
+      "interrupted": "Interrompu",
+      "unused": "Inutilisé",
+      "unknown": "Statistiques indisponibles"
+    },
+    "tabs": {
+      "all": "Tous",
+      "logs": "Logs",
+      "metrics": "Métriques",
+      "traces": "Traces",
+      "profiles": "Profils",
+      "extend": "Table de correspondance"
+    },
+    "tabs_label": "Types de flux",
+    "columns": {
+      "stream": "Flux",
+      "type": "Type",
+      "status": "Statut",
+      "rate": "Débit de réception",
+      "last_received": "Dernière réception",
+      "volume_24h": "Volume compressé sur 24h",
+      "volume_window": "Volume compressé sur {{window}}",
+      "storage": "Stockage actuel",
+      "retention": "Rétention",
+      "actions": "Actions",
+      "data_count": "Enregistrements",
+      "collected_size": "Taille collectée",
+      "stored_size": "Taille stockée",
+      "index_size": "Taille des index"
+    },
+    "explore": "Explorer",
+    "not_queryable": "Non interrogeable",
+    "empty_title": "Aucun flux pour l’instant",
+    "empty_description": "Créez un flux ou envoyez des événements via une source de données pour enregistrer votre premier flux.",
+    "storage_notes": {
+      "data_count": "Nombre d’enregistrements stockés et encore conservés, indépendamment de la période de suivi de l’état du flux.",
+      "collected_size": "Total cumulé des octets des événements acceptés au format JSON canonique, avant transformation et hors encapsulation de transport. Ce total est mis à jour après chaque vidage du tampon. Le symbole ≥ indique un historique incomplet et le symbole — indique l’absence de mesure.",
+      "stored_size": "Taille réelle en octets des fichiers de données primaires actifs, hors index.",
+      "index_size": "Taille réelle en octets des fichiers d’index disponibles sur les segments actifs."
+    },
+    "no_match_title": "Aucun flux ne correspond",
+    "no_match_description": "Essayez un autre nom, type ou statut."
+  },
+  "drawer": {
+    "title": "Créer un flux",
+    "subtitle": "Ajoutez une source de données, puis configurez un émetteur.",
+    "identity": "Identité",
+    "stream_name": "Nom du flux",
+    "stream_name_hint": "snake_case · 64 caractères maximum",
+    "stream_name_placeholder": "my-app-logs",
+    "description": "Description (facultative)",
+    "description_placeholder": "Quelles données transitent par ce flux ?",
+    "signal_type": "Type de signal",
+    "signal_type_description": "Détermine le mode de stockage et le langage de requête.",
+    "types": {
+      "logs": {
+        "label": "Logs",
+        "hint": "Requêtes SQL, indexation en texte intégral et stockage en colonnes au format Parquet"
+      },
+      "metrics": {
+        "label": "Métriques",
+        "hint": "Stockage TSDB compatible avec PromQL"
+      },
+      "traces": {
+        "label": "Traces",
+        "hint": "Spans OTLP, graphiques en flammes et cartes de services"
+      }
+    },
+    "storage": "Stockage",
+    "retention": "Durée de conservation (jours)",
+    "retention_hint": "Les données sont archivées dans le stockage objet à l’issue de cette période.",
+    "shards": "Partitions",
+    "shards_hint": "Permettent les écritures en parallèle depuis les sources de données. Prévoyez au moins autant de partitions que de nœuds d’écriture.",
+    "indexed_fields": "Champs indexés",
+    "indexed_fields_hint": "Champs séparés par des virgules pour accélérer les recherches par correspondance exacte ou par préfixe.",
+    "encrypted_fields": "Champs chiffrés",
+    "encrypted_fields_hint": "Champs séparés par des virgules, chiffrés au repos. Utilisez decrypt(field) pour les lire. Ce choix ne peut pas être modifié par la suite.",
+    "queryable": "Interrogeable",
+    "queryable_hint": "Si cette option est désactivée, le flux continue de recevoir et de conserver les données, mais il n’apparaît pas dans les sélecteurs de requête et ne peut pas faire l’objet de recherches. Désactivez-la pour un flux source qui alimente uniquement un pipeline de routage. Vous pourrez la modifier dans les paramètres."
+  },
+  "toast": {
+    "create_pending": "Le flux {{name}} est enregistré lors de la première écriture depuis une source de données. Le point de terminaison /streams ne permet pas encore de créer un flux."
+  },
+  "detail": {
+    "back": "Flux",
+    "fallback_title": "Flux",
+    "subtitle": "Détails du flux",
+    "query_logs": "Interroger dans les logs",
+    "not_found_title": "Flux introuvable",
+    "not_found_description": "Il se peut qu’aucune source de données n’ait encore enregistré ce flux.",
+    "fields": {
+      "id": "id",
+      "label": "label",
+      "subtitle": "subtitle"
+    }
+  },
+  "explore": {
+    "subtitle": "État de fonctionnement, efficacité des requêtes, stockage et conservation",
+    "system_stream_immutable": "Pour les flux système, vous ne pouvez configurer que l’indexation et le masquage des champs, la conservation et le sous-échantillonnage. Le système gère l’identité, le chiffrement et la suppression.",
+    "toolbar": {
+      "refresh": "Actualiser",
+      "query_data": "Interroger les données",
+      "more": "Autres actions",
+      "copy_id": "Copier l’ID du flux",
+      "id_copied": "ID du flux copié",
+      "delete": "Supprimer le flux",
+      "discard": "Ignorer les modifications",
+      "save": "Enregistrer et appliquer",
+      "saving": "Application en cours…"
+    },
+    "metadata": {
+      "type": "Type",
+      "status": "Statut d’exécution",
+      "last_received": "Dernière réception",
+      "retention": "Rétention par défaut",
+      "active_type": "Type actuel : {{type}}",
+      "switch_type": "Passer au flux {{type}}",
+      "switch_blocked": "Enregistrez ou ignorez les modifications du type actuel avant de changer de type."
+    },
+    "tabs": {
+      "overview": "Vue d’ensemble",
+      "schema": "Champs et index",
+      "retention": "Rétention",
+      "usage": "Utilisation",
+      "settings": "Paramètres"
+    },
+    "tabs_label": "Sections du flux",
+    "index_options": {
+      "none": "Non indexé",
+      "full_text": "Recherche en texte intégral",
+      "exact": "Correspondance exacte",
+      "bloom": "Filtre de Bloom",
+      "skip": "Index de saut",
+      "ngram": "Sous-chaîne par n-grammes",
+      "ip": "Adresse IP",
+      "key_value": "Clés JSON",
+      "range": "Plage numérique"
+    },
+    "kpis": {
+      "events_24h": "Lignes écrites sur 24 h",
+      "receive_rate": "Débit moyen de réception",
+      "compressed_24h": "Volume de données compressées sur 24 h",
+      "current_storage": "Stockage actuel",
+      "index_coverage": "Couverture de l’indexation des champs",
+      "from_catalog": "D’après les métadonnées de stockage en temps réel",
+      "average_24h": "Calculé sur les 24 dernières heures",
+      "compressed_note": "Données Parquet compressées",
+      "live_parquet": "Fichiers actifs non supprimés",
+      "index_coverage_note": "Mesuré en nombre de champs, pas en octets d’index",
+      "index_backfill": "Réindexation des données anciennes : {{count}} fichiers restants"
+    },
+    "overview": {
+      "stats_unavailable": "Les statistiques d’exécution sont indisponibles. Vous pouvez toujours modifier la configuration. Actualisez la page pour interroger à nouveau les métadonnées de stockage.",
+      "no_data_title": "Aucune donnée reçue pour le moment",
+      "no_data_description": "Envoyez les données de votre source vers « {{stream}} » ou envoyez un événement de test pour vérifier le circuit d’ingestion.",
+      "configure_source": "Configurer la source de données",
+      "send_test": "Envoyer des données de test",
+      "sending_test": "Envoi en cours…",
+      "test_sent": "Données de test envoyées : {{accepted}} acceptées, {{rejected}} rejetées",
+      "operational_state": "État d’exécution",
+      "first_received": "Première réception",
+      "queryability": "Prise en charge des requêtes",
+      "queryable": "Interrogeable",
+      "not_queryable": "Ingestion uniquement",
+      "trend_title": "Évolution de l’ingestion et du stockage",
+      "trend_subtitle": "24 dernières heures · fichiers Parquet réels",
+      "metric_rows": "Lignes écrites",
+      "metric_storage": "Données compressées",
+      "no_chart_data": "Aucune donnée à tracer sur cette période",
+      "now": "Maintenant"
+    },
+    "schema": {
+      "summary": "{{fields}} champs · {{indexed}} indexés · {{encrypted}} chiffrés",
+      "readonly_hint": "En lecture seule par défaut. Utilisez l’action Modifier pour changer l’indexation et le masquage.",
+      "search_placeholder": "Rechercher des champs",
+      "fts_title": "La recherche en texte intégral se configure par champ",
+      "fts_description": "Activez l’indexation en texte intégral sur des champs comme message ou body pour accélérer les requêtes MATCH. Les données existantes ne sont pas réindexées automatiquement.",
+      "configure_index": "Configurer l’index du champ",
+      "storage_type": "Type de stockage : {{type}}",
+      "field_types": {
+        "boolean": "Booléen",
+        "integer": "Entier",
+        "decimal": "Décimal",
+        "string": "Chaîne de caractères",
+        "timestamp": "Horodatage",
+        "json": "JSON"
+      },
+      "columns": {
+        "name": "Nom du champ",
+        "type": "Type",
+        "index_type": "Type d’index",
+        "encryption": "Chiffrement"
+      },
+      "index_type_hint": "L’index par correspondance exacte convient aux identifiants et aux dimensions ayant peu de valeurs. L’index en texte intégral convient au texte des journaux. L’index par n-grammes permet de rechercher des URL et des chemins par fragment, l’index IP de rechercher des adresses par réseau et l’index par clés JSON de filtrer les champs JSON sur l’une de leurs clés.",
+      "encrypted": "Chiffré",
+      "encrypted_hint": "Ce champ est chiffré avant le stockage. Vous ne pouvez pas modifier ce réglage ici sans rendre les données existantes illisibles.",
+      "edit_field": "Modifier le champ {{name}}",
+      "drawer_title": "Modifier le champ · {{name}}",
+      "drawer_fallback": "Modifier le champ",
+      "drawer_subtitle": "Configurez l’indexation pour les requêtes et le masquage des résultats sans modifier le type du champ.",
+      "cancel": "Annuler",
+      "apply": "Appliquer au brouillon",
+      "no_schema": "Ce flux n’a pas encore de schéma. Les champs apparaissent dès que la source de données écrit dans le flux pour la première fois.",
+      "no_match": "Aucun champ correspondant.",
+      "masking": {
+        "title": "Masquage des champs dans les résultats",
+        "description": "Le serveur masque les champs dans les résultats finaux des requêtes, les exportations et les réponses de l’API. Le filtrage, le tri et l’agrégation utilisent toujours les valeurs brutes.",
+        "mode": "Politique du flux",
+        "modes": {
+          "inherit": "Hériter de la règle globale",
+          "custom": "Règle personnalisée pour le flux",
+          "none": "Désactiver le masquage pour ce flux"
+        },
+        "no_global_rule": "Aucune règle globale ne s’applique actuellement",
+        "no_global_rule_hint": "Le champ n’est pas masqué pour le moment. Toute future règle globale correspondant à ce champ s’appliquera automatiquement.",
+        "explicit_none_hint": "Le masquage global est désactivé pour ce champ dans ce flux. Sélectionnez l’option d’héritage pour rétablir le comportement global.",
+        "metrics_disabled": "Le masquage des champs ne s’applique pas aux flux de métriques. Les valeurs et les étiquettes des métriques restent inchangées ; l’indexation reste configurable."
+      }
+    },
+    "retention": {
+      "default_policy": "Durée de conservation par défaut",
+      "data_retention_days": "Durée de conservation des données (jours)",
+      "days_default_hint": "Laissez ce champ vide pour utiliser la durée par défaut de la plateforme, soit {{days}} jours.",
+      "days_placeholder": "{{days}} jours par défaut",
+      "default_explanation": "Au prochain nettoyage, les données dont l’âge dépasse la durée de conservation seront supprimées. Si vous réduisez cette durée, les données qui dépassent la nouvelle limite seront également supprimées.",
+      "downsample": "Sous-échantillonnage",
+      "downsample_toggle": "Sous-échantillonner les anciens échantillons",
+      "downsample_hint": "Les échantillons plus anciens que le nombre de jours défini sont regroupés par intervalle de temps. Pour chaque série, les échantillons d’un intervalle sont remplacés par un seul point : les valeurs sont moyennées et les compteurs delta sont additionnés. Les échantillons d’origine sont ensuite supprimés. Les requêtes sur de longues périodes lisent beaucoup moins de données, et les données anciennes ne conservent que la résolution de l’intervalle.",
+      "downsample_after_days": "Nombre de jours de conservation des échantillons d’origine",
+      "downsample_after_days_hint": "Au-delà de cette durée, les échantillons sont agrégés. Les échantillons d’origine ne peuvent plus être récupérés.",
+      "downsample_interval": "Intervalle d’agrégation",
+      "intervals": {
+        "60": "1 minute",
+        "300": "5 minutes",
+        "900": "15 minutes",
+        "3600": "1 heure",
+        "86400": "1 jour"
+      }
+    },
+    "usage": {
+      "loading": "Vérification de l’utilisation…",
+      "write_source": "Source d’écriture",
+      "write_source_hint": "Point de terminaison d’ingestion qui reçoit ce nom de flux",
+      "intake_endpoint": "Point de terminaison d’ingestion",
+      "pipelines": "Pipelines",
+      "pipelines_hint": "Utilisent ce flux comme source ou destination",
+      "saved_queries": "Requêtes enregistrées",
+      "saved_queries_hint": "Explicitement associées à ce flux",
+      "alert_rules": "Règles d’alerte",
+      "alert_rules_hint": "Évaluées à partir des données de ce flux",
+      "enabled": "Activé",
+      "disabled": "Désactivé",
+      "none": "Aucun élément associé",
+      "partial_unavailable": "Certains services dont dépend cette vérification sont indisponibles. Le résultat peut être incomplet."
+    },
+    "runtime": {
+      "basic": "Informations de base",
+      "basic_hint": "Décrivez les données métier de ce flux et à quoi il sert.",
+      "description_label": "Description",
+      "description_placeholder": "Quelles données ce flux transporte-t-il ?",
+      "query_capabilities": "Paramètres de requête",
+      "query_capabilities_hint": "Réglez l’accès aux requêtes et leur plage temporelle. Désactiver l’accès aux requêtes n’interrompt pas l’ingestion.",
+      "max_query_range": "Plage maximale d’une requête (heures)",
+      "max_query_range_hint": "Nombre maximal d’heures qu’une requête peut couvrir. Les requêtes portant sur une plage plus longue sont rejetées. Laissez vide ou saisissez 0 pour ne fixer aucune limite.",
+      "storage_behavior": "Paramètres de stockage",
+      "storage_behavior_hint": "Détermine comment les fichiers de données sont fusionnés et partitionnés.",
+      "queryable": "Interrogeable",
+      "queryable_hint": "Si cette option est désactivée, le flux continue de recevoir et de conserver les données, mais il n’apparaît plus dans les sélecteurs de flux et ne peut pas être interrogé par la recherche. Désactivez-la pour un flux source qui alimente uniquement un pipeline de routage.",
+      "daily_merge": "Fusionner les petits fichiers par jour",
+      "daily_merge_hint": "Une heure après la fin d’une journée, ses fichiers sont fusionnés en un seul si leur taille cumulée ne dépasse pas la taille cible de fusion. Une requête couvrant plusieurs jours ouvre ainsi beaucoup moins de fichiers. La rétention s’applique alors par jour : le fichier fusionné est supprimé dès que toutes les données de la journée ont dépassé leur durée de rétention.",
+      "partition_field": "Partitionner par champ",
+      "partition_field_hint": "Les nouvelles données sont réparties en partitions selon les valeurs de ces champs. Une requête qui impose des conditions sur ces champs ne lit que les partitions susceptibles de contenir des résultats. Ce réglage convient aux champs utilisés dans presque toutes les requêtes, comme le service ou le locataire. Le hachage répartit les données uniformément et accélère les conditions = et IN. Le partitionnement par premier caractère attribue une partition à chaque chiffre et à chaque lettre (sans distinction de casse), ainsi qu’une partition pour tous les autres caractères. Il accélère aussi les conditions LIKE dont le motif commence par du texte, comme 'abc%'. Vous pouvez choisir jusqu’à deux champs, à condition que le produit de leurs nombres de partitions ne dépasse pas 256.",
+      "partition_none": "Sans partitionnement",
+      "partition_total": "{{count}} partitions au total",
+      "partition_add": "Ajouter un champ",
+      "partition_remove": "Supprimer ce champ",
+      "partition_method": "Méthode de partitionnement",
+      "partition_methods": {
+        "hash": "Hachage · {{count}} partitions",
+        "prefix": "Premier caractère · {{count}} partitions"
+      },
+      "partition_too_many": "Le produit des nombres de partitions des deux champs dépasse {{max}}.",
+      "clustering_field": "Regrouper par champ",
+      "clustering_field_hint": "Dans les nouveaux fichiers de logs, les lignes sont organisées par tranche temporelle, puis par valeur de ces champs au sein de chaque tranche. Une requête qui filtre sur une valeur exacte, par exemple service = 'checkout', ne lit alors que les quelques pages de chaque tranche qui contiennent cette valeur. Ce réglage convient aux champs souvent utilisés dans les requêtes et qui prennent peu de valeurs, comme le service ou le niveau. Chaque fichier conserve aussi le nombre de lignes par minute et par valeur de champ. Les comptages et les histogrammes à la minute qui filtrent ou regroupent les résultats selon ces champs n’ont donc pas à lire les données. Vous pouvez choisir jusqu’à deux champs. Des tranches plus longues permettent d’ignorer davantage de pages, mais la lecture des lignes les plus récentes nécessite de trier une tranche de plus.",
+      "clustering_none": "Par ordre chronologique",
+      "clustering_slices": "Tranches de {{interval}}",
+      "clustering_add": "Ajouter un champ",
+      "clustering_remove": "Supprimer ce champ",
+      "clustering_interval": "Tranche temporelle",
+      "clustering_minutes_one": "{{count}} minute",
+      "clustering_minutes_other": "{{count}} minutes",
+      "clustering_seconds_one": "{{count}} seconde",
+      "clustering_seconds_other": "{{count}} secondes",
+      "field_indexes": "Index des champs",
+      "field_indexes_hint": "Les nouveaux champs de ce flux sont indexés selon leur nom.",
+      "index_pattern": "Indexation des nouveaux champs",
+      "index_pattern_name": "Motif du nom de champ",
+      "index_pattern_hint": "La première règle dont le motif correspond au nom du champ et dont l’index est compatible avec son type s’applique. Le caractère * représente une suite quelconque de caractères et ? un seul caractère, comme dans *_id ou http.*. Ces règles ne concernent que les champs qui apparaîtront à partir de maintenant. Pour modifier les champs existants, accédez à « Champs et index », où tout index défini explicitement pour un champ par son nom est prioritaire.",
+      "index_pattern_add": "Ajouter une règle",
+      "index_pattern_remove": "Supprimer cette règle",
+      "index_pattern_up": "Monter",
+      "index_pattern_down": "Descendre",
+      "clustering_minutes_many": "{{count}} minutes",
+      "clustering_seconds_many": "{{count}} secondes"
+    },
+    "changes": {
+      "unsaved": "Vous avez des modifications non enregistrées",
+      "review": "La nouvelle configuration prend effet dès son enregistrement.",
+      "index_risk": "Les nouvelles données sont immédiatement indexées selon la nouvelle configuration. Les données déjà enregistrées sont réindexées en arrière-plan. Vous pouvez suivre la progression dans la section « Couverture des champs indexés » de la vue d’ensemble.",
+      "retention_risk": "La durée de conservation sera réduite à {{days}} jours et les données arrivées à expiration pourront être supprimées.",
+      "query_risk": "Une fois l’accès aux requêtes désactivé, ce flux continue de recevoir des données, mais les requêtes et les recherches sont refusées.",
+      "downsample_risk": "Les échantillons d’origine de plus de {{days}} jours seront agrégés par intervalle de temps, puis supprimés. Cette action est irréversible.",
+      "partition_risk": "Le partitionnement s’applique uniquement aux nouvelles données. Les fichiers existants restent inchangés.",
+      "clustering_risk": "Le regroupement s’applique uniquement aux nouvelles données. Les fichiers existants restent inchangés."
+    },
+    "validation": {
+      "retention_days": "La durée de conservation des données doit être un nombre entier de jours compris entre 1 et {{max}}.",
+      "max_query_range": "La plage temporelle maximale des requêtes doit être un nombre entier d’heures compris entre 0 et {{max}}.",
+      "downsample_after_days": "La durée de conservation des échantillons d’origine doit être un nombre entier de jours compris entre 1 et {{max}}.",
+      "index_pattern_length": "Un motif de nom de champ ne peut pas dépasser {{max}} caractères.",
+      "index_pattern_duplicate": "Les motifs de noms de champs doivent être distincts."
+    },
+    "delete_confirm_title": "Supprimer ce flux ?",
+    "delete_confirm_description": "Le flux « {{stream}} » et sa configuration seront supprimés. Cette action est irréversible.",
+    "toast": {
+      "updated": "Configuration du flux mise à jour",
+      "deleted": "Flux supprimé"
+    },
+    "delete_consequences": {
+      "stored": "Données stockées",
+      "rows": "Lignes"
+    }
+  },
+  "jobs": {
+    "title": "Tâches de recherche",
+    "subtitle": "Requêtes exécutées en arrière-plan : en attente, en cours ou conservées avec leurs résultats jusqu’à expiration",
+    "entry": "Tâches de recherche",
+    "views_label": "État de la tâche",
+    "states": {
+      "all": "Toutes",
+      "pending": "En attente",
+      "running": "En cours",
+      "done": "Terminée",
+      "failed": "En échec",
+      "cancelled": "Annulée"
+    },
+    "kinds": {
+      "query": "Requête",
+      "backfill": "Remplissage rétroactif"
+    },
+    "scope_own": "Uniquement les tâches que vous avez soumises",
+    "live": "Des tâches sont en cours. Actualisation toutes les {{seconds}} s",
+    "columns": {
+      "kind": "Type",
+      "job": "Tâche",
+      "status": "État",
+      "time_range": "Période interrogée",
+      "submitted": "Date de soumission",
+      "duration": "Durée / fin",
+      "rows": "Lignes de résultats",
+      "attempt": "Tentative",
+      "expires": "Expiration",
+      "actions": "Actions"
+    },
+    "cells": {
+      "request_unreadable": "Impossible de lire la requête de cette tâche",
+      "pipeline": "Ouvrir le pipeline",
+      "finished_at": "Terminé {{time}}",
+      "not_finished": "En cours ou non terminé",
+      "attempt_title": "Tentative {{number}}",
+      "expired": "Expiré",
+      "expired_title": "Expiré, en attente de nettoyage",
+      "error": "Échec : {{error}}"
+    },
+    "actions": {
+      "cancel": "Annuler la tâche",
+      "cancel_named": "Annuler la tâche {{id}}",
+      "retry": "Relancer",
+      "retry_named": "Relancer la tâche {{id}}",
+      "download": "Télécharger les résultats",
+      "download_named": "Télécharger les résultats de la tâche {{id}}",
+      "download_empty": "Cette tâche n’a renvoyé aucune ligne de résultats",
+      "delete": "Supprimer",
+      "delete_named": "Supprimer la tâche {{id}}"
+    },
+    "cancel_confirm": {
+      "title": "Annuler cette tâche ?",
+      "description": "La tâche s’arrête. Vous pourrez la relancer plus tard, mais elle reprendra depuis le début.",
+      "confirm": "Annuler la tâche",
+      "keep": "Poursuivre l’exécution",
+      "busy": "Annulation…"
+    },
+    "delete_confirm": {
+      "title": "Supprimer cette tâche ?",
+      "description": "La tâche et ses résultats enregistrés seront définitivement supprimés.",
+      "description_active": "La tâche n’est pas terminée : elle sera d’abord annulée, puis définitivement supprimée.",
+      "confirm": "Supprimer",
+      "busy": "Suppression…"
+    },
+    "toast": {
+      "cancelled": "Tâche annulée",
+      "retried": "Tâche remise en file d’attente",
+      "deleted": "Tâche supprimée",
+      "downloaded": "Téléchargement terminé : {{count}} lignes de résultats"
+    },
+    "empty": {
+      "title": "Aucune tâche de recherche pour le moment",
+      "title_own": "Vous n’avez pas encore soumis de tâche de recherche",
+      "description": "Une tâche de recherche exécute une requête en arrière-plan et conserve ses résultats jusqu’à son expiration. Il existe trois façons de créer une tâche :",
+      "source_async": "Une requête envoyée avec Prefer: respond-async ou dont le résultat risque d’être trop volumineux",
+      "source_backfill": "Le rattrapage des données d’un pipeline",
+      "source_agent": "Une requête soumise par Mole Agent",
+      "filtered_hint": "Choisissez un autre état ou affichez toutes les tâches.",
+      "filtered": {
+        "pending": "Aucune tâche en file d’attente",
+        "running": "Aucune tâche en cours",
+        "done": "Aucune tâche terminée",
+        "failed": "Aucune tâche n’a échoué",
+        "cancelled": "Aucune tâche annulée"
+      }
+    },
+    "denied": {
+      "title": "Vous ne pouvez pas consulter les tâches de recherche",
+      "description": "L’autorisation query.jobs.read ou sys.telemetry.read est requise."
+    },
+    "pagination": {
+      "aria": "Pagination des tâches de recherche",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "Tâches par page",
+      "first_aria": "Première page",
+      "previous_aria": "Page précédente",
+      "next_aria": "Page suivante",
+      "last_aria": "Dernière page"
+    }
+  },
+  "usage": {
+    "entry": "Utilisation de l’ingestion",
+    "title": "Utilisation de l’ingestion",
+    "subtitle": "Volume de données ingérées par chaque source et comparaison avec son budget. Les budgets sont indicatifs et ne bloquent pas l’ingestion.",
+    "dimensions_label": "Regrouper par",
+    "dimensions": {
+      "credential": "Identifiant d’accès",
+      "stream": "Flux",
+      "service": "Service"
+    },
+    "search_placeholder": "Rechercher une source…",
+    "window_label": "Période",
+    "windows": {
+      "24h": "24 dernières heures",
+      "7d": "7 derniers jours",
+      "30d": "30 derniers jours"
+    },
+    "total": "{{bytes}} · {{events}} événements au total",
+    "metering_since": "Mesure depuis le {{time}} : les données antérieures ne sont pas comptabilisées",
+    "truncated": "Seules les 5 000 sources au volume le plus élevé sont affichées",
+    "unavailable": "Impossible de consulter l’utilisation pour le moment",
+    "not_metered": "Aucune mesure n’a encore été enregistrée",
+    "no_match": "Aucune source ne correspond à la recherche",
+    "empty": {
+      "credential": "Aucune donnée n’a été envoyée avec un identifiant d’accès sur cette période",
+      "stream": "Aucun flux n’a ingéré de données sur cette période",
+      "service": "Aucun événement ne mentionne de service sur cette période",
+      "hint": "L’utilisation s’affiche ici dans la minute qui suit la réception des données."
+    },
+    "columns": {
+      "source": "Source",
+      "source_key": "Clé de la source",
+      "intake_bytes": "Volume ingéré",
+      "events": "Événements",
+      "share": "Part",
+      "budget": "Budget",
+      "used": "Utilisé sur la période",
+      "used_ratio": "Budget utilisé",
+      "state": "Statut"
+    },
+    "states": {
+      "ok": "Dans le budget",
+      "warning": "Budget presque épuisé",
+      "exceeded": "Budget dépassé"
+    },
+    "source": {
+      "internal": "Interne à la plateforme",
+      "unnamed_service": "Service sans nom",
+      "other_services": "Autres services",
+      "connector": "Connecteur · {{kind}}",
+      "user": "Utilisateur connecté",
+      "missing": "Supprimé"
+    },
+    "token_kinds": {
+      "personal": "Jeton personnel",
+      "default_intake": "Jeton d’ingestion par défaut",
+      "rum_client": "Jeton client RUM",
+      "service_account": "Jeton de compte de service"
+    },
+    "budget": {
+      "none": "Non défini",
+      "none_hint": "Aucun budget n’est défini pour cette source.",
+      "set": "Définir le budget",
+      "change": "Modifier",
+      "remove": "Supprimer le budget",
+      "per_day": "{{limit}} / jour",
+      "per_month": "{{limit}} / mois",
+      "set_title": "Définir le budget",
+      "change_title": "Modifier le budget",
+      "many_subtitle": "Le même budget pour {{count}} sources",
+      "period": "Période",
+      "periods": {
+        "day": "Chaque jour",
+        "day_hint": "Comptabilisé par jour calendaire en UTC.",
+        "month": "Chaque mois",
+        "month_hint": "Comptabilisé par mois calendaire en UTC."
+      },
+      "limit": "Limite",
+      "limit_hint": "De 1 MiB à 1 PiB.",
+      "unit": "Unité",
+      "warn_percent": "Seuil d’avertissement (%)",
+      "warn_percent_hint": "Une notification est envoyée lorsque ce seuil est atteint, puis une autre lorsque la limite est atteinte. Avec 0, seule l’atteinte de la limite déclenche une notification.",
+      "notify": "Destinataires des notifications",
+      "notify_hint": "Les notifications suivent les politiques de notification et sont envoyées via le canal choisi par chaque destinataire.",
+      "notify_self": "Impossible d’afficher la liste des membres. Vous recevrez donc les notifications.",
+      "notify_required": "Sélectionnez au moins une personne.",
+      "save": "Enregistrer le budget",
+      "saved_one": "Budget enregistré",
+      "saved_other": "{{count}} budgets enregistrés",
+      "save_failed": "Impossible d’enregistrer {{count}} budgets sur {{total}} : {{reason}}",
+      "remove_title_one": "Supprimer ce budget ?",
+      "remove_title_other": "Supprimer {{count}} budgets ?",
+      "remove_description": "Plus personne ne recevra de notifications pour ces sources. Leur consommation restera visible sur cette page.",
+      "removed_one": "Budget supprimé",
+      "removed_other": "{{count}} budgets supprimés",
+      "remove_failed": "Impossible de supprimer {{count}} budgets sur {{total}} : {{reason}}",
+      "saved_many": "{{count}} budgets enregistrés",
+      "remove_title_many": "Supprimer {{count}} budgets ?",
+      "removed_many": "{{count}} budgets supprimés"
+    },
+    "detail": {
+      "trend": "Ingestion sur la période",
+      "by_credential": "Par identifiant d’authentification",
+      "by_stream": "Par flux",
+      "by_service": "Par service",
+      "nothing": "Aucune donnée sur cette période.",
+      "used": "{{used}} utilisés ({{percent}})"
+    }
+  }
+}

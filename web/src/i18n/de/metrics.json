@@ -1,0 +1,258 @@
+{
+  "explore": {
+    "title": "Metriken",
+    "subtitle": "Explorer",
+    "toolbar": {
+      "refresh": "Aktualisieren",
+      "running": "Wird ausgeführt…",
+      "add_to_dashboard": "Zum Dashboard hinzufügen",
+      "clear_query": "Abfrage leeren",
+      "collapse_editor": "Abfrage einklappen",
+      "expand_editor": "Abfrage ausklappen",
+      "empty_query_summary": "Wählen Sie eine Metrik aus oder geben Sie PromQL ein"
+    },
+    "editor": {
+      "label": "Abfrage",
+      "aria": "PromQL-Editor",
+      "placeholder": "rate(metric_name{...}[5m])",
+      "run": "Ausführen",
+      "running_promql": "PromQL-Abfrage wird ausgeführt…"
+    },
+    "function_hint": {
+      "aria": "Hilfe zu PromQL-Funktionen öffnen",
+      "title": "Häufig verwendete PromQL-Funktionen",
+      "description": "Häufig verwendete Funktionen und Aggregationen, die das Abfrage-Backend unterstützt.",
+      "functions": {
+        "rate": "Berechnet die durchschnittliche Rate pro Sekunde für einen Bereichsvektor.",
+        "increase": "Berechnet den gesamten Anstieg über einen Zeitraum.",
+        "sum": "Fasst mehrere Zeitreihen durch Summenbildung zusammen.",
+        "avg": "Fasst mehrere Zeitreihen durch Mittelwertbildung zusammen."
+      },
+      "docs": "Alle Funktionen",
+      "docs_aria": "Dokumentation zu PromQL-Funktionen öffnen"
+    },
+    "query": {
+      "datasource": "Datenquelle",
+      "metrics_browser": "Metrik-Browser",
+      "options": "Optionen",
+      "legend": "Legende",
+      "auto": "Automatisch",
+      "verbose": "Ausführlich",
+      "custom": "Benutzerdefiniert",
+      "format": "Format",
+      "time_series": "Zeitreihe",
+      "table": "Tabelle",
+      "step": "Schrittweite",
+      "step_placeholder": "auto, 30s, 1m…",
+      "step_invalid": "Geben Sie auto oder eine Dauer wie 30s oder 5m ein.",
+      "type": "Typ",
+      "range": "Zeitraum",
+      "instant": "Zeitpunkt",
+      "exemplars": "Exemplare",
+      "on": "Ein",
+      "off": "Aus"
+    },
+    "catalog": {
+      "title": "Metriken",
+      "browser_title": "Metrikbrowser",
+      "search_trigger": "Metriken suchen",
+      "search_description": "Suchen Sie nach einem Metriknamen und wählen Sie eine Metrik aus, um sie in Abfrage A einzufügen.",
+      "search_aria": "Metriknamen suchen",
+      "result_count": "{{count}} Ergebnisse",
+      "collapse": "Metriken einklappen",
+      "expand": "Metriken ausklappen",
+      "resize": "Ziehen, um die Größe des Metrikbereichs zu ändern; Doppelklick zum Zurücksetzen",
+      "filter_placeholder": "Metriken filtern...",
+      "loading": "Katalog wird geladen…",
+      "load_error": "Metrikkatalog konnte nicht geladen werden: {{error}}",
+      "unknown_error": "unbekannter Fehler",
+      "no_filter_match": "Keine Metriken entsprechen diesem Filter.",
+      "empty": "Es sind noch keine Metriken definiert. Erstellen Sie einen Stream mit stream_type = metrics.",
+      "no_indexed_labels": "keine Labels",
+      "metric_meta": "{{labels}} Labels · {{fields}} Felder",
+      "select": "Auswählen",
+      "selected": "Ausgewählt",
+      "pagination": {
+        "page_summary": "{{page}} / {{pages}}",
+        "aria": "Seitennavigation im Metrikkatalog",
+        "page_size_aria": "Metriken pro Seite",
+        "first_aria": "Erste Seite im Metrikkatalog",
+        "previous_aria": "Vorherige Seite im Metrikkatalog",
+        "next_aria": "Nächste Seite im Metrikkatalog",
+        "previous": "Zurück",
+        "next": "Weiter",
+        "last_aria": "Letzte Seite im Metrikkatalog"
+      }
+    },
+    "types": {
+      "counter": "Counter",
+      "histogram": "Histogramm",
+      "gauge": "Gauge"
+    },
+    "chart": {
+      "mode_line": "Linie",
+      "mode_bar": "Balken",
+      "mode_points": "Punkte",
+      "draw_style": "Darstellungsstil",
+      "stack_mode": "Stapelung",
+      "stack_none": "Aus",
+      "stack_normal": "Normal",
+      "stack_percent": "Prozent",
+      "stack_requires_multiple_series": "Zum Stapeln sind mindestens zwei Zeitreihen erforderlich",
+      "http_request_rate": "HTTP-Anfragerate",
+      "query_result": "Ergebnis der Metrikabfrage",
+      "generic_rate": "Rate für {{metric}}",
+      "zoom_hint": "Ziehen zum Auswählen · X-Achse ziehen zum Verschieben · doppelklicken zum Herauszoomen",
+      "zoom_aria": "Metrik-Zeitreihen. Ziehen Sie horizontal, um einen Zeitraum auszuwählen. Ziehen Sie die X-Achse, um den sichtbaren Zeitraum in Echtzeit zu verschieben. Doppelklicken Sie auf das Diagramm, um den aktuellen Zeitraum zu verdoppeln.",
+      "reset_zoom": "Zeitraum zurücksetzen",
+      "reset_zoom_hint": "Zeitraum vor der Interaktion mit dem Diagramm wiederherstellen",
+      "select_prompt": "Geben Sie oben einen PromQL-Ausdruck ein oder suchen Sie nach einer Metrik. Führen Sie dann die Abfrage aus.",
+      "empty": "Keine Datenpunkte für diese Abfrage im gewählten Zeitraum."
+    },
+    "start": {
+      "heading": "Mit einer Metrik beginnen",
+      "browse": "Alle Metriken durchsuchen",
+      "metric_aria": "{{metric}} im Diagramm anzeigen",
+      "no_metrics": "Es sind noch keine Metriken eingegangen.",
+      "connect": "Metrikquelle verbinden"
+    },
+    "recovery": {
+      "query_failed": "PromQL-Abfrage fehlgeschlagen",
+      "promql_docs": "PromQL-Dokumentation",
+      "no_data_title": "Keine Metrikdaten im untersuchten Zeitraum",
+      "no_data_description": "Die Abfrage ist gültig. Erweitern Sie den Zeitraum oder entfernen Sie angeheftete Filter, bevor Sie den Ausdruck ändern.",
+      "expand_time": "Zeitraum vervierfachen",
+      "clear_filters": "Filter löschen und erneut versuchen"
+    },
+    "exemplars": {
+      "title": "Exemplare",
+      "count": "{{count}} Exemplare",
+      "open_trace": "Trace {{traceId}} öffnen",
+      "no_trace": "Exemplar hat keine Trace-ID",
+      "hint": "Wählen Sie eine Raute aus, um den zugehörigen Trace zu prüfen.",
+      "query_error": "Exemplare nicht verfügbar"
+    },
+    "series": {
+      "title": "Zeitreihen",
+      "empty": "Keine Zeitreihen.",
+      "collapse": "Einklappen",
+      "show_all": "Alle {{count}} Zeitreihen anzeigen",
+      "label_count": "{{count}} Labels",
+      "expand_labels": "Labels für {{metric}} anzeigen",
+      "collapse_labels": "Labels für {{metric}} ausblenden",
+      "columns": {
+        "name": "Name",
+        "last": "Letzter Wert",
+        "current": "Aktueller Wert",
+        "average": "Durchschnitt",
+        "max": "Maximum"
+      }
+    },
+    "query_stats": {
+      "title": "Abfragestatistiken",
+      "empty": "Keine Abfragestatistiken.",
+      "series": "Zeitreihen",
+      "points": "Datenpunkte",
+      "scanned": "Gelesene Zeilen",
+      "duration": "Abfragedauer",
+      "range": "Zeitraum",
+      "step": "Schrittweite"
+    },
+    "results": {
+      "graph": "Diagramm",
+      "table": "Tabelle",
+      "inspector": "Abfrage-Inspektor",
+      "series_count": "{{count}} Zeitreihen",
+      "query_time": "{{ms}} ms",
+      "no_table": "Führen Sie eine Abfrage aus, um die Ergebniszeilen zu prüfen.",
+      "table_limit": "{{shown}} von {{total}} Zeilen werden angezeigt.",
+      "query": "Abfrage",
+      "views_aria": "Ergebnisansichten"
+    },
+    "quality": {
+      "title": "Datenqualität",
+      "healthy": "Keine offensichtlichen Anomalien erkannt",
+      "attention": "Einige Daten sollten geprüft werden",
+      "distinguishes_missing": "Fehlende Werte, tatsächliche Nullwerte und negative Werte werden getrennt gezählt.",
+      "negative_points": "Negative Datenpunkte",
+      "missing_data": "Fehlende Daten",
+      "timestamp_anomalies": "Zeitstempelanomalien",
+      "negative_rate_title": "Negative Änderungsrate bei Counter erkannt",
+      "negative_rate_description": "Diese Metrik ist als Counter deklariert, aber das Ergebnis enthält {{count}} negative Datenpunkte. Möglicherweise ist der Counter-Wert gesunken, die Messwerte sind in falscher Reihenfolge eingegangen oder der Metriktyp wurde falsch angegeben.",
+      "view_raw": "Rohdaten anzeigen",
+      "view_anomalies": "Anomalien anzeigen",
+      "inspect_type": "Metriktyp prüfen"
+    },
+    "top_labels": {
+      "title": "Top-Labels",
+      "empty": "—",
+      "value": "Wert",
+      "avg": "Durchschn."
+    },
+    "summary": {
+      "title": "Statistische Zusammenfassung",
+      "empty": "—"
+    },
+    "cardinality": {
+      "title": "Kardinalität",
+      "active_series": "aktive Zeitreihen · {{rows}} gelesene Zeilen · {{ms}} ms"
+    },
+    "schema": {
+      "title": "Ergebnisschema",
+      "empty": "—",
+      "columns": {
+        "name": "Spalte",
+        "kind": "Typ",
+        "rows": "Zeilen"
+      },
+      "kinds": {
+        "time": "Zeit",
+        "value": "Wert",
+        "label": "Label"
+      }
+    },
+    "scan": {
+      "title": "Scan-Statistik",
+      "label": "gescannte Zeilen · {{ms}} ms"
+    }
+  },
+  "builder": {
+    "metric_label": "Metrik",
+    "metric_select_aria": "Metrikname",
+    "metric_select_placeholder": "Metrik auswählen",
+    "label_matchers": "Label-Filter",
+    "matcher_name_aria": "Name des Label-Filters {{index}}",
+    "matcher_name_placeholder": "status",
+    "matcher_op_aria": "Operator des Label-Filters {{index}}",
+    "matcher_value_aria": "Wert des Label-Filters {{index}}",
+    "matcher_value_placeholder": "200",
+    "add_matcher": "Label-Filter hinzufügen",
+    "remove_matcher_aria": "Label-Filter {{index}} entfernen",
+    "no_matchers": "Keine Label-Filter. Fügen Sie einen Filter hinzu, um die Auswahl auf bestimmte Zeitreihen der Metrik einzuschränken.",
+    "no_labels": "Für diese Metrik sind keine Labels auswählbar.",
+    "function": "Funktion",
+    "function_select_aria": "PromQL-Funktion",
+    "available_functions": "Im Builder verfügbar",
+    "code_only_functions": "Zusätzliche Parameter · Code-Modus verwenden",
+    "functions": {
+      "none": "Unverarbeitete Metrik",
+      "rate": "Rate",
+      "irate": "Momentane Rate",
+      "increase": "Anstieg"
+    },
+    "aggregation": "Aggregation",
+    "aggregation_select_aria": "PromQL-Aggregation",
+    "aggregations": {
+      "none": "Keine",
+      "sum": "Summe",
+      "avg": "Durchschnitt",
+      "max": "Maximum",
+      "min": "Minimum"
+    },
+    "range": "Zeitfenster",
+    "range_select_aria": "Dauer des Zeitfensters",
+    "editor_label": "PromQL",
+    "preview_empty": "Wählen Sie eine Metrik aus, um eine PromQL-Abfrage zu erstellen",
+    "unsupported_expression": "Dieser PromQL-Ausdruck lässt sich im Builder nicht zuverlässig abbilden. Er bleibt unverändert, bis Sie ein Feld im Builder ändern."
+  }
+}

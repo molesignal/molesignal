@@ -1,0 +1,653 @@
+{
+  "detail": {
+    "title": "追蹤詳細資料",
+    "back": "追蹤",
+    "trace_id": "trace_id",
+    "copy_trace_id": "複製 Trace ID",
+    "copy_span_id": "複製 Span ID",
+    "total_duration": "總耗時",
+    "share_of_trace": "占追蹤總耗時的 {{percent}}%",
+    "share_key": "占總耗時",
+    "share_key_aria": "長條的顏色表示 Span 占追蹤總耗時的比例：低於 {{low}}%、{{low}}–{{mid}}%、{{mid}}–{{high}}%、{{high}}% 以上。失敗的 Span 以紅色顯示。",
+    "trace_label": "追蹤",
+    "truncated": "已截斷",
+    "search_spans": "搜尋服務、操作、Span ID…",
+    "expand_all": "全部展開",
+    "collapse_all": "全部收合",
+    "column_span": "服務 / 操作",
+    "inspect_span_aria": "檢視 Span {{operation}}，{{service}}，{{duration}}",
+    "toggle_children": "展開或收合子 Span",
+    "leaf_span": "葉節點 Span",
+    "span_error": "錯誤",
+    "span_match": "相符",
+    "close_span": "關閉 Span 詳細資料",
+    "span_id": "Span ID",
+    "span_start_offset": "開始於 {{offset}}（{{percent}}%）",
+    "span_events": "事件",
+    "span_count_one": "{{count}} 個 Span",
+    "span_count_other": "{{count}} 個 Span",
+    "service_count_one": "{{count}} 個服務",
+    "service_count_other": "{{count}} 個服務",
+    "error_count_one": "{{count}} 個錯誤",
+    "error_count_other": "{{count}} 個錯誤",
+    "related_logs": "相關日誌",
+    "service_metrics": "服務指標",
+    "search_logs": "在日誌中搜尋相關脈絡",
+    "view_user_session": "檢視使用者工作階段",
+    "missing_title": "缺少 trace id",
+    "missing_description": "請從追蹤清單開啟詳細資料頁面，以保留 trace id 和時間脈絡。",
+    "not_found_title": "找不到追蹤",
+    "not_found_description": "所選時間範圍內沒有這個 trace id 的 span。日誌與追蹤分開儲存，日誌中的 trace id 不一定有對應的追蹤。",
+    "load_error_title": "無法載入追蹤",
+    "malformed_title": "無法顯示這筆追蹤",
+    "malformed_multiple_roots": "這筆追蹤有 {{count}} 個根 span；繪製瀑布圖需要恰好一個根 span。",
+    "malformed_no_root": "這筆追蹤沒有根 span；繪製瀑布圖需要恰好一個根 span。",
+    "malformed_empty": "這筆追蹤沒有 span。"
+  },
+  "session": {
+    "title": "工作階段追蹤",
+    "session_id": "session_id",
+    "empty_title": "此工作階段沒有追蹤資料",
+    "empty_description": "最近七天內找不到符合此 session id 的追蹤資料。",
+    "result_count_one": "{{count}} 筆追蹤",
+    "result_count_other": "{{count}} 筆追蹤",
+    "columns": {
+      "trace_id": "trace_id",
+      "service": "service",
+      "operation": "operation",
+      "duration_ms": "duration_ms"
+    }
+  },
+  "explore": {
+    "title": "追蹤",
+    "subtitle": "查詢工具",
+    "toolbar": {
+      "refresh": "重新整理"
+    },
+    "tabs": {
+      "spans": "Span",
+      "traces": "追蹤",
+      "red": "RED 向下鑽研",
+      "service_graph": "服務圖"
+    },
+    "service_graph": {
+      "title": "服務圖",
+      "search_placeholder": "搜尋服務",
+      "search_aria": "在服務圖中搜尋服務",
+      "clear_search": "清除服務搜尋",
+      "layout_aria": "服務圖版面配置",
+      "tree_view": "樹狀檢視",
+      "graph_view": "圖形檢視",
+      "direction_aria": "服務圖方向",
+      "horizontal": "橫向",
+      "vertical": "縱向",
+      "loading": "正在載入服務圖…",
+      "health_legend": "服務健康狀態圖例",
+      "border_color": "邊框色彩",
+      "health": {
+        "healthy": "正常 <1%",
+        "degraded": "降級 1–5%",
+        "warning": "警告 5–10%",
+        "critical": "嚴重 >10%"
+      },
+      "entity_count": "{{count}} 個服務",
+      "match_count": "{{visible}} / {{total}} 個服務",
+      "show_types": "類型圖示",
+      "hide_types": "隱藏類型圖示",
+      "no_match": "沒有符合「{{query}}」的服務。",
+      "empty": "最近一小時沒有服務圖資料。"
+    },
+    "query": {
+      "editor_label": "查詢編輯器",
+      "sql_hint": "在 traces 資料流上執行 SQL。",
+      "field_hint_full": "可使用欄位語句，例如 trace_id = \"...\" / service_name contains \"checkout\"",
+      "clear": "清空",
+      "clear_query": "清空查詢",
+      "run": "查詢",
+      "running": "查詢中…",
+      "free_text_label": "自由文字：",
+      "ignored_label": "已忽略：",
+      "empty_summary": "追蹤",
+      "collapse_editor": "收合查詢",
+      "expand_editor": "展開查詢"
+    },
+    "histogram": {
+      "label": "直方圖",
+      "ok": "無錯誤",
+      "errors": "錯誤",
+      "hide": "隱藏直方圖",
+      "show": "顯示直方圖",
+      "latency_label": "追蹤耗時",
+      "span_label": "Span 數量隨時間變化",
+      "span_ok": "Span",
+      "span_errors": "失敗的 span"
+    },
+    "results": {
+      "no_match": "沒有符合查詢條件的追蹤。",
+      "loaded_count_one": "已載入 {{count}} 筆追蹤",
+      "loaded_count_other": "已載入 {{count}} 筆追蹤",
+      "close_detail": "關閉追蹤詳細資料"
+    },
+    "recovery": {
+      "query_failed": "追蹤查詢失敗",
+      "no_data_title": "沒有符合條件的追蹤",
+      "no_data_description": "目前的時間範圍內找不到相關追蹤。可先清空查詢或擴大時間範圍，再考慮切換資料流。",
+      "expand_time": "將時間範圍擴大為 4 倍",
+      "clear_filters": "清空查詢並重試",
+      "query_docs": "追蹤查詢文件"
+    },
+    "pagination": {
+      "aria": "追蹤結果分頁",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "每頁追蹤筆數",
+      "previous": "上一頁",
+      "next": "下一頁",
+      "first_aria": "追蹤結果第一頁",
+      "previous_aria": "上一頁",
+      "next_aria": "下一頁",
+      "last_aria": "追蹤記錄的最後一頁"
+    },
+    "table": {
+      "columns": {
+        "status": "狀態",
+        "http": "狀態碼",
+        "start": "開始時間",
+        "service": "服務",
+        "operation": "操作",
+        "duration": "耗時",
+        "spans": "Span 數",
+        "errors": "錯誤",
+        "trace": "Trace ID",
+        "kind": "種類"
+      },
+      "sort_by": "依{{column}}排序",
+      "sorted_descending": "依{{column}}由大到小（或由新到舊）排序，按一下即可反轉排序",
+      "sorted_ascending": "依{{column}}由小到大（或由舊到新）排序，按一下即可反轉排序",
+      "open_aria": "開啟追蹤記錄 {{operation}}，{{service}}，{{duration}}",
+      "open_span_aria": "開啟 span {{operation}}，{{service}}，{{duration}}",
+      "status_ok": "正常",
+      "status_error": "錯誤"
+    },
+    "columns": {
+      "title": "欄設定",
+      "visible": "顯示的欄",
+      "reorder_hint": "拖曳排序",
+      "drag_aria": "調整 {{name}} 的順序。可拖曳，或按 Alt+上／下方向鍵。",
+      "reset": "還原預設值",
+      "available": "可新增的欄",
+      "root_fields": "根 Span 欄位",
+      "full": "最多顯示 {{count}} 欄，請先移除一欄。"
+    },
+    "labels": {
+      "title": "欄位",
+      "collapse": "收合欄位",
+      "expand": "展開欄位",
+      "resize": "拖曳以調整欄位寬度，按兩下可還原預設寬度",
+      "filter_placeholder": "搜尋欄位",
+      "filter_aria": "篩選追蹤記錄欄位",
+      "common_fields": "常用欄位",
+      "displayed_fields": "顯示的欄位",
+      "indexed_fields": "已建立索引的欄位",
+      "no_indexed_fields": "此資料串流沒有已建立索引的欄位。",
+      "other_fields": "其他欄位",
+      "show_field_aria": "將每筆追蹤記錄的根 span 中的 {{name}} 顯示為一欄",
+      "hide_field_aria": "移除 {{name}} 欄",
+      "add_field_aria": "將 {{name}} 加入查詢",
+      "json_query_required": "{{name}} 需要在 SQL 模式中使用 JSON 路徑查詢",
+      "direct_query_unavailable": "無法直接查詢 {{name}}",
+      "fields_summary": "{{shown}} / {{total}} 個欄位",
+      "values_count_one": "{{count}} 個值",
+      "values_count_other": "{{count}} 個值",
+      "values_top": "共 {{count}} 個值，顯示前 {{shown}} 個",
+      "values_in_traces_one": "{{count}} 筆追蹤中的 {{matched}} 筆",
+      "values_in_traces_other": "{{count}} 筆追蹤中的 {{matched}} 筆",
+      "analysis_scope_spans_one": "範圍：已載入的 {{count}} 筆 Trace 中的所有 Span",
+      "analysis_scope_spans_other": "範圍：已載入的 {{count}} 筆 Trace 中的所有 Span",
+      "analysis_scope_traces_one": "範圍：已載入的 {{count}} 筆 Trace",
+      "analysis_scope_traces_other": "範圍：已載入的 {{count}} 筆 Trace",
+      "values_loading": "正在載入 {{name}} 的值",
+      "values_failed": "無法載入欄位值。",
+      "no_values": "已載入的追蹤在這個欄位沒有值。",
+      "no_traces": "尚未載入追蹤。",
+      "value_trace_count_one": "{{count}} 筆追蹤",
+      "value_trace_count_other": "{{count}} 筆追蹤",
+      "value_span_count_one": "{{count}} 個 Span",
+      "value_span_count_other": "{{count}} 個 Span",
+      "filter_for": "只看這個值",
+      "filter_out": "排除這個值",
+      "filter_at_least": "大於或等於這個值",
+      "filter_at_most": "小於或等於這個值",
+      "filter_remove": "移除這個篩選條件",
+      "filter_for_aria": "篩選 {{name}} = {{value}}",
+      "filter_out_aria": "排除 {{name}} = {{value}}",
+      "filter_at_least_aria": "篩選 {{name}} 大於或等於 {{value}}",
+      "filter_at_most_aria": "篩選 {{name}} 小於或等於 {{value}}",
+      "range_min": "最小",
+      "range_avg": "平均",
+      "range_max": "最大",
+      "range_earliest": "最早",
+      "range_latest": "最晚"
+    },
+    "red": {
+      "select_range": "在圖表上拖曳選取一段時間，以縮小時間範圍",
+      "lead_hint": "依這個指標排序下方的明細表",
+      "ok": "成功",
+      "rate": {
+        "title": "速率",
+        "aria": "請求速率隨時間的變化",
+        "detail": "共 {{requests}} 次請求"
+      },
+      "errors": {
+        "title": "錯誤",
+        "rate": "錯誤率",
+        "aria": "錯誤率隨時間的變化",
+        "detail": "{{errors}} 次失敗",
+        "untold": "資料流沒有可用來判斷請求是否失敗的狀態欄位",
+        "only": "只看失敗的請求"
+      },
+      "duration": {
+        "title": "耗時",
+        "aria": "耗時百分位數隨時間的變化",
+        "view_label": "耗時檢視",
+        "trend": "趨勢",
+        "distribution": "分布",
+        "distribution_name": "耗時分布",
+        "distribution_aria": "{{name}}：最高的長條有 {{max}} 次請求。用左右方向鍵在長條之間移動，按 Enter 只看這個耗時區間的請求，拖曳可選取多個區間。",
+        "bar_readout": "{{range}}：{{total}} 次請求，其中 {{errors}} 次失敗",
+        "percentiles_aria": "p95 {{p95}}，p99 {{p99}}"
+      },
+      "scope": {
+        "label": "統計範圍",
+        "entry": "入口 Span",
+        "all": "全部 Span",
+        "hint": "入口 Span 代表服務接收請求的位置，包括 Server 或 Consumer 類型的 Span，以及每筆追蹤的根 Span（根 Span 本身是 Client 或 Producer 呼叫時除外）。每個入口 Span 計為一次請求。"
+      },
+      "path": {
+        "label": "向下鑽研路徑",
+        "root": "全部",
+        "back_to": "回到 {{step}}",
+        "remove": "移除 {{step}}"
+      },
+      "breakdown": {
+        "by": "依 <field></field> 拆分",
+        "dimension": "拆分欄位",
+        "no_dimension": "選擇欄位",
+        "search": "搜尋欄位",
+        "no_match": "沒有相符的欄位",
+        "common": "常用",
+        "other": "其他欄位",
+        "values": "{{count}} 個值",
+        "values_more": "前 {{count}} 個值",
+        "value": "值",
+        "requests": "請求",
+        "error_rate": "錯誤率",
+        "p95": "p95",
+        "trend": "趨勢",
+        "actions": "操作",
+        "no_value": "（無值）",
+        "drill": "向下鑽研至 {{clause}}",
+        "open_spans": "檢視這些請求的追蹤",
+        "loading": "正在拆分…",
+        "empty": "沒有可拆分的值",
+        "failed": "無法載入拆分結果"
+      },
+      "states": {
+        "sql_title": "SQL 陳述式沒有 RED 指標",
+        "sql_description": "RED 會統計符合欄位查詢條件的請求。請清空陳述式，或改寫為欄位查詢。",
+        "sql_action": "清空陳述式",
+        "empty_entry_title": "沒有符合條件的入口 Span",
+        "empty_entry_description": "條件可能只符合內部呼叫或下游 Span，可改為統計所有 Span 試試。",
+        "empty_entry_action": "統計所有 Span",
+        "empty_title": "沒有符合條件的 Span",
+        "empty_description": "目前的時間範圍內沒有符合條件的 Span，請擴大時間範圍再試。",
+        "empty_action": "擴大時間範圍",
+        "failed_title": "無法載入 RED 指標",
+        "unavailable_title": "暫時無法統計 RED 指標",
+        "retry": "重試",
+        "unavailable": {
+          "time_budget": "統計逾時。請縮小時間範圍或新增條件後再試。",
+          "busy": "執行中的查詢過多，請稍後再試。",
+          "scan_limit": "範圍內的 Span 數量超過單次查詢的讀取上限。請縮小時間範圍或新增條件。",
+          "timestamp_masked": "你無法查看時間欄位，因此無法依時間展開。",
+          "field_protected": "你無法查看這個欄位，因此無法用它拆分請求。"
+        }
+      }
+    },
+    "spans": {
+      "loaded_count_one": "已載入 {{count}} 個 span",
+      "loaded_count_other": "已載入 {{count}} 個 span"
+    },
+    "compare": {
+      "start": "選取兩筆追蹤來比較",
+      "stop": "結束選取",
+      "bar": "已選取要比較的追蹤",
+      "hint": "選取兩筆追蹤來比較。",
+      "ready": "以 A 為基準比較 B：",
+      "unpick": "取消選取 {{operation}}",
+      "compare": "比較",
+      "cancel": "取消",
+      "pick_aria": "選取追蹤 {{operation}}、{{service}}、{{duration}} 來比較"
+    }
+  },
+  "attributes": {
+    "view": "屬性檢視",
+    "list": "表格",
+    "json": "原始 JSON",
+    "search": "搜尋標籤",
+    "copy_failed": "無法複製到剪貼簿",
+    "no_matches": "沒有符合條件的標籤",
+    "copy_value_for": "複製 {{key}} 的值",
+    "copied": "已複製",
+    "actions": "{{key}} 的操作",
+    "copy_key": "複製 Key",
+    "copy_value": "複製 Value",
+    "copy_pair": "複製 Key=Value",
+    "include": "新增至查詢條件",
+    "exclude": "排除此值",
+    "fields_only": "切換至欄位模式後新增篩選條件。",
+    "scalar_only": "僅支援以非空的純量值和有效的欄位名稱進行篩選。"
+  },
+  "view": {
+    "views": {
+      "label": "追蹤檢視",
+      "waterfall": "瀑布圖",
+      "flame": "火焰圖",
+      "spans": "Span 清單",
+      "map": "服務地圖"
+    },
+    "summary": {
+      "duration": "耗時",
+      "start": "開始",
+      "size": "規模",
+      "trace_id": "Trace ID",
+      "errors_one": "{{count}} 個錯誤",
+      "errors_other": "{{count}} 個錯誤",
+      "spans_one": "{{count}} 個 span",
+      "spans_other": "{{count}} 個 span",
+      "services_one": "{{count}} 個服務",
+      "services_other": "{{count}} 個服務",
+      "depth": "深度 {{depth}}",
+      "orphans_one": "{{count}} 個 span 缺少父 span",
+      "orphans_other": "{{count}} 個 span 缺少父 span",
+      "orphans_hint": "未收到這些 span 的父 span，因此各自顯示為根節點。",
+      "links_one": "{{count}} 個指向其他 span 的連結",
+      "links_other": "{{count}} 個指向其他 span 的連結",
+      "jumps": "關聯訊號",
+      "jump": {
+        "logs": "相關日誌",
+        "metrics": "服務指標",
+        "profiles": "Profiles",
+        "session": "使用者工作階段"
+      }
+    },
+    "toolbar": {
+      "search": "搜尋 span",
+      "search_placeholder": "搜尋 span、service:api、duration>100ms",
+      "no_match": "無",
+      "previous_match": "上一個符合項目（Shift+Enter）",
+      "next_match": "下一個符合項目（Enter）",
+      "errors_only_one": "只顯示失敗的 span（{{count}}）",
+      "errors_only_other": "只顯示失敗的 span（{{count}}）",
+      "expand_all": "全部展開",
+      "collapse_all": "全部收合",
+      "focused": "聚焦：{{operation}}",
+      "unfocus": "顯示完整追蹤",
+      "zoomed": "已放大至 {{from}} – {{to}}",
+      "unzoom": "顯示完整時間軸",
+      "open_panel": "顯示 span 詳細資訊",
+      "critical_path": "關鍵路徑"
+    },
+    "legend": {
+      "aria": "追蹤中的服務",
+      "item": "{{service}}：占追蹤本身耗時的 {{percent}}%",
+      "more_one": "還有 {{count}} 個",
+      "more_other": "還有 {{count}} 個",
+      "critical": "關鍵路徑 {{duration}}",
+      "critical_aria": "關鍵路徑上的服務",
+      "critical_item": "{{service}}：占關鍵路徑的 {{percent}}%，{{duration}}"
+    },
+    "overview": {
+      "aria": "完整追蹤",
+      "hint": "拖曳選取一段時間以放大時間軸，按兩下即可還原"
+    },
+    "waterfall": {
+      "column": "Span",
+      "resize_names": "調整 span 名稱欄寬"
+    },
+    "row": {
+      "select_aria": "選取 span {{operation}}，{{service}}，{{duration}}",
+      "expand": "展開此 span 呼叫的 span",
+      "collapse": "收合此 span 呼叫的 span",
+      "descendants_one": "下方有 {{count}} 個 span",
+      "descendants_other": "下方有 {{count}} 個 span",
+      "failed": "失敗",
+      "links_one": "{{count}} 個指向其他 span 的連結",
+      "links_other": "{{count}} 個指向其他 span 的連結",
+      "critical": "位於關鍵路徑上",
+      "profiled": "此 span 有關聯的 profile 樣本"
+    },
+    "groups": {
+      "name": "服務 / 操作",
+      "spans": "Span 數量",
+      "errors": "錯誤",
+      "average": "平均耗時",
+      "total": "總耗時",
+      "self": "本身耗時",
+      "share": "本身耗時占比",
+      "fold": "收合 {{service}} 的操作",
+      "unfold": "展開 {{service}} 的操作"
+    },
+    "map": {
+      "entry": "入口",
+      "calls_one": "{{count}} 次呼叫",
+      "calls_other": "{{count}} 次呼叫",
+      "errors_one": "{{count}} 次失敗",
+      "errors_other": "{{count}} 次失敗",
+      "spans_one": "{{count}} 個 span",
+      "spans_other": "{{count}} 個 span",
+      "share": "自身耗時 {{percent}}%"
+    },
+    "panel": {
+      "aria": "Span 詳細資料",
+      "tabs": "Span 詳細資料分類",
+      "focus": "只查看此 span 及其下游",
+      "close": "收合 span 詳細資料",
+      "resize": "調整 span 詳細資料的寬度",
+      "duration": "耗時",
+      "self": "自身耗時",
+      "offset": "開始於",
+      "share": "占追蹤耗時的 {{percent}}%",
+      "span_id": "Span ID",
+      "parent": "父層 span"
+    },
+    "kind": {
+      "unspecified": "未指定",
+      "internal": "內部",
+      "server": "伺服器端",
+      "client": "用戶端",
+      "producer": "生產者",
+      "consumer": "消費者"
+    },
+    "status": {
+      "ok": "正常",
+      "error": "錯誤",
+      "unset": "未設定"
+    },
+    "tabs": {
+      "attributes": "屬性",
+      "resource": "資源",
+      "events": "事件",
+      "links": "連結",
+      "logs": "日誌",
+      "metrics": "指標",
+      "profile": "效能分析"
+    },
+    "tags": {
+      "empty": "此 span 本身沒有屬性。",
+      "empty_resource": "此 span 的資源沒有屬性。",
+      "groups": {
+        "http": "HTTP",
+        "database": "資料庫",
+        "rpc": "RPC",
+        "messaging": "訊息",
+        "error": "錯誤",
+        "code": "程式碼",
+        "service": "服務",
+        "deployment": "部署",
+        "host": "主機",
+        "process": "處理程序",
+        "container": "容器與雲端",
+        "telemetry": "遙測 SDK",
+        "other": "其他"
+      }
+    },
+    "metadata": {
+      "title": "記錄資訊",
+      "scope": "埋點程式庫",
+      "trace_state": "Trace state",
+      "trace_flags": "Trace flags",
+      "sampling": "保留原因",
+      "dropped_attributes": "捨棄的屬性",
+      "dropped_events": "捨棄的事件",
+      "dropped_links": "捨棄的連結",
+      "notes": "說明",
+      "flags": {
+        "partial": "不完整",
+        "late": "延遲收到",
+        "duplicate": "重複收到",
+        "conflict": "複本衝突"
+      }
+    },
+    "events": {
+      "empty": "這個 span 沒有記錄事件。"
+    },
+    "links": {
+      "outgoing": "這個 span 的連結",
+      "incoming": "連結到這裡的 span",
+      "none_outgoing": "這個 span 沒有連結。",
+      "none_incoming": "在這筆追蹤前後一小時內，沒有其他追蹤的 span 連結到這個 span。",
+      "searching": "正在搜尋連結到這裡的 span…",
+      "failed": "無法讀取連結到這裡的 span。",
+      "more": "還有其他連結到這裡的 span 未列出。",
+      "trace": "追蹤",
+      "this_trace": "這筆追蹤",
+      "span": "Span",
+      "unavailable": {
+        "time_budget": "搜尋逾時，請稍後再開啟這筆追蹤。",
+        "busy": "執行中的查詢太多，請稍後再試。",
+        "scan_limit": "這筆追蹤前後一小時內的 span 數量超過單次查詢的讀取上限。"
+      }
+    },
+    "logs": {
+      "scope": "日誌範圍",
+      "span": "這個 span",
+      "trace": "整條追蹤",
+      "open": "在日誌中開啟",
+      "loading": "正在讀取日誌…",
+      "no_stream": "沒有記錄 trace id 的日誌串流。",
+      "failed": "無法讀取日誌。",
+      "none_span": "沒有日誌提及此 span。",
+      "none_trace": "沒有日誌提及這條追蹤。"
+    },
+    "metrics": {
+      "window": "span 前後各 15 分鐘，按分鐘統計。",
+      "service": "服務",
+      "operation": "操作",
+      "requests": "請求數",
+      "errors": "錯誤數",
+      "p95": "p95 耗時",
+      "open_red": "在 RED 深入分析中開啟",
+      "loading": "正在讀取…",
+      "failed": "無法讀取指標。"
+    },
+    "drawer": {
+      "back": "返回上一條追蹤",
+      "previous": "清單中的上一條（K）",
+      "next": "清單中的下一條（J）",
+      "open_page": "開啟追蹤詳細資料頁面",
+      "resize": "調整追蹤抽屜面板的寬度"
+    },
+    "export": {
+      "label": "下載追蹤",
+      "json": "JSON",
+      "json_hint": "依追蹤介面傳回的原始格式儲存 span",
+      "otlp": "OTLP JSON",
+      "otlp_hint": "resourceSpans 格式，可直接由 Collector 接收"
+    },
+    "profile": {
+      "loading": "正在尋找 profile…",
+      "none": "沒有 profile 樣本與此 span 關聯。",
+      "none_hint": "profiler 記錄樣本時須附上追蹤上下文（例如 OTLP profiles），樣本才會與取樣當下的 span 關聯。",
+      "around": "查看此 span 前後的 profile",
+      "linked_one": "有 {{count}} 個 profile 與此 span 關聯。",
+      "linked_other": "有 {{count}} 個 profile 與此 span 關聯。",
+      "samples_one": "{{samples}} 個樣本",
+      "samples_other": "{{samples}} 個樣本",
+      "types": "Profile 類型",
+      "top": "主要函式",
+      "top_of": "{{type}} 中自身消耗最多的函式",
+      "failed": "無法讀取火焰圖。",
+      "empty": "樣本中沒有呼叫堆疊。",
+      "open_flame": "開啟火焰圖",
+      "open_page": "在 Profiles 中開啟",
+      "dialog_title": "{{operation}} 的 profile",
+      "dialog_description_one": "{{service}} · {{type}} · 已合併 {{count}} 個 profile",
+      "dialog_description_other": "{{service}} · {{type}} · 已合併 {{count}} 個 profile"
+    }
+  },
+  "compare": {
+    "page_title": "追蹤比較",
+    "side": "追蹤 {{side}}",
+    "open": "開啟",
+    "loading": "載入中…",
+    "swap": "交換 A 和 B",
+    "stop": "結束比較",
+    "duration": {
+      "same": "兩筆追蹤都耗時 {{duration}}。",
+      "longer": "B 比 A 慢：",
+      "shorter": "B 比 A 快："
+    },
+    "change": {
+      "none": "相同",
+      "new": "新增",
+      "gone": "B 中沒有"
+    },
+    "tabs": {
+      "label": "比較",
+      "services": "依服務",
+      "operations": "依操作",
+      "calls": "僅一側有"
+    },
+    "columns": {
+      "service": "服務",
+      "operation": "服務 / 操作",
+      "spans_a": "A 的 span",
+      "spans_b": "B 的 span",
+      "time_a": "A 耗時",
+      "time_b": "B 耗時",
+      "time_hint": "自身耗時：span 本身的執行時間，不含等待它呼叫的 span 所花的時間",
+      "change": "B 與 A 的差異"
+    },
+    "more_one": "另有 {{count}} 列未顯示",
+    "more_other": "另有 {{count}} 列未顯示",
+    "calls": {
+      "only_a": "僅 A 有",
+      "only_b": "僅 B 有",
+      "spans_one": "{{count}} 個 span",
+      "spans_other": "{{count}} 個 span",
+      "none": "這筆追蹤中的呼叫，另一筆也都有。",
+      "same": "兩筆追蹤的呼叫相同，次數也一樣。",
+      "under_one": "及其下的 {{count}} 個 span",
+      "under_other": "及其下的 {{count}} 個 span"
+    },
+    "unavailable_title": "無法比較這兩筆追蹤",
+    "unavailable_description": "找不到其中一筆追蹤。一天前的追蹤必須透過包含執行時間的連結開啟，例如追蹤清單中某一列的連結。",
+    "with": {
+      "label": "與另一筆追蹤比較",
+      "field": "要比較的 Trace ID",
+      "placeholder": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "same": "這就是目前的追蹤。",
+      "submit": "比較"
+    }
+  }
+}

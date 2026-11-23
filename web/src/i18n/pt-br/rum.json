@@ -1,0 +1,1987 @@
+{
+  "title": "Experiência do usuário",
+  "subtitle": "Explore as sessões, visualizações, ações, erros e requisições de usuários reais.",
+  "refresh": "Atualizar",
+  "geo_credit": "Geolocalização por IP fornecida pela DB-IP",
+  "map": {
+    "zoom_in": "Aproximar",
+    "zoom_out": "Afastar",
+    "zoom_reset": "Mostrar o mapa inteiro",
+    "zoom_level": "Zoom {{level}}×",
+    "no_data": "Sem dados",
+    "keys": "Pressione + e − para ajustar o zoom, 0 para mostrar o mapa inteiro e as teclas de seta para mover o mapa ampliado. Arraste o mapa para movê-lo e use a roda do mouse para ajustar o zoom.",
+    "wheel_hint": "Mantenha Ctrl (⌘ no Mac) pressionado e role a roda do mouse para ajustar o zoom do mapa"
+  },
+  "onboarding": {
+    "eyebrow": "Configuração de dados de RUM",
+    "title": "Comece a coletar dados sobre a experiência de usuários reais",
+    "description": "Crie uma aplicação e configure o SDK de RUM do MoleSignal com o token de cliente dela. As sessões, o desempenho das páginas e os erros de frontend aparecem aqui assim que os primeiros eventos chegam.",
+    "create": "Criar aplicação",
+    "view_docs": "Ver documentação de configuração",
+    "steps": {
+      "1": "Crie uma aplicação",
+      "2": "Instale o SDK com o token da aplicação",
+      "3": "Envie um evento de teste",
+      "4": "Comece a analisar"
+    }
+  },
+  "nav": {
+    "overview": "Visão geral",
+    "explorer": "Explorador",
+    "playlists": "Playlists",
+    "errors": "Erros",
+    "performance": "Desempenho",
+    "applications": "Aplicações",
+    "source_maps": "Mapas de origem e símbolos",
+    "upload_source_maps": "Enviar artefato de depuração",
+    "frustration": "Frustração",
+    "analytics": "Análises",
+    "feature_flags": "Flags de recursos"
+  },
+  "overview": {
+    "retry": "Tentar novamente",
+    "open_dashboard": "Abrir no dashboard",
+    "scope": {
+      "application": "Aplicação",
+      "environment": "Ambiente",
+      "all_environments": "Todos os ambientes"
+    },
+    "empty": {
+      "title": "Nenhuma sessão neste intervalo",
+      "description": "Nenhum dado foi registrado para esta aplicação no intervalo selecionado. Amplie o intervalo ou verifique se o SDK está enviando dados.",
+      "widen": "Ampliar o intervalo de tempo"
+    },
+    "unavailable": {
+      "time_budget": "A contagem excedeu o limite de tempo. Reduza o intervalo de tempo.",
+      "busy": "O sistema está ocupado fazendo contagens para outros usuários. Tente novamente em instantes.",
+      "timestamp_masked": "Os horários estão ocultos para sua função, por isso não há dados para contar ao longo do tempo."
+    },
+    "pulse": {
+      "aria": "Sessões e Core Web Vitals",
+      "sessions_one": "<n>{{formatted}}</n> sessão",
+      "sessions_other": "<n>{{formatted}}</n> sessões",
+      "people_one": "<n>{{formatted}}</n> pessoa",
+      "people_other": "<n>{{formatted}}</n> pessoas",
+      "browser": "<sessions/> de <people/>, e <n>{{share}}</n> das sessões não tiveram erros.",
+      "app": "<sessions/> de <people/>; <n>{{sessionShare}}</n> das sessões e <n>{{userShare}}</n> das pessoas não tiveram falhas do app.",
+      "sessions_many": "<n>{{formatted}}</n> sessões",
+      "people_many": "<n>{{formatted}}</n> pessoas"
+    },
+    "vitals": {
+      "label": "{{name}} · p75",
+      "names": {
+        "lcp": "LCP",
+        "inp": "INP",
+        "cls": "CLS"
+      },
+      "grade": {
+        "good": "Bom",
+        "needs_improvement": "Precisa melhorar",
+        "poor": "Ruim"
+      },
+      "good_at": "≤ {{value}}: bom",
+      "poor_at": "> {{value}}: ruim",
+      "aria": "{{name}}, percentil 75 de {{value}}: {{grade}}",
+      "open": "Abrir {{name}} na página de desempenho",
+      "none_aria": "{{name}}: nenhuma visualização registrou essa métrica"
+    },
+    "pages": {
+      "title": "Páginas",
+      "screens": "Telas",
+      "description": "As mais visualizadas, com o percentil 75 de cada métrica",
+      "description_screens": "As mais visualizadas",
+      "table": "Páginas mais visualizadas",
+      "columns": {
+        "page": "Página",
+        "screen": "Tela",
+        "views": "Visualizações",
+        "errors": "Com erros"
+      },
+      "open": "Abrir as visualizações de {{page}} no explorador",
+      "empty": "Nenhuma visualização neste intervalo"
+    },
+    "origins": {
+      "title": "Onde estão os visitantes",
+      "description": "Sessões por país",
+      "map": "Mapa-múndi com a origem das sessões",
+      "value_one": "{{formatted}} sessão",
+      "value_other": "{{formatted}} sessões",
+      "legend": "Sessões",
+      "value_many": "{{formatted}} sessões"
+    },
+    "shares": {
+      "browsers": "Navegadores",
+      "systems": "Sistemas operacionais",
+      "devices": "Dispositivos",
+      "other": "Outros",
+      "empty": "Nenhuma sessão com valor informado",
+      "device_types": {
+        "desktop": "Desktop",
+        "mobile": "Celular",
+        "tablet": "Tablet",
+        "bot": "Bot",
+        "other": "Outros"
+      }
+    },
+    "frustration": {
+      "title": "Elementos que causam frustração",
+      "description_click": "Ações com cliques de frustração, cliques sem resposta ou cliques com erro",
+      "description_tap": "Ações com toques de frustração ou toques com erro",
+      "empty": "Nenhuma ação com sinais de frustração neste período",
+      "unnamed": "Elemento sem nome",
+      "kinds": {
+        "rage": "Cliques de frustração",
+        "dead": "Cliques sem resposta",
+        "error": "Cliques com erro",
+        "rage_tap": "Toques de frustração",
+        "dead_tap": "Toques sem resposta",
+        "error_tap": "Toques com erro"
+      }
+    },
+    "issues": {
+      "title": "Problemas mais recentes",
+      "description": "Problemas novos e recorrentes, por número de sessões afetadas",
+      "all": "Todos os problemas",
+      "empty": "Nenhum problema novo ou recorrente neste período",
+      "sessions_one": "{{formatted}} sessão",
+      "sessions_other": "{{formatted}} sessões",
+      "first_seen": "Detectado pela primeira vez {{ago}} · {{version}}",
+      "first_seen_plain": "Detectado pela primeira vez {{ago}}",
+      "regressed": "Resolvido na versão {{resolved}}, voltou na versão {{version}} {{ago}}",
+      "regressed_plain": "Resolvido, mas voltou {{ago}}",
+      "sessions_many": "{{formatted}} sessões"
+    },
+    "test_traffic": {
+      "title": "Estes números refletem apenas o uso real: as sessões de verificações sintéticas e testes de CI não entram na contagem. Você pode consultá-las aqui.",
+      "note_one": "{{value}} sessão de teste não contabilizada",
+      "note_other": "{{value}} sessões de teste não contabilizadas",
+      "note_many": "{{value}} sessões de teste não contabilizadas"
+    }
+  },
+  "performance": {
+    "empty": {
+      "title": "Nenhuma visualização de página neste período"
+    },
+    "not_browser": {
+      "title": "As métricas Web Vitals são medidas nos navegadores",
+      "description": "Este aplicativo não envia dados de um navegador, então não há carregamentos de página para avaliar. Você pode ver as telas na visão geral e as falhas na página de erros."
+    },
+    "metrics": {
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "fcp": "FCP",
+      "ttfb": "TTFB"
+    },
+    "dimensions": {
+      "page": "Página",
+      "browser": "Navegador",
+      "os": "Sistema operacional",
+      "device": "Dispositivo",
+      "country": "País ou região",
+      "version": "Versão"
+    },
+    "statement": {
+      "aria": "Visualizações de página e Web Vitals",
+      "sentence": "<views/>. No 75º percentil, os valores são: LCP <lcp/>, INP <inp/> e CLS <cls/>.",
+      "views_one": "<n>{{formatted}}</n> visualização de página",
+      "views_other": "<n>{{formatted}}</n> visualizações de página",
+      "reading": "<figure>{{value}}</figure> (<grade>{{grade}}</grade>)",
+      "not_measured": "não medido",
+      "views_many": "<n>{{formatted}}</n> visualizações de página"
+    },
+    "picker": {
+      "aria": "Nível exibido abaixo"
+    },
+    "trend": {
+      "title": "{{name}} ao longo do tempo",
+      "description": "O 75º percentil de cada intervalo. As linhas tracejadas marcam a passagem de bom para precisa melhorar e, depois, para ruim",
+      "good": "Bom",
+      "poor": "Ruim",
+      "empty": "Nenhuma visualização neste período registrou essa métrica",
+      "aria": "{{name}} no 75º percentil ao longo do tempo"
+    },
+    "grades": {
+      "title": "Visualizações por classificação",
+      "description": "Bom, precisa melhorar e ruim, para cada nível",
+      "empty": "Nenhuma visualização neste período tinha um nível para classificar",
+      "aria": "{{name}}: {{good}} das visualizações tiveram classificação boa",
+      "range": {
+        "good": "≤ {{good}}",
+        "needs_improvement": "{{good}} a {{poor}}",
+        "poor": "> {{poor}}"
+      },
+      "note": "Visualizações com {{name}}: {{formatted}}"
+    },
+    "table": {
+      "by": "Por",
+      "search": "Buscar valores",
+      "search_label": "Buscar valores na tabela",
+      "count_one": "{{count}} valor",
+      "count_other": "{{count}} valores",
+      "most_viewed_one": "O valor mais visualizado",
+      "most_viewed_other": "Os {{count}} valores mais visualizados",
+      "few_note": "menos de {{views}} visualizações: em cinza",
+      "views": "Visualizações",
+      "good": "{{name}}: bom",
+      "none": "(nenhum)",
+      "empty": "Nenhuma visualização neste período",
+      "no_match": "Nenhum valor corresponde à busca",
+      "aria": "Níveis por {{dimension}}",
+      "open": "Ver o detalhamento das visualizações de {{value}}",
+      "few": "Menos de {{views}} visualizações: quantidade insuficiente para classificar",
+      "count_many": "{{count}} valores",
+      "most_viewed_many": "Os {{count}} valores mais visualizados"
+    },
+    "drawer": {
+      "title": "Onde essas visualizações são lentas",
+      "tabs": "Web Vital",
+      "explore": "Ver no explorador",
+      "alert": "Criar alerta para esta métrica",
+      "close": "Fechar",
+      "views_one": "{{formatted}} visualização",
+      "views_other": "{{formatted}} visualizações",
+      "none": "Nenhuma visualização com esse valor registrou {{name}}.",
+      "level": "{{name}} é <reading/> no 75º percentil, considerando <n>{{formatted}}</n> visualizações.",
+      "longest": "A etapa mais demorada é <n>{{part}}</n>: {{value}}, ou {{share}} do total.",
+      "views_many": "{{formatted}} visualizações"
+    },
+    "makeup": {
+      "title": "Componentes de {{name}}",
+      "description": {
+        "lcp": "O tempo até o primeiro byte, o atraso para iniciar o carregamento da imagem, o tempo de carregamento e o atraso até a renderização",
+        "inp": "A espera até a execução dos manipuladores de eventos, o tempo de execução e a espera até a renderização do próximo quadro"
+      },
+      "empty": "Nenhuma visualização nesse intervalo registrou os componentes de {{name}}.",
+      "aria": "Componentes de {{name}}, com total de {{total}}",
+      "cohort": "Média de cada componente nas {{formatted}} visualizações com valores até 10% acima ou abaixo do 75º percentil."
+    },
+    "parts": {
+      "first_byte": "Tempo até o primeiro byte",
+      "load_delay": "Atraso no carregamento",
+      "load_time": "Tempo de carregamento",
+      "render_delay": "Atraso na renderização",
+      "input_delay": "Atraso na entrada",
+      "processing_duration": "Processamento",
+      "presentation_delay": "Atraso na apresentação"
+    },
+    "elements": {
+      "title": {
+        "lcp": "Último elemento renderizado",
+        "inp": "Elemento com o qual o usuário interagiu",
+        "cls": "Elementos que mudaram de posição"
+      },
+      "description": "Por número de visualizações em que cada elemento apareceu",
+      "empty": "Nenhuma visualização nesse intervalo identificou um elemento",
+      "columns": {
+        "element": "Elemento",
+        "resource": "Arquivo"
+      },
+      "open": "Abrir no explorador as visualizações com {{selector}}",
+      "no_resource": "texto"
+    },
+    "worst": {
+      "title": "Visualizações com pior desempenho",
+      "description": "Visualizações com os maiores valores de {{name}}",
+      "empty": "Nenhuma visualização tinha um valor para classificação",
+      "explore": "Abrir no explorador",
+      "session": "Sessão",
+      "load": "Cascata de carregamento"
+    },
+    "views": {
+      "aria": "Visões de desempenho",
+      "vitals": "Web Vitals",
+      "resources": "Recursos",
+      "long_tasks": "Tarefas longas"
+    },
+    "long_tasks": {
+      "invokers": {
+        "user-callback": "Callback",
+        "event-listener": "Ouvinte de eventos",
+        "resolve-promise": "Promise resolvida",
+        "reject-promise": "Promise rejeitada",
+        "classic-script": "Script clássico",
+        "module-script": "Script de módulo"
+      },
+      "statement": {
+        "aria": "Tarefas longas das páginas",
+        "tasks_one": "<n>{{formatted}}</n> tarefa longa",
+        "tasks_other": "<n>{{formatted}}</n> tarefas longas",
+        "sentence": "Na thread principal, houve <tasks/>, e <share>{{share}}</share> das visualizações de página tiveram pelo menos uma. No 75º percentil, uma tarefa longa durou <n>{{duration}}</n> e bloqueou a entrada do usuário por <n>{{blocking}}</n>.",
+        "sentence_alone": "Na thread principal, houve <tasks/>. No 75º percentil, uma tarefa longa durou <n>{{duration}}</n> e bloqueou a entrada do usuário por <n>{{blocking}}</n>.",
+        "sentence_share": "Na thread principal, houve <tasks/>, e <share>{{share}}</share> das visualizações de página tiveram pelo menos uma.",
+        "sentence_count": "Na thread principal, houve <tasks/>.",
+        "tasks_many": "<n>{{formatted}}</n> tarefas longas"
+      },
+      "empty": {
+        "title": "Nenhuma tarefa longa neste intervalo",
+        "description": "Se uma página nunca bloqueia a thread principal por 50 ms ou mais, ela não tem tarefas longas."
+      },
+      "groups": {
+        "script": "Script e função",
+        "page": "Página",
+        "version": "Versão",
+        "invoker": "Como foi acionada"
+      },
+      "heads": {
+        "script": "Script",
+        "function": "Função",
+        "page": "Página",
+        "version": "Versão",
+        "invoker": "Acionada por"
+      },
+      "table": {
+        "by": "Por",
+        "search": "Buscar scripts",
+        "search_label": "Buscar scripts na tabela",
+        "count_one": "{{count}} grupo",
+        "count_other": "{{count}} grupos",
+        "most_tasks_one": "O grupo com mais tarefas longas",
+        "most_tasks_other": "Os {{count}} grupos com mais tarefas longas",
+        "few_note": "menos de {{tasks}} tarefas longas: cinza",
+        "empty": "Nenhuma tarefa longa neste intervalo",
+        "no_match": "Nenhum grupo corresponde à busca",
+        "aria": "Tarefas longas por {{group}}",
+        "open": "Ver detalhes das tarefas longas de {{value}}",
+        "few": "Menos de {{tasks}} tarefas longas: não há o suficiente para ranquear",
+        "none": "(nenhum)",
+        "unattributed": "Sem atribuição",
+        "tasks": "Tarefas longas",
+        "views": "Visualizações",
+        "time": "Duração (p75)",
+        "blocking": "Tempo de bloqueio (p75)",
+        "count_many": "{{count}} grupos",
+        "most_tasks_many": "Os {{count}} grupos com mais tarefas longas"
+      },
+      "panel": {
+        "aria": "Tarefas longas do grupo",
+        "close": "Fechar",
+        "tasks_one": "{{formatted}} tarefa longa",
+        "tasks_other": "{{formatted}} tarefas longas",
+        "unattributed_note": "O Safari e o Firefox reportam tarefas longas sem identificar o script responsável. Também ficam sem atribuição as tarefas recebidas antes de o MoleSignal identificar o script. Todas elas entram na contagem.",
+        "sentence": "No 75º percentil, as tarefas duraram <n>{{duration}}</n>, com <b>{{blocking}}</b> desse tempo bloqueando as interações do usuário.",
+        "sentence_time": "No 75º percentil, as tarefas duraram <n>{{duration}}</n>.",
+        "page": "A maioria ocorreu em <code>{{page}}</code>.",
+        "invokers": "Como as tarefas foram acionadas",
+        "invokers_empty": "Nenhuma tarefa longa deste grupo informa como foi acionada",
+        "unknown": "Não informado",
+        "pages": "Páginas em que as tarefas ocorreram",
+        "pages_empty": "Nenhuma página identificada",
+        "samples": "Tarefas mais longas · cada uma abre os detalhes de carregamento da visualização correspondente",
+        "samples_empty": "Nenhuma tarefa longa tem duração registrada",
+        "open_load": "Abrir os detalhes de carregamento da visualização de {{page}}",
+        "tasks_many": "{{formatted}} tarefas longas"
+      }
+    },
+    "section": {
+      "failed": "Não foi possível ler esses números."
+    },
+    "resources": {
+      "statement": {
+        "aria": "Requisições das páginas",
+        "requests_one": "<n>{{formatted}}</n> requisição",
+        "requests_other": "<n>{{formatted}}</n> requisições",
+        "sentence": "As páginas fizeram <requests/>. No 75º percentil, as requisições levaram <n>{{duration}}</n>, e <rate>{{rate}}</rate> falharam (com status de erro ou sem resposta).",
+        "sentence_time": "As páginas fizeram <requests/>. No 75º percentil, as requisições levaram <n>{{duration}}</n>.",
+        "sentence_count": "As páginas fizeram <requests/>.",
+        "per_view": "Em média, cada visualização de página solicitou <n>{{resources}}</n> recursos, somando <n>{{size}}</n>.",
+        "requests_many": "<n>{{formatted}}</n> requisições"
+      },
+      "empty": {
+        "title": "Nenhuma requisição neste intervalo"
+      },
+      "groups": {
+        "host_type": "Host e tipo",
+        "path": "Host e caminho",
+        "type": "Tipo",
+        "protocol": "Protocolo",
+        "delivery": "Entrega",
+        "blocking": "Bloqueio de renderização"
+      },
+      "heads": {
+        "host": "Host",
+        "type": "Tipo",
+        "path": "Caminho",
+        "protocol": "Protocolo",
+        "delivery": "Entrega",
+        "blocking": "Bloqueia a renderização"
+      },
+      "statuses": {
+        "4xx": "Erros do cliente (4xx)",
+        "5xx": "Erros do servidor (5xx)",
+        "none": "Sem resposta"
+      },
+      "table": {
+        "by": "Por",
+        "type": "Tipo",
+        "status": "Status",
+        "all": "Todos",
+        "search": "Buscar por host ou caminho",
+        "search_label": "Buscar nas requisições da tabela",
+        "count_one": "{{count}} grupo",
+        "count_other": "{{count}} grupos",
+        "most_requested_one": "O grupo mais solicitado",
+        "most_requested_other": "Os {{count}} grupos mais solicitados",
+        "few_note": "Menos de {{requests}} requisições: em cinza",
+        "empty": "Nenhuma requisição neste intervalo",
+        "no_match": "Nenhum grupo corresponde à busca",
+        "aria": "Requisições por {{group}}",
+        "open": "Ver o detalhamento das requisições de {{value}}",
+        "few": "Menos de {{requests}} requisições: volume insuficiente para o ranking",
+        "none": "(nenhum)",
+        "requests": "Requisições",
+        "time": "Tempo (p75)",
+        "failed": "Falhas",
+        "size": "Tamanho (p75)",
+        "cache": "Do cache",
+        "count_many": "{{count}} grupos",
+        "most_requested_many": "Os {{count}} grupos mais solicitados"
+      },
+      "panel": {
+        "aria": "Requisições do grupo",
+        "close": "Fechar",
+        "requests_one": "{{formatted}} requisição",
+        "requests_other": "{{formatted}} requisições",
+        "sentence": "O tempo no 75º percentil foi de <n>{{duration}}</n>, e <rate>{{rate}}</rate> das requisições falharam.",
+        "sentence_time": "O tempo no 75º percentil foi de <n>{{duration}}</n>.",
+        "longest": "A etapa mais demorada é <n>{{part}}</n>: {{value}}.",
+        "trend": "Tempo ao longo do intervalo",
+        "trend_series": "75º percentil",
+        "trend_empty": "Nenhuma requisição deste grupo no intervalo",
+        "trend_aria": "75º percentil da duração das requisições do grupo ao longo do tempo",
+        "parts": "Etapas das requisições próximas ao 75º percentil",
+        "parts_empty": "Nenhuma requisição deste grupo informou suas etapas",
+        "statuses": "Status das respostas",
+        "statuses_empty": "Nenhuma requisição deste grupo informou seu status final",
+        "slowest": "Requisições mais lentas · selecione uma para ver o carregamento da visualização correspondente",
+        "slowest_empty": "Nenhuma requisição registrou sua duração",
+        "open_load": "Abrir o carregamento da visualização que fez a requisição {{path}}",
+        "traced": "{{share}}% das requisições têm um ID de rastreamento",
+        "explore": "Ver requisições no explorador",
+        "requests_many": "{{formatted}} requisições"
+      }
+    }
+  },
+  "frustration": {
+    "empty": {
+      "title": "Nenhum sinal de frustração neste período",
+      "description_click": "No período exibido, ninguém clicou repetidamente, clicou sem obter resposta ou clicou e encontrou um erro. Amplie o período ou consulte outro aplicativo.",
+      "description_tap": "No período exibido, ninguém tocou repetidamente, tocou sem obter resposta ou tocou e encontrou um erro. Amplie o período ou consulte outro aplicativo."
+    },
+    "statement": {
+      "aria": "Sinais de frustração",
+      "sentence": "<share>{{share}}</share> das sessões apresentaram sinais de frustração: <kinds/>.",
+      "sentence_count_one": "<n>{{sessions}}</n> sessão apresentou sinais de frustração: <kinds/>.",
+      "sentence_count_other": "<n>{{sessions}}</n> sessões apresentaram sinais de frustração: <kinds/>.",
+      "join": ", ",
+      "sessions_one": "<n>{{formatted}}</n> sessão",
+      "sessions_other": "<n>{{formatted}}</n> sessões",
+      "kinds": {
+        "rage_one": "<n>{{formatted}}</n> <k>clique repetido</k> (<sessions/>)",
+        "rage_other": "<n>{{formatted}}</n> <k>cliques repetidos</k> (<sessions/>)",
+        "dead_one": "<n>{{formatted}}</n> <k>clique sem resposta</k> (<sessions/>)",
+        "dead_other": "<n>{{formatted}}</n> <k>cliques sem resposta</k> (<sessions/>)",
+        "error_one": "<n>{{formatted}}</n> <k>clique com erro</k> (<sessions/>)",
+        "error_other": "<n>{{formatted}}</n> <k>cliques com erro</k> (<sessions/>)",
+        "rage_tap_one": "<n>{{formatted}}</n> <k>toque repetido</k> (<sessions/>)",
+        "rage_tap_other": "<n>{{formatted}}</n> <k>toques repetidos</k> (<sessions/>)",
+        "dead_tap_one": "<n>{{formatted}}</n> <k>toque sem resposta</k> (<sessions/>)",
+        "dead_tap_other": "<n>{{formatted}}</n> <k>toques sem resposta</k> (<sessions/>)",
+        "error_tap_one": "<n>{{formatted}}</n> <k>toque com erro</k> (<sessions/>)",
+        "error_tap_other": "<n>{{formatted}}</n> <k>toques com erro</k> (<sessions/>)",
+        "rage_many": "<n>{{formatted}}</n> <k>cliques repetidos</k> (<sessions/>)",
+        "dead_many": "<n>{{formatted}}</n> <k>cliques sem resposta</k> (<sessions/>)",
+        "error_many": "<n>{{formatted}}</n> <k>cliques com erro</k> (<sessions/>)",
+        "rage_tap_many": "<n>{{formatted}}</n> <k>toques repetidos</k> (<sessions/>)",
+        "dead_tap_many": "<n>{{formatted}}</n> <k>toques sem resposta</k> (<sessions/>)",
+        "error_tap_many": "<n>{{formatted}}</n> <k>toques com erro</k> (<sessions/>)"
+      },
+      "sentence_count_many": "<n>{{sessions}}</n> sessões apresentaram sinais de frustração: <kinds/>.",
+      "sessions_many": "<n>{{formatted}}</n> sessões"
+    },
+    "groups": {
+      "element": "Elemento",
+      "page": "Página",
+      "screen": "Tela",
+      "version": "Versão",
+      "browser": "Navegador",
+      "system": "Sistema"
+    },
+    "table": {
+      "by": "Por",
+      "kind": "Sinal",
+      "kinds_all": "Todos",
+      "search": "Buscar elementos ou páginas",
+      "search_label": "Buscar elementos ou páginas na tabela",
+      "count_one": "{{count}} grupo",
+      "count_other": "{{count}} grupos",
+      "most_one": "O grupo que afeta mais sessões",
+      "most_other": "Os {{count}} grupos que afetam mais sessões",
+      "empty": "Nenhum sinal de frustração neste período",
+      "no_match": "Nenhum grupo encontrado",
+      "aria": "Sinais de frustração por {{group}}",
+      "open": "Ver os detalhes dos sinais de frustração de {{value}}",
+      "none": "(nenhum)",
+      "unnamed": "(sem nome)",
+      "selector": "Seletor",
+      "sessions": "Sessões",
+      "count_many": "{{count}} grupos",
+      "most_many": "Os {{count}} grupos que afetam mais sessões"
+    },
+    "panel": {
+      "aria": "Sinais de frustração do grupo",
+      "close": "Fechar",
+      "sentence_one": "<n>{{formatted}}</n> sessão apresentou sinais de frustração em {{noun}}.",
+      "sentence_other": "<n>{{formatted}}</n> sessões apresentaram sinais de frustração em {{noun}}.",
+      "page": "A maioria dos sinais ocorreu em <code>{{page}}</code>.",
+      "trend": "Sessões afetadas",
+      "trend_series": "Sessões afetadas",
+      "trend_aria": "Sessões com sinais de frustração em cada intervalo",
+      "trend_empty": "Nenhuma sessão afetada neste período",
+      "kinds": "Sinais",
+      "kinds_empty": "Nenhum sinal identificado",
+      "versions": "Versões",
+      "versions_empty": "Nenhuma versão identificada",
+      "pages": "Páginas",
+      "screens": "Telas",
+      "pages_empty": "Nenhuma página identificada",
+      "unknown": "Não informado",
+      "samples": "Sessões mais recentes · a reprodução começa 5 segundos antes do sinal",
+      "samples_empty": "Nenhuma sessão para visualizar",
+      "anonymous": "Anônimo {{id}}",
+      "with_error": "com erro",
+      "replay": "Reproduzir",
+      "replay_at": "Reproduzir em {{time}}",
+      "session": "Sessão",
+      "replay_aria": "Reproduzir a sessão de {{time}}",
+      "session_aria": "Abrir a sessão de {{time}}",
+      "nouns": {
+        "element": "elemento",
+        "page": "página",
+        "screen": "tela",
+        "version": "versão",
+        "browser": "navegador",
+        "system": "sistema"
+      },
+      "sentence_many": "<n>{{formatted}}</n> sessões apresentaram sinais de frustração em {{noun}}."
+    }
+  },
+  "analytics": {
+    "views": {
+      "aria": "Visualizações de análise",
+      "funnel": "Funil",
+      "paths": "Caminhos",
+      "retention": "Retenção",
+      "heatmap": "Mapa de calor"
+    },
+    "kinds": {
+      "views": "Página",
+      "views_app": "Tela",
+      "actions": "Ação"
+    },
+    "fields": {
+      "view_url_path_group": "Grupo de páginas",
+      "view_url_path": "Caminho exato",
+      "view_name": "Nome da visualização",
+      "action_target_name": "Nome do alvo",
+      "action_target_selector": "Seletor do alvo",
+      "action_type": "Tipo"
+    },
+    "ops": {
+      "eq": "é",
+      "contains": "contém"
+    },
+    "breakdowns": {
+      "version": "versão",
+      "browser_name": "navegador",
+      "os_name": "sistema",
+      "device_type": "tipo de dispositivo",
+      "geo_country_iso_code": "país"
+    },
+    "value": {
+      "search": "Pesquise ou digite um valor",
+      "use": "Usar \"{{value}}\""
+    },
+    "funnel": {
+      "title": "Funil",
+      "steps_description": "As etapas que os usuários seguem, em ordem. Cada etapa é uma página que o usuário abriu ou uma ação que realizou.",
+      "step_kind": "O que a etapa {{number}} analisa",
+      "step_field": "Campo da etapa {{number}}",
+      "step_op": "Comparação da etapa {{number}}",
+      "step_value": "Valor da etapa {{number}}",
+      "step_placeholder": "Escolha ou digite um valor",
+      "remove_step": "Remover a etapa {{number}}",
+      "add_step": "Adicionar uma etapa",
+      "window": "Limite de tempo",
+      "window_none": "Sem limite de tempo",
+      "window_within": "Em até {{time}}",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas",
+      "days_one": "{{count}} dia",
+      "days_other": "{{count}} dias",
+      "breakdown": "Contar sessões por",
+      "breakdown_none": "Todas as sessões juntas",
+      "breakdown_by": "Por {{field}}",
+      "choose": {
+        "title": "Defina o que conta em cada etapa",
+        "description": "Um funil conta as sessões que passaram pelas etapas na ordem. Escolha uma página ou ação para cada etapa."
+      },
+      "result": "Sessões que avançaram",
+      "result_description": "Cada etapa conta as sessões que passaram por ela depois de concluir a etapa anterior.",
+      "nobody": "Nenhuma sessão chegou à primeira etapa neste período",
+      "by_title": "Funil por {{field}}",
+      "no_value": "Não definido",
+      "columns": {
+        "step": "Etapa",
+        "sessions": "Sessões",
+        "conversion": "Em relação à primeira etapa",
+        "from_previous": "Abandono",
+        "median": "Tempo mediano",
+        "overall": "Da primeira à última etapa"
+      },
+      "minutes_many": "{{count}} minutos",
+      "hours_many": "{{count}} horas",
+      "days_many": "{{count}} dias"
+    },
+    "paths": {
+      "title": "Caminhos",
+      "description_after": "Mostra as páginas visitadas em seguida na sessão. Cada coluna destaca as mais visitadas.",
+      "description_before": "Mostra as páginas visitadas antes na sessão. Cada coluna destaca as mais visitadas.",
+      "direction": "Direção",
+      "after": "Depois da página",
+      "before": "Antes da página",
+      "anchor": "Página de referência",
+      "anchor_first": "Começar na primeira página",
+      "anchor_last": "Terminar na última página",
+      "clear": "Limpar",
+      "depth": "Quantidade de páginas",
+      "depth_pages_one": "{{count}} página",
+      "depth_pages_other": "{{count}} páginas",
+      "told_by": "Identificar páginas por",
+      "by": {
+        "view_url_path_group": "Grupo de páginas",
+        "view_url_path": "Caminho exato",
+        "view_name": "Nome da visualização"
+      },
+      "nobody": "Nenhum caminho neste intervalo",
+      "other": "Outras páginas",
+      "pick": "Iniciar os caminhos em {{page}}",
+      "ends_one": "{{count}} sessão terminou aqui",
+      "ends_other": "{{count}} sessões terminaram aqui",
+      "begins_one": "{{count}} sessão começou aqui",
+      "begins_other": "{{count}} sessões começaram aqui",
+      "chart_aria": "Caminhos de {{sessions}} sessões",
+      "depth_pages_many": "{{count}} páginas",
+      "ends_many": "{{count}} sessões terminaram aqui",
+      "begins_many": "{{count}} sessões começaram aqui"
+    },
+    "retention": {
+      "title": "Retenção",
+      "description": "Proporção de pessoas que apareceram pela primeira vez em um período e voltaram nos períodos seguintes. Os dias e as semanas seguem o horário UTC.",
+      "period": "Coortes por",
+      "periods": "Número de períodos a acompanhar",
+      "by_day": "Dia",
+      "by_week": "Semana",
+      "days_after_one": "{{count}} dia depois",
+      "days_after_other": "{{count}} dias depois",
+      "weeks_after_one": "{{count}} semana depois",
+      "weeks_after_other": "{{count}} semanas depois",
+      "cohort_day": "Primeira visita em",
+      "cohort_week": "Primeira visita na semana de",
+      "people": "Pessoas",
+      "average": "Média",
+      "nobody": "Nenhuma pessoa foi registrada neste intervalo",
+      "too_short": "Nenhum período após o primeiro terminou neste intervalo, então ainda não é possível saber quem voltou. Amplie o intervalo de tempo.",
+      "cell_one": "{{count}} de {{total}} voltou",
+      "cell_other": "{{count}} de {{total}} voltaram",
+      "days_after_many": "{{count}} dias depois",
+      "weeks_after_many": "{{count}} semanas depois",
+      "cell_many": "{{count}} de {{total}} voltaram"
+    },
+    "heatmap": {
+      "title": "Mapa de calor",
+      "description_clicks": "Os pontos em que as pessoas clicam, sobrepostos a uma gravação da página",
+      "description_scroll": "Até onde as pessoas rolam a página: quanto mais escura a área, menos pessoas chegaram até lá",
+      "page": "Página",
+      "page_placeholder": "Escolha uma página",
+      "kind": "Mapa",
+      "kinds": {
+        "clicks": "Cliques",
+        "scroll": "Rolagem"
+      },
+      "device": "Janela",
+      "devices": {
+        "desktop": "Computador",
+        "tablet": "Tablet",
+        "mobile": "Celular",
+        "all": "Todos"
+      },
+      "recording": "Gravação",
+      "recording_number": "Nº {{number}}",
+      "open_session": "Abrir esta sessão",
+      "elements": "Elementos clicados",
+      "depths": "Profundidade da rolagem",
+      "clicks_total_one": "{{count}} clique",
+      "clicks_total_other": "{{count}} cliques",
+      "views_total_one": "{{count}} visita",
+      "views_total_other": "{{count}} visitas",
+      "sessions_one": "{{count}} sessão",
+      "sessions_other": "{{count}} sessões",
+      "frustrated_one": "{{count}} sessão com frustração",
+      "frustrated_other": "{{count}} sessões com frustração",
+      "off_snapshot": "Não aparece nesta gravação da página",
+      "median_depth": "Metade das visitas chegou até aqui",
+      "page_height": "Altura da página",
+      "scroll_line": "{{share}}% das visitas chegaram até aqui",
+      "no_clicks": "Nenhum clique nesta página no intervalo selecionado",
+      "no_scroll": "Nenhum dado de rolagem para esta página no intervalo selecionado",
+      "reading_recording": "Carregando a página gravada…",
+      "no_recording": "Nenhuma sessão foi gravada nesta página no intervalo e na janela selecionados. Não há uma gravação para exibir o mapa de calor, mas os números continuam válidos.",
+      "recording_denied": "Você não tem permissão para assistir às gravações de sessão. Por isso, o mapa de calor não pode ser exibido, mas os números continuam válidos.",
+      "stage_failed": "Não foi possível abrir a página gravada: {{reason}}",
+      "not_browser": {
+        "title": "Mapas de calor são para aplicações de navegador",
+        "description": "A gravação de sessão de um aplicativo é composta por capturas de tela, sem uma página onde localizar os elementos."
+      },
+      "no_pages": {
+        "title": "Nenhuma página no intervalo selecionado",
+        "description": "Amplie o intervalo ou verifique se o SDK está enviando dados."
+      },
+      "clicks_total_many": "{{count}} cliques",
+      "views_total_many": "{{count}} visitas",
+      "sessions_many": "{{count}} sessões",
+      "frustrated_many": "{{count}} sessões com frustração"
+    },
+    "segment": {
+      "label": "Segmento",
+      "everyone": "Todos"
+    }
+  },
+  "playlists": {
+    "title": "Playlists",
+    "create": "Nova playlist",
+    "result_count_one": "{{count}} playlist",
+    "result_count_other": "{{count}} playlists",
+    "application_filter": "Aplicação",
+    "all_applications": "Todas as aplicações",
+    "columns": {
+      "name": "Nome",
+      "application": "Aplicação",
+      "sessions": "Sessões",
+      "updated": "Última atualização",
+      "created_by": "Criado por"
+    },
+    "empty_title": "Nenhuma playlist ainda",
+    "empty_description": "Reúna as sessões que valem a pena assistir para vê-las em sequência. Crie uma playlist aqui ou na página de uma sessão.",
+    "empty_no_application": "Toda playlist pertence a uma aplicação. Crie uma aplicação primeiro.",
+    "not_found": "Esta playlist não foi encontrada",
+    "play": "Reproduzir desde a primeira sessão",
+    "rename": "Renomear",
+    "delete": "Excluir playlist",
+    "cancel": "Cancelar",
+    "all": "Todas as playlists",
+    "delete_confirm_title": "Excluir {{name}}?",
+    "delete_confirm_description": "A playlist será excluída, mas as sessões serão mantidas.",
+    "form": {
+      "create_title": "Nova playlist",
+      "edit_title": "Renomear playlist",
+      "subtitle": "Uma lista de sessões para assistir em sequência.",
+      "name": "Nome",
+      "name_placeholder": "Falhas na finalização da compra",
+      "description": "Descrição",
+      "description_hint": "O que as sessões têm em comum.",
+      "application": "Aplicação",
+      "application_fixed": "Não é possível alterar a aplicação da playlist.",
+      "create": "Criar",
+      "save": "Salvar"
+    },
+    "sessions": {
+      "title": "Sessões",
+      "count_one": "{{count}} sessão",
+      "count_other": "{{count}} sessões",
+      "empty": "Nenhuma sessão nesta playlist. Adicione uma pela página da sessão.",
+      "session": "Sessão",
+      "person": "Pessoa",
+      "started": "Início da sessão",
+      "duration": "Duração",
+      "signs": "O que aconteceu",
+      "opens_at": "Abre em",
+      "remove": "Remover {{id}} da playlist",
+      "remove_column": "Remover",
+      "gone": "Não encontrada nos dados",
+      "errors_one": "{{count}} erro",
+      "errors_other": "{{count}} erros",
+      "frustrations_one": "{{count}} sinal de frustração",
+      "frustrations_other": "{{count}} sinais de frustração",
+      "count_many": "{{count}} sessões",
+      "errors_many": "{{count}} erros",
+      "frustrations_many": "{{count}} sinais de frustração"
+    },
+    "link": {
+      "moment": "Copiar link para este momento",
+      "session": "Copiar link",
+      "copied": "Link copiado"
+    },
+    "menu": {
+      "button": "Adicionar à playlist",
+      "title": "Playlists deste aplicativo",
+      "description": "Adicione esta sessão a uma playlist ou remova-a.",
+      "none": "Este aplicativo ainda não tem playlists.",
+      "at_moment": "Abrir neste ponto da reprodução",
+      "new_placeholder": "Uma nova playlist",
+      "new_name": "Nome da nova playlist",
+      "new": "Criar e adicionar"
+    },
+    "bar": {
+      "place": "{{index}} de {{total}}",
+      "not_in": "Esta sessão não está na playlist",
+      "previous": "Anterior",
+      "next": "Próxima"
+    },
+    "result_count_many": "{{count}} playlists"
+  },
+  "errors": {
+    "state": {
+      "open": "Aberto",
+      "investigating": "Em investigação",
+      "regressed": "Reincidente",
+      "resolved": "Resolvido",
+      "ignored": "Ignorado"
+    },
+    "filter": {
+      "unresolved": "Não resolvidos",
+      "regressed": "Reincidente",
+      "investigating": "Em investigação",
+      "resolved": "Resolvido",
+      "ignored": "Ignorado",
+      "all": "Todos os problemas"
+    },
+    "filters": {
+      "status": "Status",
+      "holder": "Responsável",
+      "source": "Origem"
+    },
+    "holder": {
+      "anyone": "Todos",
+      "nobody": "Sem responsável"
+    },
+    "search": {
+      "label": "Buscar problemas",
+      "placeholder": "Buscar problemas: mensagem, tipo, arquivo"
+    },
+    "count_one": "{{count}} problema",
+    "count_other": "{{count}} problemas",
+    "picked": {
+      "clear": "Limpar {{dimension}} {{value}}"
+    },
+    "saved": "Problema atualizado",
+    "table": {
+      "label": "Problemas",
+      "issue": "Problema",
+      "status": "Status",
+      "holder": "Responsável",
+      "sessions": "Sessões",
+      "users": "Usuários",
+      "trend": "Tendência",
+      "versions": "Versões",
+      "last_seen": "Última ocorrência"
+    },
+    "overflow": {
+      "title": "Outros erros",
+      "description": "Erros recebidos depois que a aplicação atingiu o limite de problemas que pode abrir por hora"
+    },
+    "spread": {
+      "title": "Onde ocorre",
+      "description": "Sessões em que os problemas listados ocorreram, por versão, página e navegador",
+      "version": "Versão",
+      "page": "Página",
+      "browser": "Navegador",
+      "empty": "Nenhuma sessão"
+    },
+    "empty": {
+      "unresolved": "Nenhum problema não resolvido neste período",
+      "none": "Nenhum problema neste período",
+      "description": "Os erros que sua aplicação envia são agrupados aqui por tipo, mensagem e local onde foram lançados.",
+      "show_all": "Mostrar todos os problemas"
+    },
+    "controls": {
+      "status": "Estado",
+      "team": "Equipe",
+      "no_team": "Sem equipe",
+      "holder": "Responsável"
+    },
+    "drawer": {
+      "title": "Problema",
+      "untyped": "Erro",
+      "explore": "Ver no Explorador",
+      "close": "Fechar",
+      "source": "Origem",
+      "handling": "Tratamento",
+      "issue_id": "ID do problema",
+      "anonymous": "Anônimo {{id}}",
+      "unknown": "Desconhecido",
+      "facts": {
+        "state": "Estado",
+        "sessions": "Sessões",
+        "users": "Pessoas",
+        "first_seen": "Primeira ocorrência",
+        "last_seen": "Última ocorrência",
+        "versions": "Versões"
+      },
+      "where": {
+        "title": "Onde ocorre",
+        "description": "Apenas os erros deste problema",
+        "browser": "Navegador",
+        "system": "Sistema",
+        "country": "País"
+      },
+      "samples": {
+        "title": "Sessões mais recentes",
+        "description": "Os erros mais recentes, cada um na sessão em que ocorreu",
+        "empty": "Nenhum erro recente",
+        "replay": "Reproduzir sessão",
+        "timeline": "Linha do tempo",
+        "not_kept": "Sessão não armazenada"
+      },
+      "people": {
+        "title": "Pessoas afetadas",
+        "description": "Por frequência",
+        "empty": "Ninguém",
+        "times_one": "{{count}} vez",
+        "times_other": "{{count}} vezes",
+        "times_many": "{{count}} vezes"
+      }
+    },
+    "trend": {
+      "title": "Ao longo do tempo",
+      "description": "Sessões por dia nos últimos {{days}} dias, empilhadas por versão",
+      "empty": "Nenhuma sessão nesse período",
+      "aria": "{{count}} sessões nos últimos {{days}} dias, por versão",
+      "others": "Outras versões",
+      "no_version": "Sem versão",
+      "resolved": "Resolvido",
+      "resolved_in": "Resolvido · {{version}}"
+    },
+    "stack": {
+      "title": "Onde o erro foi lançado",
+      "view": "Quadros exibidos",
+      "restored": "Restaurados",
+      "raw": "Originais",
+      "restored_tag": "restaurado",
+      "library": "biblioteca",
+      "anonymous": "(anônimo)",
+      "empty": "Nenhum rastreamento de pilha foi enviado com este erro",
+      "symbolication": {
+        "completed": "Simbolicação concluída com um mapa de código-fonte, um mapeamento ou um arquivo de símbolos",
+        "partial": "Alguns quadros foram simbolizados",
+        "missing": "Simbolicação não realizada: nenhum arquivo de depuração corresponde a esta versão",
+        "none": "Os quadros são exibidos como o SDK os enviou"
+      }
+    },
+    "banner": {
+      "resolved": "Resolvido em {{when}}.",
+      "resolved_by": "Resolvido por {{who}} em {{when}}.",
+      "resolved_in": "Resolvido em {{when}}, na versão {{version}}.",
+      "resolved_by_in": "Resolvido por {{who}} em {{when}}, na versão {{version}}.",
+      "back": "O erro voltou a ocorrer em {{when}}.",
+      "back_in": "O erro voltou a ocorrer na versão {{version}} em {{when}}.",
+      "older": "Ocorrências na versão {{version}} ou em versões anteriores não reabrem o erro."
+    },
+    "count_many": "{{count}} problemas"
+  },
+  "applications": {
+    "title": "Aplicações",
+    "list_title": "Aplicações RUM",
+    "result_count_one": "{{count}} aplicação",
+    "result_count_other": "{{count}} aplicações",
+    "create_button": "Criar aplicação",
+    "empty_title": "Nenhuma aplicação ainda",
+    "empty_description": "Primeiro, crie uma aplicação. Depois, forneça o token de cliente dela ao SDK. Eventos enviados para uma aplicação inexistente são rejeitados.",
+    "columns": {
+      "application": "Aplicação",
+      "platform": "Plataforma",
+      "collection": "Dados coletados",
+      "created": "Criada em"
+    },
+    "collection": {
+      "ip": "IP",
+      "geo": "Localização"
+    },
+    "platforms": {
+      "browser": "Navegador",
+      "android": "Android",
+      "ios": "iOS",
+      "flutter": "Flutter",
+      "react-native": "React Native",
+      "other": "Outra"
+    },
+    "create": {
+      "title": "Criar aplicação",
+      "subtitle": "Os SDKs usam o identificador da aplicação e o token de cliente que você fornece para enviar eventos.",
+      "submit": "Criar",
+      "name": "Nome",
+      "name_placeholder": "Checkout via web",
+      "id": "Identificador",
+      "id_hint": "Deixe em branco para usar {{id}}. O identificador não pode ser alterado depois.",
+      "id_invalid": "Use apenas letras, dígitos e os caracteres . _ : -, até 64 caracteres.",
+      "platform": "Plataforma"
+    },
+    "drawer": {
+      "close": "Fechar",
+      "save": "Salvar",
+      "saving": "Salvando",
+      "cancel": "Cancelar",
+      "token_title": "Token de cliente",
+      "token_description": "Forneça este token ao SDK. Ele só permite gravar eventos nesta aplicação.",
+      "show_token": "Mostrar token",
+      "hide_token": "Ocultar token",
+      "copy_token": "Copiar token",
+      "collection_title": "Coleta",
+      "collection_description": "Define quais dados são armazenados com cada evento. A localização do cliente é determinada mesmo quando o endereço IP não é armazenado.",
+      "collect_ip": "Armazenar o endereço IP",
+      "collect_ip_hint": "O endereço de origem da requisição, conforme identificado pelo servidor.",
+      "collect_geo": "Manter a localização",
+      "collect_geo_hint": "País, região e cidade identificados a partir do endereço.",
+      "privacy": "Privacidade padrão",
+      "privacy_hint": "Nível de privacidade sugerido pelo trecho de configuração para a reprodução de sessões.",
+      "privacy_mask": "Mascarar textos e campos de entrada",
+      "privacy_allow": "Gravar tudo o que aparece na tela",
+      "setup_title": "Configurar um SDK",
+      "setup_description": "O guia de configuração preenche o endpoint, o token e o identificador.",
+      "open_guide": "Abrir o guia de configuração",
+      "no_guide": "Esta plataforma envia eventos diretamente ao endpoint de ingestão. Consulte a documentação.",
+      "delete_title": "Excluir",
+      "delete_description": "O token de cliente da aplicação deixa de funcionar. Os dados já enviados permanecem até o fim do período de retenção dos fluxos.",
+      "delete": "Excluir aplicação",
+      "delete_confirm_title": "Excluir {{name}}?",
+      "delete_confirm_description": "Os SDKs configurados com o token dessa aplicação passarão a ser rejeitados.",
+      "scrub_title": "Dados sensíveis",
+      "scrub_description": "Esses dados são removidos dos endereços, das mensagens de erro, dos nomes e dos detalhes das requisições antes que o evento seja armazenado. Isso não altera o que o SDK mascara durante a gravação da sessão.",
+      "scrub": {
+        "secrets": "Tokens, chaves e senhas",
+        "secrets_hint": "Tokens Bearer e JWT, chaves de API, o valor após password= e os valores dos cabeçalhos de credenciais.",
+        "emails": "Endereços de e-mail",
+        "emails_hint": "Cada endereço é substituído por [email].",
+        "phones": "Números de telefone",
+        "phones_hint": "Números em formato internacional e nos formatos mais comuns na China e na América do Norte.",
+        "cards": "Números de cartões de pagamento",
+        "cards_hint": "Números cujos dígitos iniciais e dígito verificador correspondem ao formato de um cartão.",
+        "national_ids": "Números de identificação",
+        "national_ids_hint": "Números de identidade de residentes da China e números de seguridade social dos EUA.",
+        "url_params": "Parâmetros sensíveis de URL",
+        "url_params_hint": "Valores de parâmetros como token, code, password, session e email, além do nome de usuário e da senha que aparecem antes do host."
+      },
+      "sampling_title": "Sessões mantidas",
+      "sampling_description": "Uma porcentagem das sessões é mantida após a amostragem do SDK. Cada sessão é mantida ou descartada por inteiro, incluindo sua gravação. Aplica-se a porcentagem do primeiro filtro ao qual a sessão corresponde. Para as demais sessões, vale a porcentagem abaixo.",
+      "sample_rate": "Porcentagem de sessões mantidas (%)",
+      "sample_rate_hint": "Use 100 para manter todas as sessões. Os eventos das sessões descartadas não são armazenados, e a resposta do endpoint de ingestão indica quantos eventos foram descartados.",
+      "retention": {
+        "new_name": "Filtro {{number}}",
+        "add_filter": "Adicionar um filtro",
+        "remove_filter": "Remover este filtro",
+        "filter_up": "Mover este filtro para cima",
+        "filter_down": "Mover este filtro para baixo",
+        "no_filters": "Sem filtros, a porcentagem abaixo se aplica a todas as sessões. Com um filtro, você pode definir uma porcentagem específica para as sessões que correspondem a ele, como todas as sessões de produção.",
+        "filter_name": "Nome do filtro",
+        "filter_rate": "Sessões retidas por este filtro (%)",
+        "add_condition": "Adicionar uma condição",
+        "remove_condition": "Remover esta condição",
+        "condition_field": "Campo da condição",
+        "condition_op": "Operador de comparação",
+        "condition_values": "Valores",
+        "values_placeholder": "prod, production (* representa qualquer texto)",
+        "ops": {
+          "is": "é",
+          "is_not": "não é"
+        },
+        "fields": {
+          "env": "Ambiente",
+          "service": "Serviço",
+          "version": "Versão",
+          "source": "Plataforma",
+          "session_type": "Tipo de sessão",
+          "geo_country_iso_code": "Código do país",
+          "browser_name": "Navegador",
+          "os_name": "Sistema",
+          "device_type": "Tipo de dispositivo"
+        },
+        "rest_rate": "Retenção das demais sessões (%)",
+        "rest_rate_hint": "Aplica-se às sessões que não correspondem a nenhum filtro. Use 100 para reter todas essas sessões. A resposta da ingestão informa quantos eventos foram descartados.",
+        "keep_errors": "Reter todos os erros",
+        "keep_errors_hint": "Os erros são armazenados e contabilizados conforme ocorrem, mesmo quando as sessões não são retidas. Sem essa opção, um erro raro pode ser descartado junto com a sessão."
+      },
+      "issues_title": "Problemas",
+      "issues_description": "Define como os erros deste aplicativo são agrupados em problemas.",
+      "issues_per_hour": "Novos problemas por hora",
+      "issues_per_hour_hint": "Acima desse limite, os novos erros são contabilizados em um único problema chamado Outros erros.",
+      "privacy_mask_user_input": "Mascarar o que os usuários digitam",
+      "sdk": {
+        "title": "Configuração remota do SDK",
+        "description": "O SDK iniciado com remoteConfiguration: true lê estas configurações na inicialização. Assim, você pode alterá-las sem publicar uma nova versão da página. Os campos em branco usam os valores definidos na página.",
+        "not_said": "Conforme definido na página",
+        "session_sample_rate": "Taxa de amostragem de sessões (%)",
+        "session_sample_rate_hint": "Percentual de sessões enviadas pelo SDK antes de o aplicativo aplicar as regras de retenção.",
+        "session_replay_sample_rate": "Taxa de amostragem de replays (%)",
+        "session_replay_sample_rate_hint": "Percentual das sessões enviadas que têm um replay gravado.",
+        "privacy": "Nível de privacidade",
+        "clicks": "Coletar cliques",
+        "on": "Coletar",
+        "off": "Não coletar",
+        "console": "Encaminhar mensagens do console",
+        "console_hint": "Define quais métodos do console também escrevem no fluxo de logs.",
+        "console_none": "Não encaminhar",
+        "console_from": "{{level}} e níveis superiores"
+      },
+      "segments": {
+        "title": "Segmentos",
+        "description": "Grupos de sessões definidos por quem as iniciou e de onde. Você pode usá-los para filtrar as páginas de análise.",
+        "new_name": "Segmento {{number}}",
+        "add": "Adicionar um segmento",
+        "remove": "Remover o segmento",
+        "none": "Nenhum segmento ainda.",
+        "name": "Nome do segmento",
+        "property_key": "Nome da propriedade, como plan",
+        "fields": {
+          "geo_country_iso_code": "País (código ISO)",
+          "geo_continent_code": "Continente",
+          "geo_city": "Cidade",
+          "browser_name": "Navegador",
+          "os_name": "Sistema",
+          "device_type": "Tipo de dispositivo",
+          "usr_id": "ID do usuário",
+          "usr_email": "E-mail do usuário",
+          "account_id": "ID da conta",
+          "service": "Serviço",
+          "version": "Versão",
+          "source": "Plataforma",
+          "property": "Propriedade do usuário"
+        }
+      }
+    },
+    "result_count_many": "{{count}} aplicações"
+  },
+  "session_detail": {
+    "title_error": "Sessão com erros",
+    "no_events": "Esta sessão não tem eventos que possam ser reproduzidos.",
+    "replay_player": "Reprodutor de sessão",
+    "replay_recorded": "Reprodução da gravação",
+    "action_timeline_fallback": "Linha do tempo de ações",
+    "replay_loading": "Carregando a gravação do DOM…",
+    "replay_request_error": "Não foi possível carregar a gravação da sessão.",
+    "replay_load_error": "Não foi possível reconstruir a página gravada.",
+    "replay_unavailable": "Não há gravação do DOM disponível para esta sessão",
+    "replay_unavailable_description": "Os eventos de navegação e do aplicativo continuam disponíveis na linha do tempo de eventos abaixo, mas esta sessão não foi selecionada para gravação do DOM.",
+    "events_unit": "eventos",
+    "restart": "Reiniciar",
+    "play": "Reproduzir",
+    "pause": "Pausar",
+    "seek": "Ajustar a posição da reprodução da sessão",
+    "user_context": "Contexto do usuário",
+    "device": "Dispositivo",
+    "ip_address": "Endereço IP",
+    "detected_issues": "Problemas detectados",
+    "no_detected_issues": "Nenhum problema evidente foi detectado",
+    "event_timeline": "Linha do tempo de eventos",
+    "event_timeline_description": "Navegação, cliques, erros, requisições de rede e eventos de desempenho em ordem cronológica.",
+    "related_traces_title": "Rastreamentos relacionados",
+    "related_traces_subtitle": "Rastreamentos do backend vinculados diretamente a esta sessão de usuário ou correlacionados por horário.",
+    "related_empty": "Nenhum rastreamento do backend está relacionado a esta sessão.",
+    "relation_direct": "Direta",
+    "relation_time_correlated": "Por horário",
+    "primary_service_label": "Serviço principal",
+    "title": "Sessão",
+    "related_columns": {
+      "spans": "spans"
+    },
+    "not_found": "Esta sessão não foi encontrada nos últimos 30 dias.",
+    "title_frustration": "Sessão com cliques de frustração",
+    "user": "Usuário",
+    "anonymous_user": "Anônimo",
+    "location": "Localização",
+    "application": "Aplicativo",
+    "environment": "Ambiente",
+    "version": "Versão",
+    "duration": "Duração",
+    "journey": "Páginas",
+    "issue": {
+      "error": "Erros",
+      "crash": "Falhas",
+      "frustration": "Sinais de frustração",
+      "long_task": "Tarefas longas"
+    },
+    "timeline_truncated": "Apenas as primeiras linhas de {{types}} são exibidas.",
+    "location_unknown": "Desconhecida",
+    "tools": {
+      "aria": "Ferramentas de desenvolvedor",
+      "tabs_aria": "Abas das ferramentas de desenvolvedor",
+      "tabs": {
+        "errors": "Erros",
+        "network": "Rede",
+        "performance": "Desempenho",
+        "logs": "Logs",
+        "comments": "Comentários"
+      },
+      "view": "Visualização",
+      "follow": "Acompanhar a reprodução",
+      "all_views": "Todas as visualizações",
+      "display": {
+        "label": "Exibição",
+        "list": "Lista",
+        "waterfall": "Cascata"
+      },
+      "seek": "Ir para {{time}}",
+      "network": {
+        "aria": "Requisições desta sessão",
+        "time": "Hora",
+        "method": "Método",
+        "name": "Nome",
+        "status": "Status",
+        "type": "Tipo",
+        "duration": "Duração",
+        "size": "Tamanho",
+        "empty": "Esta visualização não fez nenhuma requisição",
+        "empty_all": "Esta sessão não fez nenhuma requisição",
+        "no_match": "Nenhuma requisição corresponde aos filtros"
+      },
+      "errors": {
+        "aria": "Erros desta sessão",
+        "time": "Hora",
+        "type": "Tipo",
+        "message": "Mensagem",
+        "issue": "Problema",
+        "issue_id": "problema {{id}}",
+        "open_issue": "Abrir problema {{id}}",
+        "crash": "Falha",
+        "empty": "Não houve erros nesta sessão"
+      },
+      "performance": {
+        "aria": "Desempenho de cada visualização desta sessão",
+        "view": "Visualização",
+        "resources": "Requisições",
+        "long_tasks": "Tarefas longas",
+        "open": "Ver o carregamento de {{view}}",
+        "empty": "Esta sessão não tem visualizações"
+      },
+      "logs": {
+        "aria": "Logs desta sessão",
+        "time": "Hora",
+        "level": "Nível",
+        "message": "Mensagem",
+        "logger": "Logger",
+        "empty": "Esta sessão não tem logs. Use o logger do SDK para registrá-los ou ative forwardConsoleLogs para encaminhar os logs do console."
+      },
+      "comments": {
+        "aria": "Comentários desta reprodução",
+        "time": "Hora",
+        "body": "Comentário",
+        "author": "Autor",
+        "nobody": "(saiu)",
+        "write": "Escrever um comentário",
+        "placeholder": "Comentar em {{time}}",
+        "add": "Comentar",
+        "edit": "Editar comentário",
+        "save": "Salvar",
+        "cancel": "Cancelar",
+        "delete": "Excluir comentário",
+        "empty": "Nenhum comentário ainda"
+      }
+    },
+    "session_type": "Tipo de sessão",
+    "session_types": {
+      "synthetics": "Verificação sintética",
+      "ci_test": "Teste de CI",
+      "user": "Usuário real"
+    },
+    "summary": {
+      "title": "Resumo por IA",
+      "generate": "Resumir",
+      "regenerate": "Resumir novamente",
+      "generating": "Resumindo…",
+      "none": "Ainda não há resumo. A geração usa o modelo do Mole Agent e consome parte do orçamento diário do agente.",
+      "chapters": "Capítulos",
+      "by": "{{model}} · {{tokens}} tokens"
+    }
+  },
+  "settings": {
+    "title": "Configurações de RUM",
+    "nav": {
+      "sdk": "Configuração do SDK",
+      "source_maps": "Mapas de código-fonte",
+      "sampling": "Amostragem de dados",
+      "privacy": "Privacidade",
+      "session_replay": "Reprodução de sessões"
+    },
+    "docs_title": "Documentação de instalação e configuração",
+    "docs_description": "Consulte a documentação sobre configuração do SDK de RUM para navegadores, mapas de código-fonte, amostragem, privacidade e reprodução de sessões.",
+    "view_docs": "Ver documentação",
+    "sections": {
+      "sdk": {
+        "title": "Configuração do SDK",
+        "subtitle": "Escolha uma plataforma e verifique o primeiro evento de um usuário real.",
+        "heading": "Instale o SDK de RUM",
+        "description": "A aplicação, o ambiente e a versão compõem o contexto compartilhado por todas as análises de RUM.",
+        "steps": {
+          "1": "Instale o SDK de RUM do MoleSignal para sua plataforma.",
+          "2": "Configure a aplicação, o ambiente, a versão e o endpoint de ingestão.",
+          "3": "Envie uma sessão de teste e localize-a no explorador."
+        }
+      },
+      "sampling": {
+        "title": "Amostragem de dados",
+        "subtitle": "Controle as taxas de coleta de sessões, dados de desempenho e reproduções.",
+        "heading": "Defina uma estratégia de amostragem",
+        "description": "Configure separadamente a amostragem de sessões e a de reproduções. A amostragem de reproduções se aplica apenas às sessões incluídas na amostra.",
+        "steps": {
+          "1": "Escolha a taxa base de amostragem de sessões.",
+          "2": "Escolha a taxa de amostragem da reprodução entre as sessões amostradas.",
+          "3": "Publique a configuração e monitore o volume e a cobertura."
+        }
+      },
+      "privacy": {
+        "title": "Privacidade",
+        "subtitle": "Controle a coleta de textos, dados inseridos, dados de rede e identificadores de usuários.",
+        "heading": "Proteja a privacidade dos usuários",
+        "description": "Aplique mascaramento e bloqueio no cliente para que os valores confidenciais nunca saiam do dispositivo do usuário.",
+        "steps": {
+          "1": "Defina o mascaramento padrão para campos de entrada, textos e mídias.",
+          "2": "Bloqueie páginas, campos de requisição e identificadores de usuários que sejam confidenciais.",
+          "3": "Use uma sessão de teste para verificar se os dados confidenciais foram ocultados."
+        }
+      },
+      "session-replay": {
+        "title": "Configurações de reprodução de sessões",
+        "subtitle": "Configure a amostragem da reprodução, o mascaramento e o escopo da gravação.",
+        "heading": "Configure a reprodução de sessões",
+        "description": "Grave apenas as interações necessárias para investigar problemas na experiência do usuário e respeite as regras de mascaramento.",
+        "steps": {
+          "1": "Ative a reprodução e escolha uma taxa de amostragem independente.",
+          "2": "Configure as regras de gravação para páginas, elementos e mídias.",
+          "3": "Envie uma sessão de teste e verifique a linha do tempo da reprodução."
+        }
+      }
+    }
+  },
+  "source_maps": {
+    "title": "Mapas de código-fonte e símbolos",
+    "subtitle": "Gerencie artefatos para restaurar rastreamentos de pilha na web, no Flutter, no Android e no iOS.",
+    "upload_cta": "Enviar artefato de depuração",
+    "load_error": "Não foi possível carregar os artefatos de depuração",
+    "active_maps": "Artefatos de depuração enviados",
+    "active_maps_description": "Arquivos disponíveis para restaurar rastreamentos de pilha: {{count}}.",
+    "status_active": "Ativo",
+    "columns": {
+      "application": "ID da aplicação",
+      "service": "Serviço",
+      "release": "Versão",
+      "kind": "Tipo de artefato",
+      "platform": "Plataforma",
+      "filename": "Arquivo",
+      "status": "Status",
+      "uploaded": "Data de envio",
+      "matched_errors": "Erros correspondentes"
+    },
+    "kinds": {
+      "javascript_sourcemap": "Mapa de código-fonte JavaScript",
+      "flutter_symbols": "Símbolos do Flutter",
+      "android_mapping": "mapping.txt do Android",
+      "android_native_symbols": "Símbolos nativos do Android",
+      "apple_dsym": "dSYM da Apple"
+    },
+    "empty_title": "Nenhum artefato de depuração enviado",
+    "empty_description": "Envie o artefato correspondente a cada versão móvel ou web para restaurar rastreamentos de pilha de código minificado, ofuscado ou nativo.",
+    "onboarding_title": "Restaure referências legíveis ao código-fonte",
+    "onboarding_description": "Envie mapas de código-fonte, símbolos do Flutter, arquivos de mapeamento ou símbolos nativos do Android ou arquivos dSYM da Apple. O MoleSignal associa esses arquivos ao aplicativo e à versão para restaurar os nomes das funções e os números das linhas.",
+    "view_docs": "Ver documentação de configuração",
+    "stack_example": "Exemplo de restauração do rastreamento de pilha",
+    "before": "Minificado",
+    "after": "Restaurado",
+    "demangle": "Restauração com mapas de código-fonte",
+    "delete": "Excluir",
+    "toast_deleted": "Excluído",
+    "delete_confirm_title": "Excluir artefato de depuração?",
+    "delete_confirm_description": "Os rastreamentos de pilha existentes serão mantidos. Os de novos erros desta versão não serão mais restaurados."
+  },
+  "upload_source_maps": {
+    "title": "Enviar artefato de depuração",
+    "application_label": "ID do aplicativo",
+    "service_label": "Serviço",
+    "release_label": "Versão",
+    "kind_label": "Tipo de artefato",
+    "platform_label": "Plataforma",
+    "platform_hint": "As opções variam conforme o tipo de artefato.",
+    "architecture_label": "Arquitetura (opcional)",
+    "architecture_hint": "Recomendada para artefatos nativos, como arm64, armeabi-v7a ou x86_64.",
+    "debug_id_label": "ID de depuração / UUID (opcional)",
+    "debug_id_hint": "Distingue artefatos de build da mesma versão.",
+    "debug_id_placeholder": "UUID ou Build ID",
+    "file_label": "Arquivo do artefato de depuração",
+    "file_hint": "Aceita arquivos .map, mapping.txt, .symbols do Flutter, .so com símbolos preservados, o arquivo DWARF dentro de um dSYM e suas variantes .gz. Limite de 50 MiB.",
+    "submit": "Enviar",
+    "uploading": "Enviando…",
+    "file_required": "Selecione um arquivo",
+    "success": "Artefato de depuração enviado",
+    "back": "Voltar aos artefatos de depuração"
+  },
+  "explorer": {
+    "title": "Explorador",
+    "types": {
+      "sessions": "Sessões",
+      "views": "Visualizações",
+      "actions": "Ações",
+      "errors": "Erros",
+      "resources": "Recursos",
+      "long_tasks": "Tarefas longas",
+      "vitals": "Métricas vitais",
+      "logs": "Logs"
+    },
+    "toolbar": {
+      "refresh": "Atualizar"
+    },
+    "query": {
+      "run": "Executar consulta",
+      "running": "Executando consulta",
+      "clear_query": "Limpar consulta",
+      "collapse_editor": "Recolher editor de consultas",
+      "expand_editor": "Expandir editor de consultas",
+      "empty_summary": "Tudo em {{type}}",
+      "free_text_label": "Texto:",
+      "ignored_label": "Ignorado:",
+      "help_title": "Consulta de campos do RUM",
+      "help_description": "Compare os campos das linhas exibidas. As palavras que não fazem parte de uma comparação são buscadas nas colunas de texto.",
+      "example_equals": "Um usuário",
+      "example_contains": "Uma página",
+      "example_exclude": "Excluir um navegador",
+      "example_number": "Mais de um segundo (em nanossegundos)"
+    },
+    "histogram": {
+      "show": "Mostrar histograma",
+      "hide": "Ocultar histograma",
+      "label": "{{type}} ao longo do tempo",
+      "ok": "Linhas",
+      "troubled": {
+        "sessions": "Sessões com erros",
+        "views": "Visualizações com erros",
+        "actions": "Ações com sinais de frustração",
+        "errors": "Erros",
+        "resources": "Requisições com falha",
+        "long_tasks": "Tarefas longas",
+        "logs": "Logs de erro"
+      }
+    },
+    "columns": {
+      "time": "Horário",
+      "user": "Usuário",
+      "landing_page": "Página de entrada",
+      "duration": "Duração",
+      "views": "Visualizações",
+      "actions": "Ações",
+      "errors": "Erros",
+      "session_id": "Sessão",
+      "browser": "Navegador",
+      "country": "País",
+      "page": "Página",
+      "loading_time": "Carregamento",
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "view_id": "Visualização",
+      "type": "Tipo",
+      "target": "Alvo",
+      "frustration": "Frustração",
+      "action_id": "Ação",
+      "message": "Mensagem",
+      "error_type": "Tipo de erro",
+      "source": "Origem",
+      "handling": "Tratamento",
+      "version": "Versão",
+      "error_id": "Erro",
+      "method": "Método",
+      "url": "URL",
+      "status": "Status",
+      "size": "Tamanho",
+      "resource_type": "Tipo",
+      "resource_id": "Solicitação",
+      "entry_type": "Categoria",
+      "blocking": "Bloqueio",
+      "long_task_id": "Tarefa"
+    },
+    "fields": {
+      "title": "Campos",
+      "resize": "Redimensionar a lista de campos",
+      "collapse": "Recolher a lista de campos",
+      "expand": "Expandir a lista de campos",
+      "summary": "{{shown}} de {{total}} campos",
+      "filter_placeholder": "Buscar um campo",
+      "filter_aria": "Buscar um campo",
+      "displayed_fields": "Campos exibidos",
+      "indexed_fields": "Campos indexados",
+      "other_fields": "Outros campos",
+      "no_match": "Nenhum campo correspondente",
+      "hide_field_aria": "Remover {{name}} da tabela",
+      "show_field_aria": "Exibir {{name}} na tabela",
+      "add_field_aria": "Filtrar por {{name}}",
+      "json_query_required": "{{name}} contém um documento e não pode ser comparado",
+      "values_loading": "Carregando os valores de {{name}}",
+      "values_failed": "Não foi possível carregar os valores.",
+      "no_values": "Não há valores nestas linhas.",
+      "values_top": "{{shown}} valores mais frequentes",
+      "filter_for": "Filtrar por este valor",
+      "filter_out": "Excluir este valor do filtro",
+      "filter_remove": "Remover o filtro",
+      "filter_for_aria": "Mostrar apenas linhas com {{name}} {{value}}",
+      "filter_out_aria": "Excluir linhas com {{name}} {{value}}",
+      "unavailable": {
+        "time_budget": "A contagem demorou demais.",
+        "busy": "Há muitas consultas em execução."
+      }
+    },
+    "results": {
+      "loaded_count_one": "{{count}} linha carregada",
+      "loaded_count_other": "{{count}} linhas carregadas",
+      "reset_columns": "Restaurar as colunas padrão",
+      "export": "Baixar como CSV (até 5.000 linhas)",
+      "export_more": "O arquivo contém as {{count}} linhas mais recentes. Há mais linhas que correspondem à consulta.",
+      "loaded_count_many": "{{count}} linhas carregadas"
+    },
+    "viz": {
+      "label": "Visualizar como",
+      "names": {
+        "list": "Lista",
+        "timeseries": "Série temporal",
+        "toplist": "Ranking",
+        "table": "Tabela",
+        "map": "Mapa",
+        "distribution": "Distribuição"
+      },
+      "map_unavailable": "As linhas deste tipo não têm dados de país, então não há nada para exibir no mapa.",
+      "map_group": "O mapa agrupa as linhas por país",
+      "map_empty": "Nenhuma linha neste intervalo tem dados de país: o aplicativo não registra a localização ou não há um banco de dados GeoIP instalado.",
+      "aggregate": "O que é contado",
+      "measure": "Medida",
+      "measure_edit": "Alterar a medida {{measure}}",
+      "measure_add": "Adicionar uma medida",
+      "measure_remove": "Remover a medida {{measure}}",
+      "function": "Função",
+      "group": "Agrupar por",
+      "group_then": "Depois por",
+      "group_edit": "Alterar o grupo {{field}}",
+      "group_add": "Adicionar um grupo",
+      "group_remove": "Remover o grupo {{field}}",
+      "bucket": "Intervalo",
+      "bucket_auto_of": "Automático · {{bucket}}",
+      "top": "Principais",
+      "search_fields": "Buscar campos",
+      "no_fields": "Nenhum campo encontrado.",
+      "no_value": "(nenhum)",
+      "count_of": "Contagem de {{type}}",
+      "title_by": "{{measure}} por {{groups}}",
+      "vital_good": "Bom",
+      "vital_poor": "Ruim",
+      "status": {
+        "unavailable": "Indisponível",
+        "per_point": "{{bucket}} por ponto",
+        "groups_one": "{{count}} grupo",
+        "groups_other": "{{count}} grupos",
+        "top_groups_one": "{{count}} grupo principal",
+        "top_groups_other": "{{count}} grupos principais",
+        "countries_one": "{{count}} país",
+        "countries_other": "{{count}} países",
+        "rows_one": "{{count}} linha",
+        "rows_other": "{{count}} linhas",
+        "groups_many": "{{count}} grupos",
+        "top_groups_many": "{{count}} grupos principais",
+        "countries_many": "{{count}} países",
+        "rows_many": "{{count}} linhas"
+      },
+      "field": "Campo",
+      "field_edit": "Alterar o campo {{field}}",
+      "distribution": {
+        "title": "Distribuição de {{field}}",
+        "aria": "{{title}}, com base em {{rows}} linhas",
+        "bar": "De {{from}} a {{to}}: {{rows}} linhas",
+        "rows": "Linhas",
+        "p50": "P50",
+        "p75": "P75",
+        "p95": "P95",
+        "p99": "P99",
+        "max": "Máx."
+      }
+    },
+    "pagination": {
+      "aria": "Paginação dos resultados de RUM",
+      "page_size_aria": "Linhas por página",
+      "previous": "Anterior",
+      "next": "Próxima"
+    },
+    "drawer": {
+      "title": "Detalhes da linha",
+      "resize": "Redimensionar o painel de detalhes",
+      "previous": "Linha anterior",
+      "next": "Próxima linha",
+      "open_session": "Abrir a sessão",
+      "close": "Fechar os detalhes",
+      "loading": "Carregando a linha",
+      "sections": {
+        "aria": "Seções do painel de detalhes",
+        "waterfall": "Cascata de carregamento",
+        "stack": "Pilha",
+        "fields": "Campos",
+        "json": "JSON"
+      },
+      "failed": "Não foi possível ler esta linha.",
+      "position": "Linha {{current}} de {{total}}",
+      "copy_json": "Copiar a linha como JSON",
+      "copied_json": "Copiado",
+      "replay": "Assistir à reprodução",
+      "find_field": "Buscar um campo",
+      "no_field_match": "Nenhum campo encontrado",
+      "facts": {
+        "frustrations": "Frustrações",
+        "email": "E-mail",
+        "os": "Sistema operacional",
+        "device": "Dispositivo",
+        "location": "Localização",
+        "application": "Aplicação",
+        "env": "Ambiente",
+        "resources": "Recursos",
+        "long_tasks": "Tarefas longas",
+        "trace": "Trace",
+        "issue": "Problema",
+        "logger": "Registrador de logs"
+      }
+    },
+    "recovery": {
+      "query_failed": "A consulta falhou",
+      "no_data_title": "Nenhuma linha neste período",
+      "no_data_description": "Nenhum dado foi enviado neste período ou nenhum dado corresponde à consulta.",
+      "clear_filters": "Limpar a consulta",
+      "expand_time": "Ampliar o período",
+      "query_docs": "Ler sobre o explorador"
+    },
+    "saved_views": {
+      "label": "Visualizações salvas",
+      "none": "As visualizações que você salvar aparecem aqui.",
+      "delete": "Excluir a visualização {{name}}",
+      "name": "Nome desta visualização",
+      "save": "Salvar"
+    },
+    "export": {
+      "dashboard": {
+        "action": "Adicionar ao dashboard",
+        "title": "Adicionar ao dashboard",
+        "description": "O painel consulta as mesmas linhas via SQL, com os mesmos filtros, medidas e grupos, mas usa o período do dashboard. Assim como aqui, as sessões executadas por testes sintéticos e por CI ficam de fora, a menos que a consulta as inclua.",
+        "shapes": {
+          "timeseries": "Exibido como série temporal: contagens e somas aparecem em barras empilhadas por grupo, e as demais medidas aparecem em linhas.",
+          "toplist": "Exibido em barras horizontais, ordenadas pela primeira medida.",
+          "table": "Exibido em uma tabela, com uma coluna por medida e as mesmas unidades usadas aqui.",
+          "distribution": "Exibido em barras: 40 faixas do menor valor até p99, recalculadas para o período do dashboard."
+        },
+        "list_as_count": "A lista é exibida como uma contagem, ao longo do tempo, das linhas que correspondem à consulta, como no histograma acima dela.",
+        "map_as_top": "Os dashboards não têm mapa: os {{count}} países mais bem classificados são exibidos em barras horizontais.",
+        "interval": "O tempo é dividido de acordo com a variável Intervalo do dashboard, a partir de {{interval}}.",
+        "interval_added": "Este dashboard ainda não tem a variável Intervalo. Ela será adicionada com o painel.",
+        "interval_label": "Intervalo",
+        "intervals": {
+          "1m": "1 minuto",
+          "5m": "5 minutos",
+          "15m": "15 minutos",
+          "1h": "1 hora",
+          "1d": "1 dia"
+        },
+        "target": "Qual dashboard?",
+        "targets": {
+          "new": "Novo dashboard",
+          "existing": "Dashboard existente"
+        },
+        "name": "Nome do dashboard",
+        "dashboard": "Dashboard",
+        "choose": "Escolha um dashboard",
+        "none": "Ainda não há um dashboard ao qual adicionar um painel.",
+        "panel": "Título do painel",
+        "create": "Criar",
+        "add": "Adicionar",
+        "saving": "Salvando…",
+        "created": "Dashboard “{{name}}” criado",
+        "added": "Painel adicionado ao dashboard “{{name}}”",
+        "open": "Abrir",
+        "distribution_title": "Distribuição de {{field}}"
+      },
+      "alert": {
+        "action": "Novo alerta",
+        "watches": "A regra monitora: {{measure}}.",
+        "watches_distribution": "A regra monitora: p75 de {{field}}.",
+        "left": "Não incluídos na regra: {{parts}}.",
+        "left_viz": "o tipo de visualização ({{viz}})",
+        "left_groups": "os grupos ({{groups}})",
+        "left_measures": "as outras medidas ({{measures}})",
+        "separator": ", ",
+        "application": "Cada regra monitora uma única aplicação. Escolha a aplicação no editor.",
+        "kinds": {
+          "threshold": "Alerta de limite",
+          "threshold_hint": "Dispara quando o valor cruza um limite",
+          "anomaly": "Alerta de anomalia",
+          "anomaly_hint": "Dispara quando o valor difere muito dos valores registrados no mesmo horário nos dias anteriores"
+        }
+      }
+    }
+  },
+  "alerts": {
+    "button": "Alertas",
+    "button_aria_one": "Alertas, {{count}} ativo",
+    "button_aria_other": "Alertas, {{count}} ativos",
+    "drawer": {
+      "title": "Alertas",
+      "subtitle": "Mostra alertas da aplicação e do ambiente da página",
+      "close": "Fechar"
+    },
+    "going_on": {
+      "title": "Ativos",
+      "empty": "Nenhum alerta em andamento para esta aplicação.",
+      "open": "Abrir"
+    },
+    "rules": {
+      "title": "Regras desta aplicação",
+      "new": "Nova regra",
+      "empty": "Nenhuma regra monitora esta aplicação ainda. Use um modelo abaixo para criar uma.",
+      "edit": "Editar",
+      "status": {
+        "firing": "Disparando",
+        "dropped": "Descartada pelo pipeline",
+        "no_data": "Sem dados",
+        "pending": "Pendente",
+        "healthy": "Normal",
+        "off": "Desativada"
+      }
+    },
+    "templates": {
+      "title": "Modelos",
+      "hint_browser": "Aplicação web · Clique em Criar para adicionar uma regra já ativada",
+      "hint_app": "App · Clique em Criar para adicionar uma regra já ativada",
+      "recommended": "Recomendado",
+      "optional": "Opcional",
+      "create": "Criar",
+      "creating": "Criando…",
+      "created": "Criada e ativada",
+      "created_off": "Criada, mas desativada",
+      "created_toast": "Regra “{{name}}” criada e ativada",
+      "view": "Ver regra",
+      "now": "Agora",
+      "no_value": "Ainda sem valor: menos de {{rows}} {{kind}} em {{window}}",
+      "unreadable": "Não foi possível ler o valor atual",
+      "would_trip": "A regra dispararia com severidade {{severity}} assim que fosse criada",
+      "sessions_per_one": "{{count}} sessão em {{window}}",
+      "sessions_per_other": "{{count}} sessões em {{window}}",
+      "list_separator": ", ",
+      "line": "{{bands}} · {{window}}",
+      "at_least": "pelo menos {{rows}} {{kind}}",
+      "any_environment": "todos os ambientes",
+      "name": "{{application}} · {{title}}",
+      "name_environment": "{{application}} · {{environment}} · {{title}}",
+      "items": {
+        "lcp": {
+          "title": "Carregamento lento de páginas"
+        },
+        "inp": {
+          "title": "Interações lentas"
+        },
+        "cls": {
+          "title": "Deslocamentos de layout"
+        },
+        "error_rate": {
+          "title": "Erros em páginas",
+          "title_app": "Erros em telas"
+        },
+        "failed_requests": {
+          "title": "Requisições com falha"
+        },
+        "frustration": {
+          "title": "Sessões com frustração"
+        },
+        "crash_free": {
+          "title": "Mais travamentos"
+        },
+        "new_issues": {
+          "title": "Novos problemas",
+          "rule": "Mais de 0 problemas detectados pela primeira vez em {{where}} durante a janela → {{severity}} · {{window}}"
+        },
+        "regressions": {
+          "title": "Problemas recorrentes",
+          "rule": "Um problema resolvido volta a ocorrer em {{where}} → {{severity}} · {{window}}"
+        },
+        "high_impact": {
+          "title": "Pior problema"
+        },
+        "traffic": {
+          "title": "Tráfego interrompido",
+          "rule": "Menos de 1 sessão na janela → {{severity}} · {{window}} (não indicado para aplicativos com pouca atividade à noite)"
+        }
+      },
+      "sessions_per_many": "{{count}} sessões em {{window}}"
+    },
+    "button_aria_many": "Alertas, {{count}} ativos"
+  },
+  "waterfall": {
+    "failed": "Não foi possível ler as requisições desta visualização.",
+    "none": "Nenhum recurso foi registrado para esta visualização",
+    "no_match": "Nenhum recurso corresponde aos filtros",
+    "more": "Mais {{count}} recursos, a maioria carregada em até {{duration}}",
+    "expand": "Mostrar recursos",
+    "collapse": "Mostrar menos",
+    "late": "Mais {{count}} recursos começaram a carregar após o carregamento da página",
+    "sentence": {
+      "join": ", ",
+      "end": ". ",
+      "loaded": "Esta visualização carregou em <n>{{value}}</n>",
+      "first_byte": "o primeiro byte chegou após <n>{{value}}</n>",
+      "lcp": "o LCP foi de <n>{{value}}</n> (<grade>{{grade}}</grade>)",
+      "lcp_element": "o LCP foi de <n>{{value}}</n> (<grade>{{grade}}</grade>, <code>{{element}}</code>)",
+      "resources_one": "<n>{{count}}</n> recurso",
+      "resources_other": "<n>{{count}}</n> recursos",
+      "long_tasks_one": "<n>{{count}}</n> tarefa longa",
+      "long_tasks_other": "<n>{{count}}</n> tarefas longas",
+      "during": "Enquanto isso, a página solicitou <resources/> e encontrou <tasks/>.",
+      "resources_many": "<n>{{count}}</n> recursos",
+      "long_tasks_many": "<n>{{count}}</n> tarefas longas"
+    },
+    "filters": {
+      "type": "Tipo",
+      "all": "Todos",
+      "show": "Mostrar",
+      "shows": {
+        "all": "Todos",
+        "blocking": "Que bloqueiam a renderização",
+        "slow": "Lentos (500 ms ou mais)",
+        "failed": "Com falha"
+      }
+    },
+    "legend": {
+      "wait": "Aguardando",
+      "download": "Baixando",
+      "long_task": "Tarefa longa"
+    },
+    "marks": {
+      "first_byte": "Primeiro byte",
+      "fcp": "FCP",
+      "dcl": "DCL",
+      "lcp": "LCP",
+      "load": "Carregamento"
+    },
+    "lane": {
+      "title": "Thread principal",
+      "count_one": "{{count}} tarefa longa",
+      "count_other": "{{count}} tarefas longas",
+      "task": "Tarefa longa de {{duration}}",
+      "count_many": "{{count}} tarefas longas"
+    },
+    "row": {
+      "blocking": "bloqueante",
+      "lcp": "LCP"
+    },
+    "phases": {
+      "title": "Fases",
+      "aria": "Fases da requisição, {{total}} ao todo",
+      "redirect": "Redirecionamento",
+      "dns": "DNS",
+      "connect": "Conexão",
+      "tls": "TLS",
+      "first_byte": "Primeiro byte",
+      "download": "Download"
+    },
+    "detail": {
+      "aria": "Requisição",
+      "close": "Fechar",
+      "lcp_file": "o arquivo que o LCP aguardou",
+      "trace": "Rastreamento",
+      "yes": "Sim",
+      "no": "Não",
+      "size": "{{size}} ({{transfer}} transferidos)",
+      "sentence": {
+        "lcp": "Começou <n>{{delay}}</n> após o primeiro byte, levou <n>{{load}}</n> para carregar e mais <n>{{render}}</n> para aparecer na tela.",
+        "unanswered": "Não recebeu resposta em <n>{{duration}}</n>.",
+        "failed": "Falhou com o status <n>{{status}}</n> após <n>{{duration}}</n>.",
+        "phases": "Aguardou <n>{{wait}}</n> pelo primeiro byte, e o download levou <n>{{download}}</n>.",
+        "total": "Levou <n>{{duration}}</n>."
+      },
+      "fields": {
+        "address": "Endereço",
+        "status": "Status",
+        "size": "Tamanho",
+        "delivery": "Entrega",
+        "blocking": "Bloqueia a renderização",
+        "start": "Início"
+      },
+      "delivery": {
+        "cache": "Cache",
+        "network": "Rede",
+        "other": "Rede",
+        "navigational-prefetch": "Busca antecipada"
+      },
+      "after_load": "Começou <n>{{start}}</n> após o início da visualização, quando a página já havia carregado, por isso não aparece no eixo."
+    },
+    "task": {
+      "unattributed": "Tarefa longa",
+      "subtitle": "Tarefa longa · {{duration}}",
+      "none": "Sem nome atribuído pelo navegador",
+      "sentence": "A tarefa durou <n>{{duration}}</n>.",
+      "sentence_blocking": "A tarefa durou <n>{{duration}}</n> e bloqueou as interações com a página por <n>{{blocking}}</n>.",
+      "fields": {
+        "script": "Script",
+        "function": "Função",
+        "invoker": "Chamado por"
+      }
+    },
+    "truncated": "A visualização fez mais requisições. Aqui aparecem apenas as {{count}} mais recentes."
+  },
+  "agent": {
+    "investigate": "Investigar com o Mole Agent",
+    "investigate_short": "Investigar",
+    "investigate_title": "Inicie uma conversa com o Mole Agent sobre isso. A pergunta já está pronta para você ler e enviar.",
+    "investigate_element": "Investigar este elemento",
+    "investigate_session": "Investigar esta sessão",
+    "investigate_row": "Investigar {{value}} com o Mole Agent",
+    "all_environments": "todos os ambientes",
+    "prompt": {
+      "overview": "Analise o desempenho de {{application}} ({{environment}}) de {{from}} a {{to}}. Comece pela visão geral e pelos problemas mais recentes, indique o que está fora do normal, identifique a causa provável e sugira o próximo passo.",
+      "errors": "Analise os erros de {{application}} ({{environment}}) de {{from}} a {{to}}: quais problemas afetam mais sessões, quais são novos ou voltaram e desde qual versão, quais são as causas prováveis e o que fazer primeiro.",
+      "performance": "Analise a velocidade das páginas de {{application}} ({{environment}}) de {{from}} a {{to}}: quais são os resultados dos Core Web Vitals e como eles se classificam, quais páginas, versões e navegadores prejudicam esses resultados, o que as visualizações mais lentas ficaram esperando e o que corrigir primeiro.",
+      "vital": "Analise a métrica {{vital}} de {{application}} ({{environment}}) de {{from}} a {{to}}: como ela se classifica, quais páginas, versões e navegadores prejudicam o resultado, o que as visualizações mais lentas ficaram esperando e o que corrigir primeiro.",
+      "frustration": "Analise o que frustrou os usuários de {{application}} ({{environment}}) de {{from}} a {{to}}: em quais elementos, páginas e versões há cliques de frustração, cliques sem resposta ou cliques com erro, o que acontece quando os usuários clicam e qual é a causa provável.",
+      "issue": "Investigue o problema “{{error}}” (ID {{issue}}) em {{application}} ({{environment}}) de {{from}} a {{to}}: quantas sessões e pessoas ele afeta, desde quando e desde qual versão, se voltou a ocorrer, qual é a causa provável com base no rastreamento de pilha e nas sessões e o que fazer a seguir.",
+      "slice": "Analise as visualizações de {{application}} ({{environment}}) em que {{dimension}} é {{value}}, de {{from}} a {{to}}: como elas se saíram, o que está lento ou falhando, qual é a causa provável e qual é o próximo passo.",
+      "slice_figure": "Analise as visualizações de {{application}} ({{environment}}) em que {{dimension}} é {{value}}, de {{from}} a {{to}}. O 75º percentil de {{vital}} nessas visualizações é {{figure}}. O que prejudica esse resultado, quais versões e navegadores mais contribuem para ele, o que as visualizações mais lentas ficaram esperando e o que corrigir primeiro?",
+      "element": "Analise o elemento “{{element}}” de {{application}} ({{environment}}) de {{from}} a {{to}}: há cliques de frustração, cliques sem resposta ou cliques com erro nesse elemento. O que acontece quando os usuários clicam, em quais páginas e versões isso ocorre e qual é a causa provável?",
+      "element_selector": "Analise o elemento “{{element}}” ({{selector}}) de {{application}} ({{environment}}) de {{from}} a {{to}}: há cliques de frustração, cliques sem resposta ou cliques com erro nesse elemento. O que acontece quando os usuários clicam, em quais páginas e versões isso ocorre e qual é a causa provável?",
+      "session": "Analise a sessão {{session}} de {{application}} ({{environment}}), que ocorreu de {{from}} a {{to}}: o que a pessoa fez, em ordem, o que deu errado e qual é a causa provável.",
+      "incident": "Investigue o alerta “{{summary}}” de {{application}} ({{environment}}) de {{from}} a {{to}}: o que fez o valor variar, quais páginas, versões e navegadores mais contribuíram para a variação, qual é a causa provável e qual é o próximo passo. Liste o plano primeiro e depois apresente as evidências ponto a ponto. Não faça alterações em produção.",
+      "incident_sessions": "Investigue o alerta “{{summary}}” de {{application}} ({{environment}}) de {{from}} a {{to}}: o que fez o valor variar, quais páginas, versões e navegadores mais contribuíram para a variação, qual é a causa provável e qual é o próximo passo. O alerta se baseia nestas sessões: {{sessions}}. Liste o plano primeiro e depois apresente as evidências ponto a ponto. Não faça alterações em produção."
+    }
+  },
+  "estimate": {
+    "note": "Estimativa · {{share}} das sessões foram mantidas",
+    "hint": "Apenas {{share}} das sessões deste período foram mantidas. As contagens exibidas são ajustadas para cima conforme a taxa de retenção aplicável. Esse ajuste não se aplica às pessoas observadas nem aos valores mínimos e máximos. O explorador lista as sessões mantidas."
+  },
+  "flags": {
+    "list_title": "Feature flags",
+    "list_description": "Feature flags avaliadas nas sessões deste período, em ordem decrescente de número de sessões",
+    "sessions_one": "{{value}} sessão",
+    "sessions_other": "{{value}} sessões",
+    "compare_description": "Desempenho das sessões por valor desta feature flag",
+    "compare_aria": "Valores de {{flag}} lado a lado",
+    "no_values": "Nenhuma visualização registrou esta feature flag no período",
+    "not_evaluated": "(não avaliada)",
+    "open": "Ver estas visualizações",
+    "columns": {
+      "value": "Valor",
+      "sessions": "Sessões",
+      "errors": "Visualizações com erros",
+      "frustration": "Visualizações com sinais de frustração"
+    },
+    "empty": {
+      "title": "Nenhuma feature flag neste intervalo",
+      "description": "As feature flags aparecem aqui assim que o SDK chama addFeatureFlagEvaluation."
+    },
+    "sessions_many": "{{value}} sessões"
+  }
+}

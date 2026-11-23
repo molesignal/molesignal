@@ -1,0 +1,82 @@
+{
+  "title": "語意分組",
+  "subtitle": "依標籤值將相關事件歸為一組（Alertmanager group_by 風格）。",
+  "actions": {
+    "new": "新增分組",
+    "import": "匯入",
+    "delete": "刪除",
+    "edit_named": "編輯 {{name}}",
+    "delete_named": "刪除 {{name}}"
+  },
+  "states": {
+    "empty_title": "尚無語意分組",
+    "empty_description": "定義分組，將共用標籤的相關事件歸在一起。"
+  },
+  "list": {
+    "columns": {
+      "name": "名稱",
+      "matchers": "比對條件",
+      "group_by": "分組鍵",
+      "enabled": "啟用",
+      "actions": "操作"
+    }
+  },
+  "enabled": {
+    "yes": "已啟用",
+    "no": "已停用"
+  },
+  "toast": {
+    "saved": "已儲存分組「{{name}}」",
+    "deleted": "已刪除分組"
+  },
+  "confirm": {
+    "delete_title": "刪除語意分組？",
+    "delete": "刪除此分組？事件會保留，只會移除分組規則。",
+    "cancel": "取消"
+  },
+  "errors": {
+    "name_required": "名稱為必填欄位。"
+  },
+  "drawer": {
+    "edit_title": "編輯 {{name}}",
+    "subtitle": "比對條件決定分組適用於哪些事件；分組鍵決定分組方式。",
+    "save": "儲存變更",
+    "create": "建立分組",
+    "add_matcher": "新增比對條件",
+    "remove_matcher": "移除比對條件",
+    "matchers_description": "事件標籤須符合所有比對條件，才適用此分組。未設定條件時，所有事件皆符合。",
+    "group_by_description": "這些標籤鍵的值相同的事件會歸為同一組。",
+    "sections": {
+      "identity": "識別資訊",
+      "matchers": "比對條件",
+      "group_by": "分組鍵"
+    },
+    "fields": {
+      "name": "名稱",
+      "enabled": "啟用",
+      "matcher_label": "條件標籤",
+      "matcher_value": "條件值",
+      "group_by": "分組標籤鍵"
+    },
+    "hints": {
+      "enabled": "分組時會略過已停用的分組。",
+      "group_by": "以逗號分隔標籤鍵，例如 service, region。"
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "匯入語意分組",
+    "subtitle": "貼上分組的 JSON 陣列（或 { groups: [...] }）。",
+    "submit": "匯入",
+    "editor_label": "分組 JSON",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
+    "toast_imported": "已匯入 {{count}} 個分組",
+    "invalid_json": "無效的 JSON：{{message}}",
+    "expects_array": "需要非空的分組陣列。"
+  }
+}

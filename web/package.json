@@ -30,6 +30,7 @@
     "lint:i18n-copy": "tsx scripts/check-migrated-copy.ts",
     "i18n:check": "tsx scripts/i18n/check.ts",
     "i18n:translate": "tsx scripts/i18n/translate.ts",
+    "i18n:translate-backend": "tsx scripts/i18n/backend.ts",
     "install:shadcn": "bash scripts/install-shadcn.sh"
   },
   "dependencies": {

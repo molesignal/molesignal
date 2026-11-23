@@ -1,0 +1,82 @@
+{
+  "title": "セマンティックグループ",
+  "subtitle": "関連するインシデントをラベル値でグループ化します（Alertmanager 方式の group_by）。",
+  "actions": {
+    "new": "新規グループ",
+    "import": "インポート",
+    "delete": "削除",
+    "edit_named": "{{name}}を編集",
+    "delete_named": "{{name}}を削除"
+  },
+  "states": {
+    "empty_title": "セマンティックグループはまだありません",
+    "empty_description": "共通のラベルを持つインシデントをまとめるには、グループを定義します。"
+  },
+  "list": {
+    "columns": {
+      "name": "名前",
+      "matchers": "マッチャー",
+      "group_by": "グループ化キー",
+      "enabled": "有効",
+      "actions": "操作"
+    }
+  },
+  "enabled": {
+    "yes": "有効",
+    "no": "無効"
+  },
+  "toast": {
+    "saved": "グループ「{{name}}」を保存しました",
+    "deleted": "グループを削除しました"
+  },
+  "confirm": {
+    "delete_title": "セマンティックグループを削除しますか？",
+    "delete": "このグループを削除しますか？インシデントは残り、グループ化ルールのみが削除されます。",
+    "cancel": "キャンセル"
+  },
+  "errors": {
+    "name_required": "名前は必須です。"
+  },
+  "drawer": {
+    "edit_title": "{{name}}を編集",
+    "subtitle": "マッチャーで対象のインシデントを選択し、group_by でグループ化キーを指定します。",
+    "save": "変更を保存",
+    "create": "グループを作成",
+    "add_matcher": "マッチャーを追加",
+    "remove_matcher": "マッチャーを削除",
+    "matchers_description": "このグループの対象になるには、インシデントのラベルがすべてのマッチャーに一致する必要があります。マッチャーを設定しない場合は、すべてのインシデントが対象になります。",
+    "group_by_description": "指定したラベルキーの値がすべて同じインシデントを、1 つのグループにまとめます。",
+    "sections": {
+      "identity": "基本情報",
+      "matchers": "マッチャー",
+      "group_by": "グループ化キー"
+    },
+    "fields": {
+      "name": "名前",
+      "enabled": "有効",
+      "matcher_label": "マッチャーのラベル",
+      "matcher_value": "マッチャーの値",
+      "group_by": "グループ化に使うラベル"
+    },
+    "hints": {
+      "enabled": "無効なグループはグループ化の処理から除外されます。",
+      "group_by": "ラベルキーをカンマ区切りで入力します（例: service, region）。"
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "セマンティックグループのインポート",
+    "subtitle": "グループの JSON 配列（または { groups: [...] }）を貼り付けます。",
+    "submit": "インポート",
+    "editor_label": "グループの JSON",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
+    "toast_imported": "グループを {{count}} 件インポートしました",
+    "invalid_json": "無効な JSON: {{message}}",
+    "expects_array": "グループを 1 件以上含む配列が必要です。"
+  }
+}

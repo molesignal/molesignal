@@ -1,0 +1,24 @@
+{
+  "states": {
+    "loading": {
+      "title": "로드 중",
+      "description": "최신 데이터를 가져오는 중입니다."
+    },
+    "empty": {
+      "title": "아직 데이터 없음",
+      "description": "첫 항목을 만들거나 현재 필터를 조정합니다."
+    },
+    "error": {
+      "title": "요청 실패",
+      "description": "백엔드에서 오류를 반환했습니다."
+    },
+    "backend-pending": {
+      "title": "백엔드 대기 중",
+      "description": "UI는 준비되었지만 연결된 엔드포인트는 아직 사용할 수 없습니다."
+    },
+    "permission-denied": {
+      "title": "권한 필요",
+      "description": "현재 역할로는 이 워크플로에 액세스할 수 없습니다."
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "title": "시맨틱 그룹",
+  "subtitle": "라벨 값을 기준으로 관련 인시던트를 그룹화합니다(Alertmanager의 group_by 방식).",
+  "actions": {
+    "new": "새 그룹",
+    "import": "가져오기",
+    "delete": "삭제",
+    "edit_named": "{{name}} 편집",
+    "delete_named": "{{name}} 삭제"
+  },
+  "states": {
+    "empty_title": "아직 시맨틱 그룹이 없습니다",
+    "empty_description": "공통 라벨을 기준으로 관련 인시던트를 묶으려면 그룹을 정의하세요."
+  },
+  "list": {
+    "columns": {
+      "name": "이름",
+      "matchers": "매칭 조건",
+      "group_by": "그룹화 기준",
+      "enabled": "활성화 여부",
+      "actions": "작업"
+    }
+  },
+  "enabled": {
+    "yes": "활성화",
+    "no": "비활성화"
+  },
+  "toast": {
+    "saved": "‘{{name}}’ 그룹을 저장했습니다.",
+    "deleted": "그룹을 삭제했습니다."
+  },
+  "confirm": {
+    "delete_title": "시맨틱 그룹을 삭제하시겠습니까?",
+    "delete": "이 그룹을 삭제하시겠습니까? 인시던트는 유지되며 그룹화 규칙만 삭제됩니다.",
+    "cancel": "취소"
+  },
+  "errors": {
+    "name_required": "이름은 필수 입력 항목입니다."
+  },
+  "drawer": {
+    "edit_title": "{{name}} 편집",
+    "subtitle": "매칭 조건으로 그룹을 적용할 인시던트를 선택하고, group_by로 그룹화 기준 키를 지정합니다.",
+    "save": "변경 사항 저장",
+    "create": "그룹 만들기",
+    "add_matcher": "매칭 조건 추가",
+    "remove_matcher": "매칭 조건 삭제",
+    "matchers_description": "인시던트의 라벨이 모든 매칭 조건을 충족해야 이 그룹이 적용됩니다. 매칭 조건이 없으면 모든 인시던트가 대상이 됩니다.",
+    "group_by_description": "지정한 라벨 키의 값이 모두 같은 인시던트를 하나의 그룹으로 묶습니다.",
+    "sections": {
+      "identity": "기본 정보",
+      "matchers": "매칭 조건",
+      "group_by": "그룹화 기준"
+    },
+    "fields": {
+      "name": "이름",
+      "enabled": "활성화",
+      "matcher_label": "매칭 조건 라벨",
+      "matcher_value": "매칭 조건 값",
+      "group_by": "그룹화 기준 라벨"
+    },
+    "hints": {
+      "enabled": "비활성화된 그룹은 그룹화에 사용되지 않습니다.",
+      "group_by": "라벨 키를 쉼표로 구분합니다(예: service, region)."
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "시맨틱 그룹 가져오기",
+    "subtitle": "그룹의 JSON 배열(또는 { groups: [...] })을 붙여넣습니다.",
+    "submit": "가져오기",
+    "editor_label": "그룹 JSON",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
+    "toast_imported": "그룹 {{count}}개를 가져왔습니다.",
+    "invalid_json": "잘못된 JSON: {{message}}",
+    "expects_array": "배열에 그룹이 하나 이상 있어야 합니다."
+  }
+}

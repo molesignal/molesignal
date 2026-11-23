@@ -1,0 +1,255 @@
+{
+  "title": "Kontinuierliches Profiling",
+  "subtitle": "Flamegraphs für CPU, Speicher und Sperrkonflikte in Ihren Services.",
+  "refresh": "Aktualisieren",
+  "live": {
+    "label": "Live",
+    "hint": "Automatische Aktualisierung alle 10 s"
+  },
+  "filters": {
+    "service": "Service",
+    "service_all": "Alle Services",
+    "type": "Profiltyp",
+    "label": "Label-Filter",
+    "label_placeholder": "key:value",
+    "apply": "Anwenden"
+  },
+  "profile_types": {
+    "cpu": "CPU",
+    "wall": "Verstrichene Zeit",
+    "alloc_space": "Allokierter Speicher",
+    "alloc_objects": "Allokierte Objekte",
+    "inuse_space": "Aktuell belegter Speicher",
+    "inuse_objects": "Aktuell verwendete Objekte",
+    "goroutines": "Goroutines",
+    "lock": "Sperrkonflikte",
+    "samples": "Samples"
+  },
+  "analysis": {
+    "filter_bar_aria": "Filter für die Profilanalyse",
+    "clear_trace": "Trace-Filter zurücksetzen",
+    "summary_aria": "Ergebnisse der Analyse",
+    "hottest": "Größter Hotspot",
+    "hot_share": "{{percent}} % Eigenanteil",
+    "no_hotspot": "Keine Funktion als Hotspot erkannt",
+    "samples": "{{count}} Samples",
+    "service_count_one": "{{count}} Service",
+    "service_count_other": "{{count}} Services",
+    "captured": "{{duration}} aufgezeichnet",
+    "profiles_button": "{{selected}} / {{total}} Profile",
+    "profiles_button_aria": "Profile für diese Analyse auswählen: {{selected}} von {{total}} ausgewählt",
+    "workspace_aria": "Arbeitsbereich für die Profilanalyse",
+    "loading_flamegraph": "Ausgewählte Profile werden zusammengeführt…",
+    "no_selection_title": "Keine Profile für die Analyse ausgewählt",
+    "no_selection_description": "Der Flamegraph fasst die ausgewählten Profile zusammen. Wählen Sie mindestens ein Profil aus.",
+    "no_selection_action": "Profile auswählen"
+  },
+  "first_run": {
+    "eyebrow": "Kontinuierliches Profiling",
+    "steps": {
+      "send": {
+        "title": "Profile senden",
+        "description": "Senden Sie pprof-Profile über OTLP oder Pyroscope oder laden Sie zum Ausprobieren eine Datei hoch."
+      },
+      "narrow": {
+        "title": "Analyse eingrenzen",
+        "description": "Wählen Sie einen Service, einen Profiltyp und die Profile aus, die zusammengeführt werden sollen."
+      },
+      "read": {
+        "title": "Flamegraph lesen",
+        "description": "Die breitesten Frames verursachen die höchsten Kosten. Die Funktion mit den höchsten Kosten steht oben auf der Seite."
+      }
+    }
+  },
+  "selection": {
+    "title": "Profile in dieser Analyse",
+    "selected_summary": "{{selected}} / {{total}} ausgewählt",
+    "description": "Ausgewählte Profile werden im Flamegraph zusammengeführt. Klicken Sie auf eine Zeile, um das zugehörige Profil einzeln zu öffnen.",
+    "select_all": "Alle Profile auswählen",
+    "select_none": "Profilauswahl aufheben",
+    "row_aria": "Auswahl von Profil {{id}} für die Analyse umschalten"
+  },
+  "units": {
+    "nanoseconds": "ns",
+    "bytes": "bytes",
+    "count": "count",
+    "samples": "samples"
+  },
+  "list": {
+    "title": "Profile",
+    "kpi": {
+      "total_value": "Gesamt",
+      "samples": "Samples",
+      "services": "Services",
+      "hot_function": "Kostenintensivste Funktion"
+    },
+    "columns": {
+      "service": "Service",
+      "type": "Typ",
+      "timestamp": "Erfasst am",
+      "duration": "Dauer",
+      "samples": "Samples",
+      "total_value": "Gesamt",
+      "trace": "Trace"
+    },
+    "tooltip": {
+      "duration": "Tatsächlich verstrichene Zeit während der Aufzeichnung",
+      "total": "Kumulierte CPU-Zeit (Summe der Sample-Werte)"
+    },
+    "view_flamegraph": "Flamegraph anzeigen",
+    "open_profile": "Profil öffnen",
+    "empty_title": "Keine Profile in diesem Zeitraum",
+    "empty_description": "Richten Sie den Datenempfang über eine Datenquelle (OTLP / Pyroscope / pprof) ein oder laden Sie direkt eine pprof-Datei hoch."
+  },
+  "flamegraph": {
+    "title": "Flamegraph",
+    "search_placeholder": "Frames hervorheben…",
+    "reset_zoom": "Zoom zurücksetzen",
+    "fit_canvas": "Ansicht zurücksetzen",
+    "fullscreen": "Analyse im Vollbild anzeigen",
+    "exit_fullscreen": "Vollbild beenden",
+    "resize": "Ziehen Sie, um die Größe des Analysebereichs zu ändern. Doppelklicken Sie, um sie zurückzusetzen.",
+    "value_type": "Wert",
+    "no_data_title": "Keine Samples zur Anzeige",
+    "no_data_description": "Keine Profile entsprechen dem ausgewählten Service, Typ und Zeitraum.",
+    "truncated_notice": "Es wird eine repräsentative Auswahl der passenden Profile angezeigt, da der Zeitraum das Limit für die Zusammenführung überschreitet.",
+    "frame_aria": "Funktion {{name}} analysieren",
+    "root_aria": "Alle Samples analysieren",
+    "root_note": "Alle Samples",
+    "frame_self": "exklusiv",
+    "frame_total": "gesamt",
+    "frame_share": "der Gesamtkosten",
+    "self_help": "Kosten dieser Funktion ohne untergeordnete Aufrufe",
+    "total_help": "Kumulierte Kosten einschließlich aller untergeordneten Aufrufe",
+    "profiles_merged": "{{count}} Profile zusammengeführt",
+    "view": {
+      "flame": "Flammendiagramm",
+      "tree": "Aufrufbaum",
+      "top": "Top-Funktionen"
+    },
+    "top": {
+      "function": "Funktion",
+      "self": "Exklusiv",
+      "self_pct": "Exklusiv (%)",
+      "cum": "Gesamt",
+      "cum_pct": "Gesamt (%)",
+      "select_hint": "Wählen Sie diese Funktion aus, um ihre Details anzuzeigen",
+      "jump_hint": "Klicken Sie, um diese Funktion im Flammendiagramm hervorzuheben"
+    },
+    "tree": {
+      "expand": "Untergeordnete Aufrufe ausklappen",
+      "collapse": "Untergeordnete Aufrufe einklappen"
+    },
+    "details": {
+      "title": "Funktionsdetails",
+      "focus": "Im Flammendiagramm fokussieren",
+      "call_tree": "Im Aufrufbaum anzeigen",
+      "compare": "Vergleichen",
+      "occurrences": "Vorkommen",
+      "service": "Service",
+      "all_services": "Alle Services",
+      "call_path": "Aufrufpfad",
+      "children": "Direkt untergeordnete Aufrufe",
+      "no_children": "Keine direkt untergeordneten Aufrufe",
+      "depth": "Aufruftiefe"
+    },
+    "tooltip": {
+      "focus_hint": "Klicken Sie, um diesen Frame zu fokussieren und die Funktionsdetails anzuzeigen."
+    },
+    "legend": {
+      "width": "Breite",
+      "cumulative": "kumulierte Kosten",
+      "color": "Farbe",
+      "self": "exklusive Kosten",
+      "cold": "kalt",
+      "hot": "heiß"
+    }
+  },
+  "compare": {
+    "title": "Profile vergleichen",
+    "subtitle": "Sehen Sie, wo die Kosten im Vergleich gestiegen oder gesunken sind. Beide Zeiträume sind frei wählbar.",
+    "filters_aria": "Was verglichen wird",
+    "baseline_aria": "Referenzzeitraum: {{value}}",
+    "baseline_title": "Referenzzeitraum auswählen",
+    "baseline_relative": "Relativ zum Vergleichszeitraum",
+    "baseline_overlaps": "Dieser Referenzzeitraum würde sich mit dem Vergleichszeitraum überschneiden.",
+    "baselines": {
+      "previous": "Vorheriger Zeitraum",
+      "day": "Gleiche Zeit am Vortag",
+      "week": "Gleiche Zeit eine Woche zuvor",
+      "custom": "Benutzerdefinierter Zeitraum"
+    },
+    "statement_aria": "Die beiden verglichenen Zeiträume",
+    "comparison": "Vergleich",
+    "baseline": "Referenz",
+    "period_profiles_one": "{{count}} Profil",
+    "period_profiles_other": "{{count}} Profile",
+    "overall": "Gesamtänderung",
+    "unequal_counts": "Die Zeiträume enthalten unterschiedlich viele Profile ({{comparison}} gegenüber {{baseline}}). Ein Teil der Änderung ergibt sich daher aus der unterschiedlichen Anzahl erfasster Profile.",
+    "overlap": "Die Zeiträume überschneiden sich. Profile aus der Überschneidung zählen in beiden Zeiträumen.",
+    "loading": "Die beiden Zeiträume werden verglichen…",
+    "legend_increase": "Zunahme",
+    "legend_decrease": "Abnahme",
+    "changed": {
+      "title": "Funktionen mit den größten Änderungen",
+      "count_one": "{{count}} Funktion mit Änderung",
+      "count_other": "{{count}} Funktionen mit Änderungen",
+      "function": "Funktion",
+      "baseline": "Referenz",
+      "comparison": "Vergleich",
+      "change": "Änderung der Eigenkosten",
+      "new": "neu",
+      "gone": "entfallen",
+      "show_all": "Alle {{count}} anzeigen",
+      "show_top": "Top {{count}} anzeigen",
+      "none": "Die Eigenkosten keiner Funktion haben sich zwischen den beiden Zeiträumen geändert.",
+      "select_hint": "Diese Funktion im Flammendiagramm markieren"
+    },
+    "empty": {
+      "none_title": "Keine Profile in beiden Zeiträumen",
+      "none_description": "Für diesen Dienst und Profiltyp wurden in keinem der beiden Zeiträume Profile erfasst. Wählen Sie Zeiträume mit erfassten Profilen oder einen anderen Profiltyp.",
+      "baseline_title": "Keine Profile im Referenzzeitraum",
+      "baseline_description": "Im Referenzzeitraum wurden keine Profile erfasst. Daher würde jede Funktion als neu angezeigt. Wählen Sie einen Referenzzeitraum, in dem Profile erfasst wurden.",
+      "comparison_title": "Keine Profile im Vergleichszeitraum erfasst",
+      "comparison_description": "Im ausgewählten Zeitraum wurden keine Profile erfasst, die sich mit denen des Referenzzeitraums vergleichen lassen. Wählen Sie einen Zeitraum, in dem Profile erfasst wurden.",
+      "open_analysis": "Zeitraum in der Analyse öffnen"
+    }
+  },
+  "detail": {
+    "title": "Profil",
+    "back": "Zurück zu den Profilen",
+    "download": "pprof herunterladen",
+    "downloading": "Wird heruntergeladen…",
+    "open_trace": "Zugehörigen Trace öffnen",
+    "view_span_flamegraph": "Flame Graph für diesen Span anzeigen",
+    "metadata": {
+      "service": "Service",
+      "type": "Typ",
+      "captured": "Erfasst am",
+      "duration": "Dauer",
+      "samples": "Samples",
+      "trace": "Trace",
+      "span": "Span"
+    },
+    "unsymbolized": "Enthält Stackframes ohne aufgelöste Symbole"
+  },
+  "upload": {
+    "button": "Hochladen",
+    "title": "Profil hochladen",
+    "description": "Laden Sie ein gzip-komprimiertes oder unkomprimiertes pprof-Profil hoch. Informationen zur Einrichtung von OTLP / Pyroscope finden Sie unter „Datenquelle“.",
+    "service": "Service",
+    "service_placeholder": "my-service",
+    "type": "Profiltyp",
+    "file": "pprof-Datei",
+    "choose_file": "Datei auswählen…",
+    "submit": "Hochladen",
+    "uploading": "Wird hochgeladen…",
+    "success": "Profil hochgeladen",
+    "error": "Upload fehlgeschlagen",
+    "datasource_link": "OTLP / Pyroscope einrichten"
+  },
+  "errors": {
+    "load_failed": "Profile konnten nicht geladen werden",
+    "flamegraph_failed": "Flame Graph konnte nicht erstellt werden"
+  }
+}

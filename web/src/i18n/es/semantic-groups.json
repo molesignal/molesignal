@@ -1,0 +1,82 @@
+{
+  "title": "Grupos semánticos",
+  "subtitle": "Agrupa incidentes relacionados por valores de etiqueta (como group_by de Alertmanager).",
+  "actions": {
+    "new": "Nuevo grupo",
+    "import": "Importar",
+    "delete": "Eliminar",
+    "edit_named": "Editar {{name}}",
+    "delete_named": "Eliminar {{name}}"
+  },
+  "states": {
+    "empty_title": "Aún no hay grupos semánticos",
+    "empty_description": "Define un grupo para reunir incidentes relacionados según las etiquetas que comparten."
+  },
+  "list": {
+    "columns": {
+      "name": "Nombre",
+      "matchers": "Criterios de coincidencia",
+      "group_by": "Agrupar por",
+      "enabled": "Activado",
+      "actions": "Acciones"
+    }
+  },
+  "enabled": {
+    "yes": "Activado",
+    "no": "Desactivado"
+  },
+  "toast": {
+    "saved": "Se guardó el grupo «{{name}}»",
+    "deleted": "Se eliminó el grupo"
+  },
+  "confirm": {
+    "delete_title": "¿Eliminar el grupo semántico?",
+    "delete": "¿Quieres eliminar este grupo? Los incidentes se conservan; solo se elimina la regla de agrupación.",
+    "cancel": "Cancelar"
+  },
+  "errors": {
+    "name_required": "El nombre es obligatorio."
+  },
+  "drawer": {
+    "edit_title": "Editar {{name}}",
+    "subtitle": "Los criterios de coincidencia determinan a qué incidentes se aplica el grupo; group_by define la clave de agrupación.",
+    "save": "Guardar cambios",
+    "create": "Crear grupo",
+    "add_matcher": "Agregar criterio de coincidencia",
+    "remove_matcher": "Quitar criterio de coincidencia",
+    "matchers_description": "El grupo se aplica si las etiquetas del incidente cumplen todos los criterios de coincidencia. Si no hay criterios, se aplica a todos los incidentes.",
+    "group_by_description": "Los incidentes que tienen los mismos valores para estas claves de etiqueta se reúnen en un solo grupo.",
+    "sections": {
+      "identity": "Identidad",
+      "matchers": "Criterios de coincidencia",
+      "group_by": "Agrupar por"
+    },
+    "fields": {
+      "name": "Nombre",
+      "enabled": "Activado",
+      "matcher_label": "Etiqueta del criterio",
+      "matcher_value": "Valor del criterio",
+      "group_by": "Etiquetas de agrupación"
+    },
+    "hints": {
+      "enabled": "Los grupos desactivados no se tienen en cuenta al agrupar.",
+      "group_by": "Claves de etiqueta separadas por comas, p. ej., service, region."
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "Importar grupos semánticos",
+    "subtitle": "Pega un array JSON de grupos (o { groups: [...] }).",
+    "submit": "Importar",
+    "editor_label": "JSON de grupos",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
+    "toast_imported": "Grupos importados: {{count}}",
+    "invalid_json": "JSON no válido: {{message}}",
+    "expects_array": "Se esperaba un array con al menos un grupo."
+  }
+}

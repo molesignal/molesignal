@@ -1,0 +1,29 @@
+{
+  "help_title": "Tastenkürzel",
+  "categories": {
+    "general": "Allgemein",
+    "navigation": "Navigation",
+    "investigation": "Untersuchung",
+    "time": "Zeit"
+  },
+  "bindings": {
+    "open_palette": "Befehlspalette öffnen",
+    "show_help": "Tastenkürzel anzeigen",
+    "open_time_picker": "Zeitraumauswahl öffnen",
+    "stack_back": "Untersuchungsverlauf: zurück",
+    "stack_forward": "Untersuchungsverlauf: vorwärts",
+    "goto_services": "Zu den Diensten wechseln",
+    "goto_apm_services": "Zu den APM-Diensten wechseln",
+    "goto_incidents": "Zu den Vorfällen wechseln",
+    "goto_dashboards": "Zu den Dashboards wechseln",
+    "goto_investigate_trace": "Zur Untersuchung wechseln (Traces)",
+    "goto_investigate_log": "Zur Untersuchung wechseln (Logs)",
+    "goto_rum": "Zur Benutzererfahrung wechseln",
+    "goto_user_experience": "Zur Benutzererfahrung (RUM) wechseln",
+    "goto_functions": "Zu den Funktionen wechseln",
+    "goto_iam": "Zu IAM wechseln",
+    "pin_anchor": "Zeitanker fixieren / lösen",
+    "copy_link": "Link zur Untersuchung kopieren",
+    "dismiss_overlay": "Oberstes Overlay schließen"
+  }
+}

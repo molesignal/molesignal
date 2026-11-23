@@ -1,0 +1,8 @@
+{
+  "sign_in_failed": "로그인에 실패했습니다",
+  "switch_org_success": "{{name}} 조직으로 전환했습니다",
+  "switch_org_failure": "조직을 전환하지 못했습니다: {{message}}",
+  "request_failed": "요청에 실패했습니다",
+  "link_copied": "링크를 복사했습니다",
+  "generic": "문제가 발생했습니다"
+}

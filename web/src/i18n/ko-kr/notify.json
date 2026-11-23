@@ -1,0 +1,1025 @@
+{
+  "nav": {
+    "label": "알림 관리",
+    "root": "알림",
+    "connectors": "커넥터",
+    "users": "사용자",
+    "policies": "정책",
+    "defaults": "대체 경로",
+    "deliveries": "전송 내역",
+    "templates": "템플릿"
+  },
+  "common": {
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨",
+    "configured": "구성됨",
+    "not_configured": "구성되지 않음",
+    "verified": "검증됨",
+    "unverified": "검증되지 않음",
+    "edit": "편집",
+    "delete": "삭제",
+    "test": "테스트 전송",
+    "verify": "검증",
+    "save": "저장",
+    "saving": "저장 중…",
+    "cancel": "취소",
+    "close": "닫기",
+    "loading": "로드 중…",
+    "loading_error": "알림 데이터를 불러오지 못했습니다.",
+    "json_error": "{{field}} 항목은 유효한 JSON이어야 합니다.",
+    "saved": "알림 설정을 저장했습니다.",
+    "deleted": "알림 항목을 삭제했습니다.",
+    "test_sent": "테스트 메시지를 전송했습니다.",
+    "test_failed": "테스트 전송에 실패했습니다."
+  },
+  "connector_types": {
+    "email_smtp": "이메일 SMTP",
+    "slack_app": "Slack 앱",
+    "slack_webhook": "Slack 웹훅",
+    "lark_app": "Lark 앱",
+    "lark_webhook": "Lark 웹훅",
+    "dingtalk_app": "DingTalk 앱",
+    "dingtalk_webhook": "DingTalk 웹훅",
+    "wecom_app": "WeCom 앱",
+    "wecom_webhook": "WeCom 웹훅",
+    "wecom_bot": "WeCom 스마트 봇",
+    "teams_app": "Microsoft Teams 봇",
+    "teams_webhook": "Microsoft Teams 웹훅",
+    "google_chat_app": "Google Chat 앱",
+    "google_chat_webhook": "Google Chat 웹훅",
+    "aliyun_voice": "Alibaba Cloud 음성 통화",
+    "aliyun_sms": "Alibaba Cloud SMS",
+    "tencent_voice": "Tencent Cloud 음성 통화",
+    "tencent_sms": "Tencent Cloud SMS",
+    "huawei_voice": "Huawei Cloud 음성 통화",
+    "huawei_sms": "Huawei Cloud SMS",
+    "twilio_voice": "Twilio 음성 통화",
+    "twilio_sms": "Twilio SMS",
+    "aws_voice": "AWS 음성 통화",
+    "aws_sms": "AWS SMS",
+    "http_sms": "범용 HTTP SMS",
+    "webhook": "웹훅",
+    "telegram_bot": "Telegram 봇",
+    "discord_webhook": "Discord 웹훅",
+    "mattermost_bot": "Mattermost 봇",
+    "mattermost_webhook": "Mattermost 웹훅",
+    "webex_bot": "Webex 봇",
+    "webex_webhook": "Webex 웹훅",
+    "matrix_bot": "Matrix 봇",
+    "twilio_whatsapp": "Twilio WhatsApp",
+    "aws_sns": "Amazon SNS",
+    "pagerduty": "PagerDuty"
+  },
+  "connector_channels": {
+    "im": "인스턴트 메시징",
+    "phone": "전화 통화",
+    "sms": "SMS",
+    "email": "이메일",
+    "webhook": "통합",
+    "other": "기타"
+  },
+  "capabilities": {
+    "directUser": "개별 사용자에게 직접 전송",
+    "group": "그룹",
+    "richText": "서식 있는 텍스트",
+    "interactive": "대화형",
+    "acknowledgement": "알림 확인",
+    "attachments": "첨부 파일"
+  },
+  "connectors": {
+    "title": "커넥터",
+    "subtitle": "워크스페이스 자격 증명을 수신자 및 라우팅과 별도로 관리합니다.",
+    "new": "새 커넥터",
+    "empty_title": "커넥터 없음",
+    "empty_description": "사용자 엔드포인트나 대체 경로를 연결하기 전에 커넥터를 추가합니다.",
+    "columns": {
+      "name": "이름",
+      "type": "유형",
+      "capabilities": "지원 기능",
+      "last_test": "마지막 테스트",
+      "status": "상태",
+      "actions": "작업"
+    },
+    "status": {
+      "unknown": "알 수 없음",
+      "connected": "연결됨",
+      "error": "오류",
+      "disabled": "비활성화됨"
+    },
+    "drawer": {
+      "new_title": "새 커넥터",
+      "edit_title": "{{name}} 편집",
+      "subtitle": "자격 증명은 암호화하여 저장하며 평문으로 반환하지 않습니다.",
+      "identity": "커넥터",
+      "configuration": "공급자 구성",
+      "name": "이름",
+      "type": "커넥터 유형",
+      "enabled": "이 커넥터를 통한 전송 허용",
+      "test_target": "테스트 대상",
+      "target_type": "대상 유형",
+      "target": "대상",
+      "test_template": "테스트 템플릿",
+      "test_template_hint": "이 공급자는 승인된 템플릿만 전송합니다. 테스트에서는 선택한 템플릿의 자리 표시자에 예시 값을 넣어 전송합니다.",
+      "test_template_none": "이 공급자용 {{channel}} 템플릿이 아직 없습니다. 알림 템플릿에서 작성합니다.",
+      "test_card_hint": "인스턴트 메시징 템플릿을 선택하면 자리 표시자에 예시 값을 넣은 카드를 전송합니다. 선택하지 않으면 일반 테스트 메시지를 전송합니다.",
+      "test_without_template": "템플릿 없음",
+      "save": "커넥터 저장",
+      "test": "연결 테스트",
+      "save_before_test": "테스트를 전송하기 전에 이 커넥터를 저장합니다.",
+      "field": {
+        "host": "SMTP 호스트",
+        "port": "포트",
+        "username": "사용자 이름",
+        "password": "비밀번호",
+        "from": "보낸 사람 주소",
+        "tls": "TLS 모드",
+        "timeoutSecs": "시간 제한(초)",
+        "bodyFormat": "본문 형식",
+        "body": "본문",
+        "phoneFormat": "전화번호 형식",
+        "successField": "성공 필드",
+        "successValue": "성공 값",
+        "botToken": "봇 토큰",
+        "clientId": "클라이언트 ID",
+        "clientSecret": "클라이언트 시크릿",
+        "apiBaseUrl": "API 기본 URL",
+        "webhookUrl": "웹훅 URL",
+        "appId": "앱 ID",
+        "appSecret": "AppSecret",
+        "receiveIdType": "수신자 ID 유형",
+        "secret": "서명 시크릿",
+        "url": "기본 URL",
+        "method": "HTTP 메서드",
+        "headers": "헤더 (JSON)",
+        "appToken": "앱 수준 토큰",
+        "robotCode": "로봇 코드",
+        "cardTemplateId": "카드 템플릿 ID",
+        "corpId": "기업 ID",
+        "corpSecret": "앱 시크릿",
+        "agentId": "AgentId",
+        "callbackToken": "콜백 토큰",
+        "callbackAesKey": "EncodingAESKey",
+        "tenantId": "테넌트 ID",
+        "serviceUrl": "서비스 URL",
+        "credentials": "서비스 계정 키 (JSON)",
+        "botId": "봇 ID",
+        "botSecret": "지속 연결 시크릿",
+        "wsUrl": "지속 연결 주소",
+        "pubsubBaseUrl": "Pub/Sub URL",
+        "subscription": "Pub/Sub 구독",
+        "accessKeyId": "AccessKey ID",
+        "secretId": "SecretId",
+        "sdkAppId": "앱 ID (SdkAppId)",
+        "appKey": "AppKey",
+        "signature": "서명 이름",
+        "accessKeySecret": "AccessKey 시크릿",
+        "showNumber": "발신번호",
+        "signName": "서명",
+        "playTimes": "낭독 횟수",
+        "accountSid": "계정 SID",
+        "authToken": "인증 토큰",
+        "fromNumber": "발신 번호",
+        "language": "언어",
+        "voice": "음성",
+        "sender": "발신자",
+        "region": "리전",
+        "site": "플랫폼",
+        "cloud": "클라우드",
+        "auth": "인증",
+        "accessKey": "액세스 키 ID",
+        "secretKey": "비밀 액세스 키",
+        "sessionToken": "세션 토큰",
+        "roleArn": "역할 ARN",
+        "originationIdentity": "발신 ID",
+        "voiceId": "Polly 음성",
+        "externalId": "외부 ID",
+        "signingSecret": "서명 시크릿",
+        "replies": "답장 처리",
+        "replyTopicArn": "답장용 SNS 주제 ARN",
+        "avatarUrl": "아바타 URL",
+        "serverUrl": "서버 URL",
+        "homeserverUrl": "홈서버 URL",
+        "accessToken": "액세스 토큰",
+        "topicArn": "주제 ARN",
+        "routingKey": "통합 키",
+        "loginBaseUrl": "로그인 URL"
+      },
+      "hints": {
+        "slack_app": "봇 토큰은 알림을 전송하는 데 사용합니다. 클라이언트 ID와 시크릿을 설정하면 상태 페이지 방문자가 해당 페이지를 자신의 Slack 채널에 추가할 수 있습니다. 이렇게 하려면 페이지의 Slack 설정에서 이 커넥터를 선택합니다. 봇 토큰 또는 클라이언트 ID와 시크릿 중 하나 이상을 입력합니다. 앱 수준 토큰(xapp-)을 사용하면 Mole Agent가 Socket Mode를 통해 Slack에서 응답할 수 있습니다.",
+        "lark_app": "지속 연결로 이벤트를 수신하면 Mole Agent가 이 앱을 통해 Feishu에서도 응답할 수 있습니다. Mole Agent → 설정 → IM에서 앱을 활성화합니다.",
+        "dingtalk_app": "내부 앱의 로봇입니다. 로봇에 별도 코드가 없으면 클라이언트 ID를 로봇 코드로 사용합니다. 개인 대상에는 사용자 ID를, 그룹 대상에는 openConversationId를 사용합니다. Stream으로 메시지를 수신하면 Mole Agent가 이 로봇을 통해 DingTalk에서도 응답할 수 있습니다. 경보 알림에 확인 및 해결 버튼을 추가하려면 문서에 따라 DingTalk 카드 플랫폼에서 대화형 카드 템플릿을 만든 후, 여기에 템플릿 ID를 입력하고 Mole Agent → 설정 → IM에서 로봇을 활성화합니다.",
+        "dingtalk_webhook": "그룹의 사용자 지정 로봇입니다. 로봇이 요청에 서명하는 경우 서명 시크릿을 입력합니다.",
+        "wecom_app": "자체 구축 앱입니다. 기업 ID, 앱 시크릿, AgentId를 입력합니다. 개인 대상에는 멤버의 사용자 ID를, 그룹 대상에는 앱 채팅 ID를 사용합니다. 앱의 신뢰할 수 있는 IP 목록에 서버 주소를 추가합니다. 멤버에게 보내는 경보 알림에 확인 및 해결 버튼을 추가하려면 앱의 메시지 수신 메뉴에서 API 수신을 설정합니다. 생성된 토큰과 EncodingAESKey를 여기에 입력하고 저장한 다음, 아래에 표시된 콜백 URL을 앱의 API 수신 설정에 입력합니다.",
+        "wecom_webhook": "그룹 로봇의 웹훅 주소입니다.",
+        "wecom_bot": "지속 연결을 사용하는 API 모드의 WeCom 스마트 봇입니다. 봇 ID와 지속 연결용 시크릿을 입력합니다. Mole Agent → 설정 → IM에서 봇을 활성화하면 Mole Agent가 WeCom에서 응답하고 봇이 알림도 전송합니다. 경보 알림에는 확인 및 해결 버튼이 표시됩니다. 개인 대상에는 멤버의 userid를, 그룹 대상에는 채팅의 chatid를 사용합니다. 봇은 자신에게 직접 메시지를 보낸 사용자와 자신이 멘션된 채팅에만 메시지를 보낼 수 있습니다.",
+        "teams_app": "Bot Framework 봇입니다. 앱 ID, 클라이언트 시크릿과 테넌트를 입력합니다. 이전 방식의 멀티 테넌트 봇에는 botframework.com을 사용합니다. 클라우드는 Global, GCC 또는 미국 정부용 클라우드인 GCC High와 DoD 중에서 선택합니다. 서비스 URL은 선택한 클라우드에 따라 정해집니다. 개인 대상에는 사용자 ID를, 그룹 대상에는 대화 ID를 사용합니다. 메시지를 보낼 사용자와 팀에 봇이 설치되어 있어야 합니다. Mole Agent가 이 봇을 통해 Teams에서도 응답하도록 하려면 Mole Agent → 설정 → IM에서 봇을 활성화하고, 해당 화면에 표시된 콜백 주소를 Azure Bot의 메시징 엔드포인트로 입력합니다.",
+        "teams_webhook": "Workflows의 흐름에서 생성한 채널 웹훅 또는 클래식 수신 웹훅입니다. 메시지는 Adaptive Cards 형식으로 전송합니다.",
+        "google_chat_app": "Chat 앱의 서비스 계정입니다. 계정의 JSON 키를 붙여넣습니다. 그룹 대상에는 스페이스(spaces/…)를, 개인 대상에는 앱에 메시지를 보낸 사용자(users/…)를 사용합니다. Pub/Sub 구독(projects/…/subscriptions/…)을 사용하면 Mole Agent가 이 앱을 통해 Google Chat에서도 응답할 수 있습니다. Mole Agent → 설정 → IM에서 앱을 활성화합니다.",
+        "google_chat_webhook": "스페이스의 수신 웹훅 주소입니다.",
+        "aliyun_voice": "중국 본토 번호로만 전화를 겁니다. Alibaba Cloud Voice Service 콘솔에서 텍스트 음성 변환 템플릿(TTS_…)을 신청합니다. 템플릿 코드와 변수를 전화 알림 템플릿에 입력한 후, 알림 정책에서 전화 채널에 사용할 템플릿으로 선택합니다. 공유 모드를 사용하려면 발신 번호를 비워 두고, 전용 모드를 사용하려면 발신 번호를 입력합니다. 템플릿도 같은 모드여야 합니다. 같은 번호에는 분당 최대 1회, 시간당 최대 5회, 일일 최대 20회까지 전화를 겁니다.",
+        "aliyun_sms": "Alibaba Cloud SMS 콘솔에서 서명과 알림 템플릿(SMS_…)을 신청합니다. 서명은 여기에 입력합니다. 템플릿 코드와 변수를 SMS 알림 템플릿에 입력한 후, 알림 정책에서 SMS 채널에 사용할 템플릿으로 선택합니다. 알림 템플릿의 변수 값은 기본적으로 최대 35자이며, 링크나 IP 주소를 포함할 수 없습니다.",
+        "tencent_voice": "Tencent Cloud Voice Message 콘솔에서 앱을 만들고 음성 템플릿을 신청합니다. 전화 알림 템플릿에 템플릿 ID와 변수를 입력하고, 변수 이름을 위치 순서대로 1, 2, 3으로 지정합니다. 그런 다음 알림 정책의 전화 채널에서 해당 템플릿을 선택합니다. 음성 통화는 선불 방식입니다. 패키지 잔량이 소진되면 통화가 거부되고 전송 내역에 오류가 표시됩니다.",
+        "tencent_sms": "Tencent Cloud SMS 콘솔에서 앱을 만들고 서명과 템플릿을 신청합니다. 이 필드에는 서명 문구를 입력합니다(중국 본토에서는 필수). SMS 알림 템플릿에 템플릿 ID와 변수를 입력하고, 변수 이름을 위치 순서대로 1, 2, 3으로 지정합니다. 2024년 1월 25일 이후에 개설한 계정과 장기간 사용하지 않은 계정에는 기본적으로 변수당 6자 제한이 적용됩니다. Tencent Cloud에서 제한을 늘려 주면 변경된 한도를 알림 템플릿에 입력합니다.",
+        "huawei_voice": "Huawei Cloud VoiceCall 콘솔에서 앱을 만들고 유선 전화번호를 주문한 후 음성 템플릿을 제출합니다. AppKey, AppSecret 및 앱 주소는 앱 관리에서 확인할 수 있습니다. 앱 주소를 조회하는 API가 없으므로 표시된 주소를 그대로 복사합니다. 발신 번호는 국가 코드, 지역 번호, 전화번호로 구성됩니다. 전화 알림 템플릿에 템플릿 ID와 변수를 입력하고, 변수 이름을 위치 순서대로 1, 2, 3으로 지정합니다. 변수당 최대 32바이트이며, 한자 한 글자는 3바이트입니다.",
+        "huawei_sms": "Huawei Cloud Message & SMS 콘솔에서 앱을 만들고 서명과 템플릿을 설정합니다. AppKey, AppSecret 및 앱 주소는 앱 관리에서 확인할 수 있습니다. 앱 주소를 조회하는 API가 없으므로 표시된 주소를 그대로 복사합니다. 발신자에는 서명의 채널 번호를 입력합니다. 범용 템플릿에는 서명 이름도 필요합니다. SMS 알림 템플릿에 템플릿 ID와 변수를 입력하고, 변수 이름을 위치 순서대로 1, 2, 3으로 지정합니다.",
+        "twilio_voice": "발신 번호는 +14155550100과 같이 계정에 등록된 음성 통화 지원 번호입니다. 언어는 en-US 또는 cmn-CN과 같은 태그로 지정하고, 음성은 Polly.Joanna 또는 Polly.Zhiyu와 같은 이름으로 지정합니다. 음성을 비워 두면 Twilio 기본 음성을 사용합니다.",
+        "twilio_sms": "발신자에는 계정에 등록된 번호, Messaging Service(MG…) 또는 영숫자 발신자 ID를 사용합니다. 미국 번호로 SMS를 보내려면 먼저 A2P 10DLC 등록을 완료해야 합니다.",
+        "aws_voice": "AWS End User Messaging에서 음성 메시지를 전송하며, Amazon Polly가 메시지를 읽습니다. 발신 자격 증명은 음성 통화를 지원하는 전화번호, 풀 또는 해당 리소스의 ARN입니다. Polly 음성을 비워 두면 MATTHEW를 사용하며, 중국어 표준어에는 ZHIYU를 사용합니다. 샌드박스 계정에서는 인증된 번호로만 전화를 걸 수 있습니다. 계정에서 활성화된 리전을 선택합니다. 리전 목록을 조회하려면 ec2:DescribeRegions 권한이 필요합니다.",
+        "aws_sms": "AWS End User Messaging에서 트랜잭션 SMS를 전송합니다. 발신 자격 증명을 지정하지 않으면 AWS가 수신 번호에 맞춰 계정에 등록된 번호를 선택합니다. 전화번호, 발신자 ID 또는 풀을 직접 지정할 수도 있습니다. 샌드박스 계정에서는 인증된 번호로만 SMS를 보낼 수 있습니다. 계정에서 활성화된 리전을 선택합니다. 리전 목록을 조회하려면 ec2:DescribeRegions 권한이 필요합니다.",
+        "http_sms": "자체 SMS 게이트웨이나 전용 커넥터가 없는 공급자에게 SMS를 전달합니다. 게이트웨이 URL, 헤더, 본문에 자리 표시자를 넣습니다. {{phone}}은 전화번호, {{content}}는 제목 줄과 본문 줄을 합친 메시지(최대 320자), {{title}}은 제목, {{text}}는 본문, {{secret}}은 아래에 입력하는 암호화된 상태로 저장되는 비밀값입니다. JSON 본문에서는 값을 JSON 규칙에 따라 이스케이프하고, 폼이나 URL에서는 URL 인코딩합니다. 응답 상태 코드가 2xx이면 전송 성공으로 처리합니다. 성공 필드를 지정한 경우 해당 필드의 값도 설정한 성공 값과 일치해야 합니다.",
+        "webhook": "모든 요청에는 X-MoleSignal-Event(알림 유형)와 X-MoleSignal-Delivery(중복 제거용 전송 ID)가 포함됩니다. 서명 시크릿(최소 16자, 예: openssl rand -hex 32로 생성한 값)을 설정하면 X-MoleSignal-Timestamp와 X-MoleSignal-Sign: sha256=<hex>도 포함됩니다. 서명은 시크릿을 키로 사용해 \"<timestamp>.<body>\"에 대해 계산한 HMAC-SHA256 값입니다. 호스트 이름을 확인해 얻은 주소에만 연결합니다. 클라우드 메타데이터 주소로의 연결은 차단하며 리디렉션은 따르지 않습니다.",
+        "telegram_bot": "Telegram에서 @BotFather의 /newbot 명령으로 봇을 만들고, 발급받은 토큰을 봇 토큰으로 입력합니다. 개인 대상에는 숫자로 된 사용자 ID를 지정합니다. 사용자가 먼저 봇에 /start를 보내야 합니다. 그룹 대상에는 그룹 또는 채널의 채팅 ID(음수이며, 슈퍼그룹과 채널은 -100…으로 시작)나 채널의 @username을 지정합니다. 봇을 그룹에 추가하거나 채널 관리자로 지정해야 합니다. Mole Agent → 설정 → IM에서 활성화하면 Mole Agent가 Telegram에서도 응답하며, 경보 알림에 확인 및 해결 버튼이 표시됩니다.",
+        "discord_webhook": "Discord 채널의 연동 → 웹훅에서 웹훅을 만들고 URL을 복사합니다. 표시 이름과 아바타 URL은 선택 사항입니다. 비워 두면 웹훅 자체의 설정을 사용합니다. 메시지는 임베드 형식으로 전송되며 멘션은 포함되지 않습니다.",
+        "mattermost_bot": "Mattermost 시스템 콘솔에서 봇 계정 생성을 허용한 후 연동 → 봇 계정에서 봇 계정을 추가하고, 액세스 토큰을 봇 토큰으로 입력합니다. 서버 URL에는 https://chat.example.com과 같은 Mattermost 주소를 입력합니다. 개인 대상에는 사용자 이름(@ 포함 여부 무관) 또는 사용자 ID를 지정합니다. 그룹 대상에는 채널 ID 또는 team-name/channel-name을 지정하고, 봇을 해당 팀과 채널에 추가합니다. 외부 URL을 설정하면 경보 알림에 확인 및 해결 버튼이 표시됩니다. 버튼을 누른 사용자는 이 커넥터에 등록된 알림 방식으로 식별합니다. 외부 URL이 내부 네트워크에 있으면 Mattermost 시스템 콘솔의 ‘신뢰할 수 없는 내부 연결 허용’ 목록에 추가합니다.",
+        "mattermost_webhook": "Mattermost의 연동 → 수신 웹훅에서 채널의 수신 웹훅을 추가합니다.",
+        "webex_bot": "developer.webex.com의 My Webex Apps에서 봇을 만들고, 봇의 액세스 토큰을 봇 토큰으로 입력합니다. 개인 대상에는 사용자의 Webex 계정 이메일 주소 또는 사용자 ID를 지정합니다. 그룹 대상에는 스페이스(회의실) ID를 지정하고, 봇을 해당 스페이스에 추가합니다. 메시지는 Adaptive Cards 형식으로 전송됩니다.",
+        "webex_webhook": "Webex App Hub의 Incoming Webhooks 연동에서 발급된 URL(https://webexapis.com/v1/webhooks/incoming/…)을 사용합니다. 메시지는 웹훅을 만들 때 선택한 스페이스로 전송됩니다.",
+        "matrix_bot": "Matrix 봇 계정의 홈 서버 URL(예: https://matrix.org)과 액세스 토큰을 입력합니다. 토큰은 Element에서 해당 계정으로 로그인한 후 설정 → 도움말 및 정보 → 고급에서 확인할 수 있습니다. 그룹 대상에는 대화방 ID(!…) 또는 별칭(#…)을 지정합니다. 봇이 이미 대화방에 있거나 해당 대화방에 참여할 수 있어야 합니다. 개인 대상에는 사용자 ID(@name:server)를 지정합니다. 봇이 1:1 대화방을 열고 사용자를 초대합니다. 메시지는 암호화되지 않습니다.",
+        "twilio_whatsapp": "Twilio를 통해 WhatsApp 메시지를 보냅니다. 발신자에는 WhatsApp이 활성화된 E.164 형식의 번호(예: +14155550100) 또는 Messaging Service(MG…)를 사용합니다. 비즈니스에서 먼저 대화를 시작하려면 WhatsApp이 승인한 템플릿을 사용해야 합니다. Twilio의 Content Template Builder에서 템플릿을 만들고 WhatsApp의 승인을 받습니다. SMS 알림 템플릿의 WhatsApp 블록에 Content SID(HX…)와 변수를 입력하고, 변수 이름을 위치 순서대로 1, 2, 3으로 지정합니다. 그런 다음 알림 정책의 SMS 채널에서 해당 템플릿을 선택합니다.",
+        "aws_sns": "Amazon SNS 주제에 알림을 게시하면 구독을 통해 Lambda, SQS, HTTPS 엔드포인트 또는 이메일로 전달됩니다. 주제 ARN은 arn:aws:sns:us-east-1:123456789012:alerts와 같은 형식입니다. 주제가 있는 리전을 선택합니다. 리전 목록 조회에는 ec2:DescribeRegions 권한이, 게시에는 sns:Publish 권한이 필요합니다. 암호화된 주제에는 kms:GenerateDataKey 및 kms:Decrypt 권한도 필요합니다. 메시지에는 구독 필터 정책에 사용할 수 있는 event_type 및 severity 속성이 포함됩니다. FIFO 주제(.fifo)는 메시지를 경보별로 그룹화하고 중복 전송을 제거합니다.",
+        "pagerduty": "PagerDuty Events API v2를 사용하려면 서비스의 연동 탭에서 Events API V2 연동을 추가하고, 해당 연동 키(라우팅 키)를 여기에 입력합니다. EU 서비스 리전의 계정은 EU를 선택합니다. 경보가 발생하거나 에스컬레이션되면 PagerDuty 경보가 트리거됩니다. MoleSignal 경보를 확인하거나 해결하면 PagerDuty 경보도 함께 확인되거나 해결되며, 중복은 MoleSignal 경보별로 제거됩니다."
+      },
+      "options": {
+        "auth": {
+          "access_key": "액세스 키",
+          "temporary_key": "임시 키",
+          "node_role": "노드 자격 증명",
+          "assume_role": "역할 수임",
+          "web_identity": "웹 자격 증명",
+          "password": "사용자 이름 및 비밀번호",
+          "microsoft": "Microsoft 365 (OAuth 2.0)",
+          "google": "Google Workspace (OAuth 2.0)"
+        },
+        "site": {
+          "feishu": "Feishu",
+          "lark": "Lark",
+          "slack": "Slack",
+          "govslack": "GovSlack"
+        },
+        "cloud": {
+          "global": "글로벌",
+          "gcc": "GCC",
+          "gcc_high": "GCC High",
+          "dod": "DoD"
+        },
+        "method": {
+          "post": "POST",
+          "put": "PUT",
+          "patch": "PATCH",
+          "get": "GET"
+        },
+        "bodyFormat": {
+          "json": "JSON",
+          "form": "양식(x-www-form-urlencoded)"
+        },
+        "phoneFormat": {
+          "e164": "+8613800138000 (E.164)",
+          "digits": "8613800138000 (+ 제외)",
+          "mainland": "13800138000 (국가 코드 없는 중국 본토 번호)"
+        },
+        "body": {
+          "event": "MoleSignal 이벤트",
+          "template": "알림 템플릿 본문"
+        },
+        "region": {
+          "us": "미국",
+          "eu": "유럽 연합"
+        }
+      },
+      "option_hints": {
+        "auth": {
+          "access_key": "IAM 사용자의 장기 액세스 키입니다. 이 사용자에게 필요한 권한만 부여합니다. 문자 발송에는 sms-voice:SendTextMessage, 전화 발신에는 sms-voice:SendVoiceMessage, SNS 주제에 게시하는 데는 sns:Publish, 리전 목록 조회에는 ec2:DescribeRegions가 필요합니다.",
+          "temporary_key": "AWS STS에서 발급한 단기 액세스 키로, 해당 세션 토큰과 함께 사용해야 합니다. 만료되면 사용할 수 없으므로 여기에서 교체해야 합니다.",
+          "node_role": "키를 저장하지 않습니다. MoleSignal은 실행 중인 노드의 자격 증명(EKS IRSA 또는 Pod Identity, ECS 태스크 역할, EC2 인스턴스 프로파일)을 사용합니다. 이 배포의 모든 조직에서 이 옵션을 선택할 수 있습니다.",
+          "assume_role": "MoleSignal은 AWS STS를 통해 이 역할을 수임합니다. 액세스 키를 입력하면 해당 키를 사용하고, 입력하지 않으면 노드의 자격 증명을 사용합니다. 역할의 신뢰 정책은 해당 자격 증명을 허용하고 아래의 외부 ID를 요구해야 합니다.",
+          "web_identity": "MoleSignal은 노드의 웹 자격 증명 토큰을 사용해 이 역할을 수임합니다. 예를 들어 EKS가 IRSA용으로 제공하는 서비스 계정 토큰을 사용할 수 있으며, 토큰 경로는 AWS_WEB_IDENTITY_TOKEN_FILE에 지정됩니다.",
+          "password": "SMTP 계정의 사용자 이름과 비밀번호입니다. 메일 제공업체에서 인증 코드나 앱 비밀번호를 요구하면 제공받은 값을 비밀번호로 입력합니다.",
+          "microsoft": "OAuth 2.0을 사용해 글로벌 Microsoft 365 사서함에서 메일을 발송합니다. Microsoft Entra ID에 앱을 등록하고 Office 365 Exchange Online의 애플리케이션 권한인 SMTP.SendAsApp을 추가한 뒤 관리자 동의를 부여합니다. 그런 다음 Exchange 관리자가 앱의 서비스 주체를 등록하고 발신 사서함에 대한 권한을 부여해야 합니다. 테넌트 ID와 클라이언트 ID는 앱의 개요 페이지에서 확인할 수 있으며, 클라이언트 암호는 인증서 및 암호에서 생성합니다. 사용자 이름에는 발신 사서함을 입력합니다. 서버는 smtp.office365.com, 포트는 587, 암호화 방식은 STARTTLS입니다.",
+          "google": "OAuth 2.0을 사용해 Google Workspace 사서함에서 메일을 발송합니다. 서비스 계정을 만든 뒤 JSON 키를 붙여넣습니다. Google 관리 콘솔의 도메인 전체 위임에서 서비스 계정의 숫자형 클라이언트 ID에 https://mail.google.com/ 범위를 승인합니다. 사용자 이름에는 도메인 내 발신 사서함을 입력합니다. 서버는 smtp.gmail.com, 포트는 587, 암호화 방식은 STARTTLS입니다."
+        },
+        "cloud": {
+          "gcc_high": "미국 정부용 클라우드입니다. 토큰은 login.microsoftonline.us에서 발급되며, Mole Agent로 전송되는 메시지는 정부용 Bot Framework에서 검증합니다.",
+          "dod": "미국 정부용 클라우드입니다. 토큰은 login.microsoftonline.us에서 발급되며, Mole Agent로 전송되는 메시지는 정부용 Bot Framework에서 검증합니다."
+        },
+        "site": {
+          "govslack": "미국 정부용 Slack입니다. API와 상태 페이지 인증에는 slack-gov.com을 사용합니다."
+        },
+        "body": {
+          "event": "시스템에서 읽을 수 있도록 이벤트를 전송합니다. 버전, 이벤트, 경보, 규칙, 에스컬레이션과 함께 대상 및 렌더링된 메시지가 포함됩니다. 필드는 추가만 되며 변경되거나 삭제되지 않습니다.",
+          "template": "알림 정책이 웹훅 채널에 대해 선택한 템플릿의 본문을 작성된 그대로 전송합니다. JSON 템플릿은 값을 이스케이프한 뒤 JSON으로 전송합니다."
+        },
+        "region": {
+          "eu": "주소가 .eu.pagerduty.com으로 끝나는 PagerDuty 계정에 사용합니다."
+        }
+      },
+      "switch_hints": {
+        "replies": {
+          "twilio_sms": "경보 문자를 받은 사람은 하루 동안 확인 코드(예: 31)나 해결 코드(예: 32)로 답장할 수 있습니다. 답장은 수신자 본인의 권한으로 처리됩니다.",
+          "aws_sms": "경보 문자를 받은 사람은 하루 동안 확인 코드(예: 31)나 해결 코드(예: 32)로 답장할 수 있습니다. 양방향 SMS 답장은 SNS를 통해 전달되며, 수신자 본인의 권한으로 처리됩니다.",
+          "http_sms": "경보 문자를 받은 사람은 하루 동안 확인 코드(예: 31)나 해결 코드(예: 32)로 답장할 수 있습니다. 답장은 수신자 본인의 권한으로 처리되며, 게이트웨이에서 수신한 답장을 전달해야 합니다.",
+          "aliyun_sms": "Alibaba Cloud는 승인된 템플릿만 전송합니다. 템플릿 매개변수에 reply.ack와 reply.resolve 변수를 추가하면 수신자가 하루 동안 해당 코드로 답장해 경보를 확인하거나 해결할 수 있습니다. 답장은 수신자 본인의 권한으로 처리됩니다.",
+          "twilio_voice": "전화를 받은 사람은 1번을 눌러 경보를 확인하거나 2번을 눌러 해결할 수 있습니다. 입력은 응답자 본인의 권한으로 처리됩니다.",
+          "aliyun_voice": "대화형 음성 통화(IvrCall)로 전화를 겁니다. 전화를 받은 사람은 1번을 눌러 경보를 확인하거나 2번을 눌러 해결할 수 있습니다. 발신자 표시 번호로 사용할 IvrCall용으로 구매한 실제 전화번호가 필요합니다.",
+          "tencent_sms": "Tencent Cloud는 승인된 템플릿만 전송합니다. 템플릿 매개변수에 reply.ack와 reply.resolve 변수를 추가하면 수신자가 하루 동안 해당 코드로 답장해 경보를 확인하거나 해결할 수 있습니다. 답장은 수신자 본인의 권한으로 처리됩니다.",
+          "tencent_voice": "전화를 받은 사람은 1번을 눌러 경보를 확인하거나 2번을 눌러 해결할 수 있습니다. 템플릿 자체에 이 안내가 포함되어야 하며, 콘솔에서 키 입력 콜백을 활성화해야 합니다. 키 입력은 해당 번호로 발신한 가장 최근 통화에 적용됩니다.",
+          "huawei_sms": "Huawei Cloud는 승인된 템플릿만 전송합니다. 템플릿 매개변수에 reply.ack와 reply.resolve 변수를 추가하면 수신자가 하루 동안 해당 코드로 답장해 경보를 확인하거나 해결할 수 있습니다. 답장은 수신자 본인의 권한으로 처리됩니다.",
+          "huawei_voice": "템플릿 음성을 재생한 뒤 키 입력을 한 번 받습니다. 전화를 받은 사람은 1번을 눌러 경보를 확인하거나 2번을 눌러 해결할 수 있습니다. 템플릿 자체에 이 안내가 포함되어야 합니다.",
+          "twilio_whatsapp": "WhatsApp은 승인된 템플릿만 전송합니다. 템플릿 변수에 reply.ack와 reply.resolve를 추가하면 수신자가 하루 동안 해당 코드로 답장해 경보를 확인하거나 해결할 수 있습니다. 답장은 수신자 본인의 권한으로 처리됩니다."
+        }
+      },
+      "type_fields": {
+        "http_sms": {
+          "url": "게이트웨이 URL",
+          "secret": "시크릿"
+        },
+        "twilio_voice": {
+          "replies": "키 입력으로 경보 처리"
+        },
+        "aliyun_voice": {
+          "replies": "키 입력으로 경보 처리"
+        },
+        "tencent_voice": {
+          "replies": "키 입력으로 경보 처리",
+          "secretKey": "SecretKey"
+        },
+        "tencent_sms": {
+          "secretKey": "SecretKey"
+        },
+        "huawei_voice": {
+          "replies": "키 입력에 따른 동작",
+          "apiBaseUrl": "앱 주소"
+        },
+        "huawei_sms": {
+          "apiBaseUrl": "앱 주소",
+          "sender": "채널 번호"
+        },
+        "discord_webhook": {
+          "username": "표시 이름"
+        },
+        "twilio_whatsapp": {
+          "sender": "WhatsApp 발신자"
+        },
+        "aws_sns": {
+          "body": "메시지"
+        },
+        "pagerduty": {
+          "region": "서비스 리전"
+        }
+      },
+      "copy": "복사",
+      "copied": "복사됨",
+      "copy_external_id": "외부 ID 복사",
+      "external_id_hint": "이 조직은 변경할 수 없는 이 외부 ID를 사용해 역할을 수임합니다. 역할의 신뢰 정책에 sts:ExternalId 조건을 추가해 이 ID를 필수로 지정하면, 다른 조직은 역할의 ARN을 알아도 해당 역할을 수임할 수 없습니다.",
+      "address_by_region": "리전에 따라 설정됨",
+      "regions_loading": "서비스 제공업체에서 리전 목록을 가져오는 중…",
+      "regions_need_credentials": "이 계정에서 활성화된 리전 목록을 보려면 자격 증명을 입력합니다.",
+      "regions_failed": "리전 목록을 가져오지 못했습니다: {{error}}",
+      "callbacks": {
+        "label": "콜백 URL",
+        "after_save": "커넥터를 저장하면 여기에 표시됩니다.",
+        "no_external_url": "서버에 외부 URL이 없어 서비스 제공업체가 콜백을 보낼 수 없습니다.",
+        "per_call": "통화할 때마다 키 입력 콜백 URL이 Twilio로 전달되므로 별도로 설정할 필요가 없습니다.",
+        "hints": {
+          "twilio_sms": "Twilio 번호의 Messaging 설정에서 A message comes in을 Webhook으로 지정하고, 이 URL과 HTTP POST 방식을 설정합니다.",
+          "aws_sms": "응답을 받는 SNS 주제에 이 엔드포인트를 사용하는 HTTPS 구독을 추가합니다. 구독은 자동으로 확인됩니다.",
+          "aliyun_sms": "Alibaba Cloud SMS에서 수신 메시지를 HTTP로 이 URL에 전송하도록 설정합니다.",
+          "aliyun_voice": "Alibaba Cloud Voice에서 수신 확인 정보를 HTTP로 이 URL에 전송하도록 설정합니다. 키 입력도 이 URL로 전달됩니다.",
+          "tencent_sms": "Tencent Cloud SMS 콘솔의 콜백 설정에서 응답 콜백을 이 URL로 지정합니다.",
+          "tencent_voice": "Tencent Cloud Voice Message 콘솔의 이벤트 콜백 설정에서 키 입력 콜백을 이 URL로 지정합니다.",
+          "huawei_sms": "SMS 앱을 만들 때 이 URL을 수신 메시지 주소로 입력합니다. URL 경로의 마지막 부분이 콜백 토큰입니다.",
+          "huawei_voice": "App Management에서 이 URL을 통화 상태 알림 주소로 입력합니다. URL 경로의 마지막 부분이 콜백 토큰입니다.",
+          "http_sms": "게이트웨이가 수신한 응답을 phone 및 text 필드가 포함된 JSON으로 이 URL에 POST하도록 설정합니다.",
+          "wecom_app": "앱의 Receive messages에서 API 수신을 설정합니다. URL에는 이 주소를, 토큰과 EncodingAESKey에는 위 두 필드의 값을 입력합니다. URL의 도메인은 회사 명의의 ICP 신고에 등록되어 있어야 합니다.",
+          "twilio_whatsapp": "Twilio에서 WhatsApp 발신자 또는 해당 Messaging Service의 수신 메시지 웹훅에 이 URL을 지정하고 방식을 HTTP POST로 설정합니다."
+        }
+      }
+    },
+    "delete_title": "커넥터를 삭제하시겠습니까?",
+    "delete_description": "이 커넥터를 참조하는 엔드포인트, 정책, 대체 경로를 다른 커넥터로 옮긴 후에 삭제할 수 있습니다."
+  },
+  "users": {
+    "title": "사용자 알림",
+    "subtitle": "서비스 제공업체의 사용자 ID를 연결하고 카테고리별 알림 전송 순서를 설정합니다.",
+    "empty_title": "워크스페이스 사용자 없음",
+    "empty_description": "워크스페이스 멤버가 조직에 가입하면 여기에 표시됩니다.",
+    "columns": {
+      "user": "사용자",
+      "endpoints": "연결된 엔드포인트",
+      "alert": "경보 기본 수신 방법",
+      "oncall": "온콜 기본 수신 방법",
+      "report": "보고서 기본 수신 방법",
+      "status": "상태"
+    },
+    "drawer_title": "알림 설정 · {{name}}",
+    "drawer_subtitle": "알림 ID, 전송 순서, 알림 제한 시간, 테스트를 관리합니다."
+  },
+  "endpoints": {
+    "title": "알림 ID",
+    "description": "각 알림 ID는 하나의 커넥터에 속합니다.",
+    "add": "알림 수신 방법 연결",
+    "empty": "연결된 알림 ID가 없습니다.",
+    "identity": "외부 ID",
+    "display_name": "레이블",
+    "connector": "커넥터",
+    "enabled": "이 엔드포인트 사용",
+    "verified": "이 엔드포인트를 검증 완료로 표시",
+    "new_title": "알림 수신 방법 연결",
+    "edit_title": "알림 수신 방법 편집",
+    "save": "엔드포인트 저장",
+    "delete_title": "엔드포인트를 삭제하시겠습니까?",
+    "delete_description": "먼저 모든 전송 설정에서 이 엔드포인트를 제거해야 합니다.",
+    "phone_hint": "+14155550100처럼 + 기호와 국가 코드를 포함한 전화번호를 입력합니다. Alibaba Cloud, Tencent Cloud, Huawei Cloud 및 범용 HTTP SMS 커넥터는 중국 본토의 11자리 휴대전화 번호도 지원합니다.",
+    "identity_hints": {
+      "telegram_bot": "@username이 아닌 숫자로 된 Telegram 사용자 ID를 입력합니다. @userinfobot에서 자신의 ID를 확인할 수 있습니다. 수신자가 먼저 Telegram에서 봇을 열고 '시작'을 눌러야 봇이 메시지를 보낼 수 있습니다.",
+      "mattermost_bot": "소문자로 된 Mattermost 사용자 이름(@ 포함 여부 무관) 또는 26자 사용자 ID를 입력합니다. 카드 버튼을 누른 사용자의 ID를 이 값과 대조합니다.",
+      "webex_bot": "Webex 계정의 이메일 주소 또는 해당 계정의 Webex 사용자 ID를 입력합니다.",
+      "matrix_bot": "@name:matrix.org와 같은 Matrix 사용자 ID를 입력합니다. 첫 알림을 보낼 때 봇이 수신자를 1:1 대화방으로 초대합니다. 수신자가 초대를 수락하면 메시지를 볼 수 있습니다.",
+      "twilio_whatsapp": "+14155550100처럼 + 기호와 국가 코드를 포함한 WhatsApp 번호를 입력합니다."
+    }
+  },
+  "preferences": {
+    "title": "전송 설정",
+    "description": "선택한 순서대로 전송을 먼저 시도하고, 실패하면 팀 및 조직의 대체 설정을 사용합니다.",
+    "alert": "경보 이벤트",
+    "oncall": "온콜 이벤트",
+    "report": "보고서",
+    "escalation": "경보 에스컬레이션",
+    "security": "보안",
+    "system": "시스템",
+    "enabled": "이 카테고리의 알림 수신",
+    "endpoint_order": "엔드포인트 순서",
+    "move_up": "단계를 위로 이동",
+    "move_down": "단계를 아래로 이동",
+    "no_endpoints": "이 카테고리를 설정하려면 먼저 엔드포인트를 연결해야 합니다.",
+    "quiet_enabled": "알림 제한 시간 사용",
+    "timezone": "시간대",
+    "start": "시작 (HH:MM)",
+    "end": "종료 (HH:MM)",
+    "save": "{{category}} 저장",
+    "wait_label": "{{step}}단계까지 대기 시간(분)",
+    "wait_unit": "분 후",
+    "wait_hint": "첫 단계의 알림은 즉시 전송합니다. 이후 단계는 첫 알림을 기준으로 지정한 시간이 지날 때까지 기다렸다가, 아무도 경보를 확인하지 않았으면 실행합니다. 대기 시간이 직전 단계와 같으면 직전 단계의 알림 전송이 실패한 경우에만 실행합니다. 전송에 실패하면 항상 즉시 다음 단계로 넘어갑니다.",
+    "high_urgency_steps": "긴급도가 높은 경보의 알림 순서",
+    "low_urgency_steps": "긴급도가 낮은 경보의 알림 순서",
+    "low_urgency_hint": "비워 두면 위의 첫 번째 알림 방식만 사용합니다.",
+    "high_urgency_bypass": "알림 제한 시간에도 긴급도가 높은 경보 받기",
+    "quiet_low_urgency": "알림 제한 시간에는 긴급도가 낮은 경보를 보내지 않습니다.",
+    "add_step": "단계 추가: {{method}}",
+    "remove_step": "{{step}}단계 삭제",
+    "boost_label": "{{step}}단계 긴급 호출",
+    "boosts": {
+      "default": {
+        "none": "긴급 호출 없음",
+        "app": "앱 내 긴급 호출",
+        "sms": "SMS 긴급 호출",
+        "phone": "전화 긴급 호출"
+      },
+      "lark_app": {
+        "none": "Buzz 없음",
+        "app": "앱 내 Buzz",
+        "sms": "SMS Buzz",
+        "phone": "전화 Buzz"
+      },
+      "dingtalk_app": {
+        "none": "DING 없음",
+        "app": "앱 내 DING",
+        "sms": "SMS DING",
+        "phone": "전화 DING"
+      }
+    },
+    "boost_hint": "긴급 호출을 사용하면 메시지를 보낸 뒤 앱 내 알림, SMS 또는 전화로 추가 알림을 보냅니다.",
+    "boost_wait_hint": "긴급 호출을 사용하면 메시지를 보낸 뒤 앱 내 알림, SMS 또는 전화로 추가 알림을 보냅니다. 긴급 호출 설정을 달리해 같은 알림 방식을 두 번 사용할 수 있습니다. 예를 들어 먼저 메시지를 보내고 5분 이내에 아무도 확인하지 않으면, 같은 방식으로 메시지를 다시 보내면서 전화로도 알립니다.",
+    "boost_notes": {
+      "lark_app": "Lark 글로벌 버전에서는 앱 내 Buzz만 지원합니다.",
+      "dingtalk_app": "DING을 사용하려면 DingTalk Professional 또는 Exclusive가 필요하며, SMS 및 전화 DING을 사용하려면 이용량을 별도로 구매해야 합니다."
+    }
+  },
+  "event_types": {
+    "alert": {
+      "triggered": "경보 발생",
+      "acknowledged": "경보 확인",
+      "resolved": "경보 해결",
+      "escalated": "경보 에스컬레이션"
+    },
+    "oncall": {
+      "shift": {
+        "starting": "온콜 근무 시작 예정",
+        "started": "온콜 근무 시작"
+      },
+      "override": {
+        "created": "온콜 일정 재정의 생성"
+      },
+      "coverage": {
+        "missing": "온콜 담당자 미지정"
+      },
+      "swap": {
+        "updated": "온콜 근무 교환 업데이트"
+      },
+      "member": {
+        "unreachable": "온콜 담당자에게 연락할 수 없습니다"
+      }
+    },
+    "incident": {
+      "status_update": "주요 인시던트 상태 업데이트"
+    },
+    "agent": {
+      "approval": {
+        "requested": "Mole Agent 승인 요청"
+      }
+    }
+  },
+  "resolver_types": {
+    "alert_owner": "알림 소유자",
+    "current_oncall": "현재 온콜 담당자",
+    "event_users": "이벤트에 지정된 사용자",
+    "fixed_users": "선택한 사용자",
+    "next_oncall": "다음 온콜 담당자",
+    "schedule_members": "일정 구성원",
+    "team_lead": "팀 리드",
+    "team_members": "팀 구성원"
+  },
+  "policies": {
+    "title": "알림 정책",
+    "subtitle": "이벤트가 조건에 일치하면 수신자를 결정하고 수신 설정에 따라 알림을 전송하며, 확인되지 않으면 에스컬레이션합니다.",
+    "new": "새 정책",
+    "empty_title": "알림 정책 없음",
+    "empty_description": "비즈니스 이벤트를 수신자 및 전송 경로와 연결하는 정책을 만듭니다.",
+    "columns": {
+      "name": "정책",
+      "event": "이벤트",
+      "recipient": "수신자 결정 방식",
+      "delivery": "전송",
+      "fallback": "대체 경로",
+      "status": "상태"
+    },
+    "drawer": {
+      "new_title": "새 알림 정책",
+      "edit_title": "{{name}} 편집",
+      "subtitle": "미리보기에서는 워크스페이스의 실제 수신자와 전송 경로를 확인할 수 있으며, 알림은 전송하지 않습니다.",
+      "trigger": "1 · 트리거",
+      "recipient": "2 · 수신자",
+      "delivery": "3 · 전송",
+      "failure": "4 · 실패 및 에스컬레이션",
+      "preview": "실시간 전송 미리보기",
+      "name": "이름",
+      "event_type": "이벤트 유형",
+      "category": "카테고리",
+      "priority": "우선순위",
+      "matchers": "일치 조건 (JSON)",
+      "resolver": "수신자 결정 방식",
+      "resolver_config": "수신자 결정 설정 (JSON)",
+      "delivery_mode": "전송 모드",
+      "template": "공통 템플릿",
+      "template_hint": "별도 템플릿이 없는 모든 채널은 이 템플릿을 사용하며, 템플릿의 값은 이벤트 속성으로 채웁니다.",
+      "default_template": "자동 생성된 이벤트 메시지 사용",
+      "channel_templates": "채널별 템플릿",
+      "use_general_template": "공통 템플릿 사용",
+      "connectors": "선택한 커넥터",
+      "user_fallbacks": "사용자 대체 엔드포인트 사용",
+      "team_defaults": "팀 대체 경로 사용",
+      "organization_defaults": "조직 대체 경로 사용",
+      "merge_window": "알림 묶기",
+      "merge_window_hint": "설정한 시간 내에 같은 사람이나 그룹에 보내는 경보 알림을 묶습니다. 첫 알림은 즉시 보내고, 나머지는 시간이 끝나면 한꺼번에 보냅니다. 전화 알림은 최소 60초 동안 묶으며, 웹훅은 묶지 않습니다.",
+      "merge_off": "묶지 않음",
+      "merge_seconds_one": "{{count}}초",
+      "merge_seconds_other": "{{count}}초",
+      "merge_minutes_one": "{{count}}분",
+      "merge_minutes_other": "{{count}}분",
+      "ack_timeout": "확인 응답 제한 시간(초)",
+      "escalation_resolver": "에스컬레이션 리졸버",
+      "escalation_config": "에스컬레이션 리졸버 설정(JSON)",
+      "escalation_delivery": "에스컬레이션 발송 모드",
+      "escalation_connectors": "에스컬레이션 커넥터",
+      "event_attributes": "미리보기용 이벤트 속성(JSON)",
+      "preview_event": "이벤트 미리보기",
+      "preview_waiting": "발송 계획을 결정하려면 필수 필드를 입력하세요.",
+      "ack_disabled": "비워 두면 에스컬레이션이 비활성화됩니다.",
+      "refresh_preview": "미리보기 새로 고침",
+      "matched": "정책과 일치",
+      "not_matched": "정책과 불일치",
+      "no_recipients": "확인된 수신자가 없습니다.",
+      "resolved_by": "결정한 리졸버: {{resolver}}",
+      "step_template": "템플릿: {{name}}",
+      "save": "정책 저장",
+      "restore": "기본값 복원",
+      "builtin_name_hint": "기본 제공 정책의 이름은 변경할 수 없습니다.",
+      "time_hint": "알림을 발생시킨 이벤트의 발생 시간을 기준으로 합니다. 설정한 시간 범위를 벗어나면 이 정책에서는 알림을 보내지 않지만, 다른 정책은 계속 적용됩니다."
+    },
+    "delivery_modes": {
+      "prefer_user": "사용자 설정 따르기",
+      "force_connector": "커넥터 하나만 사용",
+      "multi_connector": "여러 커넥터로 발송"
+    },
+    "delete_title": "정책을 삭제하시겠습니까?",
+    "delete_description": "기존 발송 내역은 계속 확인할 수 있습니다.",
+    "builtin_label": "기본 제공",
+    "builtin_not_deletable": "기본 제공 정책은 비활성화할 수 있지만 삭제할 수는 없습니다.",
+    "builtin": {
+      "alert_triggered": "경보 발생: 소유자에게 알림",
+      "alert_resolved": "경보 해결: 소유자에게 알림",
+      "alert_acknowledged": "경보 확인: 소유자에게 알림",
+      "alert_escalated_to_users": "에스컬레이션: 해당 단계에 지정된 사용자에게 알림",
+      "alert_escalated_to_teams": "에스컬레이션: 해당 단계에 지정된 팀에 알림",
+      "oncall_shift_starting": "온콜 인수인계: 두 담당자에게 알림",
+      "oncall_coverage_missing": "온콜 공백: 일정 관리자에게 알림",
+      "oncall_override_created": "온콜 일정 재정의: 관련 담당자에게 알림",
+      "oncall_swap_updated": "근무 교대: 관련 담당자에게 알림",
+      "incident_status_update": "중대 인시던트 업데이트: 이해관계자에게 알림",
+      "oncall_member_unreachable": "온콜 담당자 연락 불가: 해당 담당자와 일정 관리자에게 알림",
+      "intake_budget_warning": "수집 예산 소진 임박: 예산에 지정된 사용자에게 알림",
+      "intake_budget_exceeded": "수집 예산 초과: 예산에 지정된 사용자에게 알림",
+      "agent_approval_requested": "승인 필요: 승인 권한이 있는 사용자에게 알림"
+    },
+    "restore_title": "기본 설정을 복원하시겠습니까?",
+    "restore_description": "기본 제공 정책을 기본 설정으로 되돌리면 해당 정책의 변경 사항이 사라집니다.",
+    "restored": "기본 설정을 복원했습니다."
+  },
+  "defaults": {
+    "title": "대체 경로",
+    "subtitle": "개인 전송 경로로 알림을 보내지 못했을 때 사용할 팀 및 조직 경로를 설정합니다.",
+    "scope": "경로 범위",
+    "organization_scope": "조직 기본값",
+    "team_scope": "팀 · {{name}}",
+    "category": "카테고리",
+    "enabled": "이 조직 대체 경로 사용",
+    "routes": "경로",
+    "connector": "커넥터",
+    "target_type": "대상 유형",
+    "target": "대상",
+    "add_route": "경로 추가",
+    "remove_route": "경로 제거",
+    "save": "대체 경로 저장",
+    "delete": "대체 경로 삭제",
+    "empty": "이 범위와 카테고리에 설정된 대체 경로가 없습니다.",
+    "configured_hint": "표시된 경로 순서대로 전송을 시도합니다."
+  },
+  "deliveries": {
+    "title": "알림 전송 내역",
+    "subtitle": "모든 전송 시도, 대체 전송 단계, 확인 및 에스컬레이션 내역을 살펴봅니다.",
+    "empty_title": "알림 전송 내역 없음",
+    "empty_description": "조건에 맞는 알림 이벤트가 처리되면 여기에 전송 시도가 표시됩니다.",
+    "filters": {
+      "event": "이벤트 ID",
+      "status": "상태",
+      "stage": "단계",
+      "all": "전체"
+    },
+    "columns": {
+      "event": "이벤트",
+      "recipient": "수신자",
+      "source": "수신자 결정 주체",
+      "connector": "커넥터",
+      "stage": "단계",
+      "status": "상태",
+      "latency": "지연 시간",
+      "sent": "발송 시간"
+    },
+    "detail_title": "전송 흐름",
+    "detail_subtitle": "시도 {{attempt}} · {{status}}",
+    "target": "마스킹된 전송 대상",
+    "error": "실패",
+    "skip_reason": "사유",
+    "ack": "이벤트 확인",
+    "retry": "실패한 경로 재시도",
+    "acknowledged": "이벤트를 확인했습니다.",
+    "retried": "재시도를 시작했습니다.",
+    "views_label": "전송 목록 보기 방식",
+    "views": {
+      "events": "경보별",
+      "attempts": "전송 시도별"
+    },
+    "by_event": {
+      "channels": "채널 및 전송 시도",
+      "first_delivered": "최초 도착 시간",
+      "not_delivered": "미전달",
+      "failed_tries": "실패",
+      "open_try": "시도 {{attempt}} 열기: {{status}}"
+    }
+  },
+  "templates": {
+    "conditions": {
+      "title": "조건",
+      "description": "조건이 충족될 때만 블록 안의 내용을 포함합니다. != 비교와 else 분기를 사용할 수 있으며, 블록을 중첩할 수 있습니다.",
+      "items": {
+        "triggered": "경보 발생 시에만",
+        "resolved": "경보 해제 시에만",
+        "severity": "심각도별 문구",
+        "runbook": "런북이 있는 경우에만 링크 표시"
+      },
+      "problem": "조건이 올바르지 않습니다: {{problem}}"
+    },
+    "title": "알림 템플릿",
+    "subtitle": "알림 메시지를 재사용할 수 있습니다. 모든 채널에 공통 템플릿을 사용하거나 SMS, 전화 등 채널별로 별도 템플릿을 사용할 수 있습니다.",
+    "new": "새 템플릿",
+    "empty_title": "알림 템플릿 없음",
+    "empty_description": "재사용할 메시지 본문을 만든 후 알림 정책에서 해당 템플릿을 선택합니다.",
+    "channel_filter": "채널별 필터링",
+    "all": "전체",
+    "columns": {
+      "name": "템플릿",
+      "channel": "채널",
+      "format": "형식",
+      "category": "카테고리",
+      "updated": "수정일",
+      "actions": "작업"
+    },
+    "new_title": "새 알림 템플릿",
+    "edit_title": "{{name}} 편집",
+    "editor_subtitle": "알림 카테고리를 선택해 해당 변수를 삽입하거나, 기본 제공 템플릿으로 시작할 수 있습니다.",
+    "name": "이름",
+    "category": "알림 카테고리",
+    "channel": "채널",
+    "channels": {
+      "general": "일반",
+      "im": "인스턴트 메시징",
+      "phone": "전화",
+      "sms": "SMS",
+      "email": "이메일",
+      "webhook": "웹훅"
+    },
+    "format": "형식",
+    "body": "메시지 본문",
+    "variables_hint": "오른쪽의 변수 패널을 열고 변수를 선택하면 커서 위치에 삽입됩니다.",
+    "body_hint_sms": "문자 메시지에는 알림 제목을 제외한 본문만 전송됩니다.",
+    "body_hint_phone": "전화에서는 알림 제목을 제외한 본문만 읽어 줍니다.",
+    "preview_attributes": "미리보기용 이벤트 속성(JSON)",
+    "preview": "메시지 미리보기",
+    "preview_empty": "메시지 본문을 입력하면 미리보기가 표시됩니다.",
+    "length": "{{chars}}자 / {{limit}}자",
+    "length_over_sms": "{{chars}}자: 문자 메시지는 최대 {{limit}}자까지만 전송되며 나머지는 잘립니다.",
+    "length_over_phone": "{{chars}}자: 전화에서는 최대 {{limit}}자까지만 읽으며 나머지는 생략됩니다.",
+    "attributes_object": "미리보기용 속성은 JSON 객체여야 합니다.",
+    "reference": {
+      "title": "변수",
+      "description": "변수를 선택하면 커서 위치에 삽입됩니다.",
+      "loading": "변수 로드 중…",
+      "error": "변수를 로드하지 못했습니다.",
+      "dynamic_key": "이 워크스페이스에서 발견된 동적 키",
+      "tabs": {
+        "common": "공통",
+        "rule": "규칙",
+        "incident": "경보",
+        "metadata": "레이블 및 주석",
+        "schedule": "일정",
+        "oncall": "인수인계",
+        "override": "재정의",
+        "escalation": "에스컬레이션"
+      },
+      "groups": {
+        "event": "이벤트",
+        "message": "메시지",
+        "rule": "알림 규칙",
+        "incident": "인시던트",
+        "trigger": "트리거 값",
+        "labels": "레이블",
+        "annotations": "주석",
+        "escalation": "에스컬레이션",
+        "schedule": "온콜 일정",
+        "oncall": "근무 교대",
+        "override": "재정의"
+      },
+      "fields": {
+        "event_id": "이벤트 고유 식별자",
+        "event_type": "이벤트 유형",
+        "event_occurred_at": "이벤트 발생 시각(마이크로초 단위)",
+        "event_time": "이벤트 발생 시각(UTC)",
+        "message_title": "시스템에서 생성한 메시지 제목",
+        "message_text": "시스템에서 생성한 기본 메시지",
+        "event_attribute": "임의의 이벤트 속성. <key>를 속성 이름으로 바꿉니다.",
+        "rule_id": "알림 규칙 ID",
+        "rule_name": "알림 규칙 이름",
+        "rule_description": "알림 규칙 설명",
+        "incident_id": "인시던트 ID",
+        "incident_fingerprint": "인시던트 지문",
+        "incident_status": "인시던트 상태",
+        "incident_summary": "인시던트 요약",
+        "incident_url": "MoleSignal의 알림 주소(외부 URL 필요)",
+        "incident_started_time": "알림 시작 시각(UTC)",
+        "incident_duration": "알림 지속 시간(예: 1h 5m)",
+        "incident_acknowledged_time": "알림 확인 시각(UTC)",
+        "incident_acknowledged_by": "알림을 확인한 사용자의 ID",
+        "incident_resolved_time": "알림 해결 시각(UTC)",
+        "incident_resolved_by": "알림을 해결한 사용자의 ID",
+        "incident_assignees": "담당자 사용자 ID(쉼표로 구분)",
+        "service": "서비스(레이블 또는 주석에서 가져옴)",
+        "environment": "환경(레이블 또는 주석에서 가져옴)",
+        "affected_services": "영향을 받은 서비스(쉼표로 구분)",
+        "severity": "알림 심각도",
+        "value": "알림을 트리거한 관측값",
+        "threshold": "규칙 임계값",
+        "evaluated_at": "규칙 평가 시각(마이크로초)",
+        "labels_all": "모든 레이블(예: service=api, env=production)",
+        "labels_key": "레이블 값입니다. <key>를 바꿉니다.",
+        "annotations_key": "어노테이션 값입니다. <key>를 바꿉니다.",
+        "reply_ack": "답장으로 알림을 확인하는 코드(예: 31)입니다. 답장을 처리하는 커넥터가 보낸 문자 메시지에만 표시됩니다.",
+        "reply_resolve": "답장으로 알림을 해결 처리하는 코드(예: 32)",
+        "escalation_step": "에스컬레이션 단계(1부터 시작)",
+        "escalation_loop": "에스컬레이션 라운드(1부터 시작)",
+        "escalation_target": "이 단계의 알림 대상: 사용자, 일정 또는 팀",
+        "escalation_reason": "알림 전송 사유: step(정책의 다음 단계로 진행), manual(수동 에스컬레이션), reassigned(재할당), responder_added(대응 담당자 추가), snooze_ended(알림 일시 중지 종료), ack_timeout(확인 후 제한 시간 내 미해결) 또는 severity_raised(심각도 상향)",
+        "schedule_id": "일정 ID",
+        "schedule_name": "일정 이름",
+        "schedule_team_id": "일정의 팀 ID",
+        "schedule_timezone": "일정 시간대",
+        "oncall_current_user": "현재 온콜 담당자 ID",
+        "oncall_next_user": "다음 온콜 담당자 ID",
+        "oncall_transition_at": "교대 시각(마이크로초)",
+        "oncall_transition_time": "교대 시각(UTC)",
+        "override_id": "재정의 ID",
+        "override_user": "대체 담당자 ID",
+        "override_original_user": "기존 온콜 담당자 ID",
+        "override_start_at": "재정의 시작 시각(마이크로초)",
+        "override_end_at": "재정의 종료 시각(마이크로초)",
+        "override_start_time": "재정의 시작 시각(UTC)",
+        "override_end_time": "재정의 종료 시각(UTC)",
+        "override_reason": "재정의 사유",
+        "urgency": "긴급도 수준 키(예: high 또는 low)",
+        "priority": "우선순위(P1–P9)입니다. 설정하지 않으면 비어 있습니다.",
+        "urgency_name": "조직에서 지정한 긴급도 수준 이름입니다. 이름을 지정하지 않으면 비어 있습니다.",
+        "priority_name": "조직에서 지정한 우선순위 이름입니다. 이름을 지정하지 않으면 비어 있습니다."
+      }
+    },
+    "provider": {
+      "title": "공급업체 승인 템플릿",
+      "description_sms": "Alibaba Cloud, Tencent Cloud, Huawei Cloud는 각자 승인한 SMS 템플릿만 전송하며, WhatsApp은 승인한 Content 템플릿만 전송합니다. 해당 커넥터는 여기에 입력한 템플릿을 전송하고, 다른 SMS 커넥터는 위의 본문을 전송합니다.",
+      "description_phone": "Alibaba Cloud, Tencent Cloud, Huawei Cloud는 각자 승인한 음성 템플릿만 읽어 줍니다. 해당 전화 커넥터는 여기에 입력한 템플릿을 읽어 주고, 다른 전화 커넥터는 위의 본문을 읽어 줍니다.",
+      "names": {
+        "aliyun": "Alibaba Cloud",
+        "tencent": "Tencent Cloud",
+        "huawei": "Huawei Cloud",
+        "whatsapp": "WhatsApp"
+      },
+      "code": "템플릿 코드",
+      "code_labels": {
+        "whatsapp": "Content SID"
+      },
+      "max_chars": "변수당 문자 수",
+      "max_chars_placeholder": {
+        "aliyun_sms": "35 (기본값)",
+        "aliyun_phone": "35 (기본값)",
+        "tencent_sms": "6 (기본값)",
+        "tencent_phone": "20 (기본값)",
+        "huawei_sms": "20 (기본값)",
+        "huawei_phone": "32 (기본값)",
+        "whatsapp_sms": "300 (기본값)"
+      },
+      "params": "변수",
+      "param_name": "변수",
+      "param_value": "값",
+      "add_param": "변수 추가",
+      "remove_param": "변수 제거",
+      "params_hint": "변수 이름은 템플릿의 {{variable}}에 지정된 이름과 같아야 합니다. 값에 오른쪽의 변수를 사용할 수 있으며, 변수를 선택하면 커서 위치에 삽입됩니다.",
+      "params_hint_position": "이 제공업체는 위치에 따라 변수 값을 채웁니다. 템플릿의 첫 번째, 두 번째, 세 번째 변수 이름을 각각 1, 2, 3으로 지정합니다. 값에 오른쪽의 변수를 사용할 수 있으며, 변수를 선택하면 커서 위치에 삽입됩니다.",
+      "preview": "{{provider}}에 {{code}} 전송",
+      "problem_elsewhere": "저장하려면 {{provider}} 템플릿 설정을 완료해야 합니다.",
+      "problems": {
+        "code": "제공업체에서 발급한 템플릿 코드를 입력해 주세요. 영문자, 숫자, 밑줄, 하이픈을 사용할 수 있습니다.",
+        "content_sid": "Twilio Content SID를 입력해 주세요. HX 뒤에 16진수 문자 32개가 와야 합니다.",
+        "param_name": "변수 이름에는 영문자, 숫자, 밑줄만 사용할 수 있습니다.",
+        "param_twice": "같은 변수가 두 번 입력되었습니다.",
+        "param_value": "모든 변수에 값을 입력해야 합니다.",
+        "max_chars": "변수당 문자 수는 1~500자여야 합니다."
+      }
+    },
+    "card": {
+      "title": "카드",
+      "description": "이 옵션을 켜면 Lark, DingTalk, WeCom, Slack, Teams 및 Google Chat의 앱과 그룹 봇이 위 메시지 본문을 담은 카드로 알림을 보냅니다. 끄면 이전과 같이 텍스트로 보냅니다.",
+      "toggle": "카드로 전송",
+      "card_title": "카드 제목",
+      "card_title_placeholder": "비워 두면 알림 제목 사용",
+      "color": "제목 색상",
+      "colors": {
+        "severity": "심각도에 따라",
+        "blue": "파란색",
+        "green": "초록색",
+        "yellow": "노란색",
+        "orange": "주황색",
+        "red": "빨간색",
+        "grey": "회색"
+      },
+      "fields": "필드",
+      "field_label": "필드 이름",
+      "field_value": "필드 값",
+      "add_field": "필드 추가",
+      "remove_field": "필드 제거",
+      "links": "링크 버튼",
+      "link_label": "버튼 텍스트",
+      "link_url": "링크 주소",
+      "add_link": "링크 추가",
+      "remove_link": "링크 제거",
+      "note": "바닥글",
+      "hint": "모든 항목에 변수를 사용할 수 있습니다. 오른쪽에서 변수를 선택하면 커서 위치에 삽입됩니다. 이벤트 데이터로 채울 수 없는 필드나 링크는 표시되지 않습니다. 심각도에 따라 심각은 빨간색, 오류는 주황색, 경고는 노란색, 나머지는 파란색으로 표시합니다. 해결되면 녹색으로 표시합니다.",
+      "starting": {
+        "severity": "심각도",
+        "status": "상태",
+        "service": "서비스",
+        "schedule": "일정",
+        "next": "다음 온콜 담당자",
+        "runbook": "런북"
+      },
+      "problems": {
+        "too_many": "카드에는 필드를 최대 10개, 링크를 최대 5개까지 추가할 수 있습니다.",
+        "field": "모든 필드에는 이름과 값이 필요합니다.",
+        "link": "모든 링크에는 버튼 텍스트와 주소가 필요합니다.",
+        "link_url": "링크 주소는 http:// 또는 https://로 시작해야 합니다. 이런 주소로 치환되는 변수도 사용할 수 있습니다.",
+        "too_long": "글자 수 제한을 초과했습니다. 제목과 바닥글은 각각 최대 200자, 필드 이름은 40자, 필드 값은 500자, 버튼 텍스트는 30자까지 입력할 수 있습니다."
+      }
+    },
+    "presets": {
+      "title": "사전 설정 템플릿",
+      "description": "사전 설정 템플릿의 본문은 모두 편집할 수 있습니다.",
+      "items": {
+        "alert_text": "알림 일반 텍스트",
+        "alert_markdown": "알림 Markdown",
+        "alert_html": "알림 HTML",
+        "oncall_shift": "온콜 교대 리마인더",
+        "oncall_override": "온콜 일정 재정의 안내",
+        "oncall_coverage": "온콜 담당 공백 안내",
+        "oncall_html": "온콜 교대 HTML",
+        "escalation_text": "알림 에스컬레이션 일반 텍스트",
+        "escalation_markdown": "알림 에스컬레이션 Markdown",
+        "escalation_html": "알림 에스컬레이션 HTML",
+        "report_text": "보고서 일반 텍스트",
+        "report_markdown": "보고서 Markdown",
+        "report_html": "보고서 HTML",
+        "security_text": "보안 일반 텍스트",
+        "security_markdown": "보안 Markdown",
+        "security_html": "보안 HTML",
+        "system_text": "시스템 일반 텍스트",
+        "system_markdown": "시스템 Markdown",
+        "system_html": "시스템 HTML",
+        "alert_sms": "경보 SMS",
+        "alert_phone": "경보 전화",
+        "escalation_sms": "에스컬레이션 SMS",
+        "escalation_phone": "에스컬레이션 전화",
+        "oncall_sms": "근무 교대 SMS",
+        "alert_resolved_text": "경보 해결 일반 텍스트",
+        "alert_resolved_markdown": "경보 해결 Markdown",
+        "alert_acknowledged_markdown": "경보 확인 Markdown",
+        "alert_im_markdown": "링크가 포함된 경보 Markdown",
+        "alert_email_html": "표가 포함된 경보 이메일",
+        "alert_resolved_sms": "경보 해결 SMS",
+        "oncall_phone": "근무 교대 전화",
+        "oncall_coverage_sms": "담당자 공백 SMS"
+      }
+    },
+    "delete_title": "알림 템플릿을 삭제하시겠습니까?",
+    "delete_description": "알림 정책에서 {{name}}을(를) 참조하는 동안에는 삭제할 수 없습니다."
+  },
+  "account": {
+    "title": "내 알림 설정",
+    "subtitle": "워크스페이스 ID, 알림 카테고리 기본 설정, 알림 제한 시간을 관리합니다.",
+    "unavailable": "로그인한 사용자의 ID를 확인할 수 없습니다.",
+    "reachability": {
+      "none": "현재 경보를 받을 수 없습니다. 경보 및 에스컬레이션 알림에 사용할 수 있는 수신 방법이 없으며, 그룹으로 알림을 보내는 팀 또는 조직 라우팅 경로도 없습니다. 아래에서 수신 방법을 연결하고 알림 단계에 추가하세요.",
+      "group_only": "개인 수신 방법이 없어 팀 또는 조직 그룹을 통해서만 경보를 받을 수 있습니다. 아래에서 수신 방법을 연결하고 알림 단계에 추가하세요."
+    }
+  },
+  "action_link": {
+    "loading": "링크를 읽는 중…",
+    "acknowledge": "경보 확인",
+    "resolve": "경보 해결",
+    "acknowledging": "확인 처리 중…",
+    "resolving": "해결 처리 중…",
+    "explain_acknowledge": "이 알림의 수신자 명의로 경보를 확인 처리합니다. 링크는 {{until}}까지 한 번만 사용할 수 있습니다.",
+    "explain_resolve": "이 알림의 수신자 명의로 경보를 해결 처리합니다. 링크는 {{until}}까지 한 번만 사용할 수 있습니다.",
+    "started": "시작: {{at}}",
+    "acknowledged": "경보가 확인 처리되었습니다.",
+    "resolved": "경보가 해결되었습니다.",
+    "used": "이미 사용된 링크입니다.",
+    "used_at": "이 링크는 {{at}}에 사용되었습니다.",
+    "inactive": "이미 경보가 처리되었거나 상태가 정상으로 돌아와 더 이상 조치할 필요가 없습니다.",
+    "no_access": "이 경보에 더 이상 조치할 권한이 없어 링크를 통한 조치가 이루어지지 않았습니다.",
+    "expired": "이 링크는 만료되었습니다.",
+    "failed": "완료하지 못했습니다: {{error}}",
+    "unavailable_title": "더 이상 사용할 수 없는 링크입니다",
+    "unavailable_hint": "만료되었거나 유효하지 않은 링크입니다. MoleSignal에서 경보를 처리하세요.",
+    "load_failed_title": "이 링크를 읽을 수 없습니다",
+    "open_alert": "MoleSignal에서 알림 열기",
+    "open_alerts": "MoleSignal 열기"
+  },
+  "target_types": {
+    "direct_user": "직접 지정 사용자",
+    "fixed_address": "고정 주소",
+    "fixed_group": "고정 그룹",
+    "webhook": "웹훅"
+  },
+  "stages": {
+    "user_primary": "사용자 기본",
+    "user_fallback": "사용자 대체",
+    "team_fallback": "팀 대체",
+    "organization_fallback": "조직 대체",
+    "escalation": "에스컬레이션",
+    "test": "테스트",
+    "direct": "직접"
+  },
+  "statuses": {
+    "pending": "대기 중",
+    "sending": "전송 중",
+    "success": "성공",
+    "failed": "실패",
+    "skipped": "건너뜀",
+    "acknowledged": "확인됨",
+    "queued": "병합 대기 중"
+  }
+}

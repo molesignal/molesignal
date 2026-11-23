@@ -1,0 +1,1266 @@
+{
+  "title": "アプリケーションパフォーマンス監視",
+  "subtitle": "サンプリング前のトレースに基づくサービス、依存関係、エラー",
+  "nav": {
+    "overview": "概要",
+    "services": "サービス",
+    "map": "サービスマップ",
+    "errors": "エラー",
+    "slos": "SLO",
+    "settings": "設定"
+  },
+  "landing": {
+    "pulse_aria": "表示期間内の全サービスの稼働状況",
+    "kpi": {
+      "services": "アクティブなサービス",
+      "services_detail_one": "{{count}} 件のサービス（うち {{idle}} 件はトラフィックなし）",
+      "services_detail_other": "{{count}} 件のサービス（うち {{idle}} 件はトラフィックなし）",
+      "throughput": "スループット",
+      "requests_one": "{{formatted}} 件のリクエスト",
+      "requests_other": "{{formatted}} 件のリクエスト",
+      "error_rate": "エラー率",
+      "errors_one": "{{formatted}} 件のエラー",
+      "errors_other": "{{formatted}} 件のエラー",
+      "p95": "P95 レイテンシ",
+      "average": "平均 {{value}}",
+      "apdex": "Apdex",
+      "apdex_detail": "T = {{threshold}}"
+    },
+    "health": "サービスの稼働状況",
+    "health_description": "状態別のサービス数の推移",
+    "rankings": "サービスランキング",
+    "ranking": {
+      "slowest": "レイテンシが高い順（P95）",
+      "most_errors": "エラー率が高い順",
+      "busiest": "トラフィックが多い順",
+      "empty": "選択した期間のリクエストが少ないため、ランキングを表示できません。"
+    },
+    "alerts": "アクティブなアラート",
+    "alerts_loading": "アラートを読み込み中…",
+    "alerts_denied": "アラートを表示する権限がありません。",
+    "alerts_unavailable": "現在、アラートを読み込めません。",
+    "no_alerts": "サービス名が指定されたアクティブなアラートはありません。",
+    "deployments": "最近のデプロイ",
+    "deployments_description": "選択した期間に初めて確認されたバージョン",
+    "no_deployments": "選択した期間に新しいバージョンはありません。",
+    "environments": "環境",
+    "no_environments": "選択した期間にサービスはありません。",
+    "environment_services_one": "{{count}} 件のサービス",
+    "environment_services_other": "{{count}} 件のサービス",
+    "instrumentation": "計装の品質",
+    "no_sdks": "SDK を報告しているサービスはまだありません。",
+    "unknown": "不明",
+    "gap_one": "{{formatted}} 件のサービス",
+    "gap_other": "{{formatted}} 件のサービス",
+    "gap_attribute": "未報告",
+    "gap_action": "OpenTelemetry のデータ取り込みガイドを開く"
+  },
+  "alerts": {
+    "active_one": "{{count}} 件のアラート",
+    "active_other": "{{count}} 件のアラート",
+    "new": "新規アラート",
+    "related": "発生中のアラート",
+    "kind": {
+      "threshold": "しきい値アラート",
+      "threshold_hint": "値が設定したしきい値を超えると通知します。",
+      "anomaly": "異常検知アラート",
+      "anomaly_hint": "値が過去の同じ時間帯の傾向から外れると通知します。"
+    }
+  },
+  "slo": {
+    "title": "SLO",
+    "table": "サービスレベル目標",
+    "summary_one": "{{count}} 件の SLO",
+    "summary_other": "{{count}} 件の SLO",
+    "search": "SLO またはサービスを検索",
+    "all_states": "すべてのステータス",
+    "new": "新規 SLO",
+    "empty": "SLO はまだありません",
+    "empty_description": "サービスやエンドポイントに可用性またはレイテンシの目標を設定すると、達成状況、エラーバジェットの残量、消費率を確認できます。",
+    "filtered_empty": "条件に一致する SLO はありません。",
+    "removed": "SLO を削除しました",
+    "edit": "SLO を編集",
+    "remove": "SLO を削除",
+    "remove_title": "SLO「{{name}}」を削除しますか？",
+    "remove_description": "目標のみが削除され、APM データは残ります。",
+    "remove_with_alerts_one": "関連する {{count}} 件のバーンレートアラートも削除されますが、APM データは残ります。",
+    "remove_with_alerts_other": "関連する {{count}} 件のバーンレートアラートも削除されますが、APM データは残ります。",
+    "removing": "削除中…",
+    "remove_watched": "この SLO はまだアラートルールで監視されています。先に「アラート → アラートルール」で該当するルールを削除してください。",
+    "service_title": "サービスレベル目標",
+    "service_empty": "このサービスにはまだ SLO がありません。",
+    "budget_left": "エラーバジェット残量: {{value}}",
+    "window_one": "{{count}} 日",
+    "window_other": "{{count}} 日",
+    "state": {
+      "healthy": "正常",
+      "at_risk": "違反のおそれあり",
+      "breached": "違反",
+      "no_data": "データなし"
+    },
+    "kind": {
+      "availability": "リクエストが成功",
+      "latency": "しきい値以内に成功"
+    },
+    "target": {
+      "availability": "リクエストが成功",
+      "latency": "{{threshold}}以内に成功"
+    },
+    "columns": {
+      "name": "SLO",
+      "target": "成功条件",
+      "objective": "目標",
+      "sli": "達成率",
+      "budget": "残り予算",
+      "burn_1h": "1hの消費率",
+      "burn_6h": "6hの消費率",
+      "state": "状態"
+    },
+    "facts": {
+      "sli": "達成率",
+      "budget": "残りのエラーバジェット",
+      "requests": "{{total}}件のリクエストのうち{{good}}件が成功条件を満たしました"
+    },
+    "burn": {
+      "title": "エラーバジェットの消費率",
+      "description": "目標が許容する消費ペースに対する倍率です。1時間で14.4倍、または6時間で6倍を超えると、SLO違反のおそれがあります。",
+      "one_hour": "1時間",
+      "six_hours": "6時間",
+      "one_day": "24時間"
+    },
+    "history": {
+      "title": "日別の達成状況",
+      "summary": "リクエストがあった{{count}}日のうち、{{met}}日で目標を達成しました",
+      "day": {
+        "met": "{{date}}：{{sli}}（達成）",
+        "missed": "{{date}}：{{sli}}（未達成）",
+        "no_data": "{{date}}：リクエストなし"
+      }
+    },
+    "alerts": {
+      "create": "消費率アラートを作成",
+      "created_one": "消費率アラートを{{count}}件作成しました",
+      "created_other": "消費率アラートを{{count}}件作成しました",
+      "fast_name": "{{name}}：急速消費",
+      "slow_name": "{{name}}：緩やかな消費",
+      "description": "SLO「{{name}}」のエラーバジェットの消費ペースが速すぎます",
+      "title": "消費率アラート",
+      "card_description": "このSLOのエラーバジェットの消費率を監視するアラートルールです",
+      "none": "このSLOを監視するアラートはまだありません。",
+      "rule": "{{window}}で{{threshold}}×を超過",
+      "off": "オフ",
+      "window_hours_one": "{{count}}時間",
+      "window_hours_other": "{{count}}時間",
+      "window_minutes_one": "{{count}}分",
+      "window_minutes_other": "{{count}}分"
+    },
+    "form": {
+      "new_title": "SLOの新規作成",
+      "edit_title": "SLOの編集",
+      "description": "スライディングウィンドウ内で、サービスが正常と判定されるリクエストの割合について保証する目標です。",
+      "name": "名前",
+      "service": "サービス",
+      "environment": "環境",
+      "endpoint": "エンドポイント",
+      "endpoint_hint": "未選択の場合はサービス全体が対象です。",
+      "whole_service": "サービス全体",
+      "kind": "正常と判定する条件",
+      "threshold": "レイテンシのしきい値 (ms)",
+      "objective": "目標値 (%)",
+      "objective_hint": "例：99.9",
+      "window": "ウィンドウ",
+      "notes": "メモ",
+      "choose": "選択",
+      "saved": "SLOを保存しました"
+    }
+  },
+  "time": {
+    "compare": "比較対象",
+    "compare_off": "比較なし",
+    "compare_day": "1日前",
+    "compare_week": "1週間前",
+    "compare_env": "{{environment}}と比較",
+    "resolution": "解像度",
+    "resolution_auto": "解像度を自動設定",
+    "resolution_minute": "1分ごと",
+    "resolution_hour": "1時間ごと"
+  },
+  "quality": {
+    "activation": "範囲内にデータ開始時点あり",
+    "activation_title": "APMデータの開始時点はこの範囲内です",
+    "activation_description": "プロジェクションは{{time}}に開始されました。それより前のデータは利用できません。",
+    "stale": "データの遅延",
+    "stale_title": "APMの集計データが遅延しています",
+    "stale_description": "集計が完了した最新のバケットは{{time}}に終了しました。プロジェクションが追いつくまでの間も、値は引き続き表示されます。",
+    "partial": "データの一部欠損",
+    "partial_title": "APMデータの一部欠損",
+    "partial_description_one": "この範囲にはプロジェクションの欠損が{{count}}件あります。数値は引き続き表示されますが、実際のトラフィックより少なく表示される場合があります。",
+    "partial_description_other": "この範囲にはプロジェクションの欠損が{{count}}件あります。数値は引き続き表示されますが、実際のトラフィックより少なく表示される場合があります。",
+    "overflow": "一部の名前を「その他」に集計",
+    "overflow_title": "カーディナリティの上限を超えた名前",
+    "overflow_description": "上限を超えた分は「その他」の行にまとめて集計されます。合計にはすべてのデータが含まれます。",
+    "overflow_dimensions": "「その他」に集計",
+    "complete_through": "{{time}} までのデータは集計済み",
+    "dimension": {
+      "service": "サービス",
+      "transaction": "エンドポイント",
+      "dependency": "依存関係",
+      "error": "エラー"
+    }
+  },
+  "health": {
+    "critical": "重大",
+    "warning": "警告",
+    "healthy": "正常",
+    "no_traffic": "トラフィックなし",
+    "with_reasons": "{{health}}：{{reasons}}",
+    "reason_separator": "; ",
+    "reason": {
+      "error_rate": "エラー率 {{value}}（しきい値 {{threshold}} 以上）",
+      "p95": "P95 {{value}}（しきい値 {{threshold}} 以上）"
+    }
+  },
+  "actions": {
+    "cancel": "キャンセル",
+    "save": "保存",
+    "retry": "再試行",
+    "see_all": "すべて表示",
+    "previous": "前へ",
+    "next": "次へ"
+  },
+  "states": {
+    "empty": "この期間にデータはありません",
+    "activation_empty": "APM データはまだありません",
+    "activation_empty_description": "バックエンドのトレースを送信すると、サンプリング前のデータを使ってアプリケーションの集計が始まります。"
+  },
+  "first_run": {
+    "eyebrow": "アプリケーションパフォーマンス",
+    "connect": "サービスを接続",
+    "explore_traces": "トレースを開く",
+    "steps": {
+      "instrument": {
+        "title": "サービスを計装",
+        "description": "バックエンドサービスに OpenTelemetry SDK またはエージェントを追加します。"
+      },
+      "send": {
+        "title": "サービスのトレースを送信",
+        "description": "エクスポーターの送信先に、このワークスペースの OTLP エンドポイントを指定します。"
+      },
+      "watch": {
+        "title": "データの表示を確認",
+        "description": "1 分以内にスループット、エラー、レイテンシがここに表示されます。"
+      }
+    }
+  },
+  "drawer": {
+    "close": "閉じる",
+    "resize": "ドロワーのサイズを変更",
+    "trail": "遷移元",
+    "back_to": "{{name}} に戻る"
+  },
+  "columns": {
+    "title": "列",
+    "visible": "表示中",
+    "reorder_hint": "ドラッグまたは Alt + ↑↓",
+    "drag_aria": "{{name}}：ドラッグするか、Alt キーと矢印キーを押して移動します",
+    "reset": "デフォルトの列に戻す",
+    "available": "列を追加"
+  },
+  "catalog": {
+    "table": "サービス",
+    "search": "サービスを検索",
+    "environment": "環境",
+    "all_environments": "すべての環境",
+    "team": "チーム",
+    "all_teams": "すべてのチーム",
+    "declare": "サービスを登録",
+    "more": "さらにサービスを読み込む",
+    "not_reporting": "データ未受信",
+    "filtered_empty": "条件に一致するサービスがありません",
+    "filtered_empty_description": "検索条件またはフィルターを変更してください。",
+    "summary": {
+      "services_one": "サービス {{count}} 件",
+      "services_other": "サービス {{count}} 件",
+      "throughput": "スループット",
+      "error_rate": "エラー率"
+    },
+    "columns": {
+      "service": "サービス",
+      "environment": "環境",
+      "type": "タイプ",
+      "team": "チーム",
+      "owner": "オーナー",
+      "on_call": "オンコール",
+      "tier": "ティア",
+      "alerts": "アラート",
+      "lifecycle": "ライフサイクル",
+      "language": "言語 / フレームワーク",
+      "throughput": "スループット",
+      "error_rate": "エラー率",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "平均",
+      "apdex": "Apdex",
+      "instances": "インスタンス",
+      "region": "リージョン",
+      "version": "バージョン",
+      "last_deploy": "最終デプロイ",
+      "tags": "タグ",
+      "last_seen": "最終検出",
+      "favorite": "お気に入り"
+    },
+    "favorite": "{{name}}をお気に入りに追加",
+    "unfavorite": "{{name}}をお気に入りから削除",
+    "favorites_one": "お気に入り（{{count}}）",
+    "favorites_other": "お気に入り（{{count}}）",
+    "archived": "アーカイブ済み",
+    "inactive": "非アクティブ",
+    "namespace": "名前空間",
+    "all_namespaces": "すべての名前空間",
+    "tag": "タグ",
+    "all_tags": "すべてのタグ",
+    "show_archived_one": "アーカイブ済み（{{count}}）",
+    "show_archived_other": "アーカイブ済み（{{count}}）",
+    "group": {
+      "label": "グループ化",
+      "off": "なし",
+      "by": {
+        "team": "チーム",
+        "namespace": "名前空間",
+        "tier": "ティア"
+      },
+      "by_tag": "タグ：{{tag}}",
+      "none": {
+        "team": "チームなし",
+        "namespace": "名前空間なし",
+        "tier": "ティアなし",
+        "tag": "{{tag}}タグなし"
+      }
+    },
+    "missing": "必須項目：{{fields}}",
+    "missing_and": "、 ",
+    "missing_fields": {
+      "team": "チーム",
+      "owner": "オーナー",
+      "repository": "リポジトリ"
+    },
+    "missing_hint": "APM設定のカタログ要件では、このティアに対してこれらの項目が必須です。"
+  },
+  "definition": {
+    "title": "{{name}}の詳細を設定",
+    "declare_title": "サービスを定義",
+    "description": "サービスのオーナーと重要度を設定します。オーナーには、この組織のチームやメンバーを指定できます。",
+    "fields": {
+      "name": "サービス名",
+      "namespace": "名前空間",
+      "namespace_hint": "service.namespace。空欄の場合はサービス名を使用します。",
+      "team": "担当チーム",
+      "owner": "オーナー",
+      "owner_hint": "サービスの責任者です。",
+      "tier": "ティア",
+      "lifecycle": "ライフサイクル",
+      "repository": "リポジトリ",
+      "repository_hint": "git@github.com:acme/checkout.git などの https または git のアドレスです。アドレス内のパスワードは **** として保存されます。サービスが vcs.repository.url.full を報告しない場合に表示されます。",
+      "description": "サービスの機能",
+      "tags": "タグ",
+      "tags_hint": "key=value またはキーのみをカンマ区切りで入力します。キーには英小文字、数字、および _ . - / が使えます。",
+      "apdex": "Apdex しきい値 T (ms)",
+      "apdex_hint": "T 以内のリクエストは「満足」、T を超えて 4T 以内のリクエストは「許容」に分類されます。空欄の場合はデフォルトの 500 ms が使われます。",
+      "aliases": "別名",
+      "aliases_placeholder": "order_service, Order Center",
+      "aliases_hint": "ログ、メトリクス、その他のシステムで使われるサービス名（order_service や Order Center など）をカンマ区切りで入力します。これらの名前でサービスを検索でき、Mole Agent も参照します。データは統合されません。旧名で報告されたデータをこのサービスのデータとして参照するには、APM 設定でサービスエイリアスを追加してください。"
+    },
+    "aliases_problem": {
+      "length": "名前は 128 文字以内で入力してください: {{alias}}",
+      "own_name": "{{alias}} はサービス自体の名前です。",
+      "twice": "{{alias}} が重複しています。",
+      "too_many": "別名はサービスごとに最大 20 件です。"
+    },
+    "sources": {
+      "title": "データソース",
+      "hint": "サービスのデータがあるログストリーム、メトリクス、ダッシュボード、ページです。Mole Agent はサービスを調査する際に、まずこれらを参照します。",
+      "logs": "ログストリーム",
+      "metrics": "メトリクス",
+      "dashboards": "ダッシュボード",
+      "links": "リンク",
+      "add": "追加",
+      "remove": "削除",
+      "open": "開く",
+      "stream": "ストリーム",
+      "filter": "フィルター: SQL の条件式（空欄の場合はストリーム全体）",
+      "selector": "PromQL セレクター",
+      "dashboard": "ダッシュボード",
+      "choose_dashboard": "ダッシュボードを選択",
+      "link_name": "名前",
+      "link_url": "アドレス",
+      "problem": {
+        "too_many": "各項目は最大 10 件です。",
+        "stream": "ログが含まれるストリームを入力してください。",
+        "filter": "フィルターは 2000 文字以内で入力してください。",
+        "selector": "{service=\"checkout\"} などのセレクター、またはラベル付きのメトリクス名を入力してください。",
+        "link_name": "リンク名を 120 文字以内で入力してください。",
+        "link_url": "スペースを含まない http または https のアドレスを入力してください。",
+        "dashboard_twice": "同じダッシュボードが2回登録されています"
+      }
+    },
+    "none": "なし",
+    "docs_hint": "ドキュメントとランブックは、Mole Agent のナレッジベース内の {{path}} に保存され、Mole Agent も参照します。",
+    "remove": "説明を削除",
+    "saved": "サービスの説明を保存しました",
+    "removed": "サービスの説明を削除しました",
+    "edit": "オーナーを編集",
+    "declare_owner": "オーナーを設定",
+    "on_call": "オンコール",
+    "tier": {
+      "p0": "P0",
+      "p1": "P1",
+      "p2": "P2",
+      "p3": "P3",
+      "p4": "P4",
+      "p5": "P5"
+    },
+    "lifecycle": {
+      "production": "本番",
+      "staging": "ステージング",
+      "experimental": "実験的",
+      "deprecated": "非推奨"
+    },
+    "tags_problem": {
+      "key": "タグキー「{{tag}}」には英小文字、数字、および _ . - / が使えます。最大64文字です",
+      "value": "タグ「{{tag}}」の値は128文字以内にしてください",
+      "too_many": "サービスに設定できるタグは最大32個です",
+      "twice": "タグ「{{tag}}」が重複しています"
+    },
+    "apdex_problem": "0より大きく60000以下の値をミリ秒単位で入力してください",
+    "archive": "アーカイブ",
+    "unarchive": "アーカイブを解除",
+    "archive_hint": "アーカイブしたサービスはデフォルトでカタログに表示されませんが、データの収集は継続されます",
+    "unarchive_hint": "このサービスをカタログに戻します",
+    "archived": "アーカイブ済み",
+    "unarchived": "アーカイブを解除しました",
+    "repository_problem": "http、https、ssh、git のいずれかのアドレス、または git@host:path を空白なしで入力してください"
+  },
+  "docs": {
+    "title": "ドキュメント",
+    "where": "ナレッジベース：{{folder}}",
+    "none": "このサービスにはまだドキュメントがありません。",
+    "team": "チーム",
+    "start_runbook": "ランブックを作成",
+    "runbook_template": "# {{name}} のランブック\n\n## サービスの概要\n\n## オーナーとエスカレーション\n\n## アラートと対応手順\n\n## ダッシュボードとリンク\n"
+  },
+  "service": {
+    "navigation": "サービスのセクション",
+    "environment": "環境",
+    "version": "バージョン",
+    "all_versions": "すべてのバージョン",
+    "sections": {
+      "overview": "概要",
+      "endpoints": "エンドポイント",
+      "traces": "トレース",
+      "dependencies": "依存関係",
+      "errors": "エラー",
+      "deployments": "デプロイ",
+      "runtime": "ランタイム",
+      "settings": "設定"
+    },
+    "related": {
+      "logs": "ログ",
+      "metrics": "メトリクス",
+      "profiles": "プロファイル",
+      "rum": "RUM"
+    },
+    "facts": {
+      "no_data": "この期間のデータはありません",
+      "last_seen": "最終検出：{{when}}",
+      "system": "システム",
+      "environment": "環境",
+      "type": "タイプ",
+      "kinds": {
+        "http": "HTTP",
+        "rpc": "RPC",
+        "messaging": "コンシューマー",
+        "span": "ワーカー"
+      },
+      "stack": "言語 / フレームワーク",
+      "version": "バージョン",
+      "commit": "コミット {{commit}}",
+      "team": "チーム",
+      "instances_one": "{{count}} インスタンス",
+      "instances_other": "{{count}} インスタンス",
+      "deployed_label": "最終デプロイ",
+      "deployed": "デプロイ済み：{{when}}",
+      "region": "リージョン",
+      "repository": "リポジトリ",
+      "aliases": "別名"
+    },
+    "coverage": {
+      "missing": {
+        "logs": "過去1日間にこのサービスからのログはありません。開くと送信方法を確認できます",
+        "metrics": "過去1時間にこのサービスからのメトリクスはありません。開くと送信方法を確認できます",
+        "profiles": "過去1日間にこのサービスからのプロファイルはありません。開くと送信方法を確認できます"
+      },
+      "reported": {
+        "logs": "ログの保存先：{{found}}",
+        "metrics": "過去1時間にこのサービスから {{found}} 件のメトリクス系列が報告されました",
+        "profiles": "送信されたプロファイルのタイプ：{{found}}",
+        "rum": "ブラウザーセッションは、トレースを介してこのサービスに関連付けられています。セッションを1つ開いて確認できます"
+      }
+    },
+    "favorite": "お気に入りに追加",
+    "favorited": "お気に入り登録済み"
+  },
+  "charts": {
+    "requests": "リクエスト数",
+    "error_rate": "エラー率",
+    "latency": "レイテンシー",
+    "ok": "成功",
+    "errors": "失敗",
+    "previous": "前の期間",
+    "compared_env": "{{environment}} 環境",
+    "distribution": "レイテンシーの分布",
+    "distribution_row": "{{range}}：{{count}} 件のリクエスト（{{share}}）、この区間の上限以下は {{below}}",
+    "distribution_previous": "破線：前の期間の同じ区間",
+    "distribution_compared": "破線：{{what}}",
+    "no_distribution": "この期間にリクエストはありません。",
+    "apdex_threshold": "(T = {{threshold}})",
+    "vs_previous": "直前の同じ長さの期間との比較",
+    "points": "{{value}} pp"
+  },
+  "overview": {
+    "downstream": "ダウンストリームの待機時間",
+    "downstream_description": "サービスが各依存先の応答を待つ時間の割合",
+    "no_downstream": "この期間にダウンストリーム呼び出しはありません。",
+    "top_endpoints": "処理時間が長いエンドポイント",
+    "no_endpoints": "この期間にエンドポイントはありません。",
+    "top_errors": "発生頻度が高いエラー",
+    "no_errors": "この期間にバックエンドエラーはありません。"
+  },
+  "overflow": {
+    "other": "その他",
+    "other_hint": "カーディナリティの上限を超えた名前は、まとめて集計されます。"
+  },
+  "endpoints": {
+    "search": "エンドポイントを検索",
+    "kind_filter": "種類",
+    "kinds": {
+      "all": "すべての種類",
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "メッセージング",
+      "span": "ワーカー"
+    },
+    "kind": {
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "MQ",
+      "span": "ワーカー",
+      "other": "その他"
+    },
+    "count_one": "{{count}} 件のエンドポイント",
+    "count_other": "{{count}} 件のエンドポイント",
+    "empty": "一致するエンドポイントはありません。",
+    "table": "エンドポイント",
+    "columns": {
+      "kind": "タイプ",
+      "endpoint": "エンドポイント",
+      "requests": "リクエスト数",
+      "throughput": "スループット",
+      "error_rate": "エラー率",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "平均",
+      "apdex": "Apdex",
+      "total_time": "処理時間の割合"
+    },
+    "key": "キートランザクション",
+    "key_only_one": "キートランザクション（{{count}}）",
+    "key_only_other": "キートランザクション（{{count}}）",
+    "long_tasks_one": "ロングタスク（{{count}}）",
+    "long_tasks_other": "ロングタスク（{{count}}）",
+    "long_tasks_hint": "P99 が {{threshold}} 以上のエンドポイント",
+    "mark_key": "{{name}} をキートランザクションに設定",
+    "unmark_key": "{{name}} のキートランザクション設定を解除"
+  },
+  "endpoint": {
+    "errors": "エラー",
+    "no_errors": "このエンドポイントにエラーはありません。",
+    "versions": "バージョン",
+    "no_versions": "バージョンは検出されていません。",
+    "summary": "リクエスト {{requests}} 件 · 失敗率 {{rate}} · P95 {{p95}}",
+    "slow_requests": "処理時間が最も長いリクエスト",
+    "slow_requests_description": "トレースストアから取得したリクエストです。各項目から対応するトレースを開けます。",
+    "in_traces": "トレースで開く",
+    "other_has_no_requests": "「その他」は複数のエンドポイントをまとめたものです。リクエストを確認するには、個別のエンドポイントを開いてください。",
+    "no_requests": "この期間内に保存された、このエンドポイントのリクエストはありません。",
+    "status": {
+      "title": "ステータスコード",
+      "description": "HTTP と gRPC のステータスコード別レスポンス数",
+      "none": "この期間に集計されたステータスコードはありません。",
+      "row": "{{status}}: {{count}} 件のレスポンス（{{share}}）",
+      "other": "その他の {{protocol}}",
+      "trend": "ステータスコードの推移",
+      "classes": {
+        "1xx": "1xx",
+        "2xx": "2xx",
+        "3xx": "3xx",
+        "4xx": "4xx",
+        "5xx": "5xx",
+        "grpc_ok": "gRPC OK",
+        "grpc_error": "gRPC エラー",
+        "other": "その他"
+      }
+    },
+    "time_spent": {
+      "title": "処理時間の内訳",
+      "description_one": "トレースストア内の最新のリクエスト1件に基づく集計",
+      "description_other": "トレースストア内の最新のリクエスト{{count}}件に基づく集計",
+      "about": "トレースストア内の最新のリクエスト（最大200件）に基づく集計",
+      "none": "選択した期間には、このエンドポイントのリクエストが保存されていません。",
+      "unavailable": "トレースストアから時間内に応答がありませんでした。期間を短くして再試行してください。",
+      "row": "{{part}}：処理時間の{{share}}、1リクエストあたり{{each}}",
+      "each": "1リクエストあたり{{time}}",
+      "parts": {
+        "own": "自サービスのコード",
+        "database": "データベース",
+        "cache": "キャッシュ",
+        "http": "HTTP 呼び出し",
+        "rpc": "RPC 呼び出し",
+        "messaging": "メッセージング",
+        "internal": "内部処理",
+        "other": "その他"
+      }
+    }
+  },
+  "traces": {
+    "title": "トレース",
+    "description": "このサービスが関与したトレース",
+    "open_explorer": "トレース画面で開く",
+    "empty": "選択した期間には、このサービスのトレースがありません。"
+  },
+  "dependencies": {
+    "map": "関連サービス",
+    "map_description": "このサービスの呼び出し元と呼び出し先のサービス",
+    "map_empty": "選択した期間には、サービス間の呼び出しがありません。",
+    "upstream": "呼び出し元",
+    "upstream_description": "呼び出し元からの呼び出しのエラー率とP95",
+    "no_upstream": "選択した期間には、他のサービスからこのサービスへの呼び出しがありません。",
+    "downstream": "呼び出し先",
+    "downstream_description": "呼び出し先ごとのオペレーション",
+    "no_downstream": "選択した期間には、このサービスからの呼び出しがありません。",
+    "columns": {
+      "target": "呼び出し先",
+      "category": "種類",
+      "requests": "リクエスト数",
+      "error_rate": "エラー率",
+      "p95": "P95",
+      "health": "ヘルス",
+      "change": "比較対象との差"
+    },
+    "operations_one": "オペレーション{{count}}件",
+    "operations_other": "オペレーション{{count}}件",
+    "no_operation": "オペレーション名なし",
+    "category": {
+      "service": "サービス",
+      "database": "データベース",
+      "cache": "キャッシュ",
+      "messaging": "メッセージング",
+      "external_http": "HTTP",
+      "external_rpc": "RPC",
+      "other": "その他"
+    },
+    "timeouts_one": "タイムアウト{{count}}件",
+    "timeouts_other": "タイムアウト{{count}}件",
+    "retries_one": "リトライ{{count}}件",
+    "retries_other": "リトライ{{count}}件",
+    "slowest_operation": "最も遅いオペレーションのP95",
+    "score": {
+      "errors": "呼び出しの失敗: −{{points}}",
+      "timeouts": "呼び出しのタイムアウト: −{{points}}",
+      "latency": "P95の悪化: −{{points}}",
+      "none": "減点なし"
+    },
+    "slow_sql": "遅いSQL",
+    "slow_sql_description": "SQL文をP95順に表示します。すべてのリテラルは「?」に置き換えます。",
+    "new_target": "新規"
+  },
+  "deployments": {
+    "timeline": "デプロイのタイムライン",
+    "report": "デプロイを報告",
+    "none": "この期間にはデプロイもバージョンもありません。",
+    "current": "現在",
+    "columns": {
+      "time": "時刻",
+      "version": "バージョン",
+      "event": "イベント",
+      "change": "変更",
+      "requests": "リクエスト数",
+      "error_rate": "エラー率",
+      "p95": "P95",
+      "verdict": "前回のデプロイとの比較"
+    },
+    "kind": {
+      "deployed": "デプロイ済み",
+      "failed": "失敗",
+      "rolled_back": "ロールバック済み",
+      "returned": "以前のバージョンに復帰",
+      "first_seen": "初回検出",
+      "configuration": "設定",
+      "feature_flag": "機能フラグ"
+    },
+    "from": "{{version}}から",
+    "pull_request": "PR",
+    "ci_run": "CI実行",
+    "compare": "2つのバージョンを比較",
+    "baseline": "比較元",
+    "candidate": "比較先",
+    "regressed_endpoints": "応答が遅くなったエンドポイント",
+    "regressed_errors": "発生件数が増えたエラー",
+    "none_regressed": "なし",
+    "status": {
+      "insufficient_data": "リクエスト数不足",
+      "regressed": "悪化",
+      "improved": "改善",
+      "neutral": "変化なし"
+    },
+    "verdict_title": "{{previous}}との比較：エラー率 {{rate}}、P95 {{p95}}",
+    "worse": {
+      "error_rate": "エラー率 {{delta}}",
+      "latency": "P95 {{delta}}"
+    },
+    "delta": {
+      "requests": "リクエスト数",
+      "error_rate": "エラー率",
+      "p95": "P95"
+    },
+    "insufficient": "一方のバージョンのリクエスト数が少ないため、判定できません。",
+    "canary": {
+      "title": "{{candidate}}と{{baseline}}が並行稼働中",
+      "since": "{{since}}から",
+      "share": "トラフィックの{{share}}を新しいバージョンで処理",
+      "figures": "2つのバージョンの比較",
+      "rows": {
+        "requests": "リクエスト数",
+        "error_rate": "エラー率",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      }
+    }
+  },
+  "errors": {
+    "title": "エラーグループ",
+    "table": "エラーグループ一覧",
+    "search": "エラーを検索",
+    "status": "ステータス",
+    "status_filter": "表示",
+    "assignee": "担当者",
+    "unassigned": "未割り当て",
+    "team": "チーム",
+    "no_team": "チームなし",
+    "saved": "エラーグループを更新しました",
+    "count_one": "{{count}} 件のグループ",
+    "count_other": "{{count}} 件のグループ",
+    "none": "この期間にエラーグループはありません",
+    "none_open": "この期間に未解決のエラーグループはありません",
+    "none_description": "バックエンドスパンで発生したエラーを、種類と発生箇所ごとにグループ化して表示します。",
+    "filter": {
+      "all": "すべてのグループ",
+      "unresolved": "未解決",
+      "investigating": "調査中",
+      "resolved": "解決済み",
+      "ignored": "無視"
+    },
+    "set": {
+      "open": "未解決",
+      "investigating": "調査中",
+      "resolved": "解決済み",
+      "ignored": "無視"
+    },
+    "state": {
+      "open": "未解決",
+      "investigating": "調査中",
+      "regressed": "再発",
+      "resolved": "解決済み",
+      "ignored": "無視"
+    },
+    "columns": {
+      "error": "エラー",
+      "service": "サービス",
+      "state": "ステータス",
+      "assignee": "担当者",
+      "occurrences": "発生回数",
+      "last_seen": "最終発生",
+      "first_seen": "初回発生"
+    },
+    "facts": {
+      "occurrences": "発生回数",
+      "first_seen": "初回発生",
+      "last_seen": "最終発生",
+      "versions": "バージョン"
+    },
+    "trend": "発生回数の推移",
+    "stack": "発生箇所",
+    "endpoints": "エンドポイント",
+    "no_endpoints": "エンドポイントは記録されていません。",
+    "samples": "サンプル",
+    "samples_description": "各サンプルを選択すると、そのサンプルが保存されているトレースが開きます",
+    "no_samples": "サンプルは保存されていません。",
+    "logs": "関連ログ",
+    "sample_logs": "ログ",
+    "breakdown": {
+      "title": "発生箇所の内訳",
+      "listed": "一覧の全グループの発生回数",
+      "versions": "バージョン",
+      "environments": "環境",
+      "languages": "言語",
+      "unknown": "報告なし",
+      "none": "なし",
+      "row": "{{value}}: {{count}}、{{share}}"
+    },
+    "rules": {
+      "open": "グループ化ルール",
+      "title": "エラーのグループ化ルール",
+      "new": "新規ルール",
+      "new_title": "新規グループ化ルール",
+      "edit_title": "グループ化ルールの編集",
+      "description": "今後検出されるエラーに対してルールを上から順に確認し、最初に一致したルールを適用します。一致したエラーは、サービスごとに1つのグループに統合するか、グループ化の対象外にします（対象外にしても、該当するリクエストは失敗として集計されます）。保存したルールは30秒以内にすべてのノードに反映されます。",
+      "none": "グループ化ルールはまだありません。",
+      "action": {
+        "merge": "統合",
+        "ignore": "除外"
+      },
+      "action_long": {
+        "merge": "1つのグループに統合",
+        "ignore": "グループ化の対象外にする"
+      },
+      "disabled": "オフ",
+      "every_service": "すべてのサービス",
+      "fields": {
+        "name": "名前",
+        "name_hint": "統合後のグループには、この名前が使われます。",
+        "action": "アクション",
+        "service": "サービス",
+        "error_type": "エラータイプ",
+        "message": "メッセージ",
+        "frame": "例外の発生箇所",
+        "endpoint": "エンドポイント",
+        "enabled": "オン"
+      },
+      "placeholder": {
+        "error_type": "*TimeoutException",
+        "message": "*connection reset*",
+        "frame": "com.shop.client.*",
+        "endpoint": "GET /orders/*"
+      },
+      "patterns_hint": "各パターンは大文字と小文字を区別せず、文字列全体と照合されます。* は任意の文字列に一致し、空欄の項目はどの値にも一致します。少なくとも1項目を入力してください。",
+      "preview_one": "一覧のエラーグループのうち、{{count}}件がこのルールに一致します。既存のグループは変更されません。ルールは今後検出されるエラーに適用されます。",
+      "preview_other": "一覧のエラーグループのうち、{{count}}件がこのルールに一致します。既存のグループは変更されません。ルールは今後検出されるエラーに適用されます。",
+      "pattern": {
+        "error_type": "タイプ: {{pattern}}",
+        "message": "メッセージ: {{pattern}}",
+        "frame": "{{pattern}} で",
+        "endpoint": "エンドポイント {{pattern}}"
+      },
+      "move_up": "{{name}} を上に移動",
+      "move_down": "{{name}} を下に移動",
+      "edit": "{{name}} を編集",
+      "remove": "{{name}} を削除",
+      "remove_title": "ルール {{name}} を削除しますか？",
+      "remove_description": "今後発生するエラーにはこのルールが適用されなくなります。このルールで作成されたグループは残ります。",
+      "remove_confirm": "削除",
+      "removing": "削除中…",
+      "saved": "ルールを保存しました",
+      "removed": "ルールを削除しました",
+      "from_error": "このエラーからルールを作成"
+    }
+  },
+  "runtime": {
+    "language": "言語",
+    "sdk": "SDK",
+    "instances": "最近のインスタンス",
+    "none_title": "このサービスのランタイムメトリクスはありません",
+    "none_description": "サービスが自身の service.name を付けてランタイムメトリクスを送信すると、言語ごとにグラフが表示されます。対象は、プロセスのメトリクスと、JVM、Go、Node.js、.NET、Python、Ruby、PHP、Rust (Tokio)、Erlang / Elixir のランタイムメトリクスです。OpenTelemetry の規約と、各言語で広く使われている Prometheus クライアントの両方に対応しています。",
+    "none_action": "OpenTelemetry でメトリクスを送信",
+    "chart_empty": "この範囲に値がありません。",
+    "charts": {
+      "cpu": "CPU 使用率",
+      "memory": "メモリ",
+      "threads": "スレッド数",
+      "file_descriptors": "開いているファイルディスクリプター数",
+      "heap": "ヒープ",
+      "non_heap": "非ヒープメモリ",
+      "gc_time": "1 秒あたりの GC 時間",
+      "gc_count": "1 秒あたりの GC 実行回数",
+      "classes": "ロード済みクラス数",
+      "goroutines": "ゴルーチン数",
+      "scheduler": "スケジューリングレイテンシー",
+      "event_loop_delay": "イベントループの遅延 (P99)",
+      "event_loop_utilization": "イベントループの使用率",
+      "thread_pool_queue": "スレッドプールのキュー",
+      "exceptions": "1 秒あたりの例外数",
+      "heap_slots": "使用中のヒープスロット数",
+      "allocations": "1 秒あたりの割り当て回数",
+      "workers": "ワーカー数",
+      "queue": "キュー",
+      "slow_requests": "1 秒あたりの低速リクエスト数",
+      "opcache": "OPcache メモリ",
+      "tasks": "アクティブなタスク / ハンドル",
+      "busy": "1秒あたりの稼働時間",
+      "processes": "Erlang プロセス",
+      "run_queue": "実行キュー",
+      "reductions": "1秒あたりのリダクション数"
+    },
+    "instance": "インスタンス",
+    "all_instances": "すべてのインスタンス",
+    "each_instance": "インスタンスごとに1本の線",
+    "one_instance": "選択したインスタンスのみ",
+    "families": {
+      "process": "プロセス",
+      "jvm": "JVM",
+      "go": "Go",
+      "nodejs": "Node.js",
+      "dotnet": ".NET",
+      "python": "Python",
+      "ruby": "Ruby",
+      "php": "PHP",
+      "rust": "Rust / Tokio",
+      "beam": "Erlang / Elixir (BEAM)"
+    },
+    "profile": {
+      "title": "プロファイリング",
+      "description": "選択した期間のサービスのプロファイルをタイプごとに集約し、フレームグラフに表示します。",
+      "open": "プロファイル画面で開く",
+      "none": "選択した期間にこのサービスのプロファイルはありません",
+      "none_description": "継続的プロファイリングを設定すると、CPU、実経過時間、メモリ割り当て、ヒープ、ロックなどのフレームグラフがここに表示されます。",
+      "types": "プロファイルタイプ",
+      "empty": "選択した期間にこのタイプのサンプルはありません"
+    }
+  },
+  "map": {
+    "not_in_apm": "選択した期間に APM で観測されたサービスに {{name}} は含まれていません。",
+    "namespace": "ネームスペース",
+    "all_namespaces": "すべてのネームスペース",
+    "search": "ノードを検索",
+    "clear_search": "クリア",
+    "fold": "ネームスペースを折りたたむ",
+    "unfold": "ネームスペースを展開",
+    "critical": "最も遅いパス",
+    "change": {
+      "new": "新規",
+      "gone": "消失"
+    },
+    "group_figures_one": "{{count}} 件のサービス",
+    "group_figures_other": "{{count}} 件のサービス",
+    "none": "選択した期間に呼び出しはありません",
+    "none_description": "サービスのスパンがMoleSignalに届くと、ここにサービスが表示されます。スパンの親が別のサービスにある場合は、サービス間の呼び出しも表示されます。",
+    "truncated": "最もアクティブなノードのみ表示します。",
+    "reach": "呼び出し元: {{callers}} · 呼び出し先: {{callees}}",
+    "open_service": "サービスを開く",
+    "close_chosen": "閉じる",
+    "kind": {
+      "service": "サービス",
+      "external": "呼び出し先",
+      "topic": "トピック",
+      "group": "名前空間"
+    },
+    "category": {
+      "service": "データを送信していないサービス",
+      "database": "データベース",
+      "cache": "キャッシュ",
+      "messaging": "メッセージングシステム",
+      "external_http": "外部HTTP",
+      "external_rpc": "外部RPC",
+      "other": "その他"
+    },
+    "call": {
+      "title": "呼び出し",
+      "requests": "リクエスト",
+      "error_rate": "エラー率",
+      "kinds": {
+        "call": "呼び出し",
+        "publish": "トピックへのパブリッシュ",
+        "consume": "トピックからのコンシューム"
+      },
+      "operations": "呼び出しのオペレーション",
+      "endpoints": "呼び出し先サービスのエンドポイント",
+      "every_caller": "すべての呼び出し元からのリクエストが対象です",
+      "no_operations": "オペレーションは記録されていません。",
+      "unnamed": "名前なし",
+      "errors": "{{service}}のエラー",
+      "wait": {
+        "title": "トピック内の待機時間",
+        "about": "トレースストアにある最新のコンシューム（最大200件）が対象です",
+        "description": "最新のコンシューム{{count}}件のうち、{{matched}}件を対応するパブリッシュに関連付けました",
+        "p50": "P50",
+        "p95": "P95",
+        "max": "最大",
+        "none": "対応するパブリッシュに関連付けられたコンシュームはありません。スパンにリンクまたは親スパンが必要です。",
+        "unavailable": "トレースストアの応答がタイムアウトしました。時間範囲を短くしてお試しください。"
+      }
+    },
+    "calls": "呼び出し",
+    "calls_out": "呼び出し先",
+    "calls_in": "呼び出し元",
+    "gone_figures": "前の期間以降、呼び出しはありません"
+  },
+  "pagination": {
+    "aria": "一覧のページ",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "1ページあたりの行数",
+    "first_aria": "最初のページ",
+    "previous_aria": "前のページ",
+    "next_aria": "次のページ",
+    "last_aria": "最後のページ"
+  },
+  "settings": {
+    "catalog": "カタログエントリ",
+    "catalog_description": "手動で管理し、テレメトリに情報がない場合に使用します",
+    "reported": {
+      "title": "サービスからの報告",
+      "description": "表示中の期間とバージョンについて、インスタンスから報告された情報です",
+      "instances": "インスタンス",
+      "hosts": "ホスト",
+      "language": "言語",
+      "runtime": "ランタイム",
+      "framework": "フレームワーク",
+      "sdk": "SDK",
+      "cluster": "クラスター",
+      "k8s_namespace": "Kubernetes の名前空間",
+      "workload": "ワークロード",
+      "commit": "コミット",
+      "none": "報告なし"
+    },
+    "key_transactions": {
+      "title": "主要トランザクション",
+      "description": "エンドポイント一覧または詳細パネルでスターを付けた重要なエンドポイントです",
+      "empty": "主要トランザクションはまだありません。エンドポイント一覧でスターを付けると追加できます。",
+      "no_traffic": "対象期間内のリクエストなし"
+    }
+  },
+  "org_settings": {
+    "save": "保存",
+    "reset": "変更を元に戻す",
+    "remove": "削除",
+    "saved": "設定を保存しました",
+    "thresholds": {
+      "title": "ヘルスとしきい値",
+      "hint": "ヘルス、Apdex、ロングタスクの評価に使用する基準です",
+      "error_rate": "エラー率",
+      "warning": "警告しきい値",
+      "critical": "重大しきい値",
+      "apdex": "デフォルトの Apdex",
+      "apdex_hint": "サービス定義で T が設定されていない場合に使用します",
+      "long_task": "ロングタスク",
+      "issues": {
+        "error_rates": "警告しきい値のエラー率は 0 より大きく、重大しきい値より小さく設定してください。重大しきい値は 100% 以下に設定してください。",
+        "p95": "警告しきい値の P95 は 0 より大きく、重大しきい値より小さく設定してください。重大しきい値は 10 分以下に設定してください。",
+        "apdex": "Apdex T は 0 より大きく、1 分以下で指定してください。",
+        "long_task": "ロングタスクのしきい値は 1 ms 以上、10 分以下で指定してください。",
+        "numbers": "すべてのフィールドに数値を入力してください。"
+      }
+    },
+    "naming": {
+      "title": "サービスの命名",
+      "hint": "スパンの読み込み時に、最初に一致したルールでサービス名を変更します。",
+      "add": "ルールを追加",
+      "empty": "命名ルールがないため、サービスは報告された名前のまま読み込まれます。",
+      "pattern": "パターン",
+      "pattern_placeholder": "正規表現（例: ^(checkout)-[a-z0-9]{5}$）",
+      "replacement": "置換文字列",
+      "replacement_placeholder": "例: $1",
+      "try": "サービス名を試す",
+      "read_as": "適用後の名前",
+      "unchanged": "変更なし",
+      "traces_keep": "トレースでは、スパンに含まれる元の名前が保持されます。",
+      "unread": "ここではパターンを解析できません。サーバーは Rust の正規表現を使用し、解析できない場合はエラーを返します。"
+    },
+    "environments": {
+      "title": "環境マッピング",
+      "hint": "スパンの読み込み時に、大文字と小文字を区別せずに環境名を照合し、マッピング先の名前に変換します。",
+      "add": "マッピングを追加",
+      "empty": "マッピングがないため、環境は元の名前のまま読み込まれます。",
+      "from": "元の名前",
+      "to": "適用後の名前",
+      "twice": "同じ環境に複数のマッピングが設定されています。"
+    },
+    "aliases": {
+      "title": "サービスエイリアス",
+      "hint": "すべての APM ページで、保存済みのデータも含め、エイリアス名で報告されたデータは関連付け先のサービスのデータとして扱われます。エイリアスを削除すると、再び別々のサービスとして扱われます。",
+      "add": "エイリアスを追加",
+      "empty": "エイリアスがありません。",
+      "alias_namespace": "エイリアスの名前空間",
+      "alias": "エイリアス",
+      "namespace": "名前空間",
+      "service": "サービス",
+      "issues": {
+        "incomplete": "エイリアスと関連付け先のサービスの両方を指定してください。",
+        "itself": "サービスを自身のエイリアスにすることはできません。",
+        "twice": "同じ名前がエイリアスとして重複しています。",
+        "chained": "関連付け先のサービスが別のエイリアスとして設定されています。"
+      }
+    },
+    "catalog_rules": {
+      "title": "カタログの必須要件",
+      "hint": "カタログ内のサービスに適用する必須要件をティアごとに設定します。要件を満たさないサービスにはフラグが付きます。",
+      "never": "必須ではない",
+      "from_tier": "{{tier}} 以上",
+      "team_from_tier": "チーム",
+      "owner_from_tier": "オーナー",
+      "repository_from_tier": "リポジトリ"
+    },
+    "limits": {
+      "title": "カーディナリティの上限",
+      "hint": "プラットフォーム全体に適用されます。1時間あたりの上限を超えた分は「その他」として集計されます。",
+      "issue": "各上限は1～100000の整数で指定してください。",
+      "servicesPerOrgHour": "組織あたりのサービス数",
+      "transactionsPerServiceHour": "サービスあたりのエンドポイント数",
+      "dependenciesPerServiceHour": "サービスあたりの依存関係数",
+      "operationsPerDependencyHour": "依存関係あたりのオペレーション数",
+      "errorGroupsPerServiceHour": "サービスあたりのエラーグループ数",
+      "versionsPerServiceHour": "サービスあたりのバージョン数",
+      "instancesPerServiceHour": "サービスあたりのインスタンス数"
+    },
+    "sampling": {
+      "title": "トレースのサンプリング",
+      "version": "プラットフォーム全体に適用（バージョン {{version}}）",
+      "ratio": "通常のトレースの保持率",
+      "ratio_hint": "エラーや処理の遅いトレース、および以下のルールに一致するトレースには、それぞれの保持設定が適用されます。APMではサンプリング前のすべてのトレースが集計されます。",
+      "off": "トレースの保存は無効です",
+      "add": "ルールを追加",
+      "empty": "ルールがないため、通常の保持率が適用されます。",
+      "name": "名前",
+      "service": "サービス",
+      "route": "ルート",
+      "operation": "オペレーション",
+      "minimum": "最小所要時間（ms）",
+      "errors_only": "エラーのみ",
+      "action": "アクション",
+      "rule_ratio": "保持率（%）",
+      "actions": {
+        "keep": "保持",
+        "drop": "破棄",
+        "ratio": "指定の割合で保持"
+      },
+      "issue": "ルールには、名前、整数で指定したミリ秒単位の所要時間、0～100%の保持率が必要です。",
+      "published": "サンプリングポリシーのバージョン {{version}} を公開しました"
+    },
+    "quality": {
+      "title": "データ収集の品質",
+      "hint": "過去24時間",
+      "clean": "過去24時間に修正が必要な項目はありませんでした。",
+      "tone": {
+        "warning": "要修正",
+        "suggestion": "提案"
+      },
+      "overflow": "次の項目では、カーディナリティの上限を超えた分が「その他」として集計されました：{{kinds}}。",
+      "kinds": {
+        "service": "サービス",
+        "transaction": "エンドポイント",
+        "dependency": "依存関係",
+        "error": "エラーグループ",
+        "instance": "インスタンス",
+        "version": "バージョン"
+      },
+      "and": "、 ",
+      "raise_limits": "上限を引き上げる",
+      "limits_by_platform": "プラットフォームの管理者が設定します",
+      "gaps_one": "APM でスパンの欠落区間が {{count}} 件あります。",
+      "gaps_other": "APM でスパンの欠落区間が {{count}} 件あります。",
+      "stale": "APM の処理が遅れています。データが揃っている最新の時刻（分単位）は {{at}} です。",
+      "missing_one": "{{formatted}} 件のサービスで報告がない項目：",
+      "missing_other": "{{formatted}} 件のサービスで報告がない項目：",
+      "instrument": "計装を設定",
+      "environments": "{{names}} は大文字と小文字の違いしかありません。",
+      "map_to": "すべて {{name}} として扱う",
+      "generated": "{{name}} は {{base}} に自動生成されたサフィックスを付けた名前のようです。",
+      "add_rule": "命名ルールを追加"
+    }
+  },
+  "instances": {
+    "title": "インスタンス",
+    "description": "表示中の期間に、選択したバージョンのサービスを実行したプロセス",
+    "empty": "この期間に報告されたインスタンスはありません",
+    "columns": {
+      "instance": "インスタンス",
+      "version": "バージョン",
+      "where": "ワークロード / ホスト",
+      "runtime": "ランタイム",
+      "last_seen": "最終検出時刻",
+      "throughput": "スループット",
+      "error_rate": "エラー率",
+      "p95": "P95",
+      "signals": "ログ / メトリクス"
+    },
+    "other": "その他のインスタンス",
+    "other_hint": "インスタンス数の上限を超えた分をまとめて集計します",
+    "only_charts": "クリックすると、ランタイムチャートにこのインスタンスのみが表示されます",
+    "all_charts": "クリックすると、ランタイムチャートにすべてのインスタンスが表示されます"
+  },
+  "apdex": {
+    "threshold_title": "Apdex のしきい値 T = {{threshold}}"
+  },
+  "insights": {
+    "title": "インサイト",
+    "none": "この期間に特筆すべき変化はありません。",
+    "separator": "； ",
+    "and": "、 ",
+    "before": "直前の同じ長さの期間：{{value}}",
+    "week_before": "1 週間前の同じ時間帯：{{value}}",
+    "since": "{{at}}以降",
+    "changes_near": "その前後の変更：",
+    "severity": {
+      "critical": "重大",
+      "warning": "警告",
+      "info": "提案"
+    },
+    "kind": {
+      "anomaly": "変動",
+      "regression": "悪化",
+      "slow_dependency": "ボトルネック",
+      "repeated_call": "N+1",
+      "slow_query": "低速なSQL",
+      "hot_endpoint": "処理負荷の高いエンドポイント"
+    },
+    "metric": {
+      "error_rate": "エラー率",
+      "p95": "P95",
+      "throughput": "スループット"
+    },
+    "sentence": {
+      "anomaly_up": "{{metric}}が{{value}}に上昇しました（変更前：{{before}}）。",
+      "anomaly_down": "{{metric}}が{{value}}に低下しました（変更前：{{before}}）。",
+      "regression": "{{version}}では{{previous}}よりも{{metric}}が悪化し、{{before}}から{{value}}になりました。",
+      "slow_dependency": "{{target}}がリクエスト処理時間の{{share}}を占めています。",
+      "repeated_call": "リクエストごとに{{operation}}を{{each}}回呼び出しています（合計{{calls}}回）。このループは1回の呼び出しに置き換えられます。",
+      "slow_query": "{{operation}}：P95は{{p95}}（呼び出し{{calls}}回）",
+      "hot_endpoint": "{{endpoint}}がサービス全体の処理時間の{{share}}を占めています（P95：{{p95}}）。"
+    },
+    "change": {
+      "deployment": "デプロイ：",
+      "configuration": "設定変更：",
+      "feature_flag": "機能フラグ：",
+      "observed": "（スパンで初めて確認）"
+    },
+    "baseline": {
+      "previous": "直前の同じ長さの期間との比較：",
+      "last_week": "1週間前の同じ時間帯との比較：",
+      "throughput": "スループット",
+      "error_rate": "エラー率",
+      "points": "{{value}} pt"
+    }
+  },
+  "agent": {
+    "investigate": "調査",
+    "investigate_title": "Mole Agentに調査を依頼",
+    "prompt": {
+      "service": "{{environment}}環境の{{service}}について、{{from}}から{{to}}までに何が変動したか、その理由と、その前後にどのような変更があったかを調査してください。",
+      "endpoint": "{{environment}}環境の{{service}}のエンドポイント{{endpoint}}について、{{from}}から{{to}}までの処理時間の内訳、遅延や失敗の原因、その前後の変更を調査してください。",
+      "error": "{{environment}}環境の{{service}}で発生しているエラー{{error}}（フィンガープリント：{{fingerprint}}）について、いつから発生しているか、このエラーで失敗したリクエストの件数、考えられる原因を調査してください。",
+      "finding": "{{environment}}環境の{{service}}について、{{from}}から{{to}}までの次の検出事項を調査してください：{{finding}}"
+    }
+  }
+}

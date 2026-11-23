@@ -1,0 +1,653 @@
+{
+  "detail": {
+    "title": "Trace-Details",
+    "back": "Traces",
+    "trace_id": "trace_id",
+    "copy_trace_id": "Trace-ID kopieren",
+    "copy_span_id": "Span-ID kopieren",
+    "total_duration": "Gesamtdauer",
+    "share_of_trace": "{{percent}} % der Trace-Dauer",
+    "share_key": "Anteil an der Gesamtdauer",
+    "share_key_aria": "Die Balkenfarbe zeigt den Anteil des Spans an der Trace-Dauer: unter {{low}} %, {{low}}–{{mid}} %, {{mid}}–{{high}} %, {{high}} % und mehr. Ein fehlgeschlagener Span ist rot.",
+    "trace_label": "Trace",
+    "truncated": "gekürzt",
+    "search_spans": "Nach Dienst, Vorgang oder Span-ID suchen...",
+    "expand_all": "Ausklappen",
+    "collapse_all": "Einklappen",
+    "column_span": "Dienst / Vorgang",
+    "inspect_span_aria": "Details zu Span {{operation}}, {{service}}, {{duration}} anzeigen",
+    "toggle_children": "Untergeordnete Spans ein- oder ausklappen",
+    "leaf_span": "Span ohne untergeordnete Spans",
+    "span_error": "Fehler",
+    "span_match": "Treffer",
+    "close_span": "Span-Details schließen",
+    "span_id": "Span-ID",
+    "span_start_offset": "beginnt bei {{offset}} ({{percent}} %)",
+    "span_events": "Ereignisse",
+    "span_count_one": "{{count}} Span",
+    "span_count_other": "{{count}} Spans",
+    "service_count_one": "{{count}} Dienst",
+    "service_count_other": "{{count}} Dienste",
+    "error_count_one": "{{count}} Fehler",
+    "error_count_other": "{{count}} Fehler",
+    "related_logs": "Zugehörige Logs",
+    "service_metrics": "Dienstmetriken",
+    "search_logs": "Logs im zeitlichen Umfeld durchsuchen",
+    "view_user_session": "Benutzersitzung anzeigen",
+    "missing_title": "Trace-ID fehlt",
+    "missing_description": "Öffnen Sie die Trace-Details über eine Zeile in der Trace-Liste, damit die Trace-ID und der Zeitkontext erhalten bleiben.",
+    "not_found_title": "Trace nicht gefunden",
+    "not_found_description": "Im ausgewählten Zeitraum gibt es keine Spans zu dieser Trace-ID. Logs und Traces werden getrennt gespeichert. Daher gibt es nicht zu jeder Trace-ID in einer Logzeile einen gespeicherten Trace.",
+    "load_error_title": "Trace konnte nicht geladen werden",
+    "malformed_title": "Trace kann nicht angezeigt werden",
+    "malformed_multiple_roots": "Dieser Trace hat {{count}} Root-Spans. Für die Wasserfallansicht ist genau ein Root-Span erforderlich.",
+    "malformed_no_root": "Dieser Trace hat keinen Root-Span. Für die Wasserfallansicht ist genau ein Root-Span erforderlich.",
+    "malformed_empty": "Dieser Trace enthält keine Spans."
+  },
+  "session": {
+    "title": "Sitzungs-Traces",
+    "session_id": "session_id",
+    "empty_title": "Keine Traces in dieser Sitzung",
+    "empty_description": "Für diese Sitzungs-ID wurden in den letzten sieben Tagen keine Traces gefunden.",
+    "result_count_one": "{{count}} Trace",
+    "result_count_other": "{{count}} Traces",
+    "columns": {
+      "trace_id": "trace_id",
+      "service": "Service",
+      "operation": "Operation",
+      "duration_ms": "duration_ms"
+    }
+  },
+  "explore": {
+    "title": "Traces",
+    "subtitle": "Explorer",
+    "toolbar": {
+      "refresh": "Aktualisieren"
+    },
+    "tabs": {
+      "spans": "Spans",
+      "traces": "Traces",
+      "red": "RED-Detailansicht",
+      "service_graph": "Service-Graph"
+    },
+    "service_graph": {
+      "title": "Service-Graph",
+      "search_placeholder": "Services suchen",
+      "search_aria": "Services im Graphen suchen",
+      "clear_search": "Servicesuche zurücksetzen",
+      "layout_aria": "Layout des Service-Graphen",
+      "tree_view": "Baumansicht",
+      "graph_view": "Graphansicht",
+      "direction_aria": "Ausrichtung des Service-Graphen",
+      "horizontal": "Horizontal",
+      "vertical": "Vertikal",
+      "loading": "Service-Graph wird geladen…",
+      "health_legend": "Legende zum Servicezustand",
+      "border_color": "Rahmenfarbe",
+      "health": {
+        "healthy": "In Ordnung <1 %",
+        "degraded": "Beeinträchtigt 1–5 %",
+        "warning": "Warnung 5–10 %",
+        "critical": "Kritisch >10 %"
+      },
+      "entity_count": "{{count}} Services",
+      "match_count": "{{visible}} / {{total}} Services",
+      "show_types": "Typsymbole",
+      "hide_types": "Typsymbole ausblenden",
+      "no_match": "Keine Services entsprechen „{{query}}“.",
+      "empty": "Keine Daten für den Servicegraphen in der letzten Stunde."
+    },
+    "query": {
+      "editor_label": "Abfrageeditor",
+      "sql_hint": "Führen Sie SQL-Abfragen für den Trace-Stream aus.",
+      "field_hint_full": "Verwenden Sie Feldausdrücke wie trace_id = \"...\" / service_name contains \"checkout\"",
+      "clear": "Leeren",
+      "clear_query": "Abfrage leeren",
+      "run": "Abfrage ausführen",
+      "running": "Abfrage läuft…",
+      "free_text_label": "Freitext:",
+      "ignored_label": "Ignoriert:",
+      "empty_summary": "Traces",
+      "collapse_editor": "Abfrage einklappen",
+      "expand_editor": "Abfrage ausklappen"
+    },
+    "histogram": {
+      "label": "Histogramm",
+      "ok": "Ohne Fehler",
+      "errors": "Fehler",
+      "hide": "Histogramm ausblenden",
+      "show": "Histogramm anzeigen",
+      "latency_label": "Dauer der Traces",
+      "span_label": "Spans im Zeitverlauf",
+      "span_ok": "Spans",
+      "span_errors": "Fehlgeschlagene Spans"
+    },
+    "results": {
+      "no_match": "Keine Traces entsprechen der ausgewählten Abfrage.",
+      "loaded_count_one": "{{count}} Trace geladen",
+      "loaded_count_other": "{{count}} Traces geladen",
+      "close_detail": "Trace-Details schließen"
+    },
+    "recovery": {
+      "query_failed": "Trace-Abfrage fehlgeschlagen",
+      "no_data_title": "Keine passenden Traces",
+      "no_data_description": "In diesem Zeitraum wurden keine zugehörigen Traces gefunden. Leeren Sie die Abfrage oder erweitern Sie den Zeitraum, bevor Sie den Stream wechseln.",
+      "expand_time": "Zeitraum vervierfachen",
+      "clear_filters": "Abfrage leeren und erneut versuchen",
+      "query_docs": "Dokumentation zu Trace-Abfragen"
+    },
+    "pagination": {
+      "aria": "Seitennavigation für Trace-Ergebnisse",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "Traces pro Seite",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "first_aria": "Erste Seite der Trace-Ergebnisse",
+      "previous_aria": "Vorherige Seite",
+      "next_aria": "Nächste Seite",
+      "last_aria": "Letzte Seite der Traces"
+    },
+    "table": {
+      "columns": {
+        "status": "Status",
+        "http": "HTTP",
+        "start": "Startzeit",
+        "service": "Service",
+        "operation": "Operation",
+        "duration": "Dauer",
+        "spans": "Spans",
+        "errors": "Fehler",
+        "trace": "Trace-ID",
+        "kind": "Typ"
+      },
+      "sort_by": "Nach {{column}} sortieren",
+      "sorted_descending": "Nach {{column}} sortiert, größte oder neueste Werte zuerst. Klicken Sie hier, um die Reihenfolge umzukehren.",
+      "sorted_ascending": "Nach {{column}} sortiert, kleinste oder älteste Werte zuerst. Klicken Sie hier, um die Reihenfolge umzukehren.",
+      "open_aria": "Trace öffnen: {{operation}}, {{service}}, {{duration}}",
+      "open_span_aria": "Span öffnen: {{operation}}, {{service}}, {{duration}}",
+      "status_ok": "OK",
+      "status_error": "Fehler"
+    },
+    "columns": {
+      "title": "Spalten",
+      "visible": "Sichtbare Spalten",
+      "reorder_hint": "Reihenfolge durch Ziehen ändern",
+      "drag_aria": "{{name}} verschieben. Ziehen Sie die Spalte oder drücken Sie Alt+Pfeil nach oben oder Alt+Pfeil nach unten.",
+      "reset": "Auf Standard zurücksetzen",
+      "available": "Verfügbare Spalten",
+      "root_fields": "Felder des Root-Spans",
+      "full": "Es werden höchstens {{count}} Spalten angezeigt. Entfernen Sie zuerst eine Spalte."
+    },
+    "labels": {
+      "title": "Felder",
+      "collapse": "Felder einklappen",
+      "expand": "Felder ausklappen",
+      "resize": "Größe des Feldbereichs durch Ziehen ändern; per Doppelklick zurücksetzen",
+      "filter_placeholder": "Felder suchen",
+      "filter_aria": "Trace-Felder filtern",
+      "common_fields": "Häufige Felder",
+      "displayed_fields": "Angezeigte Felder",
+      "indexed_fields": "Indizierte Felder",
+      "no_indexed_fields": "In diesem Stream sind keine Felder indiziert.",
+      "other_fields": "Weitere Felder",
+      "show_field_aria": "{{name}} aus dem Root-Span jedes Traces als Spalte anzeigen",
+      "hide_field_aria": "Spalte {{name}} entfernen",
+      "add_field_aria": "{{name}} zur Abfrage hinzufügen",
+      "json_query_required": "{{name}} erfordert im SQL-Modus eine JSON-Pfadabfrage",
+      "direct_query_unavailable": "{{name}} kann nicht direkt abgefragt werden",
+      "fields_summary": "{{shown}} / {{total}} Felder",
+      "values_count_one": "{{count}} Wert",
+      "values_count_other": "{{count}} Werte",
+      "values_top": "Top {{shown}} von {{count}} Werten",
+      "values_in_traces_one": "in {{matched}} von {{count}} Trace",
+      "values_in_traces_other": "in {{matched}} von {{count}} Traces",
+      "analysis_scope_spans_one": "Aus allen Spans des {{count}} geladenen Trace",
+      "analysis_scope_spans_other": "Aus allen Spans der {{count}} geladenen Traces",
+      "analysis_scope_traces_one": "Aus dem {{count}} geladenen Trace",
+      "analysis_scope_traces_other": "Aus den {{count}} geladenen Traces",
+      "values_loading": "Werte für {{name}} werden geladen",
+      "values_failed": "Die Werte konnten nicht geladen werden.",
+      "no_values": "Die geladenen Traces enthalten keinen Wert für dieses Feld.",
+      "no_traces": "Es sind keine Traces geladen.",
+      "value_trace_count_one": "{{count}} Trace",
+      "value_trace_count_other": "{{count}} Traces",
+      "value_span_count_one": "{{count}} Span",
+      "value_span_count_other": "{{count}} Spans",
+      "filter_for": "Nach diesem Wert filtern",
+      "filter_out": "Diesen Wert ausschließen",
+      "filter_at_least": "Mindestens dieser Wert",
+      "filter_at_most": "Höchstens dieser Wert",
+      "filter_remove": "Diesen Filter entfernen",
+      "filter_for_aria": "Nach {{name}} = {{value}} filtern",
+      "filter_out_aria": "{{name}} = {{value}} ausschließen",
+      "filter_at_least_aria": "{{name}} auf mindestens {{value}} filtern",
+      "filter_at_most_aria": "{{name}} auf höchstens {{value}} filtern",
+      "range_min": "Min.",
+      "range_avg": "Ø",
+      "range_max": "Max.",
+      "range_earliest": "Frühester Zeitpunkt",
+      "range_latest": "Spätester Zeitpunkt"
+    },
+    "red": {
+      "select_range": "Ziehen Sie im Diagramm einen Bereich auf, um den Zeitraum einzugrenzen",
+      "lead_hint": "Aufschlüsselung unten nach dieser Kennzahl sortieren",
+      "ok": "Erfolgreich",
+      "rate": {
+        "title": "Rate",
+        "aria": "Anfragerate im Zeitverlauf",
+        "detail": "Insgesamt {{requests}}"
+      },
+      "errors": {
+        "title": "Fehler",
+        "rate": "Fehlerrate",
+        "aria": "Fehlerrate im Zeitverlauf",
+        "detail": "{{errors}} fehlgeschlagen",
+        "untold": "Der Stream enthält keine Statusinformationen, anhand derer sich fehlgeschlagene Anfragen erkennen lassen",
+        "only": "Nur fehlgeschlagene Anfragen"
+      },
+      "duration": {
+        "title": "Dauer",
+        "aria": "Perzentile der Dauer im Zeitverlauf",
+        "view_label": "Ansicht der Dauer",
+        "trend": "Trend",
+        "distribution": "Verteilung",
+        "distribution_name": "Verteilung der Dauer",
+        "distribution_aria": "{{name}}: Der höchste Balken umfasst {{max}} Anfragen. Wechseln Sie mit den Pfeiltasten zwischen den Balken. Drücken Sie die Eingabetaste, um nur Anfragen im Zeitbereich des gewählten Balkens anzuzeigen. Wählen Sie durch Ziehen mehrere Balken aus.",
+        "bar_readout": "{{range}}: {{total}} Anfragen, davon {{errors}} fehlgeschlagen",
+        "percentiles_aria": "p95 {{p95}}, p99 {{p99}}"
+      },
+      "scope": {
+        "label": "Gezählte Anfragen",
+        "entry": "Eingangs-Spans",
+        "all": "Alle Spans",
+        "hint": "Eingangs-Spans markieren, wo ein Dienst eine Anfrage entgegennimmt: Dazu zählen Server- und Consumer-Spans sowie der Root-Span jedes Traces, sofern dieser kein Client- oder Producer-Aufruf ist. Jeder dieser Spans zählt als eine Anfrage."
+      },
+      "path": {
+        "label": "Drilldown-Pfad",
+        "root": "Alle",
+        "back_to": "Zurück zu {{step}}",
+        "remove": "{{step}} entfernen"
+      },
+      "breakdown": {
+        "by": "Aufschlüsseln nach <field></field>",
+        "dimension": "Feld für die Aufschlüsselung",
+        "no_dimension": "Feld auswählen",
+        "search": "Felder suchen",
+        "no_match": "Keine passenden Felder",
+        "common": "Häufige Felder",
+        "other": "Weitere Felder",
+        "values": "{{count}} Werte",
+        "values_more": "Top {{count}} Werte",
+        "value": "Wert",
+        "requests": "Anfragen",
+        "error_rate": "Fehlerrate",
+        "p95": "p95",
+        "trend": "Trend",
+        "actions": "Aktionen",
+        "no_value": "(kein Wert)",
+        "drill": "Details zu {{clause}} anzeigen",
+        "open_spans": "Traces dieser Anfragen anzeigen",
+        "loading": "Aufschlüsselung wird erstellt…",
+        "empty": "Keine Werte für die Aufschlüsselung",
+        "failed": "Die Aufschlüsselung konnte nicht geladen werden"
+      },
+      "states": {
+        "sql_title": "Keine RED-Kennzahlen für SQL-Anweisungen",
+        "sql_description": "Für RED werden die Anfragen gezählt, die einer Feldabfrage entsprechen. Löschen Sie die Anweisung oder formulieren Sie sie als Feldabfrage.",
+        "sql_action": "Anweisung löschen",
+        "empty_entry_title": "Keine passenden Einstiegs-Spans",
+        "empty_entry_description": "Möglicherweise entsprechen nur interne oder nachgelagerte Spans den Bedingungen. Zählen Sie stattdessen alle Spans.",
+        "empty_entry_action": "Alle Spans zählen",
+        "empty_title": "Keine passenden Spans",
+        "empty_description": "In diesem Zeitraum entspricht nichts den Bedingungen. Erweitern Sie den Zeitraum.",
+        "empty_action": "Zeitraum erweitern",
+        "failed_title": "RED-Kennzahlen konnten nicht geladen werden",
+        "unavailable_title": "RED-Kennzahlen sind nicht verfügbar",
+        "retry": "Erneut versuchen",
+        "unavailable": {
+          "time_budget": "Das Zählen hat zu lange gedauert. Grenzen Sie den Zeitraum ein oder fügen Sie Bedingungen hinzu und versuchen Sie es erneut.",
+          "busy": "Es laufen zu viele Abfragen. Versuchen Sie es gleich noch einmal.",
+          "scan_limit": "Der Zeitraum enthält mehr Spans, als eine einzelne Abfrage lesen darf. Grenzen Sie den Zeitraum ein oder fügen Sie Bedingungen hinzu.",
+          "timestamp_masked": "Die Zeitstempel sind für Sie maskiert. Daher ist keine Darstellung auf einer Zeitachse möglich.",
+          "field_protected": "Dieses Feld ist für Sie maskiert. Daher lassen sich die Anfragen nicht danach aufschlüsseln."
+        }
+      }
+    },
+    "spans": {
+      "loaded_count_one": "{{count}} Span geladen",
+      "loaded_count_other": "{{count}} Spans geladen"
+    },
+    "compare": {
+      "start": "Zwei Traces zum Vergleich auswählen",
+      "stop": "Trace-Auswahl beenden",
+      "bar": "Zum Vergleich ausgewählte Traces",
+      "hint": "Wählen Sie zwei Traces zum Vergleich aus.",
+      "ready": "B mit A vergleichen:",
+      "unpick": "{{operation}} aus der Auswahl entfernen",
+      "compare": "Vergleichen",
+      "cancel": "Abbrechen",
+      "pick_aria": "Trace {{operation}}, {{service}}, {{duration}} zum Vergleich auswählen"
+    }
+  },
+  "attributes": {
+    "view": "Attributansicht",
+    "list": "Tabelle",
+    "json": "JSON-Rohdaten",
+    "search": "Tags suchen",
+    "copy_failed": "Kopieren in die Zwischenablage fehlgeschlagen",
+    "no_matches": "Keine passenden Tags.",
+    "copy_value_for": "Wert für {{key}} kopieren",
+    "copied": "Kopiert",
+    "actions": "Aktionen für {{key}}",
+    "copy_key": "Schlüssel kopieren",
+    "copy_value": "Wert kopieren",
+    "copy_pair": "Schlüssel=Wert kopieren",
+    "include": "Zur Abfrage hinzufügen",
+    "exclude": "Diesen Wert ausschließen",
+    "fields_only": "Wechseln Sie in den Feldmodus, um diesen Filter hinzuzufügen.",
+    "scalar_only": "Zum Filtern sind ein nicht leerer Skalarwert und ein unterstützter Feldname erforderlich."
+  },
+  "view": {
+    "views": {
+      "label": "Trace-Ansichten",
+      "waterfall": "Wasserfall",
+      "flame": "Flammendiagramm",
+      "spans": "Span-Liste",
+      "map": "Service-Karte"
+    },
+    "summary": {
+      "duration": "Dauer",
+      "start": "Gestartet",
+      "size": "Größe",
+      "trace_id": "Trace-ID",
+      "errors_one": "{{count}} Fehler",
+      "errors_other": "{{count}} Fehler",
+      "spans_one": "{{count}} Span",
+      "spans_other": "{{count}} Spans",
+      "services_one": "{{count}} Service",
+      "services_other": "{{count}} Services",
+      "depth": "Tiefe {{depth}}",
+      "orphans_one": "{{count}} Span ohne übergeordneten Span",
+      "orphans_other": "{{count}} Spans ohne übergeordneten Span",
+      "orphans_hint": "Die übergeordneten Spans wurden nicht empfangen. Die betroffenen Spans werden daher als eigene Wurzelknoten angezeigt.",
+      "links_one": "{{count}} Verknüpfung zu anderen Spans",
+      "links_other": "{{count}} Verknüpfungen zu anderen Spans",
+      "jumps": "Zugehörige Signale",
+      "jump": {
+        "logs": "Zugehörige Logs",
+        "metrics": "Service-Metriken",
+        "profiles": "Profile",
+        "session": "Benutzersitzung"
+      }
+    },
+    "toolbar": {
+      "search": "Spans durchsuchen",
+      "search_placeholder": "Spans durchsuchen, service:api, duration>100ms",
+      "no_match": "Keine Treffer",
+      "previous_match": "Vorheriger Treffer (Umschalt+Eingabe)",
+      "next_match": "Nächster Treffer (Eingabetaste)",
+      "errors_only_one": "Nur fehlgeschlagene Spans ({{count}})",
+      "errors_only_other": "Nur fehlgeschlagene Spans ({{count}})",
+      "expand_all": "Alle ausklappen",
+      "collapse_all": "Alle einklappen",
+      "focused": "Fokus auf {{operation}}",
+      "unfocus": "Gesamten Trace anzeigen",
+      "zoomed": "Vergrößerter Zeitraum: {{from}} – {{to}}",
+      "unzoom": "Gesamte Zeitachse anzeigen",
+      "open_panel": "Span-Details anzeigen",
+      "critical_path": "Kritischer Pfad"
+    },
+    "legend": {
+      "aria": "Dienste im Trace",
+      "item": "{{service}}: {{percent}} % der Eigenzeit des Trace",
+      "more_one": "+{{count}} weiterer Dienst",
+      "more_other": "+{{count}} weitere Dienste",
+      "critical": "Kritischer Pfad: {{duration}}",
+      "critical_aria": "Dienste auf dem kritischen Pfad",
+      "critical_item": "{{service}}: {{percent}} % des kritischen Pfads, {{duration}}"
+    },
+    "overview": {
+      "aria": "Gesamter Trace",
+      "hint": "Ziehen Sie einen Bereich auf, um ihn zu vergrößern. Per Doppelklick zeigen Sie die gesamte Zeitachse an."
+    },
+    "waterfall": {
+      "column": "Span",
+      "resize_names": "Spaltenbreite für Span-Namen ändern"
+    },
+    "row": {
+      "select_aria": "Span {{operation}}, {{service}}, {{duration}} auswählen",
+      "expand": "Aufgerufene Spans anzeigen",
+      "collapse": "Aufgerufene Spans ausblenden",
+      "descendants_one": "{{count}} untergeordneter Span",
+      "descendants_other": "{{count}} untergeordnete Spans",
+      "failed": "Fehlgeschlagen",
+      "links_one": "{{count}} Verknüpfung mit einem anderen Span",
+      "links_other": "{{count}} Verknüpfungen mit anderen Spans",
+      "critical": "Auf dem kritischen Pfad",
+      "profiled": "Dieser Span wurde in Profil-Samples erfasst"
+    },
+    "groups": {
+      "name": "Dienst / Operation",
+      "spans": "Spans",
+      "errors": "Fehler",
+      "average": "Durchschnitt",
+      "total": "Gesamt",
+      "self": "Eigenzeit",
+      "share": "Anteil an der Eigenzeit",
+      "fold": "Operationen von {{service}} ausblenden",
+      "unfold": "Operationen von {{service}} anzeigen"
+    },
+    "map": {
+      "entry": "Einstieg",
+      "calls_one": "{{count}} Aufruf",
+      "calls_other": "{{count}} Aufrufe",
+      "errors_one": "{{count}} fehlgeschlagen",
+      "errors_other": "{{count}} fehlgeschlagen",
+      "spans_one": "{{count}} Span",
+      "spans_other": "{{count}} Spans",
+      "share": "{{percent}}% Eigenzeit"
+    },
+    "panel": {
+      "aria": "Span-Details",
+      "tabs": "Abschnitte der Span-Details",
+      "focus": "Nur diesen Span und die von ihm aufgerufenen Spans anzeigen",
+      "close": "Span-Details ausblenden",
+      "resize": "Größe der Span-Detailansicht ändern",
+      "duration": "Dauer",
+      "self": "Eigenzeit",
+      "offset": "Startzeit",
+      "share": "{{percent}}% des Traces",
+      "span_id": "Span-ID",
+      "parent": "Übergeordneter Span"
+    },
+    "kind": {
+      "unspecified": "Nicht angegeben",
+      "internal": "Intern",
+      "server": "Server",
+      "client": "Client",
+      "producer": "Producer",
+      "consumer": "Consumer"
+    },
+    "status": {
+      "ok": "OK",
+      "error": "Fehler",
+      "unset": "Nicht gesetzt"
+    },
+    "tabs": {
+      "attributes": "Attribute",
+      "resource": "Ressource",
+      "events": "Ereignisse",
+      "links": "Links",
+      "logs": "Logs",
+      "metrics": "Metriken",
+      "profile": "Profil"
+    },
+    "tags": {
+      "empty": "Dieser Span hat keine eigenen Attribute.",
+      "empty_resource": "Die Ressource dieses Spans hat keine Attribute.",
+      "groups": {
+        "http": "HTTP",
+        "database": "Datenbank",
+        "rpc": "RPC",
+        "messaging": "Messaging",
+        "error": "Fehler",
+        "code": "Code",
+        "service": "Service",
+        "deployment": "Deployment",
+        "host": "Host",
+        "process": "Prozess",
+        "container": "Container und Cloud",
+        "telemetry": "Telemetrie-SDK",
+        "other": "Sonstiges"
+      }
+    },
+    "metadata": {
+      "title": "Aufzeichnung",
+      "scope": "Instrumentierung",
+      "trace_state": "Trace-Status",
+      "trace_flags": "Trace-Flags",
+      "sampling": "Grund für die Aufbewahrung",
+      "dropped_attributes": "Verworfene Attribute",
+      "dropped_events": "Verworfene Ereignisse",
+      "dropped_links": "Verworfene Links",
+      "notes": "Notizen",
+      "flags": {
+        "partial": "unvollständig",
+        "late": "verspätet eingegangen",
+        "duplicate": "zweimal empfangen",
+        "conflict": "widersprüchliche Kopien"
+      }
+    },
+    "events": {
+      "empty": "Dieser Span hat keine Ereignisse aufgezeichnet."
+    },
+    "links": {
+      "outgoing": "Links von diesem Span",
+      "incoming": "Spans mit Links zu diesem Span",
+      "none_outgoing": "Dieser Span enthält keine Links.",
+      "none_incoming": "Im einstündigen Zeitfenster um den Trace verweist kein Span aus einem anderen Trace auf diesen Span.",
+      "searching": "Spans mit Links zu diesem Span werden gesucht…",
+      "failed": "Die Spans mit Links zu diesem Span konnten nicht geladen werden.",
+      "more": "Es gibt weitere Spans mit Links zu diesem Span, die hier nicht angezeigt werden.",
+      "trace": "Trace",
+      "this_trace": "Dieser Trace",
+      "span": "Span",
+      "unavailable": {
+        "time_budget": "Die Suche hat zu lange gedauert. Öffnen Sie den Trace später erneut.",
+        "busy": "Es laufen zu viele Abfragen. Versuchen Sie es in Kürze erneut.",
+        "scan_limit": "Das einstündige Zeitfenster um den Trace enthält mehr Spans, als eine einzelne Abfrage lesen kann."
+      }
+    },
+    "logs": {
+      "scope": "Logs für",
+      "span": "Dieser Span",
+      "trace": "Gesamter Trace",
+      "open": "In Logs öffnen",
+      "loading": "Logs werden geladen…",
+      "no_stream": "Kein Log-Stream speichert eine Trace-ID.",
+      "failed": "Die Logs konnten nicht geladen werden.",
+      "none_span": "Keine Log-Zeile verweist auf diesen Span.",
+      "none_trace": "Keine Log-Zeile verweist auf diesen Trace."
+    },
+    "metrics": {
+      "window": "Jeweils 15 Minuten vor und nach dem Span, auf Minutenbasis.",
+      "service": "Service",
+      "operation": "Operation",
+      "requests": "Anfragen",
+      "errors": "Fehler",
+      "p95": "p95-Dauer",
+      "open_red": "In RED öffnen",
+      "loading": "Wird geladen…",
+      "failed": "Die Metriken konnten nicht geladen werden."
+    },
+    "drawer": {
+      "back": "Zurück zum vorherigen Trace",
+      "previous": "Vorheriger Trace in der Liste (K)",
+      "next": "Nächster Trace in der Liste (J)",
+      "open_page": "Detailseite des Traces öffnen",
+      "resize": "Größe der Trace-Seitenleiste ändern"
+    },
+    "export": {
+      "label": "Trace herunterladen",
+      "json": "JSON",
+      "json_hint": "Spans im Ausgabeformat der Trace-API",
+      "otlp": "OTLP JSON",
+      "otlp_hint": "resourceSpans im Eingabeformat eines Collectors"
+    },
+    "profile": {
+      "loading": "Profile werden gesucht…",
+      "none": "Mit diesem Span sind keine Profil-Samples verknüpft.",
+      "none_hint": "Wenn ein Profiler Samples wie bei OTLP-Profilen mit dem Trace-Kontext erfasst, verknüpft er sie mit dem Span, in dem sie erfasst wurden.",
+      "around": "Profile im zeitlichen Umfeld dieses Spans",
+      "linked_one": "{{count}} Profil ist mit diesem Span verknüpft.",
+      "linked_other": "{{count}} Profile sind mit diesem Span verknüpft.",
+      "samples_one": "{{samples}} Sample",
+      "samples_other": "{{samples}} Samples",
+      "types": "Profiltypen",
+      "top": "Top-Funktionen",
+      "top_of": "{{type}}: höchste Eigenwerte",
+      "failed": "Der Flame Graph konnte nicht geladen werden.",
+      "empty": "Die Samples enthalten keine Stack-Frames.",
+      "open_flame": "Flame Graph öffnen",
+      "open_page": "In Profile öffnen",
+      "dialog_title": "Profil für {{operation}}",
+      "dialog_description_one": "{{service}} · {{type}} · {{count}} Profil zusammengeführt",
+      "dialog_description_other": "{{service}} · {{type}} · {{count}} Profile zusammengeführt"
+    }
+  },
+  "compare": {
+    "page_title": "Trace-Vergleich",
+    "side": "Trace {{side}}",
+    "open": "Öffnen",
+    "loading": "Wird geladen…",
+    "swap": "A und B tauschen",
+    "stop": "Vergleich beenden",
+    "duration": {
+      "same": "Beide dauerten {{duration}}.",
+      "longer": "B dauerte länger als A:",
+      "shorter": "B dauerte kürzer als A:"
+    },
+    "change": {
+      "none": "Gleich",
+      "new": "neu",
+      "gone": "Nicht in B"
+    },
+    "tabs": {
+      "label": "Vergleich",
+      "services": "Nach Service",
+      "operations": "Nach Operation",
+      "calls": "Nur in einem Trace"
+    },
+    "columns": {
+      "service": "Service",
+      "operation": "Service / Operation",
+      "spans_a": "Spans in A",
+      "spans_b": "Spans in B",
+      "time_a": "Zeit in A",
+      "time_b": "Zeit in B",
+      "time_hint": "Eigenzeit: Ausführungszeit der Spans ohne Wartezeit auf die von ihnen aufgerufenen Spans",
+      "change": "B im Vergleich zu A"
+    },
+    "more_one": "{{count}} weitere Zeile wird nicht angezeigt",
+    "more_other": "{{count}} weitere Zeilen werden nicht angezeigt",
+    "calls": {
+      "only_a": "Nur in A",
+      "only_b": "Nur in B",
+      "spans_one": "{{count}} Span",
+      "spans_other": "{{count}} Spans",
+      "none": "Alle Aufrufe dieses Traces kommen auch im anderen Trace vor.",
+      "same": "In beiden Traces kommen dieselben Aufrufe gleich häufig vor.",
+      "under_one": "und {{count}} aufgerufener Span",
+      "under_other": "und {{count}} aufgerufene Spans"
+    },
+    "unavailable_title": "Die beiden Traces können nicht verglichen werden",
+    "unavailable_description": "Einer der beiden Traces wurde nicht gefunden. Ist ein Trace älter als einen Tag, benötigen Sie einen Link mit dem Ausführungszeitpunkt, etwa aus einer Zeile der Trace-Liste.",
+    "with": {
+      "label": "Mit einem anderen Trace vergleichen",
+      "field": "Trace-ID für den Vergleich",
+      "placeholder": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "same": "Das ist derselbe Trace.",
+      "submit": "Vergleichen"
+    }
+  }
+}

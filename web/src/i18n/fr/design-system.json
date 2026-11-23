@@ -1,0 +1,24 @@
+{
+  "states": {
+    "loading": {
+      "title": "Chargement",
+      "description": "Récupération des dernières données."
+    },
+    "empty": {
+      "title": "Pas encore de données",
+      "description": "Créez un premier élément ou ajustez les filtres actuels."
+    },
+    "error": {
+      "title": "Échec de la requête",
+      "description": "Le backend a renvoyé une erreur."
+    },
+    "backend-pending": {
+      "title": "En attente du backend",
+      "description": "Cette interface est prête, mais le point de terminaison associé n’est pas encore disponible."
+    },
+    "permission-denied": {
+      "title": "Autorisation requise",
+      "description": "Votre rôle actuel ne vous permet pas d’accéder à ce flux de travail."
+    }
+  }
+}

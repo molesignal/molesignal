@@ -1,0 +1,36 @@
+{
+  "templates": {
+    "overview": "Übersicht",
+    "list": "Liste",
+    "detail": "Details",
+    "builder": "Editor",
+    "settings": "Einstellungen",
+    "gate": "Gate",
+    "fixture_title": "Testvorlagen",
+    "fixture_subtitle": "Wiederverwendbare Seitengerüste mit lokalen Beispieldaten"
+  },
+  "actions": {
+    "create": "Erstellen",
+    "refresh": "Aktualisieren"
+  },
+  "fixture": {
+    "alerts": "Alarme",
+    "cost": "Kosten",
+    "dashboards": "Dashboards",
+    "errors": "Fehler",
+    "filters": "Filter",
+    "general": "Allgemein",
+    "healthy": "Funktionsfähig",
+    "datasource": "Datenquelle",
+    "last_24h": "Letzte 24 h",
+    "latency": "Latenz",
+    "month_to_date": "Seit Monatsbeginn",
+    "name": "Name",
+    "organization": "Organisation",
+    "owner": "Verantwortlich",
+    "search": "Suchen",
+    "selected": "{{count}} ausgewählt",
+    "state": "Status",
+    "updated": "Aktualisiert"
+  }
+}

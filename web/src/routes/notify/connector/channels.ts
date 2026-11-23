@@ -1,4 +1,5 @@
 import type { NotifyChannel } from '@/api/notify';
+import { isMainlandChinese } from '@/i18n/locales';
 
 /** The channels connector types deliver through, in the order the type picker lists them. */
 export const CONNECTOR_CHANNELS: readonly NotifyChannel[] = ['im', 'phone', 'sms', 'email', 'webhook'];
@@ -41,7 +42,7 @@ export interface ChannelType {
 
 /** The connector types the server offers, by channel and in the interface language's order. */
 export function orderConnectorTypes(offered: readonly string[], language: string): ChannelType[] {
-  const domesticFirst = language.toLowerCase().startsWith('zh');
+  const domesticFirst = isMainlandChinese(language);
   const known = new Set<string>();
   const ordered: ChannelType[] = [];
 

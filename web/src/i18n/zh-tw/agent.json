@@ -1,0 +1,3489 @@
+{
+  "chats": "對話",
+  "new_chat": "新增對話",
+  "untitled": "未命名",
+  "chat_list_resize": "拖曳以調整對話清單寬度，按兩下可恢復預設寬度",
+  "chat_delete": "刪除對話",
+  "chat_rename": "重新命名",
+  "chat_rename_label": "對話名稱",
+  "forked": "已建立新的分支對話",
+  "chat_delete_title": "刪除對話？",
+  "chat_delete_confirm": "「{{title}}」的記錄會先封存，再從對話記錄中刪除。",
+  "chat_delete_action": "刪除",
+  "chat_deleting": "正在刪除…",
+  "chat_deleted": "已刪除對話",
+  "history_empty_title": "尚無對話",
+  "history_empty_description": "開始調查後，對話和情境資訊會儲存在這裡。",
+  "quick_title": "快速開始",
+  "quick": {
+    "scenes": {
+      "incident": {
+        "title": "排查事件",
+        "prompt": "排查目前最嚴重且尚未解決的事件：先列出調查計畫，再逐項提供證據，不對正式環境執行任何變更。"
+      },
+      "query": {
+        "title": "用自然語言查詢資料",
+        "prompt": "過去一小時哪個服務的錯誤最多？請按服務列出錯誤數量。",
+        "prompt_service": "{{service}} 在過去一小時的錯誤依狀態碼如何分布？"
+      },
+      "noise": {
+        "title": "減少警示雜訊",
+        "hint": "找出過去 7 天造成不必要打擾的警示規則，提出修改建議供核准"
+      },
+      "inspection": {
+        "title": "建立一項排程巡檢",
+        "hint": "讓 Mole Agent 依排程檢查日誌，發現問題就通知你"
+      }
+    }
+  },
+  "chat_groups": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "last_7_days": "過去 7 天",
+    "older": "更早"
+  },
+  "context": {
+    "title": "目前的情境資訊",
+    "add": "新增情境資訊",
+    "clear": "清除情境資訊",
+    "auto_description": "尚未繫結服務或警示，Mole Agent 會根據問題自動選擇資料範圍。",
+    "editor_title": "新增調查情境資訊",
+    "editor_description": "這些值會隨下一則訊息傳送，使用者仍可查看。",
+    "environment": "環境",
+    "environment_placeholder": "例如：production",
+    "service": "服務",
+    "service_placeholder": "例如：checkout-api",
+    "alert": "警示",
+    "alert_placeholder": "例如：high_error_rate"
+  },
+  "module_subtitle": "你的 AI 可觀測性維運助手。",
+  "nav": {
+    "label": "AI 代理導覽",
+    "chat": "對話",
+    "investigations": "調查",
+    "automations": "自動化",
+    "quality": "品質",
+    "approvals": "審核",
+    "executions": "執行記錄",
+    "settings": "設定",
+    "knowledge": "知識"
+  },
+  "overview": {
+    "label": "AI 維運總覽",
+    "active": "調查中",
+    "pending_approvals": "待審核"
+  },
+  "workspace": {
+    "start_title": "AI 驅動的維運助手",
+    "start_description": "告訴我發生了什麼事、繼續追問，或選擇一個問題開始。這個對話會持續保留調查脈絡。",
+    "context_title": "脈絡",
+    "context_description": "套用至目前的對話",
+    "scope": "範圍",
+    "signals": "訊號",
+    "context_auto": "自動辨識",
+    "all_environments": "所有環境",
+    "time_range": "時間範圍",
+    "active_alerts": "作用中的警示",
+    "on_call": "目前值班",
+    "unassigned": "尚未排班",
+    "command_bar": "代理命令列",
+    "connections": {
+      "metrics": "指標",
+      "logs": "日誌",
+      "traces": "追蹤"
+    },
+    "connection_state": {
+      "connected": "在線",
+      "attention": "需要留意",
+      "no_data": "目前沒有資料",
+      "checking": "檢查中",
+      "unavailable": "功能受限"
+    },
+    "no_model": {
+      "title": "尚未啟用 AI 模型",
+      "description": "Mole Agent 使用 AI 模型回答問題，但目前的組織尚未啟用任何模型。",
+      "ask_admin": "Mole Agent 使用 AI 模型回答問題，請聯絡管理員在設定中啟用模型。",
+      "configure": "設定 AI 模型"
+    }
+  },
+  "common": {
+    "status": "狀態",
+    "updated": "更新時間",
+    "time": "時間",
+    "open": "開啟",
+    "back": "返回",
+    "close": "關閉",
+    "actions": "操作",
+    "cancel": "取消",
+    "create": "建立",
+    "edit": "編輯",
+    "save": "儲存",
+    "saving": "儲存中…",
+    "invalid_json": "{{field}} 的 JSON 格式錯誤：{{message}}",
+    "json_object_required": "{{field}} 必須是 JSON 物件"
+  },
+  "confidence": {
+    "high": "高",
+    "medium": "中",
+    "low": "低"
+  },
+  "status": {
+    "draft": "草稿",
+    "pending": "等待執行",
+    "running": "調查中",
+    "waiting_for_data": "等待資料",
+    "waiting_for_approval": "等待核准",
+    "verifying_recovery": "驗證復原中",
+    "completed": "已完成",
+    "partially_completed": "部分完成",
+    "failed": "失敗",
+    "cancelled": "已取消",
+    "succeeded": "成功",
+    "partially_succeeded": "部分成功",
+    "rolled_back": "已回復",
+    "verification_failed": "驗證失敗",
+    "proposed": "待驗證",
+    "testing": "驗證中",
+    "supported": "已獲得支持",
+    "insufficient_evidence": "證據不足",
+    "rejected": "已拒絕",
+    "approved": "已核准",
+    "expired": "已失效",
+    "executed": "已執行",
+    "verified": "已驗證",
+    "unverified": "尚未驗證",
+    "inference": "推測",
+    "suggestion": "建議",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "skipped": "已略過"
+  },
+  "investigations": {
+    "title": "調查任務",
+    "description": "從事件發起或手動建立的調查：Mole Agent 會在調查過程中記錄步驟、證據與結論。",
+    "create": "建立調查任務",
+    "created": "調查任務已建立",
+    "edit": "編輯調查任務",
+    "updated": "調查任務已更新",
+    "create_description": "Mole Agent 會逐步記錄使用的工具、輸入、證據，以及各步驟對結論的影響。",
+    "editor_description": "維護任務狀態、目前結論、調查脈絡與初始步驟。",
+    "title_placeholder": "例如：付款服務錯誤率上升調查",
+    "confidence_unset": "未設定",
+    "steps_hint": "每行輸入一個調查步驟，或用逗號分隔。",
+    "empty_title": "還沒有調查任務",
+    "empty_description": "複雜或需要持續追蹤的問題，可以從對話轉換為調查任務。",
+    "sections": {
+      "basic": "任務資訊",
+      "steps": "初始步驟",
+      "context": "調查脈絡"
+    },
+    "fields": {
+      "title": "標題",
+      "summary": "目前結論",
+      "confidence": "信心程度",
+      "current_step": "目前步驟",
+      "steps": "調查步驟",
+      "context": "脈絡 JSON"
+    },
+    "columns": {
+      "task": "調查任務",
+      "current_step": "目前步驟",
+      "source": "來源"
+    },
+    "default_steps": {
+      "context": "取得警示與服務脈絡",
+      "metrics": "查詢錯誤率與延遲變化",
+      "logs": "尋找異常日誌",
+      "traces": "建立異常追蹤的關聯",
+      "hypothesis": "驗證主要根因假設",
+      "recommendation": "提出處置建議"
+    },
+    "from_incident": "來自事件",
+    "by_hand": "手動建立",
+    "open_chat": "開啟對話"
+  },
+  "investigation_detail": {
+    "description": "每個步驟的工具呼叫、證據與假設皆可追溯。",
+    "confidence": "信心水準",
+    "current_conclusion": "目前結論",
+    "no_conclusion": "Mole Agent 尚未得出可驗證的結論。",
+    "steps": "調查步驟",
+    "hypotheses": "根本原因假設",
+    "timeline": "調查時間軸",
+    "no_hypotheses": "尚未建立根本原因假設。",
+    "no_steps": "尚未記錄調查步驟。",
+    "no_evidence": "尚未記錄證據。",
+    "operations_title": "尚無建議操作",
+    "operations_description": "Mole Agent 提出的寫入操作會先列入審核記錄，不會直接執行。",
+    "runs_title": "尚無相關執行記錄",
+    "runs_description": "經核准後執行的操作會在執行記錄中保留參數、結果和驗證狀態。",
+    "tabs": {
+      "overview": "總覽",
+      "timeline": "時間軸",
+      "evidence": "證據",
+      "queries": "查詢",
+      "operations": "建議操作",
+      "runs": "執行記錄"
+    }
+  },
+  "automations": {
+    "title": "自動化",
+    "description": "不必有人參與對話，也能讓 Mole Agent 執行任務：可定時執行、在有新事件或 CI/CD 呼叫時執行，也可手動執行。每次執行都會儲存為一段對話，可開啟查看。",
+    "create": "新增自動化",
+    "empty_title": "還沒有自動化",
+    "empty_hint": "可從範本開始，例如自動分析事件或每日健康檢查。",
+    "denied": "只有能管理這個範圍內自動化的使用者才能執行此操作",
+    "list_separator": "、",
+    "clone_name": "{{name}}（副本）",
+    "columns": {
+      "name": "名稱",
+      "trigger": "觸發",
+      "last_run": "上次執行",
+      "enabled": "啟用",
+      "actions": "操作"
+    },
+    "cells": {
+      "next": "下次 {{when}}",
+      "paused": "已暫停",
+      "token": "權杖 {{prefix}}…",
+      "no_token": "還沒有權杖",
+      "never": "尚未執行",
+      "writes_rca": "將結論寫回事件 RCA",
+      "channels_one": "通知 {{count}} 個管道",
+      "channels_other": "通知 {{count}} 個管道",
+      "no_output": "只保留執行紀錄"
+    },
+    "actions": {
+      "run": "立即執行",
+      "run_named": "立即執行「{{name}}」",
+      "runs": "執行紀錄",
+      "runs_named": "「{{name}}」的執行紀錄",
+      "edit": "編輯",
+      "edit_named": "編輯「{{name}}」",
+      "more_named": "「{{name}}」的更多操作",
+      "clone": "複製",
+      "token": "API 權杖",
+      "delete": "刪除",
+      "toggle_named": "啟用或停用「{{name}}」"
+    },
+    "trigger_kind": {
+      "schedule": "排程",
+      "incident": "新事件",
+      "api": "API 呼叫",
+      "manual": "手動",
+      "finding": "新的自動發現"
+    },
+    "trigger_hint": {
+      "schedule": "依 Cron 運算式指定的時間執行，最短間隔為 15 分鐘。",
+      "incident": "每個符合條件的新事件執行一次。同一事件，或 30 分鐘內屬於同一組的事件，只分析一次。",
+      "api": "外部系統使用權杖呼叫時執行，並以傳入的文字作為這次執行的前後文。儲存後可在清單的這一列產生權杖。",
+      "manual": "只有手動啟動時才會執行。",
+      "finding": "每有一筆符合條件的新自動發現就執行一次；同一筆發現只調查一次。"
+    },
+    "trigger_summary": {
+      "incident": "所有新事件",
+      "incident_severities": "新的{{severities}}事件",
+      "api": "API 呼叫",
+      "manual": "手動",
+      "finding": "每筆新的自動發現",
+      "finding_severity": "{{severity}}及以上的新發現"
+    },
+    "cron": {
+      "weekdays_morning": "工作日 09:00",
+      "daily_morning": "每天 09:00",
+      "monday_morning": "每週一 10:00",
+      "hourly": "每小時"
+    },
+    "severity": {
+      "critical": "嚴重",
+      "error": "錯誤",
+      "warning": "警告",
+      "info": "資訊"
+    },
+    "run_status": {
+      "running": "執行中",
+      "succeeded": "成功",
+      "partial": "部分完成",
+      "failed": "失敗",
+      "skipped": "已略過",
+      "blocked": "需要人工處理",
+      "abandoned": "已停止"
+    },
+    "reasons": {
+      "budget_exhausted": "組織今天的 Mole Agent token 預算已用完。",
+      "still_running": "上一次執行尚未結束。",
+      "already_analyzed": "這個事件或同一組的事件剛剛已分析過。",
+      "run_as_unavailable": "目前的執行身分已無法在這裡使用 Mole Agent。重新儲存後，就會改用你的身分執行。",
+      "no_model": "這個組織沒有已啟用的 AI 模型。",
+      "timeout": "執行超過時間上限。",
+      "error": "模型或工具發生錯誤。",
+      "question": "Mole Agent 有個問題沒有人能回答，因此依自己的判斷繼續執行。",
+      "confirmation": "有個工具需要人工確認才能執行，因此未執行。",
+      "credential": "有一台 MCP 伺服器需要使用執行身分自己的憑證，但這些憑證尚未儲存。",
+      "delivery": "有通知未能送出。",
+      "rca": "未能完成事件的 RCA。",
+      "stopped": "已由使用者停止。",
+      "interrupted": "執行這項自動化的伺服器已停止運作。"
+    },
+    "editor": {
+      "new_title": "新增自動化",
+      "edit_title": "編輯自動化",
+      "subtitle": "設定 Mole Agent 要做什麼、何時執行，以及將結果傳送到哪裡。",
+      "what": "任務",
+      "name": "名稱",
+      "name_placeholder": "每日健康檢查",
+      "prompt": "要做什麼",
+      "prompt_hint": "每次執行時都會將這段內容交給 Mole Agent，就像在新對話中提問。它可以使用指定範圍內的工具、技能和知識。",
+      "prompt_placeholder": "檢查結算相關服務過去 24 小時的錯誤率和延遲，說明哪些服務需要留意。",
+      "description": "說明",
+      "description_placeholder": "用一句話說明用途",
+      "scope": "歸屬",
+      "scope_hint": "執行時會載入這個範圍內的知識、技能和 MCP 伺服器。這個範圍也會決定誰能看到這項自動化。建立後無法變更範圍；如需變更，請複製這項自動化。",
+      "when": "觸發",
+      "trigger": "觸發方式",
+      "presets": "常用排程",
+      "cron": "Cron",
+      "cron_hint": "分鐘、小時、日期、月份、星期",
+      "cron_invalid": "需要五個欄位：分鐘、小時、日期、月份、星期",
+      "timezone": "時區",
+      "severities": "嚴重程度",
+      "severities_hint": "若都不選，則不限制嚴重程度。",
+      "rules": "警示規則",
+      "rules_hint": "都不選就不限制規則。",
+      "services": "服務",
+      "services_hint": "以逗號分隔。事件只要影響其中一項服務就符合條件。留空表示不限制。",
+      "labels": "標籤",
+      "labels_hint": "每行填一組 key=value，事件必須符合所有條件。",
+      "timeout": "時間上限",
+      "timeout_hint": "執行超過時間上限就會停止，並記為失敗。",
+      "minutes_one": "{{count}} 分鐘",
+      "minutes_other": "{{count}} 分鐘",
+      "enabled": "啟用",
+      "outputs": "結果",
+      "channels": "通知管道",
+      "channels_hint": "執行完成、需要人工處理或執行失敗時，傳送結論和執行連結。",
+      "channels_none": "尚未設定通知連接器。",
+      "channels_unavailable": "無法列出通知連接器：選擇通知管道需要 notify.connectors.read 權限。",
+      "write_rca": "將結論寫成事件的 RCA",
+      "run_as": "儲存後，這項自動化會以你的身分執行，使用你的權限和你在 MCP 伺服器上的憑證。",
+      "save": "儲存",
+      "create": "建立",
+      "finding_kinds": "類型",
+      "finding_kinds_hint": "未勾選任何類型時，包含所有類型。",
+      "min_severity": "至少",
+      "any_severity": "不限嚴重程度",
+      "finding_subjects": "服務、主機或容器",
+      "finding_subjects_hint": "以逗號分隔；留空表示全部。"
+    },
+    "runs": {
+      "subtitle": "最新的執行記錄排在前面，每次執行都會儲存為一段對話。",
+      "none": "尚未執行過。",
+      "input": "觸發時附帶的內容：{{text}}",
+      "undelivered": "未送達：{{targets}}",
+      "open_chat": "查看執行過程",
+      "rca": "已寫成事件的 RCA"
+    },
+    "templates": {
+      "title": "新增自動化",
+      "subtitle": "可從空白或範本開始。範本會預先填好任務和觸發方式。",
+      "blank": "空白自動化",
+      "blank_description": "自行撰寫任務，選擇何時執行。"
+    },
+    "token": {
+      "title": "「{{name}}」的 API 權杖",
+      "description": "外部系統（例如 CI/CD 任務）使用此權杖呼叫時，就會啟動這項自動化。",
+      "shown_once": "請現在複製權杖，之後不會再顯示。產生新權杖時，會取代目前的權杖。",
+      "copy": "複製權杖",
+      "example": "呼叫方式：",
+      "current": "已設定權杖（{{prefix}}…），產生新權杖會立即取代它。",
+      "none": "尚無權杖。",
+      "create": "產生權杖",
+      "rotate": "產生新權杖",
+      "revoke": "撤銷權杖",
+      "revoked": "權杖已撤銷"
+    },
+    "toast": {
+      "created": "自動化已建立",
+      "saved": "自動化已儲存",
+      "deleted": "自動化已刪除",
+      "started": "「{{name}}」正在執行",
+      "not_started": "「{{name}}」未開始執行：{{reason}}"
+    },
+    "delete_confirm": {
+      "title": "要刪除自動化「{{name}}」嗎？",
+      "description": "執行記錄會一併刪除，但執行時留下的對話會保留。",
+      "confirm": "刪除",
+      "busy": "正在刪除…"
+    }
+  },
+  "automation_run": {
+    "notice": "這是自動化「{{name}}」的一次執行記錄，僅供檢視。若要再試一次，請重新執行這項自動化。",
+    "open": "檢視自動化"
+  },
+  "drill_run": {
+    "notice": "這是演練「{{name}}」的一次執行記錄，僅供檢視。若要再試一次，請到「品質」分頁的「演練」重新執行。",
+    "open": "檢視演練"
+  },
+  "quality": {
+    "title": "品質",
+    "description": "看看 Mole Agent 回答得如何：每則回答都會依規則評分，評審會用模型抽樣評分。低分或被評為沒有幫助的回答會列入待審。",
+    "views": {
+      "overview": "總覽",
+      "answers": "回答",
+      "reviews": "待審",
+      "gaps": "資料缺口",
+      "drills": "演練",
+      "evaluators": "評審"
+    },
+    "gaps": {
+      "description": "從回答呼叫工具的過程找出資料缺口：資料在哪裡、服務叫什麼、是否有工具能先整理資料。個人對話只計入總計。",
+      "empty_title": "這段期間沒有任何回答曾呼叫工具",
+      "empty_hint": "評分時會檢查回答呼叫工具的過程。你可以改選較長的時間範圍。",
+      "none_listed": "可列出的回答中未發現缺口。",
+      "no_stream": "某個資料串流",
+      "answers_one": "{{count}} 則回答",
+      "answers_other": "{{count}} 則回答",
+      "totals": {
+        "label": "這段期間的資料缺口",
+        "answers": "曾呼叫工具的回答",
+        "with_gaps": "有缺口"
+      },
+      "kinds": {
+        "data_map": {
+          "title": "資料在哪裡",
+          "hint": "反覆查詢同一個資料串流卻大多查無資料或發生錯誤，或反覆檢視資料結構的回答"
+        },
+        "field_alignment": {
+          "title": "服務名稱",
+          "hint": "在指標或 APM 中查得到某個服務，卻在日誌或追蹤中用同一個名稱查不到的回答"
+        },
+        "feature_tools": {
+          "title": "先扼要整理再看",
+          "hint": "反覆擷取原始日誌或原始序列，卻未查看模式或趨勢的回答"
+        }
+      },
+      "fixes": {
+        "data_map": "寫清楚每個服務的資料在哪裡、如何篩選：記在服務目錄的資料入口，或知識庫中的 MOLE.md。",
+        "field_alignment": "讓同一個服務在各類資料中使用相同的名稱（service.name），或在服務目錄中將其他名稱記為別名。",
+        "feature_tools": "讓 Mole Agent 能使用「分析日誌模式」和「分析指標趨勢」：檢查組織的 Agent Profile 工具集是否排除了這兩項工具。"
+      },
+      "notes": {
+        "repeated_queries_one": "查詢了 {{stream}} {{count}} 次，其中 {{misses}} 次沒有結果或發生錯誤",
+        "repeated_queries_other": "查詢了 {{stream}} {{count}} 次，其中 {{misses}} 次沒有結果或發生錯誤",
+        "structure_lookups_one": "查看了 {{count}} 次結構",
+        "structure_lookups_other": "查看了 {{count}} 次結構",
+        "structure_lookups_stream_one": "查看了 {{count}} 次結構，多半是 {{stream}}",
+        "structure_lookups_stream_other": "查看了 {{count}} 次結構，多半是 {{stream}}",
+        "service_mismatch": "{{service}} 在指標或 APM 中有資料，用這個名稱查詢 {{stream}} 卻沒有結果",
+        "raw_log_pulls_one": "擷取了 {{count}} 次 {{stream}} 的原始日誌，未查看日誌模式",
+        "raw_log_pulls_other": "擷取了 {{count}} 次 {{stream}} 的原始日誌，未查看日誌模式",
+        "raw_metric_pulls_one": "擷取了 {{count}} 次 {{stream}} 的原始序列，未查看指標趨勢",
+        "raw_metric_pulls_other": "擷取了 {{count}} 次 {{stream}} 的原始序列，未查看指標趨勢"
+      }
+    },
+    "drills": {
+      "description": "將已解決的事件當成正在發生，讓 Mole Agent 重新調查，再將結論與事後確認的根本原因比對並評分。更換模型、Prompt 或工具後，把所有演練重跑一遍，就能看出調查有沒有改善。",
+      "new": "新增演練",
+      "new_title": "新增演練",
+      "new_subtitle": "選擇要重新調查的事件，以及用來比對結論的根本原因",
+      "create": "建立",
+      "created": "已建立演練「{{name}}」",
+      "run": "執行",
+      "run_named": "執行演練「{{name}}」",
+      "run_all": "全部重跑",
+      "runs": "執行紀錄",
+      "runs_named": "「{{name}}」的執行紀錄",
+      "runs_title": "演練的執行紀錄",
+      "more_named": "「{{name}}」的更多操作",
+      "started": "演練已開始執行，調查結束後將評分。",
+      "started_all_one": "{{count}} 個演練已開始執行",
+      "started_all_other": "{{count}} 個演練已開始執行",
+      "deleted": "已刪除演練",
+      "delete": "刪除",
+      "delete_confirm": {
+        "title": "刪除演練「{{name}}」？",
+        "description": "執行紀錄和分數會一併刪除，但執行期間的對話會保留。",
+        "busy": "正在刪除…"
+      },
+      "none": "還沒有演練",
+      "none_hint": "選擇近 180 天內已解決、且事後檢討中已記錄根本原因的事件來建立演練。",
+      "never_run": "尚未執行",
+      "no_runs": "還沒執行過。",
+      "columns": {
+        "drill": "演練",
+        "source": "參考根因",
+        "last_run": "最近一次",
+        "mean": "平均分數",
+        "runs": "次數"
+      },
+      "sources": {
+        "postmortem": "取自事後檢討",
+        "manual": "手動撰寫"
+      },
+      "status": {
+        "running": "調查中…",
+        "grading": "評分中…",
+        "done": "已評分",
+        "failed": "沒有分數"
+      },
+      "failures": {
+        "budget_exhausted": "今天的 AI 預算已用完",
+        "no_model": "沒有可用的 AI 模型",
+        "incident_gone": "事件已不存在",
+        "start_failed": "無法開始執行",
+        "run_failed": "調查失敗",
+        "run_cancelled": "調查已停止",
+        "run_interrupted": "調查已中斷",
+        "no_answer": "調查未產生回答",
+        "grading_failed": "無法為回答評分"
+      },
+      "reference": "參考根因",
+      "reference_hint": "事後確認的根因，用來比對調查找到的根因。",
+      "reference_text": "根因",
+      "own_reference": "不使用事後檢討中的根因，改由自己填寫",
+      "pick_first": "請先選擇一個事件。",
+      "incident": "事件",
+      "incident_hint": "近 180 天內已解決，且在事後檢討中記載根因的事件。",
+      "candidates": "已解決的事件",
+      "candidate_hint": "{{resolved}} 解決 · {{cause}}",
+      "no_candidates": "近 180 天內已解決的事件中，沒有任何事件在事後檢討中記載根因。你可以輸入事件 ID，自行填寫根因。",
+      "other_incident": "其他事件",
+      "other_incident_hint": "輸入事件 ID，自行填寫根因",
+      "incident_id": "事件 ID",
+      "incident_id_placeholder": "事件頁面網址中的 ID",
+      "open_incident": "開啟事件",
+      "open_run": "查看調查",
+      "prompt_version": "Prompt v{{version}}"
+    },
+    "empty_title": "還沒有評過分的回答",
+    "empty_hint": "回答寫完就會評分。在「評審」中新增評審，即可再由模型抽樣評分。",
+    "no_score": "—",
+    "rules": "規則",
+    "evaluator_deleted": "已刪除的評審",
+    "list_separator": "、",
+    "filters": {
+      "days": "時間範圍",
+      "last_days_one": "最近 {{count}} 天",
+      "last_days_other": "最近 {{count}} 天",
+      "source": "來源"
+    },
+    "sources": {
+      "all": "所有來源",
+      "personal_chat": "個人對話",
+      "team_chat": "團隊對話",
+      "automation": "自動化",
+      "incident_rca": "事件 RCA"
+    },
+    "totals": {
+      "label": "合計",
+      "answers": "已評分的回答",
+      "rules_mean": "規則",
+      "rules_hint": "規則評分的平均分數，0 到 100",
+      "evaluated": "已評審",
+      "evaluator_mean": "評審",
+      "evaluator_hint": "評審給出的平均分數，0 到 100",
+      "thumbs_up": "有幫助",
+      "thumbs_down": "沒有幫助",
+      "pending_reviews": "待審"
+    },
+    "trend": {
+      "title": "每日分數",
+      "rules": "規則",
+      "evaluators": "評審"
+    },
+    "dimensions": {
+      "title": "規則",
+      "column": "規則項目",
+      "tool_success": {
+        "title": "工具呼叫",
+        "hint": "未發生錯誤的呼叫"
+      },
+      "evidence": {
+        "title": "證據",
+        "hint": "引用的證據有工具執行結果佐證"
+      },
+      "query_validity": {
+        "title": "查詢",
+        "hint": "可剖析的 SQL 與 PromQL"
+      },
+      "answer_format": {
+        "title": "格式",
+        "hint": "符合要求的回答格式"
+      },
+      "completion": {
+        "title": "完成",
+        "hint": "這一輪已完成"
+      },
+      "feedback": {
+        "title": "評價",
+        "hint": "提問者是否覺得有幫助"
+      }
+    },
+    "groups": {
+      "sources": "依來源",
+      "prompts": "依 Prompt 版本",
+      "skills": "依 Skill",
+      "models": "依模型",
+      "prompt_version": "{{name}} v{{version}}",
+      "none": "這段期間沒有資料"
+    },
+    "columns": {
+      "answer": "回答",
+      "source": "來源",
+      "score": "分數",
+      "scored_by": "評分者",
+      "when": "回答時間",
+      "name": "名稱",
+      "answers": "回答數",
+      "rules": "規則",
+      "evaluated": "已評審",
+      "evaluators": "評審",
+      "cause": "原因",
+      "status": "狀態",
+      "actions": "操作"
+    },
+    "notes": {
+      "tools_ok_one": "工具呼叫成功",
+      "tools_ok_other": "{{count}} 次工具呼叫都成功",
+      "tools_failed": "{{total}} 次工具呼叫中有 {{failed}} 次失敗",
+      "evidence_none": "未引用證據",
+      "evidence_one": "引用了 {{count}} 則證據",
+      "evidence_other": "引用了 {{count}} 則證據",
+      "evidence_unbacked_one": "引用了 {{count}} 則證據，但沒有成功的工具呼叫",
+      "evidence_unbacked_other": "引用了 {{count}} 則證據，但沒有成功的工具呼叫",
+      "queries_ok_one": "查詢可解析",
+      "queries_ok_other": "{{count}} 筆查詢都可解析",
+      "queries_invalid": "{{total}} 筆查詢中有 {{invalid}} 筆無法解析",
+      "format_ok": "符合要求的格式",
+      "format_plain": "不符合要求的格式",
+      "completion": {
+        "succeeded": "已完成",
+        "blocked": "已完成，但過程中需要人工處理，卻無人可詢問",
+        "empty": "已完成，但沒有回答",
+        "failed": "失敗",
+        "cancelled": "已被停止",
+        "interrupted": "已中斷"
+      },
+      "feedback_up": "評為有幫助",
+      "feedback_down": "評為沒有幫助",
+      "feedback_down_reasons": "評為沒有幫助：{{reasons}}"
+    },
+    "answers": {
+      "description": "已評分的回答，最新的排在前面。個人對話只計入總數。",
+      "low_only": "只看低分",
+      "none_low": "沒有低於待審門檻的回答",
+      "empty_hint": "回答完成後就會評分；試試其他時間範圍或來源。",
+      "more": "顯示更多",
+      "no_question": "沒有問題"
+    },
+    "answer": {
+      "title": "回答分數",
+      "open_chat": "開啟對話",
+      "open_incident": "開啟事件",
+      "evaluators": "評審",
+      "not_evaluated": "尚未有評審評分。",
+      "samples_one": "評分 {{count}} 次",
+      "samples_other": "{{count}} 次評分的平均",
+      "rules": "規則",
+      "question": "問題",
+      "answer": "回答",
+      "tools_one": "呼叫工具 {{count}} 次，失敗 {{failed}} 次",
+      "tools_other": "呼叫工具 {{count}} 次，失敗 {{failed}} 次",
+      "gone": "對話或 RCA 已不存在。"
+    },
+    "reviews": {
+      "description": "需要人工審查的回答：分數低於門檻、被評為沒有幫助，或隨機抽中的回答。確認有問題就採納，納入迴歸測試集；檢查提示詞時會重新回答這些問題。",
+      "status_label": "狀態",
+      "filter": {
+        "pending": "待審",
+        "accepted": "已採納",
+        "rejected": "已駁回",
+        "all": "全部"
+      },
+      "status": {
+        "pending": "待審",
+        "accepted": "已採納",
+        "rejected": "已駁回"
+      },
+      "causes": {
+        "low_score": "分數低",
+        "thumbs_down": "被評為沒有幫助",
+        "sampled": "隨機抽中"
+      },
+      "none_pending": "沒有待審的回答",
+      "none": "沒有紀錄",
+      "empty_hint": "分數低於待審門檻、被提問者評為沒有幫助，或抽中複審的回答會顯示在這裡。",
+      "note": "備註",
+      "note_placeholder": "哪裡答錯了？好的回答應該答對哪些重點？",
+      "accept": "採納",
+      "reject": "駁回",
+      "accept_hint": "採納：回答有問題，加入迴歸測試集。駁回：回答沒有問題。",
+      "decided": {
+        "accepted": "已採納，加入迴歸測試集",
+        "rejected": "已駁回"
+      }
+    },
+    "evaluators": {
+      "description": "評審會用模型依照你寫的評分標準為回答打 1 到 5 分，並用一兩句話說明理由。",
+      "new": "新增評審",
+      "none": "還沒有評審",
+      "none_hint": "沒有評審時，每個回答仍會依規則評分。新增評審後，還會用模型抽樣評分。",
+      "new_title": "新增評審",
+      "edit_title": "編輯評審",
+      "subtitle": "評審會使用上次儲存該評審的使用者所用的介面語言撰寫理由。",
+      "what": "看什麼",
+      "name": "名稱",
+      "rubric": "評分標準",
+      "rubric_hint": "好的回答該做到哪些事，哪些情況會扣分。評審會給 1 到 5 分。",
+      "which": "評哪些",
+      "targets": "回答",
+      "targets_hint": "個人對話只依規則評分：只有本人能讀取。",
+      "sample": "抽樣比例",
+      "sample_hint": "依這個百分比從新回答中抽樣評分。被評為沒有幫助的回答都會評分，低分的回答會再評一次。",
+      "sample_short": "抽樣",
+      "model_section": "模型",
+      "provider": "模型服務",
+      "provider_default": "組織中第一個可用的模型服務",
+      "model": "模型",
+      "model_default": "該服務的預設模型",
+      "temperature": "溫度",
+      "temperature_hint": "設為 0 可讓分數更穩定。",
+      "enabled": "啟用",
+      "enabled_short": "啟用",
+      "toggle": "啟用或停用 {{name}}",
+      "edit": "編輯",
+      "edit_named": "編輯 {{name}}",
+      "more_named": "{{name}} 的更多操作",
+      "delete": "刪除",
+      "delete_confirm": {
+        "title": "刪除 {{name}}？",
+        "description": "這個評審給過的分數會保留，排定由它評分但尚未完成的工作會取消。",
+        "busy": "刪除中…"
+      },
+      "deleted": "評審已刪除",
+      "created": "已新增 {{name}}",
+      "saved": "已儲存 {{name}}",
+      "create": "新增",
+      "save": "儲存",
+      "default_name": "回答準確度",
+      "default_rubric": "評估這個回答是否找出問題並說明清楚。\n5：結論正確，每項說法都有工具查到的結果支持。\n4：正確，但有少許遺漏，或有少數細節缺乏依據。\n3：部分正確，或內容正確但證據說明不清楚。\n2：大多缺乏依據，或答非所問。\n1：錯誤或憑空捏造。"
+    },
+    "settings": {
+      "title": "設定",
+      "description": "設定哪些回答要列入待審，以及如何檢查新的預設 Prompt。",
+      "threshold": "待審門檻",
+      "threshold_hint": "分數（0 到 100）低於此門檻的回答會列入待審。",
+      "sample": "隨機複審",
+      "sample_hint": "從其餘回答中依此比例隨機抽樣，列入待審，以校準審查標準。",
+      "gate": "將 Prompt 設為預設前",
+      "gates": {
+        "warn": "檢查，品質下降時再次確認",
+        "block": "檢查，品質下降時禁止設為預設",
+        "off": "不檢查"
+      },
+      "gate_hint": {
+        "warn": "將用於對話或 RCA 的組織 Prompt 設為預設前，須先檢查；若尚未檢查或新版本品質下降，須再次確認。",
+        "block": "只有通過檢查且品質未下降的 Prompt 才能設為預設。",
+        "off": "設為預設時不檢查。"
+      },
+      "save": "儲存",
+      "saved": "設定已儲存"
+    }
+  },
+  "approvals": {
+    "title": "核准記錄",
+    "description": "所有實際寫入操作都必須依風險等級取得核准後才能執行。",
+    "agent_suggestion": "Mole Agent 建議執行下列操作",
+    "reason": "原因",
+    "impact": "影響範圍與風險",
+    "parameters": "執行參數",
+    "reject": "拒絕",
+    "approve": "核准",
+    "execute": "核准並執行",
+    "execution_started": "操作已送交執行",
+    "one_time_token_title": "一次性 API Token",
+    "one_time_token_description": "請立即複製此 API Token。明文不會寫入執行記錄，之後也無法再次查看。",
+    "copy_one_time_token": "複製 API Token",
+    "one_time_token_copied": "API Token 已複製",
+    "one_time_token_copy_failed": "無法複製 API Token",
+    "empty_title": "沒有待核准的操作",
+    "empty_description": "Mole Agent 提出的受管控操作會顯示在這裡。"
+  },
+  "executions": {
+    "title": "執行記錄",
+    "description": "查看所有實際操作的參數快照、冪等鍵、結果與復原驗證。",
+    "empty_title": "尚無執行記錄",
+    "empty_description": "只有經核准的操作才會列入執行記錄。",
+    "columns": {
+      "operation": "操作",
+      "target": "目標",
+      "verification": "驗證"
+    }
+  },
+  "settings": {
+    "title": "代理程式設定",
+    "description": "設定 Mole Agent 的模型、Prompt、工具與能力、資料範圍、網路與核准原則。",
+    "blocked": "已封鎖",
+    "allowed": "允許",
+    "tabs": {
+      "profiles": "Agent Profile",
+      "models": "模型與推論",
+      "prompts": "Prompt 管理",
+      "tools": "工具與能力",
+      "inbound_mcp": "Inbound MCP",
+      "im": "IM 整合",
+      "data": "資料存取範圍",
+      "network": "網路原則",
+      "approvals": "核准規則",
+      "usage": "用量",
+      "skills": "技能"
+    },
+    "inbound_mcp": {
+      "title": "Inbound MCP Server",
+      "description": "允許外部 AI 用戶端透過 MCP 端點管理目前的組織，並由 MoleSignal 的驗證與原則控管存取。",
+      "enabled": "啟用",
+      "endpoint": "端點",
+      "protocols": "通訊協定版本",
+      "saved": "已儲存 Inbound MCP 設定",
+      "invalid_limits": "所有執行限制都必須是正整數。",
+      "allowed_origins": "允許的瀏覽器 Origin",
+      "origins_hint": "每行輸入一個完整的 HTTP 或 HTTPS Origin。未帶有 Origin 的要求和同源要求仍會放行。",
+      "copy": "複製位址",
+      "copied": "已複製位址",
+      "save": "儲存設定",
+      "security": {
+        "title": "租用戶與原則限制",
+        "description": "伺服器只會從憑證判定使用者與組織身分。可用的 Tool 取決於憑證 IAM 權限與組織 Tool Policy 的交集；Agent Profile 不會縮小此範圍。"
+      },
+      "credentials": {
+        "title": "憑證",
+        "description": "支援個人 API Token、Service Account API Token 和 OAuth 2.1。Inbound MCP 絕不會以明文傳回 API Token。",
+        "api_tokens": "管理 API Token",
+        "service_accounts": "管理 Service Account"
+      },
+      "runtime": {
+        "title": "單次要求的執行限制",
+        "description": "變更會在下一次 MCP HTTP 要求開始時生效，已開始的要求會繼續使用各自的設定快照。",
+        "request_size": "要求大小（MB）",
+        "response_size": "回應大小（MB）",
+        "concurrent_calls": "每個憑證的並行呼叫數",
+        "calls_per_minute": "每個憑證每分鐘的呼叫數",
+        "read_timeout": "讀取逾時（毫秒）"
+      },
+      "oauth": {
+        "title": "OAuth 連線",
+        "description": "檢視及撤銷目前組織簽發的 OAuth 2.1 Token Family。",
+        "discovery_title": "OAuth 2.1 探索",
+        "discovery_description": "用戶端無法自動探索受保護的資源時，可以使用這些位址手動設定 OAuth。",
+        "protected_metadata": "受保護資源的中繼資料",
+        "authorization_metadata": "授權伺服器的中繼資料",
+        "registration_endpoint": "動態註冊端點",
+        "token_endpoint": "Token 端點",
+        "empty": "沒有 OAuth 連線",
+        "empty_description": "使用者授權 MCP 用戶端後，連線就會顯示在這裡。",
+        "authorized_by": "授權使用者：{{value}}",
+        "expires": "最新 Token 的到期時間：{{value}}",
+        "revoke": "撤銷",
+        "revoked": "已撤銷 OAuth 連線"
+      },
+      "prompt": {
+        "title": "設定提示詞",
+        "description": "複製提示詞並貼到 Claude Code、Cursor 等代理程式工具中，工具就會將 MoleSignal 新增為 MCP 伺服器。",
+        "copy": "複製提示詞",
+        "copied": "已複製",
+        "protocol": "傳輸方式",
+        "stdio": "stdio（建議）",
+        "http": "Streamable HTTP",
+        "text_stdio": "請將 MoleSignal 新增為 MCP 伺服器並連線：\n- 名稱：molesignal\n- 傳輸方式：stdio\n- 指令：npx -y @molesignal/cli mcp\n新增前，請先在終端機執行 npx -y @molesignal/cli login --url {{address}}：這會開啟瀏覽器，讓你登入 MoleSignal 並同意授權，不需要 API Key。\n如果無法開啟瀏覽器，請改在此 MCP 伺服器的環境變數中設定 MOLESIGNAL_URL={{address}} 和 MOLESIGNAL_TOKEN=<MoleSignal API Token>。我會在 MoleSignal 中建立 Token 後提供給你。\n設定完成後，請列出 molesignal 提供的工具，確認連線成功。",
+        "text_http": "請將 MoleSignal 新增為 MCP 伺服器並連線：\n- 名稱：molesignal\n- 位址：{{endpoint}}\n- 傳輸方式：Streamable HTTP\n- 驗證：OAuth 2.1。連線時會開啟瀏覽器，讓你登入 MoleSignal 並同意授權，不需要 API Key。\n如果你不支援 OAuth，請在請求標頭中加上 Authorization: Bearer <MoleSignal API Token>。我會在 MoleSignal 中建立 Token 後提供給你。\n設定完成後，請列出 molesignal 提供的工具，確認連線成功。"
+      }
+    },
+    "im": {
+      "description": "Mole Agent 透過這些連接器在飛書、Slack、釘釘、企業微信、Google Chat、Microsoft Teams 和 Telegram 中回覆訊息。在群組中用 @ 提及它，或直接傳送私人訊息給它。Teams 會將訊息傳送至 MoleSignal 的公用網路回呼位址；其他平台則由一台伺服器透過長連線、長輪詢或 Pub/Sub 訂閱接收訊息，不需要公用網路位址。啟用後，透過飛書、Slack 和 Telegram 傳送的警示通知會附上「確認」和「解決」按鈕。",
+      "guide": "整合說明",
+      "no_external_url": "尚未設定對外位址（http.external_url）：IM 使用者無法自行連結帳號，回覆中不會附上對話連結，Microsoft Teams 也無法接收訊息。管理員仍可在成員的通知方式中新增並驗證成員的 IM 帳號。",
+      "none": "目前沒有可在 IM 中回覆訊息的連接器",
+      "none_hint": "請先在通知設定中新增應用程式連接器，再回到這裡啟用。",
+      "add_connector": "新增連接器",
+      "columns": {
+        "connector": "連接器",
+        "state": "狀態",
+        "team": "群組中的新話題",
+        "enabled": "啟用"
+      },
+      "state": {
+        "missing": "尚缺 {{fields}}",
+        "connector_off": "連接器已停用",
+        "off": "未啟用",
+        "idle": "等待伺服器連線",
+        "connecting": "連線中",
+        "connected": "已連線",
+        "error": "無法連線"
+      },
+      "fields": {
+        "appToken": "App-Level Token",
+        "botToken": "Bot Token",
+        "appId": "App ID",
+        "appSecret": "App Secret",
+        "clientId": "Client ID",
+        "clientSecret": "Client Secret",
+        "botId": "Bot ID",
+        "botSecret": "長連線 Secret",
+        "credentials": "服務帳號金鑰",
+        "subscription": "Pub/Sub 訂閱",
+        "tenantId": "租用戶 ID"
+      },
+      "list_separator": "、",
+      "platforms": {
+        "feishu": "飛書",
+        "slack": "Slack",
+        "dingtalk": "釘釘",
+        "wecom": "企業微信",
+        "google_chat": "Google Chat",
+        "teams": "Microsoft Teams",
+        "telegram": "Telegram"
+      },
+      "last_message": "最近一則訊息 {{at}}",
+      "callback": "回呼網址",
+      "copy_callback": "複製回呼網址",
+      "copied": "已複製",
+      "callback_needs_https": "對外網址須使用 https，Teams 才能傳送訊息",
+      "team_personal": "提問者的私人聊天",
+      "team_label": "{{name}} 在群組中的新話題要記在哪裡",
+      "toggle": "使用 {{name}} 在 IM 中回答",
+      "turned_on": "{{name}} 已開始在 IM 中回答",
+      "saved": "已儲存 {{name}}"
+    },
+    "profiles": {
+      "title": "Agent Profile",
+      "description": "為每種工作模式分別設定模型、工具、資料使用範圍、網路、核准政策和執行限制。",
+      "create": "建立 Profile",
+      "created": "已建立 Agent Profile",
+      "edit": "編輯 Profile",
+      "edit_default": "編輯預設 Profile",
+      "updated": "已更新 Agent Profile",
+      "create_description": "新 Profile 預設會啟用已註冊的工具、封鎖網路存取，並要求 L2/L3 操作須經核准。",
+      "editor_description": "個別設定此 Profile 的身分、模型、工具、資料範圍、網路、核准策略和執行限制。",
+      "usage_hint": "未指定時會使用預設 Profile；在對話的進階設定中可選擇任何已啟用的 Profile，切換整套執行限制。",
+      "editing_profile": "正在編輯 Profile：{{name}}",
+      "shortcut_hint": "此捷徑頁面顯示 Profile「{{name}}」；若要修改其他 Profile，請從 Agent Profile 清單進入。",
+      "navigation_label": "Profile 設定區段",
+      "name_placeholder": "例如：正式環境受限 Agent",
+      "name_required": "儲存前請填寫 Profile 名稱。",
+      "default_description": "受控的 Mole Agent 調查設定",
+      "provider_auto": "自動選擇模型服務",
+      "model_inherit": "繼承模型服務的預設值",
+      "list_hint": "使用逗號或換行分隔多個值。",
+      "empty_means_all": "留空表示所有已授權的資源。",
+      "tag_placeholder": "輸入內容後按 Enter",
+      "tag_hint": "按 Enter 或輸入逗號，將每一項新增為標籤。",
+      "optional_tag_hint": "按 Enter 或輸入逗號來新增標籤；留空表示所有已授權的資源。",
+      "remove_tag": "移除 {{value}}",
+      "tools_selected": "已選取 {{selected}} / {{total}} 個可用工具",
+      "select_all_tools": "全選",
+      "clear_tools": "清空",
+      "no_tools": "未允許使用任何工具",
+      "remaining_tools": "剩餘 {{count}} 個工具",
+      "runtime_summary": "{{minutes}} 分鐘 · {{calls}} 次呼叫",
+      "pagination": {
+        "aria": "Agent Profile 分頁",
+        "page_size_aria": "每頁 Profile 數量",
+        "page_summary": "{{page}} / {{pages}}",
+        "first_aria": "第一頁 Profile",
+        "previous_aria": "上一頁 Profile",
+        "next_aria": "下一頁 Profile",
+        "last_aria": "最後一頁 Profile"
+      },
+      "invalid_limits": "執行限制必須為正數：最長調查時間不得超過 120 分鐘，工具呼叫次數不得超過 256 次，溫度須介於 0 到 2 之間。",
+      "default": "預設",
+      "empty_title": "尚無 Agent Profile",
+      "empty_description": "建立 Profile 以定義模型、工具、資料範圍與執行限制。",
+      "max_tools": "工具呼叫次數上限",
+      "max_time": "最長調查時間",
+      "network": "網路",
+      "summary": {
+        "model": "模型",
+        "tools": "工具允許清單 · {{count}}",
+        "data": "資料範圍",
+        "approval": "核准範圍",
+        "runtime": "執行範圍",
+        "network": "網路"
+      },
+      "scope_prefix": {
+        "environment": "環境",
+        "service": "服務",
+        "stream": "資料流"
+      },
+      "sections": {
+        "identity": "身分與模型",
+        "tools": "工具允許清單",
+        "tools_description": "只能選取登錄清單中的工具。",
+        "data": "資料存取範圍",
+        "network": "網路存取",
+        "limits": "執行限制",
+        "approvals": "核准原則"
+      },
+      "fields": {
+        "name": "名稱",
+        "description": "說明",
+        "provider": "模型服務",
+        "model": "模型覆寫",
+        "enabled": "啟用 Profile",
+        "default": "設為預設 Profile",
+        "network": "網路存取",
+        "context_tokens": "上下文 Token 數上限",
+        "duration_minutes": "最長調查時間（分鐘）",
+        "tool_calls": "工具呼叫次數上限",
+        "temperature": "溫度",
+        "allow_bypass_permissions": "允許 Bypass permissions"
+      },
+      "policies": {
+        "automatic": "自動執行",
+        "approval": "單人核准",
+        "two_person_approval": "雙人核准"
+      },
+      "temperature_hint": "範圍為 0 到 2，數值越低，回答越穩定且容易重現；留空則使用預設值 0.2。",
+      "temperature_placeholder": "預設 0.2",
+      "allow_bypass_hint": "使用此 Profile 的對話可選擇 Bypass permissions：不再逐項向提問者確認變更，但需要核准的變更仍會送審。"
+    },
+    "models": {
+      "title": "模型與推論",
+      "description": "只有管理員可以寫入模型金鑰，且金鑰不會顯示；模型呼叫皆透過 Model Gateway。",
+      "create": "新增模型服務",
+      "created": "已新增模型服務",
+      "edit": "編輯模型服務",
+      "updated": "已更新模型服務",
+      "create_description": "設定管理員授權的 Model Gateway 上游服務。",
+      "editor_description": "設定上游位址、預設模型、執行參數與僅供寫入的憑證。",
+      "name_placeholder": "顯示名稱",
+      "model_placeholder": "預設模型，例如 gpt-5",
+      "base_url_placeholder": "例如：https://api.example.com/v1",
+      "base_url_hint": "OpenAI-compatible 服務必須填寫；官方服務可留空以使用預設端點。",
+      "base_url_required": "OpenAI-compatible 模型服務必須填寫 Base URL。",
+      "invalid_limits": "逾時設定須介於 1000 至 600000 毫秒之間，最大輸出 Token 數須為正數，單價須大於或等於 0。",
+      "max_tokens_placeholder": "留空即使用服務的預設值",
+      "default_endpoint": "使用官方預設端點",
+      "key_placeholder": "API Key（僅限寫入）",
+      "key_create_hint": "API Key 僅在建立時寫入，不會顯示在頁面上，也不會由 API 傳回。",
+      "key_edit_hint": "留空即保留現有金鑰；填入新值並儲存後，即會更換金鑰。",
+      "key_set": "已設定金鑰",
+      "key_unset": "未設定金鑰",
+      "empty_title": "尚無模型服務",
+      "sections": {
+        "connection": "連線設定",
+        "runtime": "執行參數",
+        "credentials": "存取憑證",
+        "pricing": "單價"
+      },
+      "fields": {
+        "provider": "服務類型",
+        "name": "顯示名稱",
+        "base_url": "Base URL",
+        "model": "預設模型",
+        "timeout_ms": "無回應逾時（毫秒）",
+        "max_tokens": "最大輸出 Token 數",
+        "enabled": "啟用模型服務",
+        "api_key": "API Key",
+        "currency": "幣別",
+        "input_price": "輸入單價，快取未命中（{{unit}}）",
+        "cached_input_price": "輸入單價，快取命中（{{unit}}）",
+        "output_price": "輸出單價（{{unit}}）"
+      },
+      "timeout_hint": "在這段時間內未收到模型服務的任何資料，就會判定為失敗；連線失敗、觸發速率限制或服務暫時無法使用時，會自動重試兩次。非串流呼叫必須等整段回覆產生完畢，請依最長回覆所需的時間設定。",
+      "pricing_description": "填寫單價後，用量頁面才會顯示成本。此模型服務的所有模型都依此單價計費，並以此處選擇的幣別記錄成本。若供應商對快取命中與未命中的輸入分別計價，請填寫兩欄；若不區分，只需填寫快取未命中欄位。留空不影響使用。",
+      "price_placeholder": "留空則不計算成本",
+      "price_unit": "{{symbol}} / 百萬 token",
+      "cached_price_placeholder": "留空則依快取未命中單價計算",
+      "price_summary": "輸入 {{input}} · 快取命中 {{cached}} · 輸出 {{output}}（每百萬 token）",
+      "price_summary_flat": "輸入 {{input}} · 輸出 {{output}}（每百萬 token）",
+      "unpriced": "未填寫單價，不計算成本"
+    },
+    "currencies": {
+      "title": "幣別",
+      "description": "模型服務的單價使用這裡提供的幣別。名稱或符號留空時，會使用對應的標準值。模型服務正在使用的幣別無法刪除。",
+      "add": "新增幣別",
+      "edit": "編輯 {{code}}",
+      "edit_title": "編輯幣別",
+      "delete": "刪除 {{code}}",
+      "delete_title": "刪除幣別 {{code}}？",
+      "delete_confirm": "刪除後，模型服務將無法再選用此幣別；已用此幣別記錄的成本仍會以原幣別顯示。",
+      "delete_action": "刪除",
+      "deleting": "正在刪除…",
+      "deleted": "已刪除幣別",
+      "saved": "已儲存幣別",
+      "used_by": "{{count}} 個模型服務正在使用",
+      "unused": "未使用",
+      "in_use": "{{names}} 正在使用此幣別，請先為這些服務改用其他幣別",
+      "editor_description": "代碼由三個 ISO 4217 大寫字母組成，儲存後無法變更。",
+      "fields": {
+        "code": "代碼",
+        "name": "名稱",
+        "symbol": "符號"
+      }
+    },
+    "prompts": {
+      "title": "Prompt 管理",
+      "description": "管理 Mole Agent 的系統指令與調查範本。內建 Prompt 為唯讀，可建立組織或個人的覆寫版本。",
+      "create": "新增 Prompt",
+      "view": "檢視",
+      "override": "建立覆寫版本",
+      "derived_name": {
+        "override": "{{name}} · 覆寫",
+        "copy": "{{name}} · 副本"
+      },
+      "set_default": "設為預設",
+      "restore": "還原內建內容",
+      "delete": "刪除",
+      "delete_confirm": "確定要刪除「{{name}}」嗎？歷史訊息仍會保留當時使用的 Prompt 版本資訊。",
+      "effective": "生效中",
+      "version": "v{{version}}",
+      "search_label": "搜尋 Prompt",
+      "search_placeholder": "搜尋名稱、用途、內文或內建鍵…",
+      "name_placeholder": "例如：正式環境根因調查",
+      "body_hint": "使用雙大括號參照變數；所有變數都必須在下方的 JSON Schema 中宣告。",
+      "schema_hint": "只能宣告可由伺服器端安全注入的變數。儲存時會驗證範本中的參照。",
+      "enabled_hint": "停用後，系統不會將此 Prompt 納入預設版本的判定，也不會在對話選擇器中顯示。",
+      "default_hint": "同一用途優先使用個人預設，其次是組織預設，兩者皆無時則使用內建預設。",
+      "empty_title": "目前沒有可用的 Prompt",
+      "empty_description": "請建立組織或個人的 Prompt，或確認是否已執行內建範本的移轉。",
+      "empty_filter": "沒有符合條件的 Prompt",
+      "empty_filter_description": "請調整搜尋字詞後再試一次。",
+      "stats": {
+        "total": "Prompt 總數",
+        "total_hint": "包含內建與覆寫版本",
+        "effective": "目前生效",
+        "effective_hint": "依用途判定的預設版本",
+        "customized": "自訂版本",
+        "customized_hint": "組織與個人的覆寫版本"
+      },
+      "scopes": {
+        "builtin": "內建",
+        "org": "組織",
+        "user": "個人"
+      },
+      "purposes": {
+        "system": {
+          "title": "系統指令",
+          "description": "定義 Mole Agent 的身分、安全界線、證據要求與基本行為。"
+        },
+        "anomaly_analysis": {
+          "title": "異常分析",
+          "description": "快速分析指標、日誌與追蹤異常之間的關聯。"
+        },
+        "root_cause": {
+          "title": "找出根本原因",
+          "description": "引導多步驟調查、驗證假設與歸納證據。"
+        },
+        "alert_explain": {
+          "title": "警示說明",
+          "description": "說明警示條件、影響範圍、持續時間與相關訊號。"
+        },
+        "query_generation": {
+          "title": "產生查詢",
+          "description": "產生 SQL、PromQL 或追蹤篩選條件，不執行寫入操作。"
+        },
+        "evaluation": {
+          "title": "回答評審",
+          "description": "決定「品質」分頁中的評審如何為回答評分；各評審的評分標準會填入此處。"
+        }
+      },
+      "fields": {
+        "scope": "適用範圍",
+        "purpose": "用途",
+        "name": "名稱",
+        "body": "Prompt 內容",
+        "schema": "變數 JSON Schema",
+        "enabled": "啟用 Prompt",
+        "default": "儲存後設為預設"
+      },
+      "variables": {
+        "title": "範本變數",
+        "description": "以下變數是從 Prompt 內容自動辨識的；以紅色標示的變數尚未在 Schema 中宣告。",
+        "none": "目前的 Prompt 未引用任何變數。"
+      },
+      "editor": {
+        "create_title": "新增 Prompt",
+        "edit_title": "編輯 Prompt",
+        "view_title": "檢視 Prompt",
+        "override_title": "建立 Prompt 覆寫版本",
+        "description": "每次儲存都會遞增版本號，實際對話會記錄所用的版本與內容雜湊值。",
+        "source": "來源"
+      },
+      "validation": {
+        "required": "名稱與 Prompt 內容不得留空。",
+        "invalid_schema": "變數 Schema 不是有效的 JSON：{{message}}",
+        "schema_object_required": "變數 Schema 必須是 JSON 物件。",
+        "schema_properties_required": "變數 Schema 的 properties 必須是 JSON 物件。",
+        "unknown_variables": "以下範本變數未在 Schema 中宣告：{{variables}}"
+      },
+      "messages": {
+        "created": "已建立 Prompt",
+        "updated": "已更新 Prompt",
+        "set_default": "已更新預設 Prompt",
+        "restore": "已還原內建 Prompt 內容",
+        "delete": "已刪除 Prompt"
+      },
+      "promotion": {
+        "title": "將 {{name}} 設為預設",
+        "description": "將組織的 Prompt 設為預設前，請先檢查：選取最近最多 8 則回答，分別用這個版本和目前的預設版本重新產生回答（不再呼叫工具），再由同一個評審為兩個版本的回答評分。",
+        "reasons": {
+          "prompt_check_required": "這個版本尚未與目前的預設版本比較。{{mode}}",
+          "prompt_check_running": "正在檢查。",
+          "prompt_check_worse": "檢查結果顯示，這個版本比目前的預設版本差。{{mode}}",
+          "prompt_check_unavailable": "沒有評審可為這類回答評分，因此無法檢查。請到 Mole Agent → 品質 → 評審新增。{{mode}}"
+        },
+        "modes": {
+          "warn": "確認後仍可設為預設。",
+          "block": "組織只允許將已檢查且未變差的 Prompt 設為預設。",
+          "off": "組織不檢查 Prompt。"
+        },
+        "check": "開始檢查",
+        "check_again": "重新檢查",
+        "picking": "正在挑選要比較的回答…",
+        "progress": "已重新產生回答並評分：{{done}} / {{total}}…",
+        "failed": "檢查失敗：{{error}}",
+        "verdicts": {
+          "better_one": "更好：針對相同的 {{count}} 則回答，這個版本得 {{candidate}} 分，目前的預設版本得 {{baseline}} 分。",
+          "better_other": "更好：針對相同的 {{count}} 則回答，這個版本得 {{candidate}} 分，目前的預設版本得 {{baseline}} 分。",
+          "same_one": "沒有變差：針對相同的 {{count}} 則回答，這個版本得 {{candidate}} 分，目前的預設版本得 {{baseline}} 分。",
+          "same_other": "沒有變差：針對相同的 {{count}} 則回答，這個版本得 {{candidate}} 分，目前的預設版本得 {{baseline}} 分。",
+          "worse_one": "變差了：針對相同的 {{count}} 則回答，這個版本得 {{candidate}} 分，目前的預設版本得 {{baseline}} 分。",
+          "worse_other": "變差了：針對相同的 {{count}} 則回答，這個版本得 {{candidate}} 分，目前的預設版本得 {{baseline}} 分。",
+          "inconclusive_one": "可比較的回答太少（{{count}} 則），無法判定；不影響設為預設。",
+          "inconclusive_other": "可比較的回答太少（{{count}} 則），無法判定；不影響設為預設。"
+        },
+        "columns": {
+          "sample": "回答",
+          "baseline": "目前的預設版本",
+          "candidate": "這個版本"
+        },
+        "kinds": {
+          "chat_answer": "對話回答",
+          "incident_rca": "事件 RCA"
+        },
+        "regression": "來自迴歸測試集",
+        "set_anyway": "仍設為預設"
+      }
+    },
+    "tools": {
+      "title": "工具與能力",
+      "description": "管理 Mole Agent 可呼叫的工具、MCP Server、執行權限與核准原則。",
+      "search_label": "搜尋工具",
+      "search_placeholder": "搜尋工具名稱、顯示名稱或說明…",
+      "loading": "正在載入工具…",
+      "load_error": "無法載入工具清單",
+      "retry": "重新載入",
+      "empty_title": "尚未設定代理程式工具",
+      "empty_description": "新增 MCP Server 或啟用內建工具後，Mole Agent 才能查詢資料和執行任務。",
+      "empty_filter_title": "沒有符合條件的工具",
+      "empty_filter_description": "調整搜尋字詞或清除篩選條件後再試一次。",
+      "profile_restricted": "此工具已啟用，但目前的預設 Agent Profile 未授權使用此工具，因此 Mole Agent 無法使用。",
+      "summary": {
+        "mcp": "MCP Servers",
+        "mcp_healthy": "{{count}} 個連線正常",
+        "mcp_unhealthy": "{{healthy}} 正常 · {{unhealthy}} 異常"
+      },
+      "actions": {
+        "configure_policy": "設定工具原則",
+        "add_mcp": "新增 MCP Server",
+        "details": "查看詳細資料",
+        "test": "測試工具",
+        "calls": "查看呼叫記錄",
+        "edit_policy": "編輯原則",
+        "dependencies": "查看相依性",
+        "copy_definition": "複製工具定義",
+        "view_mcp": "查看 MCP Server",
+        "disable": "停用工具",
+        "enable": "啟用工具",
+        "toggle": "切換 {{name}} 的啟用狀態",
+        "more": "{{name}} 的更多操作"
+      },
+      "filters": {
+        "all": "全部",
+        "read_only": "唯讀",
+        "automatic": "自動執行",
+        "approval": "需核准",
+        "disabled": "已停用",
+        "advanced": "進階篩選",
+        "clear": "清除篩選"
+      },
+      "grouping": {
+        "label": "工具分組方式",
+        "domain": "依領域分組",
+        "mcp": "依 MCP Server 分組",
+        "none": "不分組",
+        "all_tools": "所有工具",
+        "builtin_description": "MoleSignal 內建並由伺服器端註冊的工具",
+        "mcp_description": "由 MCP Server 同步並經管理員授權的工具"
+      },
+      "domains": {
+        "observability": {
+          "title": "可觀測性",
+          "description": "查詢日誌、指標、追蹤、APM 使用者體驗與效能剖析資料"
+        },
+        "alerts_on_call": {
+          "title": "警示與值班",
+          "description": "警示事件、處理狀態及值班排程功能"
+        },
+        "automation": {
+          "title": "自動化",
+          "description": "自動執行、審核申請與營運操作功能"
+        },
+        "knowledge_context": {
+          "title": "知識與脈絡",
+          "description": "搜尋知識庫、文件及調查脈絡的功能"
+        },
+        "dashboard_reports": {
+          "title": "儀表板與報告",
+          "description": "儀表板、報告範本及排程報告功能"
+        },
+        "notify": {
+          "title": "通知",
+          "description": "通知解析、路由與傳送功能"
+        },
+        "administration": {
+          "title": "管理",
+          "description": "組織、身分及管理資源相關功能"
+        }
+      },
+      "fields": {
+        "tool": "工具",
+        "display_name": "顯示名稱",
+        "domain": "領域",
+        "source": "來源",
+        "risk": "風險等級",
+        "execution": "執行策略",
+        "status": "狀態",
+        "timeout": "呼叫逾時",
+        "timeout_ms": "呼叫逾時（毫秒）",
+        "max_calls": "單次執行的呼叫次數上限",
+        "max_response": "回應大小上限",
+        "max_response_bytes": "回應主體大小上限（位元組）",
+        "dry_run": "支援 Dry Run"
+      },
+      "sources": {
+        "builtin": "內建",
+        "mcp": "MCP",
+        "custom": "自訂"
+      },
+      "risk": {
+        "l0": {
+          "title": "唯讀",
+          "description": "僅讀取資料，不變更系統狀態，預設可自動執行。"
+        },
+        "l1": {
+          "title": "低風險寫入操作",
+          "description": "建立草稿、留言或報告，通常可復原。"
+        },
+        "l2": {
+          "title": "中風險操作",
+          "description": "會變更業務資源或工作流程狀態，至少須由一人核准。"
+        },
+        "l3": {
+          "title": "高風險操作",
+          "description": "可能影響正式環境中的服務、資料或權限，必須經過核准。"
+        },
+        "l4": {
+          "title": "破壞性操作",
+          "description": "無法復原或影響範圍難以預估，預設停用，且至少須由兩人核准。"
+        }
+      },
+      "execution": {
+        "automatic": "自動執行",
+        "confirmation": "需要確認",
+        "single_approval": "單人核准",
+        "dual_approval": "雙人核准",
+        "disabled": "禁止執行"
+      },
+      "status": {
+        "healthy": "正常",
+        "degraded": "部分異常",
+        "unavailable": "無法使用",
+        "enabled": "已啟用",
+        "disabled": "已停用"
+      },
+      "common": {
+        "yes": "是",
+        "no": "否"
+      },
+      "detail": {
+        "tabs": {
+          "overview": "總覽",
+          "schema": "輸入與輸出",
+          "policy": "權限與原則",
+          "calls": "呼叫記錄",
+          "dependencies": "相依性"
+        },
+        "basic": "基本資訊",
+        "description": "功能說明",
+        "model_definition": "模型讀到的定義（英文原文）",
+        "statistics": "近期呼叫",
+        "input_schema": "輸入參數",
+        "output_schema": "輸出結果",
+        "permissions": "權限與原則"
+      },
+      "schema": {
+        "json_view": "檢視 JSON Schema",
+        "form_view": "檢視欄位",
+        "copy": "複製 Schema",
+        "no_fields": "此 Schema 未宣告任何欄位。"
+      },
+      "stats": {
+        "calls_24h": "近 24 小時呼叫次數",
+        "success_rate": "成功率",
+        "p95": "P95 耗時",
+        "last_error": "最近一次錯誤",
+        "has_error": "有錯誤",
+        "no_error": "無"
+      },
+      "policy": {
+        "title": "編輯 {{name}} 原則",
+        "description": "設定工具的風險、執行方式、各環境的覆寫設定與執行限制。",
+        "classification": "風險與執行原則",
+        "hard_floor": "覆寫只能讓原則更嚴格，不能放寬伺服器端的強制風險限制。",
+        "builtin_risk_locked": "內建工具的風險等級由伺服器端程式碼定義，無法在此頁面降低。",
+        "environment_overrides": "依環境覆寫",
+        "inherit": "繼承預設原則",
+        "limits": "執行限制"
+      },
+      "environments": {
+        "development": "開發環境",
+        "staging": "預備環境",
+        "production": "正式環境"
+      },
+      "defaults": {
+        "title": "設定工具策略",
+        "description": "設定各風險等級的預設執行方式，並依環境套用更嚴格的設定。",
+        "risk_title": "預設執行策略",
+        "risk_description": "個別工具的策略可覆寫預設值，但不得超出風險等級的硬性限制。",
+        "environments_title": "環境策略",
+        "environments_description": "只需填寫要覆寫設定的風險等級，其餘沿用預設執行策略。"
+      },
+      "test": {
+        "title": "測試 {{name}}",
+        "read_description": "依照工具的結構描述填寫參數；唯讀工具可執行實際查詢。",
+        "write_description": "寫入工具僅執行試跑或驗證參數，不會實際寫入資料。",
+        "parameters": "測試參數",
+        "no_parameters": "此工具不需要參數。",
+        "validate": "僅驗證參數",
+        "execute": "執行測試",
+        "dry_run": "執行試跑",
+        "result": "測試結果",
+        "success": "測試成功",
+        "failed": "測試失敗",
+        "request": "請求 JSON",
+        "response": "回應 JSON"
+      },
+      "dependencies": {
+        "title": "{{name}} 的相依性",
+        "description": "停用前，請確認有哪些代理程式設定檔、自動化流程和調查工作範本參照此工具。",
+        "none": "目前沒有相依項目",
+        "warning": "目前有 {{count}} 個物件使用此工具。",
+        "agent_profiles": "代理程式設定檔",
+        "investigation_templates": "調查工作範本",
+        "empty": "無"
+      },
+      "disable": {
+        "title": "停用 {{name}}？",
+        "description": "Mole Agent 將無法再探索或呼叫此工具，但會保留歷史紀錄。",
+        "dependency_warning": "目前有 {{count}} 個物件依賴此工具。強制停用可能導致相關流程失敗。",
+        "confirm": "確認停用"
+      },
+      "calls": {
+        "empty": "尚無工具呼叫紀錄。",
+        "arguments": "參數快照（已遮蔽敏感資料）",
+        "policy_decision": "策略判定",
+        "source": {
+          "chat": "對話",
+          "investigation": "調查工作",
+          "automation": "自動化",
+          "manual_test": "手動測試"
+        }
+      },
+      "mcp": {
+        "title": "MCP 伺服器",
+        "description": "管理受限的 MCP 連線、憑證、網路邊界和同步工具。",
+        "empty_title": "尚無 MCP Server",
+        "empty_description": "新增伺服器並通過連線測試後，再選擇要匯入的工具。",
+        "tool_count": "{{count}} 個工具",
+        "test_connection": "測試連線",
+        "remove": "移除伺服器",
+        "remove_drawer": {
+          "title": "移除 {{name}}？",
+          "description": "必須先停用此伺服器的所有工具並替換相依項目，才能移除伺服器。",
+          "confirm": "移除 MCP Server",
+          "safe": "未發現已啟用的工具或使用中的相依項目，可以安全移除。",
+          "blocked": "仍有 {{enabled}} 個工具已啟用，另有 {{dependencies}} 個相依項目使用中，請先處理。",
+          "tools_title": "已匯入的工具與相依項目",
+          "no_tools": "沒有已匯入的工具。",
+          "dependency_count": "{{count}} 個相依項目"
+        },
+        "discovered": "發現 {{count}} 個工具",
+        "new_tools_disabled": "新工具匯入後預設為停用",
+        "sync_selected": "同步選取的工具",
+        "transport": {
+          "streamable_http": "Streamable HTTP",
+          "sse": "SSE（舊版）",
+          "stdio": "stdio",
+          "unix_socket": "Unix Socket"
+        },
+        "auth": {
+          "none": "無驗證",
+          "bearer_token": "Bearer Token",
+          "api_key": "API Key",
+          "oauth": "OAuth Token",
+          "mtls": "mTLS",
+          "internal_service_identity": "內部服務身分",
+          "member_secret": "成員憑證（每人填寫自己的憑證）"
+        },
+        "status": {
+          "healthy": "已連線",
+          "connecting": "連線中",
+          "error": "異常",
+          "disabled": "已停用",
+          "unauthorized": "未授權",
+          "unavailable": "無法使用"
+        },
+        "feedback": {
+          "created": "MCP Server 已新增",
+          "updated": "MCP Server 已更新",
+          "deleted": "MCP Server 已移除",
+          "test_success": "連線成功，發現 {{count}} 個工具",
+          "test_failed": "MCP Server 連線失敗",
+          "sync_success": "已同步 {{count}} 個工具",
+          "enabled": "伺服器已啟用",
+          "disabled": "伺服器已停用"
+        },
+        "editor": {
+          "create_title": "新增 MCP 伺服器",
+          "edit_title": "編輯 MCP 伺服器",
+          "description": "憑證僅供寫入並加密儲存，API 和頁面都不會顯示明文。",
+          "basic": "基本資訊",
+          "authentication": "驗證",
+          "network": "網路原則",
+          "runtime": "執行限制",
+          "transport_restricted": "目前執行階段僅支援 Streamable HTTP；其他連線方式可以儲存，但無法測試連線。",
+          "credential_set": "已設定憑證（末四碼 {{last4}}）；留空會保留現有憑證。",
+          "credential_not_set": "尚未設定憑證。",
+          "headers": "請求標頭",
+          "headers_description": "每個請求都會帶上這些標頭。名稱含有 key、token、secret、password、auth 等字詞的標頭值會加密儲存，只顯示末四碼；編輯時留空表示不變。",
+          "env": "環境變數",
+          "env_description": "執行啟動指令時使用；敏感值也會加密儲存。",
+          "stdio_note": "stdio 伺服器由 MoleSignal 伺服器端啟動，僅適用於組織的伺服器，且只能使用此執行個體允許的指令：{{commands}}。",
+          "stdio_off": "此 MoleSignal 執行個體未允許任何 stdio 指令；維運人員可在設定項目 [agent] mcp_stdio_commands 中列出允許的指令。",
+          "stdio_org_only": "stdio 僅適用於組織的伺服器；個人與團隊的伺服器須連線至指定網址。",
+          "member_network": "團隊與個人的伺服器只能連線至公用網路，以及管理員在「網路原則」中允許的內部網路位址；一律驗證 TLS 憑證。"
+        },
+        "fields": {
+          "name": "名稱",
+          "name_placeholder": "例如：內部知識庫 MCP",
+          "transport": "連線方式",
+          "endpoint": "端點 URL",
+          "endpoint_placeholder": "例如：https://mcp.internal.example.com/mcp",
+          "auth_type": "驗證方式",
+          "auth_header": "驗證標頭",
+          "auth_header_placeholder": "例如：X-API-Key",
+          "credential": "憑證",
+          "credential_placeholder": "僅供寫入，不會顯示",
+          "credential_hint": "儲存後會以伺服器端金鑰加密，清單和詳細資料 API 只會傳回是否已設定。",
+          "private_only": "僅允許私人網路",
+          "private_only_hint": "DNS 解析出的每個位址都必須是私人網路位址。",
+          "allowed_domains": "允許的網域名稱",
+          "allowed_cidrs": "允許的 IP/CIDR",
+          "one_per_line": "每行一個；留空表示不加額外限制。",
+          "tls_verify": "驗證 TLS 憑證",
+          "redirects_blocked": "伺服器端的安全性原則一律禁止重新導向。",
+          "timeout_ms": "請求逾時（毫秒）",
+          "max_response_bytes": "回應主體大小上限（位元組）",
+          "enabled": "啟用 MCP Server",
+          "command": "啟動指令",
+          "endpoint_sse_hint": "舊版 SSE 傳輸的事件串流網址；傳送訊息的網址由伺服器提供，且必須與事件串流網址同源。",
+          "endpoint_sse_placeholder": "例如：https://mcp.example.com/sse"
+        },
+        "prompt_count": "{{count}} 個 prompt",
+        "stdio_not_allowed": "此執行個體不允許使用這個指令",
+        "enable": "啟用伺服器",
+        "disable": "停用伺服器",
+        "member": {
+          "description": "每位成員各自儲存憑證，只有本人呼叫工具時才會用到，管理員也無法讀取。尚未填寫憑證的成員在呼叫工具時，會收到先填寫憑證的提示。",
+          "header": "憑證要放在哪個請求標頭",
+          "bearer": "加上 Bearer 前綴",
+          "bearer_hint": "以 Bearer <凭据> 的格式傳送",
+          "instructions": "取得憑證的說明",
+          "instructions_hint": "告訴成員要在哪裡建立憑證，以及需要哪些權限。"
+        },
+        "my_credential": {
+          "title": "我在 {{name}} 的憑證",
+          "description": "只有你呼叫工具時才會用到此憑證。憑證會加密儲存，任何人都無法讀取明文。",
+          "value": "憑證",
+          "value_hint": "透過 {{header}} 請求標頭傳送",
+          "value_bearer_hint": "以 Bearer <凭据> 的格式透過 {{header}} 請求標頭傳送",
+          "state_saved": "已儲存（末四碼 {{last4}}，{{time}}）；填入新值會覆蓋原有的憑證。",
+          "state_missing": "你尚未儲存憑證，呼叫這台伺服器的工具前，請先填寫憑證。",
+          "saved": "憑證已儲存",
+          "cleared": "憑證已清除",
+          "clear": "清除憑證",
+          "button_saved": "我的憑證 ••••{{last4}}",
+          "button_missing": "填寫我的憑證"
+        },
+        "import": {
+          "open": "匯入設定",
+          "title": "匯入 MCP 設定",
+          "description": "貼上 Claude Desktop、Claude Code、Cursor 或 VS Code 的 MCP 設定，一次新增一或多台伺服器。",
+          "config": "設定 JSON",
+          "config_hint": "含有 url 欄位的伺服器可直接測試；含有 command 欄位的是 stdio 伺服器，只能匯入至組織，且指令必須在此執行個體允許的範圍內。引用 ${input:…} 等變數的值不會匯入，請在匯入後再填寫。",
+          "submit": "匯入",
+          "result": "匯入結果",
+          "made": "已新增",
+          "stdio": "stdio 伺服器，由伺服器端啟動",
+          "missing": "需要補填：{{names}}",
+          "created": "已新增 {{count}} 台伺服器"
+        },
+        "details": {
+          "toggle": "工具與 prompt",
+          "tools": "工具（{{count}}）",
+          "prompts": "Prompt（{{count}}）",
+          "prompts_hint": "在對話中輸入下列指令即可呼叫。",
+          "read_only": "唯讀",
+          "enable_read_only": "啟用所有唯讀工具（{{count}}）",
+          "read_only_enabled": "已啟用 {{count}} 個唯讀工具",
+          "tool_switch": "啟用 {{name}}"
+        },
+        "values": {
+          "header_name": "請求標頭名稱",
+          "header_name_placeholder": "例如：X-Org",
+          "env_name": "變數名稱",
+          "env_name_placeholder": "例如：GITHUB_TOKEN",
+          "value": "值",
+          "value_placeholder": "值",
+          "saved": "已儲存 ••••{{last4}}，留空則維持原值",
+          "secret_toggle": "以敏感值儲存",
+          "secret_forced": "名稱疑似涉及敏感資訊，將自動加密儲存",
+          "remove": "刪除此列",
+          "add_header": "新增請求標頭",
+          "add_env": "新增環境變數"
+        }
+      },
+      "feedback": {
+        "enabled": "工具已啟用",
+        "disabled": "工具已停用",
+        "policy_saved": "工具原則已儲存",
+        "defaults_saved": "預設工具原則已儲存",
+        "definition_copied": "工具定義已複製",
+        "schema_copied": "Schema 已複製"
+      },
+      "errors": {
+        "no_tool": "尚未選取工具"
+      },
+      "access": {
+        "read_only": "唯讀，自動執行",
+        "preflight": "僅執行事前檢查",
+        "managed_mutation": "由原則管理的變更",
+        "creates_approval_request": "僅建立核准請求",
+        "executes_approved_operation": "執行已核准的操作",
+        "chat_record": "記錄於對話中（可在對話中確認或撤銷）"
+      }
+    },
+    "data": {
+      "title": "資料存取範圍",
+      "description": "資料範圍由目前預設的 Agent Profile 決定；一律禁止跨組織存取。",
+      "configure": "編輯存取範圍",
+      "editor_title": "編輯資料存取範圍",
+      "editor_description": "限制目前預設的 Profile 可存取的環境、服務和資料流。",
+      "updated": "資料存取範圍已更新",
+      "environments": "允許存取的環境",
+      "services": "允許存取的服務",
+      "streams": "允許存取的資料流",
+      "cross_org": "跨組織存取",
+      "all_authorized": "所有已授權資源"
+    },
+    "network": {
+      "title": "網路政策",
+      "description": "目前的預設 Agent Profile 控制網路存取；個別工具的功能仍受工具登錄表與執行環境限制。",
+      "configure": "編輯網路政策",
+      "editor_title": "編輯網路政策",
+      "editor_description": "設定目前的預設 Profile 是否允許已授權的工具存取網路。",
+      "editor_help": "此政策僅決定 Profile 是否允許網路存取，不會自動啟用未登錄的工具功能。",
+      "updated": "網路政策已更新",
+      "access": "網路存取",
+      "allow_network_access": "允許網路存取",
+      "blocked_explanation": "目前的 Profile 禁止存取網路，只能使用不需網路的已授權工具。",
+      "allowed_explanation": "目前的 Profile 可透過已登錄且已授權的網路工具存取網路；通用 HTTP、Shell、瀏覽器與開放式 MCP 不會因此自動啟用。",
+      "capabilities": "執行階段功能",
+      "capabilities_description": "以下功能由工具登錄表與執行環境提供，無法透過 Profile 的開關直接啟用。",
+      "internet": "公用網際網路存取",
+      "dynamic_http": "任意 HTTP 工具",
+      "shell": "通用 Shell",
+      "browser": "瀏覽器工具",
+      "open_mcp": "開放式 MCP",
+      "members": {
+        "title": "團隊與個人可連線的內部網路",
+        "description": "團隊成員和個人新增的技能儲存庫、MCP 伺服器預設只能連至公用網路。這些連線也可存取此處列出的內部網路主機與網段；組織層級的連線則依各自的設定。",
+        "hosts": "內部網路主機",
+        "hosts_hint": "每行一個網域，包含其子網域，例如 git.corp.example",
+        "cidrs": "內部網路網段",
+        "cidrs_hint": "每行一個 CIDR，例如 10.20.0.0/16",
+        "saved": "已儲存成員可連線的內部網路",
+        "updated": "上次修改時間：{{time}}"
+      }
+    },
+    "approval_policy": {
+      "title": "審核規則",
+      "description": "風險政策由伺服器端強制執行；審核通過後，仍會重新驗證權限、資源狀態與參數。",
+      "configure": "編輯審核政策",
+      "editor_title": "編輯審核政策",
+      "editor_description": "分別設定目前的預設 Profile 對 L0 至 L3 操作的審核要求。",
+      "updated": "審核政策已更新",
+      "l0": "唯讀查詢與檢視",
+      "l1": "建立草稿與建議",
+      "l2": "警示與設定的寫入操作",
+      "l3": "正式環境與外部高風險操作",
+      "automatic": "自動執行",
+      "configurable": "預設自動執行，可透過 Profile 採用更嚴格的限制",
+      "single": "預設由一人審核，發起人不得自行核准",
+      "two_person": "強制雙人核准"
+    },
+    "usage": {
+      "title": "用量與預算",
+      "description": "Mole Agent 每次呼叫模型都會計入組織用量，並依 UTC 日期統計。預算用完後，自動根因分析、日誌巡檢和寫入管線中的 LLM 函式將不再呼叫模型。",
+      "today": "今日已用",
+      "limit": "每日上限",
+      "unlimited": "不限",
+      "used_share": "已用",
+      "resets": "重設時間",
+      "cost_today": "今日成本",
+      "by_origin": "依來源",
+      "origins": {
+        "chat": "對話",
+        "rca": "根因分析",
+        "inspection": "日誌巡檢",
+        "llm_eval": "LLM 函式",
+        "automation": "自動化",
+        "evaluation": "品質評分",
+        "replay_summary": "重播摘要"
+      },
+      "calls_hint": "呼叫 {{calls}} 次",
+      "tokens_value": "{{value}} token",
+      "daily_limit": "每日 token 上限",
+      "limit_choice": {
+        "inherit": "沿用執行個體預設值（{{value}}）",
+        "custom": "自訂",
+        "unlimited": "不限"
+      },
+      "custom_limit": "token 數",
+      "interactive_mode": "預算用完時，對話與手動根因分析的處理方式",
+      "interactive": {
+        "block": "不再呼叫模型",
+        "warn": "照常回答，僅顯示提示"
+      },
+      "save": "儲存預算",
+      "saved": "預算已儲存",
+      "invalid_limit": "自訂上限必須是正整數。",
+      "history": "最近 30 天",
+      "empty": "最近 30 天沒有呼叫模型。",
+      "columns": {
+        "day": "日期（UTC）",
+        "total": "token 總數",
+        "calls": "呼叫次數",
+        "cost": "成本"
+      },
+      "cost_unknown": "在模型服務中填寫單價後，這裡就會顯示成本。",
+      "cost_partial": "標有 ≥ 的成本未計入未設定單價的模型服務呼叫（最近 30 天共 {{calls}} 次）。"
+    },
+    "skills": {
+      "title": "技能",
+      "description": "包含產品隨附的技能、執行個體目錄中的技能，以及組織、團隊和個人上傳或從儲存庫拉取的技能。系統會依對話的歸屬自動選用技能，每個技能也是一個 / 指令。",
+      "search_placeholder": "搜尋技能",
+      "filters": {
+        "all": "全部",
+        "instance": "內建與執行個體",
+        "org": "組織",
+        "team": "團隊",
+        "personal": "個人"
+      },
+      "source": {
+        "builtin": "內建",
+        "path": "執行個體目錄",
+        "upload": "上傳",
+        "repository": "儲存庫"
+      },
+      "needs_runner": "需要 Mole Runner",
+      "empty_title": "尚無技能",
+      "empty_filter": "沒有符合條件的技能",
+      "switch": "啟用 {{name}}",
+      "inspect": "檢視",
+      "move": "移至",
+      "delete": "刪除",
+      "deleted": "技能已刪除",
+      "upload": {
+        "open": "上傳技能",
+        "title": "上傳技能",
+        "description": "上傳 .zip、.skill 或 .tar.gz 套件，套件內的目錄須包含 SKILL.md（開放的 Agent Skills 格式）。",
+        "file": "技能套件",
+        "file_hint": "最大 20 MiB；指令碼只會在 Mole Runner 上執行。",
+        "submit": "上傳",
+        "replace": "取代現有技能",
+        "exists": "此範圍內已有名為 {{name}} 的技能。再按一次即可用新套件取代。",
+        "done": "技能已上傳"
+      },
+      "repository": {
+        "open": "新增儲存庫",
+        "title": "技能儲存庫",
+        "empty": "尚無儲存庫。新增 GitHub、GitLab、Gitea 等儲存庫後，其中每個包含 SKILL.md 的目錄都會視為一項技能。",
+        "create_title": "新增技能儲存庫",
+        "edit_title": "編輯技能儲存庫",
+        "description": "依分支或標籤下載壓縮檔。儲存庫（或其中一個目錄）下，每個包含 SKILL.md 的目錄都是一項技能。儲存時會同步一次。",
+        "url": "儲存庫網址",
+        "host": "代管方式",
+        "hosts": {
+          "auto": "依網址辨識",
+          "github": "GitHub",
+          "gitlab": "GitLab",
+          "gitea": "Gitea / Forgejo",
+          "bitbucket": "Bitbucket",
+          "archive": "壓縮檔網址"
+        },
+        "ref": "分支或標籤",
+        "ref_hint": "留空則使用預設分支",
+        "archive_url": "壓縮檔網址",
+        "archive_url_hint": "含有 {ref} 的 .tar.gz 或 .zip 網址",
+        "dir": "目錄",
+        "dir_hint": "技能所在的目錄；留空則使用整個儲存庫",
+        "token": "存取權杖",
+        "token_hint": "私有儲存庫需要；僅供寫入，不會顯示",
+        "token_saved": "權杖已儲存（末四碼 {{last4}}）；留空則維持不變",
+        "clear_token": "清除已儲存的權杖",
+        "auto_sync": "每天自動同步",
+        "auto_sync_hint": "儲存庫中有變更的技能每天更新一次",
+        "network_org": "組織層級的儲存庫依照組織設定連線，可使用內部網路位址。",
+        "network_member": "團隊與個人的儲存庫只能連線至公用網路，以及管理員在「網路原則」中允許的內部網路位址。",
+        "syncing": "同步中…",
+        "sync": "同步",
+        "delete": "刪除儲存庫",
+        "deleted": "儲存庫已刪除，其中的技能也一併移除",
+        "default_branch": "預設分支",
+        "synced_at": "同步時間：{{time}}",
+        "daily": "每天同步",
+        "status": {
+          "pending": "未同步",
+          "ok": "正常",
+          "partial": "部分匯入",
+          "failed": "失敗"
+        },
+        "sync_done": "同步完成：新增 {{imported}}，更新 {{updated}}，移除 {{removed}}。",
+        "sync_problems": "有 {{count}} 個目錄未匯入，請在儲存庫清單中查看原因。",
+        "sync_failed": "同步失敗：{{reason}}"
+      },
+      "paths": {
+        "title": "執行個體目錄",
+        "description": "伺服器設定的技能目錄（[agent] skill_paths）中的技能為唯讀，組織可停用。",
+        "rescan": "重新掃描",
+        "scanned_at": "掃描時間：{{time}}"
+      },
+      "detail": {
+        "invoke": "呼叫",
+        "version": "版本",
+        "hash": "內容雜湊值",
+        "allowed_tools": "可直接使用的工具",
+        "dir": "目錄",
+        "needs_runner": "這項技能需要 Mole Runner 才能執行指令碼，目前還無法在對話中使用。",
+        "examples": "試試這樣問",
+        "instructions": "說明（SKILL.md）",
+        "files": "檔案（{{count}}）",
+        "download": "下載",
+        "try": "在對話中試試"
+      }
+    }
+  },
+  "im_link": {
+    "title": "綁定 IM 帳號",
+    "question": "要將 {{platform}} 帳號 {{account}} 綁定到你的 MoleSignal 帳號嗎？",
+    "explain": "之後你在 {{platform}}（{{connector}}）向 Mole Agent 提問時，它會依照你的身分和權限回答。連結只能使用一次，且僅在 {{until}} 前有效。",
+    "confirm": "綁定",
+    "linking": "綁定中…",
+    "linked": "已綁定",
+    "linked_hint": "回到 {{platform}} 再問一次。",
+    "expired": "連結已使用或已過期",
+    "expired_hint": "在 IM 中再問 Mole Agent 一次，它會傳給你新的連結。",
+    "platform_fallback": " IM ",
+    "platforms": {
+      "feishu": "飞书",
+      "slack": " Slack ",
+      "dingtalk": "钉钉",
+      "wecom": "企业微信",
+      "google_chat": " Google Chat ",
+      "teams": " Teams ",
+      "telegram": " Telegram "
+    }
+  },
+  "starter_title": "今晚想調查什麼？",
+  "starter_title_named": "{{name}}，工作到這麼晚",
+  "greeting": {
+    "morning": "早安",
+    "morning_named": "早安，{{name}}",
+    "afternoon": "午安",
+    "afternoon_named": "午安，{{name}}",
+    "evening": "晚上好",
+    "evening_named": "晚上好，{{name}}",
+    "late": "夜深了",
+    "late_named": "夜深了，{{name}}"
+  },
+  "starter_subtitle": "提出一個有明確時間範圍的問題。助理會呼叫後端工具，檢查你的日誌、指標、追蹤和警示。",
+  "starter_subtitle_prefix": "我是 Mole Agent，可以幫你撰寫",
+  "starter_subtitle_suffix": "並引導你瀏覽日誌、追蹤、指標和事件。",
+  "signed_in_as": "登入身分",
+  "try_one": "或試試其中一個",
+  "starters": {
+    "query": "幫我寫個查詢，找出過去一小時內錯誤最多的服務。",
+    "anomaly": "過去一小時發生了什麼變化？",
+    "root_cause": "找出最近一次事件的根本原因。",
+    "errors": "為什麼最近錯誤數量激增？",
+    "latency": "哪個服務的延遲變長了？",
+    "dashboard": "根據 Kubernetes 節點的運作狀況建立儀表板。",
+    "alert": "建立錯誤率異常的警示規則。"
+  },
+  "capability_prompts": {
+    "query": "幫我撰寫查詢。\n\n目標／問題：\n資料來源或服務：\n時間範圍：近 1 小時\n預期輸出：SQL 或 PromQL",
+    "incident": "幫我調查一起事件。\n\n事件現象：\n相關服務：\n時間範圍：近 1 小時\n我想知道：觸發原因、影響範圍和建議的後續步驟",
+    "dashboard": "幫我建立儀表板。\n\n主題：\n關鍵服務或叢集：\n要顯示的指標：\n時間範圍：近 24 小時",
+    "alert": "幫我建立警示規則。\n\n警示目標：\n觸發條件：\n持續時間：\n通知方式："
+  },
+  "capabilities": {
+    "query": {
+      "title": "撰寫查詢",
+      "description": "SQL 用於記錄、追蹤與 APM 使用者體驗，PromQL 用於指標訊號。"
+    },
+    "incident": {
+      "title": "調查事件",
+      "description": "分析記錄、追蹤、指標和警示，找出觸發異常的原因。"
+    },
+    "dashboard": {
+      "title": "建立儀表板",
+      "description": "依主題產生儀表板，例如 CPU、記憶體、重新啟動或延遲。"
+    },
+    "alert": {
+      "title": "建立警示",
+      "description": "針對閾值、趨勢或收集管線異常產生警示草稿。"
+    }
+  },
+  "suggestions": {
+    "vrl": "撰寫 VRL 來剖析 nginx 記錄中的 JSON。",
+    "email_regex": "產生用來編輯電子郵件的規則運算式。",
+    "live_arch": "繪製我的「預設」直播架構圖。",
+    "cpu_promql": "撰寫 PromQL，找出 CPU 使用率 > 80% 的 pod。",
+    "datadog": "將其他平台的查詢轉換為 MoleSignal 查詢",
+    "last_alert": "最近一次的警示為什麼會觸發？"
+  },
+  "suggestion_prompts": {
+    "convert_external": "將其他平台的查詢轉換為 MoleSignal 查詢。\n\n來源平台：\n原始查詢：\n預期輸出："
+  },
+  "range": {
+    "15m": "近 15 分鐘",
+    "30m": "近 30 分鐘",
+    "1h": "近 1 小時",
+    "6h": "近 6 小時",
+    "24h": "近 24 小時",
+    "7d": "近 7 天"
+  },
+  "controls": {
+    "time": "時間",
+    "mode": "模式",
+    "execution": "執行",
+    "team": "團隊"
+  },
+  "mode": {
+    "auto": "自動模式",
+    "quick": "快速問答",
+    "deep": "深入調查",
+    "query_only": "僅產生查詢"
+  },
+  "mode_descriptions": {
+    "auto": "自由提問，依問題決定要查什麼",
+    "quick": "找出時間範圍內的異常",
+    "deep": "比對指標、記錄與追蹤，找出根本原因",
+    "query_only": "只撰寫查詢，不執行"
+  },
+  "execution_policy": {
+    "advice_only": "建議模式",
+    "read_only": "調查模式",
+    "policy": "執行模式（須核准）",
+    "auto": "自動模式",
+    "bypass_permissions": "略過權限確認"
+  },
+  "execution_mode": {
+    "title": "模式",
+    "recommended": "建議",
+    "descriptions": {
+      "advice_only": "查詢資料並提供變更建議，不執行變更",
+      "read_only": "視需要自動執行唯讀查詢，不做任何變更",
+      "policy": "自動執行查詢；變更會送審，核准後才執行",
+      "auto": "自動執行查詢和可復原的變更，刪除前仍會詢問你",
+      "bypass_permissions": "變更不再逐項詢問你，須核准的變更仍會送審"
+    },
+    "bypass_locked": "須由管理員先在 Agent 設定檔中允許此模式",
+    "bypass_confirm": {
+      "title": "要啟用「略過權限確認」嗎？",
+      "description": "啟用後，Mole Agent 執行變更時不再逐項詢問你，刪除時也一樣。組織要求核准的變更仍會送審。請只在清楚它要做什麼時啟用。",
+      "confirm": "啟用"
+    }
+  },
+  "provider_auto": "自動選擇服務",
+  "model_prefix": "模型",
+  "model_auto": "自動",
+  "prompt_prefix": "提示詞",
+  "prompt_auto": "自動",
+  "advanced": {
+    "trigger": "更多",
+    "title": "Agent 設定",
+    "agent_mode": "Agent 模式",
+    "overrides_active": "已啟用自訂 Agent 設定",
+    "profile": "Agent 設定檔",
+    "profile_auto": "預設設定檔",
+    "investigation_limit": "調查時限",
+    "tool_limit": "工具呼叫次數上限",
+    "minutes": "{{count}} 分鐘",
+    "calls": "{{count}} 次",
+    "manage_profile": "管理 Agent 設定檔"
+  },
+  "composer_label": "詢問異常或服務狀態，或輸入維運任務…",
+  "composer_placeholder": "詢問異常或服務狀態，或輸入維運任務…輸入 / 以使用指令",
+  "send": "傳送",
+  "resend": "重新傳送",
+  "stop": "停止",
+  "running": "執行中",
+  "tool_detail": "工具詳細資訊",
+  "tool_call_count": "呼叫 {{count}} 次",
+  "tool_arguments": "參數",
+  "tool_result": "結果",
+  "tool_error_result": "錯誤",
+  "tool_empty_payload": "無",
+  "tool_status": {
+    "running": "執行中",
+    "done": "完成",
+    "error": "失敗"
+  },
+  "thinking": "Mole Agent 正在分析…",
+  "answer_versions": {
+    "position": "回答 {{current}} / {{total}}",
+    "previous": "查看上一版回答",
+    "next": "查看下一版回答",
+    "regenerate": "重新產生",
+    "regenerating": "正在重新產生…"
+  },
+  "message_actions": {
+    "copy": "複製",
+    "copied": "已複製",
+    "copy_failed": "無法複製到剪貼簿",
+    "edit": "編輯後重新傳送",
+    "retry": "重試",
+    "fork": "從這則回答分支出新對話",
+    "pin": "將這則回答置頂",
+    "unpin": "取消置頂",
+    "pinned_one": "已置頂 {{count}} 則",
+    "pinned_other": "已置頂 {{count}} 則"
+  },
+  "message_time": {
+    "days_ago_one": "{{count}} 天前",
+    "days_ago_other": "{{count}} 天前"
+  },
+  "investigation_process": {
+    "running": "正在檢查 {{count}} 個資料來源",
+    "completed": "已檢查 {{count}} 個資料來源",
+    "completed_with_errors": "已檢查 {{count}} 項，其中 {{errors}} 項未完成",
+    "view": "查看調查過程",
+    "processing": "處理中",
+    "processed": "已處理",
+    "rows": "傳回 {{count}} 筆",
+    "technical_detail": "詳細資料"
+  },
+  "activity": {
+    "separator": "，",
+    "look_one": "已查看 {{count}} 項",
+    "look_other": "已查看 {{count}} 項",
+    "query_one": "已查詢 {{count}} 次",
+    "query_other": "已查詢 {{count}} 次",
+    "knowledge_one": "已讀取知識庫",
+    "knowledge_other": "已讀取知識庫 {{count}} 次",
+    "knowledge_edit_one": "修改了 {{count}} 個知識檔案",
+    "knowledge_edit_other": "修改了 {{count}} 個知識檔案",
+    "memory_one": "回想起一則記憶",
+    "memory_other": "回想起 {{count}} 則記憶",
+    "remember_one": "記住了 {{count}} 則",
+    "remember_other": "記住了 {{count}} 則",
+    "question_one": "問了你一個問題",
+    "question_other": "問了你 {{count}} 個問題",
+    "plan_one": "更新了計畫",
+    "plan_other": "更新了 {{count}} 次計畫",
+    "change_one": "提出了 {{count}} 項變更",
+    "change_other": "提出了 {{count}} 項變更",
+    "tool_one": "呼叫了 {{count}} 個工具",
+    "tool_other": "呼叫了 {{count}} 個工具",
+    "failed_one": "{{count}} 個未完成",
+    "failed_other": "{{count}} 個未完成",
+    "running": "處理中"
+  },
+  "oauth": {
+    "invalid_request": "這個 OAuth 授權要求無效或缺少必要參數。",
+    "title": "想要存取你的 MoleSignal 帳號",
+    "organization": "組織",
+    "switch_organization": "切換授權的組織",
+    "allows": "授權後，{{client}} 可以：",
+    "permission": {
+      "tools_title": "以你的身分使用 MoleSignal 工具",
+      "tools_body": "讀取日誌、指標、追蹤等資料。只能使用你的權限與組織工具原則皆允許的工具。",
+      "changes_title": "提出變更，核准後才執行",
+      "changes_body": "受管理的變更會依組織的核准原則處理，無法略過核准程序。",
+      "offline_title": "持續存取，直到你撤銷授權",
+      "offline_body": "不必每次重新授權，存取憑證會自動續期。"
+    },
+    "trust_title": "確認你信任 {{client}}",
+    "trust_registered": "{{client}} 是自行註冊的用戶端，MoleSignal 未驗證其名稱和發行者。授權後，它可以存取你在這個組織中看得到的資料。你可以隨時在 <revoke>Mole Agent → 設定 → Inbound MCP</revoke> 中撤銷授權。",
+    "trust_metadata": "{{client}} 的資訊由 {{host}} 發布。授權後，它可以存取你在這個組織中看得到的資料。你可以隨時在 <revoke>Mole Agent → 設定 → Inbound MCP</revoke> 中撤銷授權。",
+    "client_website": "用戶端網站",
+    "cancel": "取消",
+    "allow": "授權",
+    "redirect": "授權後會重新導向至 {{origin}}",
+    "details": "授權詳細資料",
+    "client_id": "用戶端 ID",
+    "resource": "受保護的資源",
+    "scopes": "權限範圍",
+    "redirect_uri": "回呼網址",
+    "binding": "授權會繫結至這個用戶端、回呼位址、你的帳號、組織和 MCP 資源，變更任何一項都必須重新授權。"
+  },
+  "tools": {
+    "tool_search": {
+      "title": "探索工具",
+      "description": "依功能、領域、標籤或確切名稱探索目前可用的工具。"
+    },
+    "tools_call": {
+      "title": "呼叫工具",
+      "description": "呼叫透過 tool_search 找到的工具，目標工具仍會套用本身的權限、風險和稽核原則。"
+    },
+    "get_platform_capabilities": {
+      "title": "取得平台 Tool 功能",
+      "description": "傳回完整的內建 Tool 領域清單、開放原則，以及明確排除的不安全入口。"
+    },
+    "query_logs": {
+      "title": "查詢日誌",
+      "description": "對單一日誌串流執行有範圍限制的唯讀 SQL 查詢；請先用 get_stream_schema 取得確切的欄位。"
+    },
+    "query_metrics": {
+      "title": "查詢指標",
+      "description": "執行單一有範圍限制的唯讀 PromQL 範圍查詢；不接受 label_values() 等 Grafana 範本函式。"
+    },
+    "list_streams": {
+      "title": "列出資料串流",
+      "description": "以簡短摘要列出可查詢的資料串流；欄位詳細資訊請用 get_stream_schema 取得。"
+    },
+    "get_stream_schema": {
+      "title": "取得資料串流 Schema",
+      "description": "傳回單一資料串流的確切欄位、類型、設定和保留期限。"
+    },
+    "get_stream_settings": {
+      "title": "取得資料串流設定",
+      "description": "傳回單一資料串流的查詢、保留、分割區及擷取設定，不重複列出完整 Schema。"
+    },
+    "list_metric_names": {
+      "title": "列出指標名稱",
+      "description": "列出指標名稱，可依子字串篩選。"
+    },
+    "list_metric_label_values": {
+      "title": "列出指標標籤值",
+      "description": "列出實際指標標籤欄位中不重複的值，無須使用非 PromQL 範本函式。"
+    },
+    "list_metric_labels": {
+      "title": "列出指標標籤",
+      "description": "列出單一指標的實際標籤欄位。"
+    },
+    "list_metric_series": {
+      "title": "列出指標 Series",
+      "description": "在指定的時間範圍內列出指標標籤 Series。"
+    },
+    "search_around": {
+      "title": "搜尋前後文日誌",
+      "description": "取得基準時間前後的日誌。"
+    },
+    "search_field_values": {
+      "title": "搜尋欄位值",
+      "description": "針對單一指定欄位，在限制範圍內傳回不重複的值及其計數。"
+    },
+    "analyze_log_patterns": {
+      "title": "分析日誌模式",
+      "description": "將單一資料串流的日誌依訊息模式分組，並與對照時段比較：是新出現、激增、減少，還是維持穩定。"
+    },
+    "analyze_metric_trend": {
+      "title": "分析指標趨勢",
+      "description": "摘要說明單一 PromQL 查詢結果相較於對照時段的變化：何時開始、變動幅度，以及哪些序列和標籤造成變化。"
+    },
+    "check_data_readiness": {
+      "title": "檢查資料就緒程度",
+      "description": "檢查各資料串流是否記錄服務、環境和 trace ID，同一服務在日誌、指標和追蹤中的名稱是否一致，以及指標名稱是否含有單位。每項發現均附上修正建議。"
+    },
+    "list_log_inspections": {
+      "title": "列出排程巡檢",
+      "description": "列出組織的日誌巡檢排程：讀取哪個資料串流、關注事項、執行週期、是否啟用，以及最近一次執行結果。"
+    },
+    "list_log_inspection_runs": {
+      "title": "列出巡檢執行紀錄",
+      "description": "從最近一次開始，依時間由新到舊列出單一排程巡檢的近期執行紀錄，包含狀態、結論等級和一句話結論。"
+    },
+    "get_log_inspection_run": {
+      "title": "取得巡檢報告",
+      "description": "讀取單次巡檢的結論、發現與報告原文。"
+    },
+    "run_log_inspection": {
+      "title": "立即執行巡檢",
+      "description": "立即執行一項排程巡檢。執行要求會排入佇列並計入組織的模型用量，完成後讀取報告。"
+    },
+    "list_traces": {
+      "title": "搜尋追蹤",
+      "description": "依時間、服務、耗時、錯誤或 Trace ID 搜尋追蹤摘要，結果數量有限。"
+    },
+    "get_trace": {
+      "title": "取得追蹤",
+      "description": "依 Trace ID 取得數量有限的 Span；只需要結構時，請使用 get_trace_dag。"
+    },
+    "get_trace_dag": {
+      "title": "取得追蹤 DAG",
+      "description": "傳回單筆追蹤中服務與 Span 相依關係的精簡 DAG，不傳回完整的 Span 承載資料。"
+    },
+    "list_trace_sessions": {
+      "title": "列出 Trace Session",
+      "description": "當 Trace 串流包含 Session 欄位時，列出數量有限的 LLM/AI Trace Session。"
+    },
+    "get_trace_session": {
+      "title": "取得 Trace Session",
+      "description": "取得單一 LLM/AI Session 的 Trace 摘要，結果數量有限。"
+    },
+    "list_trace_users": {
+      "title": "列出 Trace User",
+      "description": "當 Trace 串流包含 User 欄位時，列出數量有限的 AI Trace User 彙總結果。"
+    },
+    "list_incidents": {
+      "title": "搜尋事件",
+      "description": "依狀態搜尋事件，也可指定時間範圍；結果數量有限。"
+    },
+    "get_incident": {
+      "title": "取得事件",
+      "description": "依 Incident ID 取得事件及其告警規則的相關資訊。"
+    },
+    "get_incident_rca": {
+      "title": "取得事件 RCA",
+      "description": "取得事件最近一次儲存的根因分析。"
+    },
+    "get_incident_insights": {
+      "title": "取得事件洞察",
+      "description": "傳回依狀態、嚴重程度、服務及規則彙總的事件洞察，結果數量有限。"
+    },
+    "get_similar_incidents": {
+      "title": "取得相似事件",
+      "description": "列出最近 90 天內與指定事件最相似的事件，以及各事件的結案方式和根因說明的第一句。"
+    },
+    "list_changes": {
+      "title": "列出變更",
+      "description": "列出指定時間前後的部署、設定變更與功能開關，可依服務或單一事件查詢。"
+    },
+    "acknowledge_incident": {
+      "title": "確認事件",
+      "description": "確認一項處於開啟狀態的事件。"
+    },
+    "resolve_incident": {
+      "title": "解決事件",
+      "description": "將一項開啟或已確認的事件標記為已解決。"
+    },
+    "reassign_incident": {
+      "title": "轉派事件",
+      "description": "將進行中的事件轉派給成員、團隊（依該團隊的值班策略），或交由升級策略處理。"
+    },
+    "add_incident_responders": {
+      "title": "增派成員",
+      "description": "將多位成員加入進行中事件的負責人名單，並通知他們。"
+    },
+    "escalate_incident": {
+      "title": "立即升級事件",
+      "description": "立即將進行中的事件升級至升級策略的指定步驟，預設為下一步。"
+    },
+    "snooze_incident": {
+      "title": "暫緩事件",
+      "description": "暫緩進行中的事件：先確認事件，時間一到就將事件改回未確認狀態並再次發送通知。"
+    },
+    "lift_incident_inhibition": {
+      "title": "解除事件抑制",
+      "description": "讓受抑制的事件恢復正常通知：發出先前被抑制的通知，後續通知不再受抑制。"
+    },
+    "set_incident_severity": {
+      "title": "變更事件嚴重程度",
+      "description": "變更進行中事件的嚴重程度；之後規則不再變更此設定。"
+    },
+    "merge_incidents": {
+      "title": "合併事件",
+      "description": "將其他進行中的事件併入同一事件：併入的事件不再發出通知，並隨主事件一併解決。"
+    },
+    "add_incident_note": {
+      "title": "新增事件備註",
+      "description": "在事件時間軸上新增一則備註，記錄發現了什麼、做了什麼。"
+    },
+    "get_incident_timeline": {
+      "title": "取得事件時間軸",
+      "description": "取得事件時間軸：通知了誰、人員採取了哪些行動、備註，以及併入此事件的其他事件。"
+    },
+    "list_alert_rules": {
+      "title": "列出警示規則",
+      "description": "列出警示規則及其狀態、查詢、閾值與路由中繼資料。"
+    },
+    "get_alert_rule": {
+      "title": "取得警示規則",
+      "description": "依 ID 取得單一警示規則。"
+    },
+    "create_alert_rule": {
+      "title": "建立警示規則",
+      "description": "驗證後建立一條警示規則。"
+    },
+    "update_alert_rule": {
+      "title": "更新警示規則",
+      "description": "驗證後取代一條警示規則。"
+    },
+    "delete_alert_rule": {
+      "title": "刪除警示規則",
+      "description": "刪除一條警示規則。"
+    },
+    "test_alert_rule": {
+      "title": "測試警示規則",
+      "description": "試跑單一警示規則，不產生副作用，並傳回比對結果與數量受限的樣本。"
+    },
+    "trigger_alert_rule": {
+      "title": "觸發警示規則",
+      "description": "手動觸發單一警示規則，不進行閾值判斷。"
+    },
+    "list_incident_groups": {
+      "title": "列出事件群組",
+      "description": "依狀態列出相關事件群組，並限制傳回數量。"
+    },
+    "get_incident_group": {
+      "title": "取得事件群組",
+      "description": "依 ID 取得相關事件群組。"
+    },
+    "list_mute_rules": {
+      "title": "列出靜音規則",
+      "description": "列出警示靜音規則。"
+    },
+    "get_mute_rule": {
+      "title": "取得靜音規則",
+      "description": "依 ID 取得靜音規則。"
+    },
+    "list_inhibit_rules": {
+      "title": "列出抑制規則",
+      "description": "列出警示抑制規則：來源事件進行時會抑制哪些目標事件的通知，以及目前有多少個目標事件的通知受到抑制。"
+    },
+    "get_inhibit_rule": {
+      "title": "取得抑制規則",
+      "description": "依 ID 取得警示抑制規則。"
+    },
+    "list_escalation_policies": {
+      "title": "列出升級政策",
+      "description": "列出事件升級政策。"
+    },
+    "get_escalation_policy": {
+      "title": "取得升級政策",
+      "description": "依 ID 取得事件升級政策。"
+    },
+    "list_on_call_schedules": {
+      "title": "列出值班表",
+      "description": "列出值班排程及目前的值班人員。"
+    },
+    "get_on_call_schedule": {
+      "title": "取得值班排程",
+      "description": "依 ID 取得單一值班排程。"
+    },
+    "get_current_on_call": {
+      "title": "查詢目前值班",
+      "description": "查詢單一或所有已啟用排程目前的值班人員。"
+    },
+    "list_notification_connectors": {
+      "title": "列出通知連接器",
+      "description": "列出通知連接器，一律省略憑證欄位。"
+    },
+    "get_notification_connector": {
+      "title": "取得通知連接器",
+      "description": "取得通知連接器的中繼資料，一律省略憑證欄位。"
+    },
+    "list_notification_policies": {
+      "title": "列出通知原則",
+      "description": "列出通知路由原則。"
+    },
+    "get_notification_policy": {
+      "title": "取得通知原則",
+      "description": "取得單一通知路由原則。"
+    },
+    "list_notification_templates": {
+      "title": "列出通知範本",
+      "description": "列出組織層級及系統通知範本。"
+    },
+    "get_notification_template": {
+      "title": "取得通知範本",
+      "description": "取得單一通知範本。"
+    },
+    "list_notification_deliveries": {
+      "title": "列出通知傳送記錄",
+      "description": "列出通知傳送記錄，並限制回傳筆數。"
+    },
+    "get_notification_delivery": {
+      "title": "取得通知傳送記錄",
+      "description": "取得單筆通知傳送記錄。"
+    },
+    "retry_notification_delivery": {
+      "title": "重試傳送通知",
+      "description": "重試一次失敗的通知傳送。"
+    },
+    "acknowledge_notification_delivery": {
+      "title": "確認通知傳送",
+      "description": "確認單次通知傳送。"
+    },
+    "apm_overview": {
+      "title": "APM 概覽",
+      "description": "回傳範圍有限的 RED 指標、趨勢、服務健康狀態、相依性及常見錯誤。"
+    },
+    "list_apm_services": {
+      "title": "列出 APM 服務",
+      "description": "列出 APM 服務及其 RED 健康狀態摘要。"
+    },
+    "search_service_catalog": {
+      "title": "搜尋服務目錄",
+      "description": "依名稱、別名、說明或標籤搜尋服務，並回傳負責人、團隊、別名及資料存取入口。"
+    },
+    "get_apm_service": {
+      "title": "取得 APM 服務",
+      "description": "取得單一服務的 RED 趨勢、交易、相依性、錯誤及版本。"
+    },
+    "list_apm_transactions": {
+      "title": "列出 APM Transaction",
+      "description": "列出 APM Transaction 群組及其 RED 摘要。"
+    },
+    "get_apm_transaction": {
+      "title": "取得 APM Transaction",
+      "description": "取得單一 APM Transaction 的趨勢及追蹤詳細資料。"
+    },
+    "list_apm_dependencies": {
+      "title": "列出 APM 相依性",
+      "description": "列出 APM 服務的相依性及其延遲和錯誤摘要。"
+    },
+    "list_apm_errors": {
+      "title": "列出 APM 錯誤",
+      "description": "列出彙整後的 APM 錯誤、受影響的服務和追蹤查詢控制代碼。"
+    },
+    "get_apm_error": {
+      "title": "取得 APM 錯誤",
+      "description": "取得單一 APM 錯誤群組、範例及 Trace Handle。"
+    },
+    "compare_apm_versions": {
+      "title": "比較 APM 版本",
+      "description": "比較兩個服務版本的 RED 指標及退化情形。"
+    },
+    "get_apm_health": {
+      "title": "取得 APM 健康狀態",
+      "description": "傳回 APM 投影的資料時效性、涵蓋率及資料品質狀態。"
+    },
+    "get_apm_insights": {
+      "title": "取得 APM 洞察",
+      "description": "傳回 APM 發現的重點：與上一時段和上週同時段相比的突變及相近時間發生的變更、表現變差的版本，以及可最佳化之處。"
+    },
+    "get_apm_blast_radius": {
+      "title": "取得服務影響範圍",
+      "description": "依服務地圖傳回呼叫此服務的其他服務及此服務呼叫的對象，並將狀態異常的項目排在前面。"
+    },
+    "correlate_signals": {
+      "title": "跨訊號關聯",
+      "description": "依服務或 Trace，在指定範圍內關聯事件、追蹤、日誌、RUM 與 Profile。"
+    },
+    "get_service_topology": {
+      "title": "取得服務拓撲",
+      "description": "傳回指定時間範圍內的服務相依關係圖，並限制其規模。"
+    },
+    "list_rum_sessions": {
+      "title": "查詢 RUM 工作階段",
+      "description": "在限定範圍內查詢真實使用者監控的工作階段。"
+    },
+    "get_rum_session": {
+      "title": "取得 RUM 工作階段",
+      "description": "取得單一 RUM 工作階段，以及限定範圍內的操作和錯誤摘要。"
+    },
+    "list_rum_actions": {
+      "title": "查詢 RUM 操作",
+      "description": "查詢頁面、操作、資源和 Web Vitals。"
+    },
+    "list_rum_errors": {
+      "title": "查詢 RUM 錯誤",
+      "description": "依工作階段或指紋查詢 RUM 錯誤。"
+    },
+    "get_rum_related_traces": {
+      "title": "關聯 RUM 與追蹤",
+      "description": "尋找與 RUM 工作階段直接關聯的追蹤；若找不到，則在限定的時間範圍內依時間比對。"
+    },
+    "get_rum_vitals": {
+      "title": "彙總 Web Vitals",
+      "description": "依頁面彙總真實使用者的 Core Web Vitals：LCP、INP、CLS、TTFB 的 P75，以及頁面瀏覽量，並附上良好與不佳的門檻值。"
+    },
+    "list_rum_issues": {
+      "title": "列出 RUM 問題",
+      "description": "列出 RUM 應用程式的錯誤問題：狀態、首次和最近出現的時間，以及範圍內各問題影響的工作階段數、使用者數、發生次數與趨勢。"
+    },
+    "get_rum_issue": {
+      "title": "查看 RUM 問題",
+      "description": "查看單一 RUM 問題的歷程記錄、範圍內的統計數字、近期發生此問題的工作階段，以及此問題的堆疊。"
+    },
+    "get_rum_overview": {
+      "title": "彙總 RUM 應用程式表現",
+      "description": "彙總單一 RUM 應用程式的表現：工作階段數、未發生錯誤或當機的工作階段比例、Core Web Vitals、瀏覽量最高的頁面和主要問題。"
+    },
+    "get_rum_frustration": {
+      "title": "彙總 RUM 使用者受挫訊號",
+      "description": "說明使用者受挫的原因：快速連點、點擊無回應和點擊出錯，以及這些情況集中的元素、頁面和版本。"
+    },
+    "get_rum_view_waterfall": {
+      "title": "查看 RUM 頁面檢視瀑布圖",
+      "description": "查看單次頁面檢視的載入過程：各個時間點、最大內容繪製正在等待的項目、要求載入的資源，以及阻礙繪製的長時間工作。"
+    },
+    "aggregate_rum": {
+      "title": "彙總 RUM 資料",
+      "description": "計算 RUM 資料串流的資料列數、平均值或百分位數，可依欄位分組，也可依時間分段。"
+    },
+    "get_rum_funnel": {
+      "title": "查看 RUM 漏斗",
+      "description": "統計依序完成一連串頁面瀏覽和操作的工作階段數量及所需時間，可依瀏覽器、版本或國家分組。"
+    },
+    "get_rum_paths": {
+      "title": "查看 RUM 路徑",
+      "description": "追蹤工作階段在某個頁面之後開啟了哪些頁面，或在此之前來自哪些頁面：查看每一步造訪次數最多的頁面，以及工作階段的去向。"
+    },
+    "get_rum_retention": {
+      "title": "查看 RUM 留存",
+      "description": "顯示在某天或某週首次出現的使用者，有多少人在後續各個週期再次出現。"
+    },
+    "list_continuous_profiles": {
+      "title": "查詢持續剖析",
+      "description": "依服務、類型、追蹤和標籤查詢持續剖析的中繼資料。"
+    },
+    "get_profile_flamegraph": {
+      "title": "取得火焰圖",
+      "description": "將有限範圍內的 Profile 集合合併成 flamebearer 火焰圖。"
+    },
+    "compare_profiles": {
+      "title": "比較剖析",
+      "description": "使用差異火焰圖比較基準與目前的 Profile 時間區間；需要 profiling_enhanced。"
+    },
+    "list_report_templates": {
+      "title": "列出報表範本",
+      "description": "列出內建及組織層級的報表範本。"
+    },
+    "get_report_template": {
+      "title": "取得報表範本",
+      "description": "依 ID 取得單一報表範本。"
+    },
+    "list_scheduled_reports": {
+      "title": "列出排程報表",
+      "description": "列出目前組織的排程報表。"
+    },
+    "get_scheduled_report": {
+      "title": "取得排程報表",
+      "description": "依 ID 取得單一排程報表。"
+    },
+    "list_report_deliveries": {
+      "title": "列出報表傳送紀錄",
+      "description": "在限定範圍內列出單一排程報表的傳送紀錄。"
+    },
+    "list_dashboards": {
+      "title": "列出儀表板",
+      "description": "列出儀表板，可限定資料夾。"
+    },
+    "get_dashboard": {
+      "title": "取得儀表板",
+      "description": "依 ID 取得儀表板及其完整模型。"
+    },
+    "create_dashboard": {
+      "title": "建立儀表板",
+      "description": "使用完整且已驗證的模型建立儀表板。"
+    },
+    "update_dashboard": {
+      "title": "更新儀表板",
+      "description": "替換儀表板模型，也可將儀表板移至其他資料夾。"
+    },
+    "delete_dashboard": {
+      "title": "刪除儀表板",
+      "description": "刪除一個儀表板。"
+    },
+    "list_folders": {
+      "title": "列出資料夾",
+      "description": "列出儀表板資料夾。"
+    },
+    "get_folder": {
+      "title": "取得資料夾",
+      "description": "依 ID 取得儀表板資料夾。"
+    },
+    "create_folder": {
+      "title": "建立資料夾",
+      "description": "建立一個儀表板資料夾。"
+    },
+    "update_folder": {
+      "title": "更新資料夾",
+      "description": "重新命名或移動一個儀表板資料夾。"
+    },
+    "delete_folder": {
+      "title": "刪除資料夾",
+      "description": "刪除一個空的 Dashboard 資料夾。"
+    },
+    "list_annotations": {
+      "title": "列出註解",
+      "description": "列出指定時間範圍內的註解，可選擇依 Dashboard／Panel 篩選。"
+    },
+    "get_annotation": {
+      "title": "取得註解",
+      "description": "依 ID 取得單筆時間註解。"
+    },
+    "create_annotation": {
+      "title": "建立註解",
+      "description": "依目前的執行策略建立時間註解。"
+    },
+    "update_annotation": {
+      "title": "更新註解",
+      "description": "依目前的執行策略更新單筆時間註解的部分欄位。"
+    },
+    "delete_annotation": {
+      "title": "刪除註解",
+      "description": "依目前的執行策略刪除單筆時間註解。"
+    },
+    "add_dashboard_panel": {
+      "title": "新增 Dashboard Panel",
+      "description": "以不可分割的操作將 Panel 新增至 Dashboard 的根節點或巢狀容器。"
+    },
+    "update_dashboard_panel": {
+      "title": "更新 Dashboard Panel",
+      "description": "以不可分割的操作取代單一 Dashboard Panel。"
+    },
+    "move_dashboard_panel": {
+      "title": "移動 Dashboard Panel",
+      "description": "以不可分割的操作將 Dashboard Panel 移至根節點或巢狀容器中的指定位置。"
+    },
+    "delete_dashboard_panel": {
+      "title": "刪除 Dashboard Panel",
+      "description": "以不可分割的操作刪除單一 Dashboard Panel。"
+    },
+    "get_dashboard_capabilities": {
+      "title": "取得 Dashboard 功能資訊",
+      "description": "傳回 Dashboard 編輯通訊協定的版本與限制。"
+    },
+    "prepare_dashboard": {
+      "title": "準備 Dashboard",
+      "description": "驗證並預先檢查 Dashboard 草稿，不會建立 Dashboard。"
+    },
+    "propose_dashboard_creation": {
+      "title": "提議建立 Dashboard",
+      "description": "為已準備好的 Dashboard 草稿提交核准請求，不會直接建立 Dashboard。"
+    },
+    "propose_operation": {
+      "title": "提議處置操作",
+      "description": "為受控操作提交核准請求，不會直接執行操作。"
+    },
+    "propose_alert_action": {
+      "title": "提議警示處置",
+      "description": "提交單一警示事件的確認或解決操作核准請求。"
+    },
+    "propose_synthetic_monitor_action": {
+      "title": "提議 Synthetic Monitor 操作",
+      "description": "提交單一 Synthetic Monitor 的執行、暫停、恢復或封存操作核准請求。"
+    },
+    "propose_status_page_action": {
+      "title": "提議 Status Page 操作",
+      "description": "提交 Status Page 的封存、還原或暫停／恢復自動化操作核准請求。"
+    },
+    "propose_notification_action": {
+      "title": "提議通知傳送操作",
+      "description": "提交單筆通知傳送的重試或確認操作核准請求。"
+    },
+    "propose_scheduled_pipeline_action": {
+      "title": "提議排程 Pipeline 操作",
+      "description": "提交單一排程 Pipeline 的啟用、停用或刪除操作核准請求。"
+    },
+    "list_saved_views": {
+      "title": "列出 Saved View",
+      "description": "列出已儲存的 SQL 與 PromQL 檢視。"
+    },
+    "get_saved_view": {
+      "title": "取得 Saved View",
+      "description": "取得單一已儲存的查詢檢視。"
+    },
+    "create_saved_view": {
+      "title": "建立 Saved View",
+      "description": "建立一個已儲存的 SQL 或 PromQL 檢視。"
+    },
+    "update_saved_view": {
+      "title": "更新 Saved View",
+      "description": "取代一個已儲存的 SQL 或 PromQL 檢視。"
+    },
+    "delete_saved_view": {
+      "title": "刪除 Saved View",
+      "description": "刪除一個已儲存的查詢檢視。"
+    },
+    "list_search_jobs": {
+      "title": "列出 Search Job",
+      "description": "在限制範圍內列出非同步 Search Job。"
+    },
+    "get_search_job": {
+      "title": "取得 Search Job",
+      "description": "取得非同步 Search Job 的狀態及結果中繼資料。"
+    },
+    "get_search_job_results": {
+      "title": "取得 Search Job 結果",
+      "description": "在限制範圍內取得一頁已解碼的非同步 Search Job 結果。"
+    },
+    "submit_search_job": {
+      "title": "提交 Search Job",
+      "description": "提出核准申請，以提交會持久儲存的非同步 SQL 或 PromQL Search Job。"
+    },
+    "cancel_search_job": {
+      "title": "取消 Search Job",
+      "description": "提出核准申請，以取消待執行或執行中的非同步 Search Job。"
+    },
+    "retry_search_job": {
+      "title": "重試 Search Job",
+      "description": "提出核准申請，以重試失敗或已取消的非同步 Search Job。"
+    },
+    "delete_search_job": {
+      "title": "刪除 Search Job",
+      "description": "提出核准申請，以刪除非同步 Search Job 及已儲存的結果。"
+    },
+    "list_scheduled_pipelines": {
+      "title": "列出排程 Pipeline",
+      "description": "列出排程 Pipeline 及近期執行的健全狀態。"
+    },
+    "get_scheduled_pipeline": {
+      "title": "取得排程 Pipeline",
+      "description": "取得單一排程 Pipeline。"
+    },
+    "list_pipeline_runs": {
+      "title": "列出 Pipeline 執行紀錄",
+      "description": "在限制範圍內列出單一排程 Pipeline 的執行記錄。"
+    },
+    "enable_scheduled_pipeline": {
+      "title": "啟用排程 Pipeline",
+      "description": "啟用一個排程 Pipeline。"
+    },
+    "disable_scheduled_pipeline": {
+      "title": "停用排程 Pipeline",
+      "description": "停用一個排程 Pipeline。"
+    },
+    "delete_scheduled_pipeline": {
+      "title": "刪除排程 Pipeline",
+      "description": "刪除一個排程 Pipeline。"
+    },
+    "list_functions": {
+      "title": "列出處理函式",
+      "description": "列出組織層級及內建的處理函式。"
+    },
+    "get_function": {
+      "title": "取得處理函式",
+      "description": "取得單一處理函式及其原始碼。"
+    },
+    "test_function": {
+      "title": "測試處理函式",
+      "description": "使用範例輸入，在限制範圍內執行無副作用的函式測試。"
+    },
+    "create_function": {
+      "title": "建立處理函式",
+      "description": "通過編譯預檢後建立一個處理函式。"
+    },
+    "update_function": {
+      "title": "更新處理函式",
+      "description": "通過編譯預檢後替換一個組織處理函式。"
+    },
+    "delete_function": {
+      "title": "刪除處理函式",
+      "description": "刪除一個組織處理函式。"
+    },
+    "list_enrichment_tables": {
+      "title": "列出擴充表",
+      "description": "列出擴充表與 KV 表。"
+    },
+    "list_enrichment_rows": {
+      "title": "列出擴充表資料列",
+      "description": "列出單一擴充表的資料列，筆數有上限。"
+    },
+    "get_enrichment_value": {
+      "title": "取得擴充表值",
+      "description": "依 Key 取得單筆擴充表資料。"
+    },
+    "list_log_patterns": {
+      "title": "列出日誌 Pattern",
+      "description": "列出已持久化儲存的日誌 Pattern。"
+    },
+    "get_log_pattern": {
+      "title": "取得日誌 Pattern",
+      "description": "取得單筆日誌 Pattern。"
+    },
+    "list_regex_patterns": {
+      "title": "列出 Regex Pattern",
+      "description": "列出可重複使用的規則運算式 Pattern。"
+    },
+    "get_regex_pattern": {
+      "title": "取得 Regex Pattern",
+      "description": "取得單筆規則運算式 Pattern。"
+    },
+    "list_field_masking_rules": {
+      "title": "列出欄位遮罩規則",
+      "description": "列出欄位遮罩規則，不傳回金鑰資料。"
+    },
+    "get_effective_field_masking": {
+      "title": "取得生效的遮罩規則",
+      "description": "解析單一資料串流中生效的欄位遮罩規則。"
+    },
+    "list_data_connectors": {
+      "title": "列出資料連接器",
+      "description": "列出資料連接器，並遮罩憑證類設定值。"
+    },
+    "get_data_connector": {
+      "title": "取得資料連接器",
+      "description": "取得單一資料連接器，並遮罩憑證類設定值。"
+    },
+    "list_synthetic_monitors": {
+      "title": "列出 Synthetic Monitor",
+      "description": "列出 Synthetic Monitor 及其目前的生命週期狀態。"
+    },
+    "get_synthetic_monitor": {
+      "title": "取得 Synthetic Monitor",
+      "description": "取得單一 Synthetic Monitor 及其 Revision 清單。"
+    },
+    "list_synthetic_revisions": {
+      "title": "列出 Synthetic Revision",
+      "description": "列出單一 Synthetic Monitor 的 Revision，筆數有上限。"
+    },
+    "list_synthetic_results": {
+      "title": "列出 Synthetic 結果",
+      "description": "列出 Synthetic 執行結果，筆數有上限。"
+    },
+    "list_synthetic_locations": {
+      "title": "列出 Synthetic Location",
+      "description": "列出 Synthetic Probe Location。"
+    },
+    "list_synthetic_agents": {
+      "title": "列出 Synthetic Agent",
+      "description": "列出 Probe Agent，可依 Location 篩選。"
+    },
+    "list_synthetic_secrets": {
+      "title": "列出 Synthetic Secret 中繼資料",
+      "description": "列出 Synthetic Secret 的中繼資料；絕不傳回 Secret 值。"
+    },
+    "run_synthetic_monitor": {
+      "title": "執行 Synthetic Monitor",
+      "description": "立即執行一個 Synthetic Monitor。"
+    },
+    "pause_synthetic_monitor": {
+      "title": "暫停 Synthetic Monitor",
+      "description": "暫停一個 Synthetic Monitor。"
+    },
+    "resume_synthetic_monitor": {
+      "title": "恢復 Synthetic Monitor",
+      "description": "恢復一個 Synthetic Monitor。"
+    },
+    "archive_synthetic_monitor": {
+      "title": "封存 Synthetic Monitor",
+      "description": "封存一個 Synthetic Monitor。"
+    },
+    "list_status_pages": {
+      "title": "列出 Status Page",
+      "description": "依生命週期列出 Status Page。"
+    },
+    "get_status_page": {
+      "title": "取得 Status Page",
+      "description": "取得包含元件及目前事件的 Status Page 快照。"
+    },
+    "list_status_page_incidents": {
+      "title": "列出 Status Page 事件",
+      "description": "列出 Status Page 事件或維護事件。"
+    },
+    "get_status_page_incident": {
+      "title": "取得 Status Page 事件",
+      "description": "取得單筆 Status Page 事件及其更新記錄。"
+    },
+    "list_status_page_subscribers": {
+      "title": "列出 Status Page 訂閱者",
+      "description": "分頁列出 Status Page 訂閱者，筆數有上限。"
+    },
+    "list_status_page_deliveries": {
+      "title": "列出 Status Page 傳送記錄",
+      "description": "分頁列出 Status Page 通知的傳送記錄，筆數有上限。"
+    },
+    "list_status_page_automation_rules": {
+      "title": "列出 Status Page 自動化規則",
+      "description": "列出 Status Page 目前生效的自動化規則。"
+    },
+    "list_status_page_automation_candidates": {
+      "title": "列出 Status Page 自動化候選項目",
+      "description": "列出 Status Page 自動化候選項目，筆數有上限。"
+    },
+    "get_status_page_automation_settings": {
+      "title": "取得 Status Page 自動化設定",
+      "description": "取得單一 Status Page 的自動化設定。"
+    },
+    "archive_status_page": {
+      "title": "封存 Status Page",
+      "description": "封存一個 Status Page。"
+    },
+    "restore_status_page": {
+      "title": "還原 Status Page",
+      "description": "還原一個已封存的 Status Page。"
+    },
+    "pause_status_page_automation": {
+      "title": "暫停 Status Page 自動化",
+      "description": "暫停一個 Status Page 的自動化。"
+    },
+    "resume_status_page_automation": {
+      "title": "恢復 Status Page 自動化",
+      "description": "恢復一個 Status Page 的自動化。"
+    },
+    "draft_status_page_postmortem": {
+      "title": "撰寫事後檢討草稿",
+      "description": "為一筆已發布的 Status Page 事件寫入或取代 Markdown 事後檢討草稿。草稿不會發布；若要修改已發布的事後檢討，請在 Status Page 上編輯。"
+    },
+    "get_user_profile": {
+      "title": "取得使用者資料",
+      "description": "取得組織使用者的安全資料欄位。以使用者身分呼叫時，可省略目標以讀取自己的資料；以 Service Account 身分呼叫時，則必須指定目標。讀取其他使用者的資料需要成員讀取權限。"
+    },
+    "get_user_preferences": {
+      "title": "取得使用者偏好設定",
+      "description": "取得組織使用者的 Workspace 偏好設定。使用者主體可省略目標以讀取自己的偏好設定；Service Account 主體必須指定目標。讀取其他使用者的偏好設定需要成員讀取權限。"
+    },
+    "list_organization_members": {
+      "title": "列出組織成員",
+      "description": "列出目前通過驗證的組織成員，不傳回密碼或憑證資料。"
+    },
+    "list_teams": {
+      "title": "列出團隊",
+      "description": "列出目前通過驗證的組織所屬的團隊。"
+    },
+    "list_roles": {
+      "title": "列出角色",
+      "description": "列出目前通過驗證的組織的角色及權限鍵。"
+    },
+    "list_audit_events": {
+      "title": "查詢稽核事件",
+      "description": "依選用的篩選條件查詢組織的稽核事件，查詢範圍有限制。"
+    },
+    "get_iam_capabilities": {
+      "title": "取得 IAM 能力",
+      "description": "傳回目前通過驗證的主體的有效 IAM 能力快照。"
+    },
+    "list_service_accounts": {
+      "title": "列出 Service Account",
+      "description": "列出目前通過驗證的組織內的非人類主體。"
+    },
+    "get_service_account": {
+      "title": "取得 Service Account",
+      "description": "取得單一非人類組織主體。"
+    },
+    "list_api_tokens": {
+      "title": "列出 API Token",
+      "description": "列出通過驗證的組織內的 API Token 中繼資料，不揭露 Secret，並可依 Service Account 篩選。"
+    },
+    "create_api_token": {
+      "title": "建立 API Token",
+      "description": "為提出請求的使用者建立個人 API Token，並在執行後僅傳回一次明文。"
+    },
+    "revoke_api_token": {
+      "title": "撤銷 API Token",
+      "description": "撤銷一個 API Token。"
+    },
+    "create_service_account": {
+      "title": "建立 Service Account",
+      "description": "提出核准請求，以原子操作建立非人類組織主體及初始繫結的 API Token。核准後執行，明文只會傳回一次，且不會寫入執行記錄。"
+    },
+    "update_service_account": {
+      "title": "更新 Service Account",
+      "description": "提出更新 Service Account 中繼資料或有效 IAM 角色的核准請求。"
+    },
+    "enable_service_account": {
+      "title": "啟用 Service Account",
+      "description": "提出啟用 Service Account 的核准請求；已撤銷的 API Token 不會恢復。"
+    },
+    "disable_service_account": {
+      "title": "停用 Service Account",
+      "description": "提出核准請求，以原子操作停用 Service Account 並撤銷所有已繫結且仍有效的 API Token。"
+    },
+    "delete_service_account": {
+      "title": "刪除 Service Account",
+      "description": "提出核准請求，以原子操作刪除 Service Account 並撤銷所有已繫結且仍有效的 API Token。"
+    },
+    "list_agent_investigations": {
+      "title": "列出 Agent 調查",
+      "description": "列出 Mole Agent 調查。"
+    },
+    "get_agent_investigation": {
+      "title": "取得 Agent 調查",
+      "description": "取得單筆 Mole Agent 調查及其步驟、證據和假設。"
+    },
+    "list_agent_approvals": {
+      "title": "列出 Agent 核准請求",
+      "description": "列出 Mole Agent 核准請求。"
+    },
+    "get_agent_approval": {
+      "title": "取得 Agent 核准請求",
+      "description": "取得單筆 Mole Agent 核准請求。"
+    },
+    "execute_agent_approval": {
+      "title": "執行 Agent 已核准的操作",
+      "description": "以冪等方式執行一項已核准的 Mole Agent 操作。"
+    },
+    "list_agent_executions": {
+      "title": "列出 Agent 執行記錄",
+      "description": "列出 Mole Agent 已核准操作的執行記錄。"
+    },
+    "get_agent_execution": {
+      "title": "取得 Agent 執行記錄",
+      "description": "取得一項 Mole Agent 已核准操作的執行記錄。"
+    },
+    "list_agent_automations": {
+      "title": "列出 Agent 自動化",
+      "description": "列出已設定的 Mole Agent 自動化。"
+    },
+    "list_skills": {
+      "title": "列出技能",
+      "description": "列出目前對話可用的技能：名稱、說明、版本與參數寫法。"
+    },
+    "load_skill": {
+      "title": "讀取技能",
+      "description": "依名稱讀取一項技能的操作說明與參考檔案清單。"
+    },
+    "read_skill_file": {
+      "title": "讀取技能檔案",
+      "description": "讀取技能中的一個純文字參考檔案。"
+    },
+    "todo_write": {
+      "title": "工作清單",
+      "description": "記錄這次調查的步驟與各步驟的狀態，在對話中顯示為「第 X/N 步」。"
+    },
+    "ask_user": {
+      "title": "向提問者提問",
+      "description": "如果答案會影響下一步，又無法透過其他工具查到，就向提問者提問，等對方回答後再繼續。"
+    },
+    "list_knowledge": {
+      "title": "列出知識",
+      "description": "列出組織或指定團隊的知識檔案：路徑、大小與修改時間。"
+    },
+    "read_knowledge": {
+      "title": "讀取知識",
+      "description": "依路徑讀取一個知識檔案。MOLE.md 中以 @路徑 標示的就是知識檔案。"
+    },
+    "search_knowledge": {
+      "title": "搜尋知識",
+      "description": "在知識檔案中搜尋字詞，例如服務名稱或錯誤訊息，並傳回符合的行。"
+    },
+    "edit_knowledge": {
+      "title": "修改知識",
+      "description": "在這個對話的範圍內寫入或刪除一個知識檔案。每次修改都會請發起人在對話中確認。"
+    },
+    "remember": {
+      "title": "記住",
+      "description": "記下偏好、做法、事實或教訓，供後續對話使用。個人對話的記憶供本人使用，團隊對話的記憶供團隊使用。"
+    },
+    "forget": {
+      "title": "忘掉",
+      "description": "依名稱忘掉這個對話範圍內的一筆記憶。"
+    },
+    "read_memory": {
+      "title": "讀取記憶",
+      "description": "依名稱讀取一筆記憶的正文。"
+    },
+    "update_investigation": {
+      "title": "記錄調查",
+      "description": "將步驟、證據、假設與結論記錄在這個對話的調查中。"
+    },
+    "get_agent_insights": {
+      "title": "讀取 Mole Agent 使用情況",
+      "description": "彙整這個對話範圍內最近幾天的 Mole Agent 使用情況：提問、回答與自動化結果、是否有幫助的評價與原因，以及使用過的工具和技能。"
+    },
+    "get_incident_tickets": {
+      "title": "查詢事件工單",
+      "description": "列出在 Jira、ServiceNow 或飛書項目中為指定事件建立的工單及其狀態。"
+    },
+    "create_ticket": {
+      "title": "建立工單",
+      "description": "使用 Jira、ServiceNow 或飛書項目連接器為指定事件建立工單（每個連接器一張）。"
+    },
+    "list_remediation_actions": {
+      "title": "列出修復動作",
+      "description": "列出事件可用的修復動作，以及各動作需填寫的參數。"
+    },
+    "run_remediation_action": {
+      "title": "執行修復動作",
+      "description": "提議對事件執行修復動作；一律須經人工核准後才會執行。"
+    },
+    "declare_major_incident": {
+      "title": "宣告重大事件",
+      "description": "將事件宣告為重大事件：指派角色、建立作戰室、套用檢查清單，並向關注者更新進度。"
+    },
+    "assign_incident_role": {
+      "title": "指派事件角色",
+      "description": "指派重大事件的指揮官、溝通負責人或記錄員，或取消該角色的指派。"
+    },
+    "post_incident_update": {
+      "title": "發布事件進度",
+      "description": "將重大事件的進度更新（影響、現況、下一步）發布到作戰室，並通知關注者。"
+    },
+    "add_incident_task": {
+      "title": "新增事件任務",
+      "description": "在重大事件的任務清單中新增一項任務。"
+    },
+    "draft_incident_postmortem": {
+      "title": "撰寫事後檢討草稿",
+      "description": "將事件的內部事後檢討儲存為 Markdown 草稿；已超過草稿階段的內容不會變更。"
+    },
+    "set_incident_priority": {
+      "title": "變更事件優先順序",
+      "description": "變更進行中事件的優先順序（P1–P5，或不設定）；不會重新通知。"
+    },
+    "set_incident_urgency": {
+      "title": "變更事件緊急程度",
+      "description": "變更進行中事件的緊急程度；調高時，尚未確認的事件會從第一級重新通知。"
+    },
+    "create_incident": {
+      "title": "手動建立事件",
+      "description": "為規則未偵測到的問題（例如客戶通報的故障）建立事件，照常通知及升級；若未指定團隊、升級策略或成員，則依路由規則指派。"
+    },
+    "list_discovery_findings": {
+      "title": "列出自動偵測結果",
+      "description": "列出不必建立規則就能偵測到的問題：APM 服務指標突變、效能變差的新版本、前端新出現或再次出現的錯誤、日誌中突然增加或新出現的錯誤，以及容量即將用盡、CPU 使用率突變或正在重新啟動的主機和容器。預設只列出進行中的問題。"
+    },
+    "get_discovery_finding": {
+      "title": "查看單筆自動偵測結果",
+      "description": "查看單筆自動偵測結果，包括變化內容、目前值與基準值、開始時間及詳細資訊。"
+    },
+    "get_rum_feature_flags": {
+      "title": "查看 RUM 功能旗標",
+      "description": "列出工作階段中曾評估的功能旗標；指定旗標後，可比較不同旗標值下的工作階段、錯誤、使用者受挫情況及 Web Vitals。"
+    },
+    "get_rum_heatmap": {
+      "title": "查看 RUM 熱度圖",
+      "description": "顯示使用者點擊了頁面上的哪些元素，以及向下捲動到什麼位置。"
+    },
+    "get_rum_session_notes": {
+      "title": "查看重播留言與摘要",
+      "description": "查看單一已錄製工作階段的留言，以及模型產生的摘要和章節。"
+    }
+  },
+  "dashboard_authoring": {
+    "title": "AI 儀表板草稿",
+    "subtitle": "檢查已儲存的草稿、查詢預檢結果及核准狀態，再明確確認建立。",
+    "loading_title": "正在載入儀表板草稿",
+    "loading_description": "正在從伺服器讀取已驗證並儲存的預覽模型。",
+    "load_failed": "無法載入儀表板草稿",
+    "invalid_preview": "無法安全預覽草稿模型",
+    "invalid_preview_description": "伺服器傳回的已儲存模型不符合目前的儀表板契約，請返回對話重新產生。",
+    "preview_title": "唯讀預覽",
+    "preview_description": "使用正式的 Dashboard Renderer；預覽不會建立或修改儀表板。",
+    "review_title": "建立前檢查",
+    "review_description": "草稿與目前模型的雜湊值繫結；草稿過期或變更後，就無法執行建立作業。",
+    "expires": "剩餘時間",
+    "expired": "已過期",
+    "created_at": "產生時間",
+    "model_hash": "模型 hash",
+    "preflight_range": "預檢範圍",
+    "operation_title": "建立策略",
+    "review_progress": "已通過 {{approved}} / {{required}} 項審核；達到要求後才能建立。",
+    "confirmation_required": "無須額外審核，但仍須由發起人明確確認建立。",
+    "preflight_title": "查詢預檢",
+    "preflight_rows": "{{count}} 列",
+    "no_preflight_panels": "這份草稿沒有需要執行查詢預檢的面板。",
+    "warnings_title": "產生警告",
+    "issues_title": "需要修正的問題",
+    "retry_in_chat": "回到對話重新產生",
+    "open_dashboard": "開啟儀表板",
+    "submitting": "正在提交…",
+    "submit_proposal": "提交建立建議",
+    "creating": "正在建立…",
+    "confirm_create": "確認並建立",
+    "view_approval": "查看審核進度",
+    "creation_unavailable": "目前無法建立",
+    "proposal_reason": "使用者已檢查儲存在伺服器端的儀表板草稿預覽。",
+    "proposal_impact": "建立一個原生儀表板；不會修改現有的儀表板。",
+    "proposal_created": "已提交建立建議，請確認策略狀態。",
+    "creation_failed": "儀表板建立失敗，請檢查執行記錄。",
+    "created": "儀表板已建立。",
+    "draft_status": {
+      "ready": "待確認",
+      "consumed": "已建立",
+      "expired": "已過期"
+    },
+    "preflight_status": {
+      "passed": "已通過",
+      "empty": "結果為空",
+      "skipped": "已略過"
+    }
+  },
+  "answer": {
+    "conclusion": "結論",
+    "anomaly_points": "異常點",
+    "evidence": "證據",
+    "likely_causes": "可能原因",
+    "limitations": "限制",
+    "next_steps": "下一步",
+    "related_links": "相關操作",
+    "confidence": "信心程度",
+    "failed_title": "暫時無法完成調查",
+    "failed_description": "Mole Agent 未取得可用的結果。你可以調整上下文後再試一次，或查看技術錯誤。",
+    "technical_error": "查看技術錯誤",
+    "confidence_levels": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    }
+  },
+  "feedback": {
+    "up": "有幫助",
+    "withdraw_up": "收回「有幫助」",
+    "down": "沒幫助",
+    "what_was_wrong": "哪裡不對？",
+    "reasons_label": "原因",
+    "reasons": {
+      "wrong_conclusion": "結論或根本原因有誤",
+      "missed_cause": "沒找出問題所在",
+      "unusable_advice": "建議派不上用場",
+      "off_topic": "答非所問",
+      "other": "其他"
+    },
+    "comment_label": "補充說明",
+    "comment_placeholder": "補充說明（選填）",
+    "withdraw": "收回評價",
+    "cancel": "取消",
+    "submit": "送出",
+    "thanks": "已收到回饋"
+  },
+  "chat_budget": {
+    "warning": "今天的 Mole Agent 用量已達上限的 {{percent}}%（{{used}} / {{limit}} token），將於 {{time}} 重設。",
+    "exhausted": "今天的 Mole Agent 用量已超出預算（{{used}} / {{limit}} token）。依你所在組織的設定，Mole Agent 會照常回答，用量將於 {{time}} 重設。",
+    "blocked": "今天的 Mole Agent token 預算已用完（{{used}} / {{limit}}），這個問題未送出。預算將於 {{time}} 重設。若要繼續使用，請管理員調高預算。",
+    "open_usage": "查看用量"
+  },
+  "commands": {
+    "menu_label": "指令",
+    "groups": {
+      "builtin": "內建",
+      "skill": "技能",
+      "mcp": "MCP"
+    },
+    "applied": "已切換為 {{value}}",
+    "exported": "已匯出 {{file}}",
+    "export_you": "你",
+    "notice": {
+      "unknown_command": "沒有 /{{command}} 這個指令。輸入 / 可查看所有指令；若要原樣送出以 / 開頭的文字，請寫成 \\/。",
+      "client_command": "/{{command}} 只能在輸入框中使用。",
+      "argument_missing": "/{{command}} 需要參數：{{detail}}",
+      "argument_invalid": "/{{command}} 的參數只能是：{{detail}}",
+      "name_not_found": "/{{command}}：沒有名為「{{detail}}」的選項，請從選單中選擇。",
+      "unavailable": "/{{command}} 目前無法使用：{{detail}}",
+      "target_not_found": "/{{command}}：找不到這個事件，或你沒有權限查看。",
+      "nothing_to_export": "這個對話還沒有內容可匯出。",
+      "ambiguous": "/{{command}} 有多個同名技能，請指定團隊：{{detail}}",
+      "needs_runner": "/{{command}} 需要在 Mole Runner 上執行其中的指令碼，目前還無法使用。",
+      "needs_credential": "/{{command}} 需要使用你自己的憑證：請先在 Mole Agent 設定的「工具」中填寫 {{detail}} 的憑證。",
+      "failed": "/{{command}}：MCP 伺服器無法提供這個提示詞，請稍後再試或檢查伺服器狀態。",
+      "nothing_to_compact": "這個對話還沒有內容可壓縮。"
+    }
+  },
+  "team": {
+    "personal": "個人",
+    "label": "團隊"
+  },
+  "chat_filter": {
+    "label": "依歸屬篩選對話",
+    "all": "全部",
+    "personal": "個人",
+    "team": "團隊"
+  },
+  "scope": {
+    "field": "歸屬",
+    "personal": "個人",
+    "org": "組織",
+    "team": "團隊",
+    "member": "成員個人",
+    "instance": "執行個體",
+    "hint_org": "組織內所有人都能使用，只有 Mole Agent 管理員能修改。",
+    "hint_team": "這個團隊的成員和管理員都能修改。只能在這個團隊的對話中使用；若從個人對話呼叫，系統會將該團隊加入對話。",
+    "hint_personal": "只有你能修改和使用；管理員可以查看、停用或刪除。"
+  },
+  "queue_send": "排在目前的回答之後傳送",
+  "run": {
+    "queued": "排隊中",
+    "question": {
+      "title": "問題",
+      "other": "其他回答",
+      "placeholder": "輸入回答",
+      "send": "回答"
+    },
+    "confirmation": {
+      "title": "執行「{{tool}}」？",
+      "delete_title": "要刪除嗎？將由「{{tool}}」執行",
+      "approve": "執行",
+      "decline": "不執行",
+      "waiting": "等待 {{name}} 確認：工具將以發起人的身分執行"
+    },
+    "authorization": {
+      "title": "授權以繼續",
+      "needed": "「{{tool}}」需要使用你在 {{server}} 的憑證，儲存後會繼續執行。",
+      "rejected": "{{server}} 拒絕了你儲存的憑證。請換用新的憑證，「{{tool}}」會再執行一次。",
+      "value": "你在 {{server}} 的憑證",
+      "placeholder": "貼上憑證",
+      "hint": "憑證會加密儲存，僅用於你自己的呼叫，並透過 {{header}} 請求標頭傳送。",
+      "hint_bearer": "憑證會加密儲存，僅用於你自己的呼叫，並以 Bearer <憑證> 的格式透過 {{header}} 請求標頭傳送。",
+      "continue": "儲存並繼續",
+      "skip": "跳過",
+      "saved": "已儲存憑證，繼續回答",
+      "waiting": "等待 {{name}} 授權：憑證屬於發起人本人"
+    },
+    "todo": {
+      "progress": "第 {{current}}/{{total}} 步"
+    },
+    "notice": {
+      "compacting": "正在將目前的對話壓縮成摘要…",
+      "compacted": "已將 {{count}} 則訊息壓縮成摘要，後續回答會參考摘要和新訊息",
+      "compacted_auto": "對話太長，已將較早的部分壓縮成摘要",
+      "team_mounted": "已讀取團隊 {{team}} 的知識，並將該團隊的知識、技能和 MCP 加入這段對話",
+      "no_response": "等了一小時仍未收到回覆，Mole Agent 將自行判斷並繼續",
+      "memories": "已從這段對話記下 {{count}} 則記憶",
+      "bypass_unavailable": "這段對話的 Agent Profile 已不允許 Bypass permissions，這次回答將改為逐項確認"
+    },
+    "memory": {
+      "remembered": "已記住「{{name}}」",
+      "forgotten": "已忘記「{{name}}」",
+      "undo": "復原",
+      "undone": "已復原"
+    },
+    "ended": {
+      "interrupted": "這一輪未完成：執行這一輪的伺服器已停止。可以重新回答。",
+      "cancelled": "這一輪已停止。"
+    }
+  },
+  "references": {
+    "menu_title": "插入引用",
+    "searching": "正在搜尋…",
+    "remove": "移除 {{name}}",
+    "kinds": {
+      "incident": "事件",
+      "alert_rule": "警示規則",
+      "service": "服務",
+      "rum_application": "RUM 應用程式",
+      "dashboard": "儀表板",
+      "stream": "資料流"
+    },
+    "what": "可引用事件、警示規則、服務、RUM 應用程式、儀表板和資料流，請輸入名稱搜尋",
+    "none": "目前沒有可引用的事件、警示規則、服務、RUM 應用程式、儀表板或資料流",
+    "no_match": "找不到名稱含有「{{query}}」的項目",
+    "failed": "搜尋失敗：{{reason}}"
+  },
+  "investigate": {
+    "write_rca": "將 RCA 寫回事件",
+    "rca_written": "已儲存為事件的 RCA",
+    "start": "使用 Mole Agent 調查",
+    "prefill": "先列出調查計畫，再逐項提供證據；不要對正式環境進行變更。"
+  },
+  "knowledge": {
+    "views": {
+      "knowledge": "知識",
+      "memory": "記憶"
+    },
+    "bases_label": "各份知識",
+    "files_label": "知識檔案",
+    "org": "組織",
+    "file_count": "{{count}} 個檔案",
+    "updated": "{{time}} 修改",
+    "quota": "{{files}}/{{maxFiles}} 個檔案 · {{size}}/{{maxSize}}",
+    "entry_missing": "沒有 MOLE.md",
+    "entry_badge": "入口",
+    "stale_short": "入口可能已過時",
+    "stale": "MOLE.md 寫好後又修改了 {{count}} 個檔案，入口檔案可能已經過時。",
+    "update_entry": "讓 AI 更新 MOLE.md",
+    "update_entry_prompt": "MOLE.md 寫好後，其他知識檔案又有修改。請對照目前的檔案更新 MOLE.md：每個檔案各佔一行，用 @路徑 指向該檔案，並說明它的內容。",
+    "read_only": "只能檢視：組織的知識由具備 agent.manage 權限的人修改，團隊的知識由團隊成員修改。",
+    "new_file": "新增檔案",
+    "new_file_path": "檔案路徑",
+    "new_file_hint": "例如 runbooks/payments.md，路徑可以包含目錄",
+    "new_entry": "新增 MOLE.md",
+    "create": "新增",
+    "cancel": "取消",
+    "upload_files": "上傳檔案",
+    "upload_folder": "上傳資料夾",
+    "uploaded": "已上傳 {{count}} 個檔案",
+    "skipped": "已略過 {{count}} 個檔案：{{paths}}",
+    "skip_reasons": {
+      "hidden_or_invalid_path": "隱藏檔案或路徑無效",
+      "too_large": "超過 1 MiB",
+      "not_text": "不是純文字檔案"
+    },
+    "ask_ai": "AI",
+    "ai_prompt": "請修改知識檔案 {{path}}：",
+    "ai_prompt_base": "請幫我整理這份知識：",
+    "init": "用 /init 撰寫",
+    "empty_title": "這份知識還是空的",
+    "empty_description": "撰寫 MOLE.md 作為入口，用 @路徑 指向其他檔案；或用 /init 讓 Mole Agent 先查看現有設定，再問你幾個問題，確認後逐一撰寫檔案。",
+    "select_file": "選擇一個檔案來檢視。",
+    "mode_label": "檢視方式",
+    "preview": "預覽",
+    "edit": "編輯",
+    "source": "原始碼",
+    "edit_label": "編輯 {{path}}",
+    "source_label": "編輯 {{path}} 的原始碼",
+    "source_only": "這個檔案包含即時編輯模式無法保留的語法（例如 HTML 註解），請在這裡直接修改原始碼。",
+    "unsaved": "有尚未儲存的變更",
+    "discard": "捨棄變更",
+    "save": "儲存",
+    "saved": "已儲存",
+    "rename": "重新命名",
+    "rename_to": "新路徑",
+    "renamed": "已重新命名",
+    "delete": "刪除",
+    "deleting": "正在刪除…",
+    "delete_title": "刪除 {{path}}？",
+    "delete_confirm": "刪除後就無法在對話中讀取；如果是資料夾，裡面的檔案也會一併刪除。",
+    "deleted": "已刪除",
+    "new": "新增",
+    "new_folder": "新增資料夾",
+    "new_folder_path": "資料夾路徑",
+    "new_folder_hint": "資料夾名稱，例如 runbooks",
+    "upload": "上傳",
+    "next": "下一步",
+    "folder_first_file": "資料夾會在寫入第一個檔案後出現：請在 / 後面輸入檔名。",
+    "ai_hint": "讓 Mole Agent 修改這個檔案"
+  },
+  "memory": {
+    "scope_label": "誰的記憶",
+    "personal": "我的",
+    "description": "Mole Agent 會在對話中記下偏好、做法、事實和教訓：個人對話的記憶歸你，團隊對話的記憶歸團隊。記憶會透過對話寫入，你可以在這裡修改或刪除。",
+    "distill": "對話結束後擷取記憶",
+    "distill_hint": "對話停止半小時後，模型會從中挑出值得記住的內容，這會耗用組織的模型預算。此功能預設關閉，由具備 agent.manage 權限的人設定。",
+    "empty": "還沒有記憶。在對話中說「記住……」，Mole Agent 就會記下來。",
+    "kinds": {
+      "preference": "偏好",
+      "procedure": "做法",
+      "fact": "事實",
+      "lesson": "教訓"
+    },
+    "kind_hints": {
+      "preference": "在這項偏好的適用範圍內，優先於技能的預設做法",
+      "procedure": "使用前請先依當下情況確認",
+      "fact": "使用前請先依當下情況確認",
+      "lesson": "使用前請先依當下情況確認"
+    },
+    "updated": "於 {{time}} 修改",
+    "from_chat": "開啟記下這項記憶的對話",
+    "edit": "修改",
+    "edit_title": "修改記憶",
+    "kind": "類型",
+    "name": "名稱",
+    "applies_when": "適用情境",
+    "body": "內容",
+    "save": "儲存",
+    "saved": "已儲存",
+    "delete": "刪除",
+    "deleting": "正在刪除…",
+    "delete_title": "刪除記憶「{{name}}」？",
+    "delete_confirm": "刪除後，後續對話將不再使用這則記憶。",
+    "deleted": "已刪除"
+  }
+}

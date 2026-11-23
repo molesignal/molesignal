@@ -54,11 +54,11 @@ async function openBeforeItsLanguage(page: Page, path: string, width: number) {
 
   await page.setViewportSize({ width, height: 800 });
   await page.goto(path);
-  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-cn');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
 
   return async () => {
     arrive();
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en-us');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
   };
 }
 
@@ -165,7 +165,8 @@ test.describe('module tabs', () => {
     const scroller = page.getByTestId('agent-module-header').locator('.tabs-scroll').first();
     const open = scroller.locator('[aria-current="page"]');
     await expect(open).toHaveCount(1);
-    expect(await cutOff(open, scroller)).toBeLessThan(1);
+    // `lang` is set before the first render, so the strip may still be bringing the tab into view.
+    await expect.poll(() => cutOff(open, scroller)).toBeLessThan(1);
 
     await languageArrives();
 

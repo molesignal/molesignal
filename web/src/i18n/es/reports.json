@@ -1,0 +1,307 @@
+{
+  "title": "Informes",
+  "subtitle": "Administra la programación, la generación y los resultados de entrega de los informes en un solo lugar.",
+  "actions": {
+    "instant_export": "Exportar ahora",
+    "new_report": "Nuevo informe",
+    "share": "Compartir",
+    "export": "Exportar",
+    "edit": "Editar",
+    "view": "Ver",
+    "enable": "Activar",
+    "pause": "Pausar",
+    "delete": "Eliminar programación",
+    "cancel": "Cancelar",
+    "add": "Agregar",
+    "save_and_enable": "Guardar y activar",
+    "save_changes": "Guardar cambios",
+    "use_template": "Usar plantilla",
+    "view_error": "Ver error",
+    "close": "Cerrar",
+    "remove": "Quitar"
+  },
+  "tabs": {
+    "schedules": "Programaciones",
+    "history": "Historial de generación",
+    "templates": "Biblioteca de plantillas"
+  },
+  "pagination": {
+    "aria": "Paginación del centro de informes",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Elementos por página",
+    "first_aria": "Primera página",
+    "previous_aria": "Página anterior",
+    "next_aria": "Página siguiente",
+    "last_aria": "Última página"
+  },
+  "kpis": {
+    "running": "En ejecución",
+    "next_24h": "Entregas en las próximas 24 h",
+    "success_rate": "Tasa de éxito de los últimos 30 días",
+    "failed": "Fallos sin resolver"
+  },
+  "filters": {
+    "search_schedules": "Buscar informes o fuentes…",
+    "search_history": "Buscar informes o destinatarios…",
+    "all_statuses": "Todos los estados",
+    "all_sources": "Todas las fuentes",
+    "all_results": "Todos los resultados",
+    "enabled": "En ejecución",
+    "paused": "En pausa",
+    "dashboard": "Panel",
+    "saved_view": "Vista guardada",
+    "sent": "Correcto",
+    "failed": "Fallido",
+    "pending": "En proceso"
+  },
+  "empty": {
+    "title": "Empieza con un informe habitual",
+    "description": "Elige una plantilla y selecciona una fuente de datos y los destinatarios, o empieza con un informe en blanco.",
+    "custom_title": "Informe personalizado",
+    "custom_description": "Configura el contenido, la programación y el envío desde cero.",
+    "no_results_title": "No hay informes que coincidan",
+    "no_results_description": "Prueba con otro término de búsqueda o filtro."
+  },
+  "table": {
+    "name_source": "Informe y fuente",
+    "schedule": "Programación",
+    "next_run": "Próxima generación",
+    "last_result": "Último resultado",
+    "recipients": "Destinatarios",
+    "status": "Estado",
+    "actions": "Acciones",
+    "never": "Nunca generado",
+    "first_run": "Pendiente de la primera ejecución",
+    "recipient_more": "{{count}} más"
+  },
+  "status": {
+    "enabled": "En ejecución",
+    "paused": "En pausa",
+    "sent": "Correcto",
+    "failed": "Fallido",
+    "pending": "En proceso",
+    "unknown": "Desconocido"
+  },
+  "schedule": {
+    "hourly": "Cada hora",
+    "every_6_hours": "Cada 6 horas",
+    "every_12_hours": "Cada 12 horas",
+    "daily": "Cada 24 horas",
+    "weekly": "Cada 7 días",
+    "custom": "Cron avanzado",
+    "custom_summary": "Cron: {{value}}",
+    "timezone_suffix": "{{schedule}} · {{timezone}}",
+    "advanced_hint": "Por ahora, el cron avanzado usa el intervalo alternativo de 24 horas del programador. Si puedes, elige uno de los intervalos anteriores."
+  },
+  "source": {
+    "dashboard": "Panel",
+    "saved_view": "Vista guardada",
+    "missing": "No se ha seleccionado una fuente",
+    "unavailable": "Fuente no disponible"
+  },
+  "history": {
+    "empty_title": "Aún no se han generado informes",
+    "empty_description": "El formato, el destinatario y los resultados de la entrega aparecen aquí después de que se genere un informe por primera vez.",
+    "partial_error": "El historial de entregas de algunos informes no está disponible temporalmente.",
+    "columns": {
+      "report": "Informe",
+      "generated_at": "Fecha de generación",
+      "recipient": "Destino de entrega",
+      "attempt": "Intento",
+      "result": "Resultado",
+      "details": "Detalles"
+    },
+    "error_title": "Detalles del error de entrega",
+    "error_description": "El último intento de entrega a este destinatario falló.",
+    "error_report": "Informe",
+    "error_recipient": "Destinatario",
+    "error_time": "Fecha del error",
+    "error_message": "Mensaje de error",
+    "no_error_message": "El servidor no devolvió detalles del error."
+  },
+  "templates": {
+    "api_warning": "No se pudieron cargar las plantillas personalizadas. Las plantillas integradas siguen disponibles.",
+    "source_badge": "Plantilla {{source}}",
+    "builtin_badge": "Integrada",
+    "custom_badge": "Personalizada",
+    "new_template": "Nueva plantilla",
+    "new_title": "Nueva plantilla de informe",
+    "edit_title": "Editar plantilla de informe",
+    "editor_description": "Define fuentes de contenido reutilizables y la configuración de salida predeterminada.",
+    "basic_information": "Información básica",
+    "default_output": "Salida predeterminada",
+    "source_hint": "Elige el tipo de contenido que podrás vincular al usar esta plantilla.",
+    "source_binding_hint": "La plantilla solo guarda el tipo de fuente. Elige un panel o una vista guardada al programar el informe.",
+    "dashboard_format_hint": "Los paneles incluyen gráficos y un diseño, por lo que sus plantillas siempre generan informes en PDF.",
+    "custom_range_hint": "Elige el intervalo de datos al programar el informe.",
+    "source_descriptions": {
+      "dashboard": "Incluye gráficos y un diseño que facilita la lectura de los informes en PDF",
+      "saved_view": "Incluye los resultados de la consulta para obtener datos detallados y listas de auditoría"
+    },
+    "format_descriptions": {
+      "pdf": "Ideal para leer y compartir",
+      "csv": "Ideal para analizar datos en hojas de cálculo",
+      "json": "Ideal para automatizar tareas"
+    },
+    "create_template": "Crear plantilla",
+    "save_changes": "Guardar cambios",
+    "delete_template": "Eliminar plantilla",
+    "toast_created": "Se creó la plantilla personalizada",
+    "toast_updated": "Se actualizó la plantilla personalizada",
+    "toast_deleted": "Se eliminó la plantilla personalizada",
+    "confirm_delete": "¿Eliminar «{{name}}»? Los informes ya creados a partir de esta plantilla no se verán afectados.",
+    "fields": {
+      "name": "Nombre de la plantilla",
+      "description": "Descripción",
+      "description_optional": "Descripción (opcional)",
+      "source_type": "Tipo de fuente",
+      "format": "Formato predeterminado",
+      "time_range": "Rango de datos predeterminado"
+    },
+    "placeholders": {
+      "name": "Por ejemplo: Informe mensual de servicios principales",
+      "description": "Describe el caso de uso, el contenido incluido y el público destinatario."
+    },
+    "errors": {
+      "name_required": "Ingresa un nombre para la plantilla."
+    },
+    "platform_health": {
+      "name": "Estado semanal de la plataforma",
+      "description": "Resume la disponibilidad, la latencia, los errores y las tendencias de capacidad de los servicios principales."
+    },
+    "rum_experience": {
+      "name": "Experiencia de usuario diaria",
+      "description": "Agrupa los datos de rendimiento web y de tasa de errores, así como los cambios en la experiencia de usuario en páginas clave."
+    },
+    "alert_review": {
+      "name": "Revisión de alertas",
+      "description": "Revisa el volumen de alertas, el tiempo de recuperación, los servicios afectados y las reglas que generan un exceso de alertas."
+    },
+    "sla_compliance": {
+      "name": "Cumplimiento mensual del SLA",
+      "description": "Resume la disponibilidad del servicio, el cumplimiento del SLA, la tasa de consumo del presupuesto de errores y el riesgo de incumplimiento."
+    },
+    "saved_query": {
+      "name": "Instantánea de los resultados de la consulta",
+      "description": "Exporta una vista guardada de forma programada para realizar análisis detallados o crear listas de auditoría."
+    }
+  },
+  "workbench": {
+    "new_title": "Nuevo informe",
+    "edit_title": "Editar informe",
+    "view_title": "Detalles del informe",
+    "subtitle": "Configura el contenido, la generación y el envío mientras la estructura del informe se actualiza a la derecha.",
+    "view_subtitle": "Qué incluye el informe, cuándo se genera y adónde se envía.",
+    "view_notice": "Para modificar este informe, necesitas el permiso {{permission}}.",
+    "steps": {
+      "content": "Contenido y alcance",
+      "schedule": "Programación de la generación",
+      "delivery": "Envío"
+    },
+    "step_descriptions": {
+      "content": "Elige la fuente de datos y el alcance del informe.",
+      "schedule": "Usa un intervalo fácil de leer y solo ingresa una expresión cron si es necesario.",
+      "delivery": "Agrega destinatarios y elige el formato del informe."
+    },
+    "fields": {
+      "name": "Nombre del informe",
+      "description": "Propósito",
+      "source_type": "Tipo de fuente",
+      "source": "Fuente de datos",
+      "time_range": "Rango de datos",
+      "frequency": "Frecuencia de generación",
+      "cron": "Expresión cron",
+      "timezone": "Zona horaria del informe",
+      "recipients": "Destinos de entrega",
+      "format": "Formato de salida",
+      "enabled": "Activar después de guardar"
+    },
+    "placeholders": {
+      "name": "Por ejemplo: Estado semanal de la plataforma",
+      "description": "Describe a quién va dirigido el informe y cuál es su objetivo…",
+      "source": "Elige un panel o una vista guardada",
+      "cron": "0 9 * * 1",
+      "recipient": "Correo electrónico, URL del webhook o ruta de S3"
+    },
+    "hints": {
+      "source_empty": "No hay fuentes disponibles. Primero, crea un panel o una vista guardada.",
+      "recipients": "Admite correo electrónico, webhooks HTTPS y rutas de S3. Cada destino tiene su propio resultado de entrega.",
+      "enabled": "Desactiva esta opción para guardar el informe en pausa."
+    },
+    "ranges": {
+      "previous_1_hour": "Última hora",
+      "previous_24_hours": "Últimas 24 horas",
+      "previous_7_days": "Últimos 7 días",
+      "previous_30_days": "Últimos 30 días",
+      "previous_calendar_day": "Día natural anterior",
+      "previous_calendar_week": "Semana natural anterior",
+      "previous_calendar_month": "Mes natural anterior",
+      "custom": "Personalizado"
+    },
+    "recipient_kinds": {
+      "email": "Correo electrónico",
+      "webhook": "Webhook",
+      "s3": "S3",
+      "slack": "Slack"
+    },
+    "formats": {
+      "pdf_description": "Ideal para leer y archivar",
+      "png_description": "Ideal para herramientas de colaboración",
+      "csv_description": "Ideal para análisis detallados",
+      "json_description": "Ideal para integraciones con otros sistemas",
+      "svg_description": "Ideal para insertar una tarjeta de resumen"
+    },
+    "preview": {
+      "title": "Vista previa en tiempo real",
+      "sample_badge": "Datos de ejemplo",
+      "report_label": "Informe de MoleSignal",
+      "range_label": "Rango de datos",
+      "source_label": "Fuente de datos",
+      "availability": "Disponibilidad",
+      "latency": "Latencia P95",
+      "alerts": "Alertas",
+      "trend": "Tendencia principal",
+      "footer": "{{format}} · {{schedule}}"
+    }
+  },
+  "export_dialog": {
+    "title": "Exportar ahora",
+    "description": "Elige un informe guardado y genera una descarga con su contenido y formato actuales.",
+    "report": "Informe",
+    "format": "Formato",
+    "range": "Rango de datos",
+    "download": "Generar y descargar",
+    "empty": "Primero, crea y guarda una programación de informes."
+  },
+  "toast": {
+    "created": "Programación de informes creada",
+    "updated": "Programación de informes actualizada",
+    "enabled": "Programación de informes activada",
+    "paused": "Programación de informes en pausa",
+    "deleted": "Programación de informes eliminada",
+    "exported": "Vista previa del informe generada",
+    "link_copied": "Enlace corto del informe copiado: {{name}}",
+    "recipient_exists": "Ese destino de envío ya existe"
+  },
+  "confirm": {
+    "delete": "¿Eliminar «{{name}}»? El historial de generación existente no se puede restaurar desde este almacenamiento."
+  },
+  "run_as": {
+    "label": "Se ejecuta como",
+    "you": "{{name}} (tú)",
+    "takeover": "Al guardar el informe, se ejecutará con tus permisos.",
+    "missing": "Este informe no tiene un usuario asignado para ejecutarlo, por lo que fallan los envíos en formato {{format}}.",
+    "missing_fix": "Guarda el informe para que se ejecute con tus permisos.",
+    "missing_needs_saver": "Debe guardarlo un usuario que haya iniciado sesión y tenga permiso para programar informes.",
+    "toggle_hint": "Al activar o desactivar esta opción, se guarda el informe y, a partir de entonces, se ejecuta con tus permisos."
+  },
+  "errors": {
+    "name_required": "Ingresa un nombre para el informe.",
+    "source_required": "Elige una fuente de datos.",
+    "recipient_required": "Agrega al menos un destino de envío.",
+    "recipient_empty": "Ingresa un destino de envío.",
+    "recipient_unsupported": "El envío a Slack aún no está conectado al backend. Usa correo electrónico, un webhook o S3.",
+    "recipient_invalid_email": "Ingresa una dirección de correo electrónico válida, una URL HTTPS de webhook o una ruta de S3.",
+    "share_failed": "No se pudo crear o copiar el enlace corto del informe"
+  }
+}

@@ -1,0 +1,3138 @@
+{
+  "title": "アラート",
+  "subtitle": "発報中のアラート、発報条件、通知先を確認できます。",
+  "incident_detail": {
+    "loading": "インシデント",
+    "not_found_title": "インシデントが見つかりません",
+    "not_found_description": "このインシデントは削除されたか、別の組織に属している可能性があります。",
+    "meta": {
+      "status": "ステータス",
+      "fired": "発報日時",
+      "rule": "ルール",
+      "synthetic": "外形監視チェック",
+      "source": "ソース",
+      "created_by": "起票者"
+    },
+    "firing_for": "発報中（{{duration}}経過）",
+    "recovered_after": "復旧まで {{duration}}",
+    "no_owner": "担当者未割り当て",
+    "someone": "不明なユーザー"
+  },
+  "actions": {
+    "new_rule": "新規ルール",
+    "edit_rule": "{{name}}を編集",
+    "new_anomaly": "異常検知ルール",
+    "new_anomaly_description": "MAD または EWMA による動的なベースラインを使って逸脱を検出します。",
+    "new_threshold_rule": "しきい値ルール",
+    "new_threshold_rule_description": "クエリの結果が固定しきい値を超えた状態が続くと発報します。",
+    "silence_incident": "インシデント「{{name}}」をサイレンス"
+  },
+  "silence_incident": {
+    "title": "このインシデントをサイレンス",
+    "description": "「{{name}}」に対する今後の通知とエスカレーションのみを一時停止します。インシデントの記録は残ります。",
+    "default_name": "このインシデント",
+    "duration": "サイレンス期間",
+    "reason": "理由（任意）",
+    "reason_placeholder": "例：調査中のため、オンコールへの追加通知は不要",
+    "scope_hint": "対象は、現在発報中のこのインシデントのみです。ルールは無効にならず、同じサービスの他のインシデントはサイレンスされません。",
+    "confirm": "インシデントをサイレンス",
+    "silencing": "サイレンス設定中…",
+    "cancel": "キャンセル",
+    "success": "インシデント「{{name}}」をサイレンスしました",
+    "durations": {
+      "one_hour": "1時間",
+      "four_hours": "4時間",
+      "one_day": "24時間",
+      "one_week": "7日間"
+    }
+  },
+  "kpis": {
+    "critical_firing": "発報中（重大）",
+    "warning_firing": "発報中（警告）",
+    "pending": "保留中",
+    "resolved_24h": "解決済み（24時間）",
+    "total_rules": "ルール総数",
+    "incidents_open": "未解決のインシデント"
+  },
+  "tabs": {
+    "firing": "発報中",
+    "pending": "保留中",
+    "resolved": "解決済み",
+    "disabled": "無効",
+    "all": "すべてのルール"
+  },
+  "subnav": {
+    "label": "アラートビュー",
+    "incidents": "インシデント",
+    "rules": "ルール",
+    "sources": "ソース",
+    "status_pages": "ステータスページ",
+    "history": "履歴",
+    "insights": "インサイト",
+    "groups": "グループ",
+    "escalations": "エスカレーション",
+    "schedules": "オンコールスケジュール",
+    "inhibitions": "抑制",
+    "silences": "サイレンスポリシー",
+    "routing": "ルーティング",
+    "remediation": "修復",
+    "tickets": "チケット",
+    "postmortems": "ポストモーテム",
+    "discovery": "検出",
+    "group_respond": "対応",
+    "group_detect": "検知",
+    "group_noise": "ノイズ削減",
+    "group_notify": "通知",
+    "group_follow_up": "フォローアップ",
+    "search_placeholder": "アラートページを検索…",
+    "search_aria": "アラートページを検索",
+    "no_results": "一致するページがありません",
+    "collapse_group": "{{group}}を折りたたむ",
+    "expand_group": "{{group}}を展開",
+    "open_navigation": "アラートナビゲーションを開く",
+    "collapse_navigation": "アラートナビゲーションを折りたたむ",
+    "expand_navigation": "アラートナビゲーションを展開"
+  },
+  "history": {
+    "error_title": "アラート履歴を読み込めません",
+    "empty_title": "アラートのインシデントはありません",
+    "empty_description": "アラートが発報すると、現在のステータス、発報・復旧時刻、継続時間、インシデントの詳細がここに表示されます。",
+    "no_matches_title": "該当するインシデントはありません",
+    "no_matches_description": "検索条件やフィルターを変更すると、表示される結果が増える場合があります。",
+    "filters": {
+      "search_placeholder": "インシデント、サービス、インシデントIDで検索…",
+      "search_label": "アラート履歴を検索",
+      "severity_label": "重大度で絞り込み",
+      "status_label": "ステータスで絞り込み",
+      "all_severities": "すべての重大度",
+      "all_statuses": "すべてのステータス"
+    },
+    "status": {
+      "open": "発報中",
+      "acknowledged": "確認済み",
+      "resolved": "復旧済み",
+      "closed": "クローズ済み"
+    },
+    "columns": {
+      "summary": "インシデント",
+      "current_status": "現在のステータス",
+      "created": "発報時刻",
+      "resolved": "復旧時刻",
+      "duration": "継続時間",
+      "priority": "優先度"
+    },
+    "severity": {
+      "info": "情報",
+      "warning": "警告",
+      "error": "エラー",
+      "critical": "クリティカル"
+    },
+    "pagination": {
+      "page": "{{page}} / {{count}}",
+      "label": "アラート履歴のページ切り替え",
+      "page_size": "1ページあたりの行数",
+      "first": "最初のページ",
+      "previous": "前のページ",
+      "next": "次のページ",
+      "last": "最後のページ"
+    }
+  },
+  "center": {
+    "retry": "再試行",
+    "incidents": {
+      "load_error": "アラートのインシデントを読み込めませんでした",
+      "kpis": {
+        "services": "影響を受けたサービス",
+        "waiting": "確認待ち",
+        "waiting_sub": "担当者未割り当て",
+        "recovered": "復旧済み（24h）",
+        "no_recovery": "過去24時間に復旧したインシデントはありません"
+      },
+      "tabs": {
+        "active": "発報中",
+        "unacknowledged": "確認待ち",
+        "my_teams": "所属チーム",
+        "inhibited": "抑制中"
+      },
+      "columns": {
+        "severity": "重大度",
+        "incident": "インシデント / サービス",
+        "status": "ステータス",
+        "duration": "継続時間",
+        "owner": "担当者",
+        "actions": "アクション",
+        "priority": "優先度"
+      },
+      "status": {
+        "open": "対応待ち",
+        "acknowledged": "対応中",
+        "resolved": "復旧済み",
+        "closed": "クローズ済み"
+      },
+      "actions": {
+        "ack": "確認",
+        "silence": "サイレンス",
+        "runbook": "ランブック"
+      },
+      "healthy": {
+        "title": "発報中のアラートはありません"
+      },
+      "no_rules": {
+        "title": "アラートルールがまだありません",
+        "description": "ルールを作成すると、メトリクス、ログ、トレースが継続的に評価され、条件に一致した場合はここにインシデントが作成されます。",
+        "action": "最初のルールを作成",
+        "steps": {
+          "condition": {
+            "title": "検知条件の設定",
+            "description": "メトリクス、ログ、トレースを対象とするクエリと、クエリ結果が収まるべき範囲を定めるしきい値を設定します。"
+          },
+          "route": {
+            "title": "通知先の設定",
+            "description": "エスカレーションポリシーに従ってオンコール担当者に通知し、応答がなければ次の通知先にエスカレーションします。"
+          },
+          "respond": {
+            "title": "この画面でインシデントに対応",
+            "description": "インシデントの確認、サイレンスの設定、ランブックの表示ができます。インシデントから関連するトレースも確認できます。"
+          }
+        }
+      },
+      "empty": {
+        "unacknowledged": {
+          "title": "確認待ちのインシデントはありません",
+          "description": "アクティブなインシデントにはすべて担当者が割り当てられています。"
+        },
+        "my_teams": {
+          "title": "所属チームで発生中のインシデントはありません",
+          "description": "所属チームに振り分けられたインシデントがここに表示されます。"
+        },
+        "priority": {
+          "title": "この優先度のインシデントはありません",
+          "description": "別の優先度か「すべての優先度」を選択してください。"
+        }
+      },
+      "tabs_label": "インシデントのステータス",
+      "standing": {
+        "label": "現在のインシデント",
+        "eyebrow": "発生中",
+        "firing_one": "インシデント {{count}} 件",
+        "firing_other": "インシデント {{count}} 件",
+        "oldest": "最も古いインシデントは、発生から{{duration}}が経過しています。",
+        "watching_one": "{{count}} 件のルールを評価しています。",
+        "watching_other": "{{count}} 件のルールを評価しています。",
+        "all_owned": "すべてのインシデントに担当者が割り当てられています",
+        "last_recovery": "最終復旧：{{when}}"
+      },
+      "recent": {
+        "title": "最近復旧したインシデント",
+        "recovered": "復旧：{{when}}",
+        "lasted": "継続時間：{{duration}}"
+      }
+    },
+    "rules": {
+      "load_error": "アラートルールを読み込めません",
+      "search": "ルール、サービス、データソースを検索",
+      "tabs": {
+        "all": "すべて",
+        "enabled": "有効",
+        "disabled": "無効"
+      },
+      "columns": {
+        "rule": "ルール",
+        "source": "データソース",
+        "condition": "トリガー条件",
+        "state": "状態",
+        "last_evaluation": "最終評価",
+        "actions": "操作"
+      },
+      "state": {
+        "not_evaluated": "未評価",
+        "healthy": "正常",
+        "pending": "待機中",
+        "no_data": "データなし",
+        "firing": "発報中",
+        "inhibited": "発報中（抑制）",
+        "dropped": "パイプラインで破棄",
+        "disabled": "無効"
+      },
+      "kinds": {
+        "scheduled": "しきい値ルール",
+        "real_time": "リアルタイムルール",
+        "anomaly": "異常検知",
+        "composite": "複合",
+        "forecast": "予測",
+        "outlier": "外れ値",
+        "heartbeat": "ハートビート"
+      },
+      "never_evaluated": "評価履歴なし",
+      "no_match": {
+        "title": "一致するルールがありません",
+        "description": "別のキーワードや状態フィルターをお試しください。"
+      },
+      "tabs_label": "ルールの状態",
+      "evaluated_ago": "{{age}}前",
+      "bulk_delete_title_one": "{{count}}件のルールを削除しますか？",
+      "bulk_delete_title_other": "{{count}}件のルールを削除しますか？",
+      "bulk_delete_description": "削除されたルールは評価されなくなり、復元できません。"
+    }
+  },
+  "workbench": {
+    "new_title": "アラートルールの新規作成",
+    "edit_title": "アラートルールの編集",
+    "edit_named": "ルールを編集 · {{name}}",
+    "subtitle": "クエリを作成し、しきい値を検証してから、Notify のルーティングと対応ガイドをルールに関連付けます。",
+    "actions": {
+      "cancel": "キャンセル",
+      "save_draft": "下書きを保存",
+      "test": "ルールをテスト",
+      "testing": "テスト中…",
+      "save": "保存して有効化",
+      "create": "ルールを作成",
+      "add_threshold": "重大度を追加",
+      "remove_threshold": "しきい値を削除"
+    },
+    "sections": {
+      "identity": "基本情報",
+      "identity_description": "インシデントのタイトル、検索、サービスの担当管理に使用します。",
+      "condition": "クエリとトリガー条件",
+      "condition_description": "クエリ、しきい値、継続時間をまとめて検証します。",
+      "delivery": "Notify と対応",
+      "delivery_description": "アラートのライフサイクルイベントは Notify のポリシーに従ってルーティングされます。対応ガイドはルールに保存します。",
+      "guide": "調査ガイド",
+      "guide_description": "このルールで発生したインシデントの調査で、最初に行うことを記載します。ガイドはインシデントの詳細に表示され、Mole Agent も調査を始める前に参照します。"
+    },
+    "guide": {
+      "steps": "手順",
+      "steps_hint": "最初に確認する項目とその順序を Markdown で記載します。",
+      "steps_placeholder": "1. どのエンドポイントでエラーが発生しているかを確認…",
+      "queries": "クエリ",
+      "queries_hint": "各クエリはインシデントの詳細から開けます。対象はそのインシデントの時間範囲です。最大 {{count}} 件です。",
+      "add_query": "クエリを追加",
+      "remove_query": "クエリ {{index}} を削除",
+      "query_name": "名前",
+      "query_name_placeholder": "エンドポイント別のエラー",
+      "query_language": "クエリ言語",
+      "query_stream": "ストリーム",
+      "query_stream_type": "ストリームタイプ",
+      "query_statement": "クエリ",
+      "stream_types": {
+        "logs": "ログ",
+        "traces": "トレース",
+        "metrics": "メトリクス"
+      },
+      "dashboards": "ダッシュボード",
+      "dashboards_hint": "インシデントの詳細から開けます。最大 {{count}} 件です。",
+      "add_dashboard": "ダッシュボードを追加",
+      "no_dashboards": "追加できるダッシュボードはありません",
+      "remove_dashboard": "{{name}} を削除"
+    },
+    "fields": {
+      "name": "ルール名",
+      "service": "サービス",
+      "description": "説明",
+      "signal": "ルールタイプ",
+      "stream": "対象ストリーム",
+      "interval": "評価間隔",
+      "query": "クエリ",
+      "query_language": "クエリ言語",
+      "group_by": "グループ化の基準",
+      "thresholds": "トリガー条件",
+      "runbook": "対応ガイド / ランブックURL",
+      "delay": "評価遅延",
+      "priority": "優先度",
+      "urgency": "緊急度",
+      "home_cluster": "判定クラスター"
+    },
+    "placeholders": {
+      "name": "例: api_high_error_rate",
+      "service": "例: api-gateway",
+      "description": "このルールで保護するユーザーの操作フローやシステム機能を入力",
+      "stream": "例: app_metrics",
+      "group_by": "例: host, service"
+    },
+    "hints": {
+      "query": "ルールをテストすると、直近6時間の実データに対してこのクエリを実行します。",
+      "thresholds": "条件を満たした中で最も高い重大度が適用されます。継続時間は評価間隔の回数に換算されます。",
+      "runbook": "任意です。対応担当者はインシデント一覧から直接開けます。",
+      "group_by": "クエリ結果の列名（host、service など）をカンマ区切りで最大8個指定します。グループごとに、グループ化に使わない最初の数値列の値をしきい値と比較し、条件を満たすと個別にインシデントを作成します。空欄にすると、ルールごとに1件のインシデントを作成します。",
+      "delay": "到着や書き込みが遅れているデータを待つため、各評価の基準時刻をどの程度さかのぼるかを指定します。「自動」では、単一プロセスの場合は遅延なし、クラスターの場合はプラットフォームの設定が使われます。",
+      "priority": "インシデントはこの優先度で作成されます。未設定の場合でも、アラートパイプラインによって優先度が割り当てられることがあります。",
+      "urgency": "未設定の場合は、インシデントの振り分け先のエスカレーションポリシーで緊急度が決まります。",
+      "home_cluster": "フェデレーションでは、各クラスターが自分に書き込まれたレコードをカウントします。ここで選んだクラスターは、この組織に紐づく全クラスターの件数を合算し、インシデントを作成します。他のクラスターはカウントのみを行います。"
+    },
+    "signals": {
+      "metrics": "メトリクスアラート",
+      "logs": "ログアラート",
+      "traces": "トレースアラート",
+      "apm": "APMアラート",
+      "rum": "RUMアラート"
+    },
+    "quick_start": "クイックスタート",
+    "presets": {
+      "error_rate": {
+        "title": "エラー率の上昇",
+        "description": "HTTP 5xxの割合がしきい値を超えた状態が続きます。"
+      },
+      "latency": {
+        "title": "P95レイテンシーの上昇",
+        "description": "リクエストのレイテンシーのパーセンタイル値が高い状態が続きます。"
+      },
+      "cpu": {
+        "title": "CPU使用率の上昇",
+        "description": "プロセスの平均CPU使用率が安全な水準を超えます。"
+      },
+      "log_errors": {
+        "title": "エラーログの急増",
+        "description": "エラーレベルのログ件数がしきい値を超えます"
+      },
+      "no_data": {
+        "title": "データなし",
+        "description": "評価ウィンドウ内にストリームのレコードがありません"
+      },
+      "trace_errors": {
+        "title": "トレースエラーの急増",
+        "description": "失敗したトレースの件数がしきい値を超えます"
+      },
+      "trace_latency": {
+        "title": "トレースの高レイテンシ",
+        "description": "トレースの平均所要時間が高い状態で推移します"
+      },
+      "sample_errors": {
+        "title": "サンプル · エラーログ",
+        "description": "サンプルログのエラー件数を集計します。保存する前に評価ウィンドウとオーナーを選択してください。"
+      },
+      "sample_no_data": {
+        "title": "サンプル · データ受信なし",
+        "description": "サンプルは一度だけインポートされます。評価ウィンドウからサンプルが外れると、件数はゼロになります。"
+      },
+      "sample_latency": {
+        "title": "サンプル · スパンレイテンシ",
+        "description": "サンプルのスパンレイテンシをミリ秒単位で測定します。"
+      }
+    },
+    "intervals": {
+      "1m": "1分ごと",
+      "5m": "5分ごと",
+      "10m": "10分ごと"
+    },
+    "threshold": {
+      "severity": "重要度",
+      "operator": "結果の比較条件",
+      "value": "しきい値",
+      "duration": "条件の継続時間",
+      "minutes": "分"
+    },
+    "conditions": {
+      "recovery": "復旧",
+      "recovery_hint": "値がしきい値付近で変動する場合、復旧しきい値や復旧までの継続時間を設定すると、アラートの発報と復旧の繰り返しを防げます。",
+      "recovery_threshold": "復旧しきい値",
+      "recovery_threshold_placeholder": "しきい値と同じ",
+      "no_data": "データがない場合",
+      "no_data_hint": "値がない場合や、グループ分けするルールの評価結果にグループが含まれない場合は、データなしとみなします。",
+      "no_data_action": "データなしの扱い",
+      "no_data_actions": {
+        "resolve": "復旧済み",
+        "keep": "状態を維持",
+        "alert": "データなしインシデントを作成",
+        "zero": "ゼロ"
+      },
+      "no_data_duration": "データなしの継続時間"
+    },
+    "operators": {
+      "gt": "> (gt)",
+      "gte": "≥ (gte)",
+      "lt": "< (lt)",
+      "lte": "≤ (lte)",
+      "eq": "= (eq)",
+      "neq": "≠ (neq)"
+    },
+    "notify": {
+      "title": "通知ルーティング",
+      "description": "アラートのライフサイクルイベントは、一致する Notify ポリシーに従って、指定された受信者やフォールバックルートに配信されます。",
+      "manage_policies": "ポリシーの管理",
+      "manage_connectors": "コネクターの管理"
+    },
+    "preview": {
+      "title": "クエリプレビュー",
+      "window": "実データ · 過去6時間",
+      "window_hours_one": "実データ · 過去1時間",
+      "window_hours_other": "実データ · 過去{{count}}時間",
+      "window_open": "実データ",
+      "not_run": "テスト未実行",
+      "not_run_description": "テストを実行すると、クエリ結果の推移、しきい値線、過去データで発報したと推定される箇所を確認できます。",
+      "stale": "前回のテスト後にクエリが変更されました",
+      "stale_description": "現在のクエリに基づいてプレビューを更新し、有効化の可否を確認するには、テストを再実行してください。",
+      "failed": "クエリに失敗しました",
+      "query_docs": "クエリのドキュメント",
+      "no_data": "クエリは成功しましたが、数値データは返されませんでした",
+      "no_data_description": "時間範囲、対象ストリーム、返される列を確認してください。",
+      "query_value": "クエリ結果",
+      "threshold": "しきい値",
+      "current": "現在値",
+      "cost": "スキャン行数 · レイテンシ",
+      "groups_one": "{{columns}}でグループ化 · {{count}}グループ",
+      "groups_other": "{{columns}}でグループ化 · {{count}}グループ",
+      "backtest_fires_one": "この条件では、{{count}}回発報していたと推定されます（{{times}}）。",
+      "backtest_fires_other": "この条件では、{{count}}回発報していたと推定されます（{{times}}）。",
+      "backtest_quiet": "この条件では発報しなかったと推定されます。",
+      "backtest_near_one": "ほかに{{count}}回しきい値を超えましたが、{{periods}}回の評価を通じてその状態は続きませんでした。",
+      "backtest_near_other": "ほかに{{count}}回しきい値を超えましたが、{{periods}}回の評価を通じてその状態は続きませんでした。",
+      "span_pending": "しきい値超過・継続条件未達",
+      "span_firing": "発報見込み"
+    },
+    "validation": {
+      "title": "作成前のチェック",
+      "identity": "ルールの基本情報に不足はありません",
+      "query": "クエリが実行され、数値データが返されました",
+      "thresholds": "しきい値は有効で、互いに矛盾していません",
+      "runbook": "ランブック URL の形式は有効です",
+      "ready": "準備完了",
+      "pending": "保留中",
+      "blockers": {
+        "identity": "有効にする前にルール名を入力してください。",
+        "preview_running": "クエリのテストが完了するまで、有効にせずお待ちください。",
+        "preview_required": "有効にする前に、現在のクエリで「ルールをテスト」を実行し、成功することを確認してください。",
+        "thresholds": "有効にする前に、しきい値の検証で見つかった問題を解消してください。",
+        "runbook": "有効にする前に、有効なランブックのURLを入力してください。",
+        "composite": "ルールを有効にする前に、式を記述し、式で使用するルールを選択してください。",
+        "heartbeat": "チェックイン間隔は1分以上にしてください。"
+      },
+      "composite": "式と使用するルールが設定されています",
+      "heartbeat": "チェックイン間隔は有効です"
+    },
+    "errors": {
+      "load_rule": "アラートルールを読み込めません",
+      "org_required": "現在の組織は利用できません。",
+      "name_required": "ルール名は必須です。",
+      "stream_required": "対象ストリームは必須です。",
+      "stream_audit": "アラートルールは _audit を読み取れません。ルールはバックグラウンドで評価され、ユーザーの audit.read 権限は適用されません。",
+      "query_required": "クエリは必須です。",
+      "threshold_required": "有効なしきい値が少なくとも1つ必要です。",
+      "threshold_conflict": "重大度が高いアラートの発報条件を、重大度が低いアラートより緩くすることはできません。",
+      "runbook_invalid": "有効な http または https のURLを入力してください。",
+      "apm_service_required": "アラートの対象サービスを選択してください",
+      "rum_application_required": "アラートの対象アプリケーションを選択してください",
+      "group_by_missing": "クエリ結果にグループ化の対象列がありません: {{columns}}",
+      "group_by_too_many": "グループ化に使用する列は{{count}}個までにしてください。",
+      "recovery_side": "復旧しきい値は正常側に設定してください。値がしきい値を上回ると発報する場合はそのしきい値以下、下回ると発報する場合はそのしきい値以上にしてください。すべての帯域で発報条件の方向をそろえてください。",
+      "guide": {
+        "steps_too_long": "調査ガイドの手順は{{limit}}文字までです。",
+        "too_many_queries": "調査ガイドに追加できるクエリは{{limit}}件までです。",
+        "query_name_required": "調査ガイドのクエリ{{index}}の名前を入力してください。",
+        "query_name_too_long": "クエリ{{index}}の名前が{{limit}}文字を超えています。",
+        "query_statement_required": "調査ガイドのクエリ{{index}}が空です。",
+        "query_statement_too_long": "クエリ{{index}}が{{limit}}文字を超えています。",
+        "query_stream_required": "クエリ{{index}}はSQLです。読み取り対象のストリームを指定してください。",
+        "too_many_dashboards": "調査ガイドにリンクできるダッシュボードは{{limit}}件までです。"
+      }
+    },
+    "toast": {
+      "saved": "ルール「{{name}}」を保存し、有効にしました",
+      "draft_saved": "ルール「{{name}}」を下書きとして保存しました"
+    },
+    "apm": {
+      "service": "サービス",
+      "service_placeholder": "サービスを選択",
+      "environment": "環境",
+      "every_environment": "すべての環境",
+      "endpoint": "エンドポイント",
+      "whole_service": "サービス全体",
+      "metric": "指標",
+      "unit": {
+        "percent": "パーセント",
+        "milliseconds": "ミリ秒",
+        "per_second": "1秒あたりのリクエスト数",
+        "count": "件数",
+        "score": "0～1",
+        "burn_rate": "エラーバジェットの消費速度が許容速度の何倍か"
+      },
+      "metrics": {
+        "error_rate": "エラー率",
+        "p50": "P50 レイテンシ",
+        "p90": "P90 レイテンシ",
+        "p95": "P95 レイテンシ",
+        "p99": "P99 レイテンシ",
+        "average": "平均所要時間",
+        "throughput": "スループット",
+        "request_count": "リクエスト数",
+        "error_count": "エラー数",
+        "new_error_groups": "新規エラーグループ",
+        "apdex": "Apdex",
+        "slo_burn_rate": "SLO バーンレート"
+      }
+    },
+    "rum": {
+      "application": "アプリケーション",
+      "application_placeholder": "アプリケーションを選択",
+      "environment": "環境",
+      "every_environment": "すべての環境",
+      "page": "ページ",
+      "every_page": "すべてのページ",
+      "screen": "画面",
+      "every_screen": "すべての画面",
+      "version": "バージョン",
+      "every_version": "すべてのバージョン",
+      "metric": "指標",
+      "window": "集計期間",
+      "windows": {
+        "300": "5分",
+        "900": "15分",
+        "3600": "1時間"
+      },
+      "min_samples": "必要な行数",
+      "min_samples_hint": "{{kind}}の数がこの設定値を下回ると、指標の値は算出されず、アラートは発報されません。デフォルトは{{rows}}です。",
+      "sample_kinds": {
+        "views": "ビュー",
+        "sessions": "セッション",
+        "requests": "リクエスト",
+        "views_with_value": "値があるビュー",
+        "rows": "条件に一致する行"
+      },
+      "unit": {
+        "percent": "パーセント単位",
+        "milliseconds": "ミリ秒単位",
+        "count": "件数",
+        "score": "スコア（0.1は良好）",
+        "bytes": "バイト単位",
+        "none": "単位なし"
+      },
+      "not_for": {
+        "page_sessions": "セッションは 1 つのページに限定されません。",
+        "page_issues": "イシューは複数のページで発生します。",
+        "version_issues": "イシューは複数のバージョンで発生します。",
+        "page_query": "クエリでページ名を指定してください。",
+        "version_query": "クエリでバージョン名を指定してください。"
+      },
+      "unavailable": {
+        "time_budget": "プレビューの生成に時間がかかりすぎました。より短い時間範囲を選択してください。",
+        "busy": "実行中のクエリが多すぎます。少し待ってからもう一度お試しください。",
+        "timestamp_masked": "このストリームではタイムスタンプがマスクされているため、プレビューを表示できません。"
+      },
+      "metrics": {
+        "session_count": "セッション数",
+        "view_count": "ページビュー数",
+        "error_count": "エラー数",
+        "error_rate": "エラー率（エラーが発生したビューの割合）",
+        "crash_free_sessions": "クラッシュのないセッション",
+        "frustration_rate": "フラストレーションが検出されたセッション",
+        "failed_request_rate": "失敗したリクエスト",
+        "lcp_p75": "LCP (p75)",
+        "inp_p75": "INP (p75)",
+        "cls_p75": "CLS (p75)",
+        "ttfb_p75": "最初のバイトを受信するまでの時間 (p75)",
+        "new_issues": "新規イシュー",
+        "regressed_issues": "再発したイシュー",
+        "issue_impact": "影響が最も大きいイシューの影響を受けたセッション",
+        "custom_vital": "カスタム所要時間（バイタル）",
+        "custom_timing": "カスタムタイミング",
+        "query": "エクスプローラーのクエリ"
+      },
+      "custom": {
+        "name_vital": "バイタル名",
+        "name_timing": "タイミング名",
+        "placeholder": "名前を選択または入力",
+        "statistic": "統計量",
+        "statistics": {
+          "p50": "P50",
+          "p75": "P75",
+          "p90": "P90",
+          "p95": "P95",
+          "p99": "P99",
+          "avg": "平均",
+          "count": "件数"
+        }
+      },
+      "query": {
+        "type": "行の種類",
+        "statement": "クエリ",
+        "statement_hint": "RUM エクスプローラーのコードモードと同じ形式で記述します。空欄の場合は、そのタイプのすべての行が対象になります。",
+        "ignored": "このタイプでは処理できないため、次の部分を除外しました：{{parts}}",
+        "measure": "集計方法",
+        "field": "フィールド",
+        "field_placeholder": "フィールドを選択",
+        "open_explorer": "エクスプローラーで開く",
+        "functions": {
+          "count": "行数",
+          "count_distinct": "一意の値の数",
+          "sum": "合計",
+          "avg": "平均",
+          "min": "最小値",
+          "max": "最大値",
+          "p50": "p50",
+          "p75": "p75",
+          "p90": "p90",
+          "p95": "p95",
+          "p99": "p99"
+        }
+      }
+    },
+    "kind": {
+      "label": "発報方式",
+      "options": {
+        "scheduled": "しきい値",
+        "forecast": "予測",
+        "outlier": "外れ値",
+        "composite": "複合",
+        "heartbeat": "ハートビート"
+      },
+      "hints": {
+        "scheduled": "クエリ結果がしきい値を上回るか下回ると発報します。",
+        "forecast": "現在の傾向から将来の値を予測し、指定した時間内にしきい値を上回るか下回る見込みがあると発報します。",
+        "outlier": "クエリ結果を列の値でグループ化して比較し、他と大きく異なるグループごとにインシデントを作成します。",
+        "composite": "AND、OR、NOT でルールを組み合わせます。未解決のインシデントがある間、そのルールは真として扱われます。",
+        "heartbeat": "スケジュール済みのジョブやバックアップスクリプトからのチェックインを待ちます。猶予時間を過ぎても届かない場合や、失敗が報告された場合に発報します。"
+      }
+    },
+    "composite": {
+      "expression": "式",
+      "expression_hint": "下のルールを英字1文字で指定し、&&（AND）、||（OR）、!（NOT）、括弧で組み合わせます。",
+      "rules": "ルール",
+      "rule_named": "ルール {{letter}}",
+      "pick_rule": "ルールを選択",
+      "missing_rule": "ルールは存在しません",
+      "add_rule": "ルール {{letter}} を追加",
+      "remove_rule": "ルール {{letter}} を削除",
+      "merge_children": "各ルールのインシデントを複合インシデントの配下にまとめる",
+      "merge_children_hint": "複合ルールがインシデントを作成すると、組み合わせたルールの未解決インシデントはその配下にまとめられ、個別の通知は停止します。",
+      "problems": {
+        "empty": "A && B のような式を入力してください。",
+        "characters": "ルールは英字1文字で指定し、記号は &&、||、!、括弧のみを使用してください。",
+        "letters": "式内の {{letters}} に対応するルールを選択してください。",
+        "unused": "{{letters}} は式内で使用されていません。"
+      }
+    },
+    "forecast": {
+      "line": "予測値",
+      "lead": "リードタイム",
+      "lookback": "参照期間",
+      "model": "モデル",
+      "models": {
+        "linear": "線形トレンド",
+        "daily": "日次パターン",
+        "weekly": "週次パターン"
+      },
+      "hours_one": "{{count}} 時間",
+      "hours_other": "{{count}} 時間",
+      "days_one": "{{count}} 日",
+      "days_other": "{{count}} 日",
+      "hint": "評価のたびに現在値を時系列に追加します。新しいルールでは、まず過去のデータを補います。データポイントが不足している場合は判定しません。"
+    },
+    "outlier": {
+      "tolerance": "許容範囲",
+      "tolerance_hint": "外れ値と判定するまでに、スケーリングされた偏差の何倍離れている必要があるかを指定します。値が小さいほど検出感度が高くなります（デフォルト: 3）。",
+      "direction": "検出方向",
+      "directions": {
+        "both": "高い値と低い値の両方",
+        "above": "高い値のみ",
+        "below": "低い値のみ"
+      },
+      "needs_split": "外れ値ルールでは、列の値でグループ分けし、値があるグループを 3 つ以上比較します。"
+    },
+    "heartbeat": {
+      "period": "チェックイン間隔",
+      "grace": "猶予期間",
+      "address_after_save": "チェックインアドレスは保存後に一度だけ表示されます。",
+      "last_checkin": "最終チェックイン: {{value}}",
+      "never": "チェックイン履歴なし",
+      "status": {
+        "ok": "OK",
+        "fail": "失敗報告あり"
+      },
+      "due": "次回チェックイン期限: {{value}}",
+      "reset": "チェックインアドレスをリセット",
+      "dialog_title": "チェックインアドレス",
+      "dialog_description": "ジョブが実行されるたびに、このアドレスに GET または POST リクエストを送信するように設定してください。失敗時は ?status=fail を付けると、すぐにアラートが発報されます。",
+      "shown_once": "このアドレスが表示されるのは今回だけです。リセットすると、以前のアドレスはすぐに無効になります。",
+      "no_external_url": "このインスタンスには外部アドレスが設定されていないため、現在アクセスに使用しているアドレスを表示しています。ジョブからこのアドレスにアクセスできる必要があります。",
+      "example": "例",
+      "copy": "アドレスをコピー"
+    },
+    "delay": {
+      "auto": "自動",
+      "none": "遅延なし",
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h"
+    },
+    "urgency_by_policy": "エスカレーションポリシーに従う",
+    "home_cluster": {
+      "each": "クラスターごとに個別に処理",
+      "local": "{{name}}（このクラスター）"
+    }
+  },
+  "drawer": {
+    "title_loading": "インシデント",
+    "error_title": "インシデントを読み込めません",
+    "actions": {
+      "ack": "確認済みにする",
+      "ack_unavailable": "オープンなインシデントのみ確認済みにできます。",
+      "ack_success": "インシデントを確認済みにしました",
+      "silence": "サイレンス",
+      "silence_unavailable": "アクティブなインシデントのみサイレンスできます。",
+      "resolve": "解決済みにする",
+      "resolve_unavailable": "このインシデントはすでに非アクティブです。",
+      "resolve_success": "インシデントを解決済みにしました",
+      "pending": "別のインシデント更新を処理中です。"
+    },
+    "incident_sections": {
+      "timeline": "タイムライン",
+      "investigation": "調査",
+      "rca": "AIによる根本原因分析",
+      "signals": "関連シグナルへのリンク",
+      "metadata": "メタデータ",
+      "triggering_query": "トリガークエリ",
+      "assignees": "担当者",
+      "blast_radius": "影響範囲",
+      "rum_sessions": "サンプルセッション",
+      "similar": "類似インシデント",
+      "changes": "最近の変更",
+      "remediation": "修復",
+      "tickets": "チケット",
+      "major": "重大インシデント",
+      "postmortem": "ポストモーテム",
+      "guide": "調査ガイド"
+    },
+    "guide": {
+      "queries": "クエリ",
+      "dashboards": "ダッシュボード"
+    },
+    "investigation": {
+      "open_trigger": "トリガークエリを開く",
+      "open_trigger_description": "Exploreで同じクエリを変更せずに再実行します。",
+      "related_logs": "関連ログ",
+      "related_logs_description": "影響を受けたコンテキストのログを確認します。",
+      "related_metrics": "関連メトリクス",
+      "related_metrics_description": "同じ時間範囲でサービスの稼働状況を比較します。",
+      "open_rum": "RUMで開く",
+      "open_rum_description": "RUMページで、インシデント発生中の同じ指標を確認できます。"
+    },
+    "rca": {
+      "generate": "生成",
+      "regenerate": "再生成",
+      "generating": "生成中…",
+      "generated": "根本原因分析を生成しました",
+      "empty": "まだ分析結果はありません。分析を生成するか、バックグラウンドでの分析が完了するまでお待ちください。",
+      "budget_exhausted": "組織のMole Agentの本日分のトークン上限に達したため、分析を生成できませんでした。使用量がリセットされるか、上限が引き上げられてから再試行してください。"
+    },
+    "signals": {
+      "services": "サービス",
+      "traces": "トレースID",
+      "hosts": "ホスト"
+    },
+    "labels": {
+      "title": "ラベル"
+    },
+    "annotations": {
+      "title": "アノテーション"
+    },
+    "timeline": {
+      "created": "発報",
+      "acknowledged": "確認済み",
+      "resolved": "解決済み",
+      "acknowledged_by": "{{name}}が確認",
+      "resolved_by": "{{name}}が解決",
+      "after": "{{duration}}後"
+    },
+    "triggering_query": {
+      "sample_count": "サンプル {{count}} 行",
+      "sample_count_one": "サンプル 1 行",
+      "show_samples": "サンプル値を表示"
+    },
+    "assignees_none": "担当者はまだ割り当てられていません。",
+    "routing": {
+      "team": "チーム",
+      "reason": "理由",
+      "no_team": "チームなし"
+    },
+    "rum": {
+      "why": {
+        "lcp_p75": "最大コンテンツの描画（LCP）が最も遅いビューのセッション",
+        "inp_p75": "操作への応答が最も遅いビューのセッション",
+        "cls_p75": "レイアウトシフトが最も大きいビューのセッション",
+        "ttfb_p75": "最初のバイトの受信に最も時間がかかったビューのセッション",
+        "error_rate": "直近のエラーが発生したセッション",
+        "error_count": "直近のエラーが発生したセッション",
+        "new_issues": "これらの問題の直近のエラーが発生したセッション",
+        "regressed_issues": "これらの問題の直近のエラーが発生したセッション",
+        "issue_impact": "影響が最も大きい問題の直近のエラーが発生したセッション",
+        "crash_free_sessions": "クラッシュが発生したセッション",
+        "frustration_rate": "ユーザーの不満を示す兆候があるセッション",
+        "failed_request_rate": "リクエストが失敗したセッション"
+      },
+      "cause": {
+        "lcp": "LCP {{value}}",
+        "inp": "INP {{value}}",
+        "cls": "CLS {{value}}",
+        "ttfb": "最初のバイトまでの時間 {{value}}",
+        "request": "{{request}} → {{status}}"
+      },
+      "replay": "リプレイ",
+      "replay_at": "{{time}}からリプレイ",
+      "session": "セッション",
+      "anonymous": "匿名 {{id}}",
+      "element": "要素 {{element}}",
+      "crashes_one": "クラッシュ {{count}}件",
+      "crashes_other": "クラッシュ {{count}}件",
+      "signs_one": "ユーザーの不満の兆候 {{count}}件",
+      "signs_other": "ユーザーの不満の兆候 {{count}}件",
+      "no_answer": "応答なし",
+      "sessions_failed": "セッションを読み込めませんでした。インシデントに保存された行のみを表示しています。"
+    },
+    "blast": {
+      "off_map": "この期間のサービスマップに{{service}}は表示されていません。",
+      "upstream": "呼び出し元：障害の影響が及ぶ可能性のあるサービス",
+      "downstream": "呼び出し先：障害の原因である可能性のあるサービス",
+      "no_upstream": "呼び出し元はありません。",
+      "no_downstream": "呼び出し先はありません。",
+      "open_map": "サービスマップで表示",
+      "direct": "直接",
+      "hops_one": "{{count}}ホップ先",
+      "hops_other": "{{count}}ホップ先",
+      "calls_one": "呼び出し {{formatted}}件、失敗率 {{rate}}",
+      "calls_other": "呼び出し {{formatted}}件、失敗率 {{rate}}",
+      "health": {
+        "critical": "重大",
+        "warning": "警告",
+        "healthy": "正常",
+        "no_traffic": "トラフィックなし"
+      }
+    }
+  },
+  "insights": {
+    "error_title": "インサイトを算出できません",
+    "empty_title": "インシデントはまだありません",
+    "empty_description": "インシデントが発生して復旧すると、ここに復旧状況、発生・復旧のタイミング、重大度、主な発生元が表示されます。",
+    "window": {
+      "label": "インサイトの対象期間",
+      "last_24h": "過去24時間",
+      "last_7d": "過去7日間",
+      "last_30d": "過去30日間"
+    },
+    "summary": {
+      "active_headline": "全{{total}}件のインシデントのうち、{{active}}件が引き続き対応を必要としています",
+      "recovered_headline": "全{{total}}件のインシデントが復旧しました",
+      "active_description": "未解決または確認済みのインシデントを優先します。",
+      "recovered_description": "対応中のインシデントはありません。選択した期間のインシデントはすべて復旧済みです。",
+      "mttr": "平均復旧時間",
+      "mttr_description": "復旧済みのインシデントが対象です。",
+      "noise": "短時間での復旧",
+      "noise_description": "{{rate}}が60秒以内に復旧しました",
+      "label": "期間内のインシデント",
+      "recovered": "復旧済み",
+      "recovered_of": "全{{total}}件中{{closed}}件"
+    },
+    "hourly": {
+      "title": "インシデントのタイムライン",
+      "description": "ブラウザーのタイムゾーン（{{timezone}}）に基づき、過去24時間は1時間ごと、それより長い期間は日付ごとに集計します。",
+      "series_name": "インシデント",
+      "peak_summary": "最多：{{period}}に{{count}}件（{{timezone}}）",
+      "chart_label": "インシデントのタイムライン。{{summary}}"
+    },
+    "severity_breakdown": {
+      "title": "重大度の内訳",
+      "description": "各インシデントの発生時に記録された最も高い重大度に基づきます。"
+    },
+    "services": {
+      "title": "影響が最も多かったサービス",
+      "description": "インシデントとの関連付けが多い順にサービスを表示します。",
+      "empty_title": "関連付けられたサービスなし",
+      "empty_description": "これらのインシデントにはサービス情報がありません。アラートルールにサービスラベルを追加すると、影響が最も多かったサービスがここに表示されます。"
+    },
+    "rules": {
+      "title": "発報数上位のルール",
+      "description": "選択した期間に作成されたインシデントの件数順に表示します。",
+      "empty_title": "関連付けられたルールなし",
+      "empty_description": "これらのインシデントの発生元ルールを特定できません。",
+      "unknown_rule": "削除済みまたは利用できないルール",
+      "manual_secondary": "手動で作成されたインシデント"
+    },
+    "rankings": {
+      "count_and_share_one": "インシデント{{count}}件 · {{percent}}",
+      "count_and_share_other": "インシデント{{count}}件 · {{percent}}"
+    },
+    "duration": {
+      "seconds": "{{count}}s",
+      "minutes": "{{count}}m",
+      "minutes_seconds": "{{minutes}}m {{seconds}}s",
+      "hours": "{{count}}h",
+      "hours_minutes": "{{hours}}h {{minutes}}m"
+    },
+    "response": {
+      "title": "インシデント対応",
+      "description": "対応開始までの時間、復旧までの時間、エスカレーションの状況を直前の期間と比較します。",
+      "mtta": "確認までの平均時間",
+      "percentiles": "P50 {{p50}} · P90 {{p90}}",
+      "none_responded": "この期間に対応を開始したインシデントはありません",
+      "mttr": "復旧時間の中央値",
+      "p90": "P90 {{p90}}",
+      "escalation_rate": "エスカレーション率",
+      "responded": "対応済み",
+      "responded_detail": "{{incidents}}件中{{responded}}件に対応しました。残りは自動復旧したか、対応待ちです。",
+      "faster": "前回より{{change}}速い",
+      "slower": "前回より{{change}}遅い",
+      "lower": "前回より{{change}}低い",
+      "higher": "前回より{{change}}高い",
+      "same": "前回とほぼ同じ",
+      "no_previous": "比較対象となる前回のデータなし",
+      "steps_title": "ステップ別の確認率",
+      "steps_description": "各ステップに到達したインシデントのうち、そのステップで確認された割合です。",
+      "step": "ステップ{{n}}",
+      "step_rate": "{{reached}}件中{{acknowledged}}件 · {{percent}}",
+      "steps_empty": "この期間にエスカレーションは記録されていません。",
+      "via_title": "対応チャネル",
+      "via_description": "最初の確認または解決が行われたチャネルです。",
+      "via": {
+        "web": "Web",
+        "api": "API",
+        "im": "チャットカード",
+        "sms": "SMS返信",
+        "phone": "電話のキー入力",
+        "agent": "Mole Agent"
+      },
+      "via_empty": "この期間に対応されたインシデントはありません。",
+      "breakdown_title": "チーム・サービス・担当者別の内訳",
+      "breakdown_description": "最初に対応したメンバーを担当者として集計します。複数のサービスに関連するインシデントはサービスごとに1件と数えます。優先度が未設定のインシデントは優先度別の集計に含めません。",
+      "breakdown_label": "集計単位",
+      "dimensions": {
+        "teams": "チーム",
+        "services": "サービス",
+        "people": "担当者",
+        "priorities": "優先度"
+      },
+      "columns": {
+        "teams": "チーム",
+        "services": "サービス",
+        "people": "メンバー",
+        "incidents": "インシデント数",
+        "mtta": "平均確認時間",
+        "mttr": "平均復旧時間",
+        "escalation": "エスカレーション率",
+        "priorities": "優先度"
+      },
+      "breakdown_empty": "集計対象のデータがありません。"
+    },
+    "load": {
+      "title": "オンコール負荷",
+      "description": "メンバーごとのオンコール時間と呼び出し回数を表示します。夜間は、各メンバーのスケジュールのタイムゾーンで{{start}}:00から{{end}}:00までです。",
+      "loading": "集計中…",
+      "error": "オンコールの負荷データを取得できませんでした。",
+      "empty": "この期間は、オンコール担当者もアラートによる呼び出しもありませんでした。",
+      "columns": {
+        "person": "メンバー",
+        "oncall": "オンコール時間",
+        "pages": "呼び出し回数",
+        "night": "夜間の呼び出し",
+        "weekend": "週末の呼び出し",
+        "nights": "呼び出しがあった夜の数",
+        "mtta": "初動対応",
+        "timezone": "タイムゾーン"
+      },
+      "mtta_of": "{{count}}件 · 平均{{mtta}}"
+    }
+  },
+  "anomaly": {
+    "new_title": "異常検知ルールの作成",
+    "edit_title": "異常検知ルールの編集",
+    "subtitle": "同じ時間帯のベースライン（MAD）と比較して外れ値を検出します。",
+    "detection_description": "評価間隔ごとに、クエリ結果の最初の数値をベースラインと比較します。",
+    "detector_description": "中央値絶対偏差（MAD）を用いて、直近の同じ時間帯のデータから外れ値の影響を受けにくいベースラインを作成します。",
+    "sections": {
+      "identity": "基本情報",
+      "detection": "検知クエリ",
+      "detector": "検知方式"
+    },
+    "fields": {
+      "name": "ルール名",
+      "severity": "重大度",
+      "service": "サービス",
+      "stream_name": "ストリーム",
+      "stream_type": "ストリームタイプ",
+      "language": "クエリ言語",
+      "window": "評価ウィンドウ",
+      "query": "クエリ",
+      "algorithm": "アルゴリズム",
+      "lookback_days": "参照期間（日）",
+      "k": "感度（k·σ）",
+      "alpha": "平滑化（α）",
+      "for_periods": "発報までの評価回数",
+      "weekly_seasonality": "週ごとの周期性",
+      "source": "データソース"
+    },
+    "hints": {
+      "name": "このルールで作成されるインシデントに表示されます。",
+      "service": "複数のシグナルを関連付けるための任意のラベルです。",
+      "stream_name": "クエリの実行対象となるテーブルです。",
+      "window": "各評価ウィンドウの長さです。",
+      "query": "数値を1つ返すクエリを指定します（例：avg / p95 / count）。",
+      "algorithm": "MAD（外れ値の影響を受けにくい中央値ベースの手法）または EWMA（直近の変動に追従）を使用します。",
+      "lookback_days": "ベースラインの算出に使う、同じ時間帯の履歴の日数です（1～30）。",
+      "k": "値が大きいほど感度が下がります。|値 - ベースライン| > k·σ のときに発報します。",
+      "alpha": "EWMA のみ：値が大きいほど直近のサンプルを重視します（0～1）。",
+      "for_periods": "インシデントを起票するまでに異常が連続する必要がある区間数です。",
+      "weekly_seasonality": "同じ曜日の履歴だけを比較し、平日と週末の違いによる誤検知を減らします。履歴は7日以上必要です（28日以上を推奨）。",
+      "source": "クエリの結果またはサービスの APM 指標を監視します。"
+    },
+    "placeholders": {
+      "name": "checkout_latency_anomaly",
+      "service": "checkout",
+      "stream_name": "app_metrics"
+    },
+    "actions": {
+      "create": "ルールを作成",
+      "save": "変更を保存",
+      "saving": "保存中…"
+    },
+    "errors": {
+      "name_required": "ルール名は必須です。",
+      "stream_required": "ストリームは必須です。"
+    },
+    "toast_saved": "異常検知ルール「{{name}}」を保存しました",
+    "weekly": {
+      "off": "オフ（曜日を問わない）",
+      "on": "オン（同じ曜日）"
+    },
+    "source": {
+      "query": "クエリ",
+      "apm": "APM 指標",
+      "rum": "RUM 指標"
+    }
+  },
+  "severity": {
+    "info": "情報",
+    "warning": "警告",
+    "error": "エラー",
+    "critical": "重大"
+  },
+  "conditions": {
+    "no_data": "データなし"
+  },
+  "sources": {
+    "synthetic": "シンセティック",
+    "manual": "手動起票"
+  },
+  "alert_sources": {
+    "new_source": "新規アラートソース",
+    "empty_title": "アラートソースはまだありません",
+    "empty_description": "Alertmanager、Grafana、Datadog、PagerDuty、Zabbix、クラウド監視ツール、メール、独自システムからアラートを受信し、インシデントとして起票して、エスカレーションや通知を行えます。",
+    "kinds": {
+      "api": "API",
+      "alertmanager": "Alertmanager",
+      "grafana": "Grafana",
+      "datadog": "Datadog",
+      "pagerduty": "PagerDuty",
+      "aliyun_cms": "Alibaba Cloud CloudMonitor",
+      "tencent_monitor": "Tencent Cloud Observability Platform",
+      "aws_cloudwatch": "Amazon CloudWatch",
+      "zabbix": "Zabbix",
+      "email": "メール"
+    },
+    "kind_hints": {
+      "api": "スクリプト、CI、社内システムから MoleSignal API 経由でインシデントを発生させ、確認・解決できます。",
+      "alertmanager": "webhook_configs のレシーバーです。通知グループごとにインシデントを1件作成します。",
+      "grafana": "Webhook コンタクトポイントです。通知グループごとにインシデントを1件作成します。",
+      "datadog": "Webhooks インテグレーションです。モニターで @webhook と指定し、ドキュメントに記載のペイロードを使用します。",
+      "pagerduty": "V3 Webhook サブスクリプションです。PagerDuty のインシデントの発生・確認・解決を反映します。",
+      "aliyun_cms": "しきい値アラームのコールバックとイベントサブスクリプションのプッシュ通知を受信します。トークンはアドレスに含めます。",
+      "tencent_monitor": "メトリクスアラームとイベントアラームを通知テンプレートの API コールバックで受信します。トークンはアドレスに含めます。",
+      "aws_cloudwatch": "アラームは、このアドレスをサブスクライバーとして登録した SNS トピックに送信されます。SNS の署名検証とサブスクリプションの確認は自動で行われます。",
+      "zabbix": "Webhook メディアタイプをインポートします。障害ごとにインシデントを1件作成し、復旧や確認を反映します。",
+      "email": "IMAP メールボックスからメールを読み取るため、公開アドレスは不要です。既存のメールシステムからメールの原文を直接受信することもできます。"
+    },
+    "columns": {
+      "name": "名前",
+      "kind": "種類",
+      "policy": "エスカレーションポリシー",
+      "last_intake": "最終受信日時",
+      "status": "ステータス",
+      "actions": "操作"
+    },
+    "never_received": "受信履歴なし",
+    "status": {
+      "on": "有効",
+      "off": "無効"
+    },
+    "policy_default": "ルーティングに従う（デフォルト）",
+    "policy_none": "エスカレーションなし（通知ポリシーのみ）",
+    "delete_title": "アラートソースの削除",
+    "delete_description": "{{name}} のトークンは直ちに無効になり、このアラートソースの未解決のインシデントは解決済みになります。",
+    "delete_named": "{{name}} を削除",
+    "drawer_title": "新規アラートソース",
+    "edit_title": "アラートソースの編集",
+    "drawer_subtitle": "外部システムから受信したアラートに対し、ここでの設定に従ってインシデントを作成します。",
+    "create": "作成",
+    "save": "保存",
+    "toast_created": "アラートソースを作成しました",
+    "toast_updated": "アラートソースを更新しました",
+    "toast_deleted": "アラートソースを削除しました",
+    "sections": {
+      "email": "メールの受信方法",
+      "kind": "種類",
+      "identity": "識別情報",
+      "incidents": "インシデント",
+      "labels": "追加ラベル"
+    },
+    "fields": {
+      "name": "名前",
+      "name_placeholder": "本番環境の Prometheus",
+      "enabled": "オン",
+      "policy": "エスカレーションポリシー",
+      "severity": "デフォルトの重大度",
+      "severity_hint": "アラートに重大度が指定されていない場合に使用されます。",
+      "cluster": "受信クラスター",
+      "cluster_hint": "インシデントはこのクラスターでのみ作成されます。別のクラスターに送信されたアラートも、このクラスターに転送されます。",
+      "cluster_local": "{{name}}（このクラスター）",
+      "labels_hint": "このアラートソースが作成するすべてのインシデントに追加されます。同じキーのラベルがアラートにある場合は、アラート側の値が優先されます。",
+      "add_label": "ラベルを追加",
+      "remove_label": "ラベルを削除",
+      "label_key": "ラベルキー",
+      "label_value": "ラベル値"
+    },
+    "errors": {
+      "name_required": "名前は必須です。"
+    },
+    "token": {
+      "title": "{{name}} のトークン",
+      "shown_once": "トークンは今回のみ表示されます。この画面を閉じると再表示できません。紛失した場合はローテーションしてください。",
+      "copy": "トークンをコピー",
+      "close": "完了",
+      "rotate": "トークンをローテーション",
+      "rotate_title": "トークンのローテーション",
+      "rotate_description": "古いトークンはすぐに無効になります。古いトークンを使用している送信元には、新しいトークンを設定する必要があります。",
+      "rotated": "トークンをローテーションしました"
+    },
+    "detail": {
+      "loading": "アラートソース",
+      "intake": "受信",
+      "intake_email": "またはメールの原文を POST",
+      "setup_docs": "セットアップガイド",
+      "address": "受信アドレス",
+      "copy_address": "受信アドレスをコピー",
+      "token": "トークン",
+      "token_hint": "トークンの先頭部分のみが表示されます。トークン全体は、アラートソースの作成時またはトークンのローテーション時に一度だけ表示されます。",
+      "setup": "セットアップ",
+      "setup_hint": "<TOKEN> をこのアラートソースのトークンに置き換えてください。",
+      "copy_setup": "セットアップ設定をコピー",
+      "not_found_title": "アラートソースが見つかりません",
+      "not_found_description": "削除されたか、別の組織に属している可能性があります。",
+      "requests": "最近の受信リクエスト",
+      "requests_description": "アラートソースごとに、直近500件のリクエストを最長7日間保持します。",
+      "home_elsewhere": "このアラートソースのインシデントは {{cluster}} で作成され、最近の受信リクエストも同じクラスターに記録されます。",
+      "meta": {
+        "policy": "エスカレーションポリシー",
+        "severity": "デフォルトの重大度",
+        "labels": "追加ラベル",
+        "cluster": "受信クラスター"
+      }
+    },
+    "email": {
+      "description": "メールからアラートを生成する仕組みです。件名に含まれるステータスを示す語、重大度、時刻、パーセンテージは重複排除キーに含めません。そのため、同じアラートの障害通知と復旧通知は、1 つのインシデントにまとめられます。",
+      "senders": "許可する送信元",
+      "senders_hint": "メールアドレスまたはドメイン全体を表す @example.com 形式の値をカンマで区切って指定します。* はすべての送信元を許可します。メールボックスを使用する場合は設定が必須です。設定しないと、そのアドレスを知っている人なら誰でもインシデントを作成できてしまいます。",
+      "resolve": "復旧と判定する件名",
+      "resolve_hint": "正規表現を指定します。空欄の場合は、組み込みの正規表現が使われます。対象は resolved、recovered、recovery、cleared、恢复、已解决、および件名の先頭にある OK です。",
+      "dedup": "件名から抽出する重複排除キー",
+      "dedup_hint": "正規表現の最初のキャプチャグループを使用します。空欄の場合や一致しない場合は、整形した件名を使用します。",
+      "ignore": "アラートの対象外とする件名",
+      "ignore_hint": "正規表現に一致する件名のメールは処理しません。空欄の場合、この設定で除外されるメールはありません。"
+    },
+    "mailbox": {
+      "title": "メールボックスの読み取り",
+      "description": "読み取り専用です。メールを既読にしたり、削除したりすることはありません。初回接続以降に届いたメールのみが対象で、すでにあるメールは処理しません。",
+      "elsewhere": "このソースの受信クラスター（{{cluster}}）がメールボックスを読み取ります。設定はそのクラスターで行ってください。パスワードはそのクラスター内に保持されます。",
+      "host": "IMAP サーバー",
+      "port": "ポート",
+      "security": "暗号化",
+      "security_tls": "TLS",
+      "security_starttls": "STARTTLS",
+      "security_none": "なし",
+      "plaintext_warning": "暗号化しない場合、パスワードはネットワーク上で平文のまま送信されます。信頼できるネットワークでのみ使用してください。",
+      "auth_password": "パスワード",
+      "auth_password_hint": "メールボックスのパスワード、またはプロバイダーが発行したアプリ パスワードを使用します。",
+      "auth_oauth2": "OAuth 2.0",
+      "auth_oauth2_hint": "クライアント資格情報で取得したトークンを使用します。Microsoft 365 ではパスワード認証は利用できません。",
+      "username": "ユーザー名",
+      "password": "パスワード",
+      "client_secret": "クライアント シークレット",
+      "secret_kept": "変更しない場合は空欄にしてください。",
+      "token_url": "トークン URL",
+      "client_id": "クライアント ID",
+      "scope": "スコープ",
+      "folder": "フォルダー",
+      "poll_secs": "読み取り間隔（秒）",
+      "poll_hint": "15～3600 秒で指定します。メールサーバーによっては、短い間隔でのサインインが制限されます。",
+      "save": "メールボックスを保存",
+      "test": "接続をテスト",
+      "remove": "このメールボックスの読み取りを停止",
+      "saved": "メールボックスを保存しました。次回の確認時から読み取りが始まります。",
+      "removed": "このメールボックスの読み取りを停止しました。",
+      "test_ok_one": "接続しました。このフォルダーにはメールが{{count}}件あります",
+      "test_ok_other": "接続しました。このフォルダーにはメールが{{count}}件あります",
+      "test_failed": "接続できませんでした: {{error}}",
+      "last_error": "前回の読み取りに失敗しました: {{error}}",
+      "last_success": "読み取り日時: {{time}}",
+      "not_read_yet": "まだ読み取っていません。次回のチェックで読み取りを開始します。"
+    },
+    "standing": {
+      "label": "ソースの状態",
+      "off": "無効",
+      "waiting": "初回リクエスト待ち",
+      "quiet": "過去7日間にリクエストなし",
+      "refused": "直近のリクエストを拒否",
+      "receiving": "受信中",
+      "off_detail": "無効になっている間に送信されたリクエストは拒否されます。",
+      "waiting_detail": "以下の手順で送信元を設定してください。初回リクエストを受信すると、この状態が更新されます。",
+      "last_received": "直近のリクエスト: {{when}}",
+      "refused_detail": "{{when}}: {{reason}}",
+      "requests": "過去24時間のリクエスト",
+      "refused_count_one": "{{count}}件を拒否",
+      "refused_count_other": "{{count}}件を拒否",
+      "none_refused": "拒否なし",
+      "no_requests": "リクエストはまだありません",
+      "alerts": "アラート",
+      "alert_outcomes": "発生 {{opened}}件 · 解決 {{resolved}}件",
+      "open_incidents": "未解決のインシデント",
+      "oldest_open": "最も古い未解決インシデントの発生: {{when}}",
+      "none_open": "未解決のインシデントなし"
+    },
+    "steps": {
+      "address": "受信アドレスをコピー",
+      "address_description": "すべてのアラートソースで同じアドレスを使用します。トークンでアラートのソースを識別します。",
+      "token": "トークンを追加",
+      "token_header": "送信側で、Authorization ヘッダーに Bearer に続けてトークンを指定します。",
+      "token_query": "この送信元ではヘッダーを設定できないため、受信アドレスの token パラメーターにトークンを指定します。",
+      "configure": "送信元を設定"
+    },
+    "setup_guide": {
+      "api": "以下のリクエストでアラートを送信します。同じ dedupKey を持つトリガー、確認応答、復旧は、同じインシデントに紐づきます。",
+      "alertmanager": "以下のレシーバーを alertmanager.yml に追加し、アラートをそのレシーバーにルーティングします。send_resolved は true のままにしてください。",
+      "grafana": "「アラート → コンタクトポイント」で、以下のように Webhook のコンタクトポイントを追加し、通知ポリシーで使用します。",
+      "datadog": "「インテグレーション → Webhooks」で、以下のように Webhook を作成し、モニターのメッセージに @webhook-<name> を記載します。",
+      "pagerduty": "「Integrations → Generic Webhooks (v3)」で、以下のように Webhook を作成します。",
+      "aliyun_cms": "受信アドレスを、アラームルールのアラームコールバック、またはシステムイベント用のイベントサブスクリプションのプッシュチャネルの Webhook アドレスとして入力します。",
+      "tencent_monitor": "「アラーム管理」で通知テンプレートの API コールバックに受信アドレスを入力し、そのテンプレートをアラームポリシーに紐づけます。",
+      "aws_cloudwatch": "アラームの状態変更を SNS トピックに送信するように設定し、受信アドレスを指定した HTTPS サブスクリプションをそのトピックに追加します（AWS CLI での指定方法は以下のとおりです）。サブスクリプションは自動で確認されます。「Raw メッセージ配信」は無効のままにしてください。OK 状態もトピックに送信してください。送信しないと、インシデントは自動で解決されません。",
+      "zabbix": "これをYAMLとして保存し、［アラート］→［メディアタイプ］からインポートします。このメディアをユーザーに割り当てます（［送信先］には任意の値を指定できます）。次に、そのユーザーに通知するように、実行内容、復旧時の実行内容、更新時の実行内容を設定したトリガーアクションを追加します。",
+      "email": "メールボックスを読み取れない場合は、運用中のメールシステム（Postfix、SES、Mailgun）から、この例のようにメールの原文をPOSTします。受信したメールは通常どおり処理されます。"
+    },
+    "setup_docs_anchor": {
+      "api": "api",
+      "alertmanager": "alertmanager",
+      "grafana": "grafana",
+      "datadog": "datadog",
+      "pagerduty": "pagerduty",
+      "aliyun_cms": "alibaba-cloud-cloudmonitor",
+      "tencent_monitor": "tencent-cloud-observability-platform",
+      "aws_cloudwatch": "amazon-cloudwatch",
+      "zabbix": "zabbix",
+      "email": "email"
+    },
+    "requests": {
+      "columns": {
+        "time": "時刻",
+        "result": "結果",
+        "alerts": "アラート",
+        "message": "備考"
+      },
+      "status": {
+        "accepted": "処理済み",
+        "rejected": "拒否済み",
+        "forwarded": "転送済み"
+      },
+      "via": "転送元: {{cluster}}",
+      "alert_count_one": "アラート{{count}}件",
+      "alert_count_other": "アラート{{count}}件",
+      "outcomes": {
+        "opened": "新規作成",
+        "updated": "更新済み",
+        "unchanged": "変更なし",
+        "acknowledged": "確認済み",
+        "resolved": "解決済み",
+        "ignored": "無視"
+      },
+      "actions": {
+        "trigger": "発報",
+        "acknowledge": "確認",
+        "resolve": "解決"
+      },
+      "body": "リクエスト本文の先頭",
+      "open_incident": "インシデントを開く",
+      "no_alerts": "リクエストにアラートは含まれていませんでした。"
+    },
+    "incident": {
+      "title": "外部アラート",
+      "source": "ソース",
+      "deleted": "ソース削除済み",
+      "dedup_key": "重複排除キー",
+      "last_intake": "最終受信時刻",
+      "members_one": "グループ内のアラート{{count}}件",
+      "members_other": "グループ内のアラート：{{count}}件",
+      "member_firing": "発報中",
+      "member_resolved": "解決済み",
+      "since": "{{time}}から",
+      "open_sender": "送信元で開く"
+    }
+  },
+  "routing": {
+    "new_rule": "新規ルール",
+    "rules_title": "ルーティングルール",
+    "rules_description": "ルールは上から順に評価され、最初に一致したルールが適用されます。一致するルールがない場合は、サービスの担当チーム、チームラベル、デフォルトポリシーの順にルーティング先を確認します。",
+    "rules_empty": "ルーティングルールはまだありません。",
+    "every_incident": "すべてのインシデント",
+    "min_severity": "{{severity}}以上",
+    "only_origins": "{{origins}}のみ",
+    "list_separator": ", ",
+    "origins": {
+      "rule": "アラートルール",
+      "external": "外部アラート",
+      "synthetic": "シンセティックチェック",
+      "manual": "手動作成のインシデント"
+    },
+    "reorder": "「{{name}}」の順序を変更",
+    "reorder_hint": "ドラッグするか、↑ ↓キーで移動",
+    "target_policy": "ポリシー",
+    "target_team": "チーム",
+    "target_missing": "ルーティング先は削除済み",
+    "target_missing_hint": "ルーティング先のポリシーまたはチームが削除されたため、このルールはスキップされます。",
+    "enable": "「{{name}}」を有効化",
+    "delete_named": "「{{name}}」を削除",
+    "delete_title": "ルーティングルールの削除",
+    "delete_description": "「{{name}}」に一致していたインシデントは、このルールより後のルールに従ってルーティングされます。",
+    "toast_created": "ルールを作成しました",
+    "toast_updated": "ルールを保存しました",
+    "toast_deleted": "ルールを削除しました",
+    "toast_team_policy": "オンコールポリシーを保存しました",
+    "teams_title": "チームのオンコールポリシー",
+    "teams_description": "チームにルーティングされたインシデントは、そのチームのオンコールポリシーに従ってエスカレーションされます。チームにポリシーがない場合は、デフォルトポリシーが適用されます。",
+    "teams_empty": "チームはまだありません。",
+    "teams_create": "「IDとアクセス」でチームを作成",
+    "columns": {
+      "team": "チーム",
+      "services": "担当サービス",
+      "policy": "オンコールポリシー",
+      "policy_of": "{{team}}のオンコールポリシー"
+    },
+    "members_one": "メンバー{{count}}人",
+    "members_other": "{{count}} 人のメンバー",
+    "services_one": "{{count}} 件のサービス",
+    "services_other": "{{count}} 件のサービス",
+    "services_rest": ", …",
+    "services_none": "サービスカタログに登録なし",
+    "no_policy": "未設定（デフォルトポリシーを使用）",
+    "default_policy": "デフォルトポリシー",
+    "no_team": "チームなし",
+    "try_title": "ルーティングのテスト",
+    "try_description": "ラベルを入力すると、そのインシデントに割り当てられるチームとエスカレーションポリシーを確認できます。",
+    "try_labels": "ラベル",
+    "try_labels_hint": "1 行に 1 つずつ、key=value 形式で入力します。",
+    "try_origin": "発生元",
+    "try_severity": "重大度",
+    "try_run": "テストを実行",
+    "try_idle": "ここに、割り当て先のチーム、エスカレーションポリシー、各ステップの判定結果が表示されます。",
+    "outcome_team": "チーム",
+    "outcome_policy": "エスカレーションポリシー",
+    "outcome_reason": "割り当て理由",
+    "steps": {
+      "rule": "ルーティングルール",
+      "rule_matched": "「{{name}}」に一致",
+      "rule_none": "一致なし",
+      "rule_empty": "有効なルールなし",
+      "service": "サービスオーナー",
+      "service_none": "ラベルにサービスの指定なし",
+      "service_owned": "{{service}} のオーナーは {{team}} です",
+      "service_unowned": "{{service}} のオーナーチームは未設定です",
+      "label": "チームラベル",
+      "label_team": "{{team}} を指定",
+      "label_none": "チームを指定する team または team_id ラベルなし",
+      "default": "デフォルトポリシー",
+      "default_used": "デフォルトポリシーを適用",
+      "default_for_team": "{{team}} にオンコールポリシーが設定されていないため、デフォルトポリシーを適用します",
+      "default_unused": "適用不要"
+    },
+    "reasons": {
+      "rule": "ルール「{{name}}」に一致",
+      "service_owner": "サービス {{service}} のオーナー",
+      "team_label": "インシデントのチームラベル",
+      "default": "一致なし（デフォルトポリシーを適用）",
+      "source": "発生元で選択されたポリシー",
+      "manual": "インシデントを開いたときに選択"
+    },
+    "drawer": {
+      "new_title": "新規ルーティングルール",
+      "edit_title": "ルーティングルールを編集",
+      "subtitle": "このルールの条件をすべて満たすインシデントは、指定した宛先に送られます。",
+      "create": "作成",
+      "save": "保存",
+      "identity": "基本設定",
+      "name": "名前",
+      "name_placeholder": "例：本番環境の決済",
+      "enabled": "有効",
+      "conditions": "条件",
+      "conditions_hint": "インシデントのラベルを照合し、すべての条件を満たす場合に一致します。条件がないルールは、すべてのインシデントに一致します。",
+      "add_condition": "条件を追加",
+      "remove_condition": "条件を削除",
+      "key": "ラベル",
+      "operator": "比較演算子",
+      "operators": {
+        "equals": "等しい",
+        "not_equals": "等しくない",
+        "in": "いずれかに等しい",
+        "matches": "正規表現に一致"
+      },
+      "value": "値",
+      "value_in_placeholder": "値をカンマで区切る",
+      "scope": "適用範囲",
+      "min_severity": "最小重大度",
+      "any_severity": "指定なし",
+      "origins": "発生元",
+      "origins_hint": "何も選択しない場合は、すべての発生元のインシデントが照合対象になります。",
+      "target": "宛先",
+      "target_team": "チーム",
+      "target_team_hint": "チームのオンコールポリシーに従ってエスカレーションします。",
+      "target_policy": "エスカレーションポリシー",
+      "target_policy_hint": "このポリシーを使用します。チームは引き続きサービスの所有者またはラベルに基づいて決まります。",
+      "target_placeholder": "選択",
+      "priorities": "優先度",
+      "priorities_hint": "何も選択しない場合は、優先度を問わず照合します。1つでも選択すると、優先度が設定されていないインシデントは一致しません。",
+      "time_hint": "インシデントがオープンした時点で判定します。"
+    },
+    "only_priorities": "優先度：{{priorities}}",
+    "time_inside": "{{ranges}} のみ（{{timezone}}）",
+    "time_outside": "{{ranges}} 以外（{{timezone}}）",
+    "try_priority": "優先度",
+    "try_at": "オープン日時",
+    "try_at_now": "現在"
+  },
+  "matchers": {
+    "title": "ラベルマッチャー",
+    "add": "マッチャーを追加",
+    "remove": "マッチャーを削除",
+    "label_placeholder": "ラベル（例：service）",
+    "label_aria": "マッチャーのラベル",
+    "value_placeholder": "値",
+    "value_aria": "マッチャーの値",
+    "hint": "すべてのマッチャーに一致する必要があります（AND）。=~ と !~ は正規表現によるマッチングに使用します。"
+  },
+  "escalations": {
+    "new_policy": "新規ポリシー",
+    "empty_title": "エスカレーションポリシーなし",
+    "empty_description": "未確認のインシデントをオンコールユーザー、スケジュール、チームにルーティングします。",
+    "columns": {
+      "name": "名前",
+      "steps": "通知先と通知タイミング",
+      "actions": "操作"
+    },
+    "delete_title": "エスカレーションポリシーを削除",
+    "edit_title": "エスカレーションポリシーを編集",
+    "drawer_title": "新規エスカレーションポリシー",
+    "drawer_subtitle": "インシデントが確認されるまで、ステップが順番に実行されます。",
+    "save": "ポリシーを保存",
+    "create": "ポリシーを作成",
+    "toast_updated": "ポリシーを更新しました",
+    "toast_created": "ポリシーを作成しました",
+    "errors": {
+      "name_required": "名前は必須です。",
+      "target_required": "通知先を1件以上追加してください。",
+      "support_hours": "サポート時間帯を1つ以上追加し、それぞれに曜日と有効な時刻を設定してください。"
+    },
+    "sections": {
+      "identity": "基本情報",
+      "steps": "エスカレーションステップ",
+      "steps_description": "各ステップでは、通知先ごとにNotifyイベントを1件発行し、確認を待ちます。確認されなければ次のステップに進みます。"
+    },
+    "fields": {
+      "name": "ポリシー名",
+      "repeat": "確認されるまでポリシー全体を繰り返す",
+      "max_loops": "最大繰り返し回数",
+      "ack_retrigger": "確認済み・未解決",
+      "min_severity": "適用する最小重大度",
+      "ack_timeout": "確認タイムアウト",
+      "targets": "通知先",
+      "notify_routing": "コネクターの選択とフォールバックルーティングは、設定 → Notify → ポリシーで設定します。"
+    },
+    "hints": {
+      "max_loops": "繰り返しを打ち切るまでの回数です。",
+      "ack_retrigger": "確認済みのインシデントが指定時間を過ぎても未解決の場合は、未確認に戻り、担当者に再通知されます。誰も確認しなければ、エスカレーションが続きます。"
+    },
+    "ack_retrigger": {
+      "off": "再通知しない",
+      "minutes": "{{count}}分",
+      "hours_one": "{{count}}時間",
+      "hours_other": "{{count}}時間"
+    },
+    "add_step": "ステップを追加",
+    "remove_step": "ステップを削除",
+    "step_n": "ステップ {{n}}",
+    "add_target": "通知先を追加",
+    "remove_target": "通知先を削除",
+    "any_severity": "すべての重要度",
+    "pick_ref": "— 選択 —",
+    "missing_target": "現在は存在しません",
+    "target_kinds": {
+      "user": "ユーザー",
+      "schedule": "スケジュール",
+      "team": "チーム"
+    },
+    "no_target": "通知先未設定",
+    "from_severity": "{{severity}}以上",
+    "repeats_one": "{{count}}回繰り返し",
+    "repeats_other": "{{count}}回繰り返し",
+    "unreachable_one": "{{count}}件に通知できません",
+    "unreachable_other": "{{count}}件に通知できません",
+    "urgency": {
+      "title": "緊急度",
+      "description": "緊急度が設定されていないインシデントに適用する緊急度の決め方です。次のステップに進むかどうか、通知抑制時間帯の動作、使用する個人通知ステップは、組織の緊急度レベルごとの設定で決まります。",
+      "modes": {
+        "by_severity": "重要度に応じて設定",
+        "support_hours": "サポート時間帯に応じて設定",
+        "always": "常に同じレベル"
+      },
+      "mode_hints": {
+        "by_severity": "各重要度に、組織で割り当てた緊急度レベルを適用します（既定ではクリティカルとエラーは「高」、警告と情報は「低」です）。",
+        "support_hours": "サポート時間内と時間外で異なる緊急度レベルを適用します。",
+        "always": "すべてのインシデントに、以下で選択した緊急度レベルを適用します。"
+      },
+      "raise_at_start": "サポート時間の開始時に、誰も確認していないインシデントのうち、緊急度が時間内の設定より低いものをそのレベルまで引き上げ、最初のステップから再通知します",
+      "escalate_low": "通常は最初のステップで止まる緊急度のインシデントも、ここでは後続のステップに進みます",
+      "chain": {
+        "support_hours": "サポート時間帯に応じた緊急度",
+        "always": "常に{{urgency}}"
+      },
+      "always_level": "緊急度",
+      "inside": "サポート時間内",
+      "outside": "サポート時間外"
+    }
+  },
+  "schedules": {
+    "title": "オンコールスケジュール",
+    "subtitle": "アラートのエスカレーションに使用するローテーションと一時的な代理対応を管理します。",
+    "new_schedule": "スケジュールを作成",
+    "empty_title": "オンコールスケジュールがありません",
+    "empty_description": "日単位、週単位、または任意の間隔で、チーム内のオンコール担当を交代できます。",
+    "columns": {
+      "name": "名前",
+      "timezone": "タイムゾーン",
+      "rotations": "ローテーション",
+      "members": "メンバー",
+      "current_on_call": "現在のオンコール担当者",
+      "rotation": "ローテーション",
+      "next_switch": "次回の引き継ぎ",
+      "coverage": "カバレッジ",
+      "recent_change": "最近の変更",
+      "status": "ステータス"
+    },
+    "delete_title": "スケジュールの削除",
+    "edit_title": "スケジュールの編集",
+    "drawer_title": "新規スケジュール",
+    "drawer_subtitle": "スケジュールを設定し、今後7日間の担当を確認してから作成してください。",
+    "save": "スケジュールを保存",
+    "save_draft": "下書きを保存",
+    "create": "スケジュールを作成",
+    "toast_updated": "スケジュールを更新しました",
+    "toast_created": "スケジュールを作成しました",
+    "toast_draft_saved": "スケジュールの下書きを保存しました",
+    "toast_paused": "スケジュールを一時停止しました",
+    "toast_resumed": "スケジュールを再開しました",
+    "toast_copied": "スケジュールを複製し、複製したスケジュールを一時停止しました",
+    "copy_name": "{{name}} のコピー",
+    "errors": {
+      "name_required": "名前は必須です。",
+      "members_required": "ローテーションのメンバーを1人以上追加してください。",
+      "override_user": "ユーザーを選択してください。",
+      "override_reason": "代替担当を設定する理由を入力してください。",
+      "override_window": "終了日時は開始日時より後にしてください。",
+      "override_conflict": "この時間帯は既存の代替担当の時間帯と重複しています。"
+    },
+    "sections": {
+      "identity": "基本情報",
+      "rotations": "ローテーションルール",
+      "rotations_description": "各ローテーションではメンバーが順番に担当します。オーバーライドはスケジュールの詳細ページで管理します。",
+      "overrides": "オーバーライド"
+    },
+    "fields": {
+      "name": "スケジュール名",
+      "description": "説明",
+      "timezone": "タイムゾーン",
+      "team": "チーム",
+      "cadence": "ローテーションの切り替え頻度",
+      "period_hours": "周期（時間）",
+      "start_at": "開始日時",
+      "ends": "指定した日時に終了",
+      "end_at": "終了日時",
+      "handoff_time": "引き継ぎ時刻",
+      "members": "メンバー（順番に担当）",
+      "restrict_window": "特定の曜日・時間帯に限定",
+      "swap_needs_approval": "担当交代に承認が必要"
+    },
+    "hints": {
+      "timezone": "例：UTC、America/New_York、Asia/Shanghai",
+      "swap_needs_approval": "依頼を受けた人が担当交代を引き受けた後、このスケジュールの管理者が承認すると交代が反映されます。"
+    },
+    "add_rotation": "ローテーションを追加",
+    "remove_rotation": "ローテーションを削除",
+    "rotation_name_placeholder": "例：メイン",
+    "rotation_kinds": {
+      "daily": "毎日",
+      "weekly": "毎週",
+      "workdays": "平日",
+      "custom": "カスタム間隔"
+    },
+    "no_users": "ユーザーが見つかりませんでした。",
+    "unknown_user": "不明なメンバー",
+    "on_call_now": "現在のオンコール担当",
+    "nobody_on_call": "オンコール担当者なし",
+    "currently_on_call": "オンコール担当中",
+    "detail_loading": "スケジュール",
+    "detail_error": "スケジュールを読み込めませんでした。",
+    "no_rotations": "ローテーションはまだありません。",
+    "rotation_untitled": "ローテーション {{n}}",
+    "no_members": "メンバーなし",
+    "overrides_hint": "指定した時間帯だけ、オンコール担当を別の人に変更できます。",
+    "override_added": "オーバーライドを追加しました。",
+    "override_updated": "オーバーライドを更新しました。",
+    "override_deleted": "オーバーライドを削除しました。",
+    "override_ended": "オーバーライドが終了しました。",
+    "override_delete_title": "一時的な代理担当を削除しますか？",
+    "override_fields": {
+      "user": "代理担当者",
+      "reason": "理由",
+      "start": "開始時刻",
+      "end": "終了時刻"
+    },
+    "pick_user": "担当者を選択",
+    "add_override": "オーバーライドを追加",
+    "every_n_hours": "{{n}}hごと",
+    "update_override": "オーバーライドを更新",
+    "cancel_edit": "編集をキャンセル",
+    "end_override": "代替対応を終了",
+    "override_person": "代替担当者",
+    "override_badge": "一時的",
+    "override_summary": "{{user}}が{{start}}から{{end}}まで代替対応します。",
+    "no_overrides": "対応中または予定されている一時的な代替対応はありません",
+    "view_history": "履歴を表示",
+    "hide_history": "履歴を非表示",
+    "no_switch": "引き継ぎ予定なし",
+    "people_count": "{{count}}人",
+    "people_rotation": "{{count}}人でローテーション",
+    "rotation_count": "{{count}}件のローテーション",
+    "total_count": "合計{{count}}件",
+    "system_actor": "システム",
+    "description_fallback": "アラートのエスカレーション先となるオンコール担当者のルーティング",
+    "team_prefix": "チーム: {{team}}",
+    "team_unassigned": "チーム未割り当て",
+    "warnings": {
+      "other_schedule": "代替対応の開始時点で、この担当者は別のスケジュールのオンコールを担当しています。",
+      "immediate": "開始時刻が過ぎています。代替対応はすぐに有効になります。"
+    },
+    "placeholders": {
+      "name": "例: 本番環境の一次オンコール",
+      "description": "対象サービス、環境、エスカレーションの範囲を記入してください。",
+      "override_reason": "例: 有給休暇、インシデント対応、シフト交代"
+    },
+    "summary": {
+      "schedules": "スケジュール",
+      "schedule_count": "{{count}}件のスケジュール",
+      "team_count": "対象チーム: {{count}}",
+      "on_call": "現在のオンコール",
+      "active_count": "稼働中のスケジュール: {{count}}件",
+      "people_on_call": "現在のオンコール担当者: {{count}}人",
+      "this_week": "今週",
+      "rotation_count": "{{count}}件の引き継ぎ",
+      "next_switch": "次回: {{value}}",
+      "no_switch": "今週の引き継ぎなし",
+      "overrides": "一時的な代替対応",
+      "override_count": "代替対応中のスケジュール: {{count}}件",
+      "override_people": "代替担当者: {{count}}人"
+    },
+    "filters": {
+      "search": "スケジュール、チーム、オーナーを検索…",
+      "team": "チーム",
+      "timezone": "タイムゾーン",
+      "status": "ステータス",
+      "all": "すべて",
+      "mine": "自分が参加するスケジュールのみ",
+      "refresh": "更新",
+      "reset": "フィルターをリセット",
+      "list_settings": "一覧の設定",
+      "no_results": "フィルター条件に一致するスケジュールはありません"
+    },
+    "roles": {
+      "primary": "プライマリ",
+      "secondary": "セカンダリ"
+    },
+    "status": {
+      "active": "稼働中",
+      "switching": "まもなく交代",
+      "not_started": "開始前",
+      "paused": "一時停止中",
+      "gap": "担当者不在"
+    },
+    "actions": {
+      "open_menu": "{{name}}の操作メニューを開く",
+      "view": "詳細を表示",
+      "edit": "スケジュールを編集",
+      "add_override": "臨時の担当を追加",
+      "pause": "スケジュールを一時停止",
+      "resume": "スケジュールを再開",
+      "copy": "スケジュールをコピー",
+      "export_calendar": "カレンダーをエクスポート",
+      "delete": "スケジュールを削除",
+      "more": "その他の操作",
+      "subscribe_calendar": "カレンダーを購読"
+    },
+    "pagination": {
+      "label": "オンコールスケジュールのページ切り替え",
+      "page": "{{page}} / {{count}}",
+      "page_size": "1ページあたりの行数",
+      "first": "スケジュール一覧の最初のページ",
+      "previous": "前のページ",
+      "next": "次のページ",
+      "last": "スケジュール一覧の最後のページ"
+    },
+    "preview": {
+      "title": "今後7日間",
+      "description": "作成する前に、ローテーションの順序、交代時刻、担当者が割り当てられている時間帯を確認してください。",
+      "empty": "プレビューを表示するには、ローテーションのメンバーを選択してください",
+      "member_count": "担当者数",
+      "timezone": "スケジュールのタイムゾーン",
+      "then": "次の担当",
+      "unreadable": "プレビューを表示するには、時間範囲を修正してください。"
+    },
+    "detail": {
+      "current": "現在のオンコール担当",
+      "started_at": "開始：{{value}}",
+      "no_active_shift": "現在稼働中のシフトはありません",
+      "next_rotation": "次の引き継ぎ",
+      "rotation_people": "ローテーション担当者",
+      "rotation_rule": "ローテーション：{{value}}",
+      "overrides": "一時的な代理対応",
+      "active_override_count": "有効：{{count}} 件",
+      "coverage_window": "期間：{{start}} – {{end}}",
+      "no_override": "有効な一時的な代理対応はありません",
+      "rotation_rule_title": "ローテーションルール",
+      "view_rule": "詳細を表示",
+      "rotation_name": "ローテーション名",
+      "rotation_members": "ローテーションメンバー",
+      "handoff_time": "引き継ぎ時刻",
+      "handoff_value": "{{cadence}}、{{time}}（{{timezone}}）",
+      "rotation_ends": "終了"
+    },
+    "timeline": {
+      "title": "今後7日間",
+      "current": "現在のオンコール担当者",
+      "upcoming": "次のオンコール担当者",
+      "view_calendar": "カレンダーを表示",
+      "empty": "このスケジュールには表示できるシフトがありません"
+    },
+    "activity": {
+      "title": "変更履歴",
+      "view_all": "すべて表示",
+      "collapse": "折りたたむ",
+      "empty": "変更履歴はありません",
+      "columns": {
+        "time": "時刻",
+        "actor": "実行者",
+        "type": "種類",
+        "content": "変更内容"
+      },
+      "types": {
+        "create": "作成",
+        "edit": "編集",
+        "override": "代理対応",
+        "pause": "一時停止",
+        "resume": "再開",
+        "delete": "削除",
+        "swap": "シフト交換"
+      },
+      "descriptions": {
+        "create": "スケジュール「{{name}}」を作成しました",
+        "edit": "スケジュール「{{name}}」を更新しました",
+        "override": "{{user}} の一時的な代理対応が変更されました。理由：{{reason}}",
+        "pause": "スケジュール「{{name}}」を一時停止しました",
+        "resume": "スケジュール「{{name}}」を再開しました",
+        "delete": "スケジュール「{{name}}」を削除しました",
+        "swap": "{{requester}}さんが{{target}}さんにシフトの交代を依頼しました：{{status}}"
+      }
+    },
+    "load": {
+      "title": "メンバー別の担当負荷（過去30日間）"
+    },
+    "swaps": {
+      "title": "シフト交代",
+      "request": "交代を依頼",
+      "request_title": "交代を依頼",
+      "request_description": "自分だけがオンコールを担当する時間帯と、交代を依頼するメンバーを選択してください。相手が引き受けると、交代が反映されます。",
+      "request_description_approval": "自分だけがオンコールを担当する時間帯と、交代を依頼するメンバーを選択してください。相手が引き受けた後、スケジュール管理者の承認が必要です。",
+      "not_on_call": "今後30日間、このスケジュールにあなたの担当シフトはありません",
+      "fields": {
+        "shift": "自分のシフト",
+        "start": "開始日時",
+        "end": "終了日時",
+        "target": "交代するメンバー",
+        "note": "メモ"
+      },
+      "pick_shift": "シフトを選択するか、下の欄で日時を指定してください",
+      "pick_target": "メンバーを選択",
+      "placeholders": {
+        "note": "例：金曜日は移動のため"
+      },
+      "submit": "依頼を送信",
+      "sent": "交代依頼を送信しました",
+      "errors": {
+        "window": "終了日時は開始日時より後に設定してください",
+        "target": "交代するメンバーを選択してください"
+      },
+      "empty": "交代依頼はまだありません。",
+      "show_settled": "処理済みも表示",
+      "hide_settled": "未処理のみ",
+      "asks": "{{requester}}さんから{{target}}さんへの交代依頼",
+      "decided_by": "対応者：{{name}}",
+      "status": {
+        "pending": "回答待ち",
+        "awaiting_approval": "承認待ち",
+        "accepted": "反映済み",
+        "declined": "辞退",
+        "rejected": "却下",
+        "cancelled": "取り下げ済み",
+        "expired": "期限切れ"
+      },
+      "answer": {
+        "accept": "引き受ける",
+        "decline": "辞退",
+        "cancel": "取り下げ",
+        "approve": "承認",
+        "reject": "却下"
+      },
+      "done": {
+        "accept": "交代を引き受け、スケジュールに反映しました",
+        "accept_waiting": "交代を引き受けました。承認待ちです",
+        "decline": "交代を辞退しました",
+        "cancel": "シフト交代の申請を取り下げました",
+        "approve": "承認しました。オーバーライドが有効になりました",
+        "reject": "シフト交代の申請を却下しました"
+      },
+      "mine_title": "自分のシフト交代",
+      "mine_description": "送信・受信したシフト交代の申請を確認できます。承認はスケジュールのページで行います。",
+      "mine_button": "シフト交代",
+      "mine_waiting": "対応待ち {{count}} 件",
+      "mine_empty": "送信・受信したシフト交代の申請はありません。",
+      "open_schedule": "スケジュールを開く"
+    },
+    "calendar": {
+      "title_schedule": "{{name}} を購読",
+      "title_mine": "自分のシフトを購読",
+      "description_schedule": "このスケジュールのすべてのシフトをカレンダーアプリ（Google Calendar、Outlook、Apple Calendar など…）に追加します。カレンダーアプリは約1時間ごとに更新されます。フィードには、過去30日から90日先までのシフトが、オーバーライドやシフト交代も含めて表示されます。",
+      "description_mine": "すべてのスケジュールから自分のシフトをカレンダーアプリ（Google Calendar、Outlook、Apple Calendar など…）に追加します。カレンダーアプリは約1時間ごとに更新されます。フィードには、過去30日から90日先までのシフトが、オーバーライドやシフト交代も含めて表示されます。",
+      "create": "アドレスを作成",
+      "reset": "アドレスをリセット",
+      "revoke": "購読を停止",
+      "address": "購読アドレス",
+      "copy": "アドレスをコピー",
+      "open_app": "カレンダーアプリで開く",
+      "shown_once": "このアドレスは今回のみ表示されます。アドレスを知っている人は誰でもこれらのシフトを閲覧できます。不要になったら購読を停止してください。",
+      "no_external_url": "このインスタンスには外部アドレスが設定されていないため、現在使用中のアドレスを表示しています。カレンダーアプリからこのアドレスにアクセスできる必要があります。",
+      "subscribed": "購読中（作成日時：{{created}}）",
+      "last_used": "カレンダーからの最終取得：{{value}}",
+      "never_used": "カレンダーからの取得履歴なし",
+      "reset_hint": "リセットすると古いアドレスはすぐに無効になります。カレンダーアプリで新しいアドレスに置き換えてください。",
+      "revoked": "購読を停止しました",
+      "mine_button": "自分のシフトを購読",
+      "loading": "購読情報を読み込み中…"
+    },
+    "unreachable": {
+      "next": "次のオンコール担当者 {{name}} はアラートを受信できません。有効な通知方法もグループルートもありません。",
+      "members_one": "{{count}} 人のメンバーがアラートを受信できません：{{names}}。",
+      "members_other": "{{count}} 人のメンバーがアラートを受信できません：{{names}}。",
+      "fix": "通知方法を設定"
+    },
+    "coverage": {
+      "title": "今後14日間のオンコール体制",
+      "gaps_one": "今後 {{days}} 日間にオンコール担当者が不在の時間帯が {{count}} 件あり、合計 {{hours}} 時間です。",
+      "gaps_other": "今後 {{days}} 日間にオンコール担当者が不在の時間帯が {{count}} 件あり、合計 {{hours}} 時間です。",
+      "no_gaps": "今後 {{days}} 日間は常にオンコール担当者がいます。",
+      "nobody": "オンコール担当者なし",
+      "hours": "{{hours}} h",
+      "legend": {
+        "rotation": "ローテーション",
+        "override": "オーバーライド",
+        "gap": "オンコール担当者なし"
+      }
+    }
+  },
+  "inhibitions": {
+    "new_rule": "新規抑制ルール",
+    "empty_title": "抑制ルールなし",
+    "empty_description": "より重大なインシデントや上流のインシデントが発生している間は、他のインシデントの通知を抑制し、対応すべきインシデントだけを通知します。",
+    "held": "抑制中",
+    "any_incident": "すべてのインシデント",
+    "only_worse": "重要度が低いもののみ",
+    "at_least": "{{severity}}以上",
+    "at_most": "{{severity}}以下",
+    "columns": {
+      "name": "名前",
+      "source": "発生中のインシデント",
+      "target": "抑制対象",
+      "equal": "共通ラベル",
+      "status": "ステータス",
+      "actions": "アクション"
+    },
+    "standing": {
+      "holding_one": "{{count}}件のインシデントを抑制中",
+      "holding_other": "{{count}}件のインシデントを抑制中",
+      "on": "抑制中のインシデントなし",
+      "off": "オフ"
+    },
+    "drawer_title": "新規抑制ルール",
+    "edit_title": "抑制ルールの編集",
+    "drawer_subtitle": "抑制元のインシデントが発生している間も、対象のインシデントは通常どおり作成され、各ページに表示されます。ただし、通知は保留され、エスカレーションは行われません。抑制元が復旧した時点で、未解決のインシデントが通知されます。",
+    "create": "ルールを作成",
+    "save": "保存",
+    "toast_created": "抑制ルールを作成しました",
+    "toast_updated": "抑制ルールを保存しました",
+    "delete_named": "抑制ルール「{{name}}」を削除",
+    "delete_title": "この抑制ルールを削除しますか？",
+    "delete_effect_label": "削除後の動作",
+    "delete_effect_one": "抑制中の{{count}}件のインシデントがすぐに通知されます",
+    "delete_effect_other": "抑制中の{{count}}件のインシデントがすぐに通知されます",
+    "sections": {
+      "identity": "基本設定",
+      "source": "抑制元：他のインシデントを抑制する条件",
+      "source_hint": "サイレンス中のインシデントは抑制元になりません。通知されないため、他のインシデントまで抑制すると、どのインシデントも通知されなくなります。確認済みのインシデントは、対応者がいるため抑制元になります。",
+      "target": "抑制対象：通知を保留する条件",
+      "target_hint": "空欄の場合は、すべてのインシデントが対象になります。手動で作成したインシデントは抑制されません。",
+      "relation": "抑制元と対象の関係",
+      "timing": "タイミング",
+      "comment": "コメント",
+      "preview": "今適用した場合の抑制対象",
+      "preview_hint": "保存の有無にかかわらず、このルールを現在アクティブなインシデントに適用して結果を確認できます。"
+    },
+    "fields": {
+      "name": "名前",
+      "name_placeholder": "同じサービス内で重大度の高いインシデントが低い方の通知を抑制",
+      "enabled": "有効",
+      "min_severity": "重大度の下限",
+      "max_severity": "重大度の上限",
+      "any_severity": "指定なし",
+      "equal": "一致が必要なラベル",
+      "equal_hint": "カンマ区切りで入力します。抑制元と抑制対象の両方に同じ値のラベルが必要です。どちらかにラベルがない場合は一致しません。ラベルを無視する場合は空欄にし、抑制元を指定してください。",
+      "more_severe_only": "抑制元の重大度が抑制対象より高い場合のみ",
+      "wait_secs": "抑制対象の待機時間（秒）",
+      "wait_hint": "原因より先に症状が報告されることが多いため、抑制元のインシデントが発生するか、この時間だけ待機します。15～600秒で指定してください。",
+      "linger_secs": "復旧後の抑制継続時間（秒）",
+      "linger_hint": "原因が解消すると症状もまもなく収まるため、その間はオンコール担当者への通知を抑制します。最大3600秒です。",
+      "comment": "コメント"
+    },
+    "preview": {
+      "run": "実行",
+      "none": "現時点では抑制される通知はありません。",
+      "held_by": "抑制元："
+    },
+    "note": {
+      "held_by": "通知の抑制元：",
+      "rule": "（ルール：{{rule}}）。",
+      "ending": "抑制元が復旧したため、{{time}}に抑制を解除します。",
+      "waiting": "重大度の高いインシデントによって抑制される可能性があるため、{{time}}まで通知を保留します。",
+      "lift": "通常どおり通知",
+      "lifted": "抑制を解除しました。保留されていた通知を送信します。"
+    },
+    "errors": {
+      "name": "ルール名を入力してください。",
+      "no_scope": "抑制元を指定するか、抑制元と抑制対象に共通するラベルを指定してください。どちらも指定しないと、どのインシデントも他のすべてのインシデントの通知を抑制します。",
+      "wait": "抑制対象の待機時間は最大600秒です。",
+      "linger": "抑制元の復旧後に抑制を継続できる時間は最大3600秒です。"
+    }
+  },
+  "silences": {
+    "new_silence": "サイレンスポリシーを作成",
+    "empty_title": "サイレンスポリシーがありません",
+    "empty_description": "メンテナンス中や既知のノイズが発生している間、条件に一致するインシデントの通知を抑制します。",
+    "columns": {
+      "name": "名前",
+      "status": "ステータス",
+      "window": "適用期間",
+      "matchers": "一致条件",
+      "actions": "操作"
+    },
+    "delete_title": "サイレンスを削除",
+    "edit_title": "サイレンスを編集",
+    "drawer_title": "サイレンスを作成",
+    "drawer_subtitle": "インシデントは引き続き記録され、通知の送信のみが一時停止されます。",
+    "save": "サイレンスを保存",
+    "create": "サイレンスを作成",
+    "toast_updated": "サイレンスを更新しました",
+    "toast_created": "サイレンスを作成しました",
+    "errors": {
+      "name_required": "名前は必須です。",
+      "matcher_required": "マッチャーを1つ以上追加してください。",
+      "window_range": "終了は開始より後に設定してください。",
+      "window_ranges": "各期間に日付または曜日を指定し、開始時刻と終了時刻をHH:MM形式で入力してください。",
+      "monthly": "開始時刻をHH:MM形式で入力し、継続時間を1～10080分に設定してください。",
+      "calendar": "祝日カレンダーを選択してください。"
+    },
+    "sections": {
+      "identity": "基本情報",
+      "matchers": "マッチ条件",
+      "window": "適用期間",
+      "comment": "コメント"
+    },
+    "fields": {
+      "name": "名前",
+      "enabled": "有効",
+      "window_type": "期間の種類",
+      "start": "開始",
+      "end": "終了",
+      "timezone": "タイムゾーン",
+      "comment": "理由",
+      "month_day_kind": "指定方法",
+      "month_date": "日（毎月）",
+      "ordinal": "第何",
+      "weekday": "曜日",
+      "start_time": "開始時刻 (HH:MM)",
+      "duration_minutes": "継続時間 (分)",
+      "calendar": "祝日カレンダー"
+    },
+    "window_kinds": {
+      "fixed": "固定期間",
+      "weekly": "毎週",
+      "monthly": "毎月",
+      "holidays": "祝日"
+    },
+    "comment_placeholder": "サイレンスを設定する理由を入力してください",
+    "standing": {
+      "active": "サイレンス適用中",
+      "upcoming": "開始前",
+      "waiting": "適用時間外",
+      "ended": "終了済み",
+      "off": "オフ"
+    },
+    "matches_everything": "すべてのインシデント",
+    "delete_named": "{{name}}を削除",
+    "month_day_kinds": {
+      "date": "日付",
+      "weekday": "曜日"
+    },
+    "hints": {
+      "month_date": "指定の日付がない月は、月末日が適用されます。",
+      "duration_minutes": "最長7日間（10080分）です。"
+    },
+    "ordinals": {
+      "1": "第1",
+      "2": "第2",
+      "3": "第3",
+      "4": "第4",
+      "5": "第5",
+      "last": "最終"
+    },
+    "month_day": {
+      "date": "毎月{{day}}日",
+      "weekday": "毎月の{{ordinal}}{{weekday}}"
+    },
+    "summary": {
+      "monthly": "{{day}}の{{start}}から{{duration}}（{{timezone}}）",
+      "holidays": "休日（{{timezone}}）",
+      "calendar_exclude": "休日を除く",
+      "calendar_only": "休日のみ"
+    },
+    "duration": {
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "hours_minutes": "{{hours}} h {{minutes}} min"
+    },
+    "next_start": "次回の開始：{{time}}",
+    "next_end": "終了：{{time}}",
+    "no_calendars": "先に「設定 → アラート → 休日カレンダー」で休日カレンダーを追加してください。",
+    "delete_effect_label": "影響",
+    "delete_active_effect": "現在アラートの通知を抑制しています。削除すると、通知はすぐに再開されます。",
+    "bulk_delete_title_one": "{{count}}件のサイレンスを削除しますか？",
+    "bulk_delete_title_other": "{{count}}件のサイレンスを削除しますか？"
+  },
+  "incident_actions": {
+    "more": "その他のアクション",
+    "reassign": "担当者の変更",
+    "add_responders": "対応者の追加",
+    "escalate": "今すぐエスカレーション",
+    "snooze": "スヌーズ",
+    "snooze_hours_one": "{{count}}時間",
+    "snooze_hours_other": "{{count}}時間",
+    "snooze_custom": "カスタム…",
+    "snooze_cancel": "スヌーズの解除",
+    "severity": "重大度",
+    "merge": "統合",
+    "toasts": {
+      "snoozed": "スヌーズしました",
+      "snooze_cancelled": "スヌーズを解除しました",
+      "severity_changed": "重大度を変更しました",
+      "responders_added": "対応者を追加しました",
+      "reassigned": "担当を再割り当てしました",
+      "escalated": "エスカレーションしました",
+      "merged_one": "{{count}} 件のインシデントを統合しました",
+      "merged_other": "{{count}} 件のインシデントを統合しました",
+      "bulk_done_one": "{{count}} 件のインシデントの処理が完了しました",
+      "bulk_done_other": "{{count}} 件のインシデントの処理が完了しました",
+      "bulk_failed": "{{total}} 件中 {{count}} 件のインシデントの処理に失敗しました: {{reason}}",
+      "priority_changed": "優先度を変更しました",
+      "urgency_changed": "緊急度を変更しました",
+      "urgency_raised": "緊急度を「高」に引き上げ、レベル 1 の通知先に再通知しました"
+    },
+    "people_search": "名前またはメールアドレスで検索",
+    "reassign_title": "再割り当て",
+    "reassign_description": "ユーザーに割り当てると、インシデントは未確認に戻り、割り当て先に通知されます。チームまたはエスカレーションポリシーに割り当てると、最初のステップからやり直します。",
+    "add_responders_title": "対応者の追加",
+    "add_responders_description": "選択したユーザーが担当者に追加され、通知されます。ステータスは変わりません。",
+    "reassign_to": "再割り当て先",
+    "kinds": {
+      "users": "ユーザー",
+      "team": "チーム",
+      "policy": "エスカレーションポリシー"
+    },
+    "people": "ユーザー（最大 {{max}} 人）",
+    "team_hint": "チームのオンコールポリシーの最初のステップからやり直します。チームにポリシーがない場合は、デフォルトのポリシーが使われます。",
+    "policy_hint": "このポリシーの最初のステップからやり直します。チームは変わりません。",
+    "choose": "選択…",
+    "note_optional": "メモ（任意）",
+    "note_placeholder": "引き継ぎ先へのメモ（タイムラインに表示）",
+    "cancel": "キャンセル",
+    "escalate_title": "今すぐエスカレーション",
+    "escalate_description": "ステップを選択すると、そのステップの通知先にすぐに通知されます。確認済みのインシデントは未確認に戻ります。",
+    "loading": "読み込み中…",
+    "no_policy": "このインシデントにはエスカレーションポリシーが設定されていません。",
+    "step_n": "ステップ {{n}}",
+    "current_step": "現在",
+    "schedule_target": "スケジュールのオンコール担当者",
+    "escalate_submit": "エスカレーション",
+    "snooze_title": "スヌーズ",
+    "snooze_description": "スヌーズ中は通知されません。スヌーズが終了すると、インシデントは未確認に戻り、担当者に再通知されます。未確認のインシデントは、スヌーズの前に確認済みになります。",
+    "snooze_for": "スヌーズ時間",
+    "snooze_unit": "単位",
+    "units": {
+      "minutes": "分",
+      "hours": "時間"
+    },
+    "merge_title": "インシデントのマージ",
+    "merge_description": "マージされたインシデントは個別に通知やエスカレーションが行われなくなり、マージ先のインシデントと同時に解決されます。マージは取り消せません。",
+    "merge_target": "マージ先",
+    "merge_sources": "このインシデントにマージ",
+    "merge_nothing": "他にアクティブなインシデントはありません。",
+    "merge_submit_one": "{{count}}件をマージ",
+    "merge_submit_other": "{{count}}件をマージ",
+    "bulk_label": "一括操作",
+    "select_all": "すべて選択",
+    "select": "{{name}}を選択",
+    "snoozed_until": "{{time}}までスヌーズ中",
+    "priority": "優先度",
+    "urgency": "緊急度",
+    "adjust": "調整"
+  },
+  "incident_timeline": {
+    "notice": {
+      "triggered": "通知先",
+      "escalated": "エスカレーション通知先",
+      "acknowledged": "確認通知の送信先",
+      "resolved": "復旧通知の送信先"
+    },
+    "recipient": "{{who}}（{{through}}）",
+    "recipient_failed": "{{who}}（未配信）",
+    "policy_skipped": "ポリシーによる通知は送信されませんでした：{{reason}}",
+    "pipeline_processed": "パイプライン「{{pipeline}}」で処理されました：",
+    "pipeline_more_one": "ほか{{count}}件の変更",
+    "pipeline_more_other": "ほか{{count}}件の変更",
+    "pipeline_fields": {
+      "summary": "タイトル",
+      "severity": "重大度",
+      "priority": "優先度",
+      "urgency": "緊急度",
+      "labels": "ラベル",
+      "annotations": "アノテーション",
+      "affected_services": "サービス"
+    },
+    "someone": "不明なユーザー",
+    "system": "システム",
+    "via": {
+      "api": " （API経由）",
+      "im": " （チャット経由）",
+      "sms": " （SMSでの返信）",
+      "phone": " （電話のキー操作）",
+      "agent": " （Mole Agent 経由）"
+    },
+    "acknowledged": "{{actor}}が確認済みにしました{{via}}",
+    "resolved": "{{actor}}が解決済みにしました{{via}}",
+    "escalated": "ステップ{{n}}にエスカレーションされました",
+    "escalated_manual": "{{actor}}がステップ{{n}}にエスカレーションしました",
+    "reassigned": "{{actor}}が担当を{{target}}に変更しました",
+    "responders_added": "{{actor}}が対応者に{{people}}を追加しました",
+    "snoozed": "{{actor}}が{{until}}までスヌーズしました",
+    "snooze_cancelled": "{{actor}}がスヌーズを解除しました",
+    "retriggered_snooze": "スヌーズが終了したため、未確認に戻し、再通知しました",
+    "retriggered_ack_timeout": "確認済みのまま解決までの期限を過ぎたため、未確認に戻し、再通知しました",
+    "severity_changed": "{{actor}}が重大度を{{from}}から{{to}}に変更しました",
+    "merged": "{{actor}}による統合先：",
+    "merged_target": "別のインシデント",
+    "merged_in_one": "{{actor}}が{{count}}件のインシデントをこのインシデントに統合しました",
+    "merged_in_other": "{{actor}}が{{count}}件のインシデントをこのインシデントに統合しました",
+    "merged_recovered": "統合されたインシデント「{{summary}}」が復旧しました",
+    "noted": "{{actor}}がメモを追加しました",
+    "recovered": "復旧しました",
+    "merged_list": "このインシデントに統合済み（{{count}}件）",
+    "note_placeholder": "メモを追加：判明したことや実施した対応",
+    "note_label": "メモ",
+    "note_too_long": "{{max}}文字以内",
+    "add_note": "メモを追加",
+    "handling": {
+      "snoozed": "{{actor}}が{{until}}までスヌーズしました",
+      "merged": "統合先",
+      "severity_set": "{{actor}}が重大度を設定しました。以降、ルールによる変更は行われません",
+      "inhibition_lifted": "{{actor}}が通知の抑制を解除しました。以降は通常どおり通知されます"
+    },
+    "remediation_requested": "{{actor}}が修復アクション「{{action}}」を開始しました。承認待ちです",
+    "remediation_executed": "修復アクション「{{action}}」が実行されました（承認者：{{actor}}）",
+    "remediation_failed": "修復アクション「{{action}}」が失敗しました（承認者：{{actor}}）",
+    "remediation_verified": "修復アクション「{{action}}」は検証に合格しました",
+    "remediation_unverified": "修復アクション「{{action}}」は検証に合格しませんでした",
+    "ticket_created": "{{actor}}が{{system}}のチケットを作成しました",
+    "ticket_updated": "チケット{{key}}のステータスが「{{status}}」になりました",
+    "declared_major": "{{actor}}が重大インシデントとして宣言しました",
+    "declared_major_auto": "組織のルールにより重大インシデントとして宣言されました",
+    "role_assigned": "{{actor}}が{{person}}に{{role}}のロールを割り当てました",
+    "role_cleared": "{{actor}}が{{role}}のロールの割り当てを解除しました",
+    "war_room_created": "ウォールームが開設されました",
+    "join": "参加",
+    "task_added": "{{actor}}がタスク「{{title}}」を追加しました",
+    "task_done": "{{actor}}がタスク「{{title}}」を完了しました",
+    "status_update": "{{actor}}が状況の更新を投稿しました",
+    "step_unreachable": "レベル{{n}}では誰もアラートを受信できなかったため、次のレベルにエスカレーションしました",
+    "inhibited": "ルール{{rule}}により通知を抑制し、保留しました。理由：",
+    "inhibition_source_recovered": "抑制元のアラートが復旧したため、抑制を解除し、保留中の通知を送信しました",
+    "inhibition_rule_changed": "抑制ルールが変更または削除されたため、保留中の通知を送信しました",
+    "inhibition_lifted": "{{actor}}が通知の抑制を解除したため、保留中の通知を送信しました",
+    "priority_changed": "{{actor}}が優先度を{{from}}から{{to}}に変更しました",
+    "no_priority": "なし",
+    "urgency_changed": "{{actor}}が緊急度を{{from}}から{{to}}に変更しました",
+    "urgency_raised_support_hours": "サポート対応時間になったため、緊急度を{{to}}に引き上げ、レベル1に再通知しました",
+    "phases": {
+      "fired": "発報",
+      "acknowledged": "確認までの時間",
+      "resolved": "解決までの時間",
+      "not_yet": "未実施"
+    },
+    "filter_label": "イベントの種類",
+    "filter": {
+      "all": "すべて",
+      "alert": "アラート",
+      "notice": "通知",
+      "people": "ユーザー",
+      "notes": "メモ"
+    }
+  },
+  "related": {
+    "loading": "読み込み中…",
+    "similar_none": "過去90日間に類似のインシデントはありません。",
+    "lasted": "継続時間：{{duration}}",
+    "resolved_by": "解決者：{{name}}",
+    "notes_one": "メモ{{count}}件",
+    "notes_other": "メモ{{count}}件",
+    "reasons": {
+      "fingerprint": "同じアラート",
+      "rule": "同じルール",
+      "services": "同じサービス",
+      "labels": "類似のラベル",
+      "title": "類似のタイトル",
+      "team": "同じチーム"
+    },
+    "changes_none": "発報の30分前から10分後まで、これらのサービスに関する報告はなく、発報の前日にルールの編集もありませんでした。",
+    "at_trigger": "発報時",
+    "before_trigger": "{{duration}}前",
+    "after_trigger": "{{duration}}後",
+    "kinds": {
+      "deployment": "デプロイ",
+      "configuration": "構成",
+      "feature_flag": "機能フラグ",
+      "rule": "ルールの編集"
+    },
+    "downstream": "下流",
+    "status": {
+      "failed": "失敗",
+      "rolled_back": "ロールバック済み"
+    },
+    "open_link": "パイプラインを開く"
+  },
+  "remediation": {
+    "new_action": "新規修復アクション",
+    "actions_title": "修復アクション",
+    "empty": "修復アクションはまだありません。設定すると、インシデントからワンクリックで実行を申請でき、承認後に実行されます。",
+    "all_incidents": "すべてのインシデント",
+    "disabled": "無効",
+    "delete_named": "{{name}}を削除",
+    "delete_title": "修復アクションを削除しますか？",
+    "saved": "「{{name}}」を保存しました",
+    "risks": {
+      "l2": "L2 · 承認者1名",
+      "l3": "L3 · 承認者2名"
+    },
+    "kinds": {
+      "http": "HTTPリクエスト",
+      "http_hint": "Jenkins、GitHub Actions、Argo、Rundeckなどのシステムを呼び出します。",
+      "kubernetes": "Kubernetes",
+      "kubernetes_hint": "登録済みのクラスターでワークロードを再起動またはスケーリングするか、Deploymentを1つ前のリビジョンにロールバックします。"
+    },
+    "operations": {
+      "restart": "再起動",
+      "scale": "スケーリング",
+      "rollback": "1つ前のリビジョンにロールバック"
+    },
+    "parameter_kinds": {
+      "text": "テキスト",
+      "number": "数値",
+      "select": "選択肢"
+    },
+    "verify_by": {
+      "incident_resolved": "インシデントが解消済み",
+      "rule_healthy": "ルールが正常状態に復帰"
+    },
+    "drawer": {
+      "new_title": "新規修復アクション",
+      "edit_title": "修復アクションの編集",
+      "subtitle": "インシデントからの実行には必ず承認が必要です。承認後に実行され、タイムラインに記録されます。",
+      "save": "保存",
+      "identity": "基本情報",
+      "name": "名前",
+      "description": "説明",
+      "target": "実行方法",
+      "method": "メソッド",
+      "url": "アドレス",
+      "headers": "ヘッダー",
+      "headers_hint": "値は暗号化して保存され、再表示されません。既存の値を保持するには、その欄を空欄のままにします。",
+      "add_header": "ヘッダーを追加",
+      "remove_header": "ヘッダーを削除",
+      "header_name": "ヘッダー名",
+      "header_value": "ヘッダー値",
+      "secret_kept": "設定済み（保持する場合は空欄）",
+      "body": "ボディ",
+      "body_hint": "JSON 形式です。{{incident.id}}、{{incident.summary}}、{{incident.service}}、{{incident.url}}、{{params.name}} を使用できます。二重引用符で囲むと文字列になり、囲まない場合は数値として使用できます。",
+      "signing_secret": "署名用シークレット",
+      "signing_secret_hint": "設定すると、Webhook と同じ方法でリクエストが署名され、X-MoleSignal-Timestamp と X-MoleSignal-Sign ヘッダーが付与されます。",
+      "cluster": "クラスター",
+      "pick_cluster": "クラスターを選択",
+      "operation": "操作",
+      "workload_kind": "ワークロードの種類",
+      "namespace": "ネームスペース",
+      "workload_name": "ワークロード名",
+      "replicas": "レプリカ数",
+      "parameters": "実行開始時の入力項目",
+      "parameters_hint": "テンプレートでは {{params.name}} として参照できます。",
+      "add_parameter": "パラメーターを追加",
+      "remove_parameter": "パラメーターを削除",
+      "parameter_key": "名前",
+      "parameter_label": "ラベル",
+      "parameter_kind": "種類",
+      "parameter_options": "選択肢（カンマ区切り）",
+      "parameter_default": "デフォルト値",
+      "parameter_required": "必須",
+      "scope": "適用範囲と承認",
+      "services": "サービス",
+      "services_hint": "カンマで区切って指定します。空欄の場合は、すべてのインシデントが対象です。",
+      "risk": "リスク",
+      "verify_after": "確認までの待ち時間",
+      "verify_after_hint": "実行から確認までの時間を分単位で指定します。0 の場合は確認しません。",
+      "verify_by": "成功の判定条件",
+      "enabled": "有効"
+    },
+    "clusters": {
+      "title": "Kubernetes クラスター",
+      "add": "クラスターを追加",
+      "empty": "クラスターはまだ登録されていません。Kubernetes アクションを実行するには、先にクラスターを登録してください。",
+      "test": "接続をテスト",
+      "reached": "Kubernetes {{version}} に接続できました",
+      "saved": "クラスターを保存しました",
+      "edit_title": "クラスターの編集",
+      "description": "ServiceAccount トークンで API サーバーに接続します。トークンは暗号化して保存され、再表示されません。ワークロードには get と patch の権限が、ロールバックには ReplicaSets の list 権限が必要です。",
+      "name": "名前",
+      "api_server": "API サーバーのアドレス",
+      "ca": "CA 証明書",
+      "ca_hint": "PEM 形式。空欄の場合は、システムのルート証明書を信頼します。",
+      "token": "ServiceAccount トークン"
+    },
+    "run": {
+      "none": "このインシデントに適用できる修復アクションはありません。",
+      "set_up": "修復アクションを設定",
+      "start": "実行",
+      "closed": "インシデントは解決済みです",
+      "by": "開始者: {{name}}",
+      "approve": "承認",
+      "reject": "却下",
+      "approved": "承認済み",
+      "rejected": "却下済み",
+      "requested_one": "承認を依頼しました。{{count}} 人の承認が必要です",
+      "requested_other": "承認を依頼しました。{{count}} 人の承認が必要です",
+      "ran_preapproved": "事前承認に基づいて即時実行しました",
+      "preapproved": "事前承認済み",
+      "title": "「{{name}}」を実行",
+      "needs_one": "承認権限を持つ 1 人の承認が必要です。承認後、すぐに実行されます。",
+      "needs_two": "承認権限を持つ 2 人の承認が必要です。承認後、すぐに実行されます。",
+      "reason": "理由",
+      "reason_placeholder": "例: チェックアウトサービスの接続が枯渇したため、まず再起動",
+      "submit": "承認を依頼",
+      "status": {
+        "awaiting_approval": "承認待ち",
+        "running": "実行中",
+        "succeeded": "実行済み",
+        "failed": "実行失敗",
+        "declined": "未実行",
+        "verifying": "確認待ち",
+        "verified": "確認成功",
+        "verification_failed": "確認失敗"
+      }
+    },
+    "preapproval": {
+      "title": "事前承認",
+      "switch_label": "事前承認済みのアクションを待機せずに実行",
+      "switch_hint": "初期設定ではオフです。有効にすると、事前承認の対象となるインシデントに限り、設定された期間内の実行回数の上限を超えず、リスクに応じた必要人数の承認を満たす場合にのみ、アクションが即時実行されます。",
+      "switched_on": "事前承認を有効にしました",
+      "switched_off": "事前承認を無効にしました",
+      "states": {
+        "none": "事前承認なし",
+        "off": "事前承認済み · 組織で無効",
+        "expired": "事前承認の期限切れ",
+        "awaiting_approver": "事前承認済み · 2人目の承認待ち",
+        "used_up": "事前承認済み · 実行回数の上限に到達（{{used}}/{{max}}）",
+        "active": "事前承認済み · 対象期間内に{{used}}/{{max}}回実行"
+      },
+      "set": "事前承認",
+      "edit": "事前承認を編集",
+      "confirm": "事前承認を確定",
+      "confirmed": "事前承認を確定しました",
+      "clear": "事前承認を削除",
+      "cleared": "事前承認を削除しました",
+      "save": "事前承認を保存",
+      "saved": "事前承認を保存しました",
+      "dialog_title": "「{{name}}」の事前承認",
+      "dialog_l2": "これらのサービスでインシデントが発生すると、承認を待たずにアクションを直ちに実行します。保存すると、L2アクションに必要な1件の承認として扱われます。",
+      "dialog_l3": "これらのサービスでインシデントが発生すると、承認を待たずにアクションを直ちに実行します。保存すると、L3アクションに必要な2件の承認のうち1件として扱われます。別の担当者が承認すると有効になります。",
+      "services": "サービス",
+      "services_hint": "アクションの対象サービスをカンマ区切りで入力します。",
+      "services_hint_any": "カンマ区切りで入力します。",
+      "max_runs": "最大実行回数",
+      "window": "実行回数の集計期間",
+      "windows": {
+        "900": "15分",
+        "3600": "1時間",
+        "21600": "6時間",
+        "86400": "1日",
+        "604800": "7日"
+      },
+      "expires": "有効期限",
+      "expiries": {
+        "1": "1日後",
+        "7": "7日後",
+        "30": "30日後",
+        "90": "90日後",
+        "never": "無期限"
+      },
+      "channels": "実行後の通知先",
+      "channels_hint": "事前承認済みのアクションを実行するたびに、成否にかかわらず通知します。",
+      "channels_denied": "チャンネルを選択するには、通知コネクターの読み取り権限が必要です。",
+      "channels_none": "グループまたはアドレスを通知先に指定できる通知コネクターはまだありません。",
+      "add_channel": "チャンネルを追加",
+      "remove_channel": "チャンネルを削除",
+      "channel_connector": "チャンネル{{number}}のコネクター",
+      "channel_kind": "チャネル{{number}}の種類",
+      "channel_target": "チャネル{{number}}のグループまたはアドレス"
+    }
+  },
+  "tickets": {
+    "new_connector": "新規チケットコネクター",
+    "empty": "チケットコネクターはまだありません。Jira、ServiceNow、Meegleのいずれかに接続すると、インシデントから、またはルールに従ってチケットを作成できます。",
+    "auto_on": "チケットの自動作成",
+    "auto_off": "チケットの手動作成",
+    "test": "接続テスト",
+    "reached": "接続済み",
+    "reached_as": "{{name}}として接続済み",
+    "delete_named": "{{name}}を削除",
+    "delete_title": "チケットコネクターを削除しますか？",
+    "saved": "「{{name}}」を保存しました",
+    "webhook_address": "JiraのWebhookアドレス（コネクターのWebhookシークレットとともに、Jiraのシステム設定の「Webhook」に追加します）",
+    "copy_webhook": "アドレスをコピー",
+    "copy_address": "アドレスをコピー",
+    "address_copied": "コピーしました",
+    "sites": {
+      "feishu": "Feishu",
+      "lark": "Lark"
+    },
+    "systems": {
+      "jira": "Jira",
+      "meegle": "Meegle",
+      "servicenow": "ServiceNow"
+    },
+    "drawer": {
+      "new_title": "新規チケットコネクター",
+      "edit_title": "チケットコネクターを編集",
+      "subtitle": "認証情報は暗号化して保存され、再表示されません。既存の値を変更しない場合は、該当する欄を空欄のままにしてください。",
+      "save": "保存",
+      "identity": "基本設定",
+      "name": "名前",
+      "meegle_hint": "Meegleは中国ではFeishu Projectとして提供されています。",
+      "jira": "Jira",
+      "site_url": "サイトアドレス",
+      "cloud": "Jira Cloud",
+      "data_center": "Jira Data Center / Server",
+      "email": "アカウントのメールアドレス",
+      "api_token": "APIトークン",
+      "pat": "パーソナルアクセストークン",
+      "project_key": "プロジェクトキー",
+      "issue_type": "課題タイプ",
+      "priorities": "インシデントの優先度に応じたチケットの優先度",
+      "priorities_hint": "Jiraの優先度名を入力します。まずインシデントの優先度に対応する値を参照し、インシデントに優先度がない場合や対応する欄が空欄の場合は、重大度に対応する値を参照します。その欄も空欄の場合、チケットの優先度は設定されません。",
+      "labels": "ラベル",
+      "resolve_transition": "解決時のトランジション",
+      "resolve_transition_hint": "トランジションの名前または ID を指定します。空欄の場合は、完了ステータスに移行する最初のトランジションを使用します。",
+      "webhook_secret": "Webhook シークレット",
+      "webhook_secret_hint": "Jira の Webhook は、シークレットが設定されている場合のみ受け付けます（X-Hub-Signature を検証します）。未設定の場合、ステータスは 5 分ごとに同期されます。",
+      "meegle": "Meegle",
+      "platform": "プラットフォーム",
+      "base_url": "サイトのアドレス",
+      "plugin_id": "プラグイン ID",
+      "plugin_secret": "プラグインシークレット",
+      "user_key": "操作ユーザー (user_key)",
+      "user_key_hint": "このユーザー名義でチケットを作成し、コメントを投稿します。",
+      "project_key_meegle": "スペース (project_key)",
+      "work_item_type": "作業項目タイプ (work_item_type_key)",
+      "priority_field": "優先度フィールドキー",
+      "priorities_hint_meegle": "優先度の選択肢の値を指定します。まずインシデントの優先度に対応する値を参照し、優先度がない場合や対応する値が未入力の場合は重大度に対応する値を使用します。空欄の場合は設定しません。",
+      "resolve_transition_id": "解決時のトランジション ID",
+      "resolve_transition_id_hint": "ステータスフローで使用します。",
+      "resolve_node_id": "解決時に完了するノード",
+      "resolve_node_id_hint": "ノードフローで使用します。",
+      "done_states": "完了とみなすステータス",
+      "done_states_hint": "ステータスキーをカンマ区切りで入力します。",
+      "follow": "インシデントの追跡",
+      "comments": {
+        "acknowledged": "インシデントの確認時にコメントを投稿",
+        "resolved": "インシデントの解決時にコメントを投稿",
+        "notes": "インシデントのメモをコメントとして投稿"
+      },
+      "transition_on_resolve": "インシデントの解決時にチケットを完了に変更",
+      "resolve_when_done": "チケットの完了時にインシデントを解決",
+      "on_major": "重大インシデントの宣言時にチケットを作成",
+      "auto": "チケットの自動作成",
+      "auto_hint": "条件に一致する新規インシデントのチケットを自動で作成します。",
+      "auto_enabled": "チケットを自動作成",
+      "auto_severity": "重大度の下限",
+      "auto_services": "サービス",
+      "auto_services_hint": "カンマ区切りで入力します。空欄の場合はすべてのサービスが対象です。",
+      "servicenow": "ServiceNow",
+      "instance_url": "インスタンスのアドレス",
+      "table": "テーブル",
+      "table_hint": "デフォルトは incident です。指定するテーブルは task を拡張している必要があります。",
+      "auth_basic": "ユーザー名とパスワード",
+      "auth_oauth": "OAuth クライアント認証情報",
+      "auth_oauth_hint": "インスタンスでクライアントクレデンシャルグラントが許可されている必要があります。",
+      "auth_api_key": "API キー",
+      "auth_api_key_hint": "Washington DC リリース以降で使用できます。",
+      "username": "ユーザー名",
+      "password": "パスワード",
+      "client_id": "クライアント ID",
+      "client_secret": "クライアントシークレット",
+      "api_key": "API キー",
+      "assignment_group": "割り当てグループ",
+      "caller_id": "発信者",
+      "sys_id_hint": "sys_id を指定します。空欄の場合は設定しません。",
+      "category": "カテゴリ",
+      "priorities_hint_servicenow": "影響度/緊急度（例：2/1）を入力します。ServiceNow はこの値から優先度を算出します。数値を 1 つだけ指定すると、両方に同じ値が適用されます。まず上のインシデントの優先度を参照し、該当する設定がなければ下の重大度を参照します。",
+      "resolve_state": "解決時の状態値",
+      "resolve_state_hint": "state フィールドの値です。デフォルトは 6（解決済み）です。",
+      "close_code": "解決コード",
+      "close_code_hint": "close_code の選択肢はインスタンスによって異なります。空欄の場合は値を書き込みません。",
+      "done_states_hint_servicenow": "state フィールドの値をカンマ区切りで指定します。デフォルトは 6（解決済み）、7（クローズ済み）、8（キャンセル済み）です。"
+    },
+    "incident": {
+      "none": "チケットはまだありません。",
+      "created": "{{key}} を作成しました",
+      "synced": "同期済み：{{value}}",
+      "connector": "チケットコネクタ",
+      "create": "チケットを作成",
+      "create_in": "{{name}} で作成"
+    }
+  },
+  "major": {
+    "hint": "影響範囲が広く、複数人で対応する場合に宣言します。役割を割り当て、ウォールーム、ミーティング、チェックリストを用意し、対応状況の更新を一元化できます。",
+    "declare": "重大インシデントを宣言",
+    "declared": "重大インシデントを宣言しました",
+    "declared_by": "{{name}} が重大インシデントを宣言しました",
+    "declared_by_rule": "組織のルールにより重大インシデントが宣言されました",
+    "roles": {
+      "commander": "インシデントコマンダー",
+      "communications": "コミュニケーション責任者",
+      "scribe": "記録担当"
+    },
+    "unassigned": "未割り当て",
+    "war_room": "ウォールームに参加（{{platform}}）",
+    "war_room_made": "ウォールームを作成しました（{{platform}}）",
+    "platforms": {
+      "lark_app": "Feishu",
+      "slack_app": "Slack",
+      "dingtalk_app": "DingTalk",
+      "wecom_app": "WeCom"
+    },
+    "meeting": "ミーティングに参加",
+    "tasks": "タスク",
+    "no_tasks": "タスクはまだありません。",
+    "remove_task": "タスク「{{title}}」を削除",
+    "task_placeholder": "タスクを追加",
+    "add_task": "追加",
+    "post_update": "進捗を投稿",
+    "update_hint": "進捗は対策ルームに投稿され、関係者、各ロールのメンバー、担当者に通知されます。",
+    "update": {
+      "impact": "影響",
+      "current": "現在の状況",
+      "next": "次の対応"
+    },
+    "send_update": "送信",
+    "update_sent": "進捗を送信しました",
+    "settings": {
+      "open": "重大インシデント設定",
+      "title": "重大インシデント設定",
+      "subtitle": "重大インシデントの宣言時に作成する対策ルーム、ミーティング、タスクと、進捗の通知先、最初から重大と判定する条件を設定します。",
+      "saved": "重大インシデント設定を保存しました",
+      "war_room": "対策ルームとミーティング",
+      "war_room_hint": "グループチャットを作成できる通知コネクター（Feishu App、Slack App、DingTalk、WeCom）がチャットを作成し、担当者、各ロールのメンバー、関係者を、それぞれが連携したアカウントで追加します。",
+      "connector": "対策ルーム用コネクター",
+      "no_war_room": "対策ルームなし",
+      "meeting": "ミーティング",
+      "meetings": {
+        "none": "ミーティングなし",
+        "feishu_vc": "Feishuのミーティングを予約",
+        "fixed_url": "固定のミーティングリンク",
+        "tencent_meeting": "Tencent Meetingでミーティングを予約",
+        "zoom": "Zoomミーティングを開始",
+        "google_meet": "Google Meetでミーティングを作成"
+      },
+      "meeting_url": "ミーティングリンク",
+      "checklist": "チェックリスト",
+      "checklist_hint": "重大インシデントの宣言時に追加するタスクを1行に1件ずつ入力します。",
+      "stakeholders": "関係者",
+      "stakeholders_hint": "マネージャー、カスタマーサクセス、広報など、対応には直接携わらないものの、状況を把握する必要がある人です。担当者や各ロールのメンバーと同様に進捗が通知され、対策ルームに追加されます。",
+      "auto": "重大インシデントの自動宣言",
+      "auto_hint": "条件に一致する新規インシデントは、最初から重大インシデントとして扱われます。",
+      "auto_enabled": "自動宣言を有効化",
+      "room_notes": {
+        "dingtalk_app": "DingTalkで進捗を投稿するには、事前にアプリのボットをグループに追加する必要があります。グループ名は最大20文字です。",
+        "wecom_app": "WeComアプリは最上位部門から参照できる必要があります。グループには2人以上が必要で、参加リンクはありません。メンバーはWeCom内でグループを確認できます。"
+      },
+      "meeting_connector": "ミーティング用Feishu App",
+      "same_as_war_room": "対策ルームと同じコネクター",
+      "meeting_hints": {
+        "feishu_vc": "Feishu Appは、インシデントコマンダーを主催者とする6時間のFeishuミーティングを予約します。アプリにはビデオミーティングの予約権限が必要です。",
+        "tencent_meeting": "Tencent Meetingの企業管理コンソールで自社開発アプリを作成し、AppId、SdkId、SecretId、SecretKeyを取得します。以下のメンバー名義で6時間の会議が予約されます。",
+        "zoom": "Zoom App Marketplaceで、会議の作成権限（meeting:write:meeting:admin）を持つServer-to-Server OAuthアプリを作成します。以下のユーザーをホストとして、即時ミーティングが開始されます。",
+        "google_meet": "サービスアカウントが主催者に代わって会議を作成します。Google Workspaceの管理コンソールで、https://www.googleapis.com/auth/meetings.space.created のスコープに対するドメイン全体の委任を設定します。"
+      },
+      "secret_kept": "設定済み。変更しない場合は空欄のままにしてください",
+      "tencent": {
+        "sdk_id_hint": "アプリにSdkIdがある場合のみ",
+        "userid": "作成者（userid）",
+        "userid_hint": "会議を予約する名義となる企業メンバー"
+      },
+      "zoom": {
+        "host": "ホスト",
+        "host_hint": "Zoomアカウント内のユーザーのメールアドレスまたはユーザーID"
+      },
+      "google": {
+        "organizer": "主催者のメールアドレス",
+        "organizer_hint": "このユーザーに代わって会議が作成されます",
+        "credentials": "サービスアカウントキー（JSON）"
+      },
+      "auto_priority": "優先度",
+      "auto_priority_hint": "設定すると、優先度が設定されていないインシデントは自動宣言の対象外になります。",
+      "any_priority": "優先度の指定なし",
+      "at_least_priority": "{{priority}}以上"
+    }
+  },
+  "postmortems": {
+    "empty": "ポストモーテムはまだありません。インシデント画面の「ポストモーテムを作成」から作成できます。",
+    "loading": "ポストモーテムを読み込み中…",
+    "none": "ポストモーテムはまだありません。",
+    "start": "ポストモーテムを作成",
+    "open": "ポストモーテムを開く",
+    "summary_line_one": "{{status}} · 未完了のアクションアイテム{{count}}件",
+    "summary_line_other": "{{status}} · 未完了のアクションアイテム{{count}}件",
+    "saved": "ポストモーテムを保存しました",
+    "drawer_title": "ポストモーテム",
+    "title": "タイトル",
+    "status_label": "ステータス",
+    "status": {
+      "draft": "下書き",
+      "in_review": "レビュー中",
+      "published": "公開済み"
+    },
+    "body": "本文（Markdown）",
+    "draft_with_agent": "Mole Agentで下書きを作成",
+    "agent_prompt": "このインシデントのタイムライン、メモ、根本原因分析、トリガーとなったクエリをもとに、社内向けポストモーテムを作成してください。概要、影響、タイムライン、根本原因、うまくいった点とうまくいかなかった点、アクションアイテムを含め、このインシデントのポストモーテムの下書きとして保存してください。",
+    "copy_summary": "概要をコピー",
+    "summary_copied": "概要をコピーしました。ステータスページの公開用ポストモーテムに貼り付けてください",
+    "actions_title": "アクションアイテム",
+    "action_placeholder": "アクションアイテムを追加",
+    "add_action": "追加",
+    "remove_action": "アクションアイテム「{{title}}」を削除",
+    "make_ticket": "チケットを作成",
+    "ticket_created": "{{key}} を作成しました",
+    "open_actions_one": "未完了のアクションアイテム：{{count}}件",
+    "open_actions_other": "未完了のアクションアイテム：{{count}}件",
+    "overdue_one": "期限超過：{{count}}件",
+    "overdue_other": "期限超過：{{count}}件",
+    "template": {
+      "summary": "概要",
+      "impact": "影響",
+      "duration": "継続時間：{{value}}",
+      "minutes_one": "{{count}}分",
+      "minutes_other": "{{count}}分",
+      "ongoing": "継続中",
+      "services": "影響を受けたサービス：{{value}}",
+      "severity": "重大度：{{value}}",
+      "timeline": "タイムライン",
+      "triggered": "発生",
+      "resolved": "解決",
+      "root_cause": "根本原因",
+      "went_well": "うまくいった点",
+      "went_badly": "うまくいかなかった点",
+      "actions": "アクションアイテム",
+      "kinds": {
+        "acknowledged": "確認済み",
+        "resolved": "解決",
+        "escalated": "エスカレーション",
+        "reassigned": "担当者の再割り当て",
+        "responders_added": "対応者の追加",
+        "snoozed": "スヌーズ",
+        "severity_changed": "重大度の変更",
+        "merged_in": "インシデントの統合",
+        "note": "メモ",
+        "remediation_executed": "修復処理の実行",
+        "ticket_created": "チケットの作成",
+        "declared_major": "重大インシデントの宣言",
+        "role_assigned": "ロールの割り当て",
+        "war_room_created": "ウォールームの開設",
+        "task_done": "タスクの完了",
+        "status_update": "ステータスの更新",
+        "step_unreachable": "誰にも連絡がつかなかったため、エスカレーションしました",
+        "priority_changed": "優先度の変更",
+        "urgency_changed": "緊急度の変更"
+      }
+    }
+  },
+  "urgency": {
+    "high": "高",
+    "low": "低"
+  },
+  "importance": {
+    "no_priority": "優先度なし",
+    "without_priority": "なし",
+    "all_priorities": "すべての優先度",
+    "filter_label": "優先度で絞り込み",
+    "low_urgency": "緊急度：低",
+    "urgency": {
+      "high": "緊急度：高",
+      "low": "緊急度：低"
+    },
+    "behaviour": {
+      "escalates": "ポリシーに沿ってエスカレーション",
+      "first_step": "最初のステップのみ",
+      "quiet_switch": "通知抑制時間帯は本人の設定に従う",
+      "quiet_block": "通知抑制時間帯は通知しない",
+      "steps_high": "緊急度が高い場合のステップ",
+      "steps_low": "緊急度が低い場合のステップ"
+    }
+  },
+  "create_incident": {
+    "open": "新規インシデント",
+    "title": "新規インシデント",
+    "subtitle": "お客様からの報告や目視での発見など、ルールで検知されなかった事象を登録できます。他のインシデントと同様に、オンコール担当者への通知とエスカレーションが行われます。",
+    "submit": "インシデントを作成",
+    "created": "インシデントを作成しました",
+    "sections": {
+      "what": "発生内容",
+      "who": "対応担当"
+    },
+    "fields": {
+      "title": "タイトル",
+      "description": "説明",
+      "severity": "重大度",
+      "priority": "優先度",
+      "urgency": "緊急度",
+      "services": "影響を受けるサービス",
+      "labels": "ラベル",
+      "team": "チーム",
+      "policy": "エスカレーションポリシー",
+      "people": "担当者"
+    },
+    "hints": {
+      "description": "Markdownを使用できます。",
+      "services": "サービスカタログに記載されている名前をカンマ区切りで入力します。",
+      "labels": "1行に1つずつkey=valueを入力します。ルーティングルールとサイレンスの照合に使用されます。",
+      "people_one": "最大{{count}}人まで指定できます。指定した担当者にのみ通知し、エスカレーションポリシーは適用されません。",
+      "people_other": "最大{{count}}人まで指定できます。指定した担当者にのみ通知し、エスカレーションポリシーは適用されません。"
+    },
+    "placeholders": {
+      "title": "例：北部地域のお客様が決済ページを開けない",
+      "choose": "選択…"
+    },
+    "assign": {
+      "auto": "自動ルーティング",
+      "team": "チームを指定",
+      "policy": "エスカレーションポリシーを指定",
+      "users": "担当者を個別に指定"
+    },
+    "assign_hints": {
+      "auto": "ルールで作成されたインシデントと同様に、ルーティングルール、サービスの担当チーム、チームラベルに基づいて割り当てます。",
+      "team": "チームのオンコールポリシーを使用します。設定されていない場合は、デフォルトのポリシーを使用します。",
+      "policy": "ポリシーの最初のレベルから通知します。",
+      "users": "指定した担当者に直接通知し、エスカレーションは行いません。"
+    },
+    "declare_major": "重大インシデントとして宣言"
+  },
+  "discovery": {
+    "load_error": "検出結果を読み込めませんでした",
+    "tabs_label": "検出結果",
+    "tabs": {
+      "open": "継続中",
+      "ended": "終了済み"
+    },
+    "filter_kind": "種類で絞り込み",
+    "all_kinds": "すべての種類",
+    "kinds": {
+      "apm_anomaly": "サービス指標の急変",
+      "apm_regression": "新バージョンでの悪化",
+      "rum_new_issue": "新規フロントエンドエラー",
+      "rum_regressed_issue": "フロントエンドエラーの再発",
+      "log_error_surge": "エラーログの急増",
+      "log_new_error": "新規エラーログ",
+      "metric_saturation": "容量ひっ迫",
+      "metric_shift": "CPU使用率の急上昇",
+      "metric_restarts": "コンテナの再起動"
+    },
+    "metrics": {
+      "error_rate": "エラー率",
+      "p95": "P95レイテンシー",
+      "throughput": "トラフィック",
+      "requests": "リクエスト数"
+    },
+    "summary": {
+      "apm_anomaly": "{{service}}の{{metric}}は{{value}}です（以前は{{baseline}}）",
+      "apm_regression": "{{service}}の{{version}}では、前のバージョンよりも指標が悪化しています",
+      "rum_new_issue": "{{application}}で新しいエラーが発生しました：{{message}}",
+      "rum_regressed_issue": "{{application}}で解消済みのエラーが再発しました：{{message}}",
+      "log_error_surge": "{{stream}}内の{{service}}のエラーログは、15分間で{{value}}です（通常は{{baseline}}）",
+      "log_new_error": "{{service}}で新しいエラーが発生しました：{{template}}",
+      "metric_saturation": "{{subject}}の容量使用率は{{value}}です",
+      "metric_shift": "{{subject}}のCPU使用率は{{value}}です（1時間前は{{baseline}}）",
+      "metric_restarts": "{{subject}}は15分間で{{value}}回再起動しました"
+    },
+    "empty": {
+      "open": {
+        "title": "現在、検出結果はありません",
+        "description": "5分ごとに、APMサービスで指標の急変や新バージョンでの悪化がないか、フロントエンドでエラーの新規発生や再発がないかを確認します。"
+      },
+      "ended": {
+        "title": "最近終了した検出結果はありません",
+        "description": "3回連続で検出されなかった項目は終了扱いとなり、終了後30日間保持されます。"
+      }
+    },
+    "columns": {
+      "finding": "検出結果",
+      "started": "開始日時",
+      "last_seen": "最終検出日時",
+      "ended": "終了日時"
+    },
+    "new_rule": "新規検出ルール",
+    "rule_for_kind": "同様の検出結果でアラートを作成",
+    "downstream": "下流",
+    "version_after": "{{version}}（{{previous}} の後）",
+    "sections": {
+      "what": "検出内容",
+      "changes": "前後の変更"
+    },
+    "fields": {
+      "kind": "種類",
+      "now": "現在",
+      "before": "以前",
+      "last_week": "先週",
+      "version": "バージョン",
+      "location": "場所",
+      "started": "開始日時",
+      "last_seen": "最終検出日時",
+      "ended": "終了日時"
+    },
+    "rule": {
+      "new_title": "新規検出ルール",
+      "edit_title": "検出ルールを編集",
+      "subtitle": "対象の検出結果ごとに、同じ重大度のインシデントが作成されます。検出が終了すると、インシデントは復旧状態になります。",
+      "create": "ルールを作成",
+      "save": "ルールを保存",
+      "created": "ルールを作成しました",
+      "updated": "ルールを保存しました",
+      "name_from": "検出: {{subject}}",
+      "source": "検出",
+      "condition": "検出結果ごとに1件のインシデント",
+      "urgency_low_default": "低（デフォルト）",
+      "sections": {
+        "which": "対象の検出結果",
+        "who": "通知先"
+      },
+      "fields": {
+        "name": "名前",
+        "kinds": "種類",
+        "subjects": "サービスまたはアプリケーション",
+        "environments": "環境",
+        "min_severity": "最小重大度",
+        "policy": "エスカレーションポリシー",
+        "urgency": "緊急度"
+      },
+      "hints": {
+        "kinds": "何も選択しない場合は、すべての種類が対象になります。",
+        "subjects": "APMサービス名またはRUMアプリケーションIDをカンマ区切りで入力します。空欄の場合はすべてが対象になります。",
+        "environments": "カンマ区切りで指定します。空欄の場合はすべての環境が対象になります。",
+        "urgency": "自動検出は推定に基づくため、インシデントの緊急度はデフォルトで低く設定されます。通知は最初のレベルに限られ、通知抑制時間帯には送信されません。"
+      }
+    },
+    "open": {
+      "apm": "APMで開く",
+      "rum": "RUMで開く",
+      "logs": "ログを開く",
+      "metrics": "メトリクスで開く"
+    },
+    "investigate": "Mole Agentに調査を依頼",
+    "investigate_prompt": "自動検出の結果「{{summary}}」を調査してください。発生前後のログ、メトリクス、トレース、変更内容をもとに原因を特定し、次に取るべき対応を示してください。"
+  },
+  "rule_transfer": {
+    "menu": "インポート／エクスポート",
+    "export_all": "すべてのルールをエクスポート",
+    "export_one": "選択した{{count}}件のルールをエクスポート",
+    "export_other": "選択した{{count}}件のルールをエクスポート",
+    "exported_one": "{{count}}件のルールをエクスポートしました",
+    "exported_other": "{{count}}件のルールをエクスポートしました",
+    "import": "ルールをインポート…",
+    "import_title": "ルールをインポート",
+    "import_subtitle": "MoleSignalからエクスポートしたルールバンドル、またはPrometheusのアラートルールファイル（PrometheusRuleにも対応）を貼り付けるか、選択してください。まず試行して各ルールの処理内容を確認し、その後まとめてインポートできます。",
+    "content": "内容",
+    "content_hint": "JSONまたはYAML形式です。ルールは名前で照合し、新しい名前のルールは作成し、既存の名前のルールは更新します。",
+    "choose_file": "ファイルを選択",
+    "create_only": "新規ルールのみ作成（同名の既存ルールは変更しない）",
+    "try": "試行",
+    "apply_one": "{{count}}件をインポート",
+    "apply_other": "{{count}}件をインポート",
+    "cancel": "キャンセル",
+    "imported_one": "{{count}}件のルールをインポートしました",
+    "imported_other": "{{count}}件のルールをインポートしました",
+    "result": "インポートのプレビュー",
+    "has_errors": "エラーのあるルールを修正してからインポートしてください",
+    "changes": "変更点: {{fields}}",
+    "formats": {
+      "molesignal": "MoleSignalのルールバンドル",
+      "prometheus": "Prometheusのアラートルール",
+      "pagerduty": "PagerDutyのスケジュール",
+      "opsgenie": "Opsgenieのスケジュール"
+    },
+    "actions": {
+      "create": "作成",
+      "update": "更新",
+      "unchanged": "変更なし",
+      "skip": "スキップ",
+      "error": "エラー"
+    }
+  },
+  "transfer": {
+    "unknown_members": "以下のメールアドレスに該当するメンバーがこのワークスペースにいません：",
+    "findings": {
+      "schedules_only": "移行されるのはスケジュールのみです。エスカレーションポリシー、ルーティングルール、オーバーライドは移行されません。",
+      "shift_based_not_listed": "V2 API は PagerDuty のシフトベースのスケジュールを返さないため、ファイルには記載されておらず、ここに表示されない場合があります。移行スクリプトで一覧を確認できます。",
+      "shift_based_not_fetched": "このシフトベースのスケジュールは、ファイルに名前しか記載されていないため、移行されません。移行スクリプトを再実行するか、GET /v3/schedules/{id} で取得してください。",
+      "schedule_unreadable": "スケジュールを読み取れません: {{detail}}",
+      "timezone_unknown": "タイムゾーン「{{timezone}}」は IANA のタイムゾーン名ではありません。",
+      "layers_missing": "ファイルにこのスケジュールのレイヤーがありません。GET /schedules/{id} で取得してください。",
+      "rotations_missing": "ファイルにこのスケジュールのローテーションがありません。GET /v2/schedules/{id} で取得してください。",
+      "events_missing": "ファイルにこのスケジュールのローテーションもイベントもありません。GET /v3/schedules/{id} で取得してください。",
+      "time_invalid": "{{rotation}}: 「{{value}}」は有効な時刻ではありません。",
+      "user_without_email": "{{rotation}}: ファイルに {{user}} のメールアドレスがありません。",
+      "participant_team": "{{rotation}}: チーム {{name}} が当番に割り当てられていますが、MoleSignal のローテーションでは個人のみを割り当てられます。",
+      "participant_escalation": "{{rotation}}: エスカレーション {{name}} が当番に割り当てられていますが、MoleSignal のローテーションでは個人のみを割り当てられます。",
+      "participant_none": "{{rotation}}: 担当者が未割り当ての当番があります。MoleSignal のローテーションでは当番を未割り当てにできません。",
+      "participant_unknown": "{{rotation}}: タイプが不明な参加者がいます（{{value}}）。",
+      "rotations_overlap": "{{rotation}} と {{other}} は {{at}} から重複します。移行元では 2 人が同時にオンコールになりますが、MoleSignal ではスケジュールごとに同時に 1 人しか担当できません。別々のスケジュールに分けてください。",
+      "every_member_on_call": "{{rotation}}: 全メンバーが同時にオンコールになりますが、MoleSignal ではスケジュールごとに同時に 1 人しか担当できません。別々のスケジュールに分けてください。",
+      "recurrence_unsupported": "{{rotation}}: 繰り返しパターン「{{value}}」はローテーションで設定できません。",
+      "shifts_per_member_unsupported": "{{rotation}}: 各メンバーが {{value}} シフトを連続で担当し、1 週間に {{per_week}} シフトあるため、引き継ぎの間隔が一定になりません。MoleSignal のローテーションでは一定の間隔が必要です。",
+      "event_timezones_differ": "{{rotation}} は {{timezone}}、{{other}} は {{other_timezone}} を使用しています。MoleSignal ではスケジュールごとに 1 つのタイムゾーンしか設定できません。別々のスケジュールに分けてください。",
+      "timezone_from_events": "スケジュールのタイムゾーンは {{schedule_timezone}} ですが、イベントでは {{timezone}} が使用されています。引き継ぎ時刻が変わらないよう、MoleSignal では {{timezone}} を使用します。",
+      "custom_shifts_one": "今後のカスタムシフトは {{count}} 件です（{{at}} ～ {{until}}、{{user}}）。MoleSignal のローテーションでは単発のシフトを設定できません。シフト終了後にインポートするか、ファイルの final_schedule から該当シフトを削除し、インポート後にオーバーライドを追加してください。",
+      "custom_shifts_other": "今後のカスタムシフトは {{count}} 件です（最初のシフト: {{at}} ～ {{until}}、{{user}}）。MoleSignal のローテーションでは単発のシフトを設定できません。すべてのシフトが終了してからインポートするか、ファイルの final_schedule から該当シフトを削除し、インポート後にオーバーライドを追加してください。",
+      "rendered_several_on_call": "{{at}} ～ {{until}} は移行元で {{first}} と {{second}} が同時にオンコールになりますが、MoleSignal ではスケジュールごとに同時に 1 人しか担当できません。",
+      "rotation_type_unsupported": "{{rotation}}: 不明なローテーションタイプです（{{value}}）。",
+      "rotation_length_invalid": "{{rotation}}: ローテーションの期間に {{value}} は使用できません。",
+      "restriction_unsupported": "{{rotation}}: 時間制限「{{value}}」は週ごとの時間帯として設定できません。",
+      "rendered_in_other_zone": "{{rotation}}: レスポンスが別のタイムゾーン（{{value}}）で生成されているため、スケジュールのタイムゾーンでは時間制限を読み取れません。time_zone を指定せずに GET /schedules/{id} で取得してください。",
+      "starts_before_handoff": "{{rotation}}: レイヤーがローテーションより先に開始するため、ローテーション開始までのオンコール担当者は不明です。",
+      "rendered_mismatch": "{{at}} ～ {{until}} のオンコール担当者が移行元と異なります。移行元は {{expected}}、インポート後は {{actual}} になります。",
+      "rendered_mismatch_more_one": "ほかにも差異のある時間帯が {{count}} 件あります。",
+      "rendered_mismatch_more_other": "ほかにも差異のある時間帯が {{count}} 件あります。",
+      "rotation_ended": "{{rotation}} は {{at}} に終了しており、オンコール担当者の決定に影響しないため、移行されません。",
+      "too_many_rotations": "1 つのスケジュールに上限の {{limit}} 件を超えるローテーションがあります。",
+      "schedule_paused": "移行元で無効になっているため、一時停止状態で移行されます。比較は行っていません。",
+      "rotation_empty": "{{rotation}} は担当者がいないか、適用される時間帯がないため、移行されません。",
+      "team_not_carried": "MoleSignal に同名のチームがないか、スケジュールにすでにチームが割り当てられているため、チーム {{name}} は移行されません。オンコール担当者は変わりません。",
+      "rendered_matched": "{{from}} ～ {{to}} のオンコール担当者は移行元と一致しています。",
+      "rendered_missing": "ファイルに移行元で生成されたスケジュールがないため、比較していません。インポート後にオンコール担当者を確認してください。",
+      "rendered_stale": "移行元で生成されたスケジュールが過去の期間のみを対象としているため、比較していません。取得し直してください。",
+      "clock_change_not_compared": "比較対象期間は {{timezone}} の次回の時刻切り替えに達していません。切り替え後の引き継ぎは比較していません。",
+      "overrides_left_out_one": "比較対象期間内のオーバーライド{{count}}件はインポートされません。",
+      "overrides_left_out_other": "比較対象期間内のオーバーライド{{count}}件はインポートされません。"
+    },
+    "policies": {
+      "menu": "インポート／エクスポート",
+      "export_all": "すべてのエスカレーションポリシーをエクスポート",
+      "export_one": "エスカレーションポリシー{{count}}件をエクスポート",
+      "export_other": "エスカレーションポリシー{{count}}件をエクスポート",
+      "import": "エスカレーションポリシーをインポート…",
+      "import_title": "エスカレーションポリシーのインポート",
+      "import_subtitle": "`molesignal.escalation-policies/v1` 形式のバンドルです。名前で照合し、新しい名前なら作成し、同じ名前があれば更新します。インポート前に試行してください。",
+      "exported_one": "エスカレーションポリシーを{{count}}件エクスポートしました。",
+      "exported_other": "エスカレーションポリシーを{{count}}件エクスポートしました。",
+      "imported_one": "エスカレーションポリシーを{{count}}件インポートしました。",
+      "imported_other": "エスカレーションポリシーを{{count}}件インポートしました。",
+      "content_hint": "JSON または YAML 形式です。ユーザーはメールアドレスで、スケジュール、チーム、休日カレンダーは名前で指定します。"
+    },
+    "schedules": {
+      "menu": "インポート／エクスポート",
+      "export_all": "すべてのスケジュールをエクスポート",
+      "export_one": "スケジュール{{count}}件をエクスポート",
+      "export_other": "スケジュール{{count}}件をエクスポート",
+      "import": "スケジュールをインポート…",
+      "import_title": "スケジュールのインポート",
+      "import_subtitle": "`molesignal.schedules/v1` 形式のバンドル、または Opsgenie や PagerDuty の API が返す形式のスケジュールを使用できます。名前で照合し、新しい名前なら作成し、同じ名前があれば更新します。インポート前に試行してください。",
+      "exported_one": "スケジュールを{{count}}件エクスポートしました。",
+      "exported_other": "スケジュールを{{count}}件エクスポートしました。",
+      "imported_one": "スケジュールを{{count}}件インポートしました。",
+      "imported_other": "スケジュールを{{count}}件インポートしました。",
+      "content_hint": "JSON または YAML 形式です。メンバーはメールアドレスで、チームと休日カレンダーは名前で指定します。オーバーライドと交代はファイルに含まれず、更新時も既存の設定が保持されます。",
+      "has_errors": "エラーのあるスケジュールを修正してからインポートしてください。",
+      "migration_title": "Opsgenie または PagerDuty からの移行",
+      "migration_intro": "curl と jq が使える環境でこのスクリプトを実行し、出力されたファイルを選択してください。API キーは実行環境内にとどまり、MoleSignal が保存することも、移行元の API を呼び出すこともありません。",
+      "migration_key": "先に {{name}} を設定してください。読み取り権限のあるキーで十分です。",
+      "migration_copy": "スクリプトをコピー",
+      "migration_docs": "移行される項目と移行されない項目"
+    },
+    "routing": {
+      "menu": "インポート／エクスポート",
+      "export_all": "すべてのルーティングルールをエクスポート",
+      "export_one": "ルーティングルール{{count}}件をエクスポート",
+      "export_other": "ルーティングルール{{count}}件をエクスポート",
+      "import": "ルーティングルールをインポート…",
+      "import_title": "ルーティングルールのインポート",
+      "import_subtitle": "`molesignal.routing-rules/v1` 形式のバンドルです。名前で照合し、新しい名前なら作成し、同じ名前があれば更新します。インポート前に試行してください。",
+      "exported_one": "ルーティングルールを{{count}}件エクスポートしました。",
+      "exported_other": "{{count}} 件のルーティングルールをエクスポートしました",
+      "imported_one": "{{count}} 件のルーティングルールをインポートしました",
+      "imported_other": "{{count}} 件のルーティングルールをインポートしました",
+      "content_hint": "JSON または YAML 形式です。エスカレーションポリシー、チーム、休日カレンダーは名前で指定します。ファイル内のルールが記載順に先頭に並び、それ以外のルールは元の順序のまま後に続きます。"
+    }
+  }
+}

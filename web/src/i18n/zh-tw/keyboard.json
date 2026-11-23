@@ -1,0 +1,29 @@
+{
+  "help_title": "鍵盤快速鍵",
+  "categories": {
+    "general": "一般",
+    "navigation": "導覽",
+    "investigation": "調查",
+    "time": "時間"
+  },
+  "bindings": {
+    "open_palette": "開啟命令面板",
+    "show_help": "顯示鍵盤快速鍵說明",
+    "open_time_picker": "開啟時間選擇器",
+    "stack_back": "調查堆疊：上一頁",
+    "stack_forward": "調查堆疊：下一頁",
+    "goto_services": "前往 Services",
+    "goto_apm_services": "前往 APM 服務",
+    "goto_incidents": "前往 Incidents",
+    "goto_dashboards": "前往 Dashboards",
+    "goto_investigate_trace": "前往 Investigate（traces）",
+    "goto_investigate_log": "前往 Investigate（logs）",
+    "goto_rum": "前往使用者體驗",
+    "goto_user_experience": "前往 RUM 使用者體驗",
+    "goto_functions": "前往 Functions",
+    "goto_iam": "前往 IAM",
+    "pin_anchor": "釘選 / 取消釘選時間錨點",
+    "copy_link": "複製調查連結",
+    "dismiss_overlay": "關閉最上層的浮動介面"
+  }
+}

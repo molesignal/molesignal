@@ -1,0 +1,57 @@
+{
+  "placeholder": "Befehle und Ressourcen suchen…",
+  "no_results": "Keine Ergebnisse.",
+  "groups": {
+    "results": "Ergebnisse",
+    "actions": "Aktionen",
+    "attention": "Ihre Aktion erforderlich",
+    "recent": "Zuletzt verwendet",
+    "kinds": {
+      "action": "Aktionen",
+      "incident": "Vorfälle",
+      "alert": "Alarmregeln",
+      "service": "Services",
+      "dashboard": "Dashboards",
+      "stream": "Streams",
+      "saved_view": "Gespeicherte Ansichten"
+    }
+  },
+  "footer": {
+    "open": "öffnen",
+    "open_new_stack": "in neuem Stack öffnen",
+    "stack_on_top": "oben auf den Stack legen",
+    "close": "schließen",
+    "acknowledge": "quittieren"
+  },
+  "actions": {
+    "goto_investigate": "Zur Untersuchung",
+    "goto_services": "Zu den Services",
+    "goto_apm": "Zu den APM-Services",
+    "goto_dashboards": "Zu den Dashboards",
+    "goto_incidents": "Zu den Vorfällen",
+    "goto_saved_views": "Zu den gespeicherten Ansichten",
+    "run_sql": "SQL ausführen…",
+    "run_promql": "PromQL ausführen…",
+    "time_last_5m": "Zeitraum: letzte 5m",
+    "time_last_15m": "Zeitraum: letzte 15m",
+    "time_last_1h": "Zeitraum: letzte 1h",
+    "time_last_6h": "Zeitraum: letzte 6h",
+    "time_last_24h": "Zeitraum: letzte 24h",
+    "time_last_7d": "Zeitraum: letzte 7d",
+    "pin_anchor": "Aktuellen Zeitpunkt fixieren",
+    "copy_link": "Link zur Untersuchung kopieren",
+    "toggle_theme": "Farbschema wechseln",
+    "toggle_density": "Anzeigedichte umschalten",
+    "help": "Tastenkürzel anzeigen",
+    "sign_out": "Abmelden",
+    "open_settings": "Einstellungen öffnen",
+    "create_dashboard": "Dashboard erstellen",
+    "create_alert": "Alarm erstellen",
+    "create_pipeline": "Pipeline erstellen",
+    "connect_source": "Datenquelle verbinden"
+  },
+  "show_all_one": "{{count}} weitere anzeigen",
+  "show_all_other": "{{count}} weitere anzeigen",
+  "acknowledge": "Bestätigen",
+  "acknowledged": "Vorfall bestätigt"
+}

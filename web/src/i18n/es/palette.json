@@ -1,0 +1,58 @@
+{
+  "placeholder": "Buscar comandos y recursos…",
+  "no_results": "No hay resultados.",
+  "groups": {
+    "results": "Resultados",
+    "actions": "Acciones",
+    "attention": "Requieren tu atención",
+    "recent": "Recientes",
+    "kinds": {
+      "action": "Acciones",
+      "incident": "Incidentes",
+      "alert": "Reglas de alerta",
+      "service": "Servicios",
+      "dashboard": "Paneles",
+      "stream": "Flujos",
+      "saved_view": "Vistas guardadas"
+    }
+  },
+  "footer": {
+    "open": "abrir",
+    "open_new_stack": "abrir en una pila nueva",
+    "stack_on_top": "apilar encima",
+    "close": "cerrar",
+    "acknowledge": "confirmar recepción"
+  },
+  "actions": {
+    "goto_investigate": "Ir a Investigar",
+    "goto_services": "Ir a Servicios",
+    "goto_apm": "Ir a Servicios de APM",
+    "goto_dashboards": "Ir a Paneles",
+    "goto_incidents": "Ir a Incidentes",
+    "goto_saved_views": "Ir a Vistas guardadas",
+    "run_sql": "Ejecutar SQL…",
+    "run_promql": "Ejecutar PromQL…",
+    "time_last_5m": "Intervalo: últimos 5m",
+    "time_last_15m": "Intervalo: últimos 15m",
+    "time_last_1h": "Intervalo: última 1h",
+    "time_last_6h": "Intervalo: últimas 6h",
+    "time_last_24h": "Intervalo: últimas 24h",
+    "time_last_7d": "Intervalo: últimos 7d",
+    "pin_anchor": "Fijar la hora actual",
+    "copy_link": "Copiar enlace de la investigación",
+    "toggle_theme": "Cambiar el tema",
+    "toggle_density": "Cambiar la densidad",
+    "help": "Mostrar atajos de teclado",
+    "sign_out": "Cerrar sesión",
+    "open_settings": "Abrir la configuración",
+    "create_dashboard": "Crear panel",
+    "create_alert": "Crear alerta",
+    "create_pipeline": "Crear pipeline",
+    "connect_source": "Conectar fuente de datos"
+  },
+  "show_all_one": "Mostrar {{count}} más",
+  "show_all_other": "Mostrar {{count}} más",
+  "acknowledge": "Confirmar recepción",
+  "acknowledged": "Recepción del incidente confirmada",
+  "show_all_many": "Mostrar {{count}} más"
+}

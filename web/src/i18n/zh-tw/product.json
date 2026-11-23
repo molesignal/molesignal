@@ -1,0 +1,36 @@
+{
+  "templates": {
+    "overview": "總覽",
+    "list": "清單",
+    "detail": "詳細資訊",
+    "builder": "建構器",
+    "settings": "設定",
+    "gate": "存取管制",
+    "fixture_title": "範本範例",
+    "fixture_subtitle": "使用本機範例資料的可重複使用頁面框架"
+  },
+  "actions": {
+    "create": "建立",
+    "refresh": "重新整理"
+  },
+  "fixture": {
+    "alerts": "告警",
+    "cost": "成本",
+    "dashboards": "儀表板",
+    "errors": "錯誤",
+    "filters": "篩選",
+    "general": "一般",
+    "healthy": "健康",
+    "datasource": "資料來源",
+    "last_24h": "過去 24 小時",
+    "latency": "延遲",
+    "month_to_date": "本月至今",
+    "name": "名稱",
+    "organization": "組織",
+    "owner": "負責人",
+    "search": "搜尋",
+    "selected": "已選取 {{count}} 項",
+    "state": "狀態",
+    "updated": "更新時間"
+  }
+}

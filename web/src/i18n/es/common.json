@@ -1,0 +1,576 @@
+{
+  "app_name": "MoleSignal",
+  "access": {
+    "super_administrator": "Superadministrador",
+    "loading": "Los permisos de acceso aún se están cargando.",
+    "read_only": "Tienes acceso de solo lectura.",
+    "page_unavailable": "Tus permisos actuales no te permiten acceder a esta página.",
+    "permission_required": "Se requiere el permiso {{permission}}.",
+    "form_invalid": "Completa los campos obligatorios antes de guardar.",
+    "no_changes": "No hay cambios sin guardar.",
+    "operation_pending": "Hay otra solicitud en curso.",
+    "immutable": "Este valor no se puede cambiar después de crear el espacio de trabajo.",
+    "current_workspace": "No se puede eliminar el espacio de trabajo actual.",
+    "last_workspace": "No se puede eliminar el último espacio de trabajo.",
+    "system_workspace": "La organización del sistema no se puede modificar."
+  },
+  "timezone": {
+    "label": "Zona horaria",
+    "browser": "Zona horaria del navegador",
+    "use_personal_default_option": "Usar mi zona horaria predeterminada · {{zone}}",
+    "browser_option": "Zona horaria del navegador · {{zone}}",
+    "page_override_label": "{{zone}} · solo en esta página",
+    "search": "Buscar zonas horarias…",
+    "empty": "No se encontraron zonas horarias.",
+    "set_as_default": "Establecer como mi zona horaria predeterminada",
+    "saving_default": "Guardando la zona horaria predeterminada…",
+    "default_saved": "Zona horaria predeterminada actualizada",
+    "change": "Cambiar",
+    "done": "Listo"
+  },
+  "query_syntax_help": {
+    "aria": "Abrir la referencia de sintaxis de consultas",
+    "trigger": "Referencia de sintaxis de consultas",
+    "title": "Referencia de sintaxis",
+    "description": "Modo de consulta: {{mode}}. Presiona Cmd/Ctrl + Enter para ejecutar la consulta.",
+    "mode_shortcut": "{{mode}} · Cmd/Ctrl + Enter",
+    "modes": {
+      "fields": "Campos",
+      "sql": "SQL",
+      "promql": "PromQL"
+    },
+    "labels": {
+      "equals": "Valor exacto",
+      "contains": "Contiene",
+      "exclude": "Excluir",
+      "either": "Cualquiera de los dos",
+      "substring": "Subcadena",
+      "full_text": "Texto completo",
+      "basic": "Consulta básica",
+      "filter": "Filtrar",
+      "aggregate": "Agregar",
+      "sort": "Ordenar"
+    }
+  },
+  "query_tabs": {
+    "list": "Consultas abiertas",
+    "new": "Nueva pestaña",
+    "untitled": "Consulta {{number}}",
+    "close": "Cerrar {{name}}",
+    "close_tab": "Cerrar",
+    "close_others": "Cerrar las demás pestañas",
+    "rename": "Cambiar nombre",
+    "duplicate": "Duplicar",
+    "name": "Nombre de la pestaña",
+    "running": "En ejecución",
+    "limit": "Puedes tener hasta {{count}} pestañas abiertas a la vez",
+    "split": "Dividir en dos",
+    "unsplit": "Volver a una sola página",
+    "move_right": "Mover a la mitad derecha",
+    "move_left": "Mover a la mitad izquierda"
+  },
+  "query_mode": {
+    "aria": "Modo del editor de consultas",
+    "code": "Código",
+    "builder": "Constructor"
+  },
+  "query_fold": {
+    "expand": "Expandir",
+    "collapse": "Contraer"
+  },
+  "query_language": {
+    "label": "Consulta"
+  },
+  "query_builder": {
+    "filters": "Filtros",
+    "add": "Filtro",
+    "add_aria": "Añadir un filtro",
+    "add_in_group": "Añadir un filtro al grupo {{number}}",
+    "add_alternative": "OR",
+    "add_alternative_aria": "Añadir un grupo OR",
+    "or": "OR",
+    "group": "Grupo {{number}}",
+    "edit": "Editar el filtro {{filter}}",
+    "remove": "Quitar el filtro {{filter}}",
+    "unsupported": "No es un filtro",
+    "remove_unsupported": "Quitar {{part}}",
+    "search_fields": "Buscar campos…",
+    "no_fields": "No hay campos que coincidan",
+    "use_field": "Usar «{{field}}»",
+    "change_field": "Cambiar campo",
+    "operator": "Comparación",
+    "value": "Valor",
+    "value_placeholder": "Valor…",
+    "suggestions": "Vistos en los resultados",
+    "submit_add": "Agregar filtro",
+    "submit_update": "Actualizar",
+    "cancel": "Cancelar",
+    "text": "Texto de búsqueda",
+    "text_in_group": "Texto de búsqueda del grupo {{number}}",
+    "text_placeholder": "Texto de búsqueda…",
+    "sql_active": "La instrucción en Código está en SQL y no se puede mostrar mediante filtros. Si agregas un filtro aquí, se inicia una consulta por campos."
+  },
+  "query_recommendations": {
+    "title": "Consejos de optimización",
+    "dismiss": "Ocultar consejos",
+    "inline_title": "La consulta se puede optimizar:",
+    "view": "Ver consejos",
+    "items": {
+      "slow_query": {
+        "title": "Consulta lenta",
+        "detail": "La consulta tardó {{took_ms}} ms y examinó {{scanned_rows}} filas. Reduce el intervalo de tiempo o agrega filtros más selectivos."
+      },
+      "wide_time_range": {
+        "title": "Intervalo de lectura amplio",
+        "detail": "Esta consulta examinó un intervalo de tiempo sin límites o de varias semanas. Redúcelo al mínimo necesario para responder a la pregunta."
+      },
+      "low_selectivity": {
+        "title": "Selectividad baja",
+        "detail": "La consulta examinó {{scanned_rows}} filas para devolver {{returned_rows}}. Agrega condiciones en campos indexados o de partición para reducir la cantidad de datos leídos."
+      },
+      "select_star": {
+        "title": "Evita SELECT *",
+        "detail": "Seleccionar todas las columnas implica leer más datos de los necesarios. Selecciona solo las columnas que usas."
+      },
+      "missing_filter": {
+        "title": "Sin condición de filtrado",
+        "detail": "Una lectura de gran volumen sin cláusula WHERE abarca todo el intervalo de tiempo. Agrega filtros para reducir las operaciones de E/S."
+      },
+      "missing_limit": {
+        "title": "Agrega un LIMIT",
+        "detail": "Esta consulta devolvió {{returned_rows}} filas sin un LIMIT. Agrega uno si solo necesitas una muestra o los primeros resultados."
+      },
+      "promql_wide_range": {
+        "title": "Selector de intervalo amplio",
+        "detail": "Este selector de intervalo lee muchas muestras por serie. Considera usar una regla de grabación o un intervalo más corto."
+      },
+      "promql_subquery": {
+        "title": "Costo de la subconsulta",
+        "detail": "Las subconsultas ([..:..]) vuelven a evaluar la consulta interna en cada paso, lo que puede ser costoso. Usa una regla de grabación para los cálculos que reutilizas con frecuencia."
+      },
+      "promql_regex_matcher": {
+        "title": "Coincidencia de etiquetas por expresión regular",
+        "detail": "Los operadores de expresión regular (=~ / !~) examinan más series que los de coincidencia exacta. Usa = / != cuando sea posible o ancla la expresión regular."
+      }
+    }
+  },
+  "actions": {
+    "ok": "Aceptar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "create": "Crear",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "enable": "Habilitar",
+    "disable": "Desactivar",
+    "close": "Cerrar",
+    "open": "Abrir",
+    "retry": "Reintentar",
+    "sign_in": "Iniciar sesión",
+    "sign_out": "Cerrar sesión",
+    "settings": "Configuración",
+    "preferences": "Preferencias",
+    "reset": "Restablecer",
+    "renew": "Renovar",
+    "rotate": "Rotar",
+    "add": "Agregar",
+    "choose_file": "Elegir archivo",
+    "copied": "Copiado",
+    "confirm": "Confirmar"
+  },
+  "error_state": {
+    "unknown": "Error desconocido",
+    "copy_error_id": "Copiar ID del error",
+    "copied": "Copiado",
+    "report": "Reportar",
+    "details": "Detalles",
+    "status": "Estado",
+    "code": "Código",
+    "message": "Mensaje",
+    "error_id": "ID del error",
+    "empty": "(vacío)",
+    "request_id": "ID de la solicitud",
+    "copy_request_id": "Copiar ID de la solicitud"
+  },
+  "status": {
+    "loading": "Cargando…",
+    "saving": "Guardando…",
+    "empty": "Sin datos",
+    "no_results": "Sin resultados",
+    "saved": "Guardado",
+    "created": "Creado",
+    "deleted": "Eliminado",
+    "updated": "Actualizado",
+    "yes": "sí",
+    "no": "no",
+    "on": "activo",
+    "off": "inactivo",
+    "enabled": "activado",
+    "disabled": "desactivado",
+    "working": "En curso…"
+  },
+  "labels": {
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "workspace": "Espacio de trabajo",
+    "remember_me": "Recordarme",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "time_window": "Ventana de tiempo",
+    "name": "Nombre",
+    "enabled": "Activado",
+    "updated": "Actualizado",
+    "description": "Descripción",
+    "format": "Formato"
+  },
+  "sharing": {
+    "title": "Compartir recurso",
+    "access_scope": "Alcance del acceso",
+    "access_scope_hint": "Elige quién puede acceder y con qué permisos.",
+    "modes": {
+      "authenticated": "Miembros actuales del espacio de trabajo",
+      "authenticated_hint": "Los visitantes deben iniciar sesión y pasar la verificación de permisos de IAM del espacio de trabajo.",
+      "cross_org": "Organización específica",
+      "cross_org_hint": "Los visitantes que inicien sesión podrán acceder al recurso mediante un permiso explícito entre organizaciones.",
+      "public_link": "Cualquier persona con el enlace",
+      "public_link_hint": "No es necesario iniciar sesión. El enlace funciona como una credencial temporal, restringida y revocable.",
+      "admin_only": "Solo los miembros que pueden administrar permisos entre organizaciones pueden compartir el recurso de esta forma.",
+      "public_disabled": "La política del espacio de trabajo no permite compartir este recurso públicamente.",
+      "public_links_disabled": "Los enlaces públicos están desactivados en este espacio de trabajo.",
+      "public_dashboards_disabled": "Este espacio de trabajo no permite compartir públicamente paneles en tiempo real.",
+      "production_disabled": "Este panel tiene la etiqueta production o prod, y la política del espacio de trabajo impide compartir públicamente los paneles de producción. Aún puedes compartirlo dentro del espacio de trabajo o con otras organizaciones."
+    },
+    "policy_blocked_title": "La política del espacio de trabajo restringe el uso compartido público",
+    "policy_blocked_action": "Abrir la configuración de uso compartido y acceso público",
+    "policy_blocked_admin": "Si necesitas acceso público, pídele a un administrador del espacio de trabajo que cambie esta política.",
+    "target_organization": "Organización de destino",
+    "target_organization_hint": "Concede un permiso explícito entre organizaciones para dar acceso a esta organización.",
+    "select_organization": "Seleccionar organización",
+    "expiry": "Vencimiento",
+    "expiry_hint": "El enlace público deja de funcionar en cuanto vence.",
+    "authenticated_expiry_hint": "El enlace que requiere autenticación no se puede usar después de su vencimiento.",
+    "expiry_options": {
+      "one_day": "1 día",
+      "seven_days": "7 días",
+      "thirty_days": "30 días"
+    },
+    "max_views": "Número máximo de visitas",
+    "max_views_hint": "Cada nueva sesión de acceso al contenido compartido cuenta como una visita. Deja el campo en blanco para no limitar las visitas.",
+    "unlimited": "Sin límite",
+    "password": "Contraseña de acceso",
+    "password_hint": "Opcional. Solo se inicia una sesión de acceso restringido tras verificar la contraseña.",
+    "password_required": "La política del espacio de trabajo exige una contraseña para los informes públicos.",
+    "dashboard_password_required": "Los dashboards públicos requieren una contraseña de acceso.",
+    "validation": {
+      "organization_required": "Selecciona la organización que quieres autorizar.",
+      "password_required": "Ingresa una contraseña de acceso para el informe público.",
+      "dashboard_password_required": "Ingresa una contraseña de acceso para el dashboard público."
+    },
+    "public_warning_title": "Este enlace es una credencial al portador",
+    "public_warning": "Cualquiera que obtenga este enlace puede ver el contenido restringido. No incluyas datos confidenciales.",
+    "report_snapshot_hint": "Los informes públicos son instantáneas inmutables que se generan al crear el enlace. Al abrirlos, no se vuelven a ejecutar consultas en tiempo real.",
+    "allow_download": "Permitir la descarga",
+    "allow_download_hint": "Si desactivas esta opción, el informe estático solo estará disponible para su vista previa en línea.",
+    "csv_download_disabled": "La política del espacio de trabajo impide las descargas públicas de CSV.",
+    "dashboard_restrictions": "Restricciones del dashboard",
+    "dashboard_restrictions_hint": "La página pública solo puede ejecutar las consultas guardadas de los paneles. Las expresiones de consulta y las páginas de exploración de datos sin procesar permanecen ocultas.",
+    "max_time_range": "Intervalo de tiempo máximo de los datos",
+    "time_ranges": {
+      "one_hour": "1 hora",
+      "six_hours": "6 horas",
+      "twenty_four_hours": "24 horas"
+    },
+    "allow_time_changes": "Permitir cambios en el intervalo de tiempo",
+    "allow_time_changes_hint": "Los visitantes solo pueden elegir intervalos predefinidos que no superen el máximo indicado arriba.",
+    "allowed_variables": "Variables públicas",
+    "allowed_variables_hint": "Las variables que no selecciones se excluyen del modelo público y de las solicitudes.",
+    "allow_variable_changes": "Permitir cambios en las variables autorizadas",
+    "allow_variable_changes_hint": "Si desactivas esta opción, las variables conservan sus valores predeterminados permitidos.",
+    "create_link": "Crear enlace para compartir",
+    "created": "Se creó el enlace para compartir",
+    "create_failed": "No se pudo crear el enlace para compartir",
+    "errors": {
+      "public_links_disabled": "Los enlaces públicos están desactivados en este espacio de trabajo. Cambia la política de uso compartido o comparte el contenido con un enlace que requiera iniciar sesión.",
+      "public_dashboards_disabled": "La opción de compartir públicamente dashboards en tiempo real está desactivada. Cambia la política de uso compartido o comparte el dashboard con un enlace que requiera iniciar sesión.",
+      "production_dashboard": "La política del espacio de trabajo impide compartir públicamente los dashboards con la etiqueta production o prod. Cambia la política o comparte el dashboard con un enlace que requiera iniciar sesión.",
+      "csv_download_disabled": "La política del espacio de trabajo impide las descargas públicas de CSV. Desactiva «Permitir la descarga» y vuelve a intentarlo.",
+      "report_password_required": "La política del espacio de trabajo exige una contraseña de acceso para los informes públicos.",
+      "dashboard_password_required": "Configura una contraseña de acceso antes de crear un enlace público para compartir el dashboard."
+    },
+    "link_ready": "El enlace para compartir está listo",
+    "link_ready_hint": "El enlace se guarda de forma segura y sigue disponible para que lo veas y lo copies.",
+    "copy_link": "Copiar enlace",
+    "copy_existing_link": "Copiar enlace para compartir existente",
+    "copied": "Enlace copiado",
+    "copy_failed": "No se pudo copiar el enlace",
+    "rotate_to_show_link": "Este enlace se creó antes de que los enlaces se mostraran de forma permanente. Renuévalo una vez para ver el nuevo enlace.",
+    "create_another": "Crear otro enlace",
+    "existing": "Enlaces para compartir existentes",
+    "existing_hint": "Los enlaces siguen disponibles para copiarlos y puedes desactivarlos o renovarlos de inmediato.",
+    "views": "{{count}} visitas",
+    "no_expiry": "Sin vencimiento",
+    "stop": "Desactivar",
+    "revoked": "Enlace para compartir desactivado",
+    "revoke_failed": "No se pudo desactivar el enlace para compartir",
+    "rotated": "Enlace para compartir renovado",
+    "rotate_failed": "No se pudo renovar el enlace para compartir",
+    "workspace_policy": "Ver la política de uso compartido del espacio de trabajo",
+    "public": {
+      "read_only": "Acceso restringido de solo lectura",
+      "snapshot": "Captura estática",
+      "dashboard": "Panel compartido",
+      "report": "Informe compartido",
+      "download": "Descargar",
+      "time_range": "Intervalo de tiempo",
+      "expires_at": "Vence: {{value}}",
+      "watermark": "Acceso público · {{value}}",
+      "password_title": "Este enlace está protegido con contraseña",
+      "password_hint": "Ingresa la contraseña de acceso que estableció quien creó el enlace.",
+      "password_placeholder": "Contraseña de acceso",
+      "password_invalid": "Contraseña incorrecta. Inténtalo de nuevo.",
+      "visit_ended": "Esta visita ha terminado. Vuelve a abrir el enlace para compartir.",
+      "password_unchecked": "No se pudo verificar la contraseña. Inténtalo de nuevo más tarde.",
+      "continue": "Continuar",
+      "invalid_dashboard": "Captura del panel no disponible",
+      "invalid_dashboard_hint": "La estructura del modelo público no superó la validación de seguridad. Pídele a la persona propietaria que cree un enlace nuevo.",
+      "unavailable_title": "Enlace no disponible",
+      "unavailable_hint": "Este enlace ya no es válido o se eliminó el contenido compartido. Pídele a la persona propietaria que cree un enlace nuevo.",
+      "open_failed": "No se pudo abrir el contenido compartido. Inténtalo de nuevo más tarde.",
+      "loading_title": "Abriendo contenido compartido seguro",
+      "loading_hint": "Verificando el enlace y las restricciones de acceso…",
+      "trust_label": "Contenido de MoleSignal compartido con acceso restringido",
+      "ranges": {
+        "fifteen_minutes": "15 minutos",
+        "one_hour": "1 hora",
+        "six_hours": "6 horas",
+        "twenty_four_hours": "24 horas",
+        "seven_days": "7 días",
+        "seconds": "{{count}} segundos"
+      }
+    }
+  },
+  "date_time_picker": {
+    "placeholder": "Selecciona la fecha y la hora",
+    "open": "Abrir el selector de fecha y hora: {{value}}",
+    "time": "Hora",
+    "hour": "Hora",
+    "minute": "Minuto",
+    "second": "Segundo",
+    "clear": "Borrar",
+    "apply": "Aplicar",
+    "calendar_navigation": "Navegación del calendario",
+    "choose_month": "Elegir mes",
+    "choose_year": "Elegir año",
+    "next_month": "Mes siguiente",
+    "previous_month": "Mes anterior",
+    "today": "Hoy",
+    "selected": "Seleccionado",
+    "week_number": "Semana {{value}}",
+    "week_number_header": "Número de semana"
+  },
+  "share_query": {
+    "button": "Compartir",
+    "title": "Compartir esta consulta",
+    "description": "El enlace abre esta consulta para cualquier persona que haya iniciado sesión en esta organización y tenga permiso para leer los datos.",
+    "time_label": "Intervalo de tiempo del enlace",
+    "time_fixed": "Intervalo de tiempo seleccionado",
+    "time_moving": "{{range}}, tomando como referencia el momento en que se abre el enlace",
+    "link_aria": "Enlace a esta consulta",
+    "copy": "Copiar enlace",
+    "copied": "Enlace copiado",
+    "copy_failed": "No se pudo copiar el enlace"
+  },
+  "field_list": {
+    "group_aria_one": "{{name}}: {{count}} campo",
+    "group_aria_other": "{{name}}: {{count}} campos",
+    "group_aria_many": "{{name}}: {{count}} campos"
+  },
+  "field_analysis": {
+    "open": "Analizar",
+    "open_aria": "Analizar el campo {{name}}",
+    "close": "Cerrar el análisis del campo",
+    "title_aria": "Análisis de {{name}}",
+    "loading": "Analizando {{name}}",
+    "basics": "Información básica",
+    "distinct": "Valores distintos",
+    "estimated": "Estimado",
+    "subjects": {
+      "logs": {
+        "total": "Logs",
+        "present": "Con valor",
+        "missing": "Sin valor",
+        "none": "Ninguno de estos logs tiene un valor para este campo."
+      },
+      "spans": {
+        "total": "Spans",
+        "present": "Con valor",
+        "missing": "Sin valor",
+        "none": "Ninguno de estos spans tiene un valor para este campo."
+      },
+      "traces": {
+        "total": "Trazas",
+        "present": "Con valor",
+        "missing": "Sin valor",
+        "none": "Ninguna de estas trazas tiene un valor para este campo."
+      }
+    },
+    "statistics": "Estadísticas",
+    "max": "Máx.",
+    "min": "Mín.",
+    "avg": "Media",
+    "median": "Mediana",
+    "q1": "Cuartil Q1",
+    "q3": "Cuartil Q3",
+    "stddev_samp": "Desviación estándar muestral",
+    "stddev_pop": "Desviación estándar poblacional",
+    "kurtosis": "Curtosis",
+    "kurtosis_hint": "Exceso de curtosis: 0 para una distribución normal; mayor cuanto más pesadas sean las colas",
+    "skewness": "Asimetría",
+    "skewness_hint": "Por encima de 0, la cola está a la derecha; por debajo de 0, a la izquierda",
+    "quartiles_estimated": "La mediana y los cuartiles son estimaciones.",
+    "earliest": "Más antiguo",
+    "latest": "Más reciente",
+    "distribution": "Distribución de valores",
+    "distribution_aria": "Distribución de valores de {{name}}: {{count}} valores de {{from}} a {{to}}, con un ancho de {{width}} por barra y un máximo de {{max}} valores en una barra. Usa las teclas de flecha izquierda y derecha para moverte entre las barras.",
+    "bar_width": "{{width}} por barra",
+    "bar_range": "{{from}} – {{to}}",
+    "bar_count_one": "{{formatted}} valor",
+    "bar_count_other": "{{formatted}} valores",
+    "bar_readout": "De {{from}} a {{to}}: {{formatted}} valores",
+    "trend_one": "Valor más frecuente a lo largo del tiempo",
+    "trend_other": "{{count}} valores más frecuentes a lo largo del tiempo",
+    "trend_aria_one": "El valor más frecuente de {{name}} a lo largo del tiempo",
+    "trend_aria_other": "Los {{count}} valores más frecuentes de {{name}} a lo largo del tiempo",
+    "top": "Valores más frecuentes",
+    "all_different": "Casi todos los valores aparecen una sola vez: ninguno destaca por su frecuencia.",
+    "protected": "Este campo está enmascarado o cifrado y no se puede analizar.",
+    "unavailable": "Este campo no se puede analizar en este momento.",
+    "fallback": {
+      "time_budget": "Se agotó el tiempo para contar todas las coincidencias",
+      "busy": "Hay demasiadas consultas en curso para contar todas las coincidencias",
+      "failed": "No se pudieron contar todas las coincidencias"
+    },
+    "bar_count_many": "{{formatted}} valores",
+    "trend_many": "{{count}} valores más frecuentes a lo largo del tiempo",
+    "trend_aria_many": "Los {{count}} valores más frecuentes de {{name}} a lo largo del tiempo"
+  },
+  "histogram": {
+    "bar_width": "{{width}} por barra",
+    "unit_ms": "{{value}} ms",
+    "unit_s": "{{value}} s",
+    "unit_min": "{{value}} min",
+    "unit_h": "{{value}} h",
+    "unit_d": "{{value}} d",
+    "summary": "{{name}}. {{scope}}, entre {{from}} y {{to}}, {{width}} por barra, con un máximo de {{max}} en una barra. Usa las flechas izquierda y derecha para moverte entre barras y pulsa Intro para limitar el intervalo de tiempo a la barra seleccionada.",
+    "bar_readout": "De {{from}} a {{to}}: {{total}} en total, de los cuales {{errors}} son errores",
+    "bar_readout_whole": "De {{from}} a {{to}}: {{total}} en total",
+    "scope_all_one": "El único resultado que coincide",
+    "scope_all_other": "Los {{total}} resultados que coinciden",
+    "scope_loaded_one": "El único resultado cargado",
+    "scope_loaded_other": "Los {{total}} resultados cargados",
+    "scope_because": "{{scope}}: {{reason}}",
+    "counting": "Contando todas las coincidencias…",
+    "unavailable": {
+      "time_budget": "se agotó el tiempo para contar todas las coincidencias",
+      "busy": "hay demasiadas consultas en curso para contar todas las coincidencias",
+      "scan_limit": "el intervalo contiene demasiadas filas para contar todas las coincidencias",
+      "timestamp_masked": "el campo de tiempo está enmascarado en este flujo",
+      "failed": "no se pudieron contar todas las coincidencias"
+    },
+    "scope_all_many": "Los {{total}} resultados que coinciden",
+    "scope_loaded_many": "Los {{total}} resultados cargados"
+  },
+  "time_picker": {
+    "title": "Seleccionar intervalo de tiempo",
+    "button_aria": "Intervalo de tiempo: {{value}}",
+    "quick_ranges": "Intervalos rápidos",
+    "absolute": "Intervalo absoluto",
+    "zone_time": "En {{zone}}",
+    "from": "Desde",
+    "to": "Hasta",
+    "apply": "Aplicar",
+    "invalid": "Ingresa una hora de inicio y una de fin válidas.",
+    "presets": {
+      "last_5m": "Últimos 5 minutos",
+      "last_15m": "Últimos 15 minutos",
+      "last_30m": "Últimos 30 minutos",
+      "last_1h": "Última hora",
+      "last_6h": "Últimas 6 horas",
+      "last_12h": "Últimas 12 horas",
+      "last_24h": "Últimas 24 horas",
+      "last_2d": "Últimos 2 días",
+      "last_7d": "Últimos 7 días",
+      "last_30d": "Últimos 30 días"
+    }
+  },
+  "weekly_ranges": {
+    "add": "Agregar intervalo",
+    "remove": "Quitar intervalo",
+    "weekdays": "Días",
+    "start": "Inicio (HH:MM)",
+    "end": "Fin (HH:MM)",
+    "hint": "Si la hora de fin no es posterior a la de inicio, el intervalo continúa después de la medianoche y cuenta para el día en que empieza. Un día completo va de 00:00 a 24:00.",
+    "problems": {
+      "no_days": "Selecciona al menos un día.",
+      "same_time": "Las horas de inicio y fin no pueden ser iguales. Un día completo va de 00:00 a 24:00.",
+      "bad_time": "Escribe las horas en formato HH:MM, por ejemplo, 09:30. Usa 24:00 solo como hora de fin."
+    },
+    "timezone": "Zona horaria"
+  },
+  "time_condition": {
+    "label": "Horario",
+    "any": "En cualquier momento",
+    "inside": "Solo dentro de este horario",
+    "outside": "Solo fuera de este horario"
+  },
+  "people": {
+    "someone": "Alguien",
+    "non_member": "No es miembro"
+  },
+  "holidays": {
+    "label": "Días festivos",
+    "calendar": "Calendario de días festivos",
+    "modes": {
+      "none": "No distinguir los días festivos",
+      "exclude": "Excluir los días festivos",
+      "only": "Solo días festivos"
+    },
+    "hints": {
+      "none": "Los días festivos cuentan como cualquier otro día.",
+      "exclude": "Este horario no se aplica en días festivos. Un día laborable de compensación cuenta como lunes.",
+      "only": "Este horario se aplica solo en días festivos."
+    },
+    "no_calendars": "Primero, agrega un calendario de días festivos en Configuración → Alertas → Calendarios de días festivos."
+  },
+  "confirm_dialog": {
+    "type_to_confirm": "Escribe {{name}} para confirmar",
+    "type_required": "Escribe primero el nombre"
+  },
+  "unsaved": {
+    "discard_title": "¿Descartar tus cambios?",
+    "discard_description": "Lo que ingresaste aquí no se ha guardado y se perderá.",
+    "keep_editing": "Seguir editando",
+    "discard": "Descartar",
+    "leave_title": "¿Salir sin guardar?",
+    "leave_description": "Tus cambios en esta página no se han guardado y se perderán.",
+    "leave": "Salir"
+  },
+  "table": {
+    "select_all": "Seleccionar todas las filas",
+    "select_row": "Seleccionar fila",
+    "selected_one": "{{count}} seleccionada",
+    "selected_other": "{{count}} seleccionadas",
+    "clear_selection": "Borrar selección",
+    "bulk_label": "Acciones sobre las filas seleccionadas",
+    "export_csv": "Exportar CSV",
+    "export_empty": "No hay filas para exportar",
+    "bulk_done_one": "{{count}} fila actualizada",
+    "bulk_done_other": "{{count}} filas actualizadas",
+    "bulk_failed_one": "Falló {{count}} de {{total}}: {{reason}}",
+    "bulk_failed_other": "Fallaron {{count}} de {{total}}: {{reason}}",
+    "clear_filters": "Borrar filtros",
+    "selected_many": "{{count}} seleccionadas",
+    "bulk_done_many": "{{count}} filas actualizadas",
+    "bulk_failed_many": "Fallaron {{count}} de {{total}}: {{reason}}"
+  }
+}

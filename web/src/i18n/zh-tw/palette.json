@@ -1,0 +1,57 @@
+{
+  "placeholder": "搜尋命令和資源…",
+  "no_results": "沒有符合的結果。",
+  "groups": {
+    "results": "結果",
+    "actions": "操作",
+    "attention": "等你處理",
+    "recent": "最近開啟",
+    "kinds": {
+      "action": "操作",
+      "incident": "事件",
+      "alert": "警示規則",
+      "service": "服務",
+      "dashboard": "儀表板",
+      "stream": "資料串流",
+      "saved_view": "已儲存的檢視"
+    }
+  },
+  "footer": {
+    "open": "開啟",
+    "open_new_stack": "在新堆疊中開啟",
+    "stack_on_top": "疊加到堆疊頂端",
+    "close": "關閉",
+    "acknowledge": "確認事件"
+  },
+  "actions": {
+    "goto_investigate": "前往 Investigate",
+    "goto_services": "前往 Services",
+    "goto_apm": "前往 APM 服務",
+    "goto_dashboards": "前往 Dashboards",
+    "goto_incidents": "前往 Incidents",
+    "goto_saved_views": "前往 Saved views",
+    "run_sql": "執行 SQL…",
+    "run_promql": "執行 PromQL…",
+    "time_last_5m": "時間：最近 5 分鐘",
+    "time_last_15m": "時間：最近 15 分鐘",
+    "time_last_1h": "時間：最近 1 小時",
+    "time_last_6h": "時間：最近 6 小時",
+    "time_last_24h": "時間：最近 24 小時",
+    "time_last_7d": "時間：最近 7 天",
+    "pin_anchor": "固定目前時間",
+    "copy_link": "複製調查連結",
+    "toggle_theme": "切換主題",
+    "toggle_density": "切換顯示密度",
+    "help": "顯示鍵盤操作說明",
+    "sign_out": "登出",
+    "open_settings": "開啟設定",
+    "create_dashboard": "建立儀表板",
+    "create_alert": "建立警報",
+    "create_pipeline": "建立管線",
+    "connect_source": "連接資料來源"
+  },
+  "show_all_one": "再顯示 {{count}} 項",
+  "show_all_other": "再顯示 {{count}} 項",
+  "acknowledge": "確認",
+  "acknowledged": "事件已確認"
+}

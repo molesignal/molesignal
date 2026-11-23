@@ -1,4 +1,5 @@
 import type { ImBot, ImBotStatus } from '@/api/agent/im';
+import { docsLocale } from '@/i18n/locales';
 
 /** What a bot's row says about it, worst first: off, missing settings, then the connection. */
 export type ImBotState =
@@ -41,6 +42,6 @@ export function teamOfChoice(choice: string): string | null {
 
 /** Where the docs describe setting the platforms up, in the reader's language. */
 export function imDocumentationUrl(language: string | undefined): string {
-  const locale = language?.toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US';
+  const locale = docsLocale(language);
   return `https://docs.molesignal.com/${locale}/im`;
 }

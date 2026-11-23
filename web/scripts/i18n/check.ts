@@ -1,9 +1,11 @@
+import { SUPPORTED_LOCALES } from '../../src/i18n/locales';
 import {
   SOURCE_LOCALE,
   extractPlaceholders,
   flatten,
   listLocales,
   listNamespaces,
+  manyFormOf,
   readNamespace,
   setsEqual,
 } from './shared';
@@ -41,14 +43,15 @@ const namespaceFilter = argValue('namespace');
 const keep = (namespace: string) => !namespaceFilter || namespace === namespaceFilter;
 
 const sourceNamespaces = listNamespaces(SOURCE_LOCALE);
-const targets = listLocales().filter(
-  (locale) => locale !== SOURCE_LOCALE && (!localeFilter || locale === localeFilter),
-);
+// Every locale the interface offers, and any other directory found next to them.
+const targets = [...new Set<string>([...SUPPORTED_LOCALES, ...listLocales()])]
+  .filter((locale) => locale !== SOURCE_LOCALE && (!localeFilter || locale === localeFilter))
+  .sort();
 
 const findings: Finding[] = [];
 
 for (const locale of targets) {
-  const targetNamespaces = new Set(listNamespaces(locale));
+  const targetNamespaces = new Set(listLocales().includes(locale) ? listNamespaces(locale) : []);
 
   for (const namespace of sourceNamespaces) {
     if (!keep(namespace)) continue;
@@ -64,8 +67,11 @@ for (const locale of targets) {
     for (const key of Object.keys(source)) {
       if (!(key in target)) findings.push({ locale, namespace, kind: 'missing', key });
     }
+    const sourceKeys = new Set(Object.keys(source));
     for (const key of Object.keys(target)) {
-      if (!(key in source)) findings.push({ locale, namespace, kind: 'orphan', key });
+      if (!sourceKeys.has(key) && !manyFormOf(locale, key, sourceKeys)) {
+        findings.push({ locale, namespace, kind: 'orphan', key });
+      }
     }
     for (const key of Object.keys(source)) {
       const sourceText = source[key];

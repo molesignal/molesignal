@@ -1,0 +1,583 @@
+{
+  "title": "Streams",
+  "subtitle": "Sehen Sie, ob noch Daten eingehen, was die Speicherung kostet und wie sich die Einstellungen für Abfragen und Aufbewahrung auswirken.",
+  "pagination": {
+    "aria": "Seitennavigation der Streamliste",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Streams pro Seite",
+    "first_aria": "Erste Seite",
+    "previous_aria": "Vorherige Seite",
+    "next_aria": "Nächste Seite",
+    "last_aria": "Letzte Seite"
+  },
+  "list": {
+    "refresh": "Aktualisieren",
+    "create": "Stream erstellen",
+    "search_placeholder": "Nach Name oder Beschreibung suchen…",
+    "status_filter": "Nach Betriebsstatus filtern",
+    "result_count": "{{count}} Streams",
+    "updated_at": "Statistik aktualisiert: {{time}}",
+    "stats_unavailable": "Betriebsstatistik nicht verfügbar",
+    "retention_days": "{{days}} Tage",
+    "query": "Abfragen",
+    "view_detail": "Details anzeigen",
+    "copy_id": "Stream-ID kopieren",
+    "id_copied": "Stream-ID kopiert",
+    "more_actions": "Weitere Aktionen für {{name}}",
+    "kpis": {
+      "healthy": "Normaler Datenempfang",
+      "healthy_sub": "{{total}} Streams insgesamt",
+      "attention": "Handlungsbedarf",
+      "attention_sub": "Verzögerter oder unterbrochener Datenempfang oder keine Statistik",
+      "compressed_24h": "Komprimierte Daten (24h)",
+      "rows_24h": "{{count}} Zeilen geschrieben",
+      "compressed_window": "Komprimierte Daten ({{window}})",
+      "rows_window": "{{count}} Zeilen in diesem Zeitraum geschrieben",
+      "current_storage": "Aktuelle Speicherbelegung",
+      "current_storage_sub": "Dauerhaft gespeicherte Daten"
+    },
+    "status": {
+      "all": "Alle Status",
+      "attention": "Handlungsbedarf",
+      "healthy": "Normal",
+      "idle": "Inaktiv",
+      "delayed": "Verzögert",
+      "interrupted": "Unterbrochen",
+      "unused": "Ungenutzt",
+      "unknown": "Statistik nicht verfügbar"
+    },
+    "tabs": {
+      "all": "Alle",
+      "logs": "Logs",
+      "metrics": "Metriken",
+      "traces": "Traces",
+      "profiles": "Profile",
+      "extend": "Lookup-Tabelle"
+    },
+    "tabs_label": "Stream-Typen",
+    "columns": {
+      "stream": "Stream",
+      "type": "Typ",
+      "status": "Status",
+      "rate": "Empfangsrate",
+      "last_received": "Zuletzt empfangen",
+      "volume_24h": "24h komprimiert",
+      "volume_window": "{{window}} komprimiert",
+      "storage": "Aktueller Speicherverbrauch",
+      "retention": "Aufbewahrung",
+      "actions": "Aktionen",
+      "data_count": "Datensätze",
+      "collected_size": "Erfasstes Datenvolumen",
+      "stored_size": "Gespeichertes Datenvolumen",
+      "index_size": "Indexgröße"
+    },
+    "explore": "Erkunden",
+    "not_queryable": "Nicht abfragbar",
+    "empty_title": "Noch keine Streams",
+    "empty_description": "Erstellen Sie einen Stream oder senden Sie Ereignisse über eine Datenquelle, um den ersten Stream zu registrieren.",
+    "storage_notes": {
+      "data_count": "Derzeit aufbewahrte, dauerhaft gespeicherte Datensätze, unabhängig vom Zeitfenster der Statusprüfung.",
+      "collected_size": "Kumulierte Bytezahl angenommener Ereignisse im kanonischen JSON-Format vor der Transformation, ohne Rahmeninformationen des Transportprotokolls. Der Wert wird nach dem Leeren des Puffers aktualisiert. ≥ kennzeichnet eine unvollständige historische Erfassung; — bedeutet, dass kein Messwert vorliegt.",
+      "stored_size": "Tatsächliche Größe der aktiven Primärdatendateien in Byte, ohne Indizes.",
+      "index_size": "Tatsächliche Größe der fertig erstellten Indexdateien für aktive Segmente in Byte."
+    },
+    "no_match_title": "Keine passenden Streams",
+    "no_match_description": "Versuchen Sie es mit einem anderen Namen, Typ oder Status."
+  },
+  "drawer": {
+    "title": "Stream erstellen",
+    "subtitle": "Erstellen Sie einen Eintrag für eine Datenquelle und konfigurieren Sie anschließend einen Sender.",
+    "identity": "Identität",
+    "stream_name": "Stream-Name",
+    "stream_name_hint": "snake_case · Länge ≤ 64",
+    "stream_name_placeholder": "my-app-logs",
+    "description": "Beschreibung (optional)",
+    "description_placeholder": "Welche Daten fließen durch diesen Stream?",
+    "signal_type": "Signaltyp",
+    "signal_type_description": "Bestimmt, wie Daten gespeichert werden und welche Abfragesprache verwendet wird.",
+    "types": {
+      "logs": {
+        "label": "Logs",
+        "hint": "SQL-Abfragen, Volltextindex und spaltenbasierte Speicherung in Parquet"
+      },
+      "metrics": {
+        "label": "Metriken",
+        "hint": "PromQL-kompatibler TSDB-Speicher"
+      },
+      "traces": {
+        "label": "Traces",
+        "hint": "OTLP-Spans, Flammendiagramme und Service-Maps"
+      }
+    },
+    "storage": "Speicher",
+    "retention": "Aufbewahrungsdauer (Tage)",
+    "retention_hint": "Nach Ablauf dieser Frist werden die Daten im Objektspeicher archiviert.",
+    "shards": "Shards",
+    "shards_hint": "Shards ermöglichen parallele Schreibvorgänge aus Datenquellen. Legen Sie mindestens so viele Shards wie Schreibknoten fest.",
+    "indexed_fields": "Indexierte Felder",
+    "indexed_fields_hint": "Kommagetrennte Felder für die schnelle Suche nach exakten Werten und Präfixen.",
+    "encrypted_fields": "Verschlüsselte Felder",
+    "encrypted_fields_hint": "Kommagetrennte Felder, die verschlüsselt gespeichert werden. Verwenden Sie zum Auslesen decrypt(field). Die Einstellung lässt sich später nicht ändern.",
+    "queryable": "Abfragbar",
+    "queryable_hint": "Ist die Option deaktiviert, nimmt der Stream weiterhin Daten an und speichert sie, erscheint aber nicht in der Stream-Auswahl für Abfragen und kann nicht durchsucht werden. Deaktivieren Sie die Option für Quellstreams, die ausschließlich Daten an eine Routing-Pipeline liefern. Sie können dies später in den Einstellungen ändern."
+  },
+  "toast": {
+    "create_pending": "Der Stream {{name}} wird registriert, sobald eine Datenquelle erstmals Daten in ihn schreibt. Unter /streams gibt es noch keinen Endpunkt zum Erstellen von Streams."
+  },
+  "detail": {
+    "back": "Streams",
+    "fallback_title": "Stream",
+    "subtitle": "Stream-Details",
+    "query_logs": "In Logs abfragen",
+    "not_found_title": "Stream nicht gefunden",
+    "not_found_description": "Möglicherweise hat noch keine Datenquelle den Stream registriert.",
+    "fields": {
+      "id": "ID",
+      "label": "Bezeichnung",
+      "subtitle": "Untertitel"
+    }
+  },
+  "explore": {
+    "subtitle": "Betriebszustand, Abfrageeffizienz, Speicher und Aufbewahrung",
+    "system_stream_immutable": "Bei Systemstreams können Sie nur Feldindexierung, Maskierung, Aufbewahrung und Downsampling konfigurieren. Identität, Verschlüsselung und Löschung werden vom System verwaltet.",
+    "toolbar": {
+      "refresh": "Aktualisieren",
+      "query_data": "Daten abfragen",
+      "more": "Weitere Aktionen",
+      "copy_id": "Stream-ID kopieren",
+      "id_copied": "Stream-ID kopiert",
+      "delete": "Stream löschen",
+      "discard": "Änderungen verwerfen",
+      "save": "Speichern und anwenden",
+      "saving": "Wird angewendet…"
+    },
+    "metadata": {
+      "type": "Typ",
+      "status": "Laufzeitstatus",
+      "last_received": "Zuletzt empfangen",
+      "retention": "Standardaufbewahrung",
+      "active_type": "Aktueller Typ: {{type}}",
+      "switch_type": "Zum Stream vom Typ {{type}} wechseln",
+      "switch_blocked": "Speichern oder verwerfen Sie die Änderungen am aktuellen Typ, bevor Sie den Typ wechseln."
+    },
+    "tabs": {
+      "overview": "Übersicht",
+      "schema": "Felder und Indizes",
+      "retention": "Aufbewahrung",
+      "usage": "Nutzung",
+      "settings": "Einstellungen"
+    },
+    "tabs_label": "Stream-Bereiche",
+    "index_options": {
+      "none": "Nicht indiziert",
+      "full_text": "Volltextsuche",
+      "exact": "Exakte Übereinstimmung",
+      "bloom": "Bloom-Filter",
+      "skip": "Skip-Index",
+      "ngram": "N-Gramm-Teilzeichenfolge",
+      "ip": "IP-Adresse",
+      "key_value": "JSON-Schlüssel",
+      "range": "Numerischer Wertebereich"
+    },
+    "kpis": {
+      "events_24h": "Geschriebene Zeilen in 24 h",
+      "receive_rate": "Durchschnittliche Empfangsrate",
+      "compressed_24h": "Komprimierte Daten in 24 h",
+      "current_storage": "Aktuelle Speicherbelegung",
+      "index_coverage": "Anteil indizierter Felder",
+      "from_catalog": "Aus aktuellen Speichermetadaten",
+      "average_24h": "Für die letzten 24 Stunden berechnet",
+      "compressed_note": "Komprimierte Parquet-Daten",
+      "live_parquet": "Aktive, nicht gelöschte Dateien",
+      "index_coverage_note": "Nach Feldanzahl, nicht nach Indexgröße in Byte",
+      "index_backfill": "Ältere Daten werden erneut indiziert. Noch {{count}} Dateien."
+    },
+    "overview": {
+      "stats_unavailable": "Laufzeitstatistiken sind nicht verfügbar. Sie können die Konfiguration weiterhin bearbeiten. Aktualisieren Sie die Ansicht, um die Speichermetadaten erneut abzufragen.",
+      "no_data_title": "Noch keine Daten empfangen",
+      "no_data_description": "Senden Sie Daten aus einer Datenquelle an „{{stream}}“ oder senden Sie ein Testereignis, um den Empfang zu prüfen.",
+      "configure_source": "Datenquelle konfigurieren",
+      "send_test": "Testdaten senden",
+      "sending_test": "Wird gesendet…",
+      "test_sent": "Testdaten gesendet: {{accepted}} angenommen, {{rejected}} abgelehnt",
+      "operational_state": "Laufzeitzustand",
+      "first_received": "Erster Empfang",
+      "queryability": "Abfragefähigkeit",
+      "queryable": "Abfragbar",
+      "not_queryable": "Nur Datenerfassung",
+      "trend_title": "Verlauf von Datenempfang und Speicherung",
+      "trend_subtitle": "Letzte 24 Stunden · tatsächliche Parquet-Dateien",
+      "metric_rows": "Geschriebene Zeilen",
+      "metric_storage": "Komprimierte Daten",
+      "no_chart_data": "Keine darstellbaren Daten in diesem Zeitraum",
+      "now": "Jetzt"
+    },
+    "schema": {
+      "summary": "{{fields}} Felder · {{indexed}} indiziert · {{encrypted}} verschlüsselt",
+      "readonly_hint": "Standardmäßig schreibgeschützt. Wählen Sie „Bearbeiten“, um Indizierung und Maskierung zu ändern.",
+      "search_placeholder": "Felder suchen",
+      "fts_title": "Die Volltextsuche wird pro Feld konfiguriert",
+      "fts_description": "Aktivieren Sie die Volltextindizierung für Felder wie message oder body, um MATCH-Abfragen zu beschleunigen. Vorhandene Daten werden nicht automatisch neu indiziert.",
+      "configure_index": "Feldindex konfigurieren",
+      "storage_type": "Speichertyp: {{type}}",
+      "field_types": {
+        "boolean": "Boolean",
+        "integer": "Integer",
+        "decimal": "Dezimalzahl",
+        "string": "String",
+        "timestamp": "Zeitstempel",
+        "json": "JSON"
+      },
+      "columns": {
+        "name": "Feldname",
+        "type": "Typ",
+        "index_type": "Indextyp",
+        "encryption": "Verschlüsselung"
+      },
+      "index_type_hint": "Exakte Übereinstimmung eignet sich für IDs und Dimensionen mit wenigen Werten, Volltext für Logtexte, N-Gramm für die Suche nach Teilen von URLs und Pfaden, IP für die Adresssuche nach Netzwerk und JSON-Schlüssel für die Filterung von JSON-Feldern nach einem ihrer Schlüssel.",
+      "encrypted": "Verschlüsselt",
+      "encrypted_hint": "Dieses Feld wird vor dem Speichern verschlüsselt. Die Einstellung lässt sich hier nicht ändern, ohne vorhandene Daten unlesbar zu machen.",
+      "edit_field": "Feld {{name}} bearbeiten",
+      "drawer_title": "Feld bearbeiten · {{name}}",
+      "drawer_fallback": "Feld bearbeiten",
+      "drawer_subtitle": "Konfigurieren Sie die Indizierung für Abfragen und die Maskierung von Ergebnissen, ohne den Feldtyp zu ändern.",
+      "cancel": "Abbrechen",
+      "apply": "In Entwurf übernehmen",
+      "no_schema": "Dieser Stream hat noch kein Schema. Die Felder erscheinen, sobald die Datenquelle erstmals Daten schreibt.",
+      "no_match": "Keine passenden Felder.",
+      "masking": {
+        "title": "Maskierung von Ergebnisfeldern",
+        "description": "Das Backend maskiert die endgültigen Abfrageergebnisse, Exporte und API-Antworten. Beim Filtern, Sortieren und Aggregieren werden weiterhin die Rohwerte verwendet.",
+        "mode": "Richtlinie auf Stream-Ebene",
+        "modes": {
+          "inherit": "Globale Regel übernehmen",
+          "custom": "Benutzerdefinierte Stream-Regel",
+          "none": "Für diesen Stream ausdrücklich nicht maskieren"
+        },
+        "no_global_rule": "Derzeit trifft keine globale Regel zu",
+        "no_global_rule_hint": "Das Feld bleibt trotz Vererbung derzeit unmaskiert. Sobald eine passende globale Regel vorliegt, wird sie automatisch angewendet.",
+        "explicit_none_hint": "Für dieses Feld ist die globale Maskierung in diesem Stream ausdrücklich deaktiviert. Wählen Sie „Globale Regel übernehmen“, um das globale Verhalten wiederherzustellen.",
+        "metrics_disabled": "In Metrik-Streams werden Felder nicht maskiert. Metrikwerte und Labels bleiben unverändert. Die Indexierung bleibt konfigurierbar."
+      }
+    },
+    "retention": {
+      "default_policy": "Standardaufbewahrungsdauer",
+      "data_retention_days": "Datenaufbewahrung (Tage)",
+      "days_default_hint": "Lassen Sie das Feld leer, um den Plattformstandard von {{days}} Tagen zu verwenden.",
+      "days_placeholder": "Standard: {{days}} Tage",
+      "default_explanation": "Daten, die älter als die Aufbewahrungsdauer sind, werden bei der nächsten Bereinigung gelöscht. Wenn Sie die Aufbewahrungsdauer verkürzen, werden auch Daten gelöscht, die dadurch die neue Frist überschreiten.",
+      "downsample": "Downsampling",
+      "downsample_toggle": "Ältere Messpunkte aggregieren",
+      "downsample_hint": "Messpunkte, die älter als die festgelegte Anzahl von Tagen sind, werden je Zeitfenster aggregiert. Pro Zeitreihe entsteht je Fenster ein Datenpunkt: Werte werden gemittelt und Delta-Zählwerte summiert. Die ursprünglichen Messpunkte werden gelöscht. Abfragen über lange Zeiträume lesen dadurch deutlich weniger Daten. Ältere Daten sind nur noch in der Auflösung der Zeitfenster verfügbar.",
+      "downsample_after_days": "Aufbewahrungsdauer für Originalmesspunkte (Tage)",
+      "downsample_after_days_hint": "Ältere Messpunkte werden aggregiert. Die ursprünglichen Messpunkte lassen sich danach nicht wiederherstellen.",
+      "downsample_interval": "Zeitfenster",
+      "intervals": {
+        "60": "1 Minute",
+        "300": "5 Minuten",
+        "900": "15 Minuten",
+        "3600": "1 Stunde",
+        "86400": "1 Tag"
+      }
+    },
+    "usage": {
+      "loading": "Verwendung wird geprüft…",
+      "write_source": "Schreibquelle",
+      "write_source_hint": "Aufnahmeendpunkt, der diesen Stream-Namen empfängt",
+      "intake_endpoint": "Aufnahmeendpunkt",
+      "pipelines": "Pipelines",
+      "pipelines_hint": "Verwenden diesen Stream als Quelle oder Ziel",
+      "saved_queries": "Gespeicherte Abfragen",
+      "saved_queries_hint": "Explizit an diesen Stream gebunden",
+      "alert_rules": "Alarmregeln",
+      "alert_rules_hint": "Werden anhand der Daten dieses Streams ausgewertet",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "none": "Keine verknüpften Elemente",
+      "partial_unavailable": "Einige benötigte Dienste sind nicht verfügbar. Das Ergebnis ist möglicherweise unvollständig."
+    },
+    "runtime": {
+      "basic": "Grundinformationen",
+      "basic_hint": "Beschreiben Sie die Geschäftsdaten in diesem Stream und seinen Zweck.",
+      "description_label": "Beschreibung",
+      "description_placeholder": "Welche Daten enthält dieser Stream?",
+      "query_capabilities": "Abfrageeinstellungen",
+      "query_capabilities_hint": "Legen Sie den Abfragezugriff und den Abfragezeitraum fest. Wenn Sie den Abfragezugriff deaktivieren, werden weiterhin Daten erfasst.",
+      "max_query_range": "Max. Abfragezeitraum (Stunden)",
+      "max_query_range_hint": "Maximale Anzahl an Stunden pro Abfrage. Abfragen über einen längeren Zeitraum werden abgelehnt. Ein leeres Feld oder 0 bedeutet unbegrenzt.",
+      "storage_behavior": "Speicherverhalten",
+      "storage_behavior_hint": "Bestimmt, wie Datendateien zusammengeführt und aufgeteilt werden.",
+      "queryable": "Abfragbar",
+      "queryable_hint": "Bei deaktivierter Option empfängt und speichert der Stream weiterhin Daten, wird aber in der Abfrageauswahl ausgeblendet und von der Suche abgelehnt. Deaktivieren Sie die Option für Quellstreams, die nur eine Routing-Pipeline speisen.",
+      "daily_merge": "Kleine Dateien pro Tag zusammenführen",
+      "daily_merge_hint": "Eine Stunde nach Tagesende werden die Dateien des Tages zu einer Datei zusammengeführt, sofern ihre Gesamtgröße die Zielgröße für die Zusammenführung nicht überschreitet. So öffnen Abfragen über mehrere Tage deutlich weniger Dateien. Die Aufbewahrungsfrist gilt dann tageweise: Eine zusammengeführte Datei wird erst gelöscht, wenn die Frist für den gesamten Tag abgelaufen ist.",
+      "partition_field": "Nach Feld aufteilen",
+      "partition_field_hint": "Neue Daten werden anhand der Werte dieser Felder auf Shards verteilt. Abfragen mit Bedingungen für diese Felder lesen nur Shards, die passende Daten enthalten können. Das eignet sich für Felder, die in fast jeder Abfrage vorkommen, etwa für den Dienst oder Mandanten. Hash verteilt die Daten gleichmäßig und beschleunigt Abfragen mit = und IN. Bei der Aufteilung nach dem ersten Zeichen erhält jede Ziffer und jeder Buchstabe unabhängig von der Groß- und Kleinschreibung einen eigenen Shard. Alle anderen Zeichen teilen sich einen weiteren Shard. Das beschleunigt auch LIKE-Abfragen mit einem festen Präfix wie 'abc%'. Es sind höchstens zwei Felder zulässig. Das Produkt ihrer Shard-Anzahlen darf 256 nicht überschreiten.",
+      "partition_none": "Nicht aufgeteilt",
+      "partition_total": "Insgesamt {{count}} Shards",
+      "partition_add": "Feld hinzufügen",
+      "partition_remove": "Dieses Feld entfernen",
+      "partition_method": "Aufteilungsmethode",
+      "partition_methods": {
+        "hash": "Hash · {{count}} Shards",
+        "prefix": "Erstes Zeichen · {{count}} Shards"
+      },
+      "partition_too_many": "Das Produkt der Shard-Anzahlen beider Felder überschreitet {{max}}.",
+      "clustering_field": "Nach Feld clustern",
+      "clustering_field_hint": "In neu geschriebenen Logdateien werden Zeilen in Zeitabschnitte eingeteilt und darin nach den Werten dieser Felder sortiert. Eine Abfrage mit einer Gleichheitsbedingung für eines dieser Felder, etwa service = 'checkout', liest dann pro Zeitabschnitt nur die wenigen Seiten mit dem gesuchten Wert. Das eignet sich für häufig abgefragte Felder mit wenigen unterschiedlichen Werten, etwa für den Dienst oder das Log-Level. Jede Datei enthält außerdem die Zeilenanzahl pro Minute und Feldwert. So müssen Zählabfragen und Minutenhistogramme, die nach diesen Feldern filtern oder gruppieren, keine Datenzeilen lesen. Es sind höchstens zwei Felder zulässig. Längere Zeitabschnitte ermöglichen es, mehr Seiten zu überspringen. Beim Lesen der neuesten Zeilen muss zusätzlich ein Zeitabschnitt sortiert werden.",
+      "clustering_none": "Chronologisch",
+      "clustering_slices": "Abschnitte à {{interval}}",
+      "clustering_add": "Feld hinzufügen",
+      "clustering_remove": "Dieses Feld entfernen",
+      "clustering_interval": "Zeitabschnitt",
+      "clustering_minutes_one": "{{count}} Minute",
+      "clustering_minutes_other": "{{count}} Minuten",
+      "clustering_seconds_one": "{{count}} Sekunde",
+      "clustering_seconds_other": "{{count}} Sekunden",
+      "field_indexes": "Feldindizes",
+      "field_indexes_hint": "Der Name eines Felds bestimmt, welchen Index es erhält, wenn es zum ersten Mal in diesem Stream erscheint.",
+      "index_pattern": "Index für neue Felder",
+      "index_pattern_name": "Feldnamensmuster",
+      "index_pattern_hint": "Es gilt die erste Regel, deren Muster zum Feldnamen und deren Index zum Feldtyp passt. Dabei steht * für eine beliebige Zeichenfolge und ? für ein einzelnes Zeichen, etwa in *_id oder http.*. Die Regeln gelten nur für neu hinzukommende Felder. Bestehende Felder ändern Sie unter „Felder und Indizes“. Ein direkt für einen Feldnamen festgelegter Index hat Vorrang.",
+      "index_pattern_add": "Regel hinzufügen",
+      "index_pattern_remove": "Diese Regel entfernen",
+      "index_pattern_up": "Nach oben verschieben",
+      "index_pattern_down": "Nach unten verschieben"
+    },
+    "changes": {
+      "unsaved": "Sie haben ungespeicherte Änderungen",
+      "review": "Die neue Konfiguration wird direkt nach dem Speichern wirksam.",
+      "index_risk": "Neue Daten werden sofort nach der neuen Konfiguration indexiert. Bereits geschriebene Daten werden im Hintergrund neu indexiert. Den Fortschritt sehen Sie in der Übersicht unter „Abdeckung indexierter Felder“.",
+      "retention_risk": "Die Aufbewahrungsdauer wird auf {{days}} Tage verkürzt. Daten, deren Aufbewahrungsfrist abgelaufen ist, können gelöscht werden.",
+      "query_risk": "Wenn der Abfragezugriff deaktiviert ist, nimmt dieser Stream weiterhin Daten an, weist aber Abfragen und Suchanfragen ab.",
+      "downsample_risk": "Ursprüngliche Messwerte, die älter als {{days}} Tage sind, werden in Zeitintervallen zusammengefasst und anschließend gelöscht. Dies kann nicht rückgängig gemacht werden.",
+      "partition_risk": "Die Partitionierung gilt nur für neue Daten. Bestehende Dateien bleiben unverändert.",
+      "clustering_risk": "Clustering gilt nur für neue Daten. Bestehende Dateien bleiben unverändert."
+    },
+    "validation": {
+      "retention_days": "Die Aufbewahrungsdauer muss in ganzen Tagen zwischen 1 und {{max}} angegeben werden.",
+      "max_query_range": "Der maximale Abfragezeitraum muss in ganzen Stunden zwischen 0 und {{max}} angegeben werden.",
+      "downsample_after_days": "Die Aufbewahrungsdauer für ursprüngliche Messwerte muss in ganzen Tagen zwischen 1 und {{max}} angegeben werden.",
+      "index_pattern_length": "Ein Feldnamensmuster darf höchstens {{max}} Zeichen lang sein.",
+      "index_pattern_duplicate": "Feldnamensmuster müssen eindeutig sein."
+    },
+    "delete_confirm_title": "Diesen Stream löschen?",
+    "delete_confirm_description": "„{{stream}}“ und die zugehörige Konfiguration werden gelöscht. Dies kann nicht rückgängig gemacht werden.",
+    "toast": {
+      "updated": "Stream-Konfiguration aktualisiert",
+      "deleted": "Stream gelöscht"
+    },
+    "delete_consequences": {
+      "stored": "Gespeicherte Daten",
+      "rows": "Zeilen"
+    }
+  },
+  "jobs": {
+    "title": "Suchjobs",
+    "subtitle": "Abfragen, die in eine Warteschlange gestellt, im Hintergrund ausgeführt und mit ihren Ergebnissen bis zum Ablauf aufbewahrt werden",
+    "entry": "Suchjobs",
+    "views_label": "Jobstatus",
+    "states": {
+      "all": "Alle",
+      "pending": "In Warteschlange",
+      "running": "Wird ausgeführt",
+      "done": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen"
+    },
+    "kinds": {
+      "query": "Abfrage",
+      "backfill": "Backfill"
+    },
+    "scope_own": "Nur von Ihnen gestartete Jobs",
+    "live": "Jobs laufen. Die Ansicht wird alle {{seconds}} s aktualisiert.",
+    "columns": {
+      "kind": "Typ",
+      "job": "Job",
+      "status": "Status",
+      "time_range": "Abgefragter Zeitraum",
+      "submitted": "Eingereicht",
+      "duration": "Dauer / Abschluss",
+      "rows": "Ergebniszeilen",
+      "attempt": "Versuch",
+      "expires": "Läuft ab",
+      "actions": "Aktionen"
+    },
+    "cells": {
+      "request_unreadable": "Die Abfrage dieses Jobs kann nicht gelesen werden",
+      "pipeline": "Pipeline öffnen",
+      "finished_at": "Abgeschlossen: {{time}}",
+      "not_finished": "Nicht abgeschlossen",
+      "attempt_title": "Versuch {{number}}",
+      "expired": "Abgelaufen",
+      "expired_title": "Abgelaufen, Bereinigung steht aus",
+      "error": "Fehlgeschlagen: {{error}}"
+    },
+    "actions": {
+      "cancel": "Job abbrechen",
+      "cancel_named": "Job {{id}} abbrechen",
+      "retry": "Erneut versuchen",
+      "retry_named": "Job {{id}} erneut ausführen",
+      "download": "Ergebnisse herunterladen",
+      "download_named": "Ergebnisse von Job {{id}} herunterladen",
+      "download_empty": "Dieser Job hat keine Ergebniszeilen",
+      "delete": "Löschen",
+      "delete_named": "Job {{id}} löschen"
+    },
+    "cancel_confirm": {
+      "title": "Diesen Job abbrechen?",
+      "description": "Die Ausführung wird gestoppt. Sie können den Job später erneut ausführen. Er beginnt dann von vorn.",
+      "confirm": "Job abbrechen",
+      "keep": "Weiterlaufen lassen",
+      "busy": "Wird abgebrochen…"
+    },
+    "delete_confirm": {
+      "title": "Diesen Job löschen?",
+      "description": "Der Job und seine gespeicherten Ergebnisse werden gelöscht und können nicht wiederhergestellt werden.",
+      "description_active": "Der Job ist noch nicht abgeschlossen. Er wird zuerst abgebrochen und dann unwiderruflich gelöscht.",
+      "confirm": "Löschen",
+      "busy": "Wird gelöscht…"
+    },
+    "toast": {
+      "cancelled": "Job abgebrochen",
+      "retried": "Job erneut in die Warteschlange gestellt",
+      "deleted": "Job gelöscht",
+      "downloaded": "{{count}} Ergebniszeilen heruntergeladen"
+    },
+    "empty": {
+      "title": "Noch keine Suchjobs",
+      "title_own": "Sie haben noch keinen Suchjob eingereicht",
+      "description": "Ein Suchjob ist eine Abfrage, die im Hintergrund ausgeführt wird und deren Ergebnisse bis zum Ablauf des Jobs gespeichert bleiben. Suchjobs entstehen auf drei Wegen:",
+      "source_async": "Eine Abfrage, die mit Prefer: respond-async gesendet wird oder deren Ergebnis voraussichtlich zu groß ist",
+      "source_backfill": "Ein Backfill für eine Datenpipeline",
+      "source_agent": "Eine von Mole Agent gesendete Abfrage",
+      "filtered_hint": "Wählen Sie einen anderen Status oder lassen Sie sich alle Jobs anzeigen.",
+      "filtered": {
+        "pending": "Keine Jobs in der Warteschlange",
+        "running": "Keine laufenden Jobs",
+        "done": "Keine abgeschlossenen Jobs",
+        "failed": "Keine fehlgeschlagenen Jobs",
+        "cancelled": "Keine abgebrochenen Jobs"
+      }
+    },
+    "denied": {
+      "title": "Sie können keine Suchjobs anzeigen",
+      "description": "Dafür benötigen Sie die Berechtigung query.jobs.read oder sys.telemetry.read."
+    },
+    "pagination": {
+      "aria": "Seitennavigation für Suchjobs",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "Jobs pro Seite",
+      "first_aria": "Erste Seite",
+      "previous_aria": "Vorherige Seite",
+      "next_aria": "Nächste Seite",
+      "last_aria": "Letzte Seite"
+    }
+  },
+  "usage": {
+    "entry": "Dateneingang",
+    "title": "Dateneingang",
+    "subtitle": "Hier sehen Sie das eingegangene Datenvolumen je Quelle im Vergleich zum jeweiligen Budget. Budgets dienen nur zur Information: Daten werden weiterhin erfasst.",
+    "dimensions_label": "Gruppieren nach",
+    "dimensions": {
+      "credential": "Zugangsdaten",
+      "stream": "Stream",
+      "service": "Service"
+    },
+    "search_placeholder": "Quelle suchen…",
+    "window_label": "Zeitraum",
+    "windows": {
+      "24h": "Letzte 24 Stunden",
+      "7d": "Letzte 7 Tage",
+      "30d": "Letzte 30 Tage"
+    },
+    "total": "{{bytes}} · insgesamt {{events}} Ereignisse",
+    "metering_since": "Messung seit {{time}}; frühere Daten werden nicht mitgezählt",
+    "truncated": "Es werden nur die 5.000 Quellen mit dem größten Datenvolumen angezeigt",
+    "unavailable": "Der Dateneingang kann derzeit nicht abgerufen werden",
+    "not_metered": "Es wurde noch nichts erfasst",
+    "no_match": "Keine Quelle entspricht der Suche",
+    "empty": {
+      "credential": "In diesem Zeitraum wurden mit keinen Zugangsdaten Daten gesendet",
+      "stream": "In diesem Zeitraum sind in keinem Stream Daten eingegangen",
+      "service": "In diesem Zeitraum ist in keinem Ereignis ein Service angegeben",
+      "hint": "Der Dateneingang wird hier innerhalb einer Minute angezeigt."
+    },
+    "columns": {
+      "source": "Quelle",
+      "source_key": "Quellschlüssel",
+      "intake_bytes": "Datenaufnahme",
+      "events": "Ereignisse",
+      "share": "Anteil",
+      "budget": "Budget",
+      "used": "Verbrauch im Zeitraum",
+      "used_ratio": "Budgetauslastung",
+      "state": "Status"
+    },
+    "states": {
+      "ok": "Im Budget",
+      "warning": "Fast ausgeschöpft",
+      "exceeded": "Budget überschritten"
+    },
+    "source": {
+      "internal": "Plattformintern",
+      "unnamed_service": "Unbenannter Service",
+      "other_services": "Andere Services",
+      "connector": "Konnektor · {{kind}}",
+      "user": "Angemeldeter Benutzer",
+      "missing": "Gelöscht"
+    },
+    "token_kinds": {
+      "personal": "Persönlicher Token",
+      "default_intake": "Standardtoken für die Datenaufnahme",
+      "rum_client": "RUM-Client-Token",
+      "service_account": "Dienstkonto-Token"
+    },
+    "budget": {
+      "none": "Nicht festgelegt",
+      "none_hint": "Für diese Quelle ist kein Budget festgelegt.",
+      "set": "Budget festlegen",
+      "change": "Ändern",
+      "remove": "Budget entfernen",
+      "per_day": "{{limit}} / Tag",
+      "per_month": "{{limit}} / Monat",
+      "set_title": "Budget festlegen",
+      "change_title": "Budget ändern",
+      "many_subtitle": "Gleiches Budget für {{count}} Quellen",
+      "period": "Zeitraum",
+      "periods": {
+        "day": "Täglich",
+        "day_hint": "Der Verbrauch wird pro Kalendertag in UTC erfasst.",
+        "month": "Monatlich",
+        "month_hint": "Der Verbrauch wird pro Kalendermonat in UTC erfasst."
+      },
+      "limit": "Limit",
+      "limit_hint": "Von 1 MiB bis 1 PiB.",
+      "unit": "Einheit",
+      "warn_percent": "Warnschwelle (%)",
+      "warn_percent_hint": "Eine Benachrichtigung erfolgt bei diesem Anteil des Limits und erneut, wenn das Limit ausgeschöpft ist. Bei 0 wird nur bei ausgeschöpftem Limit benachrichtigt.",
+      "notify": "Empfänger",
+      "notify_hint": "Die Benachrichtigungsrichtlinien nutzen den Kanal, den die jeweilige Person gewählt hat.",
+      "notify_self": "Die Mitgliederliste ist nicht verfügbar. Daher werden nur Sie benachrichtigt.",
+      "notify_required": "Wählen Sie mindestens eine Person aus.",
+      "save": "Budget speichern",
+      "saved_one": "Budget gespeichert",
+      "saved_other": "{{count}} Budgets gespeichert",
+      "save_failed": "{{count}} von {{total}} Budgets konnten nicht gespeichert werden: {{reason}}",
+      "remove_title_one": "Dieses Budget entfernen?",
+      "remove_title_other": "{{count}} Budgets entfernen?",
+      "remove_description": "Für diese Quellen werden keine Benachrichtigungen mehr gesendet. Ihr Verbrauch bleibt auf dieser Seite sichtbar.",
+      "removed_one": "Budget entfernt",
+      "removed_other": "{{count}} Budgets entfernt",
+      "remove_failed": "{{count}} von {{total}} Budgets konnten nicht entfernt werden: {{reason}}"
+    },
+    "detail": {
+      "trend": "Dateneingang im Zeitverlauf",
+      "by_credential": "Nach Zugangsdaten",
+      "by_stream": "Nach Stream",
+      "by_service": "Nach Service",
+      "nothing": "Keine Daten in diesem Zeitraum.",
+      "used": "{{used}} verbraucht ({{percent}})"
+    }
+  }
+}

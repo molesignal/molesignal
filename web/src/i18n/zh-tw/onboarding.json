@@ -1,0 +1,314 @@
+{
+  "activation": {
+    "title": "快速開始",
+    "drawer_description": "完成目前工作區的基本設定。",
+    "complete_title": "快速開始已完成",
+    "progress": "已完成 {{completed}}/{{total}}",
+    "progress_short": "{{completed}}/{{total}}",
+    "ready": "核心工作流程已啟用",
+    "empty": "接入資料後，建立儀表板和警示，組織就能開始運作。",
+    "remaining_single": "還有 1 個設定步驟",
+    "remaining_multiple": "還有 {{count}} 個設定步驟",
+    "next": "下一步",
+    "complete_action": "完成設定",
+    "open": "開啟",
+    "steps": {
+      "datasource": {
+        "title": "連接資料來源",
+        "description": "傳送第一筆日誌、指標或分散式追蹤資料。"
+      },
+      "dashboard": {
+        "title": "建立儀表板",
+        "description": "為團隊釘選一個營運檢視。"
+      },
+      "alert": {
+        "title": "建立警示",
+        "description": "定義第一個服務或平台訊號。"
+      },
+      "schedule": {
+        "title": "設定值班排程",
+        "description": "安排由誰在什麼時候接手處理警示。"
+      },
+      "notification": {
+        "title": "設定通知管道",
+        "description": "新增連接器，透過即時通訊、電子郵件、簡訊或電話通知相關人員。"
+      },
+      "ai": {
+        "title": "連接 AI 模型",
+        "description": "新增模型服務，讓 Mole Agent 協助排查問題。"
+      },
+      "pipeline": {
+        "title": "自動化管線",
+        "description": "排程執行資料移轉或回填工作流程。"
+      },
+      "sample_data": {
+        "title": "載入範例資料",
+        "description": "載入相關的日誌、指標和分散式追蹤資料，並準備總覽儀表板和 4 個查詢檢視；警示編輯器提供 3 個範例範本。"
+      }
+    },
+    "load": "載入",
+    "loading": "載入中…",
+    "load_success": "已載入 {{rows}} 列範例資料，儀表板和 4 個查詢檢視已可使用",
+    "done": "已完成"
+  },
+  "home": {
+    "title": "首頁",
+    "view_all": "全部",
+    "loading": "載入中…",
+    "unavailable": "暫時無法讀取",
+    "quick_start_one": "還差 {{count}} 步即可完成設定",
+    "quick_start_other": "還差 {{count}} 步即可完成設定",
+    "refresh": "重新整理",
+    "window": {
+      "label": "時間範圍",
+      "1h": "近 1 小時",
+      "24h": "近 24 小時",
+      "7d": "近 7 天"
+    },
+    "status": {
+      "title": "系統狀態",
+      "loading": "讀取中",
+      "ok": "運作正常",
+      "nothing": "你的角色無法查看系統狀態。",
+      "issues_one": "{{count}} 項異常",
+      "issues_other": "{{count}} 項異常",
+      "updated": "更新於 {{time}}"
+    },
+    "signal": {
+      "logs": "日誌",
+      "metrics": "指標",
+      "traces": "追蹤",
+      "profiles": "效能剖析"
+    },
+    "signal_state": {
+      "healthy": "正常",
+      "delayed": "延遲",
+      "degraded": "異常",
+      "no_data": "無資料",
+      "unknown": "未知"
+    },
+    "severity": {
+      "critical": "嚴重",
+      "error": "錯誤",
+      "warning": "警告",
+      "info": "資訊"
+    },
+    "tiles": {
+      "incidents": "進行中的事件",
+      "unacknowledged": "待確認 {{count}}",
+      "no_incidents": "沒有進行中的事件",
+      "rules": "觸發中的規則",
+      "of_enabled": "/ {{count}} 條已啟用",
+      "pending": "等待條件持續 {{count}}",
+      "services": "運作正常的服務",
+      "of_total": "/ {{count}} 個服務",
+      "no_traces": "無追蹤資料",
+      "checks": "通過的探測",
+      "of_passing": "/ {{count}} 項檢查",
+      "no_checks": "尚未設定檢查",
+      "error_rate": "請求錯誤率",
+      "requests": "{{value}} 次請求",
+      "p95": "P95 延遲"
+    },
+    "rule_state": {
+      "firing": "觸發中",
+      "pending": "等待條件持續",
+      "ok": "正常"
+    },
+    "service_health": {
+      "critical": "嚴重",
+      "warning": "警告",
+      "healthy": "健康",
+      "no_traffic": "無流量"
+    },
+    "check_state": {
+      "failing": "失敗",
+      "degraded": "降級",
+      "flaky": "不穩定",
+      "healthy": "通過",
+      "unknown": "無資料"
+    },
+    "services": {
+      "title": "服務",
+      "empty": "未收到 Trace。",
+      "connect": "連接服務",
+      "service": "服務",
+      "health": "狀態",
+      "throughput": "輸送量",
+      "error_rate": "錯誤率"
+    },
+    "incidents": {
+      "title": "進行中的事件",
+      "empty": "沒有進行中的事件",
+      "acknowledge": "確認"
+    },
+    "incident_status": {
+      "open": "待確認",
+      "acknowledged": "處理中",
+      "resolved": "已恢復",
+      "closed": "已關閉"
+    },
+    "intake": {
+      "title": "資料接收",
+      "streams": "資料串流",
+      "streams_active": "{{active}} / {{total}} 個資料串流有資料",
+      "stored": "儲存 {{size}}",
+      "received": "接收 {{size}}"
+    },
+    "checks": {
+      "title": "合成監控",
+      "empty": "尚無合成監控檢查。",
+      "create": "建立檢查",
+      "availability": "可用率",
+      "all_passing_one": "唯一的檢查已通過",
+      "all_passing_other": "{{count}} 項檢查皆已通過"
+    },
+    "oncall": {
+      "title": "我的值班",
+      "schedules": "排班",
+      "on_now": "值班中",
+      "next": "下一班",
+      "hands_over": "{{time}} 交班",
+      "none": "近 30 天沒有你的值班安排。",
+      "covering": "替 {{name}} 值班 · {{schedule}}",
+      "holding": "正在值班 · {{schedule}}",
+      "unreachable": "你已排班，但收不到警示。",
+      "set_up_notify": "設定通知方式",
+      "unavailable": "無法載入值班資訊",
+      "gap": "{{schedule}} 目前無人值班。",
+      "arrange": "立即安排"
+    }
+  },
+  "datasource": {
+    "endpoint": "端點",
+    "copy_endpoint": "複製端點",
+    "intake_token": "接入 Token",
+    "rum_client_token": "RUM Client Token",
+    "copy_token": "複製 Token",
+    "token_loading": "載入中…",
+    "token_description": "預設接入 token：貼到上方的 Authorization: Bearer 標頭即可。可在個人設定的 API tokens 中管理或新增。",
+    "validation": "驗證",
+    "test_event": "傳送測試事件",
+    "test_event_sending": "傳送中…",
+    "test_event_sent": "已傳送 · 接收 {{accepted}} 筆 · 拒絕 {{rejected}} 筆"
+  },
+  "datasource_page": {
+    "title": "資料來源接入中心",
+    "search_placeholder": "搜尋所有資料來源…",
+    "clear_search": "清除搜尋",
+    "matching": "{{count}} 個相符項目",
+    "no_match": "沒有符合「{{search}}」的資料來源",
+    "no_sources": "沒有資料來源",
+    "no_signal_match": "「{{category}}」中沒有可接入 {{signal}} 的資料來源。",
+    "show_all_signals": "顯示所有訊號",
+    "category_navigation": "資料來源分類",
+    "source_navigation": "資料來源清單",
+    "signal_filter": "訊號類型",
+    "guide_region": "接入指南",
+    "categories": {
+      "recommended": "推薦",
+      "infrastructure": "基礎架構",
+      "cloud": "雲端服務",
+      "databases": "資料庫",
+      "queues": "訊息佇列",
+      "applications": "應用程式與語言",
+      "security": "安全性",
+      "custom": "自訂"
+    },
+    "signals": {
+      "all": "全部",
+      "logs": "日誌",
+      "metrics": "指標",
+      "traces": "追蹤",
+      "profiles": "效能剖析",
+      "rum": "RUM"
+    },
+    "group_protocol": "依通訊協定接入",
+    "group_source": "整合來源",
+    "category": "分類: {{category}}",
+    "docs": "文件",
+    "endpoint_for": "{{signal}}端點",
+    "verify_connection": "驗證連線",
+    "steps": {
+      "prepare": {
+        "title": "端點與 Token",
+        "description": "資料要傳到哪裡、要用什麼方式驗證身分。下方指令已自動填入這兩項。",
+        "description_no_token": "資料要傳到哪裡、要用什麼方式驗證身分。"
+      },
+      "deploy": {
+        "title": "設定資料來源"
+      },
+      "verify": {
+        "title": "確認是否收到資料"
+      }
+    },
+    "create_dedicated_token": "產生專用 Token",
+    "manage_tokens": "管理 Token",
+    "show_token": "顯示 Token",
+    "hide_token": "隱藏 Token",
+    "token_permission": "權限範圍",
+    "token_workspace": "工作區",
+    "token_expiry": "有效期限",
+    "token_never_expires": "永不過期",
+    "token_load_failed": "無法載入連線用的 Token。此 Token 必須具備寫入資料的權限。",
+    "rum_application_id": "RUM 應用程式",
+    "rum_application_hint": "下方的 RUM Client Token 已繫結至此應用程式；傳送至其他應用程式的事件將遭拒收。",
+    "rum_application_required": "請先選取 RUM 應用程式，才能顯示其 Client Token。",
+    "rum_application_placeholder": "選取應用程式",
+    "rum_application_loading": "正在載入應用程式…",
+    "rum_application_none": "尚無 RUM 應用程式。",
+    "rum_application_create": "建立應用程式",
+    "rum_application_load_failed": "無法載入應用程式清單。",
+    "validation_overview_unavailable": "暫時無法讀取資料接收概況。",
+    "validation_endpoint_failed": "接收端健康檢查失敗。",
+    "validating": "檢查中…",
+    "recheck": "重新檢查",
+    "validation_state": {
+      "idle": {
+        "title": "尚未驗證",
+        "description": "先檢查接收端，再確認最近 1 小時內是否收到資料。"
+      },
+      "success": {
+        "title": "已偵測到資料",
+        "description": "最近 1 小時內，{{active}} / {{total}} 個支援的訊號已收到資料。"
+      },
+      "warning": {
+        "title": "接收端正常，但需確認資料狀態",
+        "description": "最近 1 小時內偵測到 {{active}} / {{total}} 個支援的訊號；請檢查部署或等待下一批資料。"
+      },
+      "error": {
+        "title": "驗證失敗",
+        "description": "無法完成接收端與資料狀態的檢查。"
+      }
+    },
+    "validation_metrics": {
+      "receiver": "接收端狀態",
+      "last_received": "上次收到資料的時間",
+      "streams": "活躍資料流",
+      "volume": "最近 1 小時"
+    },
+    "receiver_healthy": "正常 · {{ms}} ms",
+    "validation_volume": "{{rate}} · {{rows}} 列 · {{bytes}}",
+    "possible_causes": "可能原因",
+    "cause_collector": "收集器尚未啟動，或目前的設定未產生遙測資料。",
+    "cause_token": "Token 無效、已過期，或權限範圍不包含寫入資料。",
+    "cause_network": "收集器無法存取接收端點，或 Proxy／防火牆封鎖了請求。",
+    "view_received_data": "檢視已接收的資料",
+    "create_pipeline": "建立管線",
+    "validation_prefix": "資料通常會在 30-60 秒內出現。請開啟",
+    "validation_or": "或",
+    "validation_suffix": "頁面，確認對應的資料流已開始收到資料。如果仍未收到資料，請參閱",
+    "validation_doc_suffix": "文件。",
+    "logs": "日誌",
+    "streams": "資料流",
+    "troubleshooting": "疑難排解",
+    "health_check": "檢查後端運作狀態",
+    "health_checking": "檢查中…",
+    "health_ok": "OK · {{ms}} ms",
+    "copied": "已複製",
+    "copy": "複製",
+    "expand_code": "展開程式碼",
+    "collapse_code": "收合程式碼",
+    "token_missing": "沒有可用於資料接收的 Token，可在 Token 管理中建立。"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "sign_in_failed": "Anmeldung fehlgeschlagen",
+  "switch_org_success": "Zu {{name}} gewechselt",
+  "switch_org_failure": "Organisation konnte nicht gewechselt werden: {{message}}",
+  "request_failed": "Anfrage fehlgeschlagen",
+  "link_copied": "Link kopiert",
+  "generic": "Etwas ist schiefgelaufen"
+}

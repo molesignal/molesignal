@@ -1,0 +1,522 @@
+{
+  "inspector": {
+    "title": "Log-Inspektor",
+    "subtitle": "Prüfen Sie die Ausführung des Suchjobs und die Metadaten der Ergebnisse.",
+    "back": "Logs",
+    "pick_title": "Suchjob auswählen",
+    "pick_description": "Öffnen Sie den Inspektor aus einem abgeschlossenen Log-Suchjob, damit die URL die Job-ID enthält.",
+    "not_found_title": "Job nicht gefunden",
+    "not_found_description": "Der Suchjob ist möglicherweise abgelaufen oder die ID ist ungültig.",
+    "fields": {
+      "job_id": "job_id",
+      "state": "state",
+      "submitted_at": "submitted_at",
+      "started_at": "started_at",
+      "finished_at": "finished_at",
+      "result_rows": "result_rows",
+      "result_object_key": "result_object_key",
+      "error": "error",
+      "expires_at": "expires_at"
+    }
+  },
+  "explore": {
+    "title": "Logs",
+    "subtitle": "Explorer",
+    "time_ranges": {
+      "last_15m": "Letzte 15 Minuten",
+      "last_1h": "Letzte Stunde",
+      "last_6h": "Letzte 6 Stunden",
+      "last_24h": "Letzte 24 Stunden",
+      "last_7d": "Letzte 7 Tage"
+    },
+    "jump": {
+      "open_trace": "Trace öffnen",
+      "open_span": "Span öffnen"
+    },
+    "histogram": {
+      "normal": "Ohne Fehler",
+      "errors": "Fehler",
+      "hide": "Histogramm ausblenden",
+      "show": "Histogramm einblenden"
+    },
+    "toolbar": {
+      "histogram": "Histogramm",
+      "more_actions_aria": "Weitere Aktionen",
+      "actions_label": "Abfrageaktionen",
+      "copy_query": "Abfrage kopieren",
+      "copied_query": "Abfrage kopiert",
+      "reset_query": "Abfrage zurücksetzen",
+      "download_results": "Ergebnisse als JSON herunterladen",
+      "time_range_aria": "Log-Zeitraum auswählen",
+      "refresh_aria": "Abfrage aktualisieren",
+      "run": "Ausführen",
+      "running": "Wird ausgeführt…",
+      "clear_query": "Abfrage leeren",
+      "empty_query_summary": "Log-Ereignisse",
+      "collapse_editor": "Abfrage einklappen",
+      "expand_editor": "Abfrage ausklappen",
+      "editor": "Editor"
+    },
+    "views": {
+      "aria": "Ergebnisansicht",
+      "raw": "Logs",
+      "stats": "Statistik",
+      "inspection": "KI-Analyse",
+      "patterns": "Muster"
+    },
+    "stats": {
+      "measure": "Kennzahl",
+      "measure_aria": "Kennzahl",
+      "measures": {
+        "count": "Anzahl",
+        "distinct": "Anzahl eindeutiger Werte",
+        "avg": "Durchschnitt",
+        "sum": "Summe",
+        "min": "Min",
+        "max": "Max",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      },
+      "field_aria": "Feld für die Kennzahl",
+      "group": "nach",
+      "group_aria": "Gruppieren nach",
+      "group_time": "Zeit",
+      "group_none": "Keine Gruppierung",
+      "limit": "Top",
+      "limit_aria": "Anzahl der angezeigten Gruppen",
+      "chart_aria": "Diagrammtyp",
+      "charts": {
+        "stat": "Einzelwert",
+        "bar": "Balkendiagramm",
+        "line": "Liniendiagramm",
+        "table": "Tabelle"
+      },
+      "written": "Basiert auf dem Ergebnis der SQL-Anweisung.",
+      "copy_statement": "Statistikanweisung kopieren",
+      "edit_statement": "Im Editor bearbeiten",
+      "samples": {
+        "title": "Diese Anweisung liefert keine Statistik",
+        "description": "Die Statistikansicht zeigt das Ergebnis einer Aggregatabfrage. Verwenden Sie eine der folgenden Anweisungen oder formulieren Sie Ihre Abfrage mit Filtern und wählen Sie hier eine Kennzahl aus.",
+        "use": "Diese Anweisung verwenden"
+      },
+      "dashboard": {
+        "action": "Dashboard erstellen",
+        "title": "Dashboard erstellen",
+        "description": "Ein neues Dashboard mit diesen Statistiken in einem Panel wird erstellt.",
+        "name": "Dashboard-Name",
+        "panel": "Panel-Titel",
+        "creating": "Wird erstellt…",
+        "created": "Dashboard „{{name}}“ erstellt",
+        "open": "Dashboard öffnen",
+        "default_name": "Log-Statistiken für {{stream}}",
+        "written_panel": "SQL-Statistiken"
+      }
+    },
+    "inspection": {
+      "title": "KI-Analyse",
+      "intro": "Lassen Sie das Modell die Logs analysieren, die zu dieser Abfrage passen. Sie erhalten einen Überblick über Log-Volumen und Log-Level im Zeitverlauf, Auffälligkeiten, Spitzen und neue Ereignisse sowie Hinweise für die weitere Untersuchung.",
+      "target": "Analysierte Logs",
+      "target_all": "Alle Logs",
+      "model": "KI-Modell",
+      "requirements": "Schwerpunkte der Analyse",
+      "requirements_hint": "Optional. Ohne Angabe werden die Logs als Ganzes analysiert.",
+      "requirements_placeholder": "Beispiel: nur payment-service in der Produktionsumgebung; USER_CANCEL als erwartetes Ergebnis werten; neue Stacktraces nach Release aufschlüsseln.",
+      "disclosure": "Für die Analyse werden die Ergebnisse dieser Log-Abfrage an das KI-Modell {{model}} gesendet.",
+      "start": "Analyse starten",
+      "running": "Analyse läuft…",
+      "waiting": "Das Modell liest die Logs…",
+      "writing": "Das Modell erstellt den Bericht…",
+      "stop": "Stoppen",
+      "again": "Erneut analysieren",
+      "report": "Analysebericht",
+      "copy_report": "Analysebericht kopieren",
+      "continue_in_agent": "In Mole Agent fortfahren",
+      "chat_title": "Log-Analyse · {{stream}}",
+      "tool_running": "{{name}} wird aufgerufen",
+      "tool_done": "{{name}} wurde aufgerufen",
+      "tool_error": "Aufruf von {{name}} fehlgeschlagen",
+      "failed": "Die Analyse wurde nicht abgeschlossen",
+      "unavailable": {
+        "loading": "KI-Modell wird geprüft…",
+        "permission_title": "Sie können Mole Agent nicht verwenden",
+        "permission_description": "Mole Agent führt die KI-Analyse durch. Dafür ist die Berechtigung agent.use erforderlich.",
+        "model_title": "Richten Sie zuerst ein KI-Modell ein und aktivieren Sie es",
+        "model_description": "Ein KI-Modell liest die Logs und fasst die Ergebnisse zusammen. In dieser Organisation ist noch kein Modell aktiviert.",
+        "ask_admin": "Bitten Sie einen Administrator, ein Modell in den Einstellungen von Mole Agent zu aktivieren.",
+        "configure": "KI-Modell einrichten",
+        "failed_title": "Die Einstellungen des KI-Modells konnten nicht gelesen werden"
+      },
+      "prompt": {
+        "task": "Untersuchen Sie den Log-Stream „{{stream}}“ und verfassen Sie einen Analysebericht auf Englisch.",
+        "range": "Zeitraum: {{label}} ({{start}} bis {{end}}, Unix-Zeit in Mikrosekunden).",
+        "query": "Berücksichtigen Sie nur die Logs, die dieser Abfrage entsprechen: {{statement}}",
+        "query_all": "Untersuchen Sie alle Logs des Streams in diesem Zeitraum.",
+        "steps": "Lesen Sie die Daten für diesen Zeitraum selbst mit den verfügbaren Tools für Log-Abfragen. Fassen Sie im Fazit das Log-Volumen, den Anteil jedes Log-Levels und Ihre Einschätzung zusammen, ob der Gesamtzustand unauffällig ist. Führen Sie als Belege einzeln auf: den zeitlichen Verlauf des Log-Volumens und der Log-Level, die wichtigsten Arten von Fehlern und Warnungen mit dem Zeitpunkt ihres ersten Auftretens und den beteiligten Diensten, deutliche Spitzen sowie auffällige neue oder seltene Muster. Nennen Sie anschließend die wahrscheinlichen Ursachen und die nächsten Schritte in der Reihenfolge des Schweregrads.",
+        "rules": "Analysieren Sie die Daten nur lesend und ändern Sie nichts. Stützen Sie jede Feststellung auf ein Abfrageergebnis. Wenn keine Daten gelesen werden können, geben Sie dies an, statt zu spekulieren.",
+        "digest_one": "Was der {{count}} auf der Seite geladene Log-Eintrag zeigt (nur als Ausgangspunkt):",
+        "digest_other": "Was die {{count}} auf der Seite geladenen Log-Einträge zeigen (nur als Ausgangspunkt):",
+        "digest_levels": "Log-Level",
+        "digest_services": "Dienste",
+        "requirements": "Darauf kommt es an:"
+      },
+      "no_logs": "Die Abfrage liefert keine Logs. Daher gibt es derzeit nichts zu untersuchen."
+    },
+    "field_analysis": {
+      "scope_all": "Von allen Log-Einträgen der Abfrage",
+      "scope_loaded_one": "Von dem {{count}} geladenen Log-Eintrag",
+      "scope_loaded_other": "Von den {{count}} geladenen Log-Einträgen"
+    },
+    "left_panel": {
+      "title": "Felder",
+      "collapse": "Felder einklappen",
+      "expand": "Felder ausklappen",
+      "resize": "Ziehen, um die Breite des Feldbereichs anzupassen. Doppelklicken zum Zurücksetzen.",
+      "select_stream_aria": "Log-Stream auswählen",
+      "select_stream_placeholder": "Stream auswählen",
+      "loading_streams": "Streams werden geladen…",
+      "no_streams": "Keine Streams verfügbar",
+      "field_search_placeholder": "Felder suchen",
+      "filter_fields_aria": "Felder filtern",
+      "visible_fields": "Angezeigte Felder",
+      "indexed_fields": "Indizierte Felder",
+      "no_indexed_fields": "Dieser Stream enthält keine indizierten Felder.",
+      "other_fields": "Weitere Felder",
+      "no_top_values": "Im aktuellen Ergebnis gibt es keine Werte zum Zusammenfassen.",
+      "include_value": "Einschlussfilter hinzufügen",
+      "exclude_value": "Ausschlussfilter hinzufügen",
+      "include_value_aria": "Nach Wert {{value}} filtern",
+      "exclude_value_aria": "Wert {{value}} ausschließen",
+      "loading_fields": "Felder werden geladen…",
+      "no_matching_fields": "Keine passenden Felder.",
+      "no_fields_from_query": "Diese Abfrage liefert keine Felder.",
+      "pick_stream_prompt": "Wählen Sie einen Stream aus, um seine Felder zu untersuchen.",
+      "show_field_aria": "{{name}} anzeigen",
+      "hide_field_aria": "{{name}} ausblenden",
+      "add_field_aria": "{{name}} zur Abfrage hinzufügen",
+      "json_query_required": "{{name}} erfordert im SQL-Modus eine JSON-Pfadabfrage",
+      "fields_summary": "{{shown}} / {{total}} Felder · {{visible}} angezeigt",
+      "refresh_fields_aria": "Felder aktualisieren"
+    },
+    "table": {
+      "time_column": "_timestamp",
+      "level_column": "Log-Level",
+      "source_column": "source",
+      "message_column": "Meldung",
+      "events_summary": "{{events}} Ereignisse · {{ms}} ms",
+      "pagination_aria": "Seitennavigation für Log-Ergebnisse",
+      "page_summary": "{{page}} / {{pages}}",
+      "events_per_page_aria": "Ereignisse pro Seite",
+      "first_page_aria": "Erste Seite der Ereignisse",
+      "prev_page_aria": "Vorherige Seite der Ereignisse",
+      "next_page_aria": "Nächste Seite der Ereignisse",
+      "prev_page": "Zurück",
+      "next_page": "Weiter",
+      "last_page_aria": "Letzte Seite der Ereignisse",
+      "running_query": "Abfrage läuft…",
+      "no_events": "Keine Ereignisse in diesem Zeitraum.",
+      "row_aria": "Log-Zeile {{index}} öffnen"
+    },
+    "recovery": {
+      "query_failed": "Log-Abfrage fehlgeschlagen",
+      "no_data_title": "Keine passenden Logs",
+      "no_data_description": "In diesem Zeitraum wurden keine passenden Logs gefunden. Entfernen Sie die Filter oder erweitern Sie den Zeitraum, bevor Sie den Stream wechseln.",
+      "expand_time": "Zeitraum vervierfachen",
+      "clear_filters": "Filter entfernen und erneut versuchen",
+      "query_docs": "Dokumentation zu Log-Abfragen"
+    },
+    "conditions": {
+      "unmatched_one": "Nicht zur Abfrage hinzugefügt: {{conditions}}. Im Stream {{stream}} gibt es dafür kein Feld.",
+      "unmatched_other": "Nicht zur Abfrage hinzugefügt: {{conditions}}. Im Stream {{stream}} gibt es dafür keine Felder.",
+      "pinned_one": "angehefteter Filter {{conditions}}",
+      "pinned_other": "angeheftete Filter {{conditions}}",
+      "groups": "{{link}}; {{pinned}}",
+      "meanings": {
+        "trace_id": "Trace-ID",
+        "span_id": "Span-ID",
+        "service": "Service",
+        "host": "Host",
+        "route": "Route",
+        "operation": "Operation",
+        "method": "Methode",
+        "status": "Statuscode",
+        "environment": "Umgebung",
+        "pod": "Pod"
+      }
+    },
+    "results": {
+      "content": "Inhalt",
+      "columns": "Spalten",
+      "visible_columns": "Sichtbare Felder",
+      "reorder_columns_hint": "Reihenfolge durch Ziehen ändern",
+      "available_columns": "Verfügbare Felder",
+      "reset_columns": "Auf Standard zurücksetzen",
+      "drag_column_aria": "Position von {{name}} ändern. Ziehen Sie die Spalte oder drücken Sie Alt+Pfeil nach oben oder Alt+Pfeil nach unten.",
+      "download": "Logs herunterladen",
+      "download_csv": "CSV",
+      "download_log": "LOG (Text)"
+    },
+    "patterns": {
+      "events": "Ereignisse",
+      "share": "Teilen",
+      "pattern_one": "{{count}} Muster",
+      "pattern_other": "{{count}} Muster",
+      "level": "Log-Level",
+      "source": "Quelle",
+      "open_aria_one": "{{pattern}}: {{count}} Ereignis. Logs zu diesem Ereignis anzeigen",
+      "open_aria_other": "{{pattern}}: {{count}} Ereignisse. Logs zu diesen Ereignissen anzeigen",
+      "filter": "Nur Logs mit diesem Muster anzeigen",
+      "filter_aria": "Nur Logs mit dem Muster {{pattern}} anzeigen",
+      "show_more_one": "{{count}} weiteres anzeigen",
+      "show_more_other": "{{count}} weitere anzeigen",
+      "basis_latest": "Die neuesten passenden Ereignisse",
+      "basis_all": "Alle passenden Ereignisse",
+      "basis_returned": "Die von der Abfrage zurückgegebenen Ereignisse",
+      "basis_back_to": "zurück bis {{moment}}",
+      "read_more": "{{logs}} ältere Logs laden",
+      "reading": "Wird geladen…",
+      "read_failed": "Ältere Logs konnten nicht geladen werden.",
+      "unread_one": "{{count}} Ereignis enthält keine Meldung und ist keinem Muster zugeordnet.",
+      "unread_other": "{{count}} Ereignisse enthalten keine Meldung und sind keinem Muster zugeordnet.",
+      "kind": {
+        "number": "Eine Zahl",
+        "id": "Eine Kennung",
+        "ip": "Eine Adresse",
+        "url": "Eine URL",
+        "time": "Ein Zeitpunkt",
+        "data": "Strukturierte Daten",
+        "any": "Ein Wert"
+      }
+    },
+    "detail": {
+      "drawer_aria": "Seitenbereich für Logdetails",
+      "filter_placeholder": "Felder filtern",
+      "no_field_match": "Keine passenden Felder.",
+      "views_aria": "Ansichten des Logeintrags",
+      "close": "Logdetails schließen",
+      "copy_json": "Logeintrag als JSON kopieren",
+      "copied_json": "Logeintrag als JSON kopiert",
+      "download_json": "Logeintrag als JSON herunterladen",
+      "tabs": {
+        "fields": "Felder",
+        "trace": "Trace",
+        "json": "JSON-Rohdaten",
+        "context": "Kontext"
+      },
+      "context_description": "Sehen Sie sich die jeweils fünf Zeilen vor und nach dem aktuellen Ergebnis an. Wählen Sie eine Zeile aus, um sie zu öffnen.",
+      "position": "{{current}} von {{total}}",
+      "prev": "Zurück",
+      "next": "Weiter",
+      "include_filter": "Einschlussfilter hinzufügen",
+      "exclude_filter": "Ausschlussfilter hinzufügen",
+      "copy_value": "Wert kopieren",
+      "copied_value": "Feldwert kopiert",
+      "show_column": "Als Spalte anzeigen",
+      "hide_column": "Spalte ausblenden",
+      "open_trace": "Trace öffnen",
+      "stream": "Stream",
+      "resize": "Breite des Log-Seitenbereichs ändern"
+    }
+  },
+  "inspections": {
+    "title": "Geplante Prüfungen",
+    "subtitle": "Die KI prüft einen Logstream nach Zeitplan, speichert jeden Bericht und benachrichtigt Sie, wenn ein Bericht auf ein Problem hinweist.",
+    "entry": "Geplante Prüfungen",
+    "save_as": "Als geplante Prüfung speichern",
+    "new": "Neue Prüfung",
+    "enabled": "Ein",
+    "never_run": "Noch nicht ausgeführt",
+    "live": "Eine Prüfung läuft. Aktualisierung alle {{seconds}} s",
+    "levels": {
+      "normal": "Unauffällig",
+      "attention": "Aufmerksamkeit erforderlich",
+      "abnormal": "Auffällig",
+      "unknown": "Keine Bewertung"
+    },
+    "run_status": {
+      "queued": "In der Warteschlange",
+      "running": "Prüfung läuft",
+      "succeeded": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "timed_out": "Zeitlimit überschritten"
+    },
+    "failures": {
+      "timed_out": "Die Prüfung hat ihr Zeitlimit überschritten.",
+      "interrupted": "Der Knoten, der die Prüfung ausführte, wurde vor deren Abschluss gestoppt.",
+      "not_started": "Kein Knoten hat die Prüfung übernommen.",
+      "identity": "Das Benutzerkonto, unter dem die Prüfung ausgeführt wird, ist nicht mehr verfügbar. Speichern Sie die Prüfung erneut, um sie unter Ihrem eigenen Konto auszuführen.",
+      "model": "Das für die Prüfung ausgewählte KI-Modell fehlt, ist deaktiviert oder hat keinen Schlüssel.",
+      "agent": "Der Aufruf des KI-Modells ist fehlgeschlagen.",
+      "internal": "Die Prüfung ist aufgrund eines internen Fehlers fehlgeschlagen.",
+      "budget": "Das heutige Tokenbudget der Organisation für Mole Agent ist aufgebraucht. Die Prüfung wird wieder ausgeführt, sobald das Budget zurückgesetzt oder erhöht wird."
+    },
+    "triggers": {
+      "manual": "Manuell"
+    },
+    "schedule": {
+      "every": "Alle {{duration}}",
+      "daily_at": "Täglich um {{time}}",
+      "weekly_at": "{{weekday}} um {{time}}"
+    },
+    "schedule_kinds": {
+      "interval": "In festen Intervallen",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich"
+    },
+    "weekdays": {
+      "1": "Montags",
+      "2": "Dienstags",
+      "3": "Mittwochs",
+      "4": "Donnerstags",
+      "5": "Freitags",
+      "6": "Samstags",
+      "7": "Sonntags"
+    },
+    "units": {
+      "minutes_one": "{{count}} Minute",
+      "minutes_other": "{{count}} Minuten",
+      "hours_one": "{{count}} Stunde",
+      "hours_other": "{{count}} Stunden",
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tage"
+    },
+    "notify_when": {
+      "abnormal": "Bei Auffälligkeiten benachrichtigen",
+      "attention": "Ab Stufe „Achtung“ benachrichtigen",
+      "always": "Immer benachrichtigen"
+    },
+    "columns": {
+      "name": "Prüfung",
+      "schedule": "Zeitplan",
+      "last_run": "Letzter Lauf",
+      "next_run": "Nächster Lauf",
+      "notify": "Benachrichtigungen",
+      "enabled": "Aktiv",
+      "actions": "Aktionen"
+    },
+    "cells": {
+      "window": "Umfasst die letzten {{duration}}",
+      "due": "Jetzt fällig",
+      "paused": "Deaktiviert",
+      "no_channel": "Keine Benachrichtigungen",
+      "channels_one": "{{count}} Kanal",
+      "channels_other": "{{count}} Kanäle"
+    },
+    "actions": {
+      "run": "Jetzt ausführen",
+      "run_named": "{{name}} jetzt ausführen",
+      "run_active": "Diese Prüfung läuft",
+      "edit": "Bearbeiten",
+      "edit_named": "{{name}} bearbeiten",
+      "delete": "Löschen",
+      "delete_named": "{{name}} löschen",
+      "toggle_named": "{{name}} aktivieren oder deaktivieren"
+    },
+    "toast": {
+      "created": "Geplante Prüfung gespeichert",
+      "saved": "Geplante Prüfung aktualisiert",
+      "enabled": "Aktiviert – die Prüfung läuft nach Zeitplan",
+      "paused": "Deaktiviert – die Prüfung läuft nicht mehr nach Zeitplan",
+      "queued": "In der Warteschlange – die Prüfung startet in wenigen Sekunden",
+      "deleted": "Geplante Prüfung gelöscht"
+    },
+    "denied": {
+      "title": "Sie können geplante Prüfungen nicht sehen",
+      "description": "Mole Agent führt die Prüfungen durch, und die Berichte enthalten Auszüge aus Logs. Deshalb benötigen Sie sowohl inspections.read als auch logs.read.",
+      "manage": "Erfordert die Berechtigung inspections.manage"
+    },
+    "no_model": {
+      "short": "Aktivieren Sie zuerst ein KI-Modell",
+      "notice": "In dieser Organisation ist kein KI-Modell aktiviert. Daher können gespeicherte Prüfungen nicht ausgeführt werden."
+    },
+    "capacity": {
+      "full": "Das Limit von {{max}} Prüfungen pro Organisation ist erreicht",
+      "count": "{{saved}} gespeichert, Limit: {{max}}"
+    },
+    "empty": {
+      "title": "Noch keine geplanten Prüfungen",
+      "description": "Speichern Sie eine Prüfung. Die KI prüft dann den ausgewählten Stream nach Zeitplan. Alle Berichte werden hier gespeichert. Wenn ein Bericht ein Problem meldet, erhalten Sie eine Benachrichtigung über die ausgewählten Kanäle."
+    },
+    "delete_confirm": {
+      "title": "„{{name}}“ löschen?",
+      "description": "Die Prüfung und alle bisherigen Berichte werden gelöscht. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Löschen",
+      "busy": "Wird gelöscht…"
+    },
+    "editor": {
+      "new_title": "Neue geplante Prüfung",
+      "edit_title": "Geplante Prüfung bearbeiten",
+      "subtitle": "Die KI prüft nach Zeitplan, greift nur lesend auf die Daten zu und speichert jeden Bericht.",
+      "what": "Was soll geprüft werden?",
+      "when": "Wann soll geprüft werden?",
+      "whom": "Wer soll benachrichtigt werden?",
+      "name": "Name",
+      "name_placeholder": "Beispiel: Fehlerlogs des Zahlungsdienstes",
+      "stream": "Stream",
+      "stream_placeholder": "Log-Stream auswählen",
+      "statement": "Abfrage",
+      "statement_hint": "Optional. Es werden nur Logs geprüft, die der Abfrage entsprechen. Lassen Sie das Feld leer, um alle Logs im Stream zu prüfen.",
+      "statement_placeholder": "Beispiel: level = 'ERROR'",
+      "schedule": "Zeitplan",
+      "interval": "Intervall",
+      "weekday": "Wochentag",
+      "time": "Uhrzeit",
+      "hour": "Stunde",
+      "minute": "Minute",
+      "time_hint": "In der Zeitzone {{timezone}}",
+      "window": "Prüfzeitraum",
+      "window_hint": "Jeder Lauf prüft die Logs aus diesem Zeitraum unmittelbar vor seinem Start.",
+      "no_model": "Derzeit kann kein KI-Modell verwendet werden.",
+      "model_off": "{{name}} (deaktiviert)",
+      "model_off_hint": "Dieses Modell ist deaktiviert. Die Prüfung lässt sich erst speichern oder ausführen, wenn das Modell wieder aktiviert oder ein anderes ausgewählt wurde.",
+      "model_placeholder": "KI-Modell auswählen",
+      "enabled": "Nach dem Speichern nach Zeitplan ausführen",
+      "notify_when": "Zeitpunkt der Benachrichtigung",
+      "channels": "Benachrichtigungskanäle",
+      "channels_denied": "Zum Auswählen eines Benachrichtigungskanals benötigen Sie die Berechtigung notify.connectors.read.",
+      "channels_none": "Es ist noch kein Benachrichtigungskonnektor aktiviert. Fügen Sie unter Einstellungen → Benachrichtigungen einen hinzu.",
+      "channels_failed": "Die Benachrichtigungskonnektoren konnten nicht geladen werden.",
+      "channels_kept_one": "Der bereits ausgewählte Kanal ({{count}}) bleibt unverändert.",
+      "channels_kept_other": "Die {{count}} bereits ausgewählten Kanäle bleiben unverändert.",
+      "connector_off": "{{name}} (deaktiviert)",
+      "connector_gone": "{{name}} (nicht gefunden)",
+      "channels_hint": "Optional. Ohne Kanal wird nichts versendet. Die Berichte bleiben auf dieser Seite verfügbar. Bei einem fehlgeschlagenen Lauf wird nur dann eine Benachrichtigung gesendet, wenn der vorherige Lauf erfolgreich war.",
+      "add_channel": "Kanal hinzufügen",
+      "remove_channel": "Kanal entfernen",
+      "no_channel": "Kein Kanal ausgewählt: Es wird keine Benachrichtigung gesendet.",
+      "channel_connector": "Konnektor für Kanal {{number}}",
+      "channel_kind": "Zieltyp für Kanal {{number}}",
+      "channel_target": "Ziel für Kanal {{number}}",
+      "target_placeholder": {
+        "group": "Gruppen-ID",
+        "address": "Adresse"
+      },
+      "run_as_you": "Nach dem Speichern werden die Logs bei jedem Lauf mit Ihren dann gültigen Zugriffsrechten gelesen.",
+      "run_as_change": "Die Prüfung läuft derzeit mit den Zugriffsrechten von {{name}}. Nach dem Speichern läuft sie mit Ihren Zugriffsrechten.",
+      "save": "Speichern",
+      "create": "Inspektion speichern"
+    },
+    "detail": {
+      "runs": "Bisherige Berichte",
+      "older": "Ältere Berichte",
+      "no_runs": "Die Inspektion wurde noch nicht ausgeführt. Sie startet zum nächsten geplanten Zeitpunkt automatisch. Sie können sie auch jetzt ausführen.",
+      "no_runs_paused": "Die Inspektion wurde noch nicht ausgeführt. Sie ist deaktiviert, kann aber jetzt einmalig ausgeführt werden.",
+      "run_missing": "Dieser Bericht existiert nicht mehr",
+      "loading_report": "Bericht wird geladen…",
+      "run_as": "Wird mit den Zugriffsrechten von {{name}} ausgeführt",
+      "next_run": "Nächste Ausführung: {{time}}"
+    },
+    "report": {
+      "open_logs": "Logs für diesen Zeitraum öffnen",
+      "manual_by": "Ausgeführt von {{name}}",
+      "scheduled": "Geplante Ausführung",
+      "took": "Dauer: {{duration}}",
+      "tokens": "{{formatted}} Tokens",
+      "queued": "In der Warteschlange; wartet auf Ausführung durch das Backend…",
+      "tools": "Verwendete Lesewerkzeuge",
+      "notified": "Benachrichtigungen",
+      "delivered": "Zugestellt",
+      "undelivered": "Nicht zugestellt"
+    }
+  }
+}

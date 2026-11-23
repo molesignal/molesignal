@@ -1,0 +1,3200 @@
+{
+  "title": "Alertes",
+  "subtitle": "Alertes actives, règles de déclenchement et destinataires des notifications.",
+  "incident_detail": {
+    "loading": "Incident",
+    "not_found_title": "Incident introuvable",
+    "not_found_description": "Cet incident a peut-être été supprimé ou appartient à une autre organisation.",
+    "meta": {
+      "status": "Statut",
+      "fired": "Déclenchement",
+      "rule": "Règle",
+      "synthetic": "Vérification synthétique",
+      "source": "Source",
+      "created_by": "Ouvert par"
+    },
+    "firing_for": "Actif depuis {{duration}}",
+    "recovered_after": "Résolu après {{duration}}",
+    "no_owner": "Personne ne l’a encore pris en charge",
+    "someone": "Quelqu’un"
+  },
+  "actions": {
+    "new_rule": "Nouvelle règle",
+    "edit_rule": "Modifier {{name}}",
+    "new_anomaly": "Règle de détection d’anomalies",
+    "new_anomaly_description": "Détectez les écarts par rapport à une référence dynamique calculée avec MAD ou EWMA.",
+    "new_threshold_rule": "Règle de seuil",
+    "new_threshold_rule_description": "Déclenchez une alerte lorsque le résultat d’une requête reste au-delà d’un seuil fixe.",
+    "silence_incident": "Mettre en sourdine l’incident {{name}}"
+  },
+  "silence_incident": {
+    "title": "Mettre cet incident en sourdine",
+    "description": "Suspendez les prochaines notifications et l’escalade uniquement pour « {{name}} ». L’incident reste enregistré.",
+    "default_name": "cet incident",
+    "duration": "Durée de la mise en sourdine",
+    "reason": "Motif (facultatif)",
+    "reason_placeholder": "Ex. : investigation en cours, inutile de prévenir à nouveau l’équipe d’astreinte",
+    "scope_hint": "Seul cet incident actif est concerné. La règle reste active et les autres incidents du même service ne sont pas mis en sourdine.",
+    "confirm": "Mettre l’incident en sourdine",
+    "silencing": "Mise en sourdine…",
+    "cancel": "Annuler",
+    "success": "Incident « {{name}} » mis en sourdine",
+    "durations": {
+      "one_hour": "1 heure",
+      "four_hours": "4 heures",
+      "one_day": "24 heures",
+      "one_week": "7 jours"
+    }
+  },
+  "kpis": {
+    "critical_firing": "Alertes critiques actives",
+    "warning_firing": "Avertissements actifs",
+    "pending": "En attente",
+    "resolved_24h": "Résolus (24 h)",
+    "total_rules": "Nombre total de règles",
+    "incidents_open": "Incidents ouverts"
+  },
+  "tabs": {
+    "firing": "Déclenchées",
+    "pending": "En attente",
+    "resolved": "Résolues",
+    "disabled": "Désactivées",
+    "all": "Toutes les règles"
+  },
+  "subnav": {
+    "label": "Vues des alertes",
+    "incidents": "Incidents",
+    "rules": "Règles",
+    "sources": "Sources",
+    "status_pages": "Pages de statut",
+    "history": "Historique",
+    "insights": "Analyses",
+    "groups": "Groupes",
+    "escalations": "Escalades",
+    "schedules": "Plannings d’astreinte",
+    "inhibitions": "Inhibition",
+    "silences": "Politiques de mise en sourdine",
+    "routing": "Routage",
+    "remediation": "Remédiation",
+    "tickets": "Tickets",
+    "postmortems": "Bilans d’incident",
+    "discovery": "Découverte",
+    "group_respond": "Intervenir",
+    "group_detect": "Détecter",
+    "group_noise": "Réduire le bruit",
+    "group_notify": "Notifier",
+    "group_follow_up": "Assurer le suivi",
+    "search_placeholder": "Rechercher des pages d’alertes…",
+    "search_aria": "Rechercher dans les pages de la section Alertes",
+    "no_results": "Aucune page ne correspond à la recherche",
+    "collapse_group": "Replier {{group}}",
+    "expand_group": "Développer {{group}}",
+    "open_navigation": "Ouvrir le menu de navigation des alertes",
+    "collapse_navigation": "Replier le menu de navigation des alertes",
+    "expand_navigation": "Développer le menu de navigation des alertes"
+  },
+  "history": {
+    "error_title": "Impossible de charger l’historique des alertes",
+    "empty_title": "Aucun incident lié à une alerte",
+    "empty_description": "Lorsqu’une alerte se déclenche, son statut actuel, ses horaires, sa durée et les détails de l’incident s’affichent ici.",
+    "no_matches_title": "Aucun incident correspondant",
+    "no_matches_description": "Modifiez la recherche ou les filtres pour voir plus de résultats.",
+    "filters": {
+      "search_placeholder": "Rechercher un incident, un service ou un ID d’incident…",
+      "search_label": "Rechercher dans l’historique des alertes",
+      "severity_label": "Filtrer par gravité",
+      "status_label": "Filtrer par statut",
+      "all_severities": "Tous les niveaux de gravité",
+      "all_statuses": "Tous les statuts"
+    },
+    "status": {
+      "open": "En alerte",
+      "acknowledged": "Acquitté",
+      "resolved": "Rétabli",
+      "closed": "Clôturé"
+    },
+    "columns": {
+      "summary": "Incident",
+      "current_status": "Statut actuel",
+      "created": "Déclenchement",
+      "resolved": "Rétablissement",
+      "duration": "Durée",
+      "priority": "Priorité"
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Avertissement",
+      "error": "Erreur",
+      "critical": "Critique"
+    },
+    "pagination": {
+      "page": "{{page}} / {{count}}",
+      "label": "Pagination de l’historique des alertes",
+      "page_size": "Lignes par page",
+      "first": "Première page",
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "last": "Dernière page"
+    }
+  },
+  "center": {
+    "retry": "Réessayer",
+    "incidents": {
+      "load_error": "Impossible de charger les incidents liés aux alertes",
+      "kpis": {
+        "services": "Services touchés",
+        "waiting": "En attente d’acquittement",
+        "waiting_sub": "Pas encore de responsable",
+        "recovered": "Rétablissements (24h)",
+        "no_recovery": "Aucun rétablissement au cours des dernières 24 heures"
+      },
+      "tabs": {
+        "active": "En alerte",
+        "unacknowledged": "En attente",
+        "my_teams": "Mes équipes",
+        "inhibited": "Inhibés"
+      },
+      "columns": {
+        "severity": "Gravité",
+        "incident": "Incident / service",
+        "status": "Statut",
+        "duration": "Durée",
+        "owner": "Responsable",
+        "actions": "Actions",
+        "priority": "Priorité"
+      },
+      "status": {
+        "open": "En attente",
+        "acknowledged": "En cours",
+        "resolved": "Rétabli",
+        "closed": "Clôturé"
+      },
+      "actions": {
+        "ack": "Prendre en charge",
+        "silence": "Mettre en sourdine",
+        "runbook": "Guide d’intervention"
+      },
+      "healthy": {
+        "title": "Aucune alerte active"
+      },
+      "no_rules": {
+        "title": "Aucune règle d’alerte pour le moment",
+        "description": "Créez une règle pour évaluer en continu les métriques, les logs ou les traces et ouvrir des incidents ici.",
+        "action": "Créer une première règle",
+        "steps": {
+          "condition": {
+            "title": "Définissez la condition d’alerte",
+            "description": "Définissez une requête sur les métriques, les logs ou les traces, ainsi que le seuil à respecter."
+          },
+          "route": {
+            "title": "Indiquez qui prévenir",
+            "description": "Une politique d’escalade transmet l’incident à la personne d’astreinte, puis aux contacts suivants si personne ne répond."
+          },
+          "respond": {
+            "title": "Intervenez depuis cette page",
+            "description": "Prenez en charge l’incident, mettez-le en sourdine, ouvrez le guide d’intervention et accédez à la trace associée."
+          }
+        }
+      },
+      "empty": {
+        "unacknowledged": {
+          "title": "Aucun incident en attente de prise en charge",
+          "description": "Chaque incident actif a déjà un responsable."
+        },
+        "my_teams": {
+          "title": "Aucun incident actif pour vos équipes",
+          "description": "Les incidents transmis aux équipes dont vous faites partie s’affichent ici."
+        },
+        "priority": {
+          "title": "Aucun incident pour cette priorité",
+          "description": "Sélectionnez une autre priorité ou « Toutes les priorités »."
+        }
+      },
+      "tabs_label": "Statut des incidents",
+      "standing": {
+        "label": "Incidents en cours",
+        "eyebrow": "Actifs",
+        "firing_one": "{{count}} incident",
+        "firing_other": "{{count}} incidents",
+        "oldest": "Le plus ancien est actif depuis {{duration}}.",
+        "watching_one": "{{count}} règle est en cours d’évaluation.",
+        "watching_other": "{{count}} règles sont en cours d’évaluation.",
+        "all_owned": "Chaque incident a un responsable",
+        "last_recovery": "Dernier rétablissement {{when}}",
+        "firing_many": "{{count}} incidents",
+        "watching_many": "{{count}} règles sont en cours d’évaluation."
+      },
+      "recent": {
+        "title": "Rétablissements récents",
+        "recovered": "rétabli {{when}}",
+        "lasted": "a duré {{duration}}"
+      }
+    },
+    "rules": {
+      "load_error": "Impossible de charger les règles d’alerte",
+      "search": "Rechercher des règles, des services ou des sources",
+      "tabs": {
+        "all": "Toutes",
+        "enabled": "Activées",
+        "disabled": "Désactivées"
+      },
+      "columns": {
+        "rule": "Règle",
+        "source": "Source de données",
+        "condition": "Condition de déclenchement",
+        "state": "État",
+        "last_evaluation": "Dernière évaluation",
+        "actions": "Actions"
+      },
+      "state": {
+        "not_evaluated": "Non évaluée",
+        "healthy": "Normale",
+        "pending": "En attente",
+        "no_data": "Aucune donnée",
+        "firing": "Déclenchée",
+        "inhibited": "Déclenchée (inhibée)",
+        "dropped": "Ignorée par le pipeline",
+        "disabled": "Désactivée"
+      },
+      "kinds": {
+        "scheduled": "Règle de seuil",
+        "real_time": "Règle en temps réel",
+        "anomaly": "Détection d’anomalies",
+        "composite": "Composite",
+        "forecast": "Prévision",
+        "outlier": "Valeur aberrante",
+        "heartbeat": "Signal de présence"
+      },
+      "never_evaluated": "Jamais évaluée",
+      "no_match": {
+        "title": "Aucune règle correspondante",
+        "description": "Essayez un autre mot-clé ou un autre filtre d’état."
+      },
+      "tabs_label": "État de la règle",
+      "evaluated_ago": "Il y a {{age}}",
+      "bulk_delete_title_one": "Supprimer {{count}} règle ?",
+      "bulk_delete_title_other": "Supprimer {{count}} règles ?",
+      "bulk_delete_description": "Les règles supprimées ne seront plus évaluées et ne pourront pas être restaurées.",
+      "bulk_delete_title_many": "Supprimer {{count}} règles ?"
+    }
+  },
+  "workbench": {
+    "new_title": "Nouvelle règle d’alerte",
+    "edit_title": "Modifier la règle d’alerte",
+    "edit_named": "Modifier la règle · {{name}}",
+    "subtitle": "Rédigez la requête, validez les seuils, puis configurez le routage Notify et ajoutez les consignes d’intervention.",
+    "actions": {
+      "cancel": "Annuler",
+      "save_draft": "Enregistrer le brouillon",
+      "test": "Tester la règle",
+      "testing": "Test en cours…",
+      "save": "Enregistrer et activer",
+      "create": "Créer une règle",
+      "add_threshold": "Ajouter un niveau de gravité",
+      "remove_threshold": "Supprimer le seuil"
+    },
+    "sections": {
+      "identity": "Informations de base",
+      "identity_description": "Ces informations servent à nommer les incidents, à faciliter la recherche et à identifier les responsables des services.",
+      "condition": "Requête et condition de déclenchement",
+      "condition_description": "Validez la requête, le seuil et la durée au même endroit.",
+      "delivery": "Notify et intervention",
+      "delivery_description": "Les politiques Notify déterminent le routage des événements du cycle de vie des alertes. Conservez les consignes d’intervention dans la règle.",
+      "guide": "Guide d’investigation",
+      "guide_description": "Indiquez par où commencer lorsqu’un incident est déclenché par cette règle. Le guide s’affiche dans la fiche de l’incident, et Mole Agent le consulte avant de commencer son investigation."
+    },
+    "guide": {
+      "steps": "Étapes",
+      "steps_hint": "En Markdown : indiquez quoi vérifier en premier et dans quel ordre poursuivre.",
+      "steps_placeholder": "1. Vérifiez de quels points de terminaison proviennent les erreurs…",
+      "queries": "Requêtes",
+      "queries_hint": "Chaque requête s’ouvre depuis la fiche de l’incident et couvre la plage horaire de celui-ci. Maximum : {{count}}.",
+      "add_query": "Ajouter une requête",
+      "remove_query": "Supprimer la requête {{index}}",
+      "query_name": "Nom",
+      "query_name_placeholder": "Erreurs par point de terminaison",
+      "query_language": "Langage de requête",
+      "query_stream": "Flux",
+      "query_stream_type": "Type de flux",
+      "query_statement": "Requête",
+      "stream_types": {
+        "logs": "Logs",
+        "traces": "Traces",
+        "metrics": "Métriques"
+      },
+      "dashboards": "Tableaux de bord",
+      "dashboards_hint": "Accessibles depuis la fiche de l’incident. Maximum : {{count}}.",
+      "add_dashboard": "Ajouter un tableau de bord",
+      "no_dashboards": "Aucun tableau de bord à ajouter",
+      "remove_dashboard": "Retirer {{name}}"
+    },
+    "fields": {
+      "name": "Nom de la règle",
+      "service": "Service",
+      "description": "Description",
+      "signal": "Type de règle",
+      "stream": "Flux cible",
+      "interval": "Intervalle d’évaluation",
+      "query": "Requête",
+      "query_language": "Langage de requête",
+      "group_by": "Regrouper par",
+      "thresholds": "Conditions de déclenchement",
+      "runbook": "Guide d’intervention / URL du runbook",
+      "delay": "Délai d’évaluation",
+      "priority": "Priorité",
+      "urgency": "Urgence",
+      "home_cluster": "Cluster de décision"
+    },
+    "placeholders": {
+      "name": "p. ex. api_high_error_rate",
+      "service": "p. ex. api-gateway",
+      "description": "Décrivez le parcours utilisateur ou la fonctionnalité du système que cette règle protège",
+      "stream": "p. ex. app_metrics",
+      "group_by": "p. ex. host, service"
+    },
+    "hints": {
+      "query": "Le test de la règle exécute cette requête sur les données réelles des six dernières heures.",
+      "thresholds": "Le niveau de gravité le plus élevé parmi les conditions remplies est retenu ; la durée est convertie en périodes d’évaluation.",
+      "runbook": "Facultatif. Les intervenants peuvent l’ouvrir directement depuis la liste des incidents.",
+      "group_by": "Indiquez jusqu’à 8 colonnes du résultat de la requête, séparées par des virgules, par exemple host ou service. Pour chaque groupe de valeurs, la valeur de la première colonne numérique non utilisée pour le regroupement est comparée aux seuils. Si une condition est remplie, un incident distinct est ouvert pour ce groupe. Laissez ce champ vide pour ouvrir un seul incident par règle.",
+      "delay": "Décale chaque évaluation dans le passé pour tenir compte des données tardives ou pas encore enregistrées. En mode automatique : aucun délai avec un seul processus, et application du paramètre de la plateforme en cluster.",
+      "priority": "Les incidents sont ouverts avec cette priorité. Si vous ne la définissez pas, un pipeline d’alertes peut en attribuer une.",
+      "urgency": "Si vous ne définissez pas l’urgence, la politique d’escalade à laquelle l’incident est transmis la détermine.",
+      "home_cluster": "Dans une fédération, chaque cluster compte les enregistrements qu’il reçoit. Choisissez un cluster pour additionner les décomptes de tous les clusters associés à cette organisation et y ouvrir les incidents. Les autres clusters se limitent au comptage."
+    },
+    "signals": {
+      "metrics": "Alerte sur les métriques",
+      "logs": "Alerte sur les logs",
+      "traces": "Alerte sur les traces",
+      "apm": "Alerte APM",
+      "rum": "Alerte RUM"
+    },
+    "quick_start": "Démarrage rapide",
+    "presets": {
+      "error_rate": {
+        "title": "Taux d’erreur élevé",
+        "description": "Le taux de réponses HTTP 5xx reste au-dessus d’un seuil"
+      },
+      "latency": {
+        "title": "Latence P95 élevée",
+        "description": "Le 95e percentile de la latence des requêtes reste élevé"
+      },
+      "cpu": {
+        "title": "Utilisation élevée du CPU",
+        "description": "L’utilisation moyenne du CPU par le processus dépasse le seuil de sécurité"
+      },
+      "log_errors": {
+        "title": "Pic d’erreurs dans les logs",
+        "description": "Le nombre de logs de niveau erreur dépasse un seuil"
+      },
+      "no_data": {
+        "title": "Aucune donnée",
+        "description": "Le flux ne contient aucun enregistrement dans la fenêtre d’évaluation"
+      },
+      "trace_errors": {
+        "title": "Pic d’erreurs de trace",
+        "description": "Le nombre de traces en échec dépasse un seuil"
+      },
+      "trace_latency": {
+        "title": "Latence élevée des traces",
+        "description": "La durée moyenne des traces reste élevée"
+      },
+      "sample_errors": {
+        "title": "Exemple · Logs d’erreur",
+        "description": "Comptez les erreurs dans les logs d’exemple, puis choisissez une fenêtre et un responsable avant d’enregistrer."
+      },
+      "sample_no_data": {
+        "title": "Exemple · Aucune donnée entrante",
+        "description": "Les données d’exemple ne sont importées qu’une fois. Le compteur tombe à zéro quand elles sortent de la fenêtre."
+      },
+      "sample_latency": {
+        "title": "Exemple · Latence des spans",
+        "description": "Mesurez la latence des spans d’exemple en millisecondes."
+      }
+    },
+    "intervals": {
+      "1m": "Toutes les minutes",
+      "5m": "Toutes les 5 minutes",
+      "10m": "Toutes les 10 minutes"
+    },
+    "threshold": {
+      "severity": "Gravité",
+      "operator": "Lorsque le résultat est",
+      "value": "Seuil",
+      "duration": "Et pendant",
+      "minutes": "minutes"
+    },
+    "conditions": {
+      "recovery": "Retour à la normale",
+      "recovery_hint": "Lorsque la valeur oscille autour du seuil, un seuil ou un délai de retour à la normale évite que l’alerte se déclenche et se résolve à répétition.",
+      "recovery_threshold": "Seuil de retour à la normale",
+      "recovery_threshold_placeholder": "Identique au seuil de déclenchement",
+      "no_data": "En l’absence de données",
+      "no_data_hint": "L’absence de valeur ou l’absence d’un groupe dans le résultat d’une règle avec regroupement est considérée comme une absence de données.",
+      "no_data_action": "Traiter comme",
+      "no_data_actions": {
+        "resolve": "Retour à la normale",
+        "keep": "Conserver l’état",
+        "alert": "Ouvrir un incident pour absence de données",
+        "zero": "Zéro"
+      },
+      "no_data_duration": "Sans données pendant"
+    },
+    "operators": {
+      "gt": "> (gt)",
+      "gte": "≥ (gte)",
+      "lt": "< (lt)",
+      "lte": "≤ (lte)",
+      "eq": "= (eq)",
+      "neq": "≠ (neq)"
+    },
+    "notify": {
+      "title": "Routage des notifications",
+      "description": "Les événements du cycle de vie des alertes sont transmis selon les politiques Notify correspondantes, aux destinataires prévus et via les routes de secours si nécessaire.",
+      "manage_policies": "Gérer les politiques",
+      "manage_connectors": "Gérer les connecteurs"
+    },
+    "preview": {
+      "title": "Aperçu de la requête",
+      "window": "Données réelles · 6 dernières heures",
+      "window_hours_one": "Données réelles · dernière heure",
+      "window_hours_other": "Données réelles · {{count}} dernières heures",
+      "window_open": "Données réelles",
+      "not_run": "Test non exécuté",
+      "not_run_description": "Lancez le test pour afficher la courbe de la requête, la ligne de seuil et les déclenchements estimés sur les données historiques.",
+      "stale": "La requête a été modifiée depuis le dernier test",
+      "stale_description": "Relancez le test pour que l’aperçu et la vérification avant activation correspondent à la requête actuelle.",
+      "failed": "Échec de la requête",
+      "query_docs": "Documentation sur les requêtes",
+      "no_data": "La requête a réussi, mais n’a renvoyé aucune donnée numérique",
+      "no_data_description": "Vérifiez la plage temporelle, le flux cible et les colonnes renvoyées.",
+      "query_value": "Résultat de la requête",
+      "threshold": "Seuil",
+      "current": "Valeur actuelle",
+      "cost": "Lignes analysées · latence",
+      "groups_one": "{{count}} groupe selon {{columns}}",
+      "groups_other": "{{count}} groupes selon {{columns}}",
+      "backtest_fires_one": "Dans ces conditions, l’alerte se serait déclenchée {{count}} fois ({{times}}).",
+      "backtest_fires_other": "Dans ces conditions, l’alerte se serait déclenchée {{count}} fois ({{times}}).",
+      "backtest_quiet": "Dans ces conditions, l’alerte ne se serait pas déclenchée.",
+      "backtest_near_one": "Le seuil a été franchi {{count}} fois de plus, mais le dépassement n’a pas duré {{periods}} cycles d’évaluation.",
+      "backtest_near_other": "Le seuil a été franchi {{count}} fois de plus, mais le dépassement n’a pas duré {{periods}} cycles d’évaluation.",
+      "span_pending": "Seuil dépassé, durée requise non atteinte",
+      "span_firing": "L’alerte se serait déclenchée",
+      "window_hours_many": "Données réelles · {{count}} dernières heures",
+      "groups_many": "{{count}} groupes selon {{columns}}",
+      "backtest_fires_many": "Dans ces conditions, l’alerte se serait déclenchée {{count}} fois ({{times}}).",
+      "backtest_near_many": "Le seuil a été franchi {{count}} fois de plus, mais le dépassement n’a pas duré {{periods}} cycles d’évaluation."
+    },
+    "validation": {
+      "title": "Vérifications avant la création",
+      "identity": "Les informations d’identification de la règle sont complètes",
+      "query": "La requête a été exécutée et a renvoyé des données numériques",
+      "thresholds": "Les seuils sont valides et ne sont pas en conflit",
+      "runbook": "Le format de l’URL du guide d’intervention est valide",
+      "ready": "Prêt",
+      "pending": "En attente",
+      "blockers": {
+        "identity": "Saisissez un nom pour la règle avant de l’activer.",
+        "preview_running": "Attendez la fin du test de la requête avant d’activer la règle.",
+        "preview_required": "Avant d’activer la règle, utilisez « Tester la règle » et vérifiez que le test réussit avec la requête actuelle.",
+        "thresholds": "Corrigez les problèmes de validation des seuils avant d’activer la règle.",
+        "runbook": "Saisissez une URL de runbook valide avant d’activer la règle.",
+        "composite": "Rédigez l’expression et sélectionnez les règles qu’elle utilise avant d’activer la règle.",
+        "heartbeat": "L’intervalle entre les signaux de présence doit être d’au moins une minute."
+      },
+      "composite": "L’expression et ses règles sont définies",
+      "heartbeat": "L’intervalle entre les signaux de présence est valide"
+    },
+    "errors": {
+      "load_rule": "Impossible de charger la règle d’alerte",
+      "org_required": "L’organisation actuelle n’est pas disponible.",
+      "name_required": "Le nom de la règle est obligatoire.",
+      "stream_required": "Le flux cible est obligatoire.",
+      "stream_audit": "Une règle d’alerte ne peut pas lire le flux _audit : les règles sont évaluées en arrière-plan, où l’autorisation audit.read d’aucun utilisateur ne s’applique.",
+      "query_required": "La requête est obligatoire.",
+      "threshold_required": "Au moins un seuil valide est obligatoire.",
+      "threshold_conflict": "Un niveau de gravité élevé ne peut pas se déclencher plus facilement qu’un niveau inférieur.",
+      "runbook_invalid": "Saisissez une URL http ou https valide.",
+      "apm_service_required": "Sélectionnez le service à surveiller",
+      "rum_application_required": "Sélectionnez l’application à surveiller",
+      "group_by_missing": "Le résultat de la requête ne contient aucune de ces colonnes de regroupement : {{columns}}",
+      "group_by_too_many": "Regroupez les résultats par {{count}} colonnes au maximum.",
+      "recovery_side": "Le seuil de rétablissement doit se situer du côté des valeurs normales : il ne doit pas dépasser un seuil qui déclenche une alerte au-dessus de sa valeur, ni être inférieur à un seuil qui déclenche une alerte en dessous de sa valeur. Toutes les plages doivent déclencher l’alerte dans le même sens.",
+      "guide": {
+        "steps_too_long": "Les étapes du guide d’investigation ne peuvent pas dépasser {{limit}} caractères au total.",
+        "too_many_queries": "Un guide d’investigation peut contenir au maximum {{limit}} requêtes.",
+        "query_name_required": "La requête {{index}} du guide d’investigation doit avoir un nom.",
+        "query_name_too_long": "Le nom de la requête {{index}} dépasse {{limit}} caractères.",
+        "query_statement_required": "La requête {{index}} du guide d’investigation est vide.",
+        "query_statement_too_long": "La requête {{index}} dépasse {{limit}} caractères.",
+        "query_stream_required": "La requête {{index}} est en SQL : indiquez le nom du flux qu’elle lit.",
+        "too_many_dashboards": "Un guide d’investigation peut contenir des liens vers {{limit}} tableaux de bord au maximum."
+      }
+    },
+    "toast": {
+      "saved": "Règle « {{name}} » enregistrée et activée",
+      "draft_saved": "Brouillon de la règle « {{name}} » enregistré"
+    },
+    "apm": {
+      "service": "Service",
+      "service_placeholder": "Sélectionnez un service",
+      "environment": "Environnement",
+      "every_environment": "Tous les environnements",
+      "endpoint": "Point de terminaison",
+      "whole_service": "Service entier",
+      "metric": "Métrique",
+      "unit": {
+        "percent": "En pourcentage",
+        "milliseconds": "En millisecondes",
+        "per_second": "En requêtes par seconde",
+        "count": "Nombre",
+        "score": "De 0 à 1",
+        "burn_rate": "Nombre de fois que le rythme de consommation du budget d’erreur dépasse le rythme autorisé"
+      },
+      "metrics": {
+        "error_rate": "Taux d’erreur",
+        "p50": "Latence P50",
+        "p90": "Latence P90",
+        "p95": "Latence P95",
+        "p99": "Latence P99",
+        "average": "Durée moyenne",
+        "throughput": "Débit",
+        "request_count": "Requêtes",
+        "error_count": "Erreurs",
+        "new_error_groups": "Nouveaux groupes d’erreurs",
+        "apdex": "Apdex",
+        "slo_burn_rate": "Taux de consommation du budget d’erreur du SLO"
+      }
+    },
+    "rum": {
+      "application": "Application",
+      "application_placeholder": "Choisissez une application",
+      "environment": "Environnement",
+      "every_environment": "Tous les environnements",
+      "page": "Page",
+      "every_page": "Toutes les pages",
+      "screen": "Écran",
+      "every_screen": "Tous les écrans",
+      "version": "Version",
+      "every_version": "Toutes les versions",
+      "metric": "Métrique",
+      "window": "Fenêtre temporelle",
+      "windows": {
+        "300": "5 minutes",
+        "900": "15 minutes",
+        "3600": "1 heure"
+      },
+      "min_samples": "Nombre minimal de lignes",
+      "min_samples_hint": "En dessous de ce nombre de {{kind}}, la métrique n’a pas de valeur et aucune alerte ne se déclenche. Par défaut : {{rows}}.",
+      "sample_kinds": {
+        "views": "vues",
+        "sessions": "sessions",
+        "requests": "requêtes",
+        "views_with_value": "vues ayant une valeur",
+        "rows": "lignes correspondantes"
+      },
+      "unit": {
+        "percent": "En pourcentage",
+        "milliseconds": "En millisecondes",
+        "count": "Un nombre",
+        "score": "Un score ; 0,1 est un bon score",
+        "bytes": "En octets",
+        "none": "Sans unité"
+      },
+      "not_for": {
+        "page_sessions": "Une session ne se limite pas à une seule page.",
+        "page_issues": "Un problème peut survenir sur plusieurs pages.",
+        "version_issues": "Un problème peut survenir dans plusieurs versions.",
+        "page_query": "Indiquez le nom de la page dans la requête.",
+        "version_query": "Indiquez le nom de la version dans la requête."
+      },
+      "unavailable": {
+        "time_budget": "La génération de l’aperçu a pris trop de temps : choisissez une période plus courte.",
+        "busy": "Trop de requêtes sont en cours : réessayez dans un instant.",
+        "timestamp_masked": "Les horodatages sont masqués dans ce flux : impossible de générer un aperçu."
+      },
+      "metrics": {
+        "session_count": "Sessions",
+        "view_count": "Pages vues",
+        "error_count": "Erreurs",
+        "error_rate": "Taux d’erreur (vues avec une erreur)",
+        "crash_free_sessions": "Sessions sans plantage",
+        "frustration_rate": "Sessions avec des signes de frustration",
+        "failed_request_rate": "Requêtes en échec",
+        "lcp_p75": "LCP (p75)",
+        "inp_p75": "INP (p75)",
+        "cls_p75": "CLS (p75)",
+        "ttfb_p75": "Temps de réception du premier octet (p75)",
+        "new_issues": "Nouveaux problèmes",
+        "regressed_issues": "Problèmes réapparus",
+        "issue_impact": "Sessions touchées par le problème le plus grave",
+        "custom_vital": "Durée personnalisée (indicateur vital)",
+        "custom_timing": "Mesure de temps personnalisée",
+        "query": "Requête de l’explorateur"
+      },
+      "custom": {
+        "name_vital": "Nom de l’indicateur vital",
+        "name_timing": "Nom de la mesure de temps",
+        "placeholder": "Sélectionnez ou saisissez un nom",
+        "statistic": "Statistique",
+        "statistics": {
+          "p50": "P50",
+          "p75": "P75",
+          "p90": "P90",
+          "p95": "P95",
+          "p99": "P99",
+          "avg": "Moyenne",
+          "count": "Nombre"
+        }
+      },
+      "query": {
+        "type": "Type de lignes",
+        "statement": "Requête",
+        "statement_hint": "Utilisez la syntaxe du mode Code de l’explorateur RUM. Si la requête est vide, elle renvoie toutes les lignes du type sélectionné.",
+        "ignored": "Éléments ignorés, car le type sélectionné ne les prend pas en charge : {{parts}}",
+        "measure": "Mesure",
+        "field": "Champ",
+        "field_placeholder": "Choisissez un champ",
+        "open_explorer": "Ouvrir dans l’explorateur",
+        "functions": {
+          "count": "Lignes",
+          "count_distinct": "Valeurs distinctes",
+          "sum": "Somme",
+          "avg": "Moyenne",
+          "min": "Minimum",
+          "max": "Maximum",
+          "p50": "p50",
+          "p75": "p75",
+          "p90": "p90",
+          "p95": "p95",
+          "p99": "p99"
+        }
+      }
+    },
+    "kind": {
+      "label": "Mode de déclenchement",
+      "options": {
+        "scheduled": "Seuil",
+        "forecast": "Prévision",
+        "outlier": "Valeur aberrante",
+        "composite": "Composite",
+        "heartbeat": "Signal de vie"
+      },
+      "hints": {
+        "scheduled": "Se déclenche lorsque le résultat de la requête franchit un seuil.",
+        "forecast": "Extrapole la tendance et se déclenche si un franchissement du seuil est prévu dans le délai d’anticipation.",
+        "outlier": "Regroupe les résultats de la requête par colonne, compare les groupes et ouvre un incident pour chaque groupe qui se démarque.",
+        "composite": "Combine les règles avec les opérateurs ET, OU et NON. Une règle est considérée comme vraie tant qu’elle a un incident ouvert.",
+        "heartbeat": "Attend les signaux de vie d’une tâche planifiée ou d’un script de sauvegarde. Se déclenche si un signal n’arrive pas dans le délai de tolérance ou signale un échec."
+      }
+    },
+    "composite": {
+      "expression": "Expression",
+      "expression_hint": "Attribuez une lettre à chaque règle ci-dessous et combinez-les avec && (ET), || (OU), ! (NON) et des parenthèses.",
+      "rules": "Règles",
+      "rule_named": "Règle {{letter}}",
+      "pick_rule": "Choisissez une règle",
+      "missing_rule": "La règle n’existe plus",
+      "add_rule": "Ajouter la règle {{letter}}",
+      "remove_rule": "Retirer la règle {{letter}}",
+      "merge_children": "Regrouper les incidents de ces règles sous l’incident composite",
+      "merge_children_hint": "Lorsque la règle composite ouvre un incident, les incidents ouverts des règles combinées lui sont rattachés et n’envoient plus de notifications séparées.",
+      "problems": {
+        "empty": "Saisissez une expression, par exemple A && B.",
+        "characters": "Utilisez uniquement des lettres seules, &&, ||, ! et des parenthèses.",
+        "letters": "Choisissez une règle pour {{letters}} dans l’expression.",
+        "unused": "L’expression n’utilise pas {{letters}}."
+      }
+    },
+    "forecast": {
+      "line": "Valeur prévue",
+      "lead": "Horizon de prévision",
+      "lookback": "Période de référence",
+      "model": "Modèle",
+      "models": {
+        "linear": "Tendance linéaire",
+        "daily": "Cycle quotidien",
+        "weekly": "Cycle hebdomadaire"
+      },
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "hint": "À chaque évaluation, la valeur actuelle est ajoutée à la série. Une nouvelle règle commence par récupérer une partie de l’historique. Si les points sont trop peu nombreux, la règle ne se prononce pas.",
+      "hours_many": "{{count}} heures",
+      "days_many": "{{count}} jours"
+    },
+    "outlier": {
+      "tolerance": "Tolérance",
+      "tolerance_hint": "Nombre d’écarts normalisés au-delà duquel une valeur est considérée comme aberrante. Plus le seuil est bas, plus la détection est sensible (3 par défaut).",
+      "direction": "Sens de l’écart",
+      "directions": {
+        "both": "Au-dessus ou en dessous",
+        "above": "Au-dessus uniquement",
+        "below": "En dessous uniquement"
+      },
+      "needs_split": "Une règle de détection des valeurs aberrantes regroupe les données par colonne et compare au moins 3 groupes disposant d’une valeur."
+    },
+    "heartbeat": {
+      "period": "Intervalle entre les signaux de vie",
+      "grace": "Délai de grâce",
+      "address_after_save": "L’adresse de signal de vie ne s’affiche qu’une fois, après l’enregistrement.",
+      "last_checkin": "Dernier signal de vie : {{value}}",
+      "never": "Aucun signal de vie pour le moment",
+      "status": {
+        "ok": "OK",
+        "fail": "Échec signalé"
+      },
+      "due": "Prochain signal de vie attendu au plus tard le {{value}}",
+      "reset": "Réinitialiser l’adresse de signal de vie",
+      "dialog_title": "Adresse de signal de vie",
+      "dialog_description": "Configurez la tâche pour qu’elle envoie une requête (GET ou POST) à cette adresse à chaque exécution. En cas d’échec, ajoutez ?status=fail pour déclencher l’alerte immédiatement.",
+      "shown_once": "L’adresse ne s’affiche que maintenant. La réinitialisation désactive immédiatement l’ancienne adresse.",
+      "no_external_url": "Aucune adresse externe n’est configurée pour cette instance. L’adresse que vous utilisez actuellement est donc affichée. La tâche doit pouvoir y accéder.",
+      "example": "Exemple",
+      "copy": "Copier l’adresse"
+    },
+    "delay": {
+      "auto": "Automatique",
+      "none": "Aucun délai",
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "seconds_many": "{{count}} s",
+      "minutes_many": "{{count}} min",
+      "hours_many": "{{count}} h"
+    },
+    "urgency_by_policy": "Selon la politique d’escalade",
+    "home_cluster": {
+      "each": "Chaque cluster séparément",
+      "local": "{{name}} (ce cluster)"
+    }
+  },
+  "drawer": {
+    "title_loading": "Incident",
+    "error_title": "Impossible de charger l’incident",
+    "actions": {
+      "ack": "Accuser réception",
+      "ack_unavailable": "Vous ne pouvez accuser réception que des incidents ouverts.",
+      "ack_success": "Réception de l’incident confirmée",
+      "silence": "Mettre en sourdine",
+      "silence_unavailable": "Vous ne pouvez mettre en sourdine que les incidents actifs.",
+      "resolve": "Résoudre",
+      "resolve_unavailable": "Cet incident n’est plus actif.",
+      "resolve_success": "Incident résolu",
+      "pending": "Une autre mise à jour de l’incident est en cours."
+    },
+    "incident_sections": {
+      "timeline": "Chronologie",
+      "investigation": "Enquêter",
+      "rca": "Cause racine selon l’IA",
+      "signals": "Liens entre signaux",
+      "metadata": "Métadonnées",
+      "triggering_query": "Requête de déclenchement",
+      "assignees": "Personnes assignées",
+      "blast_radius": "Périmètre d’impact",
+      "rum_sessions": "Échantillon de sessions",
+      "similar": "Incidents similaires",
+      "changes": "Modifications récentes",
+      "remediation": "Remédiation",
+      "tickets": "Tickets",
+      "major": "Incident majeur",
+      "postmortem": "Analyse post-incident",
+      "guide": "Guide d’investigation"
+    },
+    "guide": {
+      "queries": "Requêtes",
+      "dashboards": "Tableaux de bord"
+    },
+    "investigation": {
+      "open_trigger": "Ouvrir la requête de déclenchement",
+      "open_trigger_description": "Relancez la requête à l’identique dans Explorer.",
+      "related_logs": "Logs associés",
+      "related_logs_description": "Examinez les logs du contexte affecté.",
+      "related_metrics": "Métriques associées",
+      "related_metrics_description": "Comparez l’état des services sur la même période.",
+      "open_rum": "Ouvrir dans RUM",
+      "open_rum_description": "Consultez le même graphique sur sa page pour la durée de l’incident."
+    },
+    "rca": {
+      "generate": "Générer",
+      "regenerate": "Régénérer",
+      "generating": "Génération en cours…",
+      "generated": "Analyse des causes racines générée",
+      "empty": "Aucune analyse pour l’instant. Générez-en une ou attendez le traitement en arrière-plan.",
+      "budget_exhausted": "Votre organisation a épuisé son budget quotidien de tokens pour Mole Agent. Aucune analyse n’a été générée. Réessayez après la réinitialisation ou l’augmentation du budget."
+    },
+    "signals": {
+      "services": "Services",
+      "traces": "ID de traces",
+      "hosts": "Hôtes"
+    },
+    "labels": {
+      "title": "Libellés"
+    },
+    "annotations": {
+      "title": "Annotations"
+    },
+    "timeline": {
+      "created": "Déclenchée",
+      "acknowledged": "Prise en compte",
+      "resolved": "Résolue",
+      "acknowledged_by": "Prise en compte par {{name}}",
+      "resolved_by": "Résolue par {{name}}",
+      "after": "après {{duration}}"
+    },
+    "triggering_query": {
+      "sample_count": "{{count}} lignes d’exemple",
+      "sample_count_one": "1 ligne d’exemple",
+      "show_samples": "Afficher les valeurs d’exemple"
+    },
+    "assignees_none": "Personne n’est encore assigné.",
+    "routing": {
+      "team": "Équipe",
+      "reason": "Motif",
+      "no_team": "Aucune équipe"
+    },
+    "rum": {
+      "why": {
+        "lcp_p75": "Sessions des vues où l’affichage du plus grand élément de contenu a pris le plus de temps",
+        "inp_p75": "Sessions des vues où la réponse à une interaction a pris le plus de temps",
+        "cls_p75": "Sessions des vues présentant les plus grands décalages de mise en page",
+        "ttfb_p75": "Sessions des vues où le délai de réception du premier octet a été le plus long",
+        "error_rate": "Sessions où les erreurs les plus récentes se sont produites",
+        "error_count": "Sessions où les erreurs les plus récentes se sont produites",
+        "new_issues": "Sessions où les erreurs les plus récentes liées à ces problèmes se sont produites",
+        "regressed_issues": "Sessions où les erreurs les plus récentes liées à ces problèmes se sont produites",
+        "issue_impact": "Sessions où les erreurs les plus récentes liées au problème le plus impactant se sont produites",
+        "crash_free_sessions": "Sessions ayant subi un plantage",
+        "frustration_rate": "Sessions présentant un signe de frustration",
+        "failed_request_rate": "Sessions dans lesquelles une requête a échoué"
+      },
+      "cause": {
+        "lcp": "LCP {{value}}",
+        "inp": "INP {{value}}",
+        "cls": "CLS {{value}}",
+        "ttfb": "Premier octet {{value}}",
+        "request": "{{request}} → {{status}}"
+      },
+      "replay": "Rejouer",
+      "replay_at": "Rejouer à {{time}}",
+      "session": "Session",
+      "anonymous": "Anonyme {{id}}",
+      "element": "élément {{element}}",
+      "crashes_one": "{{count}} plantage",
+      "crashes_other": "{{count}} plantages",
+      "signs_one": "{{count}} signe de frustration",
+      "signs_other": "{{count}} signes de frustration",
+      "no_answer": "aucune réponse",
+      "sessions_failed": "Impossible de lire les sessions ; seules les lignes conservées pour l’incident sont affichées.",
+      "crashes_many": "{{count}} plantages",
+      "signs_many": "{{count}} signes de frustration"
+    },
+    "blast": {
+      "off_map": "{{service}} ne figure pas sur la carte des services pour cette période.",
+      "upstream": "Services qui l’appellent : impact potentiel",
+      "downstream": "Services qu’il appelle : sources possibles du problème",
+      "no_upstream": "Aucun service ne l’appelle.",
+      "no_downstream": "Il n’appelle aucun service.",
+      "open_map": "Afficher sur la carte des services",
+      "direct": "direct",
+      "hops_one": "à {{count}} saut",
+      "hops_other": "à {{count}} sauts",
+      "calls_one": "{{formatted}} appel, {{rate}} d’échec",
+      "calls_other": "{{formatted}} appels, {{rate}} d’échec",
+      "health": {
+        "critical": "Critique",
+        "warning": "Avertissement",
+        "healthy": "Sain",
+        "no_traffic": "Inactif"
+      },
+      "hops_many": "à {{count}} sauts",
+      "calls_many": "{{formatted}} appels, {{rate}} d’échec"
+    }
+  },
+  "insights": {
+    "error_title": "Impossible de générer l’analyse",
+    "empty_title": "Aucun incident pour l’instant",
+    "empty_description": "Lorsque des incidents se déclenchent puis se résolvent, cette vue présente leur résolution, leurs données temporelles, leur gravité et leurs principales sources.",
+    "window": {
+      "label": "Période d’analyse",
+      "last_24h": "24 dernières heures",
+      "last_7d": "7 derniers jours",
+      "last_30d": "30 derniers jours"
+    },
+    "summary": {
+      "active_headline": "{{active}} incidents sur {{total}} nécessitent encore votre attention",
+      "recovered_headline": "Les {{total}} incidents sont résolus",
+      "active_description": "Donnez la priorité aux incidents encore ouverts ou dont la prise en charge a été confirmée.",
+      "recovered_description": "Aucun incident n’est actif sur la période sélectionnée : tous les incidents sont résolus.",
+      "mttr": "Temps moyen de résolution",
+      "mttr_description": "Sur l’ensemble des incidents résolus",
+      "noise": "Résolutions rapides",
+      "noise_description": "{{rate}} des incidents résolus en 60 secondes ou moins",
+      "label": "Incidents sur la période",
+      "recovered": "Résolus",
+      "recovered_of": "{{closed}} sur {{total}}"
+    },
+    "hourly": {
+      "title": "Chronologie des incidents",
+      "description": "Incidents regroupés par heure pour les dernières 24 heures et par jour calendaire pour les périodes plus longues, selon le fuseau horaire de votre navigateur ({{timezone}}).",
+      "series_name": "Incidents",
+      "peak_summary": "Pic de {{count}} incidents pour {{period}} ({{timezone}})",
+      "chart_label": "Chronologie des incidents. {{summary}}"
+    },
+    "severity_breakdown": {
+      "title": "Répartition par gravité",
+      "description": "Niveau de gravité le plus élevé enregistré au déclenchement de chaque incident."
+    },
+    "services": {
+      "title": "Services les plus touchés",
+      "description": "Services les plus souvent associés à ces incidents.",
+      "empty_title": "Aucun service associé",
+      "empty_description": "Ces incidents ne contiennent aucune information sur les services. Ajoutez un libellé de service aux règles d’alerte pour afficher ici les services les plus touchés."
+    },
+    "rules": {
+      "title": "Règles les plus souvent déclenchées",
+      "description": "Classement par nombre d’incidents créés sur la période sélectionnée.",
+      "empty_title": "Aucune règle associée",
+      "empty_description": "Impossible d’identifier les règles à l’origine de ces incidents.",
+      "unknown_rule": "Règle supprimée ou indisponible",
+      "manual_secondary": "Incidents ouverts manuellement"
+    },
+    "rankings": {
+      "count_and_share_one": "{{count}} incident · {{percent}}",
+      "count_and_share_other": "{{count}} incidents · {{percent}}",
+      "count_and_share_many": "{{count}} incidents · {{percent}}"
+    },
+    "duration": {
+      "seconds": "{{count}}s",
+      "minutes": "{{count}}m",
+      "minutes_seconds": "{{minutes}}m {{seconds}}s",
+      "hours": "{{count}}h",
+      "hours_minutes": "{{hours}}h {{minutes}}m"
+    },
+    "response": {
+      "title": "Réponse aux incidents",
+      "description": "Délais de prise en charge et de résolution des incidents, et fréquence des escalades, par rapport à la période précédente.",
+      "mtta": "Délai moyen de prise en charge",
+      "percentiles": "P50 {{p50}} · P90 {{p90}}",
+      "none_responded": "Aucun incident n’a été pris en charge sur cette période",
+      "mttr": "Temps médian de résolution",
+      "p90": "P90 {{p90}}",
+      "escalation_rate": "Taux d’escalade",
+      "responded": "Pris en charge",
+      "responded_detail": "{{responded}} incidents sur {{incidents}} ont été pris en charge ; les autres se sont résolus d’eux-mêmes ou sont toujours en attente",
+      "faster": "{{change}} plus rapide qu’avant",
+      "slower": "{{change}} plus lent qu’avant",
+      "lower": "{{change}} de moins qu’avant",
+      "higher": "{{change}} de plus qu’avant",
+      "same": "À peu près comme avant",
+      "no_previous": "Aucune donnée antérieure à comparer",
+      "steps_title": "Acquittement par étape",
+      "steps_description": "Part des incidents acquittés à chaque étape parmi ceux qui l’ont atteinte.",
+      "step": "Étape {{n}}",
+      "step_rate": "{{acknowledged}} sur {{reached}} · {{percent}}",
+      "steps_empty": "Aucune escalade n’a été enregistrée sur cette période.",
+      "via_title": "Canal de prise en charge",
+      "via_description": "Canal utilisé pour le premier acquittement ou la résolution de l’incident.",
+      "via": {
+        "web": "Web",
+        "api": "API",
+        "im": "Carte de messagerie",
+        "sms": "Réponse par SMS",
+        "phone": "Touche du téléphone",
+        "agent": "Mole Agent"
+      },
+      "via_empty": "Personne n’a pris en charge d’incident sur cette période.",
+      "breakdown_title": "Par équipe, service et personne",
+      "breakdown_description": "Chaque incident est attribué à la première personne à l’avoir pris en charge. S’il concerne plusieurs services, il est compté une fois pour chacun. Les incidents sans priorité sont exclus de la répartition par priorité.",
+      "breakdown_label": "Répartir par",
+      "dimensions": {
+        "teams": "Équipes",
+        "services": "Services",
+        "people": "Personnes",
+        "priorities": "Priorité"
+      },
+      "columns": {
+        "teams": "Équipe",
+        "services": "Service",
+        "people": "Membre",
+        "incidents": "Incidents",
+        "mtta": "Délai moyen d’acquittement",
+        "mttr": "Délai moyen de rétablissement",
+        "escalation": "Taux d’escalade",
+        "priorities": "Priorité"
+      },
+      "breakdown_empty": "Aucune donnée à répartir."
+    },
+    "load": {
+      "title": "Charge d’astreinte",
+      "description": "Durée d’astreinte et fréquence des notifications d’alerte pour chaque personne. La nuit s’étend de {{start}}:00 à {{end}}:00 dans le fuseau horaire de son planning.",
+      "loading": "Comptage en cours…",
+      "error": "Impossible de lire les données sur la charge d’astreinte.",
+      "empty": "Personne n’était d’astreinte et aucune notification d’alerte n’a été envoyée pendant cette période.",
+      "columns": {
+        "person": "Membre",
+        "oncall": "Durée d’astreinte",
+        "pages": "Notifications d’alerte",
+        "night": "La nuit",
+        "weekend": "Le week-end",
+        "nights": "Nuits interrompues",
+        "mtta": "Premières prises en charge",
+        "timezone": "Fuseau horaire"
+      },
+      "mtta_of": "{{count}} · moyenne de {{mtta}}"
+    }
+  },
+  "anomaly": {
+    "new_title": "Nouvelle règle de détection d’anomalies",
+    "edit_title": "Modifier la règle de détection d’anomalies",
+    "subtitle": "Détectez les valeurs aberrantes par rapport à une référence établie pour la même heure de la journée (MAD).",
+    "detection_description": "À chaque intervalle, la première valeur numérique renvoyée par la requête est comparée à la référence.",
+    "detector_description": "L’écart absolu médian (MAD) établit une référence robuste à partir de données récentes relevées à la même heure.",
+    "sections": {
+      "identity": "Identification",
+      "detection": "Requête de détection",
+      "detector": "Détecteur"
+    },
+    "fields": {
+      "name": "Nom de la règle",
+      "severity": "Gravité",
+      "service": "Service",
+      "stream_name": "Flux",
+      "stream_type": "Type de flux",
+      "language": "Langage de requête",
+      "window": "Fenêtre d’évaluation",
+      "query": "Requête",
+      "algorithm": "Algorithme",
+      "lookback_days": "Période de référence (jours)",
+      "k": "Sensibilité (k·σ)",
+      "alpha": "Lissage (α)",
+      "for_periods": "Déclencher après (nombre d’intervalles)",
+      "weekly_seasonality": "Saisonnalité hebdomadaire",
+      "source": "Source de données"
+    },
+    "hints": {
+      "name": "S’affiche sur les incidents ouverts par cette règle.",
+      "service": "Étiquette facultative permettant de relier les signaux entre eux.",
+      "stream_name": "Table sur laquelle la requête s’exécute.",
+      "window": "Durée de chaque fenêtre d’évaluation.",
+      "query": "Renvoyez une seule valeur numérique (p. ex. moyenne / p95 / nombre).",
+      "algorithm": "MAD (écart absolu médian, robuste) ou EWMA (suit les dérives récentes).",
+      "lookback_days": "Nombre de jours d’historique à la même heure pour établir la référence (1 à 30).",
+      "k": "Plus k est élevé, moins la règle est sensible. Se déclenche si |valeur - référence| > k·σ.",
+      "alpha": "EWMA uniquement : plus la valeur est élevée, plus les échantillons récents pèsent dans le calcul (0 à 1).",
+      "for_periods": "Nombre d’intervalles anormaux consécutifs avant l’ouverture d’un incident.",
+      "weekly_seasonality": "Compare uniquement les données du même jour de la semaine pour réduire les faux positifs liés aux écarts entre la semaine et le week-end. Nécessite au moins 7 jours d’historique (28 ou plus recommandés).",
+      "source": "Surveillez le résultat d’une requête ou une métrique APM d’un service"
+    },
+    "placeholders": {
+      "name": "checkout_latency_anomaly",
+      "service": "checkout",
+      "stream_name": "app_metrics"
+    },
+    "actions": {
+      "create": "Créer une règle",
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…"
+    },
+    "errors": {
+      "name_required": "Le nom de la règle est obligatoire.",
+      "stream_required": "Le flux est obligatoire."
+    },
+    "toast_saved": "Règle d’anomalie « {{name}} » enregistrée",
+    "weekly": {
+      "off": "Désactivée (tous les jours)",
+      "on": "Activée (même jour de la semaine)"
+    },
+    "source": {
+      "query": "Requête",
+      "apm": "Métrique APM",
+      "rum": "Métrique RUM"
+    }
+  },
+  "severity": {
+    "info": "Info",
+    "warning": "Avertissement",
+    "error": "Erreur",
+    "critical": "Critique"
+  },
+  "conditions": {
+    "no_data": "Aucune donnée"
+  },
+  "sources": {
+    "synthetic": "Synthétique",
+    "manual": "Ouvert manuellement"
+  },
+  "alert_sources": {
+    "new_source": "Nouvelle source d’alertes",
+    "empty_title": "Aucune source d’alertes pour le moment",
+    "empty_description": "Recevez les alertes d’Alertmanager, de Grafana, de Datadog, de PagerDuty, de Zabbix, d’outils de surveillance cloud, d’e-mails ou de vos propres systèmes. Ouvrez des incidents à partir de ces alertes, puis gérez leur escalade et envoyez des notifications.",
+    "kinds": {
+      "api": "API",
+      "alertmanager": "Alertmanager",
+      "grafana": "Grafana",
+      "datadog": "Datadog",
+      "pagerduty": "PagerDuty",
+      "aliyun_cms": "Alibaba Cloud CloudMonitor",
+      "tencent_monitor": "Tencent Cloud Observability Platform",
+      "aws_cloudwatch": "Amazon CloudWatch",
+      "zabbix": "Zabbix",
+      "email": "E-mail"
+    },
+    "kind_hints": {
+      "api": "Déclenchez, acquittez et résolvez les incidents via l’API MoleSignal, depuis des scripts, des pipelines CI ou des systèmes internes.",
+      "alertmanager": "Un récepteur webhook_configs. Chaque groupe de notifications ouvre un incident.",
+      "grafana": "Un point de contact de type webhook. Chaque groupe de notifications ouvre un incident.",
+      "datadog": "L’intégration Webhooks, référencée dans les moniteurs par @webhook. Utilise la charge utile décrite dans la documentation.",
+      "pagerduty": "Un abonnement webhook V3. Suit le déclenchement, l’acquittement et la résolution des incidents PagerDuty.",
+      "aliyun_cms": "Rappels pour les alarmes de seuil et notifications push pour les abonnements aux événements. Le jeton doit figurer dans l’adresse.",
+      "tencent_monitor": "Rappels API d’un modèle de notification pour les alarmes liées aux métriques et aux événements. Le jeton doit figurer dans l’adresse.",
+      "aws_cloudwatch": "Les alarmes sont envoyées à une rubrique SNS à laquelle cette adresse est abonnée. Les signatures SNS sont vérifiées et l’abonnement est confirmé automatiquement.",
+      "zabbix": "Importez un type de média webhook. Un incident est ouvert par problème, avec suivi des rétablissements et des acquittements.",
+      "email": "Lit une boîte aux lettres IMAP sans nécessiter d’adresse publique. Accepte aussi les e-mails bruts de votre système de messagerie existant."
+    },
+    "columns": {
+      "name": "Nom",
+      "kind": "Type",
+      "policy": "Politique d’escalade",
+      "last_intake": "Dernière réception",
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "never_received": "Rien reçu pour l’instant",
+    "status": {
+      "on": "Activée",
+      "off": "Désactivée"
+    },
+    "policy_default": "Selon le routage (par défaut)",
+    "policy_none": "Sans escalade, politiques de notification uniquement",
+    "delete_title": "Supprimer la source d’alertes",
+    "delete_description": "Le jeton de {{name}} est immédiatement invalidé et ses incidents ouverts sont résolus.",
+    "delete_named": "Supprimer {{name}}",
+    "drawer_title": "Nouvelle source d’alertes",
+    "edit_title": "Modifier la source d’alertes",
+    "drawer_subtitle": "Les alertes envoyées par le système externe ouvrent des incidents selon les paramètres définis ici.",
+    "create": "Créer",
+    "save": "Enregistrer",
+    "toast_created": "Source d’alertes créée",
+    "toast_updated": "Source d’alertes mise à jour",
+    "toast_deleted": "Source d’alertes supprimée",
+    "sections": {
+      "email": "Mode de lecture des e-mails",
+      "kind": "Type",
+      "identity": "Identité",
+      "incidents": "Incidents",
+      "labels": "Étiquettes supplémentaires"
+    },
+    "fields": {
+      "name": "Nom",
+      "name_placeholder": "Prometheus de production",
+      "enabled": "Activé",
+      "policy": "Politique d’escalade",
+      "severity": "Gravité par défaut",
+      "severity_hint": "Utilisée lorsque l’alerte ne précise pas sa gravité.",
+      "cluster": "Cluster de réception",
+      "cluster_hint": "Les incidents ne sont ouverts que sur ce cluster. Les alertes envoyées à un autre cluster lui sont transférées.",
+      "cluster_local": "{{name}} (ce cluster)",
+      "labels_hint": "Ces étiquettes sont ajoutées à chaque incident ouvert par cette source. En cas de clé identique, l’étiquette de l’alerte prime.",
+      "add_label": "Ajouter une étiquette",
+      "remove_label": "Supprimer l’étiquette",
+      "label_key": "Clé de l’étiquette",
+      "label_value": "Valeur de l’étiquette"
+    },
+    "errors": {
+      "name_required": "Le nom est obligatoire."
+    },
+    "token": {
+      "title": "Jeton de {{name}}",
+      "shown_once": "Le jeton ne s’affiche qu’une seule fois. Une fois cette fenêtre fermée, vous ne pourrez plus le consulter. Si vous le perdez, renouvelez-le.",
+      "copy": "Copier le jeton",
+      "close": "Terminé",
+      "rotate": "Renouveler le jeton",
+      "rotate_title": "Renouveler le jeton",
+      "rotate_description": "L’ancien jeton cesse de fonctionner immédiatement. Les systèmes qui l’utilisent encore doivent passer au nouveau.",
+      "rotated": "Jeton renouvelé"
+    },
+    "detail": {
+      "loading": "Source d’alertes",
+      "intake": "Réception",
+      "intake_email": "Ou envoyez l’e-mail brut via POST",
+      "setup_docs": "Guide de configuration",
+      "address": "Adresse de réception",
+      "copy_address": "Copier l’adresse de réception",
+      "token": "Jeton",
+      "token_hint": "Seul le préfixe est affiché. Le jeton complet ne s’affiche qu’une fois, à la création de la source ou au renouvellement du jeton.",
+      "setup": "Configuration",
+      "setup_hint": "Remplacez <TOKEN> par le jeton de cette source.",
+      "copy_setup": "Copier la configuration",
+      "not_found_title": "Source d’alertes introuvable",
+      "not_found_description": "Elle a peut-être été supprimée ou appartient à une autre organisation.",
+      "requests": "Requêtes reçues récemment",
+      "requests_description": "Les 500 dernières requêtes de chaque source sont conservées pendant 7 jours au maximum.",
+      "home_elsewhere": "Les incidents de cette source sont ouverts sur {{cluster}}. Ses requêtes récentes y sont enregistrées.",
+      "meta": {
+        "policy": "Politique d’escalade",
+        "severity": "Gravité par défaut",
+        "labels": "Étiquettes supplémentaires",
+        "cluster": "Cluster de réception"
+      }
+    },
+    "email": {
+      "description": "Comment un e-mail devient une alerte. Les termes d’état, les niveaux de gravité, les indications de temps et les pourcentages dans l’objet sont exclus de la clé de déduplication. Les e-mails de signalement et de résolution d’une même alerte sont ainsi rattachés au même incident.",
+      "senders": "Expéditeurs autorisés",
+      "senders_hint": "Séparez les entrées par des virgules : indiquez des adresses ou @example.com pour un domaine entier. * autorise tous les expéditeurs. Ce champ est obligatoire si vous utilisez une boîte mail ; sinon, toute personne qui en connaît l’adresse pourrait ouvrir des incidents.",
+      "resolve": "Objets signalant une résolution",
+      "resolve_hint": "Expression régulière. Si le champ est vide, l’expression intégrée reconnaît les objets qui commencent par resolved, recovered, recovery, cleared, 恢复, 已解决 ou OK.",
+      "dedup": "Clé de déduplication extraite de l’objet",
+      "dedup_hint": "Expression régulière : seul le premier groupe de capture est utilisé. Si le champ est vide ou si l’expression ne correspond pas, l’objet normalisé est utilisé.",
+      "ignore": "Objets à ignorer",
+      "ignore_hint": "Expression régulière. Les e-mails dont l’objet correspond sont ignorés. Si le champ est vide, aucun e-mail n’est ignoré."
+    },
+    "mailbox": {
+      "title": "Lire une boîte mail",
+      "description": "Lecture seule : aucun e-mail n’est marqué comme lu ni supprimé. Seuls les e-mails arrivés à partir de la première connexion sont pris en compte.",
+      "elsewhere": "Le cluster de réception de cette source ({{cluster}}) lit la boîte mail. Configurez-la dans ce cluster : le mot de passe y reste.",
+      "host": "Serveur IMAP",
+      "port": "Port",
+      "security": "Chiffrement",
+      "security_tls": "TLS",
+      "security_starttls": "STARTTLS",
+      "security_none": "Aucun",
+      "plaintext_warning": "Sans chiffrement, le mot de passe transite en clair sur le réseau. N’utilisez cette option que sur un réseau de confiance.",
+      "auth_password": "Mot de passe",
+      "auth_password_hint": "Mot de passe de la boîte mail ou mot de passe d’application fourni par le prestataire.",
+      "auth_oauth2": "OAuth 2.0",
+      "auth_oauth2_hint": "Jeton obtenu avec les identifiants client : Microsoft 365 n’accepte plus les mots de passe.",
+      "username": "Nom d’utilisateur",
+      "password": "Mot de passe",
+      "client_secret": "Secret client",
+      "secret_kept": "Laissez le champ vide pour conserver la valeur actuelle",
+      "token_url": "URL du point d’accès aux jetons",
+      "client_id": "ID client",
+      "scope": "Portée",
+      "folder": "Dossier",
+      "poll_secs": "Intervalle de lecture (secondes)",
+      "poll_hint": "De 15 à 3600. Certains serveurs de messagerie limitent les connexions trop fréquentes.",
+      "save": "Enregistrer la boîte mail",
+      "test": "Tester la connexion",
+      "remove": "Arrêter la lecture de cette boîte mail",
+      "saved": "Boîte mail enregistrée. La lecture commencera au prochain cycle.",
+      "removed": "La lecture de cette boîte mail est arrêtée.",
+      "test_ok_one": "Connexion établie ; ce dossier contient {{count}} e-mail",
+      "test_ok_other": "Connexion établie ; ce dossier contient {{count}} e-mails",
+      "test_failed": "Impossible de se connecter : {{error}}",
+      "last_error": "Échec de la dernière lecture : {{error}}",
+      "last_success": "Lecture à {{time}}",
+      "not_read_yet": "Pas encore lu ; la lecture commencera au prochain cycle.",
+      "test_ok_many": "Connexion établie ; ce dossier contient {{count}} e-mails"
+    },
+    "standing": {
+      "label": "État de la source",
+      "off": "Désactivée",
+      "waiting": "En attente de la première requête",
+      "quiet": "Aucune requête depuis 7 jours",
+      "refused": "Dernière requête refusée",
+      "receiving": "Reçoit des requêtes",
+      "off_detail": "Les requêtes envoyées lorsque la source est désactivée sont refusées.",
+      "waiting_detail": "Configurez l’expéditeur comme indiqué ci-dessous. L’état sera mis à jour à la réception de la première requête.",
+      "last_received": "Dernière requête : {{when}}",
+      "refused_detail": "{{when}} : {{reason}}",
+      "requests": "Requêtes des dernières 24 heures",
+      "refused_count_one": "{{count}} refusée",
+      "refused_count_other": "{{count}} refusées",
+      "none_refused": "Aucune requête refusée",
+      "no_requests": "Aucune requête pour l’instant",
+      "alerts": "Alertes",
+      "alert_outcomes": "{{opened}} ouvertes · {{resolved}} résolues",
+      "open_incidents": "Incidents ouverts",
+      "oldest_open": "Incident le plus ancien ouvert : {{when}}",
+      "none_open": "Aucun incident ouvert",
+      "refused_count_many": "{{count}} refusées"
+    },
+    "steps": {
+      "address": "Copiez l’adresse de réception",
+      "address_description": "Toutes les sources d’alertes utilisent cette adresse. Le jeton identifie la source de chaque alerte.",
+      "token": "Ajoutez le jeton",
+      "token_header": "L’expéditeur renseigne l’en-tête Authorization avec Bearer suivi du jeton.",
+      "token_query": "Cet expéditeur ne peut pas définir d’en-têtes. Ajoutez donc le jeton à l’adresse dans le paramètre token.",
+      "configure": "Configurez l’expéditeur"
+    },
+    "setup_guide": {
+      "api": "Envoyez les alertes à l’aide de la requête ci-dessous. Les événements de déclenchement, d’acquittement et de retour à la normale sont regroupés dans un même incident s’ils ont la même valeur dedupKey.",
+      "alertmanager": "Ajoutez le récepteur ci-dessous à alertmanager.yml et acheminez les alertes vers lui. Laissez send_resolved à true.",
+      "grafana": "Dans Alertes → Points de contact, ajoutez un point de contact de type webhook comme indiqué ci-dessous, puis utilisez-le dans une politique de notification.",
+      "datadog": "Dans Intégrations → Webhooks, créez un webhook comme indiqué ci-dessous, puis mentionnez @webhook-<name> dans le message d’un moniteur.",
+      "pagerduty": "Dans Integrations → Generic Webhooks (v3), créez un webhook comme indiqué ci-dessous.",
+      "aliyun_cms": "Renseignez l’adresse de réception comme URL de rappel d’une règle d’alarme ou comme URL du webhook d’un canal d’envoi pour un abonnement aux événements système.",
+      "tencent_monitor": "Dans la gestion des alarmes, renseignez l’adresse de réception comme URL de rappel de l’API dans un modèle de notification, puis associez ce modèle à une politique d’alarme.",
+      "aws_cloudwatch": "Envoyez les changements d’état de l’alarme vers une rubrique SNS, puis ajoutez à cette rubrique un abonnement HTTPS qui utilise l’adresse de réception (voir la commande AWS CLI ci-dessous). L’abonnement est confirmé automatiquement ; laissez l’option d’envoi des messages bruts désactivée. Envoyez aussi l’état OK à cette rubrique, sinon les incidents ne seront pas résolus automatiquement.",
+      "zabbix": "Enregistrez cette configuration au format YAML, puis importez-la dans Alertes → Types de médias. Associez ce média à un utilisateur (le champ Envoyer à peut contenir n’importe quelle valeur), puis ajoutez une action de déclencheur dont les opérations, les opérations de rétablissement et les opérations de mise à jour ciblent cet utilisateur.",
+      "email": "Si la boîte aux lettres n’est pas accessible, utilisez votre système de messagerie (Postfix, SES, Mailgun) pour envoyer le message brut de cette façon. Le message sera lu de la même manière."
+    },
+    "setup_docs_anchor": {
+      "api": "api",
+      "alertmanager": "alertmanager",
+      "grafana": "grafana",
+      "datadog": "datadog",
+      "pagerduty": "pagerduty",
+      "aliyun_cms": "alibaba-cloud-cloudmonitor",
+      "tencent_monitor": "tencent-cloud-observability-platform",
+      "aws_cloudwatch": "amazon-cloudwatch",
+      "zabbix": "zabbix",
+      "email": "email"
+    },
+    "requests": {
+      "columns": {
+        "time": "Heure",
+        "result": "Résultat",
+        "alerts": "Alertes",
+        "message": "Note"
+      },
+      "status": {
+        "accepted": "Traitée",
+        "rejected": "Refusée",
+        "forwarded": "Transmise"
+      },
+      "via": "Transmise par {{cluster}}",
+      "alert_count_one": "{{count}} alerte",
+      "alert_count_other": "{{count}} alertes",
+      "outcomes": {
+        "opened": "Ouverte",
+        "updated": "Mise à jour",
+        "unchanged": "Inchangée",
+        "acknowledged": "Acquittée",
+        "resolved": "Résolue",
+        "ignored": "Ignorée"
+      },
+      "actions": {
+        "trigger": "Déclencher",
+        "acknowledge": "Acquitter",
+        "resolve": "Résoudre"
+      },
+      "body": "Début du corps de la requête",
+      "open_incident": "Ouvrir l’incident",
+      "no_alerts": "La requête ne contenait aucune alerte.",
+      "alert_count_many": "{{count}} alertes"
+    },
+    "incident": {
+      "title": "Alerte externe",
+      "source": "Source",
+      "deleted": "Source supprimée",
+      "dedup_key": "Clé de déduplication",
+      "last_intake": "Dernière réception",
+      "members_one": "{{count}} alerte dans le groupe",
+      "members_other": "{{count}} alertes dans le groupe",
+      "member_firing": "Déclenchée",
+      "member_resolved": "Résolue",
+      "since": "depuis {{time}}",
+      "open_sender": "Ouvrir dans l’application source",
+      "members_many": "{{count}} alertes dans le groupe"
+    }
+  },
+  "routing": {
+    "new_rule": "Nouvelle règle",
+    "rules_title": "Règles de routage",
+    "rules_description": "Les règles sont évaluées de haut en bas. La première règle applicable détermine le routage. Si aucune ne s’applique, le système essaie successivement l’équipe responsable du service, le label d’équipe et la politique par défaut.",
+    "rules_empty": "Aucune règle de routage pour l’instant.",
+    "every_incident": "Tous les incidents",
+    "min_severity": "{{severity}} ou plus grave",
+    "only_origins": "{{origins}} uniquement",
+    "list_separator": ", ",
+    "origins": {
+      "rule": "Règles d’alerte",
+      "external": "Alertes externes",
+      "synthetic": "Tests synthétiques",
+      "manual": "Incidents créés manuellement"
+    },
+    "reorder": "Déplacer « {{name}} »",
+    "reorder_hint": "Faites glisser la règle ou utilisez les touches ↑ et ↓ pour la déplacer",
+    "target_policy": "Politique",
+    "target_team": "Équipe",
+    "target_missing": "Cible supprimée",
+    "target_missing_hint": "La politique ou l’équipe ciblée a été supprimée. Cette règle est donc ignorée.",
+    "enable": "Activer « {{name}} »",
+    "delete_named": "Supprimer « {{name}} »",
+    "delete_title": "Supprimer la règle de routage",
+    "delete_description": "Les incidents qui correspondaient à « {{name}} » seront routés selon les règles suivantes dans la liste.",
+    "toast_created": "Règle créée",
+    "toast_updated": "Règle enregistrée",
+    "toast_deleted": "Règle supprimée",
+    "toast_team_policy": "Politique d’astreinte enregistrée",
+    "teams_title": "Politiques d’astreinte des équipes",
+    "teams_description": "L’escalade d’un incident routé vers une équipe suit la politique d’astreinte de cette équipe ou, à défaut, la politique par défaut.",
+    "teams_empty": "Aucune équipe pour l’instant.",
+    "teams_create": "Créez une équipe dans Identité et accès",
+    "columns": {
+      "team": "Équipe",
+      "services": "Services sous sa responsabilité",
+      "policy": "Politique d’astreinte",
+      "policy_of": "Politique d’astreinte de l’équipe {{team}}"
+    },
+    "members_one": "{{count}} membre",
+    "members_other": "{{count}} membres",
+    "services_one": "{{count}} service",
+    "services_other": "{{count}} services",
+    "services_rest": ", …",
+    "services_none": "Aucun service dans le catalogue",
+    "no_policy": "Aucune, utiliser la politique par défaut",
+    "default_policy": "Politique par défaut",
+    "no_team": "Aucune équipe",
+    "try_title": "Tester le routage",
+    "try_description": "Saisissez des étiquettes pour voir à quelle équipe et à quelle politique d’escalade un tel incident serait associé.",
+    "try_labels": "Étiquettes",
+    "try_labels_hint": "Une par ligne, au format clé=valeur.",
+    "try_origin": "Origine",
+    "try_severity": "Gravité",
+    "try_run": "Tester",
+    "try_idle": "Le résultat s’affiche ici : l’équipe, la politique d’escalade et le détail de chaque étape.",
+    "outcome_team": "Équipe",
+    "outcome_policy": "Politique d’escalade",
+    "outcome_reason": "Raison",
+    "steps": {
+      "rule": "Règles de routage",
+      "rule_matched": "Règle « {{name}} » correspondante",
+      "rule_none": "Aucune correspondance",
+      "rule_empty": "Aucune règle activée",
+      "service": "Responsable du service",
+      "service_none": "Aucun service dans les étiquettes",
+      "service_owned": "{{service}} est sous la responsabilité de {{team}}",
+      "service_unowned": "Aucune équipe n’est responsable de {{service}}",
+      "label": "Étiquette d’équipe",
+      "label_team": "Désigne {{team}}",
+      "label_none": "Aucune étiquette team ou team_id ne désigne d’équipe",
+      "default": "Politique par défaut",
+      "default_used": "Politique par défaut appliquée",
+      "default_for_team": "{{team}} n’a pas de politique d’astreinte ; la politique par défaut s’applique",
+      "default_unused": "Non nécessaire"
+    },
+    "reasons": {
+      "rule": "Règle « {{name}} » correspondante",
+      "service_owner": "Responsable du service {{service}}",
+      "team_label": "Étiquette d’équipe de l’incident",
+      "default": "Aucune correspondance ; politique par défaut appliquée",
+      "source": "Politique choisie par la source",
+      "manual": "Politique choisie à l’ouverture de l’incident"
+    },
+    "drawer": {
+      "new_title": "Nouvelle règle de routage",
+      "edit_title": "Modifier la règle de routage",
+      "subtitle": "Tout incident qui remplit toutes les conditions de cette règle est envoyé à la destination indiquée.",
+      "create": "Créer",
+      "save": "Enregistrer",
+      "identity": "Paramètres de base",
+      "name": "Nom",
+      "name_placeholder": "Par ex. : Paiements en production",
+      "enabled": "Activée",
+      "conditions": "Conditions",
+      "conditions_hint": "Les étiquettes de l’incident doivent remplir toutes les conditions. Une règle sans condition s’applique à tous les incidents.",
+      "add_condition": "Ajouter une condition",
+      "remove_condition": "Supprimer la condition",
+      "key": "Étiquette",
+      "operator": "Comparaison",
+      "operators": {
+        "equals": "est égal à",
+        "not_equals": "est différent de",
+        "in": "fait partie de",
+        "matches": "correspond à l’expression régulière"
+      },
+      "value": "Valeur",
+      "value_in_placeholder": "Séparez les valeurs par des virgules",
+      "scope": "Périmètre",
+      "min_severity": "Gravité minimale",
+      "any_severity": "Toutes",
+      "origins": "Origines",
+      "origins_hint": "Si vous ne sélectionnez aucune origine, les incidents sont évalués quelle que soit leur origine.",
+      "target": "Envoyer à",
+      "target_team": "Équipe",
+      "target_team_hint": "Suit la politique d’astreinte de l’équipe pour l’escalade",
+      "target_policy": "Politique d’escalade",
+      "target_policy_hint": "Applique cette politique d’escalade. L’équipe reste déterminée par le propriétaire du service ou par l’étiquette.",
+      "target_placeholder": "Sélectionner",
+      "priorities": "Priorité",
+      "priorities_hint": "Ne cochez aucune case pour ignorer la priorité. Si vous en cochez au moins une, les incidents sans priorité sont exclus.",
+      "time_hint": "La condition est évaluée à l’ouverture de l’incident."
+    },
+    "only_priorities": "priorité : {{priorities}}",
+    "time_inside": "uniquement sur les plages {{ranges}} ({{timezone}})",
+    "time_outside": "en dehors des plages {{ranges}} ({{timezone}})",
+    "try_priority": "Priorité",
+    "try_at": "Ouverture à",
+    "try_at_now": "Maintenant",
+    "members_many": "{{count}} membres",
+    "services_many": "{{count}} services"
+  },
+  "matchers": {
+    "title": "Critères de correspondance des étiquettes",
+    "add": "Ajouter un critère",
+    "remove": "Supprimer le critère",
+    "label_placeholder": "étiquette (p. ex. service)",
+    "label_aria": "Étiquette du critère",
+    "value_placeholder": "valeur",
+    "value_aria": "Valeur du critère",
+    "hint": "Tous les critères doivent être satisfaits (ET). Les opérateurs =~ et !~ utilisent des expressions régulières."
+  },
+  "escalations": {
+    "new_policy": "Nouvelle politique",
+    "empty_title": "Aucune politique d’escalade",
+    "empty_description": "Acheminez les incidents non acquittés vers les utilisateurs d’astreinte, les plannings d’astreinte et les équipes.",
+    "columns": {
+      "name": "Nom",
+      "steps": "Qui est notifié et quand",
+      "actions": "Actions"
+    },
+    "delete_title": "Supprimer la politique d’escalade",
+    "edit_title": "Modifier la politique d’escalade",
+    "drawer_title": "Nouvelle politique d’escalade",
+    "drawer_subtitle": "Les étapes se déclenchent dans l’ordre jusqu’à l’acquittement de l’incident.",
+    "save": "Enregistrer la politique",
+    "create": "Créer la politique",
+    "toast_updated": "Politique mise à jour",
+    "toast_created": "Politique créée",
+    "errors": {
+      "name_required": "Le nom est obligatoire.",
+      "target_required": "Ajoutez au moins une cible.",
+      "support_hours": "Les horaires d’assistance doivent comporter au moins un créneau, avec des jours et des heures valides pour chaque créneau."
+    },
+    "sections": {
+      "identity": "Identité",
+      "steps": "Étapes d’escalade",
+      "steps_description": "Chaque étape émet un événement Notify par cible, puis attend l’acquittement avant de passer à l’étape suivante."
+    },
+    "fields": {
+      "name": "Nom de la politique",
+      "repeat": "Répéter toute la politique jusqu’à l’acquittement",
+      "max_loops": "Nombre maximal de répétitions",
+      "ack_retrigger": "Acquitté mais non résolu",
+      "min_severity": "Niveau de gravité minimal",
+      "ack_timeout": "Délai d’acquittement",
+      "targets": "Cibles",
+      "notify_routing": "Le choix des connecteurs et le routage de secours se configurent dans Paramètres → Notify → Politiques."
+    },
+    "hints": {
+      "max_loops": "Nombre de répétitions avant l’arrêt de l’escalade.",
+      "ack_retrigger": "Si un incident acquitté reste non résolu pendant ce délai, il repasse au statut non acquitté et les personnes qui en sont chargées sont de nouveau notifiées. Si personne ne l’acquitte, l’escalade se poursuit."
+    },
+    "ack_retrigger": {
+      "off": "Ne pas notifier à nouveau",
+      "minutes": "{{count}} min",
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures",
+      "hours_many": "{{count}} heures"
+    },
+    "add_step": "Ajouter une étape",
+    "remove_step": "Supprimer l’étape",
+    "step_n": "Étape {{n}}",
+    "add_target": "Ajouter une cible",
+    "remove_target": "Supprimer la cible",
+    "any_severity": "Toute sévérité",
+    "pick_ref": "— sélectionner —",
+    "missing_target": "N’existe plus",
+    "target_kinds": {
+      "user": "Utilisateur",
+      "schedule": "Planning d’astreinte",
+      "team": "Équipe"
+    },
+    "no_target": "Personne pour l’instant",
+    "from_severity": "à partir de {{severity}}",
+    "repeats_one": "se répète {{count}} fois",
+    "repeats_other": "se répète {{count}} fois",
+    "unreachable_one": "{{count}} cible injoignable",
+    "unreachable_other": "{{count}} cibles injoignables",
+    "urgency": {
+      "title": "Urgence",
+      "description": "Définit l’urgence d’un incident si aucun niveau ne lui a été attribué. Pour chaque niveau d’urgence, l’organisation définit si l’escalade se poursuit au-delà de la première étape, comment s’appliquent les plages silencieuses et quelles étapes personnelles sont utilisées.",
+      "modes": {
+        "by_severity": "Selon la sévérité",
+        "support_hours": "Selon les horaires d’assistance",
+        "always": "Niveau fixe"
+      },
+      "mode_hints": {
+        "by_severity": "Chaque sévérité correspond au niveau d’urgence défini par l’organisation. Par défaut, le niveau est élevé pour les sévérités critique et erreur, et faible pour les sévérités avertissement et information.",
+        "support_hours": "Un niveau pendant les horaires d’assistance, un autre en dehors.",
+        "always": "Le niveau sélectionné ci-dessous s’applique à chaque incident."
+      },
+      "raise_at_start": "Au début des horaires d’assistance, faire passer les incidents non acquittés au niveau d’urgence prévu pour cette plage s’ils sont moins urgents, puis relancer les notifications d’astreinte dès la première étape",
+      "escalate_low": "Poursuivre ici l’escalade au-delà de la première étape, même pour les incidents dont le niveau d’urgence prévoit un arrêt à cette étape",
+      "chain": {
+        "support_hours": "Urgence selon les horaires d’assistance",
+        "always": "Toujours {{urgency}}"
+      },
+      "always_level": "Urgence",
+      "inside": "Pendant les horaires d’assistance",
+      "outside": "En dehors des horaires d’assistance"
+    },
+    "repeats_many": "se répète {{count}} fois",
+    "unreachable_many": "{{count}} cibles injoignables"
+  },
+  "schedules": {
+    "title": "Plannings d’astreinte",
+    "subtitle": "Gérez les rotations et les remplacements temporaires utilisés pour l’escalade des alertes.",
+    "new_schedule": "Nouveau planning d’astreinte",
+    "empty_title": "Aucun planning d’astreinte",
+    "empty_description": "Organisez les tours d’astreinte au sein de votre équipe selon un rythme quotidien, hebdomadaire ou personnalisé.",
+    "columns": {
+      "name": "Nom",
+      "timezone": "Fuseau horaire",
+      "rotations": "Rotations",
+      "members": "Membres",
+      "current_on_call": "D’astreinte actuellement",
+      "rotation": "Rotation",
+      "next_switch": "Prochaine relève",
+      "coverage": "Couverture",
+      "recent_change": "Modification récente",
+      "status": "Statut"
+    },
+    "delete_title": "Supprimer le planning",
+    "edit_title": "Modifier le planning",
+    "drawer_title": "Nouveau planning",
+    "drawer_subtitle": "Configurez le planning et vérifiez les sept prochains jours avant de le créer.",
+    "save": "Enregistrer le planning",
+    "save_draft": "Enregistrer le brouillon",
+    "create": "Créer le planning",
+    "toast_updated": "Planning mis à jour",
+    "toast_created": "Planning créé",
+    "toast_draft_saved": "Brouillon du planning enregistré",
+    "toast_paused": "Planning mis en pause",
+    "toast_resumed": "Planning réactivé",
+    "toast_copied": "Copie du planning créée et mise en pause",
+    "copy_name": "Copie de {{name}}",
+    "errors": {
+      "name_required": "Le nom est obligatoire.",
+      "members_required": "Ajoutez au moins un membre à la rotation.",
+      "override_user": "Sélectionnez un utilisateur.",
+      "override_reason": "Indiquez le motif du remplacement.",
+      "override_window": "La fin doit être postérieure au début.",
+      "override_conflict": "Ce créneau chevauche un remplacement déjà prévu."
+    },
+    "sections": {
+      "identity": "Informations générales",
+      "rotations": "Règles de rotation",
+      "rotations_description": "Les membres de chaque rotation se relaient. Gérez les remplacements sur la page de détails du planning.",
+      "overrides": "Remplacements"
+    },
+    "fields": {
+      "name": "Nom du planning",
+      "description": "Description",
+      "timezone": "Fuseau horaire",
+      "team": "Équipe",
+      "cadence": "Fréquence de rotation",
+      "period_hours": "Période (heures)",
+      "start_at": "Date et heure de début",
+      "ends": "Se termine à une heure définie",
+      "end_at": "Date et heure de fin",
+      "handoff_time": "Heure de relève",
+      "members": "Membres (par ordre de rotation)",
+      "restrict_window": "Limiter à certains jours ou horaires",
+      "swap_needs_approval": "Les échanges nécessitent une approbation"
+    },
+    "hints": {
+      "timezone": "Ex. : UTC, America/New_York, Asia/Shanghai",
+      "swap_needs_approval": "Une fois l’échange accepté par la personne sollicitée, un gestionnaire du planning doit l’approuver pour qu’il prenne effet."
+    },
+    "add_rotation": "Ajouter une rotation",
+    "remove_rotation": "Supprimer la rotation",
+    "rotation_name_placeholder": "Par exemple : principale",
+    "rotation_kinds": {
+      "daily": "Quotidienne",
+      "weekly": "Hebdomadaire",
+      "workdays": "Jours ouvrés",
+      "custom": "Période personnalisée"
+    },
+    "no_users": "Aucun utilisateur trouvé.",
+    "unknown_user": "Membre inconnu",
+    "on_call_now": "D’astreinte actuellement",
+    "nobody_on_call": "Personne d’astreinte",
+    "currently_on_call": "D’astreinte actuellement",
+    "detail_loading": "Planning d’astreinte",
+    "detail_error": "Impossible de charger le planning d’astreinte",
+    "no_rotations": "Aucune rotation pour le moment.",
+    "rotation_untitled": "Rotation {{n}}",
+    "no_members": "Aucun membre",
+    "overrides_hint": "Confiez temporairement l’astreinte à une personne pour une période définie.",
+    "override_added": "Remplacement ajouté",
+    "override_updated": "Remplacement mis à jour",
+    "override_deleted": "Remplacement supprimé",
+    "override_ended": "Remplacement terminé",
+    "override_delete_title": "Supprimer le remplacement temporaire ?",
+    "override_fields": {
+      "user": "Personne assurant le remplacement",
+      "reason": "Motif",
+      "start": "Heure de début",
+      "end": "Heure de fin"
+    },
+    "pick_user": "Sélectionner une personne",
+    "add_override": "Ajouter un remplacement",
+    "every_n_hours": "Toutes les {{n}} h",
+    "update_override": "Mettre à jour le remplacement",
+    "cancel_edit": "Annuler la modification",
+    "end_override": "Mettre fin au remplacement",
+    "override_person": "Personne remplaçante",
+    "override_badge": "Temporaire",
+    "override_summary": "{{user}} assurera l’astreinte du {{start}} au {{end}}.",
+    "no_overrides": "Aucun remplacement temporaire en cours ou à venir",
+    "view_history": "Afficher l’historique",
+    "hide_history": "Masquer l’historique",
+    "no_switch": "Aucune relève prévue",
+    "people_count": "{{count}} personnes",
+    "people_rotation": "{{count}} personnes en rotation",
+    "rotation_count": "{{count}} rotations",
+    "total_count": "{{count}} au total",
+    "system_actor": "Système",
+    "description_fallback": "Routage des alertes vers les personnes d’astreinte pour escalade",
+    "team_prefix": "Équipe : {{team}}",
+    "team_unassigned": "Aucune équipe",
+    "warnings": {
+      "other_schedule": "Cette personne est d’astreinte sur un autre planning au début du remplacement.",
+      "immediate": "La date de début est déjà passée. Le remplacement prendra effet immédiatement."
+    },
+    "placeholders": {
+      "name": "Par exemple : astreinte principale de production",
+      "description": "Décrivez les services, l’environnement et le périmètre d’escalade.",
+      "override_reason": "Par exemple : congés, réponse à un incident, échange de créneaux d’astreinte"
+    },
+    "summary": {
+      "schedules": "Plannings",
+      "schedule_count": "{{count}} plannings",
+      "team_count": "Couvre {{count}} équipes",
+      "on_call": "D’astreinte actuellement",
+      "active_count": "{{count}} plannings actifs",
+      "people_on_call": "{{count}} personnes actuellement d’astreinte",
+      "this_week": "Cette semaine",
+      "rotation_count": "{{count}} relèves",
+      "next_switch": "Prochaine relève : {{value}}",
+      "no_switch": "Aucune relève cette semaine",
+      "overrides": "Remplacements temporaires",
+      "override_count": "{{count}} plannings avec remplacement",
+      "override_people": "{{count}} personnes remplaçantes"
+    },
+    "filters": {
+      "search": "Rechercher un planning, une équipe ou un responsable…",
+      "team": "Équipe",
+      "timezone": "Fuseau horaire",
+      "status": "Statut",
+      "all": "Tous",
+      "mine": "Uniquement mes plannings d’astreinte",
+      "refresh": "Actualiser",
+      "reset": "Réinitialiser les filtres",
+      "list_settings": "Paramètres de la liste",
+      "no_results": "Aucun planning d’astreinte ne correspond à ces filtres"
+    },
+    "roles": {
+      "primary": "Principal",
+      "secondary": "Secondaire"
+    },
+    "status": {
+      "active": "Actif",
+      "switching": "Relève imminente",
+      "not_started": "Non démarré",
+      "paused": "En pause",
+      "gap": "Créneau non couvert"
+    },
+    "actions": {
+      "open_menu": "Ouvrir le menu d’actions pour {{name}}",
+      "view": "Voir les détails",
+      "edit": "Modifier le planning d’astreinte",
+      "add_override": "Ajouter une couverture temporaire",
+      "pause": "Mettre le planning d’astreinte en pause",
+      "resume": "Reprendre le planning d’astreinte",
+      "copy": "Copier le planning d’astreinte",
+      "export_calendar": "Exporter le calendrier",
+      "delete": "Supprimer le planning d’astreinte",
+      "more": "Autres actions",
+      "subscribe_calendar": "S’abonner au calendrier"
+    },
+    "pagination": {
+      "label": "Pagination des plannings d’astreinte",
+      "page": "{{page}} / {{count}}",
+      "page_size": "Lignes par page",
+      "first": "Première page des plannings d’astreinte",
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "last": "Dernière page des plannings d’astreinte"
+    },
+    "preview": {
+      "title": "7 prochains jours",
+      "description": "Vérifiez l’ordre de rotation, l’heure de relève et la couverture avant de créer le planning d’astreinte.",
+      "empty": "Sélectionnez les membres de la rotation pour afficher un aperçu",
+      "member_count": "Personnes couvertes",
+      "timezone": "Fuseau horaire du planning d’astreinte",
+      "then": "Puis",
+      "unreadable": "Corrigez les plages horaires pour afficher l’aperçu."
+    },
+    "detail": {
+      "current": "En astreinte actuellement",
+      "started_at": "Début de l’astreinte : {{value}}",
+      "no_active_shift": "Aucun créneau d’astreinte n’est en cours",
+      "next_rotation": "Prochain relais",
+      "rotation_people": "Personnes de la rotation",
+      "rotation_rule": "Rotation : {{value}}",
+      "overrides": "Remplacements temporaires",
+      "active_override_count": "{{count}} en cours",
+      "coverage_window": "Créneau : {{start}} – {{end}}",
+      "no_override": "Aucun remplacement temporaire en cours",
+      "rotation_rule_title": "Règle de rotation",
+      "view_rule": "Voir les détails",
+      "rotation_name": "Nom de la rotation",
+      "rotation_members": "Membres de la rotation",
+      "handoff_time": "Heure du relais",
+      "handoff_value": "{{cadence}} à {{time}} ({{timezone}})",
+      "rotation_ends": "Fin"
+    },
+    "timeline": {
+      "title": "7 prochains jours",
+      "current": "D’astreinte actuellement",
+      "upcoming": "Prochaine astreinte",
+      "view_calendar": "Voir le calendrier",
+      "empty": "Ce planning ne contient aucun créneau d’astreinte à afficher"
+    },
+    "activity": {
+      "title": "Historique des modifications",
+      "view_all": "Tout afficher",
+      "collapse": "Réduire",
+      "empty": "Aucune modification enregistrée",
+      "columns": {
+        "time": "Date et heure",
+        "actor": "Auteur",
+        "type": "Type",
+        "content": "Modification"
+      },
+      "types": {
+        "create": "Création",
+        "edit": "Modification",
+        "override": "Remplacement",
+        "pause": "Mise en pause",
+        "resume": "Reprise",
+        "delete": "Suppression",
+        "swap": "Échange"
+      },
+      "descriptions": {
+        "create": "Création du planning {{name}}",
+        "edit": "Mise à jour du planning {{name}}",
+        "override": "Remplacement temporaire de {{user}} modifié. Motif : {{reason}}",
+        "pause": "Mise en pause du planning {{name}}",
+        "resume": "Reprise du planning {{name}}",
+        "delete": "Suppression du planning {{name}}",
+        "swap": "{{requester}} a demandé à {{target}} de reprendre une astreinte : {{status}}"
+      }
+    },
+    "load": {
+      "title": "Charge d’astreinte par membre (30 derniers jours)"
+    },
+    "swaps": {
+      "title": "Échanges d’astreinte",
+      "request": "Demander un échange",
+      "request_title": "Demander un échange",
+      "request_description": "Choisissez un créneau où vous êtes la seule personne d’astreinte, puis le membre qui vous remplacera. L’échange prend effet dès que ce membre accepte.",
+      "request_description_approval": "Choisissez un créneau où vous êtes la seule personne d’astreinte, puis le membre qui vous remplacera. Une fois accepté par ce membre, l’échange doit être approuvé par une personne qui gère le planning.",
+      "not_on_call": "Vous n’avez aucune astreinte dans ce planning au cours des 30 prochains jours",
+      "fields": {
+        "shift": "Mon astreinte",
+        "start": "Début",
+        "end": "Fin",
+        "target": "Reprise par",
+        "note": "Note"
+      },
+      "pick_shift": "Choisissez une astreinte ou indiquez les horaires ci-dessous",
+      "pick_target": "Choisissez un membre",
+      "placeholders": {
+        "note": "Par exemple : en déplacement vendredi"
+      },
+      "submit": "Envoyer la demande",
+      "sent": "Demande d’échange envoyée",
+      "errors": {
+        "window": "La fin doit être postérieure au début",
+        "target": "Choisissez qui reprendra l’astreinte"
+      },
+      "empty": "Aucune demande d’échange pour le moment.",
+      "show_settled": "Afficher les demandes traitées",
+      "hide_settled": "Demandes en cours uniquement",
+      "asks": "{{requester}} demande à {{target}} de reprendre l’astreinte",
+      "decided_by": "par {{name}}",
+      "status": {
+        "pending": "En attente de réponse",
+        "awaiting_approval": "En attente d’approbation",
+        "accepted": "En vigueur",
+        "declined": "Refusée",
+        "rejected": "Rejetée",
+        "cancelled": "Retirée",
+        "expired": "Expirée"
+      },
+      "answer": {
+        "accept": "Accepter",
+        "decline": "Refuser",
+        "cancel": "Retirer",
+        "approve": "Approuver",
+        "reject": "Rejeter"
+      },
+      "done": {
+        "accept": "Demande acceptée ; le remplacement est en vigueur",
+        "accept_waiting": "Demande acceptée ; en attente d’approbation",
+        "decline": "Échange refusé",
+        "cancel": "Demande d’échange retirée",
+        "approve": "Échange approuvé ; la dérogation est en vigueur",
+        "reject": "Échange refusé"
+      },
+      "mine_title": "Mes échanges d’astreinte",
+      "mine_description": "Les demandes d’échange que vous avez envoyées ou reçues. Vous pouvez les approuver sur la page du planning.",
+      "mine_button": "Échanges d’astreinte",
+      "mine_waiting": "{{count}} en attente de votre réponse",
+      "mine_empty": "Vous n’avez envoyé ni reçu de demande d’échange.",
+      "open_schedule": "Ouvrir le planning"
+    },
+    "calendar": {
+      "title_schedule": "S’abonner à {{name}}",
+      "title_mine": "S’abonner à mes astreintes",
+      "description_schedule": "Ajoutez toutes les astreintes de ce planning à une application de calendrier (Google Calendar, Outlook, Apple Calendar…). Les applications de calendrier actualisent le flux environ toutes les heures. Il couvre les 30 derniers jours et les 90 prochains jours, dérogations et échanges compris.",
+      "description_mine": "Ajoutez vos astreintes de tous les plannings à une application de calendrier (Google Calendar, Outlook, Apple Calendar…). Les applications de calendrier actualisent le flux environ toutes les heures. Il couvre les 30 derniers jours et les 90 prochains jours, dérogations et échanges compris.",
+      "create": "Créer une adresse",
+      "reset": "Réinitialiser l’adresse",
+      "revoke": "Mettre fin à l’abonnement",
+      "address": "Adresse d’abonnement",
+      "copy": "Copier l’adresse",
+      "open_app": "Ouvrir dans l’application de calendrier",
+      "shown_once": "Cette adresse ne s’affiche qu’une fois. Toute personne qui la possède peut voir ces astreintes. Mettez fin à l’abonnement lorsque vous n’en avez plus besoin.",
+      "no_external_url": "Aucune adresse externe n’est configurée pour cette instance. L’adresse que vous utilisez actuellement est donc affichée ; votre application de calendrier doit pouvoir y accéder.",
+      "subscribed": "Abonnement créé le {{created}}",
+      "last_used": "Dernier accès par un calendrier : {{value}}",
+      "never_used": "Aucun calendrier n’a encore consulté le flux",
+      "reset_hint": "La réinitialisation désactive immédiatement l’ancienne adresse. Remplacez-la dans votre application de calendrier.",
+      "revoked": "Abonnement résilié",
+      "mine_button": "S’abonner à mes astreintes",
+      "loading": "Chargement des abonnements…"
+    },
+    "unreachable": {
+      "next": "{{name}} prend la prochaine astreinte, mais ne peut pas recevoir d’alertes : aucune méthode de notification ne fonctionne et aucune route de groupe n’est disponible.",
+      "members_one": "{{count}} membre ne peut pas recevoir d’alertes : {{names}}.",
+      "members_other": "{{count}} membres ne peuvent pas recevoir d’alertes : {{names}}.",
+      "fix": "Configurer les méthodes de notification",
+      "members_many": "{{count}} membres ne peuvent pas recevoir d’alertes : {{names}}."
+    },
+    "coverage": {
+      "title": "Couverture des 14 prochains jours",
+      "gaps_one": "{{count}} interruption de couverture sur les {{days}} prochains jours : personne ne sera d’astreinte pendant {{hours}} heures.",
+      "gaps_other": "{{count}} interruptions de couverture sur les {{days}} prochains jours : personne ne sera d’astreinte pendant {{hours}} heures au total.",
+      "no_gaps": "La couverture d’astreinte est assurée sans interruption pendant les {{days}} prochains jours.",
+      "nobody": "Personne d’astreinte",
+      "hours": "{{hours}} h",
+      "legend": {
+        "rotation": "Rotation",
+        "override": "Dérogation",
+        "gap": "Personne d’astreinte"
+      },
+      "gaps_many": "{{count}} interruptions de couverture sur les {{days}} prochains jours : personne ne sera d’astreinte pendant {{hours}} heures au total."
+    }
+  },
+  "inhibitions": {
+    "new_rule": "Nouvelle règle d’inhibition",
+    "empty_title": "Aucune règle d’inhibition",
+    "empty_description": "Tant qu’un incident plus grave ou en amont est actif, les notifications des incidents moins graves sont différées pour ne signaler que l’incident prioritaire.",
+    "held": "Inhibé",
+    "any_incident": "Tout incident",
+    "only_worse": "Uniquement les incidents moins graves",
+    "at_least": "Au moins {{severity}}",
+    "at_most": "Au plus {{severity}}",
+    "columns": {
+      "name": "Nom",
+      "source": "Incidents actifs",
+      "target": "Incidents à inhiber",
+      "equal": "Étiquettes communes",
+      "status": "État",
+      "actions": "Actions"
+    },
+    "standing": {
+      "holding_one": "{{count}} incident inhibé",
+      "holding_other": "{{count}} incidents inhibés",
+      "on": "Aucun incident inhibé",
+      "off": "Désactivée",
+      "holding_many": "{{count}} incidents inhibés"
+    },
+    "drawer_title": "Nouvelle règle d’inhibition",
+    "edit_title": "Modifier la règle d’inhibition",
+    "drawer_subtitle": "Tant qu’un incident source est actif, les incidents cibles s’ouvrent et s’affichent normalement sur les pages, mais leurs notifications sont différées et ils ne font pas l’objet d’une escalade. À la résolution de l’incident source, les notifications des incidents encore ouverts sont envoyées.",
+    "create": "Créer la règle",
+    "save": "Enregistrer",
+    "toast_created": "Règle d’inhibition créée",
+    "toast_updated": "Règle d’inhibition enregistrée",
+    "delete_named": "Supprimer la règle d’inhibition {{name}}",
+    "delete_title": "Supprimer cette règle d’inhibition ?",
+    "delete_effect_label": "Après la suppression",
+    "delete_effect_one": "La notification de l’incident inhibé ({{count}}) sera envoyée immédiatement",
+    "delete_effect_other": "Les notifications des {{count}} incidents inhibés seront envoyées immédiatement",
+    "sections": {
+      "identity": "Informations de base",
+      "source": "Source : incidents qui déclenchent l’inhibition",
+      "source_hint": "Un incident mis en sourdine ne déclenche pas d’inhibition : puisqu’il n’est pas signalé, inhiber les autres incidents laisserait tout le monde sans notification. Un incident pris en compte peut déclencher l’inhibition : quelqu’un s’en occupe.",
+      "target": "Cible : incidents à inhiber",
+      "target_hint": "Laissez ce champ vide pour cibler tous les incidents. Un incident ouvert manuellement n’est jamais inhibé.",
+      "relation": "Lien entre les incidents",
+      "timing": "Paramètres temporels",
+      "comment": "Commentaire",
+      "preview": "Incidents qui seraient inhibés actuellement",
+      "preview_hint": "Applique cette règle aux incidents actuellement actifs, même si elle n’est pas enregistrée."
+    },
+    "fields": {
+      "name": "Nom",
+      "name_placeholder": "Sur un même service, l’incident le plus grave inhibe le moins grave",
+      "enabled": "Activée",
+      "min_severity": "Gravité minimale",
+      "max_severity": "Gravité maximale",
+      "any_severity": "Indifférente",
+      "equal": "Ces étiquettes doivent correspondre",
+      "equal_hint": "Séparez les étiquettes par des virgules. La source et la cible doivent avoir chacune de ces étiquettes avec la même valeur. Une étiquette absente ne correspond pas. Pour ignorer les étiquettes, laissez ce champ vide et indiquez la source.",
+      "more_severe_only": "La source doit être plus grave que la cible",
+      "wait_secs": "Délai d’attente de la cible (secondes)",
+      "wait_hint": "Les symptômes sont souvent signalés avant leur cause. Ce délai laisse le temps à un incident source d’apparaître. De 15 à 600 secondes.",
+      "linger_secs": "Durée de l’inhibition après résolution (secondes)",
+      "linger_hint": "Une fois l’incident source résolu, ses symptômes disparaissent généralement peu après. Inutile d’alerter l’équipe d’astreinte à leur sujet. Maximum : 3 600 secondes.",
+      "comment": "Commentaire"
+    },
+    "preview": {
+      "run": "Tester la règle",
+      "none": "Aucun incident ne serait inhibé pour le moment.",
+      "held_by": "inhibé par"
+    },
+    "note": {
+      "held_by": "Envoi des notifications suspendu en raison de",
+      "rule": "(règle {{rule}}).",
+      "ending": "L’incident source est résolu. Les notifications seront envoyées à {{time}}.",
+      "waiting": "Un incident plus grave pourrait inhiber celui-ci. L’envoi des notifications est suspendu jusqu’à {{time}}.",
+      "lift": "Notifier normalement",
+      "lifted": "Inhibition levée. Les notifications en attente sont envoyées maintenant."
+    },
+    "errors": {
+      "name": "Donnez un nom à la règle.",
+      "no_scope": "Indiquez la source ou les étiquettes communes à la source et à la cible. Sinon, n’importe quel incident pourrait inhiber tous les autres.",
+      "wait": "Le délai d’attente de la cible ne peut pas dépasser 600 secondes.",
+      "linger": "L’inhibition ne peut pas durer plus de 3 600 secondes après la résolution de l’incident source."
+    },
+    "delete_effect_many": "Les notifications des {{count}} incidents inhibés seront envoyées immédiatement"
+  },
+  "silences": {
+    "new_silence": "Nouvelle règle de mise en sourdine",
+    "empty_title": "Aucune règle de mise en sourdine",
+    "empty_description": "Suspendez les notifications pour les incidents qui répondent aux critères, lors des maintenances ou lorsque des alertes sans conséquence sont attendues.",
+    "columns": {
+      "name": "Nom",
+      "status": "État",
+      "window": "Période",
+      "matchers": "Critères de correspondance",
+      "actions": "Actions"
+    },
+    "delete_title": "Supprimer la mise en sourdine",
+    "edit_title": "Modifier la mise en sourdine",
+    "drawer_title": "Nouvelle mise en sourdine",
+    "drawer_subtitle": "Les incidents restent enregistrés. Seul l’envoi des notifications est suspendu.",
+    "save": "Enregistrer le silence",
+    "create": "Créer un silence",
+    "toast_updated": "Silence mis à jour",
+    "toast_created": "Silence créé",
+    "errors": {
+      "name_required": "Le nom est obligatoire.",
+      "matcher_required": "Ajoutez au moins un critère de correspondance.",
+      "window_range": "La fin doit être postérieure au début.",
+      "window_ranges": "Vérifiez les plages : chacune doit comporter un jour et des heures au format HH:MM.",
+      "monthly": "Saisissez l’heure de début au format HH:MM et une durée comprise entre 1 et 10080 minutes.",
+      "calendar": "Sélectionnez un calendrier des jours fériés."
+    },
+    "sections": {
+      "identity": "Identification",
+      "matchers": "Critères de correspondance",
+      "window": "Plage horaire",
+      "comment": "Commentaire"
+    },
+    "fields": {
+      "name": "Nom",
+      "enabled": "Activé",
+      "window_type": "Type de plage horaire",
+      "start": "Début",
+      "end": "Fin",
+      "timezone": "Fuseau horaire",
+      "comment": "Motif",
+      "month_day_kind": "Selon",
+      "month_date": "Jour du mois",
+      "ordinal": "Rang dans le mois",
+      "weekday": "Jour de la semaine",
+      "start_time": "Heure de début (HH:MM)",
+      "duration_minutes": "Durée (minutes)",
+      "calendar": "Calendrier des jours fériés"
+    },
+    "window_kinds": {
+      "fixed": "Plage fixe",
+      "weekly": "Chaque semaine",
+      "monthly": "Chaque mois",
+      "holidays": "Jours fériés"
+    },
+    "comment_placeholder": "Pourquoi appliquer ce silence ?",
+    "standing": {
+      "active": "En cours",
+      "upcoming": "Pas encore commencé",
+      "waiting": "Entre deux plages",
+      "ended": "Terminé",
+      "off": "Désactivé"
+    },
+    "matches_everything": "Tous les incidents",
+    "delete_named": "Supprimer {{name}}",
+    "month_day_kinds": {
+      "date": "Date",
+      "weekday": "Jour de la semaine"
+    },
+    "hints": {
+      "month_date": "Si ce jour n’existe pas dans un mois, le dernier jour du mois est utilisé.",
+      "duration_minutes": "Jusqu’à 7 jours (10 080 minutes)."
+    },
+    "ordinals": {
+      "1": "Premier",
+      "2": "Deuxième",
+      "3": "Troisième",
+      "4": "Quatrième",
+      "5": "Cinquième",
+      "last": "Dernier"
+    },
+    "month_day": {
+      "date": "Le {{day}} de chaque mois",
+      "weekday": "Le {{ordinal}} {{weekday}} de chaque mois"
+    },
+    "summary": {
+      "monthly": "{{day}} à {{start}} pendant {{duration}} ({{timezone}})",
+      "holidays": "Jours fériés, {{timezone}}",
+      "calendar_exclude": "jours fériés exclus",
+      "calendar_only": "jours fériés uniquement"
+    },
+    "duration": {
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "hours_minutes": "{{hours}} h {{minutes}} min",
+      "minutes_many": "{{count}} min",
+      "hours_many": "{{count}} h"
+    },
+    "next_start": "Prochain début : {{time}}",
+    "next_end": "Fin : {{time}}",
+    "no_calendars": "Ajoutez d’abord un calendrier des jours fériés dans Paramètres → Alertes → Calendriers des jours fériés.",
+    "delete_effect_label": "Effet",
+    "delete_active_effect": "Ce silence est actif : les notifications reprendront immédiatement.",
+    "bulk_delete_title_one": "Supprimer {{count}} silence ?",
+    "bulk_delete_title_other": "Supprimer {{count}} silences ?",
+    "bulk_delete_title_many": "Supprimer {{count}} silences ?"
+  },
+  "incident_actions": {
+    "more": "Plus d’actions",
+    "reassign": "Réattribuer",
+    "add_responders": "Ajouter des intervenants",
+    "escalate": "Faire remonter maintenant",
+    "snooze": "Mettre en pause",
+    "snooze_hours_one": "{{count}} heure",
+    "snooze_hours_other": "{{count}} heures",
+    "snooze_custom": "Personnaliser…",
+    "snooze_cancel": "Annuler la mise en pause",
+    "severity": "Gravité",
+    "merge": "Fusionner",
+    "toasts": {
+      "snoozed": "Incident mis en pause",
+      "snooze_cancelled": "Mise en veille annulée",
+      "severity_changed": "Gravité modifiée",
+      "responders_added": "Intervenants ajoutés",
+      "reassigned": "Incident réattribué",
+      "escalated": "Incident escaladé",
+      "merged_one": "{{count}} incident fusionné",
+      "merged_other": "{{count}} incidents fusionnés",
+      "bulk_done_one": "Action effectuée pour {{count}} incident",
+      "bulk_done_other": "Action effectuée pour {{count}} incidents",
+      "bulk_failed": "Échec pour {{count}} incidents sur {{total}} : {{reason}}",
+      "priority_changed": "Priorité modifiée",
+      "urgency_changed": "Urgence modifiée",
+      "urgency_raised": "Urgence passée à « élevée » ; le niveau 1 est de nouveau notifié",
+      "merged_many": "{{count}} incidents fusionnés",
+      "bulk_done_many": "Action effectuée pour {{count}} incidents"
+    },
+    "people_search": "Rechercher par nom ou adresse e-mail",
+    "reassign_title": "Réattribuer",
+    "reassign_description": "Si vous réattribuez l’incident à des personnes, il repasse à l’état « non acquitté » et elles sont notifiées. Si vous le réattribuez à une équipe ou à une politique d’escalade, l’escalade reprend à la première étape.",
+    "add_responders_title": "Ajouter des intervenants",
+    "add_responders_description": "Les personnes sélectionnées sont ajoutées aux responsables de l’incident et reçoivent une notification. Le statut reste inchangé.",
+    "reassign_to": "Réattribuer à",
+    "kinds": {
+      "users": "Personnes",
+      "team": "Équipe",
+      "policy": "Politique d’escalade"
+    },
+    "people": "Personnes ({{max}} maximum)",
+    "team_hint": "L’escalade reprend à la première étape de la politique d’astreinte de l’équipe, ou de la politique par défaut si l’équipe n’en a pas.",
+    "policy_hint": "L’escalade reprend à la première étape de cette politique. L’équipe reste la même.",
+    "choose": "Choisir…",
+    "note_optional": "Note (facultative)",
+    "note_placeholder": "Pour les personnes qui prennent le relais. La note apparaît dans la chronologie.",
+    "cancel": "Annuler",
+    "escalate_title": "Escalader maintenant",
+    "escalate_description": "Choisissez l’étape dont les destinataires seront notifiés immédiatement. Si l’incident est acquitté, il repasse à l’état « non acquitté ».",
+    "loading": "Chargement…",
+    "no_policy": "Cet incident n’a pas de politique d’escalade.",
+    "step_n": "Étape {{n}}",
+    "current_step": "en cours",
+    "schedule_target": "Personne d’astreinte selon le planning",
+    "escalate_submit": "Escalader",
+    "snooze_title": "Mettre en veille",
+    "snooze_description": "Aucune notification n’est envoyée pendant la mise en veille. À la fin, l’incident repasse à l’état « non acquitté » et ses responsables sont de nouveau notifiés. Si l’incident n’est pas acquitté, il est d’abord acquitté.",
+    "snooze_for": "Mettre en veille pendant",
+    "snooze_unit": "Unité",
+    "units": {
+      "minutes": "minutes",
+      "hours": "heures"
+    },
+    "merge_title": "Fusionner les incidents",
+    "merge_description": "Les incidents fusionnés ne déclenchent plus de notifications ni d’escalades propres et sont résolus avec l’incident principal. La fusion est irréversible.",
+    "merge_target": "Incident de destination",
+    "merge_sources": "Fusionner dans cet incident",
+    "merge_nothing": "Aucun autre incident n’est actif.",
+    "merge_submit_one": "Fusionner {{count}} incident",
+    "merge_submit_other": "Fusionner {{count}} incidents",
+    "bulk_label": "Actions groupées",
+    "select_all": "Tout sélectionner",
+    "select": "Sélectionner {{name}}",
+    "snoozed_until": "Mis en pause jusqu’à {{time}}",
+    "priority": "Priorité",
+    "urgency": "Urgence",
+    "adjust": "Ajuster",
+    "snooze_hours_many": "{{count}} heures",
+    "merge_submit_many": "Fusionner {{count}} incidents"
+  },
+  "incident_timeline": {
+    "notice": {
+      "triggered": "Notification envoyée à",
+      "escalated": "Notification d’escalade envoyée à",
+      "acknowledged": "Confirmation de prise en charge envoyée à",
+      "resolved": "Notification de rétablissement envoyée à"
+    },
+    "recipient": "{{who}} ({{through}})",
+    "recipient_failed": "{{who}} (notification non remise)",
+    "policy_skipped": "une politique n’a envoyé aucune notification : {{reason}}",
+    "pipeline_processed": "Traité par le pipeline {{pipeline}} :",
+    "pipeline_more_one": "et {{count}} autre modification",
+    "pipeline_more_other": "et {{count}} autres modifications",
+    "pipeline_fields": {
+      "summary": "titre",
+      "severity": "gravité",
+      "priority": "priorité",
+      "urgency": "urgence",
+      "labels": "étiquettes",
+      "annotations": "annotations",
+      "affected_services": "services"
+    },
+    "someone": "quelqu’un",
+    "system": "Système",
+    "via": {
+      "api": " (via l’API)",
+      "im": " (dans la messagerie instantanée)",
+      "sms": " (en répondant par SMS)",
+      "phone": " (en appuyant sur une touche du téléphone)",
+      "agent": " (via Mole Agent)"
+    },
+    "acknowledged": "{{actor}} a accusé réception{{via}}",
+    "resolved": "{{actor}} a résolu l’incident{{via}}",
+    "escalated": "Escalade au niveau {{n}}",
+    "escalated_manual": "{{actor}} a fait remonter l’incident au niveau {{n}}",
+    "reassigned": "{{actor}} a réattribué l’incident à {{target}}",
+    "responders_added": "{{actor}} a ajouté {{people}}",
+    "snoozed": "{{actor}} a mis l’incident en pause jusqu’à {{until}}",
+    "snooze_cancelled": "{{actor}} a mis fin à la mise en pause",
+    "retriggered_snooze": "Fin de la mise en pause : retour à l’état « Non acquitté » et nouvelle notification",
+    "retriggered_ack_timeout": "Incident acquitté mais non résolu dans le délai imparti : retour à l’état « Non acquitté » et nouvelle notification",
+    "severity_changed": "{{actor}} a fait passer la gravité de {{from}} à {{to}}",
+    "merged": "{{actor}} a fusionné cet incident avec",
+    "merged_target": "un autre incident",
+    "merged_in_one": "{{actor}} a fusionné {{count}} incident avec celui-ci",
+    "merged_in_other": "{{actor}} a fusionné {{count}} incidents avec celui-ci",
+    "merged_recovered": "Retour à la normale pour l’incident fusionné « {{summary}} »",
+    "noted": "{{actor}} a ajouté une note",
+    "recovered": "Retour à la normale",
+    "merged_list": "Incidents fusionnés avec celui-ci ({{count}})",
+    "note_placeholder": "Ajoutez une note : vos constatations et vos actions",
+    "note_label": "Note",
+    "note_too_long": "{{max}} caractères maximum",
+    "add_note": "Ajouter une note",
+    "handling": {
+      "snoozed": "Mis en pause jusqu’à {{until}} par {{actor}}",
+      "merged": "Fusionné avec",
+      "severity_set": "Gravité définie par {{actor}} : la règle ne la modifie plus",
+      "inhibition_lifted": "{{actor}} a levé l’inhibition : les notifications reprennent normalement"
+    },
+    "remediation_requested": "{{actor}} a lancé l’action de remédiation « {{action}} », en attente d’approbation",
+    "remediation_executed": "L’action de remédiation « {{action}} » a été exécutée (approuvée par {{actor}})",
+    "remediation_failed": "L’action de remédiation « {{action}} » a échoué (approuvée par {{actor}})",
+    "remediation_verified": "La vérification de l’action de remédiation « {{action}} » a réussi",
+    "remediation_unverified": "La vérification de l’action de remédiation « {{action}} » a échoué",
+    "ticket_created": "{{actor}} a créé un ticket dans {{system}}",
+    "ticket_updated": "Le ticket {{key}} est désormais au statut « {{status}} »",
+    "declared_major": "{{actor}} a déclaré l’incident comme majeur",
+    "declared_major_auto": "Incident déclaré majeur par la règle de l’organisation",
+    "role_assigned": "{{actor}} a attribué le rôle {{role}} à {{person}}",
+    "role_cleared": "{{actor}} a retiré l’attribution du rôle {{role}}",
+    "war_room_created": "Salle de crise ouverte",
+    "join": "Rejoindre",
+    "task_added": "{{actor}} a ajouté la tâche « {{title}} »",
+    "task_done": "{{actor}} a terminé la tâche « {{title}} »",
+    "status_update": "{{actor}} a publié une mise à jour",
+    "step_unreachable": "Personne au niveau {{n}} n’a pu recevoir l’alerte, qui a été transmise au niveau suivant",
+    "inhibited": "Alerte inhibée par la règle {{rule}}, notifications mises en attente en raison de",
+    "inhibition_source_recovered": "L’alerte source s’est résolue ; l’inhibition a pris fin et les notifications en attente ont été envoyées",
+    "inhibition_rule_changed": "La règle d’inhibition a été modifiée ou supprimée ; les notifications en attente ont été envoyées",
+    "inhibition_lifted": "{{actor}} a réactivé l’envoi des notifications ; les notifications en attente ont été envoyées",
+    "priority_changed": "{{actor}} a fait passer la priorité de {{from}} à {{to}}",
+    "no_priority": "aucune",
+    "urgency_changed": "{{actor}} a fait passer l’urgence de {{from}} à {{to}}",
+    "urgency_raised_support_hours": "Début des heures de support : l’urgence est passée à {{to}} et le niveau 1 a de nouveau été notifié",
+    "phases": {
+      "fired": "Déclenchement",
+      "acknowledged": "Prise en compte après",
+      "resolved": "Résolution après",
+      "not_yet": "Pas encore"
+    },
+    "filter_label": "Types d’événements",
+    "filter": {
+      "all": "Tous",
+      "alert": "Alerte",
+      "notice": "Notifications",
+      "people": "Personnes",
+      "notes": "Notes"
+    },
+    "pipeline_more_many": "et {{count}} autres modifications",
+    "merged_in_many": "{{actor}} a fusionné {{count}} incidents avec celui-ci"
+  },
+  "related": {
+    "loading": "Chargement…",
+    "similar_none": "Aucun incident similaire au cours des 90 derniers jours.",
+    "lasted": "a duré {{duration}}",
+    "resolved_by": "résolu par {{name}}",
+    "notes_one": "{{count}} note",
+    "notes_other": "{{count}} notes",
+    "reasons": {
+      "fingerprint": "même alerte",
+      "rule": "même règle",
+      "services": "mêmes services",
+      "labels": "étiquettes similaires",
+      "title": "titre similaire",
+      "team": "même équipe"
+    },
+    "changes_none": "Rien n’a été signalé pour ces services entre 30 minutes avant et 10 minutes après le déclenchement, et la règle n’a pas été modifiée la veille.",
+    "at_trigger": "Au déclenchement",
+    "before_trigger": "{{duration}} avant",
+    "after_trigger": "{{duration}} après",
+    "kinds": {
+      "deployment": "Déploiement",
+      "configuration": "Configuration",
+      "feature_flag": "Indicateur de fonctionnalité",
+      "rule": "Règle modifiée"
+    },
+    "downstream": "en aval",
+    "status": {
+      "failed": "échec",
+      "rolled_back": "retour arrière effectué"
+    },
+    "open_link": "Ouvrir le pipeline",
+    "notes_many": "{{count}} notes"
+  },
+  "remediation": {
+    "new_action": "Nouvelle action de remédiation",
+    "actions_title": "Actions de remédiation",
+    "empty": "Aucune action de remédiation pour le moment. Une fois configurées, vous pouvez les lancer en un clic depuis un incident. Elles s’exécutent après approbation.",
+    "all_incidents": "Tous les incidents",
+    "disabled": "Désactivée",
+    "delete_named": "Supprimer {{name}}",
+    "delete_title": "Supprimer l’action de remédiation ?",
+    "saved": "« {{name}} » enregistrée",
+    "risks": {
+      "l2": "L2 · une personne doit approuver",
+      "l3": "L3 · deux personnes doivent approuver"
+    },
+    "kinds": {
+      "http": "Requête HTTP",
+      "http_hint": "Appelle Jenkins, GitHub Actions, Argo, Rundeck ou un système similaire.",
+      "kubernetes": "Kubernetes",
+      "kubernetes_hint": "Redémarre ou redimensionne une charge de travail sur un cluster enregistré, ou rétablit la révision précédente d’un Deployment."
+    },
+    "operations": {
+      "restart": "Redémarrer",
+      "scale": "Redimensionner",
+      "rollback": "Rétablir la révision précédente"
+    },
+    "parameter_kinds": {
+      "text": "Texte",
+      "number": "Nombre",
+      "select": "Choix"
+    },
+    "verify_by": {
+      "incident_resolved": "L’incident est résolu",
+      "rule_healthy": "La règle est de nouveau opérationnelle"
+    },
+    "drawer": {
+      "new_title": "Nouvelle action de remédiation",
+      "edit_title": "Modifier l’action de remédiation",
+      "subtitle": "Lorsque vous lancez cette action depuis un incident, elle doit toujours être approuvée. Une fois approuvée, elle s’exécute et est consignée dans la chronologie.",
+      "save": "Enregistrer",
+      "identity": "Informations générales",
+      "name": "Nom",
+      "description": "Description",
+      "target": "Mode d’exécution",
+      "method": "Méthode",
+      "url": "Adresse",
+      "headers": "En-têtes",
+      "headers_hint": "Les valeurs sont conservées sous forme chiffrée et ne sont plus affichées. Laissez un champ vide pour conserver sa valeur.",
+      "add_header": "Ajouter un en-tête",
+      "remove_header": "Supprimer l’en-tête",
+      "header_name": "Nom de l’en-tête",
+      "header_value": "Valeur de l’en-tête",
+      "secret_kept": "Déjà défini. Laissez le champ vide pour conserver la valeur",
+      "body": "Corps de la requête",
+      "body_hint": "JSON. Utilisez {{incident.id}}, {{incident.summary}}, {{incident.service}}, {{incident.url}} et {{params.name}}. Entre guillemets, la valeur est une chaîne de caractères ; sans guillemets, elle peut représenter un nombre.",
+      "signing_secret": "Secret de signature",
+      "signing_secret_hint": "Si un secret est défini, les requêtes sont signées comme les webhooks et incluent les en-têtes X-MoleSignal-Timestamp et X-MoleSignal-Sign.",
+      "cluster": "Cluster",
+      "pick_cluster": "Choisissez un cluster",
+      "operation": "Opération",
+      "workload_kind": "Type de charge de travail",
+      "namespace": "Espace de noms",
+      "workload_name": "Nom de la charge de travail",
+      "replicas": "Nombre de réplicas",
+      "parameters": "Paramètres demandés au lancement",
+      "parameters_hint": "Dans les modèles, utilisez {{params.name}} pour y accéder.",
+      "add_parameter": "Ajouter un paramètre",
+      "remove_parameter": "Supprimer le paramètre",
+      "parameter_key": "Nom",
+      "parameter_label": "Libellé",
+      "parameter_kind": "Type",
+      "parameter_options": "Choix (séparés par des virgules)",
+      "parameter_default": "Valeur par défaut",
+      "parameter_required": "Obligatoire",
+      "scope": "Périmètre et approbation",
+      "services": "Services",
+      "services_hint": "Séparez les services par des virgules. Laissez le champ vide pour inclure tous les incidents.",
+      "risk": "Risque",
+      "verify_after": "Délai avant vérification",
+      "verify_after_hint": "En minutes après l’exécution. Saisissez 0 pour ne pas effectuer de vérification.",
+      "verify_by": "Critère de réussite",
+      "enabled": "Activé"
+    },
+    "clusters": {
+      "title": "Clusters Kubernetes",
+      "add": "Ajouter un cluster",
+      "empty": "Aucun cluster pour le moment. Enregistrez un cluster avant d’utiliser les actions Kubernetes.",
+      "test": "Tester la connexion",
+      "reached": "Connexion à Kubernetes {{version}} réussie",
+      "saved": "Cluster enregistré",
+      "edit_title": "Modifier le cluster",
+      "description": "La connexion au serveur d’API utilise un jeton ServiceAccount, stocké sous forme chiffrée et qui ne sera plus affiché. Ce jeton doit disposer des autorisations get et patch sur les charges de travail, ainsi que de l’autorisation list sur les ReplicaSets pour permettre un retour arrière.",
+      "name": "Nom",
+      "api_server": "Adresse du serveur d’API",
+      "ca": "Certificat d’autorité de certification",
+      "ca_hint": "Format PEM ; laissez ce champ vide pour faire confiance aux certificats racines du système.",
+      "token": "Jeton ServiceAccount"
+    },
+    "run": {
+      "none": "Aucune action de remédiation ne s’applique à cet incident.",
+      "set_up": "Configurer une action",
+      "start": "Exécuter",
+      "closed": "L’incident est résolu",
+      "by": "lancée par {{name}}",
+      "approve": "Approuver",
+      "reject": "Refuser",
+      "approved": "Approuvée",
+      "rejected": "Refusée",
+      "requested_one": "Demande d’approbation envoyée ; {{count}} personne doit l’approuver",
+      "requested_other": "Demande d’approbation envoyée ; {{count}} personnes doivent l’approuver",
+      "ran_preapproved": "Exécutée immédiatement grâce à l’approbation préalable",
+      "preapproved": "Approuvée au préalable",
+      "title": "Exécuter « {{name}} »",
+      "needs_one": "Une personne habilitée doit approuver l’action. Elle sera exécutée aussitôt après.",
+      "needs_two": "Deux personnes habilitées doivent approuver l’action. Elle sera exécutée aussitôt après.",
+      "reason": "Motif",
+      "reason_placeholder": "Par exemple : le service de paiement n’a plus de connexions disponibles, redémarrez-le d’abord",
+      "submit": "Envoyer pour approbation",
+      "status": {
+        "awaiting_approval": "En attente d’approbation",
+        "running": "En cours d’exécution",
+        "succeeded": "Exécutée",
+        "failed": "Échec de l’exécution",
+        "declined": "Non exécutée",
+        "verifying": "En attente de vérification",
+        "verified": "Vérification réussie",
+        "verification_failed": "Échec de la vérification"
+      },
+      "requested_many": "Demande d’approbation envoyée ; {{count}} personnes doivent l’approuver"
+    },
+    "preapproval": {
+      "title": "Approbation préalable",
+      "switch_label": "Exécuter sans attendre les actions approuvées au préalable",
+      "switch_hint": "Désactivée par défaut. Une action ne s’exécute immédiatement que pour les incidents couverts par son approbation préalable, dans la limite de fréquence fixée pour la période définie et avec au moins autant d’approbations que l’exige son niveau de risque.",
+      "switched_on": "Approbation préalable activée",
+      "switched_off": "Approbation préalable désactivée",
+      "states": {
+        "none": "Non préapprouvé",
+        "off": "Préapprouvé · désactivé pour l’organisation",
+        "expired": "Préapprobation expirée",
+        "awaiting_approver": "Préapprouvé · en attente de confirmation par une deuxième personne",
+        "used_up": "Préapprouvé · quota d’exécutions atteint ({{used}}/{{max}})",
+        "active": "Préapprouvé · {{used}}/{{max}} exécutions sur la période"
+      },
+      "set": "Préapprouver",
+      "edit": "Modifier la préapprobation",
+      "confirm": "Confirmer la préapprobation",
+      "confirmed": "Préapprobation confirmée",
+      "clear": "Supprimer la préapprobation",
+      "cleared": "Préapprobation supprimée",
+      "save": "Enregistrer la préapprobation",
+      "saved": "Préapprobation enregistrée",
+      "dialog_title": "Préapprouver « {{name}} »",
+      "dialog_l2": "En cas d’incident touchant l’un de ces services, l’action s’exécute immédiatement, sans attendre d’approbation. L’enregistrement vaut approbation pour une action L2, qui n’en nécessite qu’une.",
+      "dialog_l3": "En cas d’incident touchant l’un de ces services, l’action s’exécute immédiatement, sans attendre d’approbation. L’enregistrement vaut pour l’une des deux approbations requises pour une action L3. Une autre personne doit confirmer la préapprobation pour qu’elle prenne effet.",
+      "services": "Services",
+      "services_hint": "Indiquez les services concernés par l’action, en les séparant par des virgules.",
+      "services_hint_any": "Séparez les valeurs par des virgules.",
+      "max_runs": "Nombre maximal d’exécutions",
+      "window": "Sur une période de",
+      "windows": {
+        "900": "15 minutes",
+        "3600": "1 heure",
+        "21600": "6 heures",
+        "86400": "1 jour",
+        "604800": "7 jours"
+      },
+      "expires": "Expiration",
+      "expiries": {
+        "1": "Dans 1 jour",
+        "7": "Dans 7 jours",
+        "30": "Dans 30 jours",
+        "90": "Dans 90 jours",
+        "never": "Jamais"
+      },
+      "channels": "Notifier après l’exécution",
+      "channels_hint": "Une notification est envoyée après chaque exécution préapprouvée, qu’elle réussisse ou échoue.",
+      "channels_denied": "Vous devez disposer de l’autorisation de lecture des connecteurs de notification pour choisir des canaux.",
+      "channels_none": "Aucun connecteur de notification ne prend encore en charge les groupes ou les adresses.",
+      "add_channel": "Ajouter un canal",
+      "remove_channel": "Supprimer le canal",
+      "channel_connector": "Connecteur du canal {{number}}",
+      "channel_kind": "Type de canal {{number}}",
+      "channel_target": "Groupe ou adresse du canal {{number}}"
+    }
+  },
+  "tickets": {
+    "new_connector": "Nouveau connecteur de tickets",
+    "empty": "Aucun connecteur de tickets pour le moment. Une fois Jira, ServiceNow ou Meegle connecté, vous pouvez créer des tickets depuis un incident ou à l’aide d’une règle.",
+    "auto_on": "Création automatique de tickets",
+    "auto_off": "Création manuelle de tickets",
+    "test": "Tester la connexion",
+    "reached": "Connecté",
+    "reached_as": "Connecté en tant que {{name}}",
+    "delete_named": "Supprimer {{name}}",
+    "delete_title": "Supprimer le connecteur de tickets ?",
+    "saved": "« {{name}} » enregistré",
+    "webhook_address": "Adresse du webhook Jira (ajoutez-la dans la section Webhooks des paramètres système de Jira, avec le secret du webhook du connecteur)",
+    "copy_webhook": "Copier l’adresse",
+    "copy_address": "Copier l’adresse",
+    "address_copied": "Copié",
+    "sites": {
+      "feishu": "Feishu",
+      "lark": "Lark"
+    },
+    "systems": {
+      "jira": "Jira",
+      "meegle": "Meegle",
+      "servicenow": "ServiceNow"
+    },
+    "drawer": {
+      "new_title": "Nouveau connecteur de tickets",
+      "edit_title": "Modifier le connecteur de tickets",
+      "subtitle": "Les identifiants sont stockés sous forme chiffrée et ne sont plus affichés. Laissez un champ vide pour conserver sa valeur actuelle.",
+      "save": "Enregistrer",
+      "identity": "Informations générales",
+      "name": "Nom",
+      "meegle_hint": "Meegle, appelé Feishu Project en Chine.",
+      "jira": "Jira",
+      "site_url": "Adresse du site",
+      "cloud": "Jira Cloud",
+      "data_center": "Jira Data Center / Server",
+      "email": "Adresse e-mail du compte",
+      "api_token": "Jeton d’API",
+      "pat": "Jeton d’accès personnel",
+      "project_key": "Clé du projet",
+      "issue_type": "Type de ticket",
+      "priorities": "Priorité du ticket selon celle de l’incident",
+      "priorities_hint": "Utilisez les noms des priorités Jira. La priorité de l’incident est utilisée d’abord. Si elle est absente ou qu’aucune correspondance n’est renseignée, le niveau de gravité est utilisé. Si le champ correspondant est vide, aucune priorité n’est définie.",
+      "labels": "Étiquettes",
+      "resolve_transition": "Transition à la résolution",
+      "resolve_transition_hint": "Nom ou ID de la transition. Si ce champ est vide, la première transition vers un statut terminé est utilisée.",
+      "webhook_secret": "Secret du webhook",
+      "webhook_secret_hint": "Le webhook Jira n’est accepté qu’avec un secret (X-Hub-Signature est vérifié). Sans secret, les statuts sont synchronisés toutes les 5 minutes.",
+      "meegle": "Meegle",
+      "platform": "Plateforme",
+      "base_url": "Adresse du site",
+      "plugin_id": "ID du plugin",
+      "plugin_secret": "Secret du plugin",
+      "user_key": "Agir au nom de (user_key)",
+      "user_key_hint": "Les tickets sont créés et les commentaires sont publiés au nom de cette personne.",
+      "project_key_meegle": "Espace (project_key)",
+      "work_item_type": "Type d’élément de travail (work_item_type_key)",
+      "priority_field": "Clé du champ de priorité",
+      "priorities_hint_meegle": "Valeurs des options de priorité. La priorité de l’incident est utilisée en premier, ou sa gravité si aucune priorité n’est définie ou renseignée. Laissez vide pour ne définir aucune priorité.",
+      "resolve_transition_id": "ID de la transition à la résolution",
+      "resolve_transition_id_hint": "Pour les workflows basés sur des états.",
+      "resolve_node_id": "Nœud à marquer comme terminé à la résolution",
+      "resolve_node_id_hint": "Pour les workflows basés sur des nœuds.",
+      "done_states": "États considérés comme terminés",
+      "done_states_hint": "Clés d’état séparées par des virgules.",
+      "follow": "Suivi de l’incident",
+      "comments": {
+        "acknowledged": "Ajouter un commentaire à la prise en compte de l’incident",
+        "resolved": "Ajouter un commentaire à la résolution de l’incident",
+        "notes": "Publier les notes de l’incident sous forme de commentaires"
+      },
+      "transition_on_resolve": "Marquer le ticket comme terminé à la résolution de l’incident",
+      "resolve_when_done": "Résoudre l’incident lorsque le ticket est terminé",
+      "on_major": "Créer un ticket lorsqu’un incident majeur est déclaré",
+      "auto": "Création automatique de tickets",
+      "auto_hint": "Un ticket est créé automatiquement pour chaque nouvel incident qui répond aux critères.",
+      "auto_enabled": "Créer automatiquement des tickets",
+      "auto_severity": "Gravité minimale",
+      "auto_services": "Services",
+      "auto_services_hint": "Séparez les services par des virgules. Laissez vide pour inclure tous les services.",
+      "servicenow": "ServiceNow",
+      "instance_url": "Adresse de l’instance",
+      "table": "Table",
+      "table_hint": "Par défaut : incident. La table doit hériter de task.",
+      "auth_basic": "Nom d’utilisateur et mot de passe",
+      "auth_oauth": "Identifiants du client OAuth",
+      "auth_oauth_hint": "L’instance doit autoriser le flux OAuth par identifiants client (client credentials).",
+      "auth_api_key": "Clé API",
+      "auth_api_key_hint": "Disponible à partir de la version Washington DC.",
+      "username": "Nom d’utilisateur",
+      "password": "Mot de passe",
+      "client_id": "ID client",
+      "client_secret": "Secret client",
+      "api_key": "Clé API",
+      "assignment_group": "Groupe d’affectation",
+      "caller_id": "Demandeur",
+      "sys_id_hint": "Saisissez un sys_id ou laissez le champ vide pour ne rien définir.",
+      "category": "Catégorie",
+      "priorities_hint_servicenow": "Saisissez l’impact et l’urgence au format impact/urgence (par exemple 2/1). Si vous ne saisissez qu’un nombre, il s’applique aux deux. ServiceNow en déduit la priorité. La correspondance est recherchée d’abord selon la priorité de l’incident (ci-dessus), puis selon sa gravité (ci-dessous).",
+      "resolve_state": "Valeur de l’état à la résolution",
+      "resolve_state_hint": "Valeur du champ state : 6 (Résolu) par défaut.",
+      "close_code": "Code de résolution",
+      "close_code_hint": "Les valeurs de close_code varient selon l’instance. Si le champ est vide, aucune valeur n’est enregistrée.",
+      "done_states_hint_servicenow": "Valeurs du champ state, séparées par des virgules : 6, 7 et 8 (Résolu, Clôturé, Annulé) par défaut."
+    },
+    "incident": {
+      "none": "Aucun ticket pour le moment.",
+      "created": "Ticket {{key}} créé",
+      "synced": "synchronisé {{value}}",
+      "connector": "Connecteur de tickets",
+      "create": "Créer un ticket",
+      "create_in": "Créer dans {{name}}"
+    }
+  },
+  "major": {
+    "hint": "Déclarez un incident majeur lorsqu’il a un impact étendu et mobilise plusieurs personnes. Vous disposez alors de rôles, d’un salon de crise, d’une réunion, d’une liste de contrôle et d’un fil unique de mises à jour.",
+    "declare": "Déclarer un incident majeur",
+    "declared": "Incident déclaré majeur",
+    "declared_by": "Déclaré majeur par {{name}}",
+    "declared_by_rule": "Déclaré majeur selon la règle de l’organisation",
+    "roles": {
+      "commander": "Responsable de l’incident",
+      "communications": "Responsable de la communication",
+      "scribe": "Secrétaire de crise"
+    },
+    "unassigned": "Non attribué",
+    "war_room": "Rejoindre le salon de crise ({{platform}})",
+    "war_room_made": "Salon de crise créé ({{platform}})",
+    "platforms": {
+      "lark_app": "Feishu",
+      "slack_app": "Slack",
+      "dingtalk_app": "DingTalk",
+      "wecom_app": "WeCom"
+    },
+    "meeting": "Rejoindre la réunion",
+    "tasks": "Tâches",
+    "no_tasks": "Aucune tâche pour le moment.",
+    "remove_task": "Supprimer la tâche « {{title}} »",
+    "task_placeholder": "Ajouter une tâche",
+    "add_task": "Ajouter",
+    "post_update": "Publier une mise à jour",
+    "update_hint": "La mise à jour est publiée dans la cellule de crise et envoyée aux parties prenantes, aux titulaires des rôles et aux personnes assignées.",
+    "update": {
+      "impact": "Impact",
+      "current": "Situation actuelle",
+      "next": "Prochaines étapes"
+    },
+    "send_update": "Envoyer",
+    "update_sent": "Mise à jour envoyée",
+    "settings": {
+      "open": "Paramètres des incidents majeurs",
+      "title": "Paramètres des incidents majeurs",
+      "subtitle": "Configurez la cellule de crise, la réunion et les tâches créées lorsqu’un incident est déclaré majeur, les destinataires des mises à jour et les critères de déclaration automatique.",
+      "saved": "Paramètres des incidents majeurs enregistrés",
+      "war_room": "Cellule de crise et réunion",
+      "war_room_hint": "Un connecteur de notification capable de créer des discussions de groupe (Feishu App, Slack App, DingTalk, WeCom) crée le groupe et y ajoute les personnes assignées, les titulaires des rôles et les parties prenantes à l’aide de leurs comptes associés au connecteur.",
+      "connector": "Connecteur des cellules de crise",
+      "no_war_room": "Aucune cellule de crise",
+      "meeting": "Réunion",
+      "meetings": {
+        "none": "Aucune réunion",
+        "feishu_vc": "Réserver une réunion Feishu",
+        "fixed_url": "Lien de réunion fixe",
+        "tencent_meeting": "Réserver une réunion Tencent Meeting",
+        "zoom": "Démarrer une réunion Zoom",
+        "google_meet": "Créer une réunion Google Meet"
+      },
+      "meeting_url": "Lien de réunion",
+      "checklist": "Liste de contrôle",
+      "checklist_hint": "Tâches ajoutées lorsqu’un incident est déclaré majeur, à raison d’une par ligne.",
+      "stakeholders": "Parties prenantes",
+      "stakeholders_hint": "Personnes qui ne participent pas à la résolution, mais doivent suivre l’évolution de l’incident, comme les responsables ou les équipes de suivi client ou de relations publiques. Elles reçoivent les mises à jour, au même titre que les personnes assignées et les titulaires des rôles, et sont ajoutées à la cellule de crise.",
+      "auto": "Déclaration automatique",
+      "auto_hint": "Tout nouvel incident qui remplit les critères est d’emblée déclaré majeur.",
+      "auto_enabled": "Déclarer automatiquement",
+      "room_notes": {
+        "dingtalk_app": "Dans DingTalk, le robot de l’application doit être ajouté au groupe avant de pouvoir y publier des mises à jour. Les noms de groupe sont limités à 20 caractères.",
+        "wecom_app": "L’application WeCom doit être visible par le service racine. Le groupe compte au moins deux personnes et n’a pas de lien d’invitation. Ses membres le retrouvent dans WeCom."
+      },
+      "meeting_connector": "Feishu App pour les réunions",
+      "same_as_war_room": "Connecteur de la cellule de crise",
+      "meeting_hints": {
+        "feishu_vc": "Feishu App réserve une réunion Feishu de 6 heures au nom du responsable de l’incident. L’application doit être autorisée à réserver des visioconférences.",
+        "tencent_meeting": "Créez une application interne dans la console d’entreprise de Tencent Meeting pour obtenir son AppId, son SdkId, son SecretId et sa SecretKey. Une réunion de 6 heures est réservée au nom du membre indiqué ci-dessous.",
+        "zoom": "Créez une application OAuth de serveur à serveur dans le Zoom App Marketplace avec l’autorisation de créer des réunions (meeting:write:meeting:admin). Une réunion instantanée est lancée avec l’utilisateur ci-dessous comme hôte.",
+        "google_meet": "Un compte de service crée les réunions au nom de l’organisateur. Dans la console d’administration Google Workspace, accordez-lui la délégation à l’échelle du domaine pour https://www.googleapis.com/auth/meetings.space.created."
+      },
+      "secret_kept": "Défini ; laissez le champ vide pour conserver la valeur",
+      "tencent": {
+        "sdk_id_hint": "Uniquement si l’application en possède un",
+        "userid": "Créateur (userid)",
+        "userid_hint": "Le membre de l’entreprise auquel la réunion est rattachée"
+      },
+      "zoom": {
+        "host": "Hôte",
+        "host_hint": "L’adresse e-mail ou l’identifiant d’un utilisateur du compte Zoom"
+      },
+      "google": {
+        "organizer": "Adresse e-mail de l’organisateur",
+        "organizer_hint": "Les réunions sont créées au nom de cette personne",
+        "credentials": "Clé du compte de service (JSON)"
+      },
+      "auto_priority": "Priorité",
+      "auto_priority_hint": "Si vous définissez une priorité ici, les incidents sans priorité ne sont jamais déclarés automatiquement.",
+      "any_priority": "Toutes les priorités",
+      "at_least_priority": "{{priority}} ou supérieure"
+    }
+  },
+  "postmortems": {
+    "empty": "Aucun post-mortem pour le moment. Pour en créer un, sélectionnez « Rédiger un post-mortem » dans un incident.",
+    "loading": "Lecture du post-mortem…",
+    "none": "Aucun post-mortem pour le moment.",
+    "start": "Rédiger un post-mortem",
+    "open": "Ouvrir le post-mortem",
+    "summary_line_one": "{{status}} · {{count}} action ouverte",
+    "summary_line_other": "{{status}} · {{count}} actions ouvertes",
+    "saved": "Post-mortem enregistré",
+    "drawer_title": "Post-mortem",
+    "title": "Titre",
+    "status_label": "Statut",
+    "status": {
+      "draft": "Brouillon",
+      "in_review": "En cours de révision",
+      "published": "Publié"
+    },
+    "body": "Texte (Markdown)",
+    "draft_with_agent": "Rédiger avec Mole Agent",
+    "agent_prompt": "Rédigez un post-mortem interne à partir de la chronologie de cet incident, de ses notes, de l’analyse de la cause racine et de la requête qui l’a déclenché. Incluez le résumé, l’impact, la chronologie, la cause racine, ce qui a bien et moins bien fonctionné, ainsi que les actions à mener. Enregistrez le résultat comme brouillon du post-mortem de l’incident.",
+    "copy_summary": "Copier le résumé",
+    "summary_copied": "Résumé copié ; collez-le dans le post-mortem public de la page de statut",
+    "actions_title": "Actions à mener",
+    "action_placeholder": "Ajouter une action",
+    "add_action": "Ajouter",
+    "remove_action": "Supprimer l’action « {{title}} »",
+    "make_ticket": "Créer un ticket",
+    "ticket_created": "Ticket {{key}} créé",
+    "open_actions_one": "{{count}} action ouverte",
+    "open_actions_other": "{{count}} actions ouvertes",
+    "overdue_one": "{{count}} en retard",
+    "overdue_other": "{{count}} en retard",
+    "template": {
+      "summary": "Résumé",
+      "impact": "Impact",
+      "duration": "Durée : {{value}}",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "ongoing": "toujours en cours",
+      "services": "Services affectés : {{value}}",
+      "severity": "Gravité : {{value}}",
+      "timeline": "Chronologie",
+      "triggered": "Déclenché",
+      "resolved": "Résolu",
+      "root_cause": "Cause racine",
+      "went_well": "Ce qui s’est bien passé",
+      "went_badly": "Ce qui s’est mal passé",
+      "actions": "Actions à mener",
+      "kinds": {
+        "acknowledged": "Pris en compte",
+        "resolved": "Résolu",
+        "escalated": "Escaladé",
+        "reassigned": "Réaffecté",
+        "responders_added": "Intervenants ajoutés",
+        "snoozed": "Mis en pause",
+        "severity_changed": "Gravité modifiée",
+        "merged_in": "Incidents fusionnés",
+        "note": "Note",
+        "remediation_executed": "Remédiation exécutée",
+        "ticket_created": "Ticket créé",
+        "declared_major": "Déclaré comme incident majeur",
+        "role_assigned": "Rôle attribué",
+        "war_room_created": "Salle de crise ouverte",
+        "task_done": "Tâche terminée",
+        "status_update": "Mise à jour du statut",
+        "step_unreachable": "Personne n’était joignable, incident escaladé",
+        "priority_changed": "Priorité modifiée",
+        "urgency_changed": "Urgence modifiée"
+      },
+      "minutes_many": "{{count}} minutes"
+    },
+    "summary_line_many": "{{status}} · {{count}} actions ouvertes",
+    "open_actions_many": "{{count}} actions ouvertes",
+    "overdue_many": "{{count}} en retard"
+  },
+  "urgency": {
+    "high": "élevée",
+    "low": "faible"
+  },
+  "importance": {
+    "no_priority": "Aucune priorité",
+    "without_priority": "Aucune",
+    "all_priorities": "Toutes les priorités",
+    "filter_label": "Filtrer par priorité",
+    "low_urgency": "Urgence faible",
+    "urgency": {
+      "high": "Urgence élevée",
+      "low": "Urgence faible"
+    },
+    "behaviour": {
+      "escalates": "Passe aux étapes suivantes de la politique d’escalade",
+      "first_step": "Première étape uniquement",
+      "quiet_switch": "les heures de silence s’appliquent selon le réglage de la personne",
+      "quiet_block": "jamais pendant les heures de silence",
+      "steps_high": "étapes pour les urgences élevées",
+      "steps_low": "étapes pour les urgences faibles"
+    }
+  },
+  "create_incident": {
+    "open": "Nouvel incident",
+    "title": "Nouvel incident",
+    "subtitle": "Pour les incidents qu’aucune règle n’a détectés, par exemple un problème signalé par un client ou remarqué par quelqu’un. Comme pour tout incident, les personnes d’astreinte sont alertées et l’escalade s’applique.",
+    "submit": "Créer l’incident",
+    "created": "Incident créé",
+    "sections": {
+      "what": "Ce qui s’est passé",
+      "who": "Qui prend en charge l’incident"
+    },
+    "fields": {
+      "title": "Titre",
+      "description": "Description",
+      "severity": "Gravité",
+      "priority": "Priorité",
+      "urgency": "Urgence",
+      "services": "Services affectés",
+      "labels": "Étiquettes",
+      "team": "Équipe",
+      "policy": "Politique d’escalade",
+      "people": "Personnes"
+    },
+    "hints": {
+      "description": "Vous pouvez utiliser Markdown.",
+      "services": "Utilisez les noms du catalogue de services, séparés par des virgules.",
+      "labels": "Saisissez une paire clé=valeur par ligne ; les règles de routage et les silences se basent sur ces étiquettes.",
+      "people_one": "Jusqu’à {{count}} personne ; seule cette personne est notifiée, sans politique d’escalade.",
+      "people_other": "Jusqu’à {{count}} personnes ; seules ces personnes sont notifiées, sans politique d’escalade.",
+      "people_many": "Jusqu’à {{count}} personnes ; seules ces personnes sont notifiées, sans politique d’escalade."
+    },
+    "placeholders": {
+      "title": "Par exemple : les clients de la région nord ne peuvent pas ouvrir la page de paiement",
+      "choose": "Choisir…"
+    },
+    "assign": {
+      "auto": "Routage automatique",
+      "team": "Une équipe",
+      "policy": "Une politique d’escalade",
+      "users": "Des personnes désignées"
+    },
+    "assign_hints": {
+      "auto": "Comme pour un incident ouvert par une règle : selon les règles de routage, l’équipe responsable du service ou le libellé d’équipe.",
+      "team": "La politique d’astreinte de l’équipe ou, à défaut, la politique par défaut.",
+      "policy": "Les notifications commencent au premier niveau de la politique.",
+      "users": "Ces personnes sont notifiées directement, sans escalade."
+    },
+    "declare_major": "Déclarer cet incident comme majeur"
+  },
+  "discovery": {
+    "load_error": "Impossible de charger les détections",
+    "tabs_label": "Détections",
+    "tabs": {
+      "open": "En cours",
+      "ended": "Terminées"
+    },
+    "filter_kind": "Filtrer par type",
+    "all_kinds": "Tous les types",
+    "kinds": {
+      "apm_anomaly": "Variation soudaine d’un service",
+      "apm_regression": "Régression dans la nouvelle version",
+      "rum_new_issue": "Nouvelle erreur côté interface",
+      "rum_regressed_issue": "Réapparition d’une erreur côté interface",
+      "log_error_surge": "Pic de journaux d’erreur",
+      "log_new_error": "Nouveau journal d’erreur",
+      "metric_saturation": "Saturation imminente",
+      "metric_shift": "Hausse soudaine de l’utilisation du CPU",
+      "metric_restarts": "Redémarrages de conteneurs"
+    },
+    "metrics": {
+      "error_rate": "taux d’erreur",
+      "p95": "latence P95",
+      "throughput": "trafic",
+      "requests": "requêtes"
+    },
+    "summary": {
+      "apm_anomaly": "{{service}} : {{metric}} à {{value}} (contre {{baseline}} auparavant)",
+      "apm_regression": "{{service}} {{version}} est moins performant que la version précédente",
+      "rum_new_issue": "Nouvelle erreur dans {{application}} : {{message}}",
+      "rum_regressed_issue": "Une erreur résolue réapparaît dans {{application}} : {{message}}",
+      "log_error_surge": "Journaux d’erreur de {{service}} dans {{stream}} : {{value}} en 15 minutes (contre {{baseline}} habituellement)",
+      "log_new_error": "Nouvelle erreur dans {{service}} : {{template}}",
+      "metric_saturation": "{{subject}} est rempli à {{value}}",
+      "metric_shift": "Utilisation du CPU de {{subject}} : {{value}} (contre {{baseline}} il y a une heure)",
+      "metric_restarts": "{{subject}} a redémarré {{value}} fois en 15 minutes"
+    },
+    "empty": {
+      "open": {
+        "title": "Rien à signaler pour le moment",
+        "description": "Toutes les 5 minutes, les services APM sont analysés pour repérer les variations soudaines et les régressions dans les nouvelles versions, et les interfaces pour repérer les erreurs nouvelles ou réapparues."
+      },
+      "ended": {
+        "title": "Aucune détection terminée récemment",
+        "description": "Une détection passe au statut « Terminée » si elle n’est plus observée lors de trois vérifications consécutives. Les détections terminées sont conservées pendant 30 jours."
+      }
+    },
+    "columns": {
+      "finding": "Détection",
+      "started": "Début",
+      "last_seen": "Dernière observation",
+      "ended": "Fin"
+    },
+    "new_rule": "Nouvelle règle de découverte",
+    "rule_for_kind": "Alerter sur les constats similaires",
+    "downstream": "en aval",
+    "version_after": "{{version}} (après {{previous}})",
+    "sections": {
+      "what": "Résultats de la découverte",
+      "changes": "Changements autour de cet événement"
+    },
+    "fields": {
+      "kind": "Type",
+      "now": "Maintenant",
+      "before": "Avant",
+      "last_week": "La semaine dernière",
+      "version": "Version",
+      "location": "Emplacement",
+      "started": "Début",
+      "last_seen": "Dernière observation",
+      "ended": "Fin"
+    },
+    "rule": {
+      "new_title": "Nouvelle règle de découverte",
+      "edit_title": "Modifier la règle de découverte",
+      "subtitle": "Chaque constat correspondant à la règle ouvre un incident de même gravité. L’incident se résout lorsque le constat prend fin.",
+      "create": "Créer la règle",
+      "save": "Enregistrer la règle",
+      "created": "Règle créée",
+      "updated": "Règle enregistrée",
+      "name_from": "Découverte : {{subject}}",
+      "source": "Découverte",
+      "condition": "Un incident par constat",
+      "urgency_low_default": "Faible (par défaut)",
+      "sections": {
+        "which": "Constats concernés",
+        "who": "Destinataires des notifications"
+      },
+      "fields": {
+        "name": "Nom",
+        "kinds": "Types",
+        "subjects": "Services ou applications",
+        "environments": "Environnements",
+        "min_severity": "Gravité minimale",
+        "policy": "Politique d’escalade",
+        "urgency": "Urgence"
+      },
+      "hints": {
+        "kinds": "Si vous ne cochez aucun type, tous sont pris en compte.",
+        "subjects": "Saisissez les noms des services APM ou les identifiants des applications RUM, séparés par des virgules. Laissez le champ vide pour tous les inclure.",
+        "environments": "Séparez les valeurs par des virgules. Laissez le champ vide pour inclure tous les environnements.",
+        "urgency": "La découverte repose sur des déductions. Par défaut, les incidents ainsi détectés sont donc de faible urgence : seul le premier niveau est utilisé, et jamais pendant les heures de silence."
+      }
+    },
+    "open": {
+      "apm": "Ouvrir dans APM",
+      "rum": "Ouvrir dans RUM",
+      "logs": "Ouvrir les logs",
+      "metrics": "Ouvrir dans Métriques"
+    },
+    "investigate": "Demander à Mole Agent d’enquêter",
+    "investigate_prompt": "Examinez ce résultat de la découverte automatique : {{summary}}. Déterminez la cause à partir des logs, des métriques, des traces et des modifications autour du début du problème, puis indiquez la marche à suivre."
+  },
+  "rule_transfer": {
+    "menu": "Importer/exporter",
+    "export_all": "Exporter toutes les règles",
+    "export_one": "Exporter cette règle ({{count}})",
+    "export_other": "Exporter ces {{count}} règles",
+    "exported_one": "{{count}} règle exportée",
+    "exported_other": "{{count}} règles exportées",
+    "import": "Importer des règles…",
+    "import_title": "Importer des règles",
+    "import_subtitle": "Collez ou sélectionnez un ensemble de règles exporté depuis MoleSignal ou un fichier de règles d’alerte Prometheus (PrometheusRule est aussi pris en charge). Simulez d’abord l’import pour voir l’effet sur chaque règle, puis importez le tout en une seule fois.",
+    "content": "Contenu",
+    "content_hint": "JSON ou YAML. Les règles sont identifiées par leur nom : celles dont le nom est nouveau sont créées, les autres sont mises à jour.",
+    "choose_file": "Choisir un fichier",
+    "create_only": "Créer uniquement les nouvelles règles, sans modifier celles du même nom",
+    "try": "Simuler",
+    "apply_one": "Importer ({{count}})",
+    "apply_other": "Importer ({{count}})",
+    "cancel": "Annuler",
+    "imported_one": "{{count}} règle importée",
+    "imported_other": "{{count}} règles importées",
+    "result": "Résultat de la simulation d’import",
+    "has_errors": "corrigez les règles en erreur, puis lancez l’import",
+    "changes": "Modifications : {{fields}}",
+    "formats": {
+      "molesignal": "Ensemble de règles MoleSignal",
+      "prometheus": "Règles d’alerte Prometheus",
+      "pagerduty": "Plannings d’astreinte PagerDuty",
+      "opsgenie": "Plannings d’astreinte Opsgenie"
+    },
+    "actions": {
+      "create": "Créer",
+      "update": "Mettre à jour",
+      "unchanged": "Inchangée",
+      "skip": "Ignorer",
+      "error": "Erreur"
+    },
+    "export_many": "Exporter ces {{count}} règles",
+    "exported_many": "{{count}} règles exportées",
+    "apply_many": "Importer ({{count}})",
+    "imported_many": "{{count}} règles importées"
+  },
+  "transfer": {
+    "unknown_members": "Ces adresses e-mail ne correspondent à aucun membre de cet espace de travail :",
+    "findings": {
+      "schedules_only": "Seuls les plannings d’astreinte sont importés. Les politiques d’escalade, les règles de routage et les dérogations sont exclues.",
+      "shift_based_not_listed": "Le fichier ne répertorie pas les plannings par créneaux de PagerDuty, car l’API V2 ne les renvoie pas. Ils peuvent donc manquer ici. Le script de migration les répertorie.",
+      "shift_based_not_fetched": "Le fichier ne contient que le nom de ce planning par créneaux, sans son contenu. Il est donc exclu. Relancez le script de migration ou récupérez le planning avec GET /v3/schedules/{id}.",
+      "schedule_unreadable": "Impossible de lire le planning : {{detail}}",
+      "timezone_unknown": "Le fuseau horaire « {{timezone}} » n’est pas un identifiant IANA.",
+      "layers_missing": "Le fichier ne contient aucune couche pour ce planning. Récupérez le planning avec GET /schedules/{id}.",
+      "rotations_missing": "Le fichier ne contient aucune rotation pour ce planning. Récupérez le planning avec GET /v2/schedules/{id}.",
+      "events_missing": "Le fichier ne contient ni rotations ni événements pour ce planning. Récupérez le planning avec GET /v3/schedules/{id}.",
+      "time_invalid": "{{rotation}} : « {{value}} » n’est pas une heure valide.",
+      "user_without_email": "{{rotation}} : le fichier ne contient pas d’adresse e-mail pour {{user}}.",
+      "participant_team": "{{rotation}} : un tour est attribué à l’équipe {{name}}, mais une rotation n’accepte ici que des personnes.",
+      "participant_escalation": "{{rotation}} : un tour est attribué à l’escalade {{name}}, mais une rotation n’accepte ici que des personnes.",
+      "participant_none": "{{rotation}} : un tour n’est attribué à personne, mais une rotation ne peut pas laisser de tour vacant ici.",
+      "participant_unknown": "{{rotation}} : un participant est de type inconnu ({{value}}).",
+      "rotations_overlap": "{{rotation}} et {{other}} se chevauchent pour la première fois à {{at}}. Les deux personnes seraient d’astreinte dans la source, mais un planning n’en accepte qu’une à la fois ici. Répartissez-les dans des plannings distincts.",
+      "every_member_on_call": "{{rotation}} : tous les membres sont d’astreinte en même temps, mais un planning n’accepte qu’une personne à la fois ici. Répartissez-les dans des plannings distincts.",
+      "recurrence_unsupported": "{{rotation}} : la récurrence {{value}} ne peut pas être représentée par une rotation.",
+      "shifts_per_member_unsupported": "{{rotation}} : chaque membre assure {{value}} créneaux consécutifs et une semaine en compte {{per_week}}. Les passations ne suivent donc pas la périodicité fixe requise pour une rotation.",
+      "event_timezones_differ": "{{rotation}} utilise le fuseau horaire {{timezone}} et {{other}} utilise {{other_timezone}}. Un planning ne peut utiliser qu’un seul fuseau horaire ici. Répartissez ces rotations dans des plannings distincts.",
+      "timezone_from_events": "Le fuseau horaire du planning est {{schedule_timezone}}, mais ses événements utilisent {{timezone}}. Le planning importé utilise {{timezone}} pour conserver les mêmes heures de passation.",
+      "custom_shifts_one": "{{count}} créneau personnalisé à venir : de {{at}} à {{until}}, {{user}}. Une rotation ne peut pas représenter un créneau ponctuel ici. Importez le planning une fois le créneau terminé, ou retirez-le de final_schedule dans le fichier et ajoutez une dérogation après l’importation.",
+      "custom_shifts_other": "{{count}} créneaux personnalisés à venir, dont le premier est de {{at}} à {{until}}, pour {{user}}. Une rotation ne peut pas représenter de créneaux ponctuels ici. Importez le planning une fois ces créneaux terminés, ou retirez-les de final_schedule dans le fichier et ajoutez des dérogations après l’importation.",
+      "rendered_several_on_call": "De {{at}} à {{until}}, {{first}} et {{second}} sont d’astreinte en même temps dans la source, mais un planning n’accepte qu’une personne à la fois ici.",
+      "rotation_type_unsupported": "{{rotation}} : le type de rotation {{value}} est inconnu.",
+      "rotation_length_invalid": "{{rotation}} : la durée de rotation {{value}} ne peut pas être utilisée.",
+      "restriction_unsupported": "{{rotation}} : la restriction horaire {{value}} ne peut pas être représentée par des plages hebdomadaires.",
+      "rendered_in_other_zone": "{{rotation}} : la réponse a été générée dans un autre fuseau horaire ({{value}}). Impossible d’interpréter ses restrictions dans le fuseau horaire du planning. Récupérez le planning avec GET /schedules/{id} sans le paramètre time_zone.",
+      "starts_before_handoff": "{{rotation}} : la couche commence avant sa rotation. On ne sait pas qui est d’astreinte jusque-là.",
+      "rendered_mismatch": "Écart avec la source de {{at}} à {{until}} : {{expected}} est d’astreinte dans la source, mais ce serait {{actual}} après l’importation.",
+      "rendered_mismatch_more_one": "Et {{count}} autre période.",
+      "rendered_mismatch_more_other": "Et {{count}} autres périodes.",
+      "rotation_ended": "{{rotation}} a pris fin à {{at}} et est exclue du planning importé : elle ne détermine plus qui est d’astreinte.",
+      "too_many_rotations": "Un planning contient plus de {{limit}} rotations.",
+      "schedule_paused": "Désactivé dans la source : le planning est importé en pause et n’a pas été comparé.",
+      "rotation_empty": "{{rotation}} est exclue : personne n’y est affecté ou elle ne s’applique jamais.",
+      "team_not_carried": "L’équipe {{name}} n’est pas transférée : aucune équipe ne porte ce nom ici ou le planning est déjà associé à une équipe. Les personnes d’astreinte ne changent pas.",
+      "rendered_matched": "Comparaison avec la source de {{from}} à {{to}} : les mêmes personnes sont d’astreinte.",
+      "rendered_missing": "Pas de comparaison : le fichier ne contient pas le planning calculé par la source. Vérifiez qui est d’astreinte après l’importation.",
+      "rendered_stale": "Pas de comparaison : le planning calculé par la source ne couvre que des dates passées. Récupérez-le à nouveau.",
+      "clock_change_not_compared": "La période de comparaison s’arrête avant le prochain changement d’heure dans le fuseau horaire {{timezone}} : les passations qui suivent ce changement n’ont pas été comparées.",
+      "overrides_left_out_one": "{{count}} dérogation sur la période comparée n’est pas importée.",
+      "overrides_left_out_other": "{{count}} dérogations sur la période comparée ne sont pas importées.",
+      "custom_shifts_many": "{{count}} créneaux personnalisés à venir, dont le premier est de {{at}} à {{until}}, pour {{user}}. Une rotation ne peut pas représenter de créneaux ponctuels ici. Importez le planning une fois ces créneaux terminés, ou retirez-les de final_schedule dans le fichier et ajoutez des dérogations après l’importation.",
+      "rendered_mismatch_more_many": "Et {{count}} autres périodes.",
+      "overrides_left_out_many": "{{count}} dérogations sur la période comparée ne sont pas importées."
+    },
+    "policies": {
+      "menu": "Import/export",
+      "export_all": "Exporter toutes les politiques d’escalade",
+      "export_one": "Exporter {{count}} politique d’escalade",
+      "export_other": "Exporter {{count}} politiques d’escalade",
+      "import": "Importer des politiques d’escalade…",
+      "import_title": "Importer des politiques d’escalade",
+      "import_subtitle": "Archive au format `molesignal.escalation-policies/v1`. Les noms déterminent les correspondances : un nouveau nom crée une politique, un nom existant la met à jour. Lancez une simulation avant l’import.",
+      "exported_one": "{{count}} politique d’escalade exportée",
+      "exported_other": "{{count}} politiques d’escalade exportées",
+      "imported_one": "{{count}} politique d’escalade importée",
+      "imported_other": "{{count}} politiques d’escalade importées",
+      "content_hint": "JSON ou YAML. Indiquez l’adresse e-mail des utilisateurs et le nom des plannings d’astreinte, des équipes et des calendriers de jours fériés.",
+      "export_many": "Exporter {{count}} politiques d’escalade",
+      "exported_many": "{{count}} politiques d’escalade exportées",
+      "imported_many": "{{count}} politiques d’escalade importées"
+    },
+    "schedules": {
+      "menu": "Import/export",
+      "export_all": "Exporter tous les plannings d’astreinte",
+      "export_one": "Exporter {{count}} planning d’astreinte",
+      "export_other": "Exporter {{count}} plannings d’astreinte",
+      "import": "Importer des plannings d’astreinte…",
+      "import_title": "Importer des plannings d’astreinte",
+      "import_subtitle": "Archive au format `molesignal.schedules/v1` ou plannings d’astreinte Opsgenie ou PagerDuty tels que renvoyés par leurs API. Les noms déterminent les correspondances : un nouveau nom crée un planning, un nom existant le met à jour. Lancez une simulation avant l’import.",
+      "exported_one": "{{count}} planning d’astreinte exporté",
+      "exported_other": "{{count}} plannings d’astreinte exportés",
+      "imported_one": "{{count}} planning d’astreinte importé",
+      "imported_other": "{{count}} plannings d’astreinte importés",
+      "content_hint": "JSON ou YAML. Indiquez l’adresse e-mail des membres et le nom des équipes et des calendriers de jours fériés. Le fichier ne contient pas les dérogations ni les échanges de créneaux, mais les mises à jour les conservent.",
+      "has_errors": "corrigez les erreurs dans les plannings d’astreinte, puis lancez l’import",
+      "migration_title": "Migrer depuis Opsgenie ou PagerDuty",
+      "migration_intro": "Exécutez ce script dans un environnement où curl et jq sont disponibles, puis sélectionnez le fichier généré. La clé API reste dans cet environnement : MoleSignal ne la conserve pas et n’appelle jamais l’autre outil.",
+      "migration_key": "Définissez d’abord {{name}} ; une clé avec des droits de lecture suffit.",
+      "migration_copy": "Copier le script",
+      "migration_docs": "Ce qui est importé et ce qui ne l’est pas",
+      "export_many": "Exporter {{count}} plannings d’astreinte",
+      "exported_many": "{{count}} plannings d’astreinte exportés",
+      "imported_many": "{{count}} plannings d’astreinte importés"
+    },
+    "routing": {
+      "menu": "Import/export",
+      "export_all": "Exporter toutes les règles de routage",
+      "export_one": "Exporter {{count}} règle de routage",
+      "export_other": "Exporter {{count}} règles de routage",
+      "import": "Importer des règles de routage…",
+      "import_title": "Importer des règles de routage",
+      "import_subtitle": "Archive au format `molesignal.routing-rules/v1`. Les noms déterminent les correspondances : un nouveau nom crée une règle, un nom existant la met à jour. Lancez une simulation avant l’import.",
+      "exported_one": "{{count}} règle de routage exportée",
+      "exported_other": "{{count}} règles de routage exportées",
+      "imported_one": "{{count}} règle de routage importée",
+      "imported_other": "{{count}} règles de routage importées",
+      "content_hint": "JSON ou YAML. Les politiques d’escalade, les équipes et les calendriers de jours fériés sont référencés par leur nom. Les règles du fichier sont placées en premier, dans l’ordre du fichier. Les autres suivent en conservant leur ordre.",
+      "export_many": "Exporter {{count}} règles de routage",
+      "exported_many": "{{count}} règles de routage exportées",
+      "imported_many": "{{count}} règles de routage importées"
+    }
+  }
+}

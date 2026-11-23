@@ -1,0 +1,522 @@
+{
+  "inspector": {
+    "title": "로그 검사기",
+    "subtitle": "검색 작업의 실행 정보와 결과 메타데이터를 확인합니다.",
+    "back": "로그",
+    "pick_title": "검색 작업 선택",
+    "pick_description": "URL에 작업 ID가 포함되도록 로그에서 완료된 검색 작업의 검사기를 엽니다.",
+    "not_found_title": "작업을 찾을 수 없음",
+    "not_found_description": "검색 작업이 만료되었거나 작업 ID가 유효하지 않을 수 있습니다.",
+    "fields": {
+      "job_id": "job_id",
+      "state": "state",
+      "submitted_at": "submitted_at",
+      "started_at": "started_at",
+      "finished_at": "finished_at",
+      "result_rows": "result_rows",
+      "result_object_key": "result_object_key",
+      "error": "error",
+      "expires_at": "expires_at"
+    }
+  },
+  "explore": {
+    "title": "로그",
+    "subtitle": "탐색기",
+    "time_ranges": {
+      "last_15m": "지난 15분",
+      "last_1h": "지난 1시간",
+      "last_6h": "지난 6시간",
+      "last_24h": "지난 24시간",
+      "last_7d": "지난 7일"
+    },
+    "jump": {
+      "open_trace": "트레이스 열기",
+      "open_span": "스팬 열기"
+    },
+    "histogram": {
+      "normal": "오류 없음",
+      "errors": "오류",
+      "hide": "히스토그램 숨기기",
+      "show": "히스토그램 표시"
+    },
+    "toolbar": {
+      "histogram": "히스토그램",
+      "more_actions_aria": "추가 작업",
+      "actions_label": "쿼리 작업",
+      "copy_query": "쿼리 복사",
+      "copied_query": "쿼리를 복사했습니다.",
+      "reset_query": "쿼리 초기화",
+      "download_results": "결과를 JSON으로 다운로드",
+      "time_range_aria": "로그 시간 범위 선택",
+      "refresh_aria": "쿼리 새로 고침",
+      "run": "실행",
+      "running": "실행 중…",
+      "clear_query": "쿼리 지우기",
+      "empty_query_summary": "로그 이벤트",
+      "collapse_editor": "쿼리 접기",
+      "expand_editor": "쿼리 펼치기",
+      "editor": "편집기"
+    },
+    "views": {
+      "aria": "결과 보기",
+      "raw": "로그",
+      "stats": "통계",
+      "inspection": "AI 분석",
+      "patterns": "패턴"
+    },
+    "stats": {
+      "measure": "집계 함수",
+      "measure_aria": "집계 함수",
+      "measures": {
+        "count": "개수",
+        "distinct": "고유 값 개수",
+        "avg": "평균",
+        "sum": "합계",
+        "min": "최솟값",
+        "max": "최댓값",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      },
+      "field_aria": "집계할 필드",
+      "group": "그룹 기준",
+      "group_aria": "그룹 기준",
+      "group_time": "시간",
+      "group_none": "그룹화 안 함",
+      "limit": "상위",
+      "limit_aria": "표시할 그룹 수",
+      "chart_aria": "차트 유형",
+      "charts": {
+        "stat": "단일 값",
+        "bar": "막대 차트",
+        "line": "선 차트",
+        "table": "표"
+      },
+      "written": "SQL 문 실행 결과를 시각화합니다.",
+      "copy_statement": "통계 쿼리문 복사",
+      "edit_statement": "편집기에서 수정",
+      "samples": {
+        "title": "이 쿼리문에는 통계가 없습니다",
+        "description": "통계는 집계 쿼리의 결과를 시각화합니다. 아래 쿼리문 중 하나를 사용하거나, 필터로 쿼리를 작성한 뒤 여기에서 집계 함수를 선택합니다.",
+        "use": "이 쿼리문 사용"
+      },
+      "dashboard": {
+        "action": "대시보드 만들기",
+        "title": "대시보드 만들기",
+        "description": "이 통계를 표시하는 패널이 포함된 새 대시보드를 만듭니다.",
+        "name": "대시보드 이름",
+        "panel": "패널 제목",
+        "creating": "만드는 중…",
+        "created": "대시보드 “{{name}}”을(를) 만들었습니다",
+        "open": "대시보드 열기",
+        "default_name": "{{stream}} 로그 통계",
+        "written_panel": "SQL 통계"
+      }
+    },
+    "inspection": {
+      "title": "AI 분석",
+      "intro": "AI 모델이 이 쿼리에 일치하는 로그를 분석합니다. 시간에 따른 로그량과 로그 수준의 추이, 이상 징후, 급증한 항목, 새로 나타난 항목, 다음에 확인할 항목을 요약합니다.",
+      "target": "분석 대상",
+      "target_all": "모든 로그",
+      "model": "AI 모델",
+      "requirements": "중점 분석 항목",
+      "requirements_hint": "선택 사항입니다. 입력하지 않으면 로그를 전체적으로 분석합니다.",
+      "requirements_placeholder": "예: 프로덕션 환경의 payment-service만 분석, USER_CANCEL은 예상된 결과로 처리, 새 스택 트레이스가 나타나면 릴리스별로 분석",
+      "disclosure": "분석을 위해 이 로그의 쿼리 결과를 AI 모델 {{model}}에 전송합니다.",
+      "start": "분석 시작",
+      "running": "분석 중…",
+      "waiting": "모델이 로그를 읽는 중…",
+      "writing": "모델이 보고서를 작성하는 중…",
+      "stop": "중지",
+      "again": "다시 분석",
+      "report": "분석 보고서",
+      "copy_report": "분석 보고서 복사",
+      "continue_in_agent": "Mole Agent에서 계속",
+      "chat_title": "로그 분석 · {{stream}}",
+      "tool_running": "{{name}} 호출 중",
+      "tool_done": "{{name}} 호출 완료",
+      "tool_error": "{{name}} 호출 실패",
+      "failed": "분석을 완료하지 못했습니다",
+      "unavailable": {
+        "loading": "AI 모델 확인 중…",
+        "permission_title": "Mole Agent를 사용할 수 없습니다",
+        "permission_description": "Mole Agent가 AI 분석을 수행하며, 이를 사용하려면 agent.use 권한이 필요합니다.",
+        "model_title": "먼저 AI 모델을 설정하고 활성화해야 합니다",
+        "model_description": "AI 모델이 로그를 읽고 분석 결과를 작성합니다. 이 조직에는 아직 활성화된 모델이 없습니다.",
+        "ask_admin": "관리자에게 Mole Agent 설정에서 AI 모델을 활성화해 달라고 요청하세요.",
+        "configure": "AI 모델 설정",
+        "failed_title": "AI 모델 설정을 불러올 수 없습니다"
+      },
+      "prompt": {
+        "task": "로그 스트림 “{{stream}}”을 점검하고 영어로 점검 보고서를 작성합니다.",
+        "range": "시간 범위: {{label}} ({{start}}~{{end}}, Unix 마이크로초).",
+        "query": "이 쿼리와 일치하는 로그만 점검합니다: {{statement}}",
+        "query_all": "이 시간 범위에 속하는 스트림의 모든 로그를 점검합니다.",
+        "steps": "사용 가능한 로그 쿼리 도구로 이 시간 범위의 데이터를 직접 조회합니다. 결론에는 전체 로그 건수, 레벨별 비중, 전반적인 상태가 정상으로 보이는지를 요약합니다. 근거로는 시간에 따른 로그 건수와 레벨 분포의 변화, 주요 오류 및 경고 유형과 각 유형의 최초 발생 시점 및 관련 서비스, 뚜렷한 급증 구간, 주목할 만한 신규 또는 드문 패턴을 항목별로 나열합니다. 그런 다음 추정 원인을 설명하고 후속 조치를 심각도가 높은 순으로 제시합니다.",
+        "rules": "읽기 전용으로 분석하며 아무것도 변경하지 않습니다. 모든 분석 결과는 쿼리 결과에 근거해야 하며, 데이터를 조회할 수 없는 경우에는 추측하지 않고 조회할 수 없다고 명시합니다.",
+        "digest_one": "페이지에 로드된 로그 {{count}}건의 요약(점검의 출발점이며 전체 데이터는 아님):",
+        "digest_other": "페이지에 로드된 로그 {{count}}건의 요약(점검의 출발점이며 전체 데이터는 아님):",
+        "digest_levels": "레벨",
+        "digest_services": "서비스",
+        "requirements": "중점 점검 사항:"
+      },
+      "no_logs": "쿼리와 일치하는 로그가 없어 현재 점검할 내용이 없습니다."
+    },
+    "field_analysis": {
+      "scope_all": "쿼리와 일치하는 전체 로그 기준",
+      "scope_loaded_one": "로드된 로그 {{count}}건 기준",
+      "scope_loaded_other": "로드된 로그 {{count}}건 기준"
+    },
+    "left_panel": {
+      "title": "필드",
+      "collapse": "필드 접기",
+      "expand": "필드 펼치기",
+      "resize": "드래그하여 필드 패널 크기 조절, 두 번 클릭하여 초기화",
+      "select_stream_aria": "로그 스트림 선택",
+      "select_stream_placeholder": "스트림 선택",
+      "loading_streams": "스트림 로드 중…",
+      "no_streams": "사용 가능한 스트림이 없습니다",
+      "field_search_placeholder": "필드 검색",
+      "filter_fields_aria": "필드 필터링",
+      "visible_fields": "표시된 필드",
+      "indexed_fields": "인덱싱된 필드",
+      "no_indexed_fields": "이 스트림에는 인덱싱된 필드가 없습니다.",
+      "other_fields": "기타 필드",
+      "no_top_values": "현재 결과에 요약할 값이 없습니다.",
+      "include_value": "포함 필터 추가",
+      "exclude_value": "제외 필터 추가",
+      "include_value_aria": "{{value}} 값만 표시",
+      "exclude_value_aria": "{{value}} 값 제외",
+      "loading_fields": "필드 로드 중…",
+      "no_matching_fields": "일치하는 필드가 없습니다.",
+      "no_fields_from_query": "이 쿼리에서 반환된 필드가 없습니다.",
+      "pick_stream_prompt": "필드를 확인하려면 스트림을 선택합니다.",
+      "show_field_aria": "{{name}} 표시",
+      "hide_field_aria": "{{name}} 숨기기",
+      "add_field_aria": "쿼리에 {{name}} 추가",
+      "json_query_required": "SQL 모드에서 {{name}}에는 JSON 경로 쿼리가 필요합니다.",
+      "fields_summary": "필드 {{shown}} / {{total}}개 · {{visible}}개 표시",
+      "refresh_fields_aria": "필드 새로 고침"
+    },
+    "table": {
+      "time_column": "_timestamp",
+      "level_column": "레벨",
+      "source_column": "source",
+      "message_column": "메시지",
+      "events_summary": "이벤트 {{events}}개 · {{ms}}ms",
+      "pagination_aria": "로그 결과 페이지 탐색",
+      "page_summary": "{{page}} / {{pages}}",
+      "events_per_page_aria": "페이지당 이벤트 수",
+      "first_page_aria": "첫 이벤트 페이지",
+      "prev_page_aria": "이전 이벤트 페이지",
+      "next_page_aria": "다음 이벤트 페이지",
+      "prev_page": "이전",
+      "next_page": "다음",
+      "last_page_aria": "마지막 이벤트 페이지",
+      "running_query": "쿼리 실행 중…",
+      "no_events": "이 시간 범위에 이벤트가 없습니다.",
+      "row_aria": "로그 행 {{index}} 열기"
+    },
+    "recovery": {
+      "query_failed": "로그 쿼리 실패",
+      "no_data_title": "일치하는 로그 없음",
+      "no_data_description": "이 시간 범위에서 관련 로그를 찾지 못했습니다. 스트림을 변경하기 전에 필터를 지우거나 시간 범위를 확장하세요.",
+      "expand_time": "시간 범위 4배 확장",
+      "clear_filters": "필터 지우고 다시 시도",
+      "query_docs": "로그 쿼리 문서"
+    },
+    "conditions": {
+      "unmatched_one": "쿼리에 추가되지 않은 조건: {{conditions}}. {{stream}} 스트림에 해당 필드가 없습니다.",
+      "unmatched_other": "쿼리에 추가되지 않은 조건: {{conditions}}. {{stream}} 스트림에 해당 필드가 없습니다.",
+      "pinned_one": "고정된 필터 {{conditions}}",
+      "pinned_other": "고정된 필터 {{conditions}}",
+      "groups": "{{link}}; {{pinned}}",
+      "meanings": {
+        "trace_id": "트레이스 ID",
+        "span_id": "스팬 ID",
+        "service": "서비스",
+        "host": "호스트",
+        "route": "경로",
+        "operation": "작업",
+        "method": "메서드",
+        "status": "상태 코드",
+        "environment": "환경",
+        "pod": "파드"
+      }
+    },
+    "results": {
+      "content": "내용",
+      "columns": "열",
+      "visible_columns": "표시 중인 필드",
+      "reorder_columns_hint": "드래그하여 순서 변경",
+      "available_columns": "사용 가능한 필드",
+      "reset_columns": "기본값으로 재설정",
+      "drag_column_aria": "{{name}}의 순서를 변경하려면 드래그하거나 Alt+Up 또는 Alt+Down을 누릅니다.",
+      "download": "로그 다운로드",
+      "download_csv": "CSV",
+      "download_log": "LOG (텍스트)"
+    },
+    "patterns": {
+      "events": "이벤트",
+      "share": "공유",
+      "pattern_one": "패턴 {{count}}개",
+      "pattern_other": "패턴 {{count}}개",
+      "level": "레벨",
+      "source": "소스",
+      "open_aria_one": "{{pattern}}: 이벤트 {{count}}개. 해당 로그 보기",
+      "open_aria_other": "{{pattern}}: 이벤트 {{count}}개. 해당 로그 보기",
+      "filter": "이 패턴과 일치하는 로그만 보기",
+      "filter_aria": "{{pattern}} 패턴과 일치하는 로그만 보기",
+      "show_more_one": "{{count}}개 더 보기",
+      "show_more_other": "{{count}}개 더 보기",
+      "basis_latest": "조건에 맞는 최신 이벤트",
+      "basis_all": "조건에 맞는 모든 이벤트",
+      "basis_returned": "쿼리에서 반환된 이벤트",
+      "basis_back_to": "과거 {{moment}}까지",
+      "read_more": "이전 로그 {{logs}}개 더 읽기",
+      "reading": "읽는 중…",
+      "read_failed": "더 이전의 로그를 읽을 수 없습니다.",
+      "unread_one": "이벤트 {{count}}개에는 메시지가 없으며 어떤 패턴에도 속하지 않습니다.",
+      "unread_other": "이벤트 {{count}}개에는 메시지가 없으며 어떤 패턴에도 속하지 않습니다.",
+      "kind": {
+        "number": "숫자",
+        "id": "식별자",
+        "ip": "주소",
+        "url": "URL",
+        "time": "시점",
+        "data": "구조화된 데이터",
+        "any": "값"
+      }
+    },
+    "detail": {
+      "drawer_aria": "로그 상세 정보 패널",
+      "filter_placeholder": "필드 필터링",
+      "no_field_match": "일치하는 필드가 없습니다.",
+      "views_aria": "로그 보기 옵션",
+      "close": "로그 상세 정보 닫기",
+      "copy_json": "로그 JSON 복사",
+      "copied_json": "로그 JSON을 복사했습니다.",
+      "download_json": "로그 JSON 다운로드",
+      "tabs": {
+        "fields": "필드",
+        "trace": "트레이스",
+        "json": "원본 JSON",
+        "context": "컨텍스트"
+      },
+      "context_description": "현재 결과의 앞뒤 5개 행을 각각 확인할 수 있습니다. 행을 선택하면 해당 행이 열립니다.",
+      "position": "{{total}}개 중 {{current}}번째",
+      "prev": "이전",
+      "next": "다음",
+      "include_filter": "포함 필터 추가",
+      "exclude_filter": "제외 필터 추가",
+      "copy_value": "값 복사",
+      "copied_value": "필드 값을 복사했습니다.",
+      "show_column": "열로 표시",
+      "hide_column": "열 숨기기",
+      "open_trace": "트레이스 열기",
+      "stream": "스트림",
+      "resize": "로그 상세 정보 패널 크기 조절"
+    }
+  },
+  "inspections": {
+    "title": "예약 점검",
+    "subtitle": "AI가 일정에 따라 로그 스트림을 점검하고 모든 보고서를 보관합니다. 보고서에 문제가 기록되면 알림을 보냅니다.",
+    "entry": "예약 점검",
+    "save_as": "예약 점검으로 저장",
+    "new": "새 점검",
+    "enabled": "켜짐",
+    "never_run": "실행 기록 없음",
+    "live": "점검이 진행 중이며 {{seconds}} s마다 새로 고침합니다.",
+    "levels": {
+      "normal": "정상",
+      "attention": "주의 필요",
+      "abnormal": "이상",
+      "unknown": "판정 없음"
+    },
+    "run_status": {
+      "queued": "대기 중",
+      "running": "점검 중",
+      "succeeded": "완료",
+      "failed": "실패",
+      "timed_out": "시간 초과"
+    },
+    "failures": {
+      "timed_out": "점검이 제한 시간을 초과했습니다.",
+      "interrupted": "점검을 실행하던 노드가 점검이 완료되기 전에 중지되었습니다.",
+      "not_started": "점검을 맡은 노드가 없습니다.",
+      "identity": "점검을 실행하는 데 사용한 사용자 계정을 더 이상 사용할 수 없습니다. 현재 로그인한 계정으로 실행하려면 점검을 다시 저장하세요.",
+      "model": "점검에 선택한 AI 모델이 없거나 비활성화되었거나 키가 설정되지 않았습니다.",
+      "agent": "AI 모델 호출에 실패했습니다.",
+      "internal": "내부 오류로 점검에 실패했습니다.",
+      "budget": "조직의 오늘 Mole Agent 토큰 예산을 모두 사용했습니다. 예산이 초기화되거나 늘어나면 점검이 다시 실행됩니다."
+    },
+    "triggers": {
+      "manual": "수동"
+    },
+    "schedule": {
+      "every": "{{duration}}마다",
+      "daily_at": "매일 {{time}}",
+      "weekly_at": "매주 {{weekday}} {{time}}"
+    },
+    "schedule_kinds": {
+      "interval": "일정 간격",
+      "daily": "매일",
+      "weekly": "매주"
+    },
+    "weekdays": {
+      "1": "월요일",
+      "2": "화요일",
+      "3": "수요일",
+      "4": "목요일",
+      "5": "금요일",
+      "6": "토요일",
+      "7": "일요일"
+    },
+    "units": {
+      "minutes_one": "{{count}}분",
+      "minutes_other": "{{count}}분",
+      "hours_one": "{{count}}시간",
+      "hours_other": "{{count}}시간",
+      "days_one": "{{count}}일",
+      "days_other": "{{count}}일"
+    },
+    "notify_when": {
+      "abnormal": "이상 시 알림",
+      "attention": "주의 이상 시 알림",
+      "always": "매번 알림"
+    },
+    "columns": {
+      "name": "점검",
+      "schedule": "일정",
+      "last_run": "마지막 실행",
+      "next_run": "다음 실행",
+      "notify": "알림",
+      "enabled": "활성화",
+      "actions": "작업"
+    },
+    "cells": {
+      "window": "최근 {{duration}} 범위",
+      "due": "지금 실행 예정",
+      "paused": "비활성화됨",
+      "no_channel": "알림 없음",
+      "channels_one": "채널 {{count}}개",
+      "channels_other": "채널 {{count}}개"
+    },
+    "actions": {
+      "run": "지금 실행",
+      "run_named": "{{name}} 지금 실행",
+      "run_active": "이 점검은 현재 실행 중입니다",
+      "edit": "편집",
+      "edit_named": "{{name}} 편집",
+      "delete": "삭제",
+      "delete_named": "{{name}} 삭제",
+      "toggle_named": "{{name}} 활성화 또는 비활성화"
+    },
+    "toast": {
+      "created": "예약 점검을 저장했습니다",
+      "saved": "예약 점검을 업데이트했습니다",
+      "enabled": "점검을 활성화했습니다. 설정된 일정에 따라 실행됩니다",
+      "paused": "점검을 비활성화했습니다. 더 이상 설정된 일정에 따라 실행되지 않습니다",
+      "queued": "실행 대기열에 추가했습니다. 몇 초 내에 시작됩니다",
+      "deleted": "예약 점검을 삭제했습니다"
+    },
+    "denied": {
+      "title": "예약 점검을 볼 수 없습니다",
+      "description": "Mole Agent가 점검을 수행하고 보고서에 로그를 인용하므로 inspections.read 및 logs.read 권한이 모두 필요합니다.",
+      "manage": "inspections.manage 권한이 필요합니다"
+    },
+    "no_model": {
+      "short": "먼저 AI 모델을 활성화하세요",
+      "notice": "이 조직에 활성화된 AI 모델이 없어 저장된 점검을 실행할 수 없습니다."
+    },
+    "capacity": {
+      "full": "조직당 점검 한도인 {{max}}개에 도달했습니다",
+      "count": "{{saved}}개 저장됨 (최대 {{max}}개)"
+    },
+    "empty": {
+      "title": "아직 예약 점검이 없습니다",
+      "description": "점검을 저장하면 AI가 선택한 스트림을 설정된 일정에 따라 점검합니다. 모든 보고서는 여기에 보관되며, 보고서에서 문제가 확인되면 선택한 채널로 알림이 전송됩니다."
+    },
+    "delete_confirm": {
+      "title": "“{{name}}”을(를) 삭제하시겠습니까?",
+      "description": "점검과 이전 보고서가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+      "confirm": "삭제",
+      "busy": "삭제 중…"
+    },
+    "editor": {
+      "new_title": "새 예약 점검",
+      "edit_title": "예약 점검 편집",
+      "subtitle": "AI는 설정된 일정에 따라 데이터를 변경하지 않고 점검하며, 모든 보고서를 보관합니다.",
+      "what": "점검 대상",
+      "when": "점검 일정",
+      "whom": "알림 대상",
+      "name": "이름",
+      "name_placeholder": "예: 결제 서비스 오류 로그",
+      "stream": "스트림",
+      "stream_placeholder": "로그 스트림 선택",
+      "statement": "쿼리",
+      "statement_hint": "선택 사항입니다. 쿼리와 일치하는 로그만 검사합니다. 비워 두면 스트림의 모든 로그를 검사합니다.",
+      "statement_placeholder": "예: level = 'ERROR'",
+      "schedule": "실행 일정",
+      "interval": "실행 간격",
+      "weekday": "요일",
+      "time": "시각",
+      "hour": "시",
+      "minute": "분",
+      "time_hint": "{{timezone}} 시간대 기준",
+      "window": "검사 대상 기간",
+      "window_hint": "실행할 때마다 실행 시점 직전의 지정된 기간에 해당하는 로그를 검사합니다.",
+      "no_model": "현재 사용할 수 있는 AI 모델이 없습니다.",
+      "model_off": "{{name}} (비활성화됨)",
+      "model_off_hint": "이 모델은 비활성화되어 있습니다. 모델을 다시 활성화하거나 다른 모델을 선택해야 검사를 저장하거나 실행할 수 있습니다.",
+      "model_placeholder": "AI 모델 선택",
+      "enabled": "저장 후 일정에 따라 실행",
+      "notify_when": "알림 조건",
+      "channels": "알림 채널",
+      "channels_denied": "알림 채널을 선택하려면 notify.connectors.read 권한이 필요합니다.",
+      "channels_none": "활성화된 알림 커넥터가 없습니다. 설정 → 알림에서 추가할 수 있습니다.",
+      "channels_failed": "알림 커넥터를 불러오지 못했습니다.",
+      "channels_kept_one": "이미 선택한 채널 {{count}}개는 그대로 유지됩니다.",
+      "channels_kept_other": "이미 선택한 채널 {{count}}개는 그대로 유지됩니다.",
+      "connector_off": "{{name}} (비활성화됨)",
+      "connector_gone": "{{name}} (찾을 수 없음)",
+      "channels_hint": "선택 사항입니다. 채널이 없으면 알림은 전송되지 않지만 보고서는 페이지에 보관됩니다. 실행 실패 알림은 검사가 정상 상태에서 실패 상태로 바뀔 때 한 번만 전송됩니다.",
+      "add_channel": "채널 추가",
+      "remove_channel": "채널 제거",
+      "no_channel": "선택한 채널이 없어 알림이 전송되지 않습니다.",
+      "channel_connector": "채널 {{number}}의 커넥터",
+      "channel_kind": "채널 {{number}}의 대상 유형",
+      "channel_target": "채널 {{number}}의 대상",
+      "target_placeholder": {
+        "group": "그룹 ID",
+        "address": "주소"
+      },
+      "run_as_you": "저장 후에는 매번 실행 시점에 보유한 접근 권한으로 로그를 읽습니다.",
+      "run_as_change": "현재는 {{name}}님의 접근 권한으로 실행되며, 저장 후에는 내 접근 권한으로 실행됩니다.",
+      "save": "저장",
+      "create": "검사 저장"
+    },
+    "detail": {
+      "runs": "지난 보고서",
+      "older": "이전 보고서",
+      "no_runs": "아직 실행되지 않았습니다. 다음 예약 시간에 자동으로 검사를 실행하거나 지금 직접 실행할 수 있습니다.",
+      "no_runs_paused": "아직 실행되지 않았습니다. 검사가 비활성화되어 있지만 지금 한 번 실행할 수 있습니다.",
+      "run_missing": "이 보고서는 더 이상 존재하지 않습니다",
+      "loading_report": "보고서를 불러오는 중…",
+      "run_as": "{{name}}의 액세스 권한으로 실행",
+      "next_run": "다음 실행: {{time}}"
+    },
+    "report": {
+      "open_logs": "이 기간의 로그 열기",
+      "manual_by": "실행한 사용자: {{name}}",
+      "scheduled": "예약 실행",
+      "took": "소요 시간: {{duration}}",
+      "tokens": "토큰 {{formatted}}개",
+      "queued": "대기열에 추가됨. 백엔드 실행 대기 중…",
+      "tools": "데이터 조회에 사용한 도구",
+      "notified": "알림",
+      "delivered": "전달 완료",
+      "undelivered": "전달되지 않음"
+    }
+  }
+}

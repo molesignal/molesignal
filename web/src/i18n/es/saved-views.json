@@ -1,0 +1,76 @@
+{
+  "title": "Vistas guardadas",
+  "subtitle": "Consultas reutilizables de SQL o PromQL que se comparten en toda tu organización.",
+  "actions": {
+    "new": "Nueva vista guardada",
+    "open": "Abrir",
+    "pin": "Fijar",
+    "unpin": "Desfijar",
+    "edit": "Editar",
+    "delete": "Eliminar"
+  },
+  "kpis": {
+    "total": "Vistas guardadas",
+    "pinned": "Vistas fijadas"
+  },
+  "list": {
+    "columns": {
+      "name": "Nombre",
+      "language": "Lenguaje",
+      "stream": "Flujo",
+      "tags": "Etiquetas",
+      "range": "Ventana temporal",
+      "updated": "Última actualización",
+      "actions": "Acciones"
+    }
+  },
+  "states": {
+    "empty_title": "Aún no hay vistas guardadas",
+    "empty_description": "Guarda una consulta de SQL o PromQL para reutilizarla en distintas investigaciones."
+  },
+  "confirm": {
+    "delete_title": "¿Eliminar la vista guardada?",
+    "delete": "¿Quieres eliminar esta vista guardada? Esta acción no se puede deshacer.",
+    "cancel": "Cancelar"
+  },
+  "toast": {
+    "saved": "Se guardó la vista «{{name}}»",
+    "deleted": "Se eliminó la vista guardada"
+  },
+  "drawer": {
+    "edit_title": "Editar vista guardada",
+    "subtitle": "Dale un nombre a una consulta de SQL o PromQL para reutilizarla más adelante.",
+    "save": "Guardar cambios",
+    "create": "Crear",
+    "sections": {
+      "identity": "Identidad",
+      "query": "Consulta",
+      "organize": "Organización"
+    },
+    "fields": {
+      "name": "Nombre",
+      "language": "Lenguaje",
+      "range": "Ventana temporal predeterminada",
+      "statement": "Sentencia",
+      "stream": "Flujo (opcional)",
+      "tags": "Etiquetas",
+      "pinned": "Fijar al principio"
+    },
+    "hints": {
+      "stream": "Limita la poda de particiones al abrir la vista.",
+      "tags": "Separa las etiquetas con comas."
+    }
+  },
+  "report": {
+    "time_range": "Intervalo de tiempo",
+    "timezone": "Zona horaria",
+    "stream": "Flujo",
+    "rows": "Filas",
+    "rows_capped": "Solo las primeras {{shown}}",
+    "generated": "Generado",
+    "results": "Resultados",
+    "empty": "No hay filas en este intervalo de tiempo.",
+    "no_view": "El informe no especifica ninguna vista guardada.",
+    "no_stream": "La vista guardada no especifica ningún flujo y la organización no tiene ningún flujo de registros en el que ejecutarla."
+  }
+}

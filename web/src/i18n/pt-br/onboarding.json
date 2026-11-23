@@ -1,0 +1,317 @@
+{
+  "activation": {
+    "title": "Início rápido",
+    "drawer_description": "Conclua as etapas essenciais de configuração deste espaço de trabalho.",
+    "complete_title": "Início rápido concluído",
+    "progress": "{{completed}}/{{total}} etapas concluídas",
+    "progress_short": "{{completed}}/{{total}}",
+    "ready": "Os fluxos de trabalho essenciais estão ativos",
+    "empty": "Envie dados e depois crie um dashboard e um alerta para colocar esta organização em operação.",
+    "remaining_single": "Falta 1 etapa de configuração",
+    "remaining_multiple": "Faltam {{count}} etapas de configuração",
+    "next": "Avançar",
+    "complete_action": "Concluir configuração",
+    "open": "Abrir",
+    "steps": {
+      "datasource": {
+        "title": "Conectar uma fonte de dados",
+        "description": "Envie o primeiro fluxo de logs, métricas ou traces."
+      },
+      "dashboard": {
+        "title": "Criar um dashboard",
+        "description": "Fixe uma visão operacional para a equipe."
+      },
+      "alert": {
+        "title": "Criar um alerta",
+        "description": "Defina o primeiro sinal de um serviço ou da plataforma."
+      },
+      "schedule": {
+        "title": "Configurar uma escala de plantão",
+        "description": "Defina quem atende aos alertas e em quais horários."
+      },
+      "notification": {
+        "title": "Adicionar um canal de notificação",
+        "description": "Adicione um conector para notificar as pessoas por chat, e-mail, SMS ou telefone."
+      },
+      "ai": {
+        "title": "Conectar um modelo de IA",
+        "description": "Adicione um provedor de modelos para que o Mole Agent ajude nas investigações."
+      },
+      "pipeline": {
+        "title": "Automatizar um pipeline",
+        "description": "Agende um fluxo de trabalho para mover dados ou preencher lacunas no histórico."
+      },
+      "sample_data": {
+        "title": "Carregar dados de exemplo",
+        "description": "Carregue logs, métricas e traces vinculados entre si, com um dashboard de visão geral e quatro consultas salvas. Há três modelos de exemplo no editor de alertas."
+      }
+    },
+    "load": "Carregar",
+    "loading": "Carregando…",
+    "load_success": "{{rows}} linhas de exemplo carregadas. Seu dashboard e as quatro consultas salvas estão prontos.",
+    "done": "Concluído"
+  },
+  "home": {
+    "title": "Início",
+    "view_all": "Ver tudo",
+    "loading": "Carregando…",
+    "unavailable": "Não foi possível carregar",
+    "quick_start_one": "Falta {{count}} etapa de configuração",
+    "quick_start_other": "Faltam {{count}} etapas de configuração",
+    "refresh": "Atualizar",
+    "window": {
+      "label": "Intervalo de tempo",
+      "1h": "Última hora",
+      "24h": "Últimas 24 horas",
+      "7d": "Últimos 7 dias"
+    },
+    "status": {
+      "title": "Status do sistema",
+      "loading": "Carregando",
+      "ok": "Todos os sistemas operando normalmente",
+      "nothing": "Seu perfil não permite visualizar o status de nenhum sistema.",
+      "issues_one": "{{count}} problema",
+      "issues_other": "{{count}} problemas",
+      "updated": "Atualizado {{time}}",
+      "issues_many": "{{count}} problemas"
+    },
+    "signal": {
+      "logs": "Logs",
+      "metrics": "Métricas",
+      "traces": "Rastreamentos",
+      "profiles": "Perfis"
+    },
+    "signal_state": {
+      "healthy": "Normal",
+      "delayed": "Com atraso",
+      "degraded": "Com falha",
+      "no_data": "Sem dados",
+      "unknown": "Desconhecido"
+    },
+    "severity": {
+      "critical": "Crítico",
+      "error": "Erro",
+      "warning": "Aviso",
+      "info": "Informação"
+    },
+    "tiles": {
+      "incidents": "Incidentes ativos",
+      "unacknowledged": "{{count}} sem confirmação",
+      "no_incidents": "Nenhum incidente ativo",
+      "rules": "Regras disparadas",
+      "of_enabled": "de {{count}} habilitadas",
+      "pending": "{{count}} pendentes",
+      "services": "Serviços saudáveis",
+      "of_total": "de {{count}}",
+      "no_traces": "Sem dados de rastreamento",
+      "checks": "Verificações bem-sucedidas",
+      "of_passing": "de {{count}}",
+      "no_checks": "Nenhuma verificação",
+      "error_rate": "Taxa de erros",
+      "requests": "{{value}} requisições",
+      "p95": "Latência P95"
+    },
+    "rule_state": {
+      "firing": "Disparada",
+      "pending": "Pendente",
+      "ok": "Normal"
+    },
+    "service_health": {
+      "critical": "Crítico",
+      "warning": "Atenção",
+      "healthy": "Saudável",
+      "no_traffic": "Sem tráfego"
+    },
+    "check_state": {
+      "failing": "Falhando",
+      "degraded": "Degradada",
+      "flaky": "Instável",
+      "healthy": "Bem-sucedida",
+      "unknown": "Sem dados"
+    },
+    "services": {
+      "title": "Serviços",
+      "empty": "Nenhum rastreamento recebido.",
+      "connect": "Conectar um serviço",
+      "service": "Serviço",
+      "health": "Integridade",
+      "throughput": "Taxa de transferência",
+      "error_rate": "Erros"
+    },
+    "incidents": {
+      "title": "Incidentes ativos",
+      "empty": "Nenhum incidente ativo",
+      "acknowledge": "Confirmar recebimento"
+    },
+    "incident_status": {
+      "open": "Recebimento não confirmado",
+      "acknowledged": "Recebimento confirmado",
+      "resolved": "Resolvido",
+      "closed": "Fechado"
+    },
+    "intake": {
+      "title": "Ingestão de dados",
+      "streams": "Fluxos",
+      "streams_active": "{{active}} de {{total}} fluxos recebendo dados",
+      "stored": "{{size}} armazenados",
+      "received": "{{size}} recebidos"
+    },
+    "checks": {
+      "title": "Monitoramento sintético",
+      "empty": "Ainda não há verificações.",
+      "create": "Criar uma verificação",
+      "availability": "Disponibilidade",
+      "all_passing_one": "A única verificação está bem-sucedida",
+      "all_passing_other": "Todas as {{count}} verificações estão bem-sucedidas",
+      "all_passing_many": "Todas as {{count}} verificações estão bem-sucedidas"
+    },
+    "oncall": {
+      "title": "Meu plantão",
+      "schedules": "Escalas",
+      "on_now": "De plantão",
+      "next": "Próximo turno",
+      "hands_over": "Passa o plantão {{time}}",
+      "none": "Você não tem plantões nos próximos 30 dias.",
+      "covering": "Cobrindo o plantão de {{name}} · {{schedule}}",
+      "holding": "De plantão agora · {{schedule}}",
+      "unreachable": "Você está na escala, mas não pode receber alertas.",
+      "set_up_notify": "Configurar notificações",
+      "unavailable": "Não foi possível carregar as escalas",
+      "gap": "Ninguém está de plantão agora na escala {{schedule}}.",
+      "arrange": "Atribuir agora"
+    },
+    "quick_start_many": "Faltam {{count}} etapas de configuração"
+  },
+  "datasource": {
+    "endpoint": "Endpoint",
+    "copy_endpoint": "Copiar endpoint",
+    "intake_token": "Token de ingestão",
+    "rum_client_token": "Token de cliente RUM",
+    "copy_token": "Copiar token",
+    "token_loading": "Carregando…",
+    "token_description": "Token de ingestão padrão — cole-o no cabeçalho Authorization: Bearer acima. Para gerenciar ou criar tokens, acesse Tokens de API nas configurações da sua conta.",
+    "validation": "Validação",
+    "test_event": "Enviar evento de teste",
+    "test_event_sending": "Enviando…",
+    "test_event_sent": "Envio concluído · {{accepted}} aceitos · {{rejected}} rejeitados"
+  },
+  "datasource_page": {
+    "title": "Configuração de fontes de dados",
+    "search_placeholder": "Buscar em todas as fontes…",
+    "clear_search": "Limpar busca",
+    "matching": "Resultados: {{count}}",
+    "no_match": "Nenhuma fonte de dados corresponde a \"{{search}}\"",
+    "no_sources": "Nenhuma fonte",
+    "no_signal_match": "Nenhuma fonte com o sinal {{signal}} na categoria {{category}}.",
+    "show_all_signals": "Mostrar todos os sinais",
+    "category_navigation": "Categorias de fontes de dados",
+    "source_navigation": "Fontes",
+    "signal_filter": "Sinal",
+    "guide_region": "Guia de configuração",
+    "categories": {
+      "recommended": "Recomendadas",
+      "infrastructure": "Infraestrutura",
+      "cloud": "Nuvem",
+      "databases": "Bancos de dados",
+      "queues": "Mensageria",
+      "applications": "Apps e linguagens",
+      "security": "Segurança",
+      "custom": "Personalizadas"
+    },
+    "signals": {
+      "all": "Todos",
+      "logs": "Logs",
+      "metrics": "Métricas",
+      "traces": "Traces",
+      "profiles": "Perfis",
+      "rum": "RUM"
+    },
+    "group_protocol": "Protocolo",
+    "group_source": "Origem da integração",
+    "category": "categoria: {{category}}",
+    "docs": "Documentação",
+    "endpoint_for": "Endpoint de {{signal}}",
+    "verify_connection": "Verificar conexão",
+    "steps": {
+      "prepare": {
+        "title": "Endpoint e token",
+        "description": "O endpoint indica para onde enviar os dados, e o token serve para autenticação. Os comandos abaixo já incluem os dois.",
+        "description_no_token": "O endpoint indica para onde enviar os dados, e o token serve para autenticação."
+      },
+      "deploy": {
+        "title": "Configurar a origem"
+      },
+      "verify": {
+        "title": "Verificar se os dados estão chegando"
+      }
+    },
+    "create_dedicated_token": "Criar token dedicado",
+    "manage_tokens": "Gerenciar tokens",
+    "show_token": "Mostrar token",
+    "hide_token": "Ocultar token",
+    "token_permission": "Escopo",
+    "token_workspace": "Espaço de trabalho",
+    "token_expiry": "Expira em",
+    "token_never_expires": "Nunca",
+    "token_load_failed": "Não foi possível carregar um token de ingestão. Esse token precisa de permissão para gravar dados.",
+    "rum_application_id": "Aplicativo RUM",
+    "rum_application_hint": "O token de cliente abaixo está vinculado a este aplicativo. Eventos enviados para qualquer outro aplicativo são rejeitados.",
+    "rum_application_required": "Primeiro, escolha um aplicativo RUM para ver o token de cliente dele.",
+    "rum_application_placeholder": "Selecione um aplicativo",
+    "rum_application_loading": "Carregando aplicativos…",
+    "rum_application_none": "Ainda não há nenhum aplicativo RUM.",
+    "rum_application_create": "Criar um aplicativo",
+    "rum_application_load_failed": "Não foi possível carregar os aplicativos.",
+    "validation_overview_unavailable": "O resumo do recebimento de dados está temporariamente indisponível.",
+    "validation_endpoint_failed": "Falha na verificação de integridade do receptor.",
+    "validating": "Verificando…",
+    "recheck": "Verificar novamente",
+    "validation_state": {
+      "idle": {
+        "title": "Ainda não verificado",
+        "description": "Verifica o receptor e depois procura dados recebidos na última hora."
+      },
+      "success": {
+        "title": "Dados detectados",
+        "description": "{{active}} de {{total}} sinais compatíveis receberam dados na última hora."
+      },
+      "warning": {
+        "title": "O receptor está funcionando, mas os dados precisam de atenção",
+        "description": "{{active}} de {{total}} sinais compatíveis tiveram dados na última hora. Verifique a implantação ou aguarde o próximo lote."
+      },
+      "error": {
+        "title": "Falha na verificação",
+        "description": "Não foi possível verificar o status do receptor e dos dados."
+      }
+    },
+    "validation_metrics": {
+      "receiver": "Receptor",
+      "last_received": "Último recebimento",
+      "streams": "Fluxos ativos",
+      "volume": "Última hora"
+    },
+    "receiver_healthy": "Operacional · {{ms}} ms",
+    "validation_volume": "{{rate}} · {{rows}} linhas · {{bytes}}",
+    "possible_causes": "Possíveis causas",
+    "cause_collector": "O coletor não está em execução ou a configuração atual ainda não gerou dados de telemetria.",
+    "cause_token": "O token é inválido, expirou ou seu escopo não permite gravar dados.",
+    "cause_network": "O coletor não consegue acessar o endpoint ou um proxy ou firewall bloqueia o acesso.",
+    "view_received_data": "Ver dados recebidos",
+    "create_pipeline": "Criar pipeline",
+    "validation_prefix": "Os eventos geralmente aparecem em 30 a 60 segundos. Abra",
+    "validation_or": "ou",
+    "validation_suffix": "para confirmar que o fluxo correspondente tem dados. Se os dados não aparecerem, consulte a documentação sobre",
+    "validation_doc_suffix": " .",
+    "logs": "Logs",
+    "streams": "Fluxos",
+    "troubleshooting": "solução de problemas de telemetria",
+    "health_check": "Verificar a integridade do backend",
+    "health_checking": "Verificando…",
+    "health_ok": "OK · {{ms}} ms",
+    "copied": "Copiado",
+    "copy": "Copiar",
+    "expand_code": "Expandir código",
+    "collapse_code": "Recolher código",
+    "token_missing": "Nenhum token de ingestão disponível. Crie um no gerenciamento de tokens."
+  }
+}

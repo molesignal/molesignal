@@ -1,0 +1,307 @@
+{
+  "title": "Berichte",
+  "subtitle": "Verwalten Sie Berichtszeitpläne, die Berichtserstellung und die Zustellergebnisse an einem Ort.",
+  "actions": {
+    "instant_export": "Jetzt exportieren",
+    "new_report": "Neuer Bericht",
+    "share": "Teilen",
+    "export": "Exportieren",
+    "edit": "Bearbeiten",
+    "view": "Ansehen",
+    "enable": "Aktivieren",
+    "pause": "Pausieren",
+    "delete": "Zeitplan löschen",
+    "cancel": "Abbrechen",
+    "add": "Hinzufügen",
+    "save_and_enable": "Speichern und aktivieren",
+    "save_changes": "Änderungen speichern",
+    "use_template": "Vorlage verwenden",
+    "view_error": "Fehler anzeigen",
+    "close": "Schließen",
+    "remove": "Entfernen"
+  },
+  "tabs": {
+    "schedules": "Zeitpläne",
+    "history": "Erstellungsverlauf",
+    "templates": "Vorlagenbibliothek"
+  },
+  "pagination": {
+    "aria": "Seitennavigation im Berichtscenter",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Einträge pro Seite",
+    "first_aria": "Erste Seite",
+    "previous_aria": "Vorherige Seite",
+    "next_aria": "Nächste Seite",
+    "last_aria": "Letzte Seite"
+  },
+  "kpis": {
+    "running": "Aktiv",
+    "next_24h": "Zustellungen in den nächsten 24 h",
+    "success_rate": "Erfolgsquote der letzten 30 Tage",
+    "failed": "Offene Fehler"
+  },
+  "filters": {
+    "search_schedules": "Berichte oder Quellen suchen…",
+    "search_history": "Berichte oder Empfänger suchen…",
+    "all_statuses": "Alle Status",
+    "all_sources": "Alle Quellen",
+    "all_results": "Alle Ergebnisse",
+    "enabled": "Aktiv",
+    "paused": "Pausiert",
+    "dashboard": "Dashboard",
+    "saved_view": "Gespeicherte Ansicht",
+    "sent": "Erfolgreich",
+    "failed": "Fehlgeschlagen",
+    "pending": "In Bearbeitung"
+  },
+  "empty": {
+    "title": "Beginnen Sie mit einem Standardbericht",
+    "description": "Wählen Sie eine Vorlage und anschließend eine Datenquelle und Empfänger – oder beginnen Sie mit einem leeren Bericht.",
+    "custom_title": "Benutzerdefinierter Bericht",
+    "custom_description": "Legen Sie Inhalt, Zeitplan und Versand selbst fest.",
+    "no_results_title": "Keine passenden Berichte",
+    "no_results_description": "Versuchen Sie es mit einem anderen Suchbegriff oder Filter."
+  },
+  "table": {
+    "name_source": "Bericht und Quelle",
+    "schedule": "Zeitplan",
+    "next_run": "Nächste Erstellung",
+    "last_result": "Letztes Ergebnis",
+    "recipients": "Empfänger",
+    "status": "Status",
+    "actions": "Aktionen",
+    "never": "Noch nie erstellt",
+    "first_run": "Erste Erstellung steht aus",
+    "recipient_more": "{{count}} weitere"
+  },
+  "status": {
+    "enabled": "Aktiv",
+    "paused": "Pausiert",
+    "sent": "Erfolgreich",
+    "failed": "Fehlgeschlagen",
+    "pending": "In Bearbeitung",
+    "unknown": "Unbekannt"
+  },
+  "schedule": {
+    "hourly": "Jede Stunde",
+    "every_6_hours": "Alle 6 Stunden",
+    "every_12_hours": "Alle 12 Stunden",
+    "daily": "Alle 24 Stunden",
+    "weekly": "Alle 7 Tage",
+    "custom": "Erweiterter Cron-Zeitplan",
+    "custom_summary": "Cron: {{value}}",
+    "timezone_suffix": "{{schedule}} · {{timezone}}",
+    "advanced_hint": "Beim erweiterten Cron-Zeitplan greift die Zeitplanung derzeit auf das Ersatzintervall von 24 Stunden zurück. Wählen Sie nach Möglichkeit eines der oben angegebenen Intervalle."
+  },
+  "source": {
+    "dashboard": "Dashboard",
+    "saved_view": "Gespeicherte Ansicht",
+    "missing": "Keine Quelle ausgewählt",
+    "unavailable": "Quelle nicht verfügbar"
+  },
+  "history": {
+    "empty_title": "Noch keine Berichte erstellt",
+    "empty_description": "Nach der ersten Berichtserstellung werden hier das Format, das Versandziel und das Versandergebnis angezeigt.",
+    "partial_error": "Der Versandverlauf einiger Berichte ist vorübergehend nicht verfügbar.",
+    "columns": {
+      "report": "Bericht",
+      "generated_at": "Erstellt am",
+      "recipient": "Versandziel",
+      "attempt": "Versuch",
+      "result": "Ergebnis",
+      "details": "Details"
+    },
+    "error_title": "Details zum Versandfehler",
+    "error_description": "Der letzte Versand an diesen Empfänger ist fehlgeschlagen.",
+    "error_report": "Bericht",
+    "error_recipient": "Empfänger",
+    "error_time": "Aufgetreten am",
+    "error_message": "Fehlermeldung",
+    "no_error_message": "Das Backend hat keine detaillierte Fehlermeldung zurückgegeben."
+  },
+  "templates": {
+    "api_warning": "Benutzerdefinierte Vorlagen konnten nicht geladen werden. Integrierte Vorlagen sind weiterhin verfügbar.",
+    "source_badge": "Vorlage: {{source}}",
+    "builtin_badge": "Integriert",
+    "custom_badge": "Benutzerdefiniert",
+    "new_template": "Neue Vorlage",
+    "new_title": "Neue Berichtsvorlage",
+    "edit_title": "Berichtsvorlage bearbeiten",
+    "editor_description": "Legen Sie wiederverwendbare Inhaltsquellen und Standardeinstellungen für die Ausgabe fest.",
+    "basic_information": "Allgemeine Angaben",
+    "default_output": "Standardausgabe",
+    "source_hint": "Wählen Sie den Inhaltstyp aus, den Sie bei Verwendung dieser Vorlage zuordnen können.",
+    "source_binding_hint": "Die Vorlage speichert nur den Quelltyp. Wählen Sie beim Erstellen eines Berichtszeitplans ein bestimmtes Dashboard oder eine gespeicherte Ansicht aus.",
+    "dashboard_format_hint": "Dashboards enthalten Diagramme und ein Layout. Ihre Vorlagen erzeugen daher immer PDF-Dateien.",
+    "custom_range_hint": "Wählen Sie beim Erstellen eines Berichtszeitplans den gewünschten Datenbereich aus.",
+    "source_descriptions": {
+      "dashboard": "Enthält Diagramme und ein Layout für gut lesbare PDF-Berichte",
+      "saved_view": "Enthält Abfrageergebnisse für detaillierte Daten und Audit-Listen"
+    },
+    "format_descriptions": {
+      "pdf": "Ideal zum Lesen und Teilen",
+      "csv": "Ideal für Analysen in Tabellenkalkulationen",
+      "json": "Ideal für die Automatisierung"
+    },
+    "create_template": "Vorlage erstellen",
+    "save_changes": "Änderungen speichern",
+    "delete_template": "Vorlage löschen",
+    "toast_created": "Benutzerdefinierte Vorlage erstellt",
+    "toast_updated": "Benutzerdefinierte Vorlage aktualisiert",
+    "toast_deleted": "Benutzerdefinierte Vorlage gelöscht",
+    "confirm_delete": "„{{name}}“ löschen? Berichte, die mit dieser Vorlage erstellt wurden, bleiben unverändert.",
+    "fields": {
+      "name": "Vorlagenname",
+      "description": "Beschreibung",
+      "description_optional": "Beschreibung (optional)",
+      "source_type": "Quelltyp",
+      "format": "Standardformat",
+      "time_range": "Standardzeitraum"
+    },
+    "placeholders": {
+      "name": "Beispiel: Kerndienste – monatlich",
+      "description": "Beschreiben Sie den Anwendungsfall, die Inhalte und die Zielgruppe."
+    },
+    "errors": {
+      "name_required": "Geben Sie einen Vorlagennamen ein."
+    },
+    "platform_health": {
+      "name": "Plattformzustand – wöchentlich",
+      "description": "Fassen Sie Verfügbarkeit, Latenz, Fehler und Kapazitätstrends der Kerndienste zusammen."
+    },
+    "rum_experience": {
+      "name": "Nutzererlebnis – täglich",
+      "description": "Führen Sie Daten zur Web-Performance, zur Fehlerrate und zu Änderungen des Nutzererlebnisses auf wichtigen Seiten zusammen."
+    },
+    "alert_review": {
+      "name": "Alarmauswertung",
+      "description": "Prüfen Sie die Anzahl der Alarme, die Wiederherstellungszeit, betroffene Dienste und Regeln, die zu viele Alarme auslösen."
+    },
+    "sla_compliance": {
+      "name": "SLA-Einhaltung – monatlich",
+      "description": "Fassen Sie die Dienstverfügbarkeit, die SLA-Einhaltung, den Verbrauch des Fehlerbudgets und das Risiko eines SLA-Verstoßes zusammen."
+    },
+    "saved_query": {
+      "name": "Momentaufnahme der Abfrageergebnisse",
+      "description": "Exportieren Sie eine gespeicherte Ansicht nach Zeitplan für detaillierte Analysen oder Auditlisten."
+    }
+  },
+  "workbench": {
+    "new_title": "Neuer Bericht",
+    "edit_title": "Bericht bearbeiten",
+    "view_title": "Berichtsdetails",
+    "subtitle": "Legen Sie Inhalt, Erstellung und Versand fest. Die Berichtsstruktur rechts wird dabei aktualisiert.",
+    "view_subtitle": "Was der Bericht enthält, wann er erstellt wird und wohin er gesendet wird.",
+    "view_notice": "Um diesen Bericht zu ändern, benötigen Sie die Berechtigung {{permission}}.",
+    "steps": {
+      "content": "Inhalt und Umfang",
+      "schedule": "Erstellungszeitplan",
+      "delivery": "Versand"
+    },
+    "step_descriptions": {
+      "content": "Wählen Sie die Datenquelle und legen Sie den Umfang des Berichts fest.",
+      "schedule": "Wählen Sie ein leicht verständliches Intervall und geben Sie nur bei Bedarf einen Cron-Ausdruck ein.",
+      "delivery": "Fügen Sie Empfänger hinzu und wählen Sie das Ausgabeformat."
+    },
+    "fields": {
+      "name": "Berichtsname",
+      "description": "Zweck",
+      "source_type": "Quelltyp",
+      "source": "Datenquelle",
+      "time_range": "Zeitraum",
+      "frequency": "Erstellungsintervall",
+      "cron": "Cron-Ausdruck",
+      "timezone": "Zeitzone des Berichts",
+      "recipients": "Zustellziele",
+      "format": "Ausgabeformat",
+      "enabled": "Nach dem Speichern aktivieren"
+    },
+    "placeholders": {
+      "name": "Beispiel: Wochenbericht zum Plattformzustand",
+      "description": "Beschreiben Sie die Zielgruppe und den Zweck dieses Berichts…",
+      "source": "Wählen Sie ein Dashboard oder eine gespeicherte Ansicht",
+      "cron": "0 9 * * 1",
+      "recipient": "E-Mail-Adresse, Webhook-URL oder S3-Pfad"
+    },
+    "hints": {
+      "source_empty": "Es sind keine Quellen verfügbar. Erstellen Sie zuerst ein Dashboard oder eine gespeicherte Ansicht.",
+      "recipients": "Unterstützt E-Mail, HTTPS-Webhooks und S3-Pfade. Das Zustellergebnis wird für jedes Ziel separat angezeigt.",
+      "enabled": "Deaktivieren Sie diese Option, um den Bericht als pausiert zu speichern."
+    },
+    "ranges": {
+      "previous_1_hour": "Letzte Stunde",
+      "previous_24_hours": "Letzte 24 Stunden",
+      "previous_7_days": "Letzte 7 Tage",
+      "previous_30_days": "Letzte 30 Tage",
+      "previous_calendar_day": "Vorheriger Kalendertag",
+      "previous_calendar_week": "Vorherige Kalenderwoche",
+      "previous_calendar_month": "Vorheriger Kalendermonat",
+      "custom": "Benutzerdefiniert"
+    },
+    "recipient_kinds": {
+      "email": "E-Mail",
+      "webhook": "Webhook",
+      "s3": "S3",
+      "slack": "Slack"
+    },
+    "formats": {
+      "pdf_description": "Ideal zum Lesen und Archivieren",
+      "png_description": "Ideal für Kollaborationstools",
+      "csv_description": "Ideal für detaillierte Analysen",
+      "json_description": "Ideal für Systemintegrationen",
+      "svg_description": "Ideal zum Einbetten einer Übersichtskarte"
+    },
+    "preview": {
+      "title": "Live-Vorschau",
+      "sample_badge": "Beispieldaten",
+      "report_label": "MoleSignal-Bericht",
+      "range_label": "Datenzeitraum",
+      "source_label": "Datenquelle",
+      "availability": "Verfügbarkeit",
+      "latency": "P95-Latenz",
+      "alerts": "Warnmeldungen",
+      "trend": "Wichtigster Trend",
+      "footer": "{{format}} · {{schedule}}"
+    }
+  },
+  "export_dialog": {
+    "title": "Jetzt exportieren",
+    "description": "Wählen Sie einen gespeicherten Bericht aus und laden Sie ihn mit seinem aktuellen Inhalt im gespeicherten Format herunter.",
+    "report": "Bericht",
+    "format": "Format",
+    "range": "Datenzeitraum",
+    "download": "Erstellen und herunterladen",
+    "empty": "Erstellen und speichern Sie zuerst einen Berichtszeitplan."
+  },
+  "toast": {
+    "created": "Berichtszeitplan erstellt",
+    "updated": "Berichtszeitplan aktualisiert",
+    "enabled": "Berichtszeitplan aktiviert",
+    "paused": "Berichtszeitplan pausiert",
+    "deleted": "Berichtszeitplan gelöscht",
+    "exported": "Berichtsvorschau erstellt",
+    "link_copied": "Kurzlink zum Bericht kopiert: {{name}}",
+    "recipient_exists": "Dieses Zustellziel ist bereits vorhanden"
+  },
+  "confirm": {
+    "delete": "„{{name}}“ löschen? Der bisherige Berichtsverlauf kann aus diesem Speicher nicht wiederhergestellt werden."
+  },
+  "run_as": {
+    "label": "Ausführen als",
+    "you": "{{name}} (Sie)",
+    "takeover": "Nach dem Speichern wird der Bericht mit Ihren Berechtigungen ausgeführt.",
+    "missing": "Für diesen Bericht ist kein Benutzerkonto zur Ausführung hinterlegt. Daher schlägt die Zustellung im Format {{format}} fehl.",
+    "missing_fix": "Speichern Sie den Bericht, damit er mit Ihren Berechtigungen ausgeführt wird.",
+    "missing_needs_saver": "Der Bericht muss von einer angemeldeten Person gespeichert werden, die Berichte planen darf.",
+    "toggle_hint": "Wenn Sie diese Option aktivieren oder deaktivieren, wird der Bericht gespeichert und anschließend mit Ihren Berechtigungen ausgeführt."
+  },
+  "errors": {
+    "name_required": "Geben Sie einen Berichtsnamen ein.",
+    "source_required": "Wählen Sie eine Datenquelle aus.",
+    "recipient_required": "Fügen Sie mindestens ein Zustellziel hinzu.",
+    "recipient_empty": "Geben Sie ein Zustellziel ein.",
+    "recipient_unsupported": "Die Zustellung über Slack ist noch nicht an das Backend angebunden. Verwenden Sie E-Mail, einen Webhook oder S3.",
+    "recipient_invalid_email": "Geben Sie eine gültige E-Mail-Adresse, eine HTTPS-Webhook-URL oder einen S3-Pfad ein.",
+    "share_failed": "Der Kurzlink zum Bericht konnte nicht erstellt oder kopiert werden"
+  }
+}

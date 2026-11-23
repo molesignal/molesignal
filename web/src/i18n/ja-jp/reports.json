@@ -1,0 +1,307 @@
+{
+  "title": "レポート",
+  "subtitle": "レポートのスケジュール、生成履歴、配信結果を一元管理できます。",
+  "actions": {
+    "instant_export": "今すぐエクスポート",
+    "new_report": "新規レポート",
+    "share": "共有",
+    "export": "エクスポート",
+    "edit": "編集",
+    "view": "表示",
+    "enable": "有効化",
+    "pause": "一時停止",
+    "delete": "スケジュールを削除",
+    "cancel": "キャンセル",
+    "add": "追加",
+    "save_and_enable": "保存して有効化",
+    "save_changes": "変更を保存",
+    "use_template": "テンプレートを使用",
+    "view_error": "エラーを表示",
+    "close": "閉じる",
+    "remove": "除外"
+  },
+  "tabs": {
+    "schedules": "スケジュール",
+    "history": "生成履歴",
+    "templates": "テンプレートライブラリ"
+  },
+  "pagination": {
+    "aria": "レポートセンターのページ切り替え",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "1ページあたりの表示件数",
+    "first_aria": "最初のページ",
+    "previous_aria": "前のページ",
+    "next_aria": "次のページ",
+    "last_aria": "最後のページ"
+  },
+  "kpis": {
+    "running": "稼働中",
+    "next_24h": "今後24時間の配信予定",
+    "success_rate": "過去30日間の成功率",
+    "failed": "未解決の失敗"
+  },
+  "filters": {
+    "search_schedules": "レポートまたはソースを検索…",
+    "search_history": "レポートまたは配信先を検索…",
+    "all_statuses": "すべてのステータス",
+    "all_sources": "すべてのソース",
+    "all_results": "すべての結果",
+    "enabled": "稼働中",
+    "paused": "一時停止中",
+    "dashboard": "ダッシュボード",
+    "saved_view": "保存済みビュー",
+    "sent": "成功",
+    "failed": "失敗",
+    "pending": "処理中"
+  },
+  "empty": {
+    "title": "定番レポートから作成",
+    "description": "テンプレートを選んでデータソースと受信者を指定するか、空のレポートから作成できます。",
+    "custom_title": "カスタムレポート",
+    "custom_description": "内容、スケジュール、配信方法を一から設定します。",
+    "no_results_title": "一致するレポートなし",
+    "no_results_description": "別の検索語やフィルターをお試しください。"
+  },
+  "table": {
+    "name_source": "レポートとデータソース",
+    "schedule": "スケジュール",
+    "next_run": "次回生成",
+    "last_result": "最新の結果",
+    "recipients": "受信者",
+    "status": "ステータス",
+    "actions": "操作",
+    "never": "生成履歴なし",
+    "first_run": "初回生成待ち",
+    "recipient_more": "ほか{{count}}名"
+  },
+  "status": {
+    "enabled": "稼働中",
+    "paused": "一時停止中",
+    "sent": "成功",
+    "failed": "失敗",
+    "pending": "処理中",
+    "unknown": "不明"
+  },
+  "schedule": {
+    "hourly": "1時間ごと",
+    "every_6_hours": "6時間ごと",
+    "every_12_hours": "12時間ごと",
+    "daily": "24時間ごと",
+    "weekly": "7日ごと",
+    "custom": "cron の詳細設定",
+    "custom_summary": "Cron: {{value}}",
+    "timezone_suffix": "{{schedule}} · {{timezone}}",
+    "advanced_hint": "cron の詳細設定では、現在、スケジューラーのフォールバックに従って24時間ごとに実行されます。可能な場合は、上記の間隔を選択してください。"
+  },
+  "source": {
+    "dashboard": "ダッシュボード",
+    "saved_view": "保存済みビュー",
+    "missing": "データソース未選択",
+    "unavailable": "データソース利用不可"
+  },
+  "history": {
+    "empty_title": "生成履歴はまだありません",
+    "empty_description": "レポートを初めて実行すると、出力形式、配信先、配信結果がここに表示されます。",
+    "partial_error": "一部のレポートの配信履歴を一時的に表示できません。",
+    "columns": {
+      "report": "レポート",
+      "generated_at": "生成日時",
+      "recipient": "配信先",
+      "attempt": "試行",
+      "result": "結果",
+      "details": "詳細"
+    },
+    "error_title": "配信失敗の詳細",
+    "error_description": "この配信先への直近の配信に失敗しました。",
+    "error_report": "レポート",
+    "error_recipient": "配信先",
+    "error_time": "発生日時",
+    "error_message": "エラーメッセージ",
+    "no_error_message": "バックエンドからエラーの詳細が返されませんでした。"
+  },
+  "templates": {
+    "api_warning": "カスタムテンプレートを読み込めませんでした。組み込みテンプレートは引き続き利用できます。",
+    "source_badge": "{{source}}テンプレート",
+    "builtin_badge": "組み込み",
+    "custom_badge": "カスタム",
+    "new_template": "新規テンプレート",
+    "new_title": "新規レポートテンプレート",
+    "edit_title": "レポートテンプレートの編集",
+    "editor_description": "再利用できるコンテンツソースとデフォルトの出力設定を定義します。",
+    "basic_information": "基本情報",
+    "default_output": "デフォルトの出力",
+    "source_hint": "このテンプレートの使用時に紐付けられるコンテンツの種類を選択します。",
+    "source_binding_hint": "テンプレートにはソースの種類のみが保存されます。使用するダッシュボードや保存済みビューは、レポートスケジュールの作成時に選択します。",
+    "dashboard_format_hint": "ダッシュボードにはグラフとレイアウトが含まれるため、ダッシュボード用テンプレートの出力形式は常にPDFです。",
+    "custom_range_hint": "データの具体的な範囲は、レポートスケジュールの作成時に選択します。",
+    "source_descriptions": {
+      "dashboard": "グラフとレイアウトを含む、読みやすいPDFレポート",
+      "saved_view": "詳細データや監査用リストに適したクエリ結果"
+    },
+    "format_descriptions": {
+      "pdf": "閲覧や共有に最適",
+      "csv": "スプレッドシートでの分析に最適",
+      "json": "自動化に最適"
+    },
+    "create_template": "テンプレートを作成",
+    "save_changes": "変更を保存",
+    "delete_template": "テンプレートを削除",
+    "toast_created": "カスタムテンプレートを作成しました",
+    "toast_updated": "カスタムテンプレートを更新しました",
+    "toast_deleted": "カスタムテンプレートを削除しました",
+    "confirm_delete": "「{{name}}」を削除しますか？このテンプレートから作成済みのレポートには影響しません。",
+    "fields": {
+      "name": "テンプレート名",
+      "description": "説明",
+      "description_optional": "説明（任意）",
+      "source_type": "ソースタイプ",
+      "format": "デフォルトの形式",
+      "time_range": "デフォルトのデータ期間"
+    },
+    "placeholders": {
+      "name": "例：主要サービスの月次レポート",
+      "description": "用途、含める内容、想定読者を入力してください。"
+    },
+    "errors": {
+      "name_required": "テンプレート名を入力してください。"
+    },
+    "platform_health": {
+      "name": "プラットフォームの稼働状況（週次）",
+      "description": "主要サービスの可用性、レイテンシー、エラー、キャパシティの傾向をまとめます。"
+    },
+    "rum_experience": {
+      "name": "ユーザー体験（日次）",
+      "description": "Webパフォーマンス、エラー率、主要ページのユーザー体験の変化を集計します。"
+    },
+    "alert_review": {
+      "name": "アラートのレビュー",
+      "description": "アラート件数、復旧時間、影響を受けたサービス、不要なアラートを頻発させるルールを確認します。"
+    },
+    "sla_compliance": {
+      "name": "SLA遵守状況（月次）",
+      "description": "サービスの可用性、SLAの達成状況、エラーバジェットの消費状況、SLA違反のリスクをまとめます。"
+    },
+    "saved_query": {
+      "name": "クエリ結果のスナップショット",
+      "description": "詳細分析や監査用リストの作成に向けて、保存済みのビューをスケジュールに沿ってエクスポートします。"
+    }
+  },
+  "workbench": {
+    "new_title": "新規レポート",
+    "edit_title": "レポートの編集",
+    "view_title": "レポートの詳細",
+    "subtitle": "レポートの内容、生成、配信を設定します。設定に応じて右側のレポート構成が更新されます。",
+    "view_subtitle": "レポートの内容、生成日時、配信先を確認できます。",
+    "view_notice": "このレポートを変更するには、{{permission}} 権限が必要です。",
+    "steps": {
+      "content": "内容と対象範囲",
+      "schedule": "生成スケジュール",
+      "delivery": "配信"
+    },
+    "step_descriptions": {
+      "content": "レポートのデータソースと対象範囲を選択してください。",
+      "schedule": "わかりやすい間隔を指定し、必要な場合のみcron式を入力してください。",
+      "delivery": "受信者を追加し、レポートの出力形式を選択してください。"
+    },
+    "fields": {
+      "name": "レポート名",
+      "description": "目的",
+      "source_type": "ソースタイプ",
+      "source": "データソース",
+      "time_range": "データ期間",
+      "frequency": "生成頻度",
+      "cron": "Cron式",
+      "timezone": "レポートのタイムゾーン",
+      "recipients": "配信先",
+      "format": "出力形式",
+      "enabled": "保存後に有効化"
+    },
+    "placeholders": {
+      "name": "例：プラットフォーム稼働状況の週次レポート",
+      "description": "このレポートの対象読者と目的を入力…",
+      "source": "ダッシュボードまたは保存済みビューを選択",
+      "cron": "0 9 * * 1",
+      "recipient": "メールアドレス、Webhook URL、または S3 パス"
+    },
+    "hints": {
+      "source_empty": "利用可能なデータソースがありません。先にダッシュボードまたは保存済みビューを作成してください。",
+      "recipients": "メール、HTTPS Webhook、S3 パスに対応しています。配信結果は配信先ごとに記録されます。",
+      "enabled": "オフにすると、レポートを一時停止状態で保存します。"
+    },
+    "ranges": {
+      "previous_1_hour": "過去1時間",
+      "previous_24_hours": "過去24時間",
+      "previous_7_days": "過去7日間",
+      "previous_30_days": "過去30日間",
+      "previous_calendar_day": "前日",
+      "previous_calendar_week": "先週",
+      "previous_calendar_month": "先月",
+      "custom": "カスタム"
+    },
+    "recipient_kinds": {
+      "email": "メール",
+      "webhook": "Webhook",
+      "s3": "S3",
+      "slack": "Slack"
+    },
+    "formats": {
+      "pdf_description": "閲覧とアーカイブに最適",
+      "png_description": "コラボレーションツールでの共有に最適",
+      "csv_description": "詳細な分析に最適",
+      "json_description": "システム連携に最適",
+      "svg_description": "サマリーカードの埋め込みに最適"
+    },
+    "preview": {
+      "title": "ライブプレビュー",
+      "sample_badge": "サンプルデータ",
+      "report_label": "MoleSignal レポート",
+      "range_label": "対象期間",
+      "source_label": "データソース",
+      "availability": "可用性",
+      "latency": "P95 レイテンシ",
+      "alerts": "アラート",
+      "trend": "主な傾向",
+      "footer": "{{format}} · {{schedule}}"
+    }
+  },
+  "export_dialog": {
+    "title": "今すぐエクスポート",
+    "description": "保存済みのレポートを選択し、現在の内容と形式でダウンロード用のファイルを生成します。",
+    "report": "レポート",
+    "format": "形式",
+    "range": "データ範囲",
+    "download": "生成してダウンロード",
+    "empty": "先にレポートスケジュールを作成して保存してください。"
+  },
+  "toast": {
+    "created": "レポートスケジュールを作成しました",
+    "updated": "レポートスケジュールを更新しました",
+    "enabled": "レポートスケジュールを有効にしました",
+    "paused": "レポートスケジュールを一時停止しました",
+    "deleted": "レポートスケジュールを削除しました",
+    "exported": "レポートのプレビューを生成しました",
+    "link_copied": "レポートの短縮リンクをコピーしました: {{name}}",
+    "recipient_exists": "その配信先はすでに登録されています"
+  },
+  "confirm": {
+    "delete": "「{{name}}」を削除しますか？既存の生成履歴はこのストレージから復元できません。"
+  },
+  "run_as": {
+    "label": "実行ユーザー",
+    "you": "{{name}}（あなた）",
+    "takeover": "保存すると、レポートはあなたのアクセス権限で実行されます。",
+    "missing": "このレポートには実行ユーザーが設定されていないため、{{format}}形式での配信に失敗します。",
+    "missing_fix": "あなたのアクセス権限で実行するには、レポートを保存してください。",
+    "missing_needs_saver": "レポートのスケジュール設定権限を持つユーザーが、サインインした状態で保存する必要があります。",
+    "toggle_hint": "オンとオフを切り替えるとレポートが保存され、以降はあなたのアクセス権限で実行されます。"
+  },
+  "errors": {
+    "name_required": "レポート名を入力してください。",
+    "source_required": "データソースを選択してください。",
+    "recipient_required": "配信先を1件以上追加してください。",
+    "recipient_empty": "配信先を入力してください。",
+    "recipient_unsupported": "Slackへの配信はまだバックエンドに接続されていません。メール、Webhook、またはS3を使用してください。",
+    "recipient_invalid_email": "有効なメールアドレス、HTTPS Webhook URL、またはS3パスを入力してください。",
+    "share_failed": "レポートの短縮リンクを作成またはコピーできませんでした"
+  }
+}

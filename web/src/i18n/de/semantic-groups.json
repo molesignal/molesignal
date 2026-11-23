@@ -1,0 +1,82 @@
+{
+  "title": "Semantische Gruppen",
+  "subtitle": "Gruppieren Sie zusammengehörige Vorfälle nach Label-Werten (wie mit group_by in Alertmanager).",
+  "actions": {
+    "new": "Neue Gruppe",
+    "import": "Importieren",
+    "delete": "Löschen",
+    "edit_named": "{{name}} bearbeiten",
+    "delete_named": "{{name}} löschen"
+  },
+  "states": {
+    "empty_title": "Noch keine semantischen Gruppen",
+    "empty_description": "Legen Sie eine Gruppe an, um zusammengehörige Vorfälle anhand gemeinsamer Labels zusammenzufassen."
+  },
+  "list": {
+    "columns": {
+      "name": "Name",
+      "matchers": "Matcher",
+      "group_by": "Gruppieren nach",
+      "enabled": "Aktiviert",
+      "actions": "Aktionen"
+    }
+  },
+  "enabled": {
+    "yes": "Aktiviert",
+    "no": "Deaktiviert"
+  },
+  "toast": {
+    "saved": "Gruppe „{{name}}“ gespeichert",
+    "deleted": "Gruppe gelöscht"
+  },
+  "confirm": {
+    "delete_title": "Semantische Gruppe löschen?",
+    "delete": "Möchten Sie diese Gruppe löschen? Die Vorfälle bleiben erhalten. Nur die Gruppierungsregel wird entfernt.",
+    "cancel": "Abbrechen"
+  },
+  "errors": {
+    "name_required": "Ein Name ist erforderlich."
+  },
+  "drawer": {
+    "edit_title": "{{name}} bearbeiten",
+    "subtitle": "Matcher legen fest, für welche Vorfälle diese Gruppe gilt. group_by legt den Gruppierungsschlüssel fest.",
+    "save": "Änderungen speichern",
+    "create": "Gruppe erstellen",
+    "add_matcher": "Matcher hinzufügen",
+    "remove_matcher": "Matcher entfernen",
+    "matchers_description": "Die Labels eines Vorfalls müssen alle Matcher erfüllen, damit die Gruppe für den Vorfall gilt. Ohne Matcher gilt sie für alle Vorfälle.",
+    "group_by_description": "Vorfälle mit denselben Werten für diese Label-Schlüssel werden in einer Gruppe zusammengefasst.",
+    "sections": {
+      "identity": "Allgemein",
+      "matchers": "Matcher",
+      "group_by": "Gruppieren nach"
+    },
+    "fields": {
+      "name": "Name",
+      "enabled": "Aktiviert",
+      "matcher_label": "Label des Matchers",
+      "matcher_value": "Wert des Matchers",
+      "group_by": "Labels für die Gruppierung"
+    },
+    "hints": {
+      "enabled": "Deaktivierte Gruppen werden bei der Gruppierung übersprungen.",
+      "group_by": "Kommagetrennte Label-Schlüssel, z. B. service, region."
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "Semantische Gruppen importieren",
+    "subtitle": "Fügen Sie ein JSON-Array mit Gruppen ein (oder { groups: [...] }).",
+    "submit": "Importieren",
+    "editor_label": "Gruppen als JSON",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
+    "toast_imported": "Importierte Gruppen: {{count}}",
+    "invalid_json": "Ungültiges JSON: {{message}}",
+    "expects_array": "Ein Array mit mindestens einer Gruppe wird erwartet."
+  }
+}

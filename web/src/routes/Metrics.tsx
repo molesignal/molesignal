@@ -8,6 +8,7 @@ import {
   type MetricCatalogEntry,
 } from '@/api/metricsCatalog';
 import * as queryApi from '@/api/query';
+import { docsLocale } from '@/i18n';
 import { resolveMetricType } from '@/lib/metricTypes';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
 import { useActionAccess } from '@/product/actionAccess';
@@ -340,9 +341,7 @@ export function Metrics() {
     promql.trim() && promql.trim() !== lastExecutedDraft,
   );
   const language = i18n.resolvedLanguage ?? i18n.language;
-  const promqlDocsLocale = language.toLowerCase().startsWith('zh')
-    ? 'zh-Hans'
-    : 'en-US';
+  const promqlDocsLocale = docsLocale(language);
   const promqlDocsHref = `https://docs.molesignal.com/${promqlDocsLocale}/query/promql-subset`;
   const timeRangeSeconds =
     (chartWindow.to.getTime() - chartWindow.from.getTime()) / 1000;

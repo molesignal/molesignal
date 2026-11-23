@@ -1,0 +1,258 @@
+{
+  "explore": {
+    "title": "Métricas",
+    "subtitle": "explorador",
+    "toolbar": {
+      "refresh": "Actualizar",
+      "running": "Ejecutando…",
+      "add_to_dashboard": "Añadir al panel",
+      "clear_query": "Borrar consulta",
+      "collapse_editor": "Contraer consulta",
+      "expand_editor": "Expandir consulta",
+      "empty_query_summary": "Elige una métrica o escribe una consulta PromQL"
+    },
+    "editor": {
+      "label": "Consulta",
+      "aria": "Editor de PromQL",
+      "placeholder": "rate(metric_name{...}[5m])",
+      "run": "Ejecutar",
+      "running_promql": "Ejecutando consulta PromQL…"
+    },
+    "function_hint": {
+      "aria": "Abrir la ayuda sobre las funciones de PromQL",
+      "title": "Funciones comunes de PromQL",
+      "description": "Funciones y agregaciones comunes que admite el backend de consultas.",
+      "functions": {
+        "rate": "Calcula la tasa media por segundo en un vector de rango.",
+        "increase": "Calcula el aumento acumulado en un rango.",
+        "sum": "Agrega varias series temporales sumando sus valores.",
+        "avg": "Agrega varias series temporales calculando el promedio de sus valores."
+      },
+      "docs": "Todas las funciones",
+      "docs_aria": "Abrir la documentación de las funciones de PromQL"
+    },
+    "query": {
+      "datasource": "Fuente de datos",
+      "metrics_browser": "Explorador de métricas",
+      "options": "Opciones",
+      "legend": "Leyenda",
+      "auto": "Automático",
+      "verbose": "Detallado",
+      "custom": "Personalizado",
+      "format": "Formato",
+      "time_series": "Series temporales",
+      "table": "Tabla",
+      "step": "Paso",
+      "step_placeholder": "auto, 30s, 1m…",
+      "step_invalid": "Usa auto o una duración como 30s o 5m.",
+      "type": "Tipo",
+      "range": "Rango",
+      "instant": "Instantánea",
+      "exemplars": "Ejemplares",
+      "on": "Activado",
+      "off": "Desactivado"
+    },
+    "catalog": {
+      "title": "Métricas",
+      "browser_title": "Explorador de métricas",
+      "search_trigger": "Buscar métricas",
+      "search_description": "Busca por nombre de métrica y luego selecciona una para insertarla en la consulta A.",
+      "search_aria": "Buscar nombres de métricas",
+      "result_count": "{{count}} resultados",
+      "collapse": "Contraer el panel de métricas",
+      "expand": "Expandir el panel de métricas",
+      "resize": "Arrastra para cambiar el tamaño del panel de métricas; haz doble clic para restablecerlo",
+      "filter_placeholder": "filtrar métricas...",
+      "loading": "Cargando el catálogo…",
+      "load_error": "No se pudo cargar el catálogo de métricas: {{error}}",
+      "unknown_error": "error desconocido",
+      "no_filter_match": "Ninguna métrica coincide con este filtro.",
+      "empty": "Aún no hay métricas definidas. Crea un flujo con stream_type = metrics.",
+      "no_indexed_labels": "sin etiquetas",
+      "metric_meta": "{{labels}} etiquetas · {{fields}} campos",
+      "select": "Seleccionar",
+      "selected": "Seleccionada",
+      "pagination": {
+        "page_summary": "{{page}} / {{pages}}",
+        "aria": "Paginación del catálogo de métricas",
+        "page_size_aria": "Métricas por página",
+        "first_aria": "Primera página de métricas",
+        "previous_aria": "Página anterior de métricas",
+        "next_aria": "Página siguiente de métricas",
+        "previous": "Anterior",
+        "next": "Siguiente",
+        "last_aria": "Última página de métricas"
+      }
+    },
+    "types": {
+      "counter": "contador",
+      "histogram": "histograma",
+      "gauge": "indicador"
+    },
+    "chart": {
+      "mode_line": "línea",
+      "mode_bar": "barras",
+      "mode_points": "puntos",
+      "draw_style": "Estilo del gráfico",
+      "stack_mode": "Apilamiento",
+      "stack_none": "Desactivado",
+      "stack_normal": "Normal",
+      "stack_percent": "Porcentaje",
+      "stack_requires_multiple_series": "Se necesitan al menos dos series para apilar",
+      "http_request_rate": "Tasa de solicitudes HTTP",
+      "query_result": "Resultado de la consulta de métricas",
+      "generic_rate": "Tasa de {{metric}}",
+      "zoom_hint": "Arrastra para seleccionar · arrastra el eje X para desplazarte · haz doble clic para alejar",
+      "zoom_aria": "Series temporales de métricas. Arrastra horizontalmente para seleccionar un intervalo; arrastra el eje X para desplazarte en tiempo real; haz doble clic en el gráfico para duplicar el intervalo de tiempo actual.",
+      "reset_zoom": "Restablecer el intervalo de tiempo",
+      "reset_zoom_hint": "Restaura el intervalo de tiempo que había antes de interactuar con el gráfico",
+      "select_prompt": "Escribe una expresión PromQL arriba o busca una métrica y luego ejecuta la consulta.",
+      "empty": "No hay puntos de datos para esta consulta en el intervalo seleccionado."
+    },
+    "start": {
+      "heading": "Empieza con una métrica",
+      "browse": "Explorar todas las métricas",
+      "metric_aria": "Graficar {{metric}}",
+      "no_metrics": "Aún no se han recibido métricas.",
+      "connect": "Conectar una fuente de métricas"
+    },
+    "recovery": {
+      "query_failed": "Falló la consulta PromQL",
+      "promql_docs": "Documentación de PromQL",
+      "no_data_title": "No hay datos de métricas en este intervalo de investigación",
+      "no_data_description": "La consulta es válida. Amplía el intervalo de tiempo o quita los filtros fijados antes de cambiar la expresión.",
+      "expand_time": "Multiplicar por 4 el intervalo de tiempo",
+      "clear_filters": "Quitar los filtros y volver a intentar"
+    },
+    "exemplars": {
+      "title": "Ejemplares",
+      "count": "{{count}} ejemplares",
+      "open_trace": "Abrir la traza {{traceId}}",
+      "no_trace": "El ejemplar no tiene ID de traza",
+      "hint": "Selecciona un rombo para inspeccionar la traza correlacionada.",
+      "query_error": "Ejemplares no disponibles"
+    },
+    "series": {
+      "title": "Series",
+      "empty": "No hay series.",
+      "collapse": "Contraer",
+      "show_all": "Mostrar las {{count}} series",
+      "label_count": "{{count}} etiquetas",
+      "expand_labels": "Mostrar las etiquetas de {{metric}}",
+      "collapse_labels": "Ocultar las etiquetas de {{metric}}",
+      "columns": {
+        "name": "Nombre",
+        "last": "Último",
+        "current": "Actual",
+        "average": "Promedio",
+        "max": "Máx."
+      }
+    },
+    "query_stats": {
+      "title": "Estadísticas de la consulta",
+      "empty": "No hay estadísticas de la consulta.",
+      "series": "Series",
+      "points": "Puntos de datos",
+      "scanned": "Filas escaneadas",
+      "duration": "Tiempo de consulta",
+      "range": "Rango de tiempo",
+      "step": "Paso"
+    },
+    "results": {
+      "graph": "Gráfico",
+      "table": "Tabla",
+      "inspector": "Inspector de consultas",
+      "series_count": "{{count}} series",
+      "query_time": "{{ms}} ms",
+      "no_table": "Ejecuta una consulta para inspeccionar sus filas.",
+      "table_limit": "Se muestran {{shown}} de {{total}} filas.",
+      "query": "Consulta",
+      "views_aria": "Vistas de resultados"
+    },
+    "quality": {
+      "title": "Calidad de los datos",
+      "healthy": "No se detectaron anomalías evidentes",
+      "attention": "Algunos datos requieren atención",
+      "distinguishes_missing": "Los valores faltantes, los ceros reales y los valores negativos se cuentan por separado.",
+      "negative_points": "Puntos negativos",
+      "missing_data": "Datos faltantes",
+      "timestamp_anomalies": "Anomalías en las marcas de tiempo",
+      "negative_rate_title": "Se detectó una tasa negativa en un contador",
+      "negative_rate_description": "Esta métrica se declaró como contador, pero el resultado contiene {{count}} puntos negativos. Es posible que el contador haya disminuido, que sus muestras hayan llegado fuera de orden o que se le haya asignado un tipo incorrecto.",
+      "view_raw": "Ver datos sin procesar",
+      "view_anomalies": "Ver anomalías",
+      "inspect_type": "Inspeccionar el tipo de métrica"
+    },
+    "top_labels": {
+      "title": "Etiquetas principales",
+      "empty": "—",
+      "value": "Valor",
+      "avg": "Promedio"
+    },
+    "summary": {
+      "title": "Resumen estadístico",
+      "empty": "—"
+    },
+    "cardinality": {
+      "title": "Cardinalidad",
+      "active_series": "series activas · {{rows}} filas escaneadas · {{ms}} ms"
+    },
+    "schema": {
+      "title": "Esquema del resultado",
+      "empty": "—",
+      "columns": {
+        "name": "Columna",
+        "kind": "Tipo",
+        "rows": "Filas"
+      },
+      "kinds": {
+        "time": "tiempo",
+        "value": "valor",
+        "label": "etiqueta"
+      }
+    },
+    "scan": {
+      "title": "Estadísticas de escaneo",
+      "label": "filas escaneadas · {{ms}} ms"
+    }
+  },
+  "builder": {
+    "metric_label": "Métrica",
+    "metric_select_aria": "Nombre de la métrica",
+    "metric_select_placeholder": "Selecciona una métrica",
+    "label_matchers": "Filtros de etiquetas",
+    "matcher_name_aria": "Nombre del filtro de etiquetas {{index}}",
+    "matcher_name_placeholder": "status",
+    "matcher_op_aria": "Operador del filtro de etiquetas {{index}}",
+    "matcher_value_aria": "Valor del filtro de etiquetas {{index}}",
+    "matcher_value_placeholder": "200",
+    "add_matcher": "Agregar filtro de etiquetas",
+    "remove_matcher_aria": "Quitar filtro de etiquetas {{index}}",
+    "no_matchers": "No hay filtros de etiquetas. Agrega uno para acotar la consulta de la métrica seleccionada.",
+    "no_labels": "Esta métrica no tiene etiquetas que puedas seleccionar.",
+    "function": "Función",
+    "function_select_aria": "Función de PromQL",
+    "available_functions": "Disponibles en el generador",
+    "code_only_functions": "Parámetros adicionales · usa el modo Código",
+    "functions": {
+      "none": "Métrica sin procesar",
+      "rate": "Tasa",
+      "irate": "Tasa instantánea",
+      "increase": "Incremento"
+    },
+    "aggregation": "Agregación",
+    "aggregation_select_aria": "Agregación de PromQL",
+    "aggregations": {
+      "none": "Ninguna",
+      "sum": "Suma",
+      "avg": "Promedio",
+      "max": "Máximo",
+      "min": "Mínimo"
+    },
+    "range": "Intervalo",
+    "range_select_aria": "Ventana de tiempo",
+    "editor_label": "PromQL",
+    "preview_empty": "Selecciona una métrica para crear una consulta en PromQL",
+    "unsupported_expression": "Esta expresión de PromQL no se puede representar de forma segura en el generador. Se conserva hasta que cambies un campo del generador."
+  }
+}

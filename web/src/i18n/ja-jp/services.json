@@ -1,0 +1,31 @@
+{
+  "title": "サービス",
+  "subtitle": "トレースのトポロジーに基づくサービスカタログです。",
+  "kpis": {
+    "services": "サービス",
+    "rps": "合計 RPS",
+    "degraded": "劣化（エラー率 ≥1%）"
+  },
+  "list": {
+    "columns": {
+      "name": "サービス",
+      "rps": "RPS",
+      "error_rate": "エラー率",
+      "p95": "p95",
+      "spans": "スパン"
+    }
+  },
+  "states": {
+    "empty_title": "検出されたサービスなし",
+    "empty_description": "選択した時間範囲内のスパンを受信すると、サービスが表示されます。"
+  },
+  "detail": {
+    "not_found_title": "このサービスのトラフィックなし",
+    "not_found_description": "選択した時間範囲内にこのサービスのスパンがありません。",
+    "upstream": "上流（呼び出し元）",
+    "downstream": "下流（依存先）",
+    "no_upstream": "選択した時間範囲内に呼び出し元がありません。",
+    "no_downstream": "選択した時間範囲内に依存先がありません。",
+    "edge_rps": "{{rps}} rps"
+  }
+}

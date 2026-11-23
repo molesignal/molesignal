@@ -1113,5 +1113,6 @@
       "whole": "Whole step",
       "others": "Other buckets"
     }
-  }
+  },
+  "schedule_every": "Every {{interval}}"
 }

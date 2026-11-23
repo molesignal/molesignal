@@ -1,0 +1,76 @@
+{
+  "title": "保存済みビュー",
+  "subtitle": "再利用できる SQL / PromQL クエリを組織全体で共有できます。",
+  "actions": {
+    "new": "新規保存済みビュー",
+    "open": "開く",
+    "pin": "ピン留め",
+    "unpin": "ピン留めを解除",
+    "edit": "編集",
+    "delete": "削除"
+  },
+  "kpis": {
+    "total": "保存済みビュー",
+    "pinned": "ピン留め済み"
+  },
+  "list": {
+    "columns": {
+      "name": "名前",
+      "language": "言語",
+      "stream": "ストリーム",
+      "tags": "タグ",
+      "range": "時間範囲",
+      "updated": "更新日時",
+      "actions": "操作"
+    }
+  },
+  "states": {
+    "empty_title": "保存済みビューはまだありません",
+    "empty_description": "SQL または PromQL のクエリを保存すると、別の調査でも再利用できます。"
+  },
+  "confirm": {
+    "delete_title": "保存済みビューを削除しますか？",
+    "delete": "この保存済みビューを削除しますか？この操作は元に戻せません。",
+    "cancel": "キャンセル"
+  },
+  "toast": {
+    "saved": "ビュー「{{name}}」を保存しました",
+    "deleted": "保存済みビューを削除しました"
+  },
+  "drawer": {
+    "edit_title": "保存済みビューを編集",
+    "subtitle": "SQL または PromQL のクエリに名前を付けて、後で再利用できます。",
+    "save": "変更を保存",
+    "create": "作成",
+    "sections": {
+      "identity": "基本情報",
+      "query": "クエリ",
+      "organize": "整理"
+    },
+    "fields": {
+      "name": "名前",
+      "language": "言語",
+      "range": "デフォルトの時間範囲",
+      "statement": "クエリ文",
+      "stream": "ストリーム（任意）",
+      "tags": "タグ",
+      "pinned": "先頭にピン留め"
+    },
+    "hints": {
+      "stream": "ビューを開く際のパーティションプルーニングを制限します。",
+      "tags": "カンマで区切って入力します。"
+    }
+  },
+  "report": {
+    "time_range": "時間範囲",
+    "timezone": "タイムゾーン",
+    "stream": "ストリーム",
+    "rows": "行数",
+    "rows_capped": "先頭の{{shown}}行のみ",
+    "generated": "生成日時",
+    "results": "結果",
+    "empty": "この時間範囲には行がありません。",
+    "no_view": "レポートに保存済みビューが指定されていません。",
+    "no_stream": "保存済みビューにストリームが指定されておらず、組織内にも実行対象となるログストリームがありません。"
+  }
+}

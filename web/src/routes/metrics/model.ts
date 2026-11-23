@@ -2,10 +2,12 @@ import type { TFunction } from 'i18next';
 
 import type { MetricCatalogEntry } from '@/api/metricsCatalog';
 import type * as queryApi from '@/api/query';
+import { toLocale } from '@/i18n/locales';
 import { promqlSelector } from '@/routes/metrics/builder/model';
 import type { CodeCompletionItem } from '@/shell/codeEditor/types';
 import type { GlobalFilter } from '@/stores/useFiltersStore';
 import type { TimeWindow } from '@/stores/useTimeStore';
+import { formatTimeAmount } from '@/time/units';
 
 export type MetricsDrawStyle = 'line' | 'bar' | 'points';
 export type MetricsStackMode = 'none' | 'normal' | 'percent';
@@ -171,8 +173,15 @@ export function formatMetricDuration(
   language: string,
 ): string {
   const value = Math.max(0, seconds);
-  const zh = language.toLowerCase().startsWith('zh');
+  const locale = toLocale(language);
   if (value < 1) return `${Math.round(value * 1000)} ms`;
+  if (locale !== 'en-us' && locale !== 'zh-cn') {
+    if (value < 60) return formatTimeAmount(value, 'second', language);
+    if (value < 3600) return formatTimeAmount(value / 60, 'minute', language);
+    if (value < 86_400) return formatTimeAmount(value / 3600, 'hour', language);
+    return formatTimeAmount(value / 86_400, 'day', language);
+  }
+  const zh = locale === 'zh-cn';
   if (value < 60) return `${formatDurationNumber(value)} ${zh ? '秒' : 's'}`;
   if (value < 3600) {
     return `${formatDurationNumber(value / 60)} ${zh ? '分钟' : 'min'}`;

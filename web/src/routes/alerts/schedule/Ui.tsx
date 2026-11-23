@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { intlLocale, toLocale } from '@/i18n/locales';
 import { formatMicrosActiveIn } from '@/lib/time';
 import { cn } from '@/shell/lib/cn';
 import {
@@ -216,8 +217,16 @@ export function relativeDuration(
   const days = Math.floor(absMinutes / (24 * 60));
   const hours = Math.floor((absMinutes % (24 * 60)) / 60);
   const minutes = absMinutes % 60;
+  const language = toLocale(locale);
+  if (language !== 'en-us' && language !== 'zh-cn') {
+    const sign = diff >= 0 ? 1 : -1;
+    const format = new Intl.RelativeTimeFormat(intlLocale(language), { numeric: 'always' });
+    if (days > 0) return format.format(sign * days, 'day');
+    if (hours > 0) return format.format(sign * hours, 'hour');
+    return format.format(sign * Math.max(1, minutes), 'minute');
+  }
   const parts: string[] = [];
-  const zh = locale.toLowerCase().startsWith('zh');
+  const zh = language === 'zh-cn';
   if (days > 0) parts.push(zh ? `${days} 天` : `${days}d`);
   if (hours > 0) parts.push(zh ? `${hours} 小时` : `${hours}h`);
   if (days === 0 && minutes > 0) {

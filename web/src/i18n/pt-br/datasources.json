@@ -1,0 +1,591 @@
+{
+  "kubernetes": {
+    "name": "Kubernetes",
+    "description": "Colete logs de stdout e stderr de todos os Pods do cluster com um DaemonSet do Fluent Bit.",
+    "steps": {
+      "1": {
+        "title": "Crie o namespace e o ConfigMap"
+      },
+      "2": {
+        "title": "Implante o DaemonSet do Fluent Bit",
+        "description": "Salve o YAML abaixo como fluent-bit-daemonset.yaml e aplique o arquivo."
+      },
+      "3": {
+        "title": "Verifique se os logs estão chegando",
+        "description": "Após um minuto, abra Logs e selecione o fluxo app-logs. Os campos kubernetes.* devem aparecer."
+      }
+    }
+  },
+  "linux": {
+    "name": "Hosts Linux",
+    "description": "Colete logs do journald em hosts Linux com o Vector.",
+    "steps": {
+      "1": {
+        "title": "Instale o Vector"
+      },
+      "2": {
+        "title": "Configure /etc/vector/vector.yaml"
+      }
+    }
+  },
+  "windows": {
+    "name": "Hosts Windows",
+    "description": "Envie os logs de eventos com o Encaminhamento de Eventos do Windows e o winlogbeat.",
+    "steps": {
+      "1": {
+        "title": "Instale o winlogbeat"
+      },
+      "2": {
+        "title": "Edite winlogbeat.yml"
+      }
+    }
+  },
+  "aws": {
+    "name": "AWS (CloudWatch + S3)",
+    "description": "Envie logs para o MoleSignal por meio de uma assinatura do CloudWatch Logs e do Kinesis Firehose.",
+    "steps": {
+      "1": {
+        "title": "Crie um fluxo de entrega do Firehose (destino: endpoint HTTP)",
+        "description": "Como o Firehose não pode enviar um token Bearer, use um conector de envio. Use o endereço abaixo como URL do endpoint e, como chave de acesso, o token de envio do conector criado em Fontes de dados → Conectores."
+      },
+      "2": {
+        "title": "Crie uma assinatura do CloudWatch Logs"
+      }
+    }
+  },
+  "gcp": {
+    "name": "GCP (Cloud Logging)",
+    "description": "Envie logs do Cloud Logging para o endpoint HTTP do MoleSignal por meio de um coletor com destino ao Pub/Sub.",
+    "steps": {
+      "1": {
+        "title": "Crie um coletor do Cloud Logging → tópico do Pub/Sub"
+      },
+      "2": {
+        "title": "Assine o tópico e encaminhe os logs para o MoleSignal",
+        "description": "Leia as mensagens do Pub/Sub com uma função do Cloud Run e envie uma solicitação POST para {{ENDPOINT}}/api/v1/intake/logs/default com Authorization: Bearer <token>."
+      }
+    }
+  },
+  "azure": {
+    "name": "Azure (Event Hubs)",
+    "description": "Encaminhe logs para o MoleSignal por meio de Configurações de diagnóstico → Event Hub → Função.",
+    "steps": {
+      "1": {
+        "title": "Defina as configurações de diagnóstico no portal do Azure",
+        "description": "Defina um Event Hub como destino e implante uma função do Azure que consuma os eventos e envie uma solicitação POST para {{ENDPOINT}}/api/v1/intake/logs/default com Authorization: Bearer <token>."
+      }
+    }
+  },
+  "rum": {
+    "name": "RUM para web",
+    "description": "Monitoramento de usuários reais no navegador: desempenho das páginas, erros de frontend, recursos e sessões de usuários.",
+    "steps": {
+      "1": {
+        "title": "Instale o SDK para navegador"
+      },
+      "2": {
+        "title": "Inicialize a aplicação"
+      },
+      "3": {
+        "title": "Envie os mapas de código-fonte de produção",
+        "description": "Envie os arquivos .map em Configurações de RUM → Mapas de código-fonte e símbolos. O ID da aplicação, o serviço e a versão de lançamento devem corresponder exatamente aos valores dos eventos.",
+        "note": "Não use o token de cliente do RUM para enviar arquivos. Para enviar artefatos de depuração, você precisa estar conectado e ter permissão para configurar o fluxo."
+      },
+      "4": {
+        "title": "Verifique um evento de erro",
+        "description": "Gere um erro de teste e confirme a aplicação, a versão e a localização no código-fonte na aba Erros do explorador de RUM."
+      }
+    }
+  },
+  "rum-flutter": {
+    "name": "RUM para Flutter",
+    "description": "Colete visualizações, interações, erros, recursos, quadros lentos e dados de reprodução de sessões com o SDK do MoleSignal para Flutter.",
+    "steps": {
+      "1": {
+        "title": "Instale o SDK do Flutter"
+      },
+      "2": {
+        "title": "Inicialize e instale o observador de navegação"
+      },
+      "3": {
+        "title": "Gere os símbolos AOT do Flutter",
+        "description": "Guarde o arquivo .symbols correspondente a cada versão e arquitetura."
+      },
+      "4": {
+        "title": "Envie e confira os símbolos",
+        "description": "Em Configurações do RUM → Mapas de código-fonte e símbolos, selecione Símbolos do Flutter, informe o mesmo ID do aplicativo, serviço, versão, plataforma, arquitetura e ID de depuração usados no build e envie cada arquivo .symbols."
+      },
+      "5": {
+        "title": "Verifique as sessões e os erros",
+        "description": "Execute um build de produção e provoque uma exceção de teste. Confirme se a sessão de RUM, o erro e a reprodução da sessão pertencem a esse aplicativo."
+      }
+    }
+  },
+  "rum-android": {
+    "name": "RUM para Android",
+    "description": "Aplicativos Android nativos enviam erros por HTTP no formato de eventos de RUM, com restauração das pilhas de chamadas do R8 e do NDK.",
+    "steps": {
+      "1": {
+        "title": "Envie eventos de RUM por HTTP",
+        "description": "Até o lançamento do SDK nativo para Android, faça a integração pela camada de rede que você já usa. Veja abaixo um exemplo de evento de erro. Visualizações, ações, solicitações e os demais eventos seguem o mesmo formato e são enviados para POST /api/v1/rum/events. As reproduções de sessão são enviadas para /api/v1/rum/replay. Todos esses dados pertencem ao aplicativo ao qual o token do cliente está vinculado."
+      },
+      "2": {
+        "title": "Guarde o arquivo mapping.txt do R8",
+        "description": "Após gerar um build de produção, salve o arquivo app/build/outputs/mapping/release/mapping.txt. Ele muda a cada versão."
+      },
+      "3": {
+        "title": "Guarde os símbolos do NDK sem removê-los dos binários",
+        "description": "Se você usa código C/C++, guarde o arquivo .so com os símbolos intactos para cada ABI. Você pode compactar esses arquivos com gzip antes de enviá-los, mas não envie apenas os arquivos .so sem símbolos extraídos do APK."
+      },
+      "4": {
+        "title": "Informe os endereços dos frames do NDK",
+        "description": "Os frames da pilha de falhas nativas devem incluir o módulo, o endereço da instrução, o endereço de carregamento da imagem e o Build ID. O servidor converte os endereços em endereços relativos ao módulo."
+      },
+      "5": {
+        "title": "Envie os artefatos de depuração do Android",
+        "description": "Em Configurações do RUM → Mapas de código-fonte e símbolos, envie separadamente o arquivo mapping.txt do Android e os símbolos nativos do Android, com o ID do aplicativo, a versão, a ABI e o Build ID."
+      },
+      "6": {
+        "title": "Verifique a pilha de chamadas desofuscada",
+        "description": "Provoque uma exceção de teste em um build de produção e confirme se os nomes das classes e dos métodos e as linhas do código-fonte foram restaurados."
+      }
+    }
+  },
+  "rum-ios": {
+    "name": "RUM para iOS",
+    "description": "Aplicativos iOS nativos enviam endereços de erro por HTTP no formato de eventos de RUM. O dSYM permite recuperar as funções e suas localizações no código-fonte.",
+    "steps": {
+      "1": {
+        "title": "Envie eventos de RUM por HTTP",
+        "description": "Até o lançamento do SDK nativo para iOS, faça a integração pelo URLSession. Veja abaixo um exemplo de evento de erro. Visualizações, ações, solicitações e os demais eventos seguem o mesmo formato e são enviados para POST /api/v1/rum/events. As reproduções de sessão são enviadas para /api/v1/rum/replay. Todos esses dados pertencem ao aplicativo ao qual o token do cliente está vinculado."
+      },
+      "2": {
+        "title": "Arquive o build e guarde o dSYM",
+        "description": "Guarde o .xcarchive gerado pela opção Archive do Xcode. O binário do aplicativo e o dSYM devem ter o mesmo UUID."
+      },
+      "3": {
+        "title": "Envie o arquivo DWARF do dSYM",
+        "description": "Em Configurações do RUM → Mapas de código-fonte e símbolos, selecione Apple dSYM, envie o arquivo Contents/Resources/DWARF/<AppName> do pacote dSYM (ou sua versão .gz) e informe o UUID."
+      },
+      "4": {
+        "title": "Verifique a pilha de chamadas do build de produção",
+        "description": "Provoque um erro de teste em um build do TestFlight ou em um build de produção para dispositivo físico. Confirme se as funções, os arquivos e os números das linhas foram restaurados."
+      }
+    }
+  },
+  "continuous-profiling": {
+    "name": "Profiling contínuo",
+    "description": "Use gráficos de chamas do profiling contínuo para identificar gargalos de CPU e memória e pontos de contenção de locks. Envie os perfis via OTLP Profiles, Pyroscope ou pelo envio direto de arquivos pprof.",
+    "steps": {
+      "1": {
+        "title": "OTLP Profiles (OpenTelemetry)",
+        "description": "Aponte o profiler eBPF do OTel ou o SDK para o endpoint integrado de perfis OTLP (alfa)."
+      },
+      "2": {
+        "title": "SDK do Pyroscope",
+        "description": "Se você já usa um agente do Pyroscope, ele pode enviar dados diretamente ao endpoint de ingestão compatível (format=pprof|folded|lines)."
+      },
+      "3": {
+        "title": "Envie um arquivo pprof bruto",
+        "description": "Envie diretamente um arquivo pprof compactado com gzip (gerado por runtime/pprof, por exemplo) ou use o botão de envio no canto superior direito da página Perfis."
+      }
+    }
+  },
+  "curl": {
+    "name": "curl (JSON bruto)",
+    "description": "A maneira mais simples: envie um array JSON ao endpoint de ingestão com um POST HTTP.",
+    "steps": {
+      "1": {
+        "title": "Enviar eventos"
+      },
+      "2": {
+        "title": "Resposta"
+      }
+    }
+  },
+  "bulk-ndjson": {
+    "name": "NDJSON em lote",
+    "description": "Envie dados em lote pela API _bulk compatível com Elasticsearch ou envie um array JSON diretamente ao endpoint de ingestão nativo.",
+    "steps": {
+      "1": {
+        "title": "_bulk compatível com Elasticsearch",
+        "description": "As linhas de ação e de documento se alternam (NDJSON). _index seleciona o fluxo de destino. Se _index não for informado, é usado o cabeçalho stream-name ou, na ausência dele, o fluxo padrão."
+      },
+      "2": {
+        "title": "Envio nativo em lote (array JSON)",
+        "description": "Se você não precisar do formato ES, envie um array JSON ao endpoint de ingestão com um POST de até 5 MB por requisição."
+      }
+    }
+  },
+  "opentelemetry": {
+    "name": "OpenTelemetry",
+    "description": "SDKs e aplicativos OpenTelemetry enviam dados diretamente por OTLP/HTTP. Logs, métricas e traces chegam por uma única integração.",
+    "steps": {
+      "1": {
+        "title": "Endpoint OTLP/HTTP",
+        "description": "Defina o endpoint como /api. O SDK acrescenta /v1/{signal} (→ /api/v1/traces e assim por diante). O cabeçalho opcional stream-name seleciona o fluxo de destino."
+      },
+      "2": {
+        "title": "Variáveis de ambiente (SDK / instrumentação automática)"
+      },
+      "3": {
+        "title": "OTLP gRPC (:4317)",
+        "description": "OTLP gRPC sempre escuta em :4317. Na seção [otlp_grpc], você pode alterar o endereço de escuta, a porta e o tamanho da mensagem.",
+        "note": "Porta exposta: em produção, proteja :4317 com TLS e regras de firewall."
+      }
+    }
+  },
+  "otel-collector": {
+    "name": "OTel Collector",
+    "description": "Encaminhe logs, métricas e traces ao MoleSignal com o exportador otlphttp do OpenTelemetry Collector.",
+    "steps": {
+      "1": {
+        "title": "Configuração do Collector (exportador otlphttp)",
+        "description": "O Collector encaminha os dados por OTLP/HTTP. Defina o endpoint como /api, e /v1/{signal} será acrescentado automaticamente."
+      },
+      "2": {
+        "title": "Configuração do Collector (exportador otlp gRPC, :4317)",
+        "description": "Como alternativa, use o OTLP gRPC integrado (:4317). Adicione tls.insecure: true para conexões sem criptografia e remova essa opção ao usar TLS em produção."
+      }
+    }
+  },
+  "nginx": {
+    "name": "NGINX",
+    "description": "Acompanhe novas linhas em access.log e error.log com o Fluent Bit.",
+    "steps": {
+      "1": {
+        "title": "Configuração de entrada do Fluent Bit"
+      }
+    }
+  },
+  "apache": {
+    "name": "Apache httpd",
+    "description": "Use o Vector para acompanhar novas linhas no formato padrão do mod_log_config.",
+    "steps": {
+      "1": {
+        "title": "Siga o exemplo do NGINX (com o parser apache)",
+        "description": "Acompanhe novas linhas em /var/log/apache2/access.log com o Fluent Bit ou o Vector."
+      }
+    }
+  },
+  "haproxy": {
+    "name": "HAProxy",
+    "description": "Use o socket de estatísticas e configure log-format em JSON.",
+    "steps": {
+      "1": {
+        "title": "haproxy.cfg"
+      }
+    }
+  },
+  "postgres": {
+    "name": "PostgreSQL",
+    "description": "Colete o log de consultas lentas e as métricas de pg_stat_statements.",
+    "steps": {
+      "1": {
+        "title": "Ative o log de consultas lentas"
+      },
+      "2": {
+        "title": "Colete com o Fluent Bit",
+        "description": "Acompanhe novas linhas em /var/log/postgresql/postgresql-*.log com parser=postgres."
+      }
+    }
+  },
+  "mysql": {
+    "name": "MySQL",
+    "description": "general_log e slow_query_log.",
+    "steps": {
+      "1": {
+        "title": "my.cnf"
+      }
+    }
+  },
+  "mongodb": {
+    "name": "MongoDB",
+    "description": "systemLog do mongod e métricas de banco de dados do Atlas.",
+    "steps": {
+      "1": {
+        "title": "mongod.conf"
+      }
+    }
+  },
+  "clickhouse": {
+    "name": "ClickHouse",
+    "description": "Envie system.query_log para o MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "Exporte query_log (JSONEachRow)"
+      }
+    }
+  },
+  "redis": {
+    "name": "Redis",
+    "description": "redis-exporter (Prometheus) e o log de consultas lentas.",
+    "steps": {
+      "1": {
+        "title": "Implante o redis-exporter"
+      },
+      "2": {
+        "title": "remote_write do Prometheus",
+        "description": "Colete métricas de :9121/metrics e envie-as via remote_write para {{ENDPOINT}}/api/v1/prometheus/api/v1/write com Authorization: Bearer <token>."
+      }
+    }
+  },
+  "falco": {
+    "name": "Falco",
+    "description": "Eventos de segurança em tempo de execução do Kubernetes.",
+    "steps": {
+      "1": {
+        "title": "Encaminhe via falcosidekick",
+        "description": "O http_output nativo do Falco não permite adicionar cabeçalhos personalizados às solicitações. O falcosidekick insere o token Bearer."
+      }
+    }
+  },
+  "osquery": {
+    "name": "osquery",
+    "description": "Auditoria de hosts e desvios de configuração.",
+    "steps": {
+      "1": {
+        "title": "osquery.conf"
+      }
+    }
+  },
+  "crowdstrike": {
+    "name": "CrowdStrike Falcon",
+    "description": "Via Falcon Streaming API.",
+    "steps": {
+      "1": {
+        "title": "Use o Falcon SIEM Connector com sink=MoleSignal HTTP",
+        "description": "Requer um cliente e um segredo da API do Falcon."
+      }
+    }
+  },
+  "github-actions": {
+    "name": "GitHub Actions",
+    "description": "Registre cada implantação de um fluxo de trabalho na linha do tempo de implantações do APM.",
+    "steps": {
+      "1": {
+        "title": "Armazene o token como segredo do repositório",
+        "description": "A função do token precisa ter a permissão apm.deploy, que já está incluída na função de um token de ingestão."
+      },
+      "2": {
+        "title": "Registre a implantação após a etapa de implantação",
+        "description": "Adicione esta etapa ao job de implantação. Use a versão que os spans do serviço registram em service.version."
+      }
+    }
+  },
+  "gitlab-ci": {
+    "name": "GitLab CI/CD",
+    "description": "Registre cada implantação de um pipeline na linha do tempo de implantações do APM.",
+    "steps": {
+      "1": {
+        "title": "Adicione o token como variável de CI/CD",
+        "description": "Em Configurações → CI/CD → Variáveis, crie a variável mascarada MOLESIGNAL_TOKEN com um token cuja função tenha a permissão apm.deploy."
+      },
+      "2": {
+        "title": "Registre a implantação no job de implantação",
+        "description": "O after_script é executado mesmo se a implantação falhar, então as implantações com falha também são registradas."
+      }
+    }
+  },
+  "argocd": {
+    "name": "ArgoCD",
+    "description": "Eventos de sincronização e integridade dos aplicativos.",
+    "steps": {
+      "1": {
+        "title": "argocd-notifications-cm",
+        "description": "Configure um gatilho de webhook para o endpoint HTTP do MoleSignal."
+      }
+    }
+  },
+  "jenkins": {
+    "name": "Jenkins",
+    "description": "Registre cada implantação do pipeline na linha do tempo de implantações do APM.",
+    "steps": {
+      "1": {
+        "title": "Adicione o token como credencial",
+        "description": "Use uma credencial do tipo Secret text com o ID molesignal-token para armazenar um token cuja função inclua a permissão apm.deploy."
+      },
+      "2": {
+        "title": "Registre a implantação em post",
+        "description": "post { always } também registra builds com falha. Se a implantação for mantida, qualquer senha em GIT_URL será mascarada."
+      }
+    }
+  },
+  "envoy": {
+    "name": "Envoy",
+    "description": "Logs de acesso em JSON, métricas statsd e rastreamentos OTel.",
+    "steps": {
+      "1": {
+        "title": "Configuração dos logs de acesso"
+      }
+    }
+  },
+  "traefik": {
+    "name": "Traefik",
+    "description": "Logs de acesso em JSON e métricas do Prometheus.",
+    "steps": {
+      "1": {
+        "title": "traefik.yaml"
+      }
+    }
+  },
+  "cloudflare": {
+    "name": "Cloudflare Logpush",
+    "description": "Envie logs de solicitações HTTP ao endpoint do MoleSignal via Logpush.",
+    "steps": {
+      "1": {
+        "title": "Configure a tarefa do Logpush",
+        "description": "Aponte destination_conf para {{ENDPOINT}}/api/v1/_cloudflare com o cabeçalho X-Connector-Token=<connector-push-token> (os conectores de envio se autenticam sem um token Bearer)."
+      }
+    }
+  },
+  "kafka": {
+    "name": "Apache Kafka",
+    "description": "Envie dados por um conector de destino do Kafka Connect ou pelo kafka-exporter.",
+    "steps": {
+      "1": {
+        "title": "Kafka Connect → Destino HTTP"
+      }
+    }
+  },
+  "rabbitmq": {
+    "name": "RabbitMQ",
+    "description": "rabbitmq_prometheus e o plug-in shovel.",
+    "steps": {
+      "1": {
+        "title": "Ative rabbitmq_prometheus"
+      }
+    }
+  },
+  "nats": {
+    "name": "NATS",
+    "description": "Endpoints de monitoramento /varz e /connz do servidor NATS.",
+    "steps": {
+      "1": {
+        "title": "Colete métricas de /metrics na porta :7777",
+        "description": "Use o remote_write do Prometheus para a ingestão."
+      }
+    }
+  },
+  "python": {
+    "name": "Python",
+    "description": "SDK do OpenTelemetry para Python.",
+    "steps": {
+      "1": {
+        "title": "Instale"
+      },
+      "2": {
+        "title": "Execute"
+      }
+    }
+  },
+  "go": {
+    "name": "Go",
+    "description": "SDK go.opentelemetry.io/otel com otlptracehttp.",
+    "steps": {
+      "1": {
+        "title": "main.go"
+      }
+    }
+  },
+  "java": {
+    "name": "Java",
+    "description": "Agente do OpenTelemetry para Java (sem alterações no código).",
+    "steps": {
+      "1": {
+        "title": "Adicione o agente ao iniciar a JVM"
+      }
+    }
+  },
+  "node": {
+    "name": "Node.js",
+    "description": "@opentelemetry/auto-instrumentations-node.",
+    "steps": {
+      "1": {
+        "title": "Instale"
+      },
+      "2": {
+        "title": "Inicie"
+      }
+    }
+  },
+  "rust": {
+    "name": "Rust",
+    "description": "tracing-opentelemetry com opentelemetry-otlp.",
+    "steps": {
+      "1": {
+        "title": "Inicialize"
+      },
+      "2": {
+        "title": "Inicialize"
+      }
+    }
+  },
+  "dotnet": {
+    "name": ".NET",
+    "description": "OpenTelemetry.AutoInstrumentation para .NET.",
+    "steps": {
+      "1": {
+        "title": "Comece com as variáveis de ambiente",
+        "description": "Assim como no Java, use a instrumentação automática do OTel com OTLP_PROTOCOL=http/protobuf e aponte o endpoint para /api."
+      }
+    }
+  },
+  "openai": {
+    "name": "OpenAI",
+    "description": "Capture o prompt, a resposta, a contagem de tokens e a latência de cada chamada à API da OpenAI.",
+    "steps": {
+      "1": {
+        "title": "Use o SDK do OpenLLMetry"
+      }
+    }
+  },
+  "anthropic": {
+    "name": "Anthropic",
+    "description": "Instrumente as chamadas à API do Claude e registre o modelo, o prompt, a saída e o uso de tokens.",
+    "steps": {
+      "1": {
+        "title": "Python"
+      }
+    }
+  },
+  "langchain": {
+    "name": "LangChain",
+    "description": "Rastreamentos passo a passo de cadeias e agentes.",
+    "steps": {
+      "1": {
+        "title": "Manipulador de callback"
+      }
+    }
+  },
+  "llamaindex": {
+    "name": "LlamaIndex",
+    "description": "Rastreie o pipeline de RAG (consultar → recuperar → sintetizar).",
+    "steps": {
+      "1": {
+        "title": "set_global_handler(\"molesignal\")",
+        "description": "Assim como no LangChain, use a instrumentação do OpenInference."
+      }
+    }
+  },
+  "webhook": {
+    "name": "HTTP genérico",
+    "description": "Qualquer serviço pode usar HTTP POST para enviar eventos em JSON ao fluxo escolhido.",
+    "steps": {
+      "1": {
+        "title": "Endpoint",
+        "description": "Substitua <stream-name> pelo nome do fluxo de destino. Se o fluxo não existir, ele será criado sob demanda na ingestão."
+      }
+    }
+  },
+  "graphql-subscription": {
+    "name": "Assinaturas do GraphQL",
+    "description": "Consuma eventos de assinaturas do GraphQL como um fluxo.",
+    "steps": {
+      "1": {
+        "title": "Use um retransmissor WebSocket",
+        "description": "Implante um nó retransmissor que encaminhe os dados das assinaturas ao MoleSignal."
+      }
+    }
+  }
+}

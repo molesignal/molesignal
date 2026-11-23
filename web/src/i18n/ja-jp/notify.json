@@ -1,0 +1,1025 @@
+{
+  "nav": {
+    "label": "通知管理",
+    "root": "通知",
+    "connectors": "コネクター",
+    "users": "ユーザー",
+    "policies": "ポリシー",
+    "defaults": "フォールバックルート",
+    "deliveries": "配信履歴",
+    "templates": "テンプレート"
+  },
+  "common": {
+    "enabled": "有効",
+    "disabled": "無効",
+    "configured": "設定済み",
+    "not_configured": "未設定",
+    "verified": "検証済み",
+    "unverified": "未検証",
+    "edit": "編集",
+    "delete": "削除",
+    "test": "テスト送信",
+    "verify": "検証",
+    "save": "保存",
+    "saving": "保存中…",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "loading": "読み込み中…",
+    "loading_error": "通知データを読み込めませんでした",
+    "json_error": "{{field}} は有効な JSON である必要があります。",
+    "saved": "通知設定を保存しました",
+    "deleted": "通知項目を削除しました",
+    "test_sent": "テストメッセージを送信しました",
+    "test_failed": "テスト配信に失敗しました"
+  },
+  "connector_types": {
+    "email_smtp": "メール（SMTP）",
+    "slack_app": "Slack アプリ",
+    "slack_webhook": "Slack Webhook",
+    "lark_app": "Lark アプリ",
+    "lark_webhook": "Lark Webhook",
+    "dingtalk_app": "DingTalk アプリ",
+    "dingtalk_webhook": "DingTalk Webhook",
+    "wecom_app": "WeCom アプリ",
+    "wecom_webhook": "WeCom Webhook",
+    "wecom_bot": "WeCom スマートボット",
+    "teams_app": "Microsoft Teams ボット",
+    "teams_webhook": "Microsoft Teams Webhook",
+    "google_chat_app": "Google Chat アプリ",
+    "google_chat_webhook": "Google Chat Webhook",
+    "aliyun_voice": "Alibaba Cloud 音声通話",
+    "aliyun_sms": "Alibaba Cloud SMS",
+    "tencent_voice": "Tencent Cloud 音声通話",
+    "tencent_sms": "Tencent Cloud SMS",
+    "huawei_voice": "Huawei Cloud 音声通話",
+    "huawei_sms": "Huawei Cloud SMS",
+    "twilio_voice": "Twilio 音声通話",
+    "twilio_sms": "Twilio SMS",
+    "aws_voice": "AWS 音声通話",
+    "aws_sms": "AWS SMS",
+    "http_sms": "汎用 HTTP SMS",
+    "webhook": "Webhook",
+    "telegram_bot": "Telegram ボット",
+    "discord_webhook": "Discord Webhook",
+    "mattermost_bot": "Mattermost ボット",
+    "mattermost_webhook": "Mattermost Webhook",
+    "webex_bot": "Webex ボット",
+    "webex_webhook": "Webex Webhook",
+    "matrix_bot": "Matrix ボット",
+    "twilio_whatsapp": "Twilio WhatsApp",
+    "aws_sns": "Amazon SNS",
+    "pagerduty": "PagerDuty"
+  },
+  "connector_channels": {
+    "im": "インスタントメッセージ",
+    "phone": "音声通話",
+    "sms": "SMS",
+    "email": "メール",
+    "webhook": "インテグレーション",
+    "other": "その他"
+  },
+  "capabilities": {
+    "directUser": "ユーザーへの直接送信",
+    "group": "グループ",
+    "richText": "リッチテキスト",
+    "interactive": "インタラクティブ",
+    "acknowledgement": "確認応答",
+    "attachments": "添付ファイル"
+  },
+  "connectors": {
+    "title": "コネクター",
+    "subtitle": "ワークスペースの認証情報は、通知先やルーティングとは別に管理できます。",
+    "new": "新規コネクター",
+    "empty_title": "コネクターがありません",
+    "empty_description": "ユーザーエンドポイントやフォールバックルートを関連付ける前に、コネクターを追加してください。",
+    "columns": {
+      "name": "名前",
+      "type": "タイプ",
+      "capabilities": "対応機能",
+      "last_test": "最終テスト",
+      "status": "ステータス",
+      "actions": "操作"
+    },
+    "status": {
+      "unknown": "不明",
+      "connected": "接続済み",
+      "error": "エラー",
+      "disabled": "無効"
+    },
+    "drawer": {
+      "new_title": "新規コネクター",
+      "edit_title": "{{name}}を編集",
+      "subtitle": "認証情報は暗号化して保存され、平文で返されることはありません。",
+      "identity": "コネクター",
+      "configuration": "プロバイダー設定",
+      "name": "名前",
+      "type": "コネクタータイプ",
+      "enabled": "このコネクターからの送信を許可",
+      "test_target": "テスト送信先",
+      "target_type": "送信先タイプ",
+      "target": "送信先",
+      "test_template": "テスト用テンプレート",
+      "test_template_hint": "このプロバイダーでは、承認済みのテンプレートのみ送信できます。テストでは、このテンプレートのプレースホルダーにサンプル値を入れて送信します。",
+      "test_template_none": "このプロバイダー用の{{channel}}テンプレートはまだありません。「通知テンプレート」で作成してください。",
+      "test_card_hint": "インスタントメッセージのテンプレートを選ぶと、プレースホルダーにサンプル値を入れたカードを送信します。選ばない場合は、テキストのみのテストメッセージを送信します。",
+      "test_without_template": "テンプレートなし",
+      "save": "コネクターを保存",
+      "test": "接続をテスト",
+      "save_before_test": "テスト送信の前に、このコネクターを保存してください。",
+      "field": {
+        "host": "SMTPホスト",
+        "port": "ポート",
+        "username": "ユーザー名",
+        "password": "パスワード",
+        "from": "送信元アドレス",
+        "tls": "TLSモード",
+        "timeoutSecs": "タイムアウト（秒）",
+        "bodyFormat": "本文の形式",
+        "body": "本文",
+        "phoneFormat": "電話番号の形式",
+        "successField": "成功判定フィールド",
+        "successValue": "成功判定値",
+        "botToken": "ボットトークン",
+        "clientId": "クライアントID",
+        "clientSecret": "クライアントシークレット",
+        "apiBaseUrl": "APIベースURL",
+        "webhookUrl": "Webhook URL",
+        "appId": "アプリID",
+        "appSecret": "AppSecret",
+        "receiveIdType": "受信者IDの種類",
+        "secret": "署名用シークレット",
+        "url": "デフォルトURL",
+        "method": "HTTPメソッド",
+        "headers": "ヘッダー（JSON）",
+        "appToken": "アプリレベルトークン",
+        "robotCode": "ロボットコード",
+        "cardTemplateId": "カードテンプレートID",
+        "corpId": "企業ID",
+        "corpSecret": "アプリシークレット",
+        "agentId": "AgentId",
+        "callbackToken": "コールバックトークン",
+        "callbackAesKey": "EncodingAESKey",
+        "tenantId": "テナントID",
+        "serviceUrl": "サービスURL",
+        "credentials": "サービスアカウントキー（JSON）",
+        "botId": "ボットID",
+        "botSecret": "常時接続用シークレット",
+        "wsUrl": "常時接続先アドレス",
+        "pubsubBaseUrl": "Pub/Sub URL",
+        "subscription": "Pub/Subサブスクリプション",
+        "accessKeyId": "AccessKey ID",
+        "secretId": "SecretId",
+        "sdkAppId": "アプリID（SdkAppId）",
+        "appKey": "AppKey",
+        "signature": "署名名",
+        "accessKeySecret": "AccessKeyシークレット",
+        "showNumber": "発信者番号",
+        "signName": "署名",
+        "playTimes": "読み上げ回数",
+        "accountSid": "アカウント SID",
+        "authToken": "認証トークン",
+        "fromNumber": "発信元電話番号",
+        "language": "言語",
+        "voice": "音声",
+        "sender": "送信元",
+        "region": "リージョン",
+        "site": "プラットフォーム",
+        "cloud": "クラウド",
+        "auth": "認証",
+        "accessKey": "アクセスキー ID",
+        "secretKey": "シークレットアクセスキー",
+        "sessionToken": "セッショントークン",
+        "roleArn": "ロール ARN",
+        "originationIdentity": "送信元 ID",
+        "voiceId": "Polly の音声",
+        "externalId": "外部 ID",
+        "signingSecret": "署名シークレット",
+        "replies": "返信の処理",
+        "replyTopicArn": "返信用 SNS トピック ARN",
+        "avatarUrl": "アバター URL",
+        "serverUrl": "サーバー URL",
+        "homeserverUrl": "ホームサーバー URL",
+        "accessToken": "アクセストークン",
+        "topicArn": "トピック ARN",
+        "routingKey": "インテグレーションキー",
+        "loginBaseUrl": "サインイン URL"
+      },
+      "hints": {
+        "slack_app": "ボットトークンは通知の送信に使用します。クライアント ID とシークレットを設定すると、ステータスページの閲覧者がページを自分の Slack チャンネルに追加できます。この機能を使うには、ページの Slack 設定でこのコネクターを選択します。ボットトークン、またはクライアント ID とシークレットの組み合わせのうち、少なくとも一方を入力してください。アプリレベルトークン（xapp-）を設定すると、Mole Agent が Socket Mode 経由で Slack で応答できるようになります。",
+        "lark_app": "長時間接続でイベントを受信するように設定すると、Mole Agent が Feishu で応答できるようになります。Mole Agent → 設定 → IM でこのアプリを有効にしてください。",
+        "dingtalk_app": "社内アプリのロボットです。ロボット固有のコードがある場合はそのコードを、ない場合はクライアント ID をロボットコードとして使用します。個人宛ての送信先にはユーザー ID、グループ宛てには openConversationId を指定します。Stream 経由でメッセージを受信するように設定すると、Mole Agent が DingTalk で応答できるようになります。アラート通知に「確認」と「解決」ボタンを表示するには、ドキュメントに従って DingTalk のカードプラットフォームでインタラクティブカードのテンプレートを作成し、その ID をここに入力して、Mole Agent → 設定 → IM でロボットを有効にしてください。",
+        "dingtalk_webhook": "グループのカスタムロボットです。ロボットでリクエストへの署名を有効にしている場合は、署名シークレットを入力してください。",
+        "wecom_app": "自社開発アプリの企業 ID、アプリのシークレット、AgentId を入力してください。個人宛ての送信先にはメンバーのユーザー ID、グループ宛てにはアプリのチャット ID を指定します。サーバーのアドレスをアプリの信頼済み IP アドレスに追加してください。メンバー向けのアラート通知に「確認」と「解決」ボタンを表示するには、アプリの「メッセージ受信」で API 受信を設定し、生成したトークンと EncodingAESKey をここに入力して保存します。その後、下に表示されるコールバック URL をアプリの受信設定に入力してください。",
+        "wecom_webhook": "グループロボットの Webhook アドレスです。",
+        "wecom_bot": "長時間接続を使用する API モードの WeCom スマートボットです。Bot ID と長時間接続用のシークレットを入力してください。Mole Agent → 設定 → IM でボットを有効にすると、Mole Agent が WeCom で応答し、ボットが通知を送信します。アラート通知には「確認」と「解決」ボタンが表示されます。個人宛ての送信先にはメンバーの userid、グループ宛てにはチャットの chatid を指定します。ボットがメッセージを送信できるのは、ボットに直接メッセージを送ったユーザーと、ボットがメンションされたチャットだけです。",
+        "teams_app": "Bot Framework ボットのアプリ ID、クライアントシークレット、テナントを入力してください。旧式のマルチテナントボットの場合、テナントには botframework.com を指定します。クラウドは Global、GCC、または米国政府向けの GCC High と DoD から選択します。サービス URL は選択したクラウドに応じて決まります。個人宛ての送信先にはユーザー ID、グループ宛てには会話 ID を指定します。ボットは、送信先となるユーザーやチームにインストールされている必要があります。Mole Agent が Teams で応答できるようにするには、Mole Agent → 設定 → IM でボットを有効にし、そこに表示されるコールバックアドレスを Azure Bot のメッセージングエンドポイントとして設定してください。",
+        "teams_webhook": "Workflows のフローで作成したチャンネルの Webhook、または従来の受信 Webhook です。メッセージは Adaptive Cards 形式で送信されます。",
+        "google_chat_app": "Chat アプリのサービスアカウントの JSON キーを貼り付けてください。グループ宛ての送信先にはスペース（spaces/…）、個人宛てにはアプリにメッセージを送信したことがあるユーザー（users/…）を指定します。Pub/Sub サブスクリプション（projects/…/subscriptions/…）を設定すると、Mole Agent が Google Chat で応答できるようになります。Mole Agent → 設定 → IM でこのアプリを有効にしてください。",
+        "google_chat_webhook": "スペースの受信 Webhook アドレスです。",
+        "aliyun_voice": "発信先は中国本土の電話番号に限られます。Alibaba Cloud Voice Service コンソールでテキスト読み上げテンプレート（TTS_…）を申請してください。そのコードと変数を電話通知テンプレートに記入し、通知ポリシーの電話チャンネルでそのテンプレートを選択します。共有モードでは発信元電話番号を空欄にし、専用モードではご自身の番号を入力してください。テンプレートも同じモードのものを使用してください。同じ番号への発信は、1 分あたり 1 回、1 時間あたり 5 回、1 日あたり 20 回までです。",
+        "aliyun_sms": "Alibaba Cloud SMS コンソールで署名と通知テンプレート（SMS_…）を申請してください。署名はここに入力します。テンプレートコードと変数を SMS 通知テンプレートに記入し、通知ポリシーの SMS チャンネルでそのテンプレートを選択してください。通知テンプレートの変数はデフォルトで最大 35 文字で、リンクや IP アドレスを含めることはできません。",
+        "tencent_voice": "Tencent Cloud Voice Message コンソールでアプリを作成し、音声テンプレートを申請します。電話通知テンプレートにテンプレート ID と変数を設定し、変数名は出現順に 1、2、3 とします。通知ポリシーの電話チャネルでそのテンプレートを選択します。音声通話は前払いです。パッケージの利用枠を使い切ると発信が拒否され、配信結果にエラーが表示されます。",
+        "tencent_sms": "Tencent Cloud SMS コンソールでアプリを作成し、署名とテンプレートを申請します。ここには署名のテキストを入力します（中国本土では必須）。SMS 通知テンプレートにテンプレート ID と変数を設定し、変数名は出現順に 1、2、3 とします。2024年1月25日より後に開設されたアカウントや長期間使用されていないアカウントでは、デフォルトで変数ごとに 6 文字まで入力できます。Tencent Cloud が上限を引き上げたら、新しい上限を通知テンプレートに設定します。",
+        "huawei_voice": "Huawei Cloud VoiceCall コンソールでアプリを作成し、固定電話番号を注文して、音声テンプレートを申請します。AppKey、AppSecret、アプリのアドレスは「App Management」にあります。アドレスは API では取得できないため、表示された値をそのままコピーします。発信者番号は国番号、市外局番、電話番号をつなげたものです。電話通知テンプレートにテンプレート ID と変数を設定し、変数名は出現順に 1、2、3 とします。変数は 1 つにつき最大 32 バイトで、中国語の漢字は 1 文字あたり 3 バイトです。",
+        "huawei_sms": "Huawei Cloud Message & SMS コンソールでアプリを作成し、署名とテンプレートを設定します。AppKey、AppSecret、アプリのアドレスは「App Management」にあります。アドレスは API では取得できないため、表示された値をそのままコピーします。送信元には署名のチャネル番号を指定します。汎用テンプレートでは署名名も必要です。SMS 通知テンプレートにテンプレート ID と変数を設定し、変数名は出現順に 1、2、3 とします。",
+        "twilio_voice": "発信元には、アカウントに登録されている音声通話対応の番号（例: +14155550100）を指定します。言語には en-US や cmn-CN などのタグを、音声には Polly.Joanna や Polly.Zhiyu などの名前を指定します。音声を空欄にすると、Twilio のデフォルトが使用されます。",
+        "twilio_sms": "送信元には、アカウントに登録されている番号、Messaging Service (MG…) 、または英数字の送信者 ID を指定します。米国の番号に SMS を送信するには、事前に A2P 10DLC への登録が必要です。",
+        "aws_voice": "AWS End User Messaging で音声メッセージを送信し、Amazon Polly で読み上げます。発信元 ID には、音声通話対応の電話番号、プール、またはそれらの ARN を指定します。Polly の音声を空欄にすると MATTHEW が使用されます。中国語（普通話）には ZHIYU を指定します。サンドボックス内のアカウントは、検証済みの番号にのみ発信できます。アカウントで有効になっているリージョンを指定します。一覧の取得には ec2:DescribeRegions が必要です。",
+        "aws_sms": "AWS End User Messaging でトランザクション SMS を送信します。発信元 ID を指定しない場合、AWS が宛先に応じてアカウント内の番号を選択します。電話番号、送信者 ID、プールのいずれかを指定することもできます。サンドボックス内のアカウントは、検証済みの番号にのみ SMS を送信できます。アカウントで有効になっているリージョンを指定します。一覧の取得には ec2:DescribeRegions が必要です。",
+        "http_sms": "独自の SMS ゲートウェイや専用コネクターのないプロバイダーに SMS を渡します。ゲートウェイの URL、ヘッダー、本文にプレースホルダーを指定できます。{{phone}} は電話番号、{{content}} はメッセージ全体（タイトル行と本文行、最大 320 文字）、{{title}} はタイトル、{{text}} は本文、{{secret}} は以下で設定するシークレットです。シークレットは暗号化して保存されます。値は、JSON 本文では JSON エスケープされ、フォームや URL では URL エンコードされます。2xx レスポンスを受け取ると送信成功とみなします。成功フィールドを指定した場合は、その値が設定した成功値と一致する必要もあります。",
+        "webhook": "すべてのリクエストに X-MoleSignal-Event（通知タイプ）と X-MoleSignal-Delivery（重複排除用の配信 ID）が含まれます。署名用シークレット（16 文字以上。例: openssl rand -hex 32 で生成）を設定すると、X-MoleSignal-Timestamp と X-MoleSignal-Sign: sha256=<hex> も含まれます。署名は、シークレットをキーとして \"<timestamp>.<body>\" に対して計算した HMAC-SHA256 です。接続先はホスト名の解決で得られたアドレスに限られます。クラウドメタデータのアドレスへの接続は拒否され、リダイレクトには従いません。",
+        "telegram_bot": "Telegram で @BotFather に /newbot を送ってボットを作成し、発行されたトークンをボットトークンとして入力します。個人宛先には数値のユーザー ID を指定します。対象ユーザーが事前にボットへ /start を送信している必要があります。グループ宛先には、グループまたはチャネルのチャット ID（負の数。スーパーグループとチャネルは -100…）か、チャネルの @username を指定します。グループにはボットを追加し、チャネルではボットを管理者にします。「Mole Agent → 設定 → IM」で有効にすると、Mole Agent が Telegram でも応答し、アラート通知に「確認」と「解決」ボタンが表示されます。",
+        "discord_webhook": "Discord チャネルの「連携サービス → Webhook」で Webhook を作成し、その URL をコピーします。表示名とアバターの URL は任意です。空欄の場合は Webhook の設定が使用されます。メッセージは埋め込み形式で送信され、メンションは行われません。",
+        "mattermost_bot": "Mattermost のシステムコンソールでボットアカウントの作成を許可してから、「統合機能 → ボットアカウント」でボットを追加し、そのアクセストークンをボットトークンとして入力します。サーバー URL には Mattermost のアドレス（例: https://chat.example.com）を指定します。個人宛先にはユーザー名（@ の有無はどちらでも可）またはユーザー ID を指定します。グループ宛先にはチャネル ID または team-name/channel-name を指定し、そのチームとチャネルにボットを追加します。外部 URL を設定すると、アラート通知に「確認」と「解決」ボタンが表示されます。ボタンを押したユーザーは、このコネクターに設定された通知方法で識別されます。外部 URL が内部ネットワーク上にある場合は、Mattermost のシステムコンソールの「Allow untrusted internal connections」に追加します。",
+        "mattermost_webhook": "Mattermost の「統合機能 → 内向きのウェブフック」で、チャネルの受信用 Webhook を追加します。",
+        "webex_bot": "developer.webex.com の「My Webex Apps」でボットを作成し、ボットのアクセストークンをボットトークンとして入力します。個人宛先には、ユーザーの Webex アカウントのメールアドレスまたは person ID を指定します。グループ宛先にはスペース（ルーム）の ID を指定し、そのスペースにボットを追加します。メッセージは Adaptive Cards 形式で送信されます。",
+        "webex_webhook": "Webex App Hub の Incoming Webhooks 連携で発行された URL (https://webexapis.com/v1/webhooks/incoming/…) を指定します。メッセージは Webhook の作成時に選択したスペースに送信されます。",
+        "matrix_bot": "Matrix ボットアカウントのホームサーバー URL（例: https://matrix.org）とアクセストークンを指定します。アクセストークンは、Element でそのアカウントにサインインし、「設定 → ヘルプとバージョン情報 → 詳細設定」で確認できます。グループ宛先にはルーム ID (!…) またはエイリアス (#…) を指定します。ボットがルームに参加済みであるか、参加できる状態である必要があります。個人宛先にはユーザー ID (@name:server) を指定します。ボットがダイレクトルームを作成し、そのユーザーを招待します。メッセージは暗号化されません。",
+        "twilio_whatsapp": "Twilio 経由で WhatsApp メッセージを送信します。送信元には、WhatsApp に対応した E.164 形式の番号（例: +14155550100）または Messaging Service (MG…) を指定します。企業から会話を開始するには、WhatsApp が承認したテンプレートが必要です。Twilio の Content Template Builder でテンプレートを作成し、WhatsApp の承認を受けます。次に、SMS 通知テンプレートの WhatsApp ブロックに Content SID (HX…) と変数を設定し、変数名は出現順に 1、2、3 とします。通知ポリシーの SMS チャネルでそのテンプレートを選択します。",
+        "aws_sns": "Amazon SNS トピックに通知を発行します。サブスクリプションを通じて Lambda、SQS、HTTPS エンドポイント、またはメールに配信されます。トピック ARN の例は arn:aws:sns:us-east-1:123456789012:alerts です。トピックがあるリージョンを選択します。リージョンの一覧取得には ec2:DescribeRegions、発行には sns:Publish が必要です。暗号化されたトピックでは、kms:GenerateDataKey と kms:Decrypt も必要です。メッセージにはサブスクリプションのフィルターポリシー用に event_type と severity の属性が含まれます。FIFO トピック (.fifo) では、アラートごとにメッセージをグループ化し、重複配信を除外します。",
+        "pagerduty": "PagerDuty Events API v2 を使用します。サービスの「Integrations」タブで Events API V2 インテグレーションを追加し、そのインテグレーションキー（ルーティングキー）をここに入力します。EU サービスリージョンのアカウントの場合は、EU を選択します。MoleSignal のアラートが発報またはエスカレーションされると、PagerDuty でもアラートが発報されます。確認と解決は MoleSignal 側のアラートに連動し、重複は MoleSignal のアラート単位で排除されます。"
+      },
+      "options": {
+        "auth": {
+          "access_key": "アクセスキー",
+          "temporary_key": "一時キー",
+          "node_role": "ノード ID",
+          "assume_role": "ロールの引き受け",
+          "web_identity": "ウェブ ID",
+          "password": "ユーザー名とパスワード",
+          "microsoft": "Microsoft 365 (OAuth 2.0)",
+          "google": "Google Workspace (OAuth 2.0)"
+        },
+        "site": {
+          "feishu": "Feishu",
+          "lark": "Lark",
+          "slack": "Slack",
+          "govslack": "GovSlack"
+        },
+        "cloud": {
+          "global": "グローバル",
+          "gcc": "GCC",
+          "gcc_high": "GCC High",
+          "dod": "DoD"
+        },
+        "method": {
+          "post": "POST",
+          "put": "PUT",
+          "patch": "PATCH",
+          "get": "GET"
+        },
+        "bodyFormat": {
+          "json": "JSON",
+          "form": "フォーム (x-www-form-urlencoded)"
+        },
+        "phoneFormat": {
+          "e164": "+8613800138000 (E.164)",
+          "digits": "8613800138000 (+ なし)",
+          "mainland": "13800138000 (国番号なしの中国本土の電話番号)"
+        },
+        "body": {
+          "event": "MoleSignal イベント",
+          "template": "通知テンプレートの本文"
+        },
+        "region": {
+          "us": "米国",
+          "eu": "EU"
+        }
+      },
+      "option_hints": {
+        "auth": {
+          "access_key": "IAM ユーザーの長期アクセスキーです。ユーザーには必要な権限のみを付与してください。SMS の送信には sms-voice:SendTextMessage、音声通話には sms-voice:SendVoiceMessage、SNS トピックへの発行には sns:Publish、リージョンの一覧取得には ec2:DescribeRegions が必要です。",
+          "temporary_key": "AWS STS が発行する短期アクセスキーです。セッショントークンと組み合わせた場合にのみ有効です。有効期限が切れると使用できなくなるため、ここで差し替えてください。",
+          "node_role": "キーは保存されません。MoleSignal は実行ノードの ID を使用します。EKS IRSA または Pod Identity、ECS タスクロール、EC2 インスタンスプロファイルに対応しています。このデプロイ内のすべての組織がこの認証方法を選択できます。",
+          "assume_role": "MoleSignal は AWS STS を通じてこのロールを引き受けます。アクセスキーを指定した場合はそのキーを、指定しない場合はノードの ID を使用します。ロールの信頼ポリシーでは、該当する ID によるロールの引き受けを許可し、以下の外部 ID を必須にしてください。",
+          "web_identity": "MoleSignal は、ノード上のウェブ ID トークンを使用してこのロールを引き受けます。たとえば、EKS が IRSA 用に配置するサービスアカウントトークンを使用できます。そのパスは AWS_WEB_IDENTITY_TOKEN_FILE に設定されています。",
+          "password": "SMTP アカウントのユーザー名とパスワードです。メールプロバイダーが認証コードやアプリパスワードを求める場合は、発行されたものをパスワードとして入力してください。",
+          "microsoft": "OAuth 2.0 を使用して、グローバル版 Microsoft 365 のメールボックスから送信します。Microsoft Entra ID にアプリを登録し、Office 365 Exchange Online のアプリケーション権限 SMTP.SendAsApp を追加して、管理者の同意を付与してください。次に、Exchange 管理者がアプリのサービスプリンシパルを登録し、送信元メールボックスへのアクセス権を付与します。テナント ID とクライアント ID はアプリの「概要」ページで確認できます。クライアントシークレットは「証明書とシークレット」で作成してください。ユーザー名には送信元メールボックスを指定します。サーバーは smtp.office365.com、ポートは 587、暗号化方式は STARTTLS です。",
+          "google": "OAuth 2.0 を使用して、Google Workspace のメールボックスから送信します。サービスアカウントを作成し、その JSON キーを貼り付けてください。Google 管理コンソールの「ドメイン全体の委任」で、サービスアカウントの数値のクライアント ID にスコープ https://mail.google.com/ を許可してください。ユーザー名には、ご利用のドメイン内の送信元メールボックスを指定します。サーバーは smtp.gmail.com、ポートは 587、暗号化方式は STARTTLS です。"
+        },
+        "cloud": {
+          "gcc_high": "米国政府向けクラウドです。トークンは login.microsoftonline.us から発行され、Mole Agent 宛てのメッセージは政府向け Bot Framework によって検証されます。",
+          "dod": "米国政府向けクラウドです。トークンは login.microsoftonline.us から発行され、Mole Agent 宛てのメッセージは政府向け Bot Framework によって検証されます。"
+        },
+        "site": {
+          "govslack": "米国政府向けの Slack です。API とステータスページの認可には slack-gov.com を使用します。"
+        },
+        "body": {
+          "event": "機械処理用に、version、event、alert、rule、escalation と、通知先およびレンダリング済みのメッセージを含むイベントを送信します。フィールドは追加されることはありますが、変更や削除はされません。",
+          "template": "通知ポリシーが Webhook チャネル用に選択したテンプレートの本文を送信します。本文は記述どおりに送信されますが、JSON テンプレートの場合は値をエスケープして JSON として送信します。"
+        },
+        "region": {
+          "eu": "アドレスが .eu.pagerduty.com で終わる PagerDuty アカウント用です。"
+        }
+      },
+      "switch_hints": {
+        "replies": {
+          "twilio_sms": "アラート SMS の受信者は、受信後 1 日以内にコードを返信して、アラートを確認（例: 31）または解決（例: 32）できます。返信は受信者本人の操作として、その権限で処理されます。",
+          "aws_sms": "アラート SMS の受信者は、受信後 1 日以内にコードを返信して、アラートを確認（例: 31）または解決（例: 32）できます。返信は双方向 SMS から SNS 経由で届き、受信者本人の操作として、その権限で処理されます。",
+          "http_sms": "アラート SMS の受信者は、受信後 1 日以内にコードを返信して、アラートを確認（例: 31）または解決（例: 32）できます。返信は受信者本人の操作として、その権限で処理されます。ゲートウェイで受信した返信を転送する必要があります。",
+          "aliyun_sms": "Alibaba Cloud では承認済みのテンプレートのみ送信できます。テンプレートパラメーターに変数 reply.ack と reply.resolve を設定してください。受信者は 1 日以内に該当するコードを返信して、アラートを確認または解決できます。返信は受信者本人の操作として、その権限で処理されます。",
+          "twilio_voice": "電話に出た人は、1 を押してアラートを確認、2 を押して解決できます。キー入力は応答者本人の操作として、その権限で処理されます。",
+          "aliyun_voice": "対話型音声通話（IvrCall）で発信します。電話に出た人は、1 を押してアラートを確認、2 を押して解決できます。発信者番号として、IvrCall 用に購入した実際の電話番号が必要です。",
+          "tencent_sms": "Tencent Cloud では承認済みのテンプレートのみ送信できます。テンプレートパラメーターに変数 reply.ack と reply.resolve を設定してください。受信者は 1 日以内に該当するコードを返信して、アラートを確認または解決できます。返信は受信者本人の操作として、その権限で処理されます。",
+          "tencent_voice": "電話に出た人は、1 を押してアラートを確認、2 を押して解決できます。テンプレートにこの操作案内を含め、コンソールでキー入力のコールバックを有効にしてください。キー入力は、その番号への最新の通話に対する操作として処理されます。",
+          "huawei_sms": "Huawei Cloud では承認済みのテンプレートのみ送信できます。テンプレートパラメーターに変数 reply.ack と reply.resolve を設定してください。受信者は 1 日以内に該当するコードを返信して、アラートを確認または解決できます。返信は受信者本人の操作として、その権限で処理されます。",
+          "huawei_voice": "テンプレートの音声再生後に、キー入力を 1 つ受け付けます。電話に出た人は、1 を押してアラートを確認、2 を押して解決できます。テンプレートにこの操作案内を含めてください。",
+          "twilio_whatsapp": "WhatsApp では承認済みのテンプレートのみ送信できます。テンプレート変数に reply.ack と reply.resolve を設定してください。受信者は 1 日以内に該当するコードを返信して、アラートを確認または解決できます。返信は受信者本人の操作として、その権限で処理されます。"
+        }
+      },
+      "type_fields": {
+        "http_sms": {
+          "url": "ゲートウェイ URL",
+          "secret": "シークレット"
+        },
+        "twilio_voice": {
+          "replies": "キー入力による操作"
+        },
+        "aliyun_voice": {
+          "replies": "キー入力による操作"
+        },
+        "tencent_voice": {
+          "replies": "キー入力による操作",
+          "secretKey": "SecretKey"
+        },
+        "tencent_sms": {
+          "secretKey": "SecretKey"
+        },
+        "huawei_voice": {
+          "replies": "キー入力に応じて処理",
+          "apiBaseUrl": "アプリのアドレス"
+        },
+        "huawei_sms": {
+          "apiBaseUrl": "アプリのアドレス",
+          "sender": "チャネル番号"
+        },
+        "discord_webhook": {
+          "username": "表示名"
+        },
+        "twilio_whatsapp": {
+          "sender": "WhatsApp送信元"
+        },
+        "aws_sns": {
+          "body": "メッセージ"
+        },
+        "pagerduty": {
+          "region": "サービスリージョン"
+        }
+      },
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "copy_external_id": "外部IDをコピー",
+      "external_id_hint": "この組織は、変更できないこの外部IDを使用してロールを引き受けます。ロールの信頼ポリシーで sts:ExternalId 条件を使ってこの外部IDを必須にすると、他の組織はロールのARNを知っていても、そのロールを引き受けることはできません。",
+      "address_by_region": "リージョンに応じて設定",
+      "regions_loading": "プロバイダーからリージョンを取得中…",
+      "regions_need_credentials": "このアカウントで有効なリージョンを表示するには、認証情報を入力してください。",
+      "regions_failed": "リージョン一覧を取得できませんでした: {{error}}",
+      "callbacks": {
+        "label": "コールバックURL",
+        "after_save": "コネクターを保存すると、ここに表示されます。",
+        "no_external_url": "サーバーに外部URLがないため、プロバイダーはコールバックできません。",
+        "per_call": "通話ごとにキー入力用のURLがTwilioに渡されるため、設定は不要です。",
+        "hints": {
+          "twilio_sms": "Twilioの電話番号の「Messaging」設定で、「A message comes in」に「Webhook」を選択し、このURLと「HTTP POST」を設定してください。",
+          "aws_sms": "返信を受信するSNSトピックに、このエンドポイントを指定したHTTPSサブスクリプションを追加してください。サブスクリプションは自動で確認されます。",
+          "aliyun_sms": "Alibaba Cloud SMSで、受信メッセージがHTTP経由でこのURLに送信されるように設定してください。",
+          "aliyun_voice": "Alibaba Cloud Voiceで、配信結果がHTTP経由でこのURLに送信されるように設定してください。キー入力もこのURLに届きます。",
+          "tencent_sms": "Tencent Cloud SMSコンソールのコールバック設定で、返信のコールバック先にこのURLを指定してください。",
+          "tencent_voice": "Tencent Cloud Voice Messageコンソールのイベントコールバック設定で、キー入力のコールバック先にこのURLを指定してください。",
+          "huawei_sms": "SMSアプリの作成時に、受信メッセージの送信先アドレスとしてこのURLを入力してください。URLの末尾のセグメントがコールバックトークンです。",
+          "huawei_voice": "「App Management」で、通話ステータスの送信先アドレスとしてこのURLを入力してください。URLの末尾のセグメントがコールバックトークンです。",
+          "http_sms": "ゲートウェイが受信した返信を、phone と text のフィールドを含むJSONとして、このURLにPOSTするように設定してください。",
+          "wecom_app": "アプリの「Receive messages」でAPI受信を設定してください。URLにはこのURLを、トークンと EncodingAESKey には上の2つのフィールドの値を指定します。URLのドメインは、企業名義でICP届出済みである必要があります。",
+          "twilio_whatsapp": "Twilioで、WhatsApp送信元（またはそのMessaging Service）の受信メッセージ用Webhookに、このURLと「HTTP POST」を設定してください。"
+        }
+      }
+    },
+    "delete_title": "コネクターを削除しますか？",
+    "delete_description": "エンドポイント、ポリシー、フォールバックルートが参照するコネクターを変更するまで、このコネクターは削除できません。"
+  },
+  "users": {
+    "title": "ユーザー通知",
+    "subtitle": "プロバイダーのユーザーIDを紐付け、カテゴリごとに配信順序を設定します。",
+    "empty_title": "ワークスペースにユーザーがいません",
+    "empty_description": "ワークスペースのメンバーが組織に参加すると、ここに表示されます。",
+    "columns": {
+      "user": "ユーザー",
+      "endpoints": "紐付け済みのエンドポイント",
+      "alert": "アラートの優先通知先",
+      "oncall": "オンコールの優先通知先",
+      "report": "レポートの優先通知先",
+      "status": "ステータス"
+    },
+    "drawer_title": "通知設定 · {{name}}",
+    "drawer_subtitle": "通知先、配信順序、通知の一時停止時間帯、テストを管理します。"
+  },
+  "endpoints": {
+    "title": "通知先",
+    "description": "各通知先は1つのコネクターに紐付けられます。",
+    "add": "通知方法を登録",
+    "empty": "通知先が登録されていません。",
+    "identity": "外部識別子",
+    "display_name": "ラベル",
+    "connector": "コネクター",
+    "enabled": "このエンドポイントを使用",
+    "verified": "このエンドポイントが確認済みであることを申告",
+    "new_title": "通知方法を登録",
+    "edit_title": "通知方法を編集",
+    "save": "エンドポイントを保存",
+    "delete_title": "エンドポイントを削除しますか？",
+    "delete_description": "先に、すべての配信設定からこのエンドポイントを削除してください。",
+    "phone_hint": "+14155550100 のように、+ と国番号を含む電話番号を入力してください。Alibaba Cloud、Tencent Cloud、Huawei Cloud、汎用 HTTP SMS コネクターでは、中国本土の11桁の携帯電話番号も使用できます。",
+    "identity_hints": {
+      "telegram_bot": "@username ではなく、数字の Telegram ユーザー ID を入力してください。自分の ID は @userinfobot で確認できます。通知を受け取るには、事前に Telegram でボットを開き、「Start」を押す必要があります。",
+      "mattermost_bot": "小文字の Mattermost ユーザー名（@ の有無は不問）、または26文字のユーザー ID を入力してください。カードのボタンを押したユーザーは、この値と照合されます。",
+      "webex_bot": "Webex アカウントのメールアドレス、または Webex の Person ID を入力してください。",
+      "matrix_bot": "@name:matrix.org のような Matrix ユーザー ID を入力してください。初回の通知時にボットがユーザーをダイレクトルームに招待します。招待を承諾すると、メッセージを確認できます。",
+      "twilio_whatsapp": "+14155550100 のように、+ と国番号を含む WhatsApp の電話番号を入力してください。"
+    }
+  },
+  "preferences": {
+    "title": "配信設定",
+    "description": "設定した順序で配信を試みた後、チームや組織の代替通知先を使用します。",
+    "alert": "アラートイベント",
+    "oncall": "オンコールイベント",
+    "report": "レポート",
+    "escalation": "アラートのエスカレーション",
+    "security": "セキュリティ",
+    "system": "システム",
+    "enabled": "このカテゴリの通知を受信",
+    "endpoint_order": "エンドポイントの配信順序",
+    "move_up": "1つ上に移動",
+    "move_down": "1つ下に移動",
+    "no_endpoints": "このカテゴリを設定する前に、エンドポイントを登録してください。",
+    "quiet_enabled": "通知の一時停止時間帯を有効化",
+    "timezone": "タイムゾーン",
+    "start": "開始時刻 (HH:MM)",
+    "end": "終了時刻 (HH:MM)",
+    "save": "{{category}}を保存",
+    "wait_label": "ステップ{{step}}までの待機時間（分）",
+    "wait_unit": "分後",
+    "wait_hint": "最初のステップではすぐに通知を送信します。以降のステップは、最初の通知から指定した分数が経過した時点で、誰もアラートを確認していなければ実行されます。直前のステップと同じ分数を指定した場合は、直前の通知の送信に失敗したときだけ実行されます。送信に失敗した場合は、待機せずに次のステップへ進みます。",
+    "high_urgency_steps": "緊急度の高いアラートの通知順序",
+    "low_urgency_steps": "緊急度の低いアラートの通知順序",
+    "low_urgency_hint": "空欄の場合は、上の最初の通知方法のみを使用します。",
+    "high_urgency_bypass": "通知を抑制する時間帯も緊急度の高いアラートを受信",
+    "quiet_low_urgency": "通知を抑制する時間帯には、緊急度の低いアラートは通知されません。",
+    "add_step": "ステップを追加：{{method}}",
+    "remove_step": "ステップ{{step}}を削除",
+    "boost_label": "ステップ{{step}}の緊急通知",
+    "boosts": {
+      "default": {
+        "none": "緊急通知なし",
+        "app": "アプリ内で緊急通知",
+        "sms": "SMSで緊急通知",
+        "phone": "電話で緊急通知"
+      },
+      "lark_app": {
+        "none": "Buzzなし",
+        "app": "アプリ内でBuzz",
+        "sms": "SMSでBuzz",
+        "phone": "電話でBuzz"
+      },
+      "dingtalk_app": {
+        "none": "DINGなし",
+        "app": "アプリ内でDING",
+        "sms": "SMSでDING",
+        "phone": "電話でDING"
+      }
+    },
+    "boost_hint": "緊急通知では、メッセージの送信後にアプリ内アラート、SMS、または電話で追加通知します。",
+    "boost_wait_hint": "緊急通知では、メッセージの送信後にアプリ内アラート、SMS、または電話で追加通知します。緊急通知の設定を変えて、同じ通知方法を2回使うこともできます。たとえば、最初にメッセージを送り、5分以内に誰もアラートを確認しなければ、同じ方法で再送し、電話でも通知します。",
+    "boost_notes": {
+      "lark_app": "国際版のLarkでは、アプリ内のBuzzのみ利用できます。",
+      "dingtalk_app": "DINGを利用するにはDingTalk ProfessionalまたはExclusiveが必要です。SMSや電話でDINGを送るには、利用枠の購入が必要です。"
+    }
+  },
+  "event_types": {
+    "alert": {
+      "triggered": "アラート発報",
+      "acknowledged": "アラート確認済み",
+      "resolved": "アラート解決済み",
+      "escalated": "アラートのエスカレーション"
+    },
+    "oncall": {
+      "shift": {
+        "starting": "オンコールシフト開始間近",
+        "started": "オンコールシフト開始"
+      },
+      "override": {
+        "created": "オンコールオーバーライドの作成"
+      },
+      "coverage": {
+        "missing": "オンコール担当者不在"
+      },
+      "swap": {
+        "updated": "シフト交換の更新"
+      },
+      "member": {
+        "unreachable": "オンコール担当者に連絡できません"
+      }
+    },
+    "incident": {
+      "status_update": "重大インシデントの状況更新"
+    },
+    "agent": {
+      "approval": {
+        "requested": "Mole Agent の承認がリクエストされました"
+      }
+    }
+  },
+  "resolver_types": {
+    "alert_owner": "アラートのオーナー",
+    "current_oncall": "現在のオンコール担当者",
+    "event_users": "イベントで指定されたユーザー",
+    "fixed_users": "選択したユーザー",
+    "next_oncall": "次のオンコール担当者",
+    "schedule_members": "スケジュールのメンバー",
+    "team_lead": "チームリーダー",
+    "team_members": "チームメンバー"
+  },
+  "policies": {
+    "title": "通知ポリシー",
+    "subtitle": "イベントを条件と照合して受信者を特定し、通知設定に従って配信します。応答がない場合はエスカレーションします。",
+    "new": "新規ポリシー",
+    "empty_title": "通知ポリシーがありません",
+    "empty_description": "ポリシーを作成して、業務イベントに受信者と配信経路を関連付けます。",
+    "columns": {
+      "name": "ポリシー",
+      "event": "イベント",
+      "recipient": "受信者の決定方法",
+      "delivery": "配信",
+      "fallback": "フォールバック",
+      "status": "ステータス"
+    },
+    "drawer": {
+      "new_title": "新規通知ポリシー",
+      "edit_title": "{{name}}を編集",
+      "subtitle": "実際のワークスペースのユーザーと配信経路を特定します。通知は送信しません。",
+      "trigger": "1 · トリガー",
+      "recipient": "2 · 受信者",
+      "delivery": "3 · 配信",
+      "failure": "4 · 配信失敗とエスカレーション",
+      "preview": "配信のライブプレビュー",
+      "name": "名前",
+      "event_type": "イベントタイプ",
+      "category": "カテゴリ",
+      "priority": "優先度",
+      "matchers": "一致条件 (JSON)",
+      "resolver": "受信者の決定方法",
+      "resolver_config": "受信者の決定設定 (JSON)",
+      "delivery_mode": "配信モード",
+      "template": "共通テンプレート",
+      "template_hint": "専用テンプレートがないチャネルでは、イベントの属性値を差し込んだ共通テンプレートを使用します。",
+      "default_template": "生成されたイベントメッセージを使用",
+      "channel_templates": "チャネル別テンプレート",
+      "use_general_template": "共通テンプレートを使用",
+      "connectors": "選択したコネクター",
+      "user_fallbacks": "ユーザーのフォールバック先を使用",
+      "team_defaults": "チームのフォールバックルートを使用",
+      "organization_defaults": "組織のフォールバックルートを使用",
+      "merge_window": "通知をまとめる",
+      "merge_window_hint": "設定した時間枠内に同じユーザーまたはグループに届くアラート通知をまとめます。最初の通知はすぐに送信し、残りは時間枠の終了時にまとめて送信します。電話通知の集約時間は最低60秒です。Webhookは集約しません。",
+      "merge_off": "まとめない",
+      "merge_seconds_one": "{{count}}秒",
+      "merge_seconds_other": "{{count}}秒",
+      "merge_minutes_one": "{{count}}分",
+      "merge_minutes_other": "{{count}}分",
+      "ack_timeout": "確認応答のタイムアウト（秒）",
+      "escalation_resolver": "エスカレーションリゾルバー",
+      "escalation_config": "エスカレーションリゾルバーの設定（JSON）",
+      "escalation_delivery": "エスカレーションの配信モード",
+      "escalation_connectors": "エスカレーション用コネクター",
+      "event_attributes": "プレビュー用イベント属性（JSON）",
+      "preview_event": "イベントをプレビュー",
+      "preview_waiting": "配信プランを決定するには、必須項目を入力してください。",
+      "ack_disabled": "エスカレーションを無効にするには、空欄にしてください。",
+      "refresh_preview": "プレビューを更新",
+      "matched": "ポリシーに一致",
+      "not_matched": "ポリシーに不一致",
+      "no_recipients": "配信先が見つかりませんでした。",
+      "resolved_by": "決定元：{{resolver}}",
+      "step_template": "テンプレート：{{name}}",
+      "save": "ポリシーを保存",
+      "restore": "デフォルトに戻す",
+      "builtin_name_hint": "組み込みポリシーの名前は変更できません。",
+      "time_hint": "通知対象イベントの発生時刻の期限です。期限を過ぎて発生したイベントはこのポリシーでは通知されませんが、他のポリシーは引き続き適用されます。"
+    },
+    "delivery_modes": {
+      "prefer_user": "ユーザー設定を優先",
+      "force_connector": "指定したコネクターのみを使用",
+      "multi_connector": "複数のコネクターで配信"
+    },
+    "delete_title": "ポリシーを削除しますか？",
+    "delete_description": "既存の配信履歴は引き続き確認できます。",
+    "builtin_label": "組み込み",
+    "builtin_not_deletable": "組み込みポリシーは無効にできますが、削除はできません。",
+    "builtin": {
+      "alert_triggered": "アラート発報：オーナーに通知",
+      "alert_resolved": "アラート解決：オーナーに通知",
+      "alert_acknowledged": "アラート確認：オーナーに通知",
+      "alert_escalated_to_users": "エスカレーション：該当ステップの担当者に通知",
+      "alert_escalated_to_teams": "エスカレーション：該当ステップのチームに通知",
+      "oncall_shift_starting": "オンコールの引き継ぎ：交代する両担当者に通知",
+      "oncall_coverage_missing": "オンコール担当者不在：スケジュール管理者に通知",
+      "oncall_override_created": "オンコールのオーバーライド：関係者に通知",
+      "oncall_swap_updated": "シフト交換：関係者に通知",
+      "incident_status_update": "重大インシデントの状況更新：関係者に通知",
+      "oncall_member_unreachable": "オンコール担当者に連絡不能：本人とスケジュール管理者に通知",
+      "intake_budget_warning": "取り込み予算の上限間近：予算で指定されたユーザーに通知",
+      "intake_budget_exceeded": "取り込み予算の上限超過：予算で指定されたユーザーに通知",
+      "agent_approval_requested": "承認が必要：承認権限を持つユーザーに通知"
+    },
+    "restore_title": "デフォルト設定に戻しますか？",
+    "restore_description": "組み込みポリシーがデフォルト設定に戻り、変更内容は失われます。",
+    "restored": "デフォルト設定に戻しました"
+  },
+  "defaults": {
+    "title": "フォールバックルート",
+    "subtitle": "個人宛ての配信に失敗した場合に使用する、チームおよび組織のルートを設定します。",
+    "scope": "ルートの適用範囲",
+    "organization_scope": "組織のデフォルト",
+    "team_scope": "チーム · {{name}}",
+    "category": "カテゴリー",
+    "enabled": "この組織のフォールバックを有効化",
+    "routes": "ルート",
+    "connector": "コネクター",
+    "target_type": "宛先タイプ",
+    "target": "宛先",
+    "add_route": "ルートを追加",
+    "remove_route": "ルートを削除",
+    "save": "フォールバックルートを保存",
+    "delete": "フォールバックを削除",
+    "empty": "この適用範囲とカテゴリーには、フォールバックルートが設定されていません。",
+    "configured_hint": "表示順に各ルートで配信を試みます。"
+  },
+  "deliveries": {
+    "title": "通知の配信履歴",
+    "subtitle": "配信の試行、フォールバックの各段階、確認、エスカレーションをすべて確認できます。",
+    "empty_title": "配信履歴なし",
+    "empty_description": "該当する通知イベントが処理されると、配信の試行履歴がここに表示されます。",
+    "filters": {
+      "event": "イベントID",
+      "status": "ステータス",
+      "stage": "ステージ",
+      "all": "すべて"
+    },
+    "columns": {
+      "event": "イベント",
+      "recipient": "受信者",
+      "source": "宛先の決定元",
+      "connector": "コネクター",
+      "stage": "ステージ",
+      "status": "ステータス",
+      "latency": "レイテンシー",
+      "sent": "送信日時"
+    },
+    "detail_title": "配信の流れ",
+    "detail_subtitle": "配信試行 {{attempt}} · {{status}}",
+    "target": "宛先（マスク済み）",
+    "error": "失敗",
+    "skip_reason": "理由",
+    "ack": "イベントを確認済みにする",
+    "retry": "失敗したルートで再試行",
+    "acknowledged": "イベントを確認済みにしました",
+    "retried": "再試行を開始しました",
+    "views_label": "配信一覧の表示方法",
+    "views": {
+      "events": "アラート別",
+      "attempts": "試行別"
+    },
+    "by_event": {
+      "channels": "チャネルと試行回数",
+      "first_delivered": "初回配信日時",
+      "not_delivered": "未配信",
+      "failed_tries": "失敗",
+      "open_try": "配信試行 {{attempt}} を開く: {{status}}"
+    }
+  },
+  "templates": {
+    "conditions": {
+      "title": "条件",
+      "description": "条件を満たす場合にのみ、ブロック内の内容が出力されます。!= による比較や else による分岐、ブロックのネストにも対応しています。",
+      "items": {
+        "triggered": "アラート発報時のみ",
+        "resolved": "アラート復旧時のみ",
+        "severity": "重大度に応じた文言の切り替え",
+        "runbook": "ランブックがある場合のみリンクを表示"
+      },
+      "problem": "条件に問題があります: {{problem}}"
+    },
+    "title": "通知テンプレート",
+    "subtitle": "通知メッセージをテンプレートとして再利用できます。すべてのチャネルに共通のテンプレートを使うことも、SMS や電話などのチャネルごとに専用のテンプレートを設定することもできます。",
+    "new": "新規テンプレート",
+    "empty_title": "通知テンプレートがありません",
+    "empty_description": "再利用できるメッセージ本文を作成し、通知ポリシーで選択します。",
+    "channel_filter": "チャネルで絞り込み",
+    "all": "すべて",
+    "columns": {
+      "name": "テンプレート",
+      "channel": "チャネル",
+      "format": "形式",
+      "category": "カテゴリ",
+      "updated": "更新日時",
+      "actions": "操作"
+    },
+    "new_title": "新規通知テンプレート",
+    "edit_title": "{{name}}を編集",
+    "editor_subtitle": "通知カテゴリを選んで対応する変数を挿入するか、用意されたテンプレートを使って作成できます。",
+    "name": "名前",
+    "category": "通知カテゴリ",
+    "channel": "チャネル",
+    "channels": {
+      "general": "一般",
+      "im": "インスタントメッセージ",
+      "phone": "電話",
+      "sms": "SMS",
+      "email": "メール",
+      "webhook": "Webhook"
+    },
+    "format": "形式",
+    "body": "メッセージ本文",
+    "variables_hint": "右側の「変数」を開いて変数を選択すると、カーソル位置に挿入されます。",
+    "body_hint_sms": "SMSでは通知タイトルを含めず、この本文のみを送信します。",
+    "body_hint_phone": "電話では通知タイトルを含めず、この本文のみを読み上げます。",
+    "preview_attributes": "プレビュー用のイベント属性（JSON）",
+    "preview": "メッセージのプレビュー",
+    "preview_empty": "メッセージ本文を入力してください。",
+    "length": "{{chars}} / {{limit}}文字",
+    "length_over_sms": "{{chars}}文字：SMSでは先頭の{{limit}}文字までを送信し、残りは切り捨てます。",
+    "length_over_phone": "{{chars}}文字：電話では先頭の{{limit}}文字までを読み上げ、残りは切り捨てます。",
+    "attributes_object": "プレビュー用の属性はJSONオブジェクトで指定してください。",
+    "reference": {
+      "title": "変数",
+      "description": "変数を選択すると、カーソル位置に挿入されます。",
+      "loading": "変数を読み込み中…",
+      "error": "変数を読み込めませんでした。",
+      "dynamic_key": "このワークスペースで見つかった動的キー",
+      "tabs": {
+        "common": "共通",
+        "rule": "ルール",
+        "incident": "アラート",
+        "metadata": "ラベルとアノテーション",
+        "schedule": "スケジュール",
+        "oncall": "引き継ぎ",
+        "override": "上書き",
+        "escalation": "エスカレーション"
+      },
+      "groups": {
+        "event": "イベント",
+        "message": "メッセージ",
+        "rule": "アラートルール",
+        "incident": "インシデント",
+        "trigger": "トリガー値",
+        "labels": "ラベル",
+        "annotations": "アノテーション",
+        "escalation": "エスカレーション",
+        "schedule": "オンコールスケジュール",
+        "oncall": "シフト交代",
+        "override": "上書き"
+      },
+      "fields": {
+        "event_id": "イベントの一意識別子",
+        "event_type": "イベントタイプ",
+        "event_occurred_at": "イベント発生時刻（マイクロ秒）",
+        "event_time": "イベント発生時刻（UTC）",
+        "message_title": "システムが生成したメッセージタイトル",
+        "message_text": "システムが生成したデフォルトメッセージ",
+        "event_attribute": "任意のイベント属性（<key> を属性名に置き換えます）",
+        "rule_id": "アラートルールID",
+        "rule_name": "アラートルール名",
+        "rule_description": "アラートルールの説明",
+        "incident_id": "インシデントID",
+        "incident_fingerprint": "インシデントのフィンガープリント",
+        "incident_status": "インシデントのステータス",
+        "incident_summary": "インシデントの概要",
+        "incident_url": "MoleSignal 内のアラートのURL（外部URLの設定が必要）",
+        "incident_started_time": "アラートの発生時刻（UTC）",
+        "incident_duration": "アラートの継続時間（例：1h 5m）",
+        "incident_acknowledged_time": "確認された時刻（UTC）",
+        "incident_acknowledged_by": "確認したユーザーのID",
+        "incident_resolved_time": "解決された時刻（UTC）",
+        "incident_resolved_by": "解決したユーザーのID",
+        "incident_assignees": "担当者のユーザーID（カンマ区切り）",
+        "service": "サービス（ラベルまたはアノテーションから取得）",
+        "environment": "環境（ラベルまたはアノテーションから取得）",
+        "affected_services": "影響を受けたサービス（カンマ区切り）",
+        "severity": "アラートの重大度",
+        "value": "アラートをトリガーした観測値",
+        "threshold": "ルールのしきい値",
+        "evaluated_at": "ルールの評価時刻（マイクロ秒）",
+        "labels_all": "すべてのラベル（例：service=api, env=production）",
+        "labels_key": "ラベルの値。<key> を置き換えます。",
+        "annotations_key": "アノテーションの値。<key> を置き換えます。",
+        "reply_ack": "返信でアラートを確認済みにするコード（例：31）。返信を処理するコネクターから送信されるテキストにのみ挿入されます。",
+        "reply_resolve": "返信でアラートを解決済みにするコード（例：32）",
+        "escalation_step": "エスカレーションのステップ番号（1から開始）",
+        "escalation_loop": "エスカレーションの周回番号（1から開始）",
+        "escalation_target": "このステップの通知先：user、schedule、team のいずれか",
+        "escalation_reason": "この通知の送信理由：step（ポリシーが次のステップに進行）、manual（手動でエスカレーション）、reassigned（再割り当て）、responder_added（対応者の追加）、snooze_ended（スヌーズの終了）、ack_timeout（確認済みのまま一定時間未解決）、severity_raised（重大度の引き上げ）のいずれか",
+        "schedule_id": "スケジュールID",
+        "schedule_name": "スケジュール名",
+        "schedule_team_id": "スケジュールのチームID",
+        "schedule_timezone": "スケジュールのタイムゾーン",
+        "oncall_current_user": "現在のオンコール担当者のユーザーID",
+        "oncall_next_user": "次のオンコール担当者のユーザーID",
+        "oncall_transition_at": "交代時刻（マイクロ秒）",
+        "oncall_transition_time": "交代時刻（UTC）",
+        "override_id": "オーバーライドID",
+        "override_user": "代理担当者のユーザーID",
+        "override_original_user": "元のオンコール担当者のユーザーID",
+        "override_start_at": "オーバーライドの開始時刻（マイクロ秒）",
+        "override_end_at": "オーバーライドの終了時刻（マイクロ秒）",
+        "override_start_time": "オーバーライドの開始時刻（UTC）",
+        "override_end_time": "オーバーライドの終了時刻（UTC）",
+        "override_reason": "オーバーライドの理由",
+        "urgency": "緊急度レベルのキー（例：high、low）",
+        "priority": "優先度（P1–P9、未設定の場合は空欄）",
+        "urgency_name": "組織が設定した緊急度レベルの名前（名前が未設定の場合は空欄）",
+        "priority_name": "組織が設定した優先度の名前（名前が未設定の場合は空欄）"
+      }
+    },
+    "provider": {
+      "title": "プロバイダー承認済みテンプレート",
+      "description_sms": "Alibaba Cloud、Tencent Cloud、Huawei Cloud では承認済みのSMSテンプレートのみ、WhatsApp では承認済みのContentテンプレートのみ送信できます。これらのコネクターはここで指定したテンプレートを送信し、その他のSMSコネクターは上の本文を送信します。",
+      "description_phone": "Alibaba Cloud、Tencent Cloud、Huawei Cloud では承認済みの音声テンプレートのみ読み上げられます。これらの電話コネクターはここで指定したテンプレートを読み上げ、その他の電話コネクターは上の本文を読み上げます。",
+      "names": {
+        "aliyun": "Alibaba Cloud",
+        "tencent": "Tencent Cloud",
+        "huawei": "Huawei Cloud",
+        "whatsapp": "WhatsApp"
+      },
+      "code": "テンプレートコード",
+      "code_labels": {
+        "whatsapp": "Content SID"
+      },
+      "max_chars": "変数あたりの文字数",
+      "max_chars_placeholder": {
+        "aliyun_sms": "35（デフォルト）",
+        "aliyun_phone": "35（デフォルト）",
+        "tencent_sms": "6（デフォルト）",
+        "tencent_phone": "20（デフォルト）",
+        "huawei_sms": "20（デフォルト）",
+        "huawei_phone": "32（デフォルト）",
+        "whatsapp_sms": "300（デフォルト）"
+      },
+      "params": "変数",
+      "param_name": "変数名",
+      "param_value": "値",
+      "add_param": "変数を追加",
+      "remove_param": "変数を削除",
+      "params_hint": "変数名はテンプレート内の {{variable}} に合わせます。値には右側の変数を使用でき、選択するとカーソル位置に挿入されます。",
+      "params_hint_position": "このプロバイダーは変数の出現順に値を割り当てます。テンプレートの1番目、2番目、3番目の変数には、それぞれ 1、2、3 と名前を付けます。値には右側の変数を使用でき、選択するとカーソル位置に挿入されます。",
+      "preview": "{{provider}} に {{code}} が送信されます",
+      "problem_elsewhere": "{{provider}} のテンプレートは未完成です。保存する前に設定を完了してください。",
+      "problems": {
+        "code": "プロバイダーから発行されたテンプレートコードを入力してください。使用できるのは英字、数字、アンダースコア、ハイフンです。",
+        "content_sid": "Twilio の Content SID を入力してください。HX に続く32桁の16進数です。",
+        "param_name": "変数名には英字、数字、アンダースコアのみ使用できます。",
+        "param_twice": "同じ変数が重複しています。",
+        "param_value": "すべての変数に値を設定してください。",
+        "max_chars": "変数あたりの文字数は1〜500の範囲で指定してください。"
+      }
+    },
+    "card": {
+      "title": "カード",
+      "description": "オンにすると、Lark、DingTalk、WeCom、Slack、Teams、Google Chat のアプリやグループボットは、上のメッセージ本文をカードにして通知を送信します。オフの場合は、従来どおりテキストで送信します。",
+      "toggle": "カードとして送信",
+      "card_title": "カードのタイトル",
+      "card_title_placeholder": "空欄の場合は通知のタイトルを使用します",
+      "color": "タイトルの色",
+      "colors": {
+        "severity": "重大度に応じて設定",
+        "blue": "青",
+        "green": "緑",
+        "yellow": "黄",
+        "orange": "オレンジ",
+        "red": "赤",
+        "grey": "グレー"
+      },
+      "fields": "フィールド",
+      "field_label": "フィールド名",
+      "field_value": "フィールドの値",
+      "add_field": "フィールドを追加",
+      "remove_field": "フィールドを削除",
+      "links": "リンクボタン",
+      "link_label": "ボタンのテキスト",
+      "link_url": "リンク先URL",
+      "add_link": "リンクを追加",
+      "remove_link": "リンクを削除",
+      "note": "フッター",
+      "hint": "どの項目にも変数を使用できます。右側で変数を選択すると、カーソル位置に挿入されます。イベントのデータで値を設定できないフィールドやリンクは表示されません。重大度に応じて、クリティカルは赤、エラーはオレンジ、警告は黄、その他は青で表示され、解決済みになると緑で表示されます。",
+      "starting": {
+        "severity": "重大度",
+        "status": "ステータス",
+        "service": "サービス",
+        "schedule": "スケジュール",
+        "next": "次のオンコール担当者",
+        "runbook": "ランブック"
+      },
+      "problems": {
+        "too_many": "カードに追加できるのは、フィールド10個、リンク5個までです。",
+        "field": "すべてのフィールドに名前と値が必要です。",
+        "link": "すべてのリンクにボタンのテキストとリンク先URLが必要です。",
+        "link_url": "http:// または https:// で始まるURLか、そのようなURLを挿入する変数を指定してください。",
+        "too_long": "文字数の上限を超えています。タイトルとフッターは各200文字、フィールド名は40文字、フィールドの値は500文字、ボタンのテキストは30文字までです。"
+      }
+    },
+    "presets": {
+      "title": "プリセットテンプレート",
+      "description": "プリセットの本文は自由に編集できます。",
+      "items": {
+        "alert_text": "アラート（プレーンテキスト）",
+        "alert_markdown": "アラート（Markdown）",
+        "alert_html": "アラート（HTML）",
+        "oncall_shift": "シフト交代のリマインダー",
+        "oncall_override": "オンコールの上書き通知",
+        "oncall_coverage": "オンコール担当者不在の通知",
+        "oncall_html": "シフト交代（HTML）",
+        "escalation_text": "アラートのエスカレーション（プレーンテキスト）",
+        "escalation_markdown": "アラートのエスカレーション（Markdown）",
+        "escalation_html": "アラートのエスカレーション（HTML）",
+        "report_text": "レポート（プレーンテキスト）",
+        "report_markdown": "レポート（Markdown）",
+        "report_html": "レポート（HTML）",
+        "security_text": "セキュリティ（プレーンテキスト）",
+        "security_markdown": "セキュリティ（Markdown）",
+        "security_html": "セキュリティ（HTML）",
+        "system_text": "システム（プレーンテキスト）",
+        "system_markdown": "システム Markdown",
+        "system_html": "システム HTML",
+        "alert_sms": "アラート SMS",
+        "alert_phone": "アラート電話通知",
+        "escalation_sms": "エスカレーション SMS",
+        "escalation_phone": "エスカレーション電話通知",
+        "oncall_sms": "シフト交代 SMS",
+        "alert_resolved_text": "アラート解決通知（プレーンテキスト）",
+        "alert_resolved_markdown": "アラート解決通知（Markdown）",
+        "alert_acknowledged_markdown": "アラート確認通知（Markdown）",
+        "alert_im_markdown": "リンク付きアラート（Markdown）",
+        "alert_email_html": "表付きアラートメール",
+        "alert_resolved_sms": "アラート解決 SMS",
+        "oncall_phone": "シフト交代の電話通知",
+        "oncall_coverage_sms": "オンコール担当者不在の SMS"
+      }
+    },
+    "delete_title": "通知テンプレートを削除しますか？",
+    "delete_description": "{{name}} は通知ポリシーで参照されている間は削除できません。"
+  },
+  "account": {
+    "title": "個人の通知設定",
+    "subtitle": "ワークスペースのアカウント情報、カテゴリ別の通知設定、通知を停止する時間帯を管理します。",
+    "unavailable": "サインイン中のユーザー情報を取得できません。",
+    "reachability": {
+      "none": "現在、アラートを受信できません。アラート通知にもエスカレーション通知にも有効な通知手段がなく、グループに通知を送るチームや組織のルートもありません。以下で通知手段を紐付け、ご自身の通知ステップに追加してください。",
+      "group_only": "ご自身の通知手段が設定されていないため、アラートはチームまたは組織のグループ経由でのみ届きます。以下で通知手段を紐付け、ご自身の通知ステップに追加してください。"
+    }
+  },
+  "action_link": {
+    "loading": "リンクを読み込み中…",
+    "acknowledge": "アラートを確認",
+    "resolve": "アラートを解決",
+    "acknowledging": "アラートを確認中…",
+    "resolving": "アラートを解決中…",
+    "explain_acknowledge": "通知の受信者として、アラートを確認済みにします。このリンクは {{until}} までに1回だけ使用できます。",
+    "explain_resolve": "通知の受信者として、アラートを解決済みにします。このリンクは {{until}} までに1回だけ使用できます。",
+    "started": "開始：{{at}}",
+    "acknowledged": "アラートは確認済みです。",
+    "resolved": "アラートは解決済みです。",
+    "used": "このリンクはすでに使用されています。",
+    "used_at": "このリンクは {{at}} に使用されました。",
+    "inactive": "このアラートはすでに対応済みか、状態が復旧しているため、操作は不要です。",
+    "no_access": "このアラートを操作する権限がなくなったため、リンクを開いても処理は実行されませんでした。",
+    "expired": "このリンクの有効期限が切れています。",
+    "failed": "処理を完了できませんでした：{{error}}",
+    "unavailable_title": "このリンクは使用できません",
+    "unavailable_hint": "リンクの有効期限が切れているか、リンクが無効です。MoleSignal でアラートに対応してください。",
+    "load_failed_title": "このリンクを読み込めませんでした",
+    "open_alert": "MoleSignalでアラートを開く",
+    "open_alerts": "MoleSignalを開く"
+  },
+  "target_types": {
+    "direct_user": "ユーザーを直接指定",
+    "fixed_address": "固定アドレス",
+    "fixed_group": "固定グループ",
+    "webhook": "Webhook"
+  },
+  "stages": {
+    "user_primary": "ユーザーの優先通知先",
+    "user_fallback": "ユーザーのフォールバック",
+    "team_fallback": "チームのフォールバック",
+    "organization_fallback": "組織のフォールバック",
+    "escalation": "エスカレーション",
+    "test": "テスト",
+    "direct": "直接"
+  },
+  "statuses": {
+    "pending": "保留中",
+    "sending": "送信中",
+    "success": "成功",
+    "failed": "失敗",
+    "skipped": "スキップ済み",
+    "acknowledged": "確認済み",
+    "queued": "マージ待ち"
+  }
+}

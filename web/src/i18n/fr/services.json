@@ -1,0 +1,31 @@
+{
+  "title": "Services",
+  "subtitle": "Catalogue de services établi à partir de la topologie des traces.",
+  "kpis": {
+    "services": "Services",
+    "rps": "RPS total",
+    "degraded": "Dégradés (≥ 1 % d’erreurs)"
+  },
+  "list": {
+    "columns": {
+      "name": "Service",
+      "rps": "RPS",
+      "error_rate": "Taux d’erreur",
+      "p95": "p95",
+      "spans": "Spans"
+    }
+  },
+  "states": {
+    "empty_title": "Aucun service détecté",
+    "empty_description": "Les services s’affichent dès que des spans sont reçus pour la période sélectionnée."
+  },
+  "detail": {
+    "not_found_title": "Aucun trafic pour ce service",
+    "not_found_description": "Aucun span n’a été enregistré pour ce service sur la période sélectionnée.",
+    "upstream": "En amont (services appelants)",
+    "downstream": "En aval (dépendances)",
+    "no_upstream": "Aucun service appelant sur la période sélectionnée.",
+    "no_downstream": "Aucune dépendance sur la période sélectionnée.",
+    "edge_rps": "{{rps}} rps"
+  }
+}

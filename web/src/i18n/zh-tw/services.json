@@ -1,0 +1,31 @@
+{
+  "title": "服務",
+  "subtitle": "由追蹤拓撲彙整而成的服務目錄。",
+  "kpis": {
+    "services": "服務數",
+    "rps": "總 RPS",
+    "degraded": "降級（錯誤率 ≥1%）"
+  },
+  "list": {
+    "columns": {
+      "name": "服務",
+      "rps": "RPS",
+      "error_rate": "錯誤率",
+      "p95": "p95",
+      "spans": "Span 數"
+    }
+  },
+  "states": {
+    "empty_title": "未找到服務",
+    "empty_description": "所選時間範圍內有追蹤 span 回報後，就會顯示服務。"
+  },
+  "detail": {
+    "not_found_title": "此服務目前沒有流量",
+    "not_found_description": "此服務在所選時間範圍內沒有追蹤 span。",
+    "upstream": "上游（呼叫端）",
+    "downstream": "下游（依賴項目）",
+    "no_upstream": "範圍內沒有呼叫端。",
+    "no_downstream": "範圍內沒有依賴項目。",
+    "edge_rps": "{{rps}} rps"
+  }
+}

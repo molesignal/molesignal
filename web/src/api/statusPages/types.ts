@@ -1,9 +1,11 @@
+import type { Locale } from '@/i18n/locales';
+
 import type { PublicStatusPagePostmortem, StatusPagePostmortem } from './postmortems';
 import type { StatusPageSubscriberOrigin, SubscriberComponentScope } from './subscriptions';
 
 export type StatusPageVisibility = 'public' | 'private';
 export type StatusPageLifecycle = 'active' | 'archived';
-export type StatusPageLanguage = 'en-us' | 'zh-cn';
+export type StatusPageLanguage = Locale;
 export type ComponentStatus =
   | 'operational'
   | 'degraded_performance'

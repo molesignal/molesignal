@@ -1,0 +1,3138 @@
+{
+  "title": "警示",
+  "subtitle": "目前觸發的警示、定義這些警示的規則，以及通知對象。",
+  "incident_detail": {
+    "loading": "事件",
+    "not_found_title": "找不到事件",
+    "not_found_description": "此事件可能已被清除，或屬於其他組織。",
+    "meta": {
+      "status": "狀態",
+      "fired": "觸發時間",
+      "rule": "規則",
+      "synthetic": "合成監控",
+      "source": "來源",
+      "created_by": "手動建立"
+    },
+    "firing_for": "已持續觸發 {{duration}}",
+    "recovered_after": "{{duration}} 後恢復",
+    "no_owner": "尚未有人接手",
+    "someone": "有人"
+  },
+  "actions": {
+    "new_rule": "新增規則",
+    "edit_rule": "編輯 {{name}}",
+    "new_anomaly": "異常偵測規則",
+    "new_anomaly_description": "使用 MAD 或 EWMA 動態基準線偵測偏離。",
+    "new_threshold_rule": "閾值規則",
+    "new_threshold_rule_description": "查詢結果持續超過固定閾值時觸發。",
+    "silence_incident": "將事件 {{name}} 設為靜默"
+  },
+  "silence_incident": {
+    "title": "將此事件設為靜默",
+    "description": "只暫停「{{name}}」的後續通知與升級，事件仍會繼續記錄。",
+    "default_name": "目前的事件",
+    "duration": "靜默時間",
+    "reason": "原因（選填）",
+    "reason_placeholder": "例如：正在處理，暫時不需繼續通知",
+    "scope_hint": "這項操作只會影響本次觸發的事件，不會停用規則，也不會影響同一服務的其他事件。",
+    "confirm": "確認靜默",
+    "silencing": "正在設定為靜默…",
+    "cancel": "取消",
+    "success": "事件「{{name}}」已設為靜默",
+    "durations": {
+      "one_hour": "1 小時",
+      "four_hours": "4 小時",
+      "one_day": "24 小時",
+      "one_week": "7 天"
+    }
+  },
+  "kpis": {
+    "critical_firing": "嚴重警示觸發中",
+    "warning_firing": "警告觸發中",
+    "pending": "等待中",
+    "resolved_24h": "24 小時內已恢復",
+    "total_rules": "規則總數",
+    "incidents_open": "未結案事件"
+  },
+  "tabs": {
+    "firing": "觸發中",
+    "pending": "等待中",
+    "resolved": "已恢復",
+    "disabled": "已停用",
+    "all": "全部規則"
+  },
+  "subnav": {
+    "label": "告警檢視",
+    "incidents": "告警事件",
+    "rules": "規則",
+    "sources": "告警來源",
+    "status_pages": "狀態頁",
+    "history": "歷史紀錄",
+    "insights": "洞察",
+    "groups": "群組",
+    "escalations": "升級",
+    "schedules": "值班排程",
+    "inhibitions": "抑制",
+    "silences": "靜默策略",
+    "routing": "路由",
+    "remediation": "修復動作",
+    "tickets": "工單",
+    "postmortems": "事後檢討",
+    "discovery": "自動探索",
+    "group_respond": "處理",
+    "group_detect": "偵測",
+    "group_noise": "降噪",
+    "group_notify": "通知",
+    "group_follow_up": "連動",
+    "search_placeholder": "搜尋告警頁面…",
+    "search_aria": "搜尋告警頁面",
+    "no_results": "沒有相符的頁面",
+    "collapse_group": "收合{{group}}",
+    "expand_group": "展開{{group}}",
+    "open_navigation": "開啟告警導覽",
+    "collapse_navigation": "收合告警導覽",
+    "expand_navigation": "展開告警導覽"
+  },
+  "history": {
+    "error_title": "無法載入告警歷史紀錄",
+    "empty_title": "目前沒有告警事件",
+    "empty_description": "告警觸發後，這裡會保留目前狀態、時間、持續時間和事件詳細資料。",
+    "no_matches_title": "沒有符合條件的事件",
+    "no_matches_description": "請調整搜尋內容或篩選條件。",
+    "filters": {
+      "search_placeholder": "搜尋事件名稱、服務或事件 ID…",
+      "search_label": "搜尋告警歷史記錄",
+      "severity_label": "依等級篩選",
+      "status_label": "依狀態篩選",
+      "all_severities": "所有等級",
+      "all_statuses": "所有狀態"
+    },
+    "status": {
+      "open": "觸發中",
+      "acknowledged": "已確認",
+      "resolved": "已恢復",
+      "closed": "已關閉"
+    },
+    "columns": {
+      "summary": "事件",
+      "current_status": "目前狀態",
+      "created": "觸發時間",
+      "resolved": "恢復時間",
+      "duration": "持續時間",
+      "priority": "優先順序"
+    },
+    "severity": {
+      "info": "資訊",
+      "warning": "警告",
+      "error": "錯誤",
+      "critical": "嚴重"
+    },
+    "pagination": {
+      "page": "{{page}} / {{count}}",
+      "label": "告警歷史記錄分頁",
+      "page_size": "每頁筆數",
+      "first": "第一頁",
+      "previous": "上一頁",
+      "next": "下一頁",
+      "last": "最後一頁"
+    }
+  },
+  "center": {
+    "retry": "重試",
+    "incidents": {
+      "load_error": "無法載入告警事件",
+      "kpis": {
+        "services": "受影響的服務",
+        "waiting": "等待確認",
+        "waiting_sub": "尚未有人接手",
+        "recovered": "24h 內已恢復",
+        "no_recovery": "最近 24 小時沒有恢復記錄"
+      },
+      "tabs": {
+        "active": "觸發中",
+        "unacknowledged": "等待確認",
+        "my_teams": "我的團隊",
+        "inhibited": "已抑制"
+      },
+      "columns": {
+        "severity": "嚴重程度",
+        "incident": "事件 / 服務",
+        "status": "狀態",
+        "duration": "持續時間",
+        "owner": "負責人",
+        "actions": "操作",
+        "priority": "優先順序"
+      },
+      "status": {
+        "open": "等待確認",
+        "acknowledged": "處理中",
+        "resolved": "已恢復",
+        "closed": "已關閉"
+      },
+      "actions": {
+        "ack": "確認",
+        "silence": "靜默",
+        "runbook": "Runbook"
+      },
+      "healthy": {
+        "title": "目前沒有觸發中的警示"
+      },
+      "no_rules": {
+        "title": "尚未建立警示規則",
+        "description": "建立規則後，系統會持續評估指標、日誌和追蹤資料，並在這裡產生警示事件。",
+        "action": "建立第一條規則",
+        "steps": {
+          "condition": {
+            "title": "說明哪些情況不該發生",
+            "description": "設定一項針對指標、日誌或追蹤的查詢，以及查詢結果不得超出的閾值。"
+          },
+          "route": {
+            "title": "指定要通知誰",
+            "description": "升級策略會將事件通知目前的值班人員，若無人回應，就依序通知下一位。"
+          },
+          "respond": {
+            "title": "在這裡回應",
+            "description": "確認事件、設為靜默、開啟 Runbook，並從事件找出相關的追蹤資料。"
+          }
+        }
+      },
+      "empty": {
+        "unacknowledged": {
+          "title": "沒有等待確認的事件",
+          "description": "目前仍在進行的事件都已有人接手。"
+        },
+        "my_teams": {
+          "title": "你的團隊沒有觸發中的事件",
+          "description": "指派給你所屬團隊的事件會列在這裡。"
+        },
+        "priority": {
+          "title": "沒有這個優先順序的事件",
+          "description": "請選擇其他優先順序，或選取「所有優先順序」。"
+        }
+      },
+      "tabs_label": "警示事件狀態",
+      "standing": {
+        "label": "目前事件",
+        "eyebrow": "觸發中",
+        "firing_one": "{{count}} 個事件",
+        "firing_other": "{{count}} 個事件",
+        "oldest": "最早的事件已持續 {{duration}}。",
+        "watching_one": "正在評估 {{count}} 條規則。",
+        "watching_other": "正在評估 {{count}} 條規則。",
+        "all_owned": "每個事件都已有人接手",
+        "last_recovery": "上次恢復於{{when}}"
+      },
+      "recent": {
+        "title": "最近恢復",
+        "recovered": "{{when}}恢復",
+        "lasted": "持續 {{duration}}"
+      }
+    },
+    "rules": {
+      "load_error": "無法載入告警規則",
+      "search": "搜尋規則、服務或資料來源",
+      "tabs": {
+        "all": "全部",
+        "enabled": "已啟用",
+        "disabled": "已停用"
+      },
+      "columns": {
+        "rule": "規則",
+        "source": "資料來源",
+        "condition": "觸發條件",
+        "state": "狀態",
+        "last_evaluation": "上次評估",
+        "actions": "操作"
+      },
+      "state": {
+        "not_evaluated": "尚未評估",
+        "healthy": "正常",
+        "pending": "等待達到持續時間",
+        "no_data": "無資料",
+        "firing": "觸發中",
+        "inhibited": "觸發中（已抑制）",
+        "dropped": "已由處理管線捨棄",
+        "disabled": "已停用"
+      },
+      "kinds": {
+        "scheduled": "閾值規則",
+        "real_time": "即時規則",
+        "anomaly": "異常偵測",
+        "composite": "組合規則",
+        "forecast": "預測規則",
+        "outlier": "離群規則",
+        "heartbeat": "心跳規則"
+      },
+      "never_evaluated": "尚未評估",
+      "no_match": {
+        "title": "沒有符合的規則",
+        "description": "請試著調整關鍵字或狀態篩選條件。"
+      },
+      "tabs_label": "規則狀態",
+      "evaluated_ago": "{{age}}前",
+      "bulk_delete_title_one": "要刪除 {{count}} 條規則嗎？",
+      "bulk_delete_title_other": "要刪除 {{count}} 條規則嗎？",
+      "bulk_delete_description": "這些規則將不再評估，刪除後無法復原。"
+    }
+  },
+  "workbench": {
+    "new_title": "新增告警規則",
+    "edit_title": "編輯告警規則",
+    "edit_named": "編輯規則 · {{name}}",
+    "subtitle": "撰寫查詢、驗證閾值，再連結 Notify 路由與處理指南。",
+    "actions": {
+      "cancel": "取消",
+      "save_draft": "儲存草稿",
+      "test": "測試規則",
+      "testing": "測試中…",
+      "save": "儲存並啟用",
+      "create": "建立規則",
+      "add_threshold": "新增等級",
+      "remove_threshold": "刪除閾值"
+    },
+    "sections": {
+      "identity": "基本資訊",
+      "identity_description": "用於事件標題、搜尋和服務歸屬。",
+      "condition": "查詢與觸發條件",
+      "condition_description": "在相同的情境中驗證查詢、閾值和持續時間。",
+      "delivery": "Notify 與處理",
+      "delivery_description": "警示生命週期事件由 Notify 政策路由，規則中只保留處理指南。",
+      "guide": "排查線索",
+      "guide_description": "說明排查這項規則的事件時該先做什麼。事件詳細資料中會顯示這些線索，Mole Agent 也會在調查前先閱讀。"
+    },
+    "guide": {
+      "steps": "排查步驟",
+      "steps_hint": "Markdown：先查什麼，以及依照什麼順序查。",
+      "steps_placeholder": "1. 先看錯誤來自哪些介面……",
+      "queries": "排查查詢",
+      "queries_hint": "可在事件詳細資料中依事件的時間範圍一鍵開啟查詢。最多 {{count}} 筆。",
+      "add_query": "新增查詢",
+      "remove_query": "刪除第 {{index}} 筆查詢",
+      "query_name": "名稱",
+      "query_name_placeholder": "依介面分組查看錯誤",
+      "query_language": "查詢語言",
+      "query_stream": "資料串流",
+      "query_stream_type": "資料類型",
+      "query_statement": "查詢陳述式",
+      "stream_types": {
+        "logs": "日誌",
+        "traces": "追蹤",
+        "metrics": "指標"
+      },
+      "dashboards": "相關儀表板",
+      "dashboards_hint": "可在事件詳細資料中開啟。最多 {{count}} 個。",
+      "add_dashboard": "新增儀表板",
+      "no_dashboards": "沒有可新增的儀表板",
+      "remove_dashboard": "移除 {{name}}"
+    },
+    "fields": {
+      "name": "規則名稱",
+      "service": "服務",
+      "description": "說明",
+      "signal": "規則類型",
+      "stream": "目標資料流",
+      "interval": "評估間隔",
+      "query": "查詢",
+      "query_language": "查詢語言",
+      "group_by": "依維度分組",
+      "thresholds": "觸發條件",
+      "runbook": "處理指南 / Runbook URL",
+      "delay": "評估延遲",
+      "priority": "優先順序",
+      "urgency": "緊急程度",
+      "home_cluster": "彙總叢集"
+    },
+    "placeholders": {
+      "name": "例如 api_high_error_rate",
+      "service": "例如 api-gateway",
+      "description": "說明此規則保護的使用者路徑或系統功能",
+      "stream": "例如 app_metrics",
+      "group_by": "例如 host, service"
+    },
+    "hints": {
+      "query": "測試規則時，會使用最近 6 小時的實際資料執行此查詢。",
+      "thresholds": "以符合條件的最高嚴重程度為準，持續時間會自動換算為評估週期。",
+      "runbook": "選填。事件處理人員可從事件清單直接開啟。",
+      "group_by": "填入查詢結果中的欄位，例如 host、service，以逗號分隔，最多 8 個欄位。每組使用其餘欄位中的第一個數值欄位與各自的閾值比較，並分別建立事件。留空時，整條規則只會建立一個事件。",
+      "delay": "每輪評估的時間範圍向前回推的時間長度，用來等待延遲抵達或尚未寫入的資料。設為自動時，單機不回推，依角色分工的叢集則依平台設定。",
+      "priority": "建立的事件會套用此優先順序。若未設定，仍可由告警管線設定。",
+      "urgency": "若未設定，則依事件適用的升級策略決定。",
+      "home_cluster": "聯邦中的各叢集會各自統計，並寫入自己的紀錄。選擇一個叢集，彙總所有對應至此組織的叢集計數。只有選定的叢集會建立事件，其他叢集只負責計數。"
+    },
+    "signals": {
+      "metrics": "指標告警",
+      "logs": "日誌告警",
+      "traces": "追蹤告警",
+      "apm": "APM 告警",
+      "rum": "RUM 告警"
+    },
+    "quick_start": "快速入門",
+    "presets": {
+      "error_rate": {
+        "title": "錯誤率過高",
+        "description": "HTTP 5xx 占比持續超過閾值"
+      },
+      "latency": {
+        "title": "P95 延遲過高",
+        "description": "請求延遲的百分位數持續升高"
+      },
+      "cpu": {
+        "title": "CPU 使用率過高",
+        "description": "處理程序的平均 CPU 使用率超過安全閾值"
+      },
+      "log_errors": {
+        "title": "錯誤日誌激增",
+        "description": "錯誤等級的日誌數量超過閾值"
+      },
+      "no_data": {
+        "title": "無資料警報",
+        "description": "資料流在評估視窗內沒有紀錄"
+      },
+      "trace_errors": {
+        "title": "錯誤追蹤激增",
+        "description": "失敗的 Trace 數量超過閾值"
+      },
+      "trace_latency": {
+        "title": "追蹤耗時過長",
+        "description": "Trace 的平均耗時持續增加"
+      },
+      "sample_errors": {
+        "title": "範例 · 錯誤日誌",
+        "description": "查詢範例日誌中的錯誤數量；選擇評估視窗和負責人後儲存。"
+      },
+      "sample_no_data": {
+        "title": "範例 · 資料停止回報",
+        "description": "範例資料只會匯入一次；評估視窗不再涵蓋範例資料的時間後，計數會歸零。"
+      },
+      "sample_latency": {
+        "title": "範例 · 追蹤延遲",
+        "description": "查詢範例 Span 的平均耗時，閾值單位為毫秒。"
+      }
+    },
+    "intervals": {
+      "1m": "每 1 分鐘",
+      "5m": "每 5 分鐘",
+      "10m": "每 10 分鐘"
+    },
+    "threshold": {
+      "severity": "嚴重程度",
+      "operator": "當結果",
+      "value": "閾值",
+      "duration": "並持續",
+      "minutes": "分鐘"
+    },
+    "conditions": {
+      "recovery": "復原條件",
+      "recovery_hint": "數值在閾值附近波動時，可設定復原閾值或持續時間，避免反覆觸發和復原。",
+      "recovery_threshold": "復原閾值",
+      "recovery_threshold_placeholder": "與觸發閾值相同",
+      "no_data": "沒有資料時",
+      "no_data_hint": "查不到值，或依維度分組時有某一組未出現在結果中，都視為沒有資料。",
+      "no_data_action": "處理方式",
+      "no_data_actions": {
+        "resolve": "視為已復原",
+        "keep": "維持原狀態",
+        "alert": "建立無資料事件",
+        "zero": "以 0 計算"
+      },
+      "no_data_duration": "無資料持續時間"
+    },
+    "operators": {
+      "gt": "> (大於)",
+      "gte": "≥ (大於或等於)",
+      "lt": "< (小於)",
+      "lte": "≤ (小於或等於)",
+      "eq": "= (等於)",
+      "neq": "≠ (不等於)"
+    },
+    "notify": {
+      "title": "Notify 路由",
+      "description": "告警生命週期事件會透過相符的 Notify 原則、收件人和備援路由傳送。",
+      "manage_policies": "管理原則",
+      "manage_connectors": "管理連接器"
+    },
+    "preview": {
+      "title": "查詢預覽",
+      "window": "最近 6 小時的實際資料",
+      "window_hours_one": "最近 1 小時的實際資料",
+      "window_hours_other": "最近 {{count}} 小時的實際資料",
+      "window_open": "實際資料",
+      "not_run": "尚未執行測試",
+      "not_run_description": "執行後會顯示查詢曲線、閾值線，以及在這段歷史期間預計觸發的次數。",
+      "stale": "查詢在上次測試後已變更",
+      "stale_description": "請重新執行測試，確保預覽與啟用前檢查皆以目前的查詢為準。",
+      "failed": "查詢執行失敗",
+      "query_docs": "查詢文件",
+      "no_data": "查詢成功，但未傳回數值資料",
+      "no_data_description": "請檢查時間範圍、資料串流名稱及查詢傳回的欄位。",
+      "query_value": "查詢結果",
+      "threshold": "閾值",
+      "current": "目前值",
+      "cost": "掃描列數 · 耗時",
+      "groups_one": "依 {{columns}} 分成 {{count}} 組",
+      "groups_other": "依 {{columns}} 分成 {{count}} 組",
+      "backtest_fires_one": "依目前條件，這段期間會觸發 {{count}} 次（{{times}}）。",
+      "backtest_fires_other": "依目前條件，這段期間會觸發 {{count}} 次（{{times}}）。",
+      "backtest_quiet": "依目前條件，這段期間不會觸發。",
+      "backtest_near_one": "另有 {{count}} 次越過閾值，但未持續滿 {{periods}} 個週期。",
+      "backtest_near_other": "另有 {{count}} 次越過閾值，但未持續滿 {{periods}} 個週期。",
+      "span_pending": "已越過閾值，但持續時間不足",
+      "span_firing": "會觸發"
+    },
+    "validation": {
+      "title": "建立前檢查",
+      "identity": "規則基本資訊完整",
+      "query": "查詢已執行並傳回數值",
+      "thresholds": "閾值設定有效且無衝突",
+      "runbook": "Runbook URL 格式有效",
+      "ready": "通過",
+      "pending": "待完成",
+      "blockers": {
+        "identity": "填寫規則名稱後才能啟用。",
+        "preview_running": "請等候查詢測試完成後再啟用。",
+        "preview_required": "請先以目前的查詢完成「測試規則」並確認成功，再啟用規則。",
+        "thresholds": "請先修正閾值驗證問題，再啟用規則。",
+        "runbook": "請輸入有效的 Runbook URL 後再啟用。",
+        "composite": "先撰寫組合運算式並選好其中的規則，再啟用規則。",
+        "heartbeat": "打卡週期至少為 1 分鐘。"
+      },
+      "composite": "已完成組合運算式並選好規則",
+      "heartbeat": "打卡週期有效"
+    },
+    "errors": {
+      "load_rule": "無法載入告警規則",
+      "org_required": "目前的組織無法使用。",
+      "name_required": "規則名稱為必填欄位。",
+      "stream_required": "目標資料流為必填欄位。",
+      "stream_audit": "告警規則無法讀取 _audit：規則在背景評估，無法使用任何人的 audit.read 權限。",
+      "query_required": "查詢陳述式為必填欄位。",
+      "threshold_required": "至少需要一個有效的閾值。",
+      "threshold_conflict": "高嚴重程度的閾值不能比低嚴重程度的閾值更容易觸發。",
+      "runbook_invalid": "請輸入有效的 http 或 https 網址。",
+      "apm_service_required": "選擇要設定告警的服務",
+      "rum_application_required": "選擇要設定告警的應用程式",
+      "group_by_missing": "查詢結果中沒有用來分組的欄位：{{columns}}",
+      "group_by_too_many": "最多可依 {{count}} 個欄位分組。",
+      "recovery_side": "復原閾值必須設在正常的一側：高於閾值才觸發時，復原閾值不得高於觸發閾值；低於閾值才觸發時，復原閾值不得低於觸發閾值。所有等級的觸發方向必須一致。",
+      "guide": {
+        "steps_too_long": "疑難排解步驟最多 {{limit}} 個字元。",
+        "too_many_queries": "疑難排解線索最多可包含 {{limit}} 個查詢。",
+        "query_name_required": "第 {{index}} 個疑難排解查詢需要名稱。",
+        "query_name_too_long": "第 {{index}} 個查詢的名稱超過 {{limit}} 個字元。",
+        "query_statement_required": "第 {{index}} 個疑難排解查詢尚未輸入陳述式。",
+        "query_statement_too_long": "第 {{index}} 個查詢超過 {{limit}} 個字元。",
+        "query_stream_required": "第 {{index}} 個查詢使用 SQL，必須指定要讀取的資料流。",
+        "too_many_dashboards": "疑難排解線索最多可連結 {{limit}} 個儀表板。"
+      }
+    },
+    "toast": {
+      "saved": "規則「{{name}}」已儲存並啟用",
+      "draft_saved": "規則草稿「{{name}}」已儲存"
+    },
+    "apm": {
+      "service": "服務",
+      "service_placeholder": "選擇服務",
+      "environment": "環境",
+      "every_environment": "所有環境",
+      "endpoint": "端點",
+      "whole_service": "整個服務",
+      "metric": "指標",
+      "unit": {
+        "percent": "單位：%",
+        "milliseconds": "單位：毫秒",
+        "per_second": "單位：每秒請求數",
+        "count": "單位：次",
+        "score": "取值範圍為 0–1",
+        "burn_rate": "錯誤預算消耗速率的倍數"
+      },
+      "metrics": {
+        "error_rate": "錯誤率",
+        "p50": "P50 延遲",
+        "p90": "P90 延遲",
+        "p95": "P95 延遲",
+        "p99": "P99 延遲",
+        "average": "平均耗時",
+        "throughput": "吞吐量",
+        "request_count": "請求數",
+        "error_count": "錯誤數",
+        "new_error_groups": "新錯誤群組",
+        "apdex": "Apdex",
+        "slo_burn_rate": "SLO 燃燒率"
+      }
+    },
+    "rum": {
+      "application": "應用程式",
+      "application_placeholder": "選擇應用程式",
+      "environment": "環境",
+      "every_environment": "所有環境",
+      "page": "頁面",
+      "every_page": "所有頁面",
+      "screen": "畫面",
+      "every_screen": "所有畫面",
+      "version": "版本",
+      "every_version": "所有版本",
+      "metric": "指標",
+      "window": "評估時段",
+      "windows": {
+        "300": "5 分鐘",
+        "900": "15 分鐘",
+        "3600": "1 小時"
+      },
+      "min_samples": "最少樣本數",
+      "min_samples_hint": "{{kind}}的數量低於此門檻時，指標沒有值，因此不會觸發。預設為 {{rows}}。",
+      "sample_kinds": {
+        "views": "檢視",
+        "sessions": "工作階段",
+        "requests": "請求",
+        "views_with_value": "有值的檢視",
+        "rows": "符合條件的資料列"
+      },
+      "unit": {
+        "percent": "單位：%",
+        "milliseconds": "單位：毫秒",
+        "count": "單位：個",
+        "score": "分數，0.1 以內為良好",
+        "bytes": "單位：位元組",
+        "none": "沒有單位"
+      },
+      "not_for": {
+        "page_sessions": "工作階段不限於單一頁面。",
+        "page_issues": "同一個問題可能出現在多個頁面。",
+        "version_issues": "同一個問題可能出現在多個版本。",
+        "page_query": "在查詢中指定頁面條件。",
+        "version_query": "在查詢中指定版本條件。"
+      },
+      "unavailable": {
+        "time_budget": "預覽耗時過長：請選擇較短的時間範圍。",
+        "busy": "執行中的查詢太多，請稍後再試。",
+        "timestamp_masked": "此資料串流的時間戳記已遮罩，無法繪製預覽。"
+      },
+      "metrics": {
+        "session_count": "工作階段數",
+        "view_count": "檢視數",
+        "error_count": "錯誤數",
+        "error_rate": "錯誤率（發生錯誤的檢視）",
+        "crash_free_sessions": "未當機的工作階段",
+        "frustration_rate": "受挫的工作階段",
+        "failed_request_rate": "請求失敗率",
+        "lcp_p75": "LCP（p75）",
+        "inp_p75": "INP（p75）",
+        "cls_p75": "CLS（p75）",
+        "ttfb_p75": "首位元組（p75）",
+        "new_issues": "新問題",
+        "regressed_issues": "再度出現的問題",
+        "issue_impact": "受影響最大的問題波及的工作階段",
+        "custom_vital": "自訂耗時（vital）",
+        "custom_timing": "自訂時間點（timing）",
+        "query": "Explorer 查詢"
+      },
+      "custom": {
+        "name_vital": "Vital 名稱",
+        "name_timing": "Timing 名稱",
+        "placeholder": "選擇或輸入名稱",
+        "statistic": "取值方式",
+        "statistics": {
+          "p50": "P50",
+          "p75": "P75",
+          "p90": "P90",
+          "p95": "P95",
+          "p99": "P99",
+          "avg": "平均",
+          "count": "次數"
+        }
+      },
+      "query": {
+        "type": "資料列類型",
+        "statement": "查詢",
+        "statement_hint": "寫法與 RUM Explorer 的 Code 相同，留空會傳回此類型的所有資料列。",
+        "ignored": "此類型無法回答，已忽略：{{parts}}",
+        "measure": "度量",
+        "field": "欄位",
+        "field_placeholder": "選擇欄位",
+        "open_explorer": "在 Explorer 中開啟",
+        "functions": {
+          "count": "資料列數",
+          "count_distinct": "相異值數量",
+          "sum": "加總",
+          "avg": "平均值",
+          "min": "最小值",
+          "max": "最大值",
+          "p50": "p50",
+          "p75": "p75",
+          "p90": "p90",
+          "p95": "p95",
+          "p99": "p99"
+        }
+      }
+    },
+    "kind": {
+      "label": "判定方式",
+      "options": {
+        "scheduled": "閾值",
+        "forecast": "預測",
+        "outlier": "離群",
+        "composite": "組合",
+        "heartbeat": "心跳"
+      },
+      "hints": {
+        "scheduled": "查詢結果跨越閾值時觸發。",
+        "forecast": "依過去的趨勢推估，若預計會在指定的提前時間內跨越閾值，就會觸發。",
+        "outlier": "依欄位分組並比較各組，對明顯偏離其他組的每一組各建立一個事件。",
+        "composite": "以且、或、非組合多條規則。規則有進行中的事件就視為成立。",
+        "heartbeat": "等待排程工作或備份指令碼回報。若超過週期加上寬限時間仍未收到回報，或收到失敗回報，就會觸發。"
+      }
+    },
+    "composite": {
+      "expression": "運算式",
+      "expression_hint": "用字母代表下方的規則，再用 &&（且）、||（或）、!（非）和括號組合。",
+      "rules": "規則",
+      "rule_named": "規則 {{letter}}",
+      "pick_rule": "選擇規則",
+      "missing_rule": "規則已不存在",
+      "add_rule": "新增規則 {{letter}}",
+      "remove_rule": "移除規則 {{letter}}",
+      "merge_children": "將這些規則的事件納入組合規則的事件",
+      "merge_children_hint": "組合規則建立事件後，各子規則進行中的事件都會歸入該事件，不再個別發送通知。",
+      "problems": {
+        "empty": "請輸入運算式，例如 A && B。",
+        "characters": "運算式只能使用單一字母、&&、||、! 和括號。",
+        "letters": "運算式中的 {{letters}} 尚未選取規則。",
+        "unused": "運算式中未使用 {{letters}}。"
+      }
+    },
+    "forecast": {
+      "line": "預測",
+      "lead": "預測時長",
+      "lookback": "回溯期間",
+      "model": "外推方式",
+      "models": {
+        "linear": "線性趨勢",
+        "daily": "每日規律",
+        "weekly": "每週規律"
+      },
+      "hours_one": "{{count}} 小時",
+      "hours_other": "{{count}} 小時",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天",
+      "hint": "規則每輪會將目前值記入序列，建立後會先補入一批歷史資料點；資料點不足時不會判斷。"
+    },
+    "outlier": {
+      "tolerance": "容差",
+      "tolerance_hint": "偏離多少個尺度才算離群，數值越小越敏感，預設為 3。",
+      "direction": "判斷方向",
+      "directions": {
+        "both": "偏高或偏低",
+        "above": "只看偏高",
+        "below": "只看偏低"
+      },
+      "needs_split": "離群規則必須依欄位分組，至少有 3 組含有數值才會比較。"
+    },
+    "heartbeat": {
+      "period": "打卡週期",
+      "grace": "寬限時間",
+      "address_after_save": "儲存後會提供打卡網址，只顯示一次。",
+      "last_checkin": "上次打卡：{{value}}",
+      "never": "尚未打卡",
+      "status": {
+        "ok": "正常",
+        "fail": "已回報失敗"
+      },
+      "due": "下次打卡期限：{{value}}",
+      "reset": "重設打卡網址",
+      "dialog_title": "打卡網址",
+      "dialog_description": "請讓工作每次執行完畢後向這個網址送出請求（GET 或 POST）；失敗時加上 ?status=fail，就會立即觸發。",
+      "shown_once": "網址只會顯示這一次，重設後舊網址會立即失效。",
+      "no_external_url": "此執行個體未設定外部網址，因此使用你目前存取的網址。請確認工作能連到這個網址。",
+      "example": "範例",
+      "copy": "複製網址"
+    },
+    "delay": {
+      "auto": "自動",
+      "none": "不延遲",
+      "seconds_one": "{{count}} 秒",
+      "seconds_other": "{{count}} 秒",
+      "minutes_one": "{{count}} 分鐘",
+      "minutes_other": "{{count}} 分鐘",
+      "hours_one": "{{count}} 小時",
+      "hours_other": "{{count}} 小時"
+    },
+    "urgency_by_policy": "依升級策略",
+    "home_cluster": {
+      "each": "各叢集分別計算",
+      "local": "{{name}}（本叢集）"
+    }
+  },
+  "drawer": {
+    "title_loading": "事件",
+    "error_title": "無法載入事件",
+    "actions": {
+      "ack": "確認",
+      "ack_unavailable": "只能確認處於開啟狀態的事件。",
+      "ack_success": "已確認事件",
+      "silence": "靜默",
+      "silence_unavailable": "只能將仍處於作用中的事件設為靜默。",
+      "resolve": "解決",
+      "resolve_unavailable": "此事件已不在作用中。",
+      "resolve_success": "事件已解決",
+      "pending": "另一項事件更新正在進行。"
+    },
+    "incident_sections": {
+      "timeline": "時間軸",
+      "investigation": "調查",
+      "rca": "AI 根因",
+      "signals": "跨訊號參照",
+      "metadata": "中繼資料",
+      "triggering_query": "觸發查詢",
+      "assignees": "負責人",
+      "blast_radius": "影響範圍",
+      "rum_sessions": "工作階段樣本",
+      "similar": "相似事件",
+      "changes": "最近變更",
+      "remediation": "修復動作",
+      "tickets": "工單",
+      "major": "重大事件",
+      "postmortem": "事後檢討",
+      "guide": "疑難排解線索"
+    },
+    "guide": {
+      "queries": "疑難排解查詢",
+      "dashboards": "相關儀表板"
+    },
+    "investigation": {
+      "open_trigger": "開啟觸發查詢",
+      "open_trigger_description": "在 Explore 中重新執行當時的原始查詢。",
+      "related_logs": "相關日誌",
+      "related_logs_description": "檢查受影響情境中的日誌。",
+      "related_metrics": "相關指標",
+      "related_metrics_description": "在同一時段比較服務的健康狀態。",
+      "open_rum": "在 RUM 中開啟",
+      "open_rum_description": "在事件發生的時間範圍內，查看這項指標所在的頁面。"
+    },
+    "rca": {
+      "generate": "產生",
+      "regenerate": "重新產生",
+      "generating": "產生中…",
+      "generated": "根因分析已產生",
+      "empty": "目前沒有分析結果，可手動產生，或等候背景自動分析。",
+      "budget_exhausted": "組織今天的 Mole Agent token 預算已用完，未產生根因分析。請在預算重設或調高後再試。"
+    },
+    "signals": {
+      "services": "服務",
+      "traces": "Trace ID",
+      "hosts": "主機"
+    },
+    "labels": {
+      "title": "標籤"
+    },
+    "annotations": {
+      "title": "註解"
+    },
+    "timeline": {
+      "created": "觸發",
+      "acknowledged": "已確認",
+      "resolved": "已解決",
+      "acknowledged_by": "{{name}} 已確認",
+      "resolved_by": "{{name}} 已解決",
+      "after": "{{duration}} 後"
+    },
+    "triggering_query": {
+      "sample_count": "{{count}} 筆樣本",
+      "sample_count_one": "1 筆樣本",
+      "show_samples": "展開樣本值"
+    },
+    "assignees_none": "目前沒有負責人。",
+    "routing": {
+      "team": "團隊",
+      "reason": "依據",
+      "no_team": "尚未指派團隊"
+    },
+    "rum": {
+      "why": {
+        "lcp_p75": "包含 LCP 最慢的檢視的工作階段",
+        "inp_p75": "包含互動最慢的檢視的工作階段",
+        "cls_p75": "包含版面配置位移最大的檢視的工作階段",
+        "ttfb_p75": "包含首位元組回應最慢的檢視的工作階段",
+        "error_rate": "近期發生錯誤的工作階段",
+        "error_count": "近期發生錯誤的工作階段",
+        "new_issues": "這些問題最近一次發生錯誤時的工作階段",
+        "regressed_issues": "這些問題最近一次發生錯誤時的工作階段",
+        "issue_impact": "影響最大的問題最近一次發生錯誤時的工作階段",
+        "crash_free_sessions": "發生當機的工作階段",
+        "frustration_rate": "出現使用者受挫訊號的工作階段",
+        "failed_request_rate": "發生請求失敗的工作階段"
+      },
+      "cause": {
+        "lcp": "LCP {{value}}",
+        "inp": "INP {{value}}",
+        "cls": "CLS {{value}}",
+        "ttfb": "首位元組 {{value}}",
+        "request": "{{request}} → {{status}}"
+      },
+      "replay": "重播",
+      "replay_at": "重播 {{time}}",
+      "session": "工作階段",
+      "anonymous": "匿名 {{id}}",
+      "element": "元素 {{element}}",
+      "crashes_one": "當機 {{count}} 次",
+      "crashes_other": "當機 {{count}} 次",
+      "signs_one": "{{count}} 個受挫訊號",
+      "signs_other": "{{count}} 個受挫訊號",
+      "no_answer": "沒有回應",
+      "sessions_failed": "讀不到工作階段的詳細資料，以下是事件儲存的內容。"
+    },
+    "blast": {
+      "off_map": "這段時間的服務地圖上沒有 {{service}}。",
+      "upstream": "呼叫它的服務：會受它影響",
+      "downstream": "它呼叫的服務：問題可能來自這裡",
+      "no_upstream": "沒有服務呼叫它。",
+      "no_downstream": "它沒有呼叫其他服務。",
+      "open_map": "在服務地圖中查看",
+      "direct": "直接",
+      "hops_one": "相隔 {{count}} 層",
+      "hops_other": "相隔 {{count}} 層",
+      "calls_one": "{{formatted}} 次呼叫，失敗率 {{rate}}",
+      "calls_other": "{{formatted}} 次呼叫，失敗率 {{rate}}",
+      "health": {
+        "critical": "嚴重",
+        "warning": "警告",
+        "healthy": "健康",
+        "no_traffic": "無流量"
+      }
+    }
+  },
+  "insights": {
+    "error_title": "無法計算洞察",
+    "empty_title": "還沒有事件",
+    "empty_description": "事件發生並復原後，這裡會顯示復原效率、時段、等級和主要觸發來源。",
+    "window": {
+      "label": "洞察時間範圍",
+      "last_24h": "最近 24 小時",
+      "last_7d": "最近 7 天",
+      "last_30d": "最近 30 天"
+    },
+    "summary": {
+      "active_headline": "{{total}} 起事件中仍有 {{active}} 起待處理",
+      "recovered_headline": "{{total}} 起事件均已復原",
+      "active_description": "優先處理仍處於開啟或已確認狀態的事件。",
+      "recovered_description": "目前沒有進行中的事件，所選時段內的事件皆已恢復。",
+      "mttr": "平均恢復時間",
+      "mttr_description": "依已恢復的事件計算",
+      "noise": "快速恢復的事件",
+      "noise_description": "{{rate}} 在 60 秒內恢復",
+      "label": "所選時段內的事件",
+      "recovered": "已恢復",
+      "recovered_of": "{{total}} 件中有 {{closed}} 件"
+    },
+    "hourly": {
+      "title": "事件時間趨勢",
+      "description": "最近 24 小時按小時統計，其餘時段按日曆日統計，採用瀏覽器時區（{{timezone}}）。",
+      "series_name": "事件數",
+      "peak_summary": "峰值為 {{count}} 件，出現在 {{period}}（{{timezone}}）",
+      "chart_label": "事件時間分布。{{summary}}"
+    },
+    "severity_breakdown": {
+      "title": "嚴重程度分布",
+      "description": "依事件觸發時的最高嚴重程度統計。"
+    },
+    "services": {
+      "title": "主要受影響的服務",
+      "description": "事件最常歸屬的服務。",
+      "empty_title": "目前沒有服務歸屬資訊",
+      "empty_description": "這些事件不含服務資訊。可在警示規則的標籤中新增 service，以識別主要受影響的服務。"
+    },
+    "rules": {
+      "title": "主要觸發規則",
+      "description": "依所選時段內觸發的事件數量排序。",
+      "empty_title": "目前沒有規則歸屬資訊",
+      "empty_description": "目前無法識別這些事件的規則來源。",
+      "unknown_rule": "已刪除或無法使用的規則",
+      "manual_secondary": "手動建立的事件"
+    },
+    "rankings": {
+      "count_and_share_one": "{{count}} 件事件 · {{percent}}",
+      "count_and_share_other": "{{count}} 件事件 · {{percent}}"
+    },
+    "duration": {
+      "seconds": "{{count}} 秒",
+      "minutes": "{{count}} 分鐘",
+      "minutes_seconds": "{{minutes}} 分 {{seconds}} 秒",
+      "hours": "{{count}} 小時",
+      "hours_minutes": "{{hours}} 小時 {{minutes}} 分"
+    },
+    "response": {
+      "title": "應變",
+      "description": "與上一個等長時段比較接手時間、恢復時間和升級的事件數。",
+      "mtta": "平均接手時間",
+      "percentiles": "P50 {{p50}} · P90 {{p90}}",
+      "none_responded": "這段時間尚無人接手事件",
+      "mttr": "恢復時間中位數",
+      "p90": "P90 {{p90}}",
+      "escalation_rate": "升級率",
+      "responded": "有人接手",
+      "responded_detail": "{{responded}} / {{incidents}} 個事件，其餘已自行恢復或仍在等待",
+      "faster": "比上一時段快 {{change}}",
+      "slower": "比上一時段慢 {{change}}",
+      "lower": "比上一時段低 {{change}}",
+      "higher": "比上一時段高 {{change}}",
+      "same": "與上一時段持平",
+      "no_previous": "上一時段沒有可比較的資料",
+      "steps_title": "各級確認率",
+      "steps_description": "到達該層級的事件中，在該層級獲得確認的比例。",
+      "step": "第 {{n}} 級",
+      "step_rate": "{{acknowledged}} / {{reached}} · {{percent}}",
+      "steps_empty": "這段期間沒有升級記錄。",
+      "via_title": "接手管道",
+      "via_description": "首次確認或解決事件所用的管道。",
+      "via": {
+        "web": "網頁",
+        "api": "介面",
+        "im": "IM 卡片",
+        "sms": "回覆簡訊",
+        "phone": "電話按鍵",
+        "agent": "Mole Agent"
+      },
+      "via_empty": "這段期間還沒有人接手事件。",
+      "breakdown_title": "依團隊、服務或個人分類",
+      "breakdown_description": "個人統計以第一位接手者為準；事件涉及多項服務時，每項服務各計一次；未設定優先順序的事件不列入優先順序統計。",
+      "breakdown_label": "分類維度",
+      "dimensions": {
+        "teams": "團隊",
+        "services": "服務",
+        "people": "個人",
+        "priorities": "優先順序"
+      },
+      "columns": {
+        "teams": "團隊",
+        "services": "服務",
+        "people": "成員",
+        "incidents": "事件",
+        "mtta": "平均接手時間",
+        "mttr": "平均恢復時間",
+        "escalation": "升級率",
+        "priorities": "優先順序"
+      },
+      "breakdown_empty": "沒有可分類的資料。"
+    },
+    "load": {
+      "title": "值班負擔",
+      "description": "每位成員值班多久、收到幾次警示通知；夜間依各自排班的時區，從 {{start}}:00 算到隔天 {{end}}:00。",
+      "loading": "統計中…",
+      "error": "無法讀取值班負荷。",
+      "empty": "這段期間沒有人值班，也未發出任何警示通知。",
+      "columns": {
+        "person": "成員",
+        "oncall": "值班時數",
+        "pages": "通知",
+        "night": "夜間",
+        "weekend": "週末",
+        "nights": "被吵醒的夜晚",
+        "mtta": "先接手",
+        "timezone": "時區"
+      },
+      "mtta_of": "{{count}} 個 · 平均 {{mtta}}"
+    }
+  },
+  "anomaly": {
+    "new_title": "新增異常偵測規則",
+    "edit_title": "編輯異常偵測規則",
+    "subtitle": "根據相同時段的歷史基準線（MAD）偵測離群值。",
+    "detection_description": "每個週期取查詢結果的第一個數值與基準線比較。",
+    "detector_description": "中位數絕對偏差（MAD）利用近期相同時段的歷史資料，建立不易受離群值影響的基準線。",
+    "sections": {
+      "identity": "識別資訊",
+      "detection": "偵測查詢",
+      "detector": "偵測器"
+    },
+    "fields": {
+      "name": "規則名稱",
+      "severity": "嚴重程度",
+      "service": "服務",
+      "stream_name": "資料串流",
+      "stream_type": "資料串流類型",
+      "language": "查詢語言",
+      "window": "評估時間範圍",
+      "query": "查詢",
+      "algorithm": "演算法",
+      "lookback_days": "回溯天數",
+      "k": "靈敏度（k·σ）",
+      "alpha": "平滑係數（α）",
+      "for_periods": "觸發所需的連續週期數",
+      "weekly_seasonality": "每週季節性",
+      "source": "資料來源"
+    },
+    "hints": {
+      "name": "會顯示在此規則觸發的事件上。",
+      "service": "選填標籤，用於提供跨訊號的脈絡。",
+      "stream_name": "執行查詢的目標資料表。",
+      "window": "每次評估涵蓋的時間長度。",
+      "query": "傳回單一數值（如 avg / p95 / count）。",
+      "algorithm": "MAD（穩健中位數）或 EWMA（追蹤近期漂移）。",
+      "lookback_days": "用來建立基準線的相同時段歷史天數（1-30）。",
+      "k": "數值越大，靈敏度越低。當 |目前值 - 基準線| > k·σ 時觸發。",
+      "alpha": "僅適用於 EWMA：數值越大，近期樣本的權重越高（0-1）。",
+      "for_periods": "建立事件前必須連續出現異常的週期數。",
+      "weekly_seasonality": "只比較同一星期幾的歷史資料，減少平日與週末模式差異造成的誤報。需 lookback ≥ 7（建議 28+）。",
+      "source": "偵測查詢結果或特定服務的 APM 指標"
+    },
+    "placeholders": {
+      "name": "checkout_latency_anomaly",
+      "service": "checkout",
+      "stream_name": "app_metrics"
+    },
+    "actions": {
+      "create": "建立規則",
+      "save": "儲存變更",
+      "saving": "儲存中…"
+    },
+    "errors": {
+      "name_required": "規則名稱為必填欄位。",
+      "stream_required": "資料串流為必填欄位。"
+    },
+    "toast_saved": "已儲存異常偵測規則「{{name}}」",
+    "weekly": {
+      "off": "關閉（逐日）",
+      "on": "開啟（同一星期幾）"
+    },
+    "source": {
+      "query": "查詢",
+      "apm": "APM 指標",
+      "rum": "RUM 指標"
+    }
+  },
+  "severity": {
+    "info": "資訊",
+    "warning": "警告",
+    "error": "錯誤",
+    "critical": "嚴重"
+  },
+  "conditions": {
+    "no_data": "無資料"
+  },
+  "sources": {
+    "synthetic": "合成監控",
+    "manual": "手動建立"
+  },
+  "alert_sources": {
+    "new_source": "新增警示來源",
+    "empty_title": "尚無警示來源",
+    "empty_description": "接收來自 Alertmanager、Grafana、Datadog、PagerDuty、Zabbix、雲端監控服務、電子郵件或自有系統的警示，並據此建立事件、啟動升級與通知流程。",
+    "kinds": {
+      "api": "API",
+      "alertmanager": "Alertmanager",
+      "grafana": "Grafana",
+      "datadog": "Datadog",
+      "pagerduty": "PagerDuty",
+      "aliyun_cms": "阿里雲雲監控",
+      "tencent_monitor": "騰訊雲可觀測平台",
+      "aws_cloudwatch": "Amazon CloudWatch",
+      "zabbix": "Zabbix",
+      "email": "電子郵件"
+    },
+    "kind_hints": {
+      "api": "透過 MoleSignal 的 API 觸發、確認及恢復告警，適合指令碼、CI 和自行開發的系統。",
+      "alertmanager": "webhook_configs 接收器；每個通知群組建立一個事件。",
+      "grafana": "Webhook 聯絡點；每個通知群組建立一個事件。",
+      "datadog": "Webhooks 整合，在監控設定中使用 @webhook；請求主體採用文件提供的範本。",
+      "pagerduty": "Webhook v3 訂閱；隨 PagerDuty 事件同步觸發、確認及解決。",
+      "aliyun_cms": "閾值告警回呼與事件訂閱推播；將 Token 放在網址中。",
+      "tencent_monitor": "使用通知範本中的 API 回呼，支援指標告警和事件告警；將 Token 放在網址中。",
+      "aws_cloudwatch": "將告警傳送到 SNS 主題，並讓主題訂閱此網址；系統會驗證 SNS 簽章並自動確認訂閱。",
+      "zabbix": "匯入 Webhook 媒介類型；每個問題建立一個事件，並同步恢復與確認狀態。",
+      "email": "從 IMAP 信箱讀取郵件，不需要公開網址；也可接收現有郵件系統轉寄的原始郵件。"
+    },
+    "columns": {
+      "name": "名稱",
+      "kind": "類型",
+      "policy": "升級策略",
+      "last_intake": "最近收到",
+      "status": "狀態",
+      "actions": "操作"
+    },
+    "never_received": "尚未收到",
+    "status": {
+      "on": "啟用",
+      "off": "已停用"
+    },
+    "policy_default": "依路由分派（預設）",
+    "policy_none": "不升級，只依通知策略傳送通知",
+    "delete_title": "刪除告警來源",
+    "delete_description": "{{name}} 的 Token 會立即失效，此來源尚未解決的事件都會標記為已解決。",
+    "delete_named": "刪除 {{name}}",
+    "drawer_title": "新增告警來源",
+    "edit_title": "編輯告警來源",
+    "drawer_subtitle": "收到外部系統的告警時，會依這裡的設定建立事件。",
+    "create": "建立",
+    "save": "儲存",
+    "toast_created": "已建立告警來源",
+    "toast_updated": "已更新告警來源",
+    "toast_deleted": "已刪除告警來源",
+    "sections": {
+      "email": "郵件讀取規則",
+      "kind": "類型",
+      "identity": "識別資訊",
+      "incidents": "事件",
+      "labels": "附加標籤"
+    },
+    "fields": {
+      "name": "名稱",
+      "name_placeholder": "正式環境 Prometheus",
+      "enabled": "啟用",
+      "policy": "升級策略",
+      "severity": "預設嚴重程度",
+      "severity_hint": "警示未指定嚴重程度時，使用此等級。",
+      "cluster": "接收叢集",
+      "cluster_hint": "事件只會在此叢集建立，傳到其他叢集的警示會轉送至此。",
+      "cluster_local": "{{name}}（本叢集）",
+      "labels_hint": "這些標籤會加到此來源建立的每個事件。若警示已有同名標籤，則以警示的標籤為準。",
+      "add_label": "新增標籤",
+      "remove_label": "刪除標籤",
+      "label_key": "標籤鍵",
+      "label_value": "標籤值"
+    },
+    "errors": {
+      "name_required": "名稱為必填。"
+    },
+    "token": {
+      "title": "{{name}} 的 Token",
+      "shown_once": "Token 只會顯示這一次，關閉後就無法再查看；如果忘了，請更換 Token。",
+      "copy": "複製 Token",
+      "close": "完成",
+      "rotate": "更換 Token",
+      "rotate_title": "更換 Token",
+      "rotate_description": "舊 Token 會立即失效，仍在使用舊 Token 的傳送端必須改用新的 Token。",
+      "rotated": "Token 已更換"
+    },
+    "detail": {
+      "loading": "警示來源",
+      "intake": "接收方式",
+      "intake_email": "或轉寄原始電子郵件",
+      "setup_docs": "串接說明",
+      "address": "接收位址",
+      "copy_address": "複製接收位址",
+      "token": "Token",
+      "token_hint": "此處只顯示前綴，完整的 Token 只會在建立或更換時顯示一次。",
+      "setup": "設定",
+      "setup_hint": "將 <TOKEN> 替換為此來源的 Token。",
+      "copy_setup": "複製設定",
+      "not_found_title": "找不到警示來源",
+      "not_found_description": "此來源可能已遭刪除，或屬於其他組織。",
+      "requests": "近期收到的請求",
+      "requests_description": "每個來源保留最近 500 筆請求，最長保留 7 天。",
+      "home_elsewhere": "此來源的事件會在 {{cluster}} 建立，近期收到的請求也會記錄在該叢集。",
+      "meta": {
+        "policy": "升級策略",
+        "severity": "預設嚴重程度",
+        "labels": "附加標籤",
+        "cluster": "接收叢集"
+      }
+    },
+    "email": {
+      "description": "設定如何將電子郵件轉成警示。主旨中的狀態詞、嚴重程度、時間和百分比不計入去重鍵，因此同一警示的問題通知和恢復通知會歸到同一個事件。",
+      "senders": "接受哪些寄件者",
+      "senders_hint": "以逗號分隔：可填完整電子郵件地址，或用 @example.com 指定整個網域；* 表示接受所有寄件者。設定信箱時必填，否則知道信箱地址的人都能建立事件。",
+      "resolve": "哪些主旨表示恢復",
+      "resolve_hint": "使用規則運算式。留空則使用內建規則：resolved、recovered、recovery、cleared、恢复、已解决，以及以 OK 開頭的主旨。",
+      "dedup": "從主旨擷取去重鍵",
+      "dedup_hint": "使用規則運算式，取第一個擷取群組。留空或未比對到時，使用整理過的主旨。",
+      "ignore": "哪些主旨不算警示",
+      "ignore_hint": "使用規則運算式。符合的郵件會直接略過；留空則不略過任何郵件。"
+    },
+    "mailbox": {
+      "title": "讀取信箱",
+      "description": "唯讀：不變更已讀狀態，也不刪除郵件。從首次連線時開始讀取，不處理信箱中原有的郵件。",
+      "elsewhere": "信箱由此來源的接收叢集 {{cluster}} 讀取。請到該叢集設定，密碼不會傳出叢集。",
+      "host": "IMAP 伺服器",
+      "port": "連接埠",
+      "security": "加密",
+      "security_tls": "TLS",
+      "security_starttls": "STARTTLS",
+      "security_none": "不加密",
+      "plaintext_warning": "不加密時，密碼會以明文在網路上傳輸，僅應在可信任的內部網路使用。",
+      "auth_password": "密碼",
+      "auth_password_hint": "信箱密碼，或服務供應商提供的授權碼、應用程式專用密碼。",
+      "auth_oauth2": "OAuth 2.0",
+      "auth_oauth2_hint": "使用用戶端憑證換取權杖：Microsoft 365 不再接受密碼登入。",
+      "username": "使用者名稱",
+      "password": "密碼或授權碼",
+      "client_secret": "用戶端密碼",
+      "secret_kept": "留空則維持原設定",
+      "token_url": "權杖網址",
+      "client_id": "用戶端 ID",
+      "scope": "Scope",
+      "folder": "資料夾",
+      "poll_secs": "讀取間隔（秒）",
+      "poll_hint": "15 到 3600。讀取太頻繁時，部分郵件伺服器會限制登入。",
+      "save": "儲存信箱設定",
+      "test": "測試連線",
+      "remove": "停止讀取此信箱",
+      "saved": "已儲存信箱設定，將從下一輪開始讀取",
+      "removed": "已停止讀取此信箱",
+      "test_ok_one": "連線成功，這個資料夾有 {{count}} 封郵件",
+      "test_ok_other": "連線成功，這個資料夾有 {{count}} 封郵件",
+      "test_failed": "無法連線：{{error}}",
+      "last_error": "上次讀取失敗：{{error}}",
+      "last_success": "已於 {{time}} 讀取",
+      "not_read_yet": "尚未讀取，將於下一輪開始。"
+    },
+    "standing": {
+      "label": "來源狀態",
+      "off": "已停用",
+      "waiting": "等待第一筆請求",
+      "quiet": "近 7 天沒有請求",
+      "refused": "最近一筆請求遭拒收",
+      "receiving": "正常接收",
+      "off_detail": "停用期間送來的請求都會被拒收。",
+      "waiting_detail": "依照下方說明設定傳送端，收到第一筆請求後，這裡就會更新。",
+      "last_received": "最近一筆請求於 {{when}} 收到",
+      "refused_detail": "{{when}} 拒收：{{reason}}",
+      "requests": "近 24 小時的請求",
+      "refused_count_one": "拒收 {{count}} 次",
+      "refused_count_other": "拒收 {{count}} 次",
+      "none_refused": "沒有遭拒收的請求",
+      "no_requests": "還沒有請求",
+      "alerts": "警示",
+      "alert_outcomes": "建立事件 {{opened}} · 恢復 {{resolved}}",
+      "open_incidents": "未關閉的事件",
+      "oldest_open": "最早的事件於 {{when}} 建立",
+      "none_open": "沒有未關閉的事件"
+    },
+    "steps": {
+      "address": "複製接收網址",
+      "address_description": "所有警示來源共用這個網址，由 Token 判斷是哪個來源。",
+      "token": "填入 Token",
+      "token_header": "請在傳送端的 Authorization 請求標頭中填入 Bearer，後接空格和 Token。",
+      "token_query": "這個傳送端無法設定請求標頭，請將 Token 放在接收網址的 token 參數中。",
+      "configure": "設定傳送端"
+    },
+    "setup_guide": {
+      "api": "使用下方的請求傳送警示；相同 dedupKey 的觸發、確認和恢復都會對應到同一個事件。",
+      "alertmanager": "將下方的接收器加到 alertmanager.yml，並在路由中將警示轉送給它；send_resolved 請維持為 true。",
+      "grafana": "在 Alerting → Contact points 新增 Webhook 聯絡點，依照下方說明填寫，再於通知政策中使用這個聯絡點。",
+      "datadog": "在 Integrations → Webhooks 新增 Webhook，依照下方說明填寫，再於監控的通知訊息中輸入 @webhook-名稱。",
+      "pagerduty": "在 Integrations → Generic Webhooks (v3) 新增 Webhook，並依照下方說明填寫。",
+      "aliyun_cms": "將接收網址填入警示規則的「警示回呼」欄位；若是系統事件，則填入事件訂閱推播管道的 Webhook 網址欄位。",
+      "tencent_monitor": "在「警示管理 → 通知範本」的「介面回呼」欄位填入接收網址，再將通知範本繫結至警示政策。",
+      "aws_cloudwatch": "將警示的狀態變更傳送到 SNS 主題，並為該主題新增 HTTPS 訂閱（下方是 AWS CLI 的寫法），訂閱端點請填入接收網址。訂閱會自動確認；請勿啟用 Raw message delivery。OK 狀態也要傳送到這個主題，事件才會自動解決。",
+      "zabbix": "將下方內容存成 YAML，在 Alerts → Media types 匯入；為一位使用者新增這個媒介（「傳送至」可任意填寫），再建立觸發器動作，將操作、復原操作和更新操作都傳送給該使用者。",
+      "email": "無法讀取信箱時可用這個方式：讓現有的郵件系統（Postfix、SES、Mailgun）依下方範例將原始郵件以 POST 送出，讀取方式與從信箱讀取相同。"
+    },
+    "setup_docs_anchor": {
+      "api": "api",
+      "alertmanager": "alertmanager",
+      "grafana": "grafana",
+      "datadog": "datadog",
+      "pagerduty": "pagerduty",
+      "aliyun_cms": "阿里雲雲監控",
+      "tencent_monitor": "騰訊雲可觀測平台",
+      "aws_cloudwatch": "amazon-cloudwatch",
+      "zabbix": "zabbix",
+      "email": "郵件"
+    },
+    "requests": {
+      "columns": {
+        "time": "時間",
+        "result": "結果",
+        "alerts": "警報",
+        "message": "說明"
+      },
+      "status": {
+        "accepted": "已處理",
+        "rejected": "已拒收",
+        "forwarded": "已轉送"
+      },
+      "via": "由 {{cluster}} 轉送",
+      "alert_count_one": "{{count}} 則",
+      "alert_count_other": "{{count}} 則",
+      "outcomes": {
+        "opened": "建立事件",
+        "updated": "更新",
+        "unchanged": "未變更",
+        "acknowledged": "確認",
+        "resolved": "復原",
+        "ignored": "忽略"
+      },
+      "actions": {
+        "trigger": "觸發",
+        "acknowledge": "確認",
+        "resolve": "復原"
+      },
+      "body": "請求主體開頭",
+      "open_incident": "檢視事件",
+      "no_alerts": "這次請求未包含警報。"
+    },
+    "incident": {
+      "title": "外部警報",
+      "source": "來源",
+      "deleted": "來源已刪除",
+      "dedup_key": "去重鍵",
+      "last_intake": "最近收到",
+      "members_one": "群組中的 {{count}} 則警報",
+      "members_other": "群組中的 {{count}} 則警示",
+      "member_firing": "觸發中",
+      "member_resolved": "已恢復",
+      "since": "{{time}} 開始",
+      "open_sender": "在傳送端查看"
+    }
+  },
+  "routing": {
+    "new_rule": "新增規則",
+    "rules_title": "路由規則",
+    "rules_description": "由上往下比對，由第一條符合的規則決定指派對象；若沒有符合的規則，則依序按服務的負責團隊、team 標籤、預設策略指派。",
+    "rules_empty": "尚無路由規則。",
+    "every_incident": "所有事件",
+    "min_severity": "{{severity}}以上（含）",
+    "only_origins": "僅限{{origins}}",
+    "list_separator": "、",
+    "origins": {
+      "rule": "警示規則",
+      "external": "外部警示",
+      "synthetic": "合成監控",
+      "manual": "手動建立的事件"
+    },
+    "reorder": "調整「{{name}}」的順序",
+    "reorder_hint": "拖曳或按 ↑ ↓ 鍵調整順序",
+    "target_policy": "策略",
+    "target_team": "團隊",
+    "target_missing": "指派對象已刪除",
+    "target_missing_hint": "此規則指定的策略或團隊已刪除，比對時會略過此規則。",
+    "enable": "啟用「{{name}}」",
+    "delete_named": "刪除「{{name}}」",
+    "delete_title": "刪除路由規則",
+    "delete_description": "刪除「{{name}}」後，原本符合此規則的事件會改按後續規則指派。",
+    "toast_created": "規則已建立",
+    "toast_updated": "規則已儲存",
+    "toast_deleted": "規則已刪除",
+    "toast_team_policy": "值班策略已儲存",
+    "teams_title": "團隊的值班策略",
+    "teams_description": "事件指派給團隊後，會依該團隊的值班策略升級處理；若團隊未設定，則使用預設策略。",
+    "teams_empty": "尚無團隊。",
+    "teams_create": "前往「身分與存取」建立團隊",
+    "columns": {
+      "team": "團隊",
+      "services": "負責的服務",
+      "policy": "值班策略",
+      "policy_of": "{{team}} 的值班策略"
+    },
+    "members_one": "{{count}} 人",
+    "members_other": "{{count}} 人",
+    "services_one": "{{count}} 個服務",
+    "services_other": "{{count}} 個服務",
+    "services_rest": " 等",
+    "services_none": "服務目錄中未登錄",
+    "no_policy": "不設定，使用預設策略",
+    "default_policy": "預設策略",
+    "no_team": "不指派團隊",
+    "try_title": "試試看",
+    "try_description": "填入一組標籤，看看這類事件會指派給哪個團隊、採用哪個升級策略。",
+    "try_labels": "標籤",
+    "try_labels_hint": "每行一個，格式為 key=value。",
+    "try_origin": "來源",
+    "try_severity": "嚴重程度",
+    "try_run": "試試看",
+    "try_idle": "結果會顯示在這裡：指派的團隊、升級策略，以及每個步驟的判斷結果。",
+    "outcome_team": "團隊",
+    "outcome_policy": "升級策略",
+    "outcome_reason": "依據",
+    "steps": {
+      "rule": "路由規則",
+      "rule_matched": "符合「{{name}}」",
+      "rule_none": "未符合任何規則",
+      "rule_empty": "沒有啟用的規則",
+      "service": "服務的負責團隊",
+      "service_none": "標籤中未指定服務",
+      "service_owned": "{{service}} 由 {{team}} 負責",
+      "service_unowned": "{{service}} 未登錄負責團隊",
+      "label": "team 標籤",
+      "label_team": "指向 {{team}}",
+      "label_none": "沒有可辨識團隊的 team 或 team_id 標籤",
+      "default": "預設策略",
+      "default_used": "使用預設策略",
+      "default_for_team": "{{team}} 未設定值班策略，使用預設策略",
+      "default_unused": "未使用"
+    },
+    "reasons": {
+      "rule": "符合規則「{{name}}」",
+      "service_owner": "服務 {{service}} 的負責團隊",
+      "team_label": "事件的 team 標籤",
+      "default": "皆不符合，使用預設策略",
+      "source": "來源已指定升級策略",
+      "manual": "建立時指定"
+    },
+    "drawer": {
+      "new_title": "新增路由規則",
+      "edit_title": "編輯路由規則",
+      "subtitle": "事件符合這條規則的所有條件時，依指定的目的地分派。",
+      "create": "建立",
+      "save": "儲存",
+      "identity": "基本資訊",
+      "name": "名稱",
+      "name_placeholder": "例如：正式環境的付款服務",
+      "enabled": "啟用",
+      "conditions": "條件",
+      "conditions_hint": "比對事件的標籤，必須符合所有條件才算相符；未新增條件時，所有事件都相符。",
+      "add_condition": "新增條件",
+      "remove_condition": "刪除條件",
+      "key": "標籤",
+      "operator": "比較方式",
+      "operators": {
+        "equals": "等於",
+        "not_equals": "不等於",
+        "in": "屬於",
+        "matches": "符合正規表示式"
+      },
+      "value": "值",
+      "value_in_placeholder": "多個值請以逗號分隔",
+      "scope": "範圍",
+      "min_severity": "最低嚴重程度",
+      "any_severity": "不限",
+      "origins": "來源",
+      "origins_hint": "未選取任何來源時，會比對所有來源的事件。",
+      "target": "目的地",
+      "target_team": "團隊",
+      "target_team_hint": "分派給團隊，並依該團隊的值班策略升級",
+      "target_policy": "升級策略",
+      "target_policy_hint": "直接套用這項策略，團隊仍依服務歸屬或標籤判定",
+      "target_placeholder": "請選擇",
+      "priorities": "優先順序",
+      "priorities_hint": "未勾選任何選項時，不比對優先順序；勾選後，未設定優先順序的事件不相符。",
+      "time_hint": "依事件的建立時間判斷。"
+    },
+    "only_priorities": "優先順序 {{priorities}}",
+    "time_inside": "僅限 {{ranges}}（{{timezone}}）",
+    "time_outside": "{{ranges}}（{{timezone}}）以外",
+    "try_priority": "優先順序",
+    "try_at": "建立時間",
+    "try_at_now": "現在"
+  },
+  "matchers": {
+    "title": "標籤比對器",
+    "add": "新增比對器",
+    "remove": "刪除比對器",
+    "label_placeholder": "標籤（例如 service）",
+    "label_aria": "比對器標籤",
+    "value_placeholder": "值",
+    "value_aria": "比對器值",
+    "hint": "必須符合所有比對條件（AND）。=~ 和 !~ 用於規則運算式比對。"
+  },
+  "escalations": {
+    "new_policy": "新增策略",
+    "empty_title": "目前沒有升級策略",
+    "empty_description": "將未確認的事件轉送給值班人員、值班排程與團隊。",
+    "columns": {
+      "name": "名稱",
+      "steps": "通知對象與時間",
+      "actions": "操作"
+    },
+    "delete_title": "刪除升級策略",
+    "edit_title": "編輯升級策略",
+    "drawer_title": "新增升級策略",
+    "drawer_subtitle": "依序觸發各級，直到事件獲得確認。",
+    "save": "儲存策略",
+    "create": "建立策略",
+    "toast_updated": "策略已更新",
+    "toast_created": "策略已建立",
+    "errors": {
+      "name_required": "名稱為必填欄位。",
+      "target_required": "請至少新增一個目標。",
+      "support_hours": "請至少設定一個支援時段，每個時段都須選擇星期幾並填寫有效時間。"
+    },
+    "sections": {
+      "identity": "識別資訊",
+      "steps": "升級層級",
+      "steps_description": "每個層級會為各目標寫入 Notify 事件，若未在時限內確認，就進入下一級。"
+    },
+    "fields": {
+      "name": "策略名稱",
+      "repeat": "重複執行整個策略，直到事件獲得確認",
+      "max_loops": "最多重複次數",
+      "ack_retrigger": "確認後仍未解決",
+      "min_severity": "適用的最低嚴重程度",
+      "ack_timeout": "確認時限",
+      "targets": "目標",
+      "notify_routing": "在「設定 → Notify → 策略」中選擇連接器並設定備援路由。"
+    },
+    "hints": {
+      "max_loops": "停止升級前重複執行的次數。",
+      "ack_retrigger": "確認後若超過這段時間仍未解決，事件會恢復為未確認，並再次通知負責人；若仍無人確認，就繼續升級。"
+    },
+    "ack_retrigger": {
+      "off": "不再通知",
+      "minutes": "{{count}} 分鐘",
+      "hours_one": "{{count}} 小時",
+      "hours_other": "{{count}} 小時"
+    },
+    "add_step": "新增層級",
+    "remove_step": "刪除層級",
+    "step_n": "第 {{n}} 級",
+    "add_target": "新增目標",
+    "remove_target": "刪除目標",
+    "any_severity": "任何嚴重程度",
+    "pick_ref": "— 選擇 —",
+    "missing_target": "已不存在",
+    "target_kinds": {
+      "user": "使用者",
+      "schedule": "排班",
+      "team": "團隊"
+    },
+    "no_target": "尚未指定",
+    "from_severity": "{{severity}} 以上",
+    "repeats_one": "重複 {{count}} 次",
+    "repeats_other": "重複 {{count}} 次",
+    "unreachable_one": "{{count}} 人收不到警示",
+    "unreachable_other": "{{count}} 人收不到警示",
+    "urgency": {
+      "title": "緊急程度",
+      "description": "事件未指定緊急程度時，依這裡的設定決定。各緊急程度的通知方式（是否逐級升級、如何處理勿擾模式，以及使用哪組個人通知步驟）可在組織的緊急程度設定中調整。",
+      "modes": {
+        "by_severity": "依嚴重程度",
+        "support_hours": "依支援時段",
+        "always": "固定緊急程度"
+      },
+      "mode_hints": {
+        "by_severity": "各嚴重程度依組織設定對應至緊急程度（預設「嚴重」和「錯誤」為高，「警告」和「提示」為低）。",
+        "support_hours": "支援時段內外各使用不同的緊急程度。",
+        "always": "所有事件一律使用下方選取的緊急程度。"
+      },
+      "raise_at_start": "支援時段開始時，將尚未確認且低於時段內設定的事件提升至該緊急程度，並從第一級重新通知",
+      "escalate_low": "在這項策略下，原本只通知第一級的緊急程度也會照常逐級升級",
+      "chain": {
+        "support_hours": "依支援時段決定緊急程度",
+        "always": "一律為 {{urgency}}"
+      },
+      "always_level": "緊急程度",
+      "inside": "時段內",
+      "outside": "時段外"
+    }
+  },
+  "schedules": {
+    "title": "值班排班",
+    "subtitle": "管理警示升級流程中的輪值與臨時代班。",
+    "new_schedule": "新增排班",
+    "empty_title": "尚無值班排班",
+    "empty_description": "讓團隊成員依每日、每週或自訂週期輪流值班。",
+    "columns": {
+      "name": "名稱",
+      "timezone": "時區",
+      "rotations": "輪值",
+      "members": "人數",
+      "current_on_call": "目前值班",
+      "rotation": "輪值",
+      "next_switch": "下次交班",
+      "coverage": "涵蓋人數",
+      "recent_change": "最近變更",
+      "status": "狀態"
+    },
+    "delete_title": "刪除排班",
+    "edit_title": "編輯排班",
+    "drawer_title": "新增排班",
+    "drawer_subtitle": "設定基本資訊和輪值規則，並在建立前確認未來 7 天的值班順序。",
+    "save": "儲存排班",
+    "save_draft": "儲存草稿",
+    "create": "建立排班",
+    "toast_updated": "排班已更新",
+    "toast_created": "排班已建立",
+    "toast_draft_saved": "排班草稿已儲存",
+    "toast_paused": "排班已暫停",
+    "toast_resumed": "排班已恢復",
+    "toast_copied": "排班副本已建立並暫停",
+    "copy_name": "{{name}} 副本",
+    "errors": {
+      "name_required": "名稱為必填欄位。",
+      "members_required": "請至少新增一位輪值成員。",
+      "override_user": "請選擇使用者。",
+      "override_reason": "請填寫代班原因。",
+      "override_window": "結束時間必須晚於開始時間。",
+      "override_conflict": "這個時段與現有的臨時代班衝突，請調整開始或結束時間。"
+    },
+    "sections": {
+      "identity": "基本資訊",
+      "rotations": "輪值規則",
+      "rotations_description": "每組輪值由組內成員依序值班；臨時代班可在排班詳細資料頁面管理。",
+      "overrides": "臨時代班"
+    },
+    "fields": {
+      "name": "排班名稱",
+      "description": "說明",
+      "timezone": "時區",
+      "team": "關聯團隊",
+      "cadence": "輪替方式",
+      "period_hours": "週期（小時）",
+      "start_at": "開始日期與時間",
+      "ends": "在指定時間結束",
+      "end_at": "結束日期與時間",
+      "handoff_time": "交接時間",
+      "members": "輪值成員（依序輪替）",
+      "restrict_window": "限定特定日期／時段",
+      "swap_needs_approval": "換班須經核准"
+    },
+    "hints": {
+      "timezone": "如 UTC、America/New_York、Asia/Shanghai",
+      "swap_needs_approval": "對方接受換班後，仍須由具備排班管理權限的人員核准才會生效。"
+    },
+    "add_rotation": "新增輪值",
+    "remove_rotation": "刪除輪值",
+    "rotation_name_placeholder": "例如：primary",
+    "rotation_kinds": {
+      "daily": "每日",
+      "weekly": "每週",
+      "workdays": "工作日",
+      "custom": "自訂週期"
+    },
+    "no_users": "找不到使用者。",
+    "unknown_user": "不明成員",
+    "on_call_now": "目前值班",
+    "nobody_on_call": "目前無人值班",
+    "currently_on_call": "正在值班",
+    "detail_loading": "值班排班",
+    "detail_error": "無法載入排班",
+    "no_rotations": "目前沒有輪值。",
+    "rotation_untitled": "輪值 {{n}}",
+    "no_members": "沒有成員",
+    "overrides_hint": "在指定時段內暫時由指定人員代班。",
+    "override_added": "已新增代班",
+    "override_updated": "已更新代班",
+    "override_deleted": "已刪除代班",
+    "override_ended": "代班已結束",
+    "override_delete_title": "要刪除臨時代班嗎？",
+    "override_fields": {
+      "user": "代班人員",
+      "reason": "原因",
+      "start": "開始時間",
+      "end": "結束時間"
+    },
+    "pick_user": "選擇值班人員",
+    "add_override": "新增代班",
+    "every_n_hours": "每 {{n}} 小時",
+    "update_override": "更新代班",
+    "cancel_edit": "取消編輯",
+    "end_override": "結束代班",
+    "override_person": "代班人員",
+    "override_badge": "臨時代班",
+    "override_summary": "{{user}} 將於 {{start}} 至 {{end}} 期間接替目前的值班人員。",
+    "no_overrides": "目前沒有生效中或即將生效的臨時代班",
+    "view_history": "查看歷史紀錄",
+    "hide_history": "隱藏歷史紀錄",
+    "no_switch": "目前沒有預定交班",
+    "people_count": "{{count}} 人",
+    "people_rotation": "{{count}} 人輪值",
+    "rotation_count": "{{count}} 組輪值",
+    "total_count": "共 {{count}} 筆",
+    "system_actor": "系統",
+    "description_fallback": "警示升級流程的值班路由",
+    "team_prefix": "團隊：{{team}}",
+    "team_unassigned": "未連結團隊",
+    "warnings": {
+      "other_schedule": "這位成員在代班開始時已排入其他值班表，請確認值班時間不會衝突。",
+      "immediate": "開始時間早於目前時間，儲存後將立即生效。"
+    },
+    "placeholders": {
+      "name": "例如：production primary on-call",
+      "description": "說明值班表涵蓋的服務、環境及警示升級範圍。",
+      "override_reason": "例如：請假、處理故障、臨時換班"
+    },
+    "summary": {
+      "schedules": "值班表",
+      "schedule_count": "{{count}} 份值班表",
+      "team_count": "涵蓋 {{count}} 個團隊",
+      "on_call": "目前值班",
+      "active_count": "{{count}} 份值班表目前有人值班",
+      "people_on_call": "{{count}} 位成員正在值班",
+      "this_week": "本週輪替",
+      "rotation_count": "{{count}} 次輪替",
+      "next_switch": "下次交班：{{value}}",
+      "no_switch": "本週沒有預定交班",
+      "overrides": "臨時代班",
+      "override_count": "{{count}} 份值班表有代班安排",
+      "override_people": "共有 {{count}} 位代班人員"
+    },
+    "filters": {
+      "search": "搜尋值班表名稱、團隊或負責人…",
+      "team": "團隊",
+      "timezone": "時區",
+      "status": "狀態",
+      "all": "全部",
+      "mine": "只顯示我參與的排班",
+      "refresh": "重新整理",
+      "reset": "重設篩選",
+      "list_settings": "清單設定",
+      "no_results": "沒有符合篩選條件的排班"
+    },
+    "roles": {
+      "primary": "主要",
+      "secondary": "備援"
+    },
+    "status": {
+      "active": "進行中",
+      "switching": "即將切換",
+      "not_started": "尚未開始",
+      "paused": "已暫停",
+      "gap": "有空班"
+    },
+    "actions": {
+      "open_menu": "開啟 {{name}} 的操作選單",
+      "view": "查看詳細資料",
+      "edit": "編輯排班",
+      "add_override": "新增臨時代班",
+      "pause": "暫停排班",
+      "resume": "恢復排班",
+      "copy": "複製排班",
+      "export_calendar": "匯出行事曆",
+      "delete": "刪除排班",
+      "more": "更多操作",
+      "subscribe_calendar": "訂閱行事曆"
+    },
+    "pagination": {
+      "label": "值班排班分頁",
+      "page": "{{page}} / {{count}}",
+      "page_size": "每頁筆數",
+      "first": "值班表第一頁",
+      "previous": "上一頁",
+      "next": "下一頁",
+      "last": "值班表最後一頁"
+    },
+    "preview": {
+      "title": "未來 7 天預覽",
+      "description": "建立前請確認輪值順序、交接時間及各時段的值班安排。",
+      "empty": "選取輪值成員後顯示預覽",
+      "member_count": "涵蓋成員",
+      "timezone": "排班時區",
+      "then": "接著",
+      "unreadable": "時段有誤，請修正後再預覽。"
+    },
+    "detail": {
+      "current": "目前值班",
+      "started_at": "開始於 {{value}}",
+      "no_active_shift": "目前沒有生效的班次",
+      "next_rotation": "下次輪替",
+      "rotation_people": "輪值人數",
+      "rotation_rule": "輪值規則：{{value}}",
+      "overrides": "臨時代班",
+      "active_override_count": "{{count}} 筆生效中",
+      "coverage_window": "涵蓋時段：{{start}} – {{end}}",
+      "no_override": "目前沒有生效中的代班",
+      "rotation_rule_title": "輪值規則",
+      "view_rule": "查看詳細資料",
+      "rotation_name": "輪值名稱",
+      "rotation_members": "輪值人員",
+      "handoff_time": "交接時間",
+      "handoff_value": "{{cadence}} {{time}}（{{timezone}}）",
+      "rotation_ends": "結束"
+    },
+    "timeline": {
+      "title": "未來 7 天時間軸",
+      "current": "目前值班",
+      "upcoming": "即將接班",
+      "view_calendar": "查看行事曆",
+      "empty": "目前的排班沒有可顯示的值班計畫"
+    },
+    "activity": {
+      "title": "變更記錄",
+      "view_all": "查看全部",
+      "collapse": "收合",
+      "empty": "目前沒有變更記錄",
+      "columns": {
+        "time": "時間",
+        "actor": "操作者",
+        "type": "類型",
+        "content": "變更內容"
+      },
+      "types": {
+        "create": "建立",
+        "edit": "編輯",
+        "override": "代班",
+        "pause": "暫停",
+        "resume": "恢復",
+        "delete": "刪除",
+        "swap": "換班"
+      },
+      "descriptions": {
+        "create": "建立排班 {{name}}",
+        "edit": "更新排班設定 {{name}}",
+        "override": "{{user}} 的臨時代班有變更，原因：{{reason}}",
+        "pause": "暫停排班 {{name}}",
+        "resume": "恢復排班 {{name}}",
+        "delete": "刪除排班 {{name}}",
+        "swap": "{{requester}} 請 {{target}} 代班：{{status}}"
+      }
+    },
+    "load": {
+      "title": "成員負擔（近 30 天）"
+    },
+    "swaps": {
+      "title": "換班申請",
+      "request": "申請換班",
+      "request_title": "申請換班",
+      "request_description": "選一段只有你值班的時段，再從班表中選一位代班的人。對方接受後就生效。",
+      "request_description_approval": "選一段只有你值班的時段，再從班表中選一位代班的人。對方接受後，還要經班表管理員核准才會生效。",
+      "not_on_call": "你在這份班表中接下來 30 天沒有班次",
+      "fields": {
+        "shift": "我的班次",
+        "start": "開始",
+        "end": "結束",
+        "target": "代班的人",
+        "note": "備註"
+      },
+      "pick_shift": "選一個班次，或在下方自行填寫時間",
+      "pick_target": "選擇成員",
+      "placeholders": {
+        "note": "例如：週五要出差"
+      },
+      "submit": "送出申請",
+      "sent": "換班申請已送出",
+      "errors": {
+        "window": "結束時間必須晚於開始時間",
+        "target": "選擇代班的人"
+      },
+      "empty": "目前沒有換班申請。",
+      "show_settled": "顯示已結束的申請",
+      "hide_settled": "只顯示進行中的申請",
+      "asks": "{{requester}} 請 {{target}} 代班",
+      "decided_by": "由 {{name}} 處理",
+      "status": {
+        "pending": "等待對方回覆",
+        "awaiting_approval": "等待管理員核准",
+        "accepted": "已生效",
+        "declined": "對方拒絕",
+        "rejected": "管理員駁回",
+        "cancelled": "已撤回",
+        "expired": "已逾期"
+      },
+      "answer": {
+        "accept": "接受",
+        "decline": "拒絕",
+        "cancel": "撤回",
+        "approve": "核准",
+        "reject": "駁回"
+      },
+      "done": {
+        "accept": "已接受，代班已生效",
+        "accept_waiting": "已接受，等待管理員核准",
+        "decline": "已拒絕換班",
+        "cancel": "已撤回換班申請",
+        "approve": "已核准，代班已生效",
+        "reject": "已駁回換班申請"
+      },
+      "mine_title": "我的換班申請",
+      "mine_description": "你提出的申請和請你代班的申請。可在排班詳細資料中核准或駁回。",
+      "mine_button": "換班申請",
+      "mine_waiting": "{{count}} 筆等你回覆",
+      "mine_empty": "沒有你提出或請你代班的申請。",
+      "open_schedule": "查看排班"
+    },
+    "calendar": {
+      "title_schedule": "訂閱「{{name}}」",
+      "title_mine": "訂閱我的值班",
+      "description_schedule": "將這個排班的所有班次加入日曆應用程式（Google 日曆、Outlook、Apple 行事曆等）。日曆應用程式約每小時更新一次，涵蓋過去 30 天到未來 90 天的班次，包含代班和換班。",
+      "description_mine": "將你在各個排班中的班次加入日曆應用程式（Google 日曆、Outlook、Apple 行事曆等）。日曆應用程式約每小時更新一次，涵蓋過去 30 天到未來 90 天的班次，包含代班和換班。",
+      "create": "產生訂閱網址",
+      "reset": "重設網址",
+      "revoke": "停止訂閱",
+      "address": "訂閱網址",
+      "copy": "複製網址",
+      "open_app": "在日曆應用程式中開啟",
+      "shown_once": "網址只會顯示這一次。任何取得網址的人都能查看這些班次，不再使用時請停止訂閱。",
+      "no_external_url": "此執行個體未設定外部網址，因此使用你目前存取的網址。請確認日曆應用程式可以存取該網址。",
+      "subscribed": "已訂閱：於 {{created}} 產生",
+      "last_used": "日曆上次讀取時間：{{value}}",
+      "never_used": "尚未有日曆讀取",
+      "reset_hint": "重設後舊網址會立即失效，請在日曆應用程式中改用新網址。",
+      "revoked": "已停止訂閱",
+      "mine_button": "訂閱我的值班",
+      "loading": "正在讀取訂閱…"
+    },
+    "unreachable": {
+      "next": "下一位接班的 {{name}} 收不到警示：沒有可用的通知方式，也沒有將警示傳送到群組的預設路由。",
+      "members_one": "{{count}} 名成員收不到警示：{{names}}。",
+      "members_other": "{{count}} 名成員收不到警示：{{names}}。",
+      "fix": "前往設定通知方式"
+    },
+    "coverage": {
+      "title": "未來 14 天值班覆蓋情況",
+      "gaps_one": "未來 {{days}} 天有 {{count}} 段空檔，共 {{hours}} 小時無人值班。",
+      "gaps_other": "未來 {{days}} 天有 {{count}} 段空檔，共 {{hours}} 小時無人值班。",
+      "no_gaps": "未來 {{days}} 天都有人值班。",
+      "nobody": "無人值班",
+      "hours": "{{hours}} 小時",
+      "legend": {
+        "rotation": "輪值",
+        "override": "臨時代班",
+        "gap": "無人值班"
+      }
+    }
+  },
+  "inhibitions": {
+    "new_rule": "新增抑制規則",
+    "empty_title": "目前沒有抑制規則",
+    "empty_description": "有更嚴重或更上游的事件時，抑制次要事件的通知，只通知需要關注的事件。",
+    "held": "已抑制",
+    "any_incident": "任何事件",
+    "only_worse": "只抑制比它輕微的事件",
+    "at_least": "嚴重程度不低於{{severity}}",
+    "at_most": "嚴重程度不高於{{severity}}",
+    "columns": {
+      "name": "名稱",
+      "source": "這些事件尚未解除時",
+      "target": "抑制這些事件",
+      "equal": "相同的標籤",
+      "status": "狀態",
+      "actions": "操作"
+    },
+    "standing": {
+      "holding_one": "正在抑制 {{count}} 個事件",
+      "holding_other": "正在抑制 {{count}} 個事件",
+      "on": "未抑制任何事件",
+      "off": "已關閉"
+    },
+    "drawer_title": "新增抑制規則",
+    "edit_title": "編輯抑制規則",
+    "drawer_subtitle": "來源事件尚未解除時，目標事件仍會建立並顯示在頁面上，但不會發送通知，也不會進一步升級；來源事件解除後，才會通知仍未解除的目標事件。",
+    "create": "建立規則",
+    "save": "儲存",
+    "toast_created": "已建立抑制規則",
+    "toast_updated": "已儲存抑制規則",
+    "delete_named": "刪除抑制規則 {{name}}",
+    "delete_title": "要刪除這條抑制規則嗎？",
+    "delete_effect_label": "刪除後",
+    "delete_effect_one": "這條規則抑制的 {{count}} 個事件會立即發送通知",
+    "delete_effect_other": "這條規則抑制的 {{count}} 個事件會立即發送通知",
+    "sections": {
+      "identity": "基本資訊",
+      "source": "來源事件：哪些事件能抑制其他事件",
+      "source_hint": "已靜音的事件不算：它本身不會發送通知，如果再抑制其他事件，就沒人會收到任何通知。已確認的事件算，因為已經有人在處理。",
+      "target": "目標事件：哪些事件會被抑制",
+      "target_hint": "留空表示適用於所有事件。手動建立的事件不會被抑制。",
+      "relation": "兩者的關係",
+      "timing": "時間",
+      "comment": "說明",
+      "preview": "目前會抑制哪些事件",
+      "preview_hint": "不必先儲存，即可用這條規則檢查目前進行中的事件。"
+    },
+    "fields": {
+      "name": "名稱",
+      "name_placeholder": "同一服務中，嚴重事件抑制次要事件",
+      "enabled": "啟用",
+      "min_severity": "嚴重程度不低於",
+      "max_severity": "嚴重程度不高於",
+      "any_severity": "不限",
+      "equal": "這些標籤必須相同",
+      "equal_hint": "以逗號分隔。兩邊都必須有這些標籤，且值相同，才會抑制；缺少標籤視為不同。留空則不比對標籤，但必須明確指定來源事件的條件。",
+      "more_severe_only": "來源事件必須比目標事件嚴重",
+      "wait_secs": "目標事件等待時間（秒）",
+      "wait_hint": "症狀通常比根本原因更早通報：先等待這段時間，看看來源事件是否出現。最短 15 秒，最長 600 秒。",
+      "linger_secs": "來源事件恢復後繼續抑制的時間（秒）",
+      "linger_hint": "根本原因排除後，症狀通常也快消失了，不必再通知一次。最長 3600 秒。",
+      "comment": "說明"
+    },
+    "preview": {
+      "run": "執行預覽",
+      "none": "目前不會抑制任何事件。",
+      "held_by": "抑制原因："
+    },
+    "note": {
+      "held_by": "通知抑制原因：",
+      "rule": "仍在進行中（規則 {{rule}}）。",
+      "ending": "該事件已恢復，將於 {{time}} 解除抑制。",
+      "waiting": "可能會被更嚴重的事件抑制，通知先延後至 {{time}}。",
+      "lift": "照常通知",
+      "lifted": "已解除抑制，先前暫停的通知將立即傳送"
+    },
+    "errors": {
+      "name": "請輸入規則名稱。",
+      "no_scope": "請指定來源事件的條件，或指定兩邊必須相同的標籤，否則任何事件都能抑制其他所有事件。",
+      "wait": "目標事件最多等待 600 秒。",
+      "linger": "來源事件恢復後最多再抑制 3600 秒。"
+    }
+  },
+  "silences": {
+    "new_silence": "新增靜默規則",
+    "empty_title": "尚無靜默規則",
+    "empty_description": "在維護期間或已知有雜訊的時段，抑制符合條件的事件通知。",
+    "columns": {
+      "name": "名稱",
+      "status": "狀態",
+      "window": "時段",
+      "matchers": "比對條件",
+      "actions": "操作"
+    },
+    "delete_title": "刪除靜默",
+    "edit_title": "編輯靜默",
+    "drawer_title": "新增靜默",
+    "drawer_subtitle": "事件仍會記錄，只會暫停傳送通知。",
+    "save": "儲存靜默",
+    "create": "建立靜默",
+    "toast_updated": "靜默已更新",
+    "toast_created": "靜默已建立",
+    "errors": {
+      "name_required": "名稱為必填欄位。",
+      "matcher_required": "請至少新增一個比對條件。",
+      "window_range": "結束時間必須晚於開始時間。",
+      "window_ranges": "時段有誤：每個時段至少選一天，時間請使用 HH:MM 格式。",
+      "monthly": "開始時間請使用 HH:MM 格式，持續時間須為 1 到 10080 分鐘。",
+      "calendar": "請選擇假日行事曆。"
+    },
+    "sections": {
+      "identity": "識別資訊",
+      "matchers": "比對條件",
+      "window": "時段",
+      "comment": "備註"
+    },
+    "fields": {
+      "name": "名稱",
+      "enabled": "啟用",
+      "window_type": "時段類型",
+      "start": "開始",
+      "end": "結束",
+      "timezone": "時區",
+      "comment": "原因",
+      "month_day_kind": "依據",
+      "month_date": "每月幾號",
+      "ordinal": "第幾個",
+      "weekday": "星期幾",
+      "start_time": "開始時間（HH:MM）",
+      "duration_minutes": "持續時間（分鐘）",
+      "calendar": "假日行事曆"
+    },
+    "window_kinds": {
+      "fixed": "固定區間",
+      "weekly": "每週重複",
+      "monthly": "每月一次",
+      "holidays": "假日"
+    },
+    "comment_placeholder": "為什麼要靜默？",
+    "standing": {
+      "active": "靜默中",
+      "upcoming": "尚未開始",
+      "waiting": "未到靜默時段",
+      "ended": "已結束",
+      "off": "已關閉"
+    },
+    "matches_everything": "所有事件",
+    "delete_named": "刪除 {{name}}",
+    "month_day_kinds": {
+      "date": "日期",
+      "weekday": "星期"
+    },
+    "hints": {
+      "month_date": "若該月沒有這一天，則採用該月最後一天。",
+      "duration_minutes": "最長 7 天（10080 分鐘）。"
+    },
+    "ordinals": {
+      "1": "第一個",
+      "2": "第二個",
+      "3": "第三個",
+      "4": "第四個",
+      "5": "第五個",
+      "last": "最後一個"
+    },
+    "month_day": {
+      "date": "每月 {{day}} 日",
+      "weekday": "每月{{ordinal}}{{weekday}}"
+    },
+    "summary": {
+      "monthly": "{{day}} {{start}} 起，持續 {{duration}}（{{timezone}}）",
+      "holidays": "假日（{{timezone}}）",
+      "calendar_exclude": "假日除外",
+      "calendar_only": "僅限假日"
+    },
+    "duration": {
+      "minutes_one": "{{count}} 分鐘",
+      "minutes_other": "{{count}} 分鐘",
+      "hours_one": "{{count}} 小時",
+      "hours_other": "{{count}} 小時",
+      "hours_minutes": "{{hours}} 小時 {{minutes}} 分鐘"
+    },
+    "next_start": "下次開始：{{time}}",
+    "next_end": "{{time}} 結束",
+    "no_calendars": "請先到「設定 → 告警 → 假日行事曆」建立一份行事曆。",
+    "delete_effect_label": "影響",
+    "delete_active_effect": "這項策略目前正在靜默告警，刪除後將立即恢復通知。",
+    "bulk_delete_title_one": "刪除 {{count}} 條靜默策略？",
+    "bulk_delete_title_other": "刪除 {{count}} 條靜默策略？"
+  },
+  "incident_actions": {
+    "more": "更多操作",
+    "reassign": "轉派",
+    "add_responders": "增派",
+    "escalate": "立即升級",
+    "snooze": "暫緩",
+    "snooze_hours_one": "{{count}} 小時",
+    "snooze_hours_other": "{{count}} 小時",
+    "snooze_custom": "自訂…",
+    "snooze_cancel": "取消暫緩",
+    "severity": "嚴重程度",
+    "merge": "合併",
+    "toasts": {
+      "snoozed": "已暫緩",
+      "snooze_cancelled": "已取消暫緩",
+      "severity_changed": "已變更嚴重程度",
+      "responders_added": "已增派",
+      "reassigned": "已轉派",
+      "escalated": "已升級",
+      "merged_one": "已合併 {{count}} 起事件",
+      "merged_other": "已合併 {{count}} 起事件",
+      "bulk_done_one": "已處理 {{count}} 起事件",
+      "bulk_done_other": "已處理 {{count}} 起事件",
+      "bulk_failed": "{{total}} 起事件中有 {{count}} 起處理失敗：{{reason}}",
+      "priority_changed": "已變更優先順序",
+      "urgency_changed": "已變更緊急程度",
+      "urgency_raised": "已調高緊急程度，將從第一級重新通知"
+    },
+    "people_search": "依姓名或電子郵件地址搜尋",
+    "reassign_title": "轉派",
+    "reassign_description": "轉派給成員時，事件會回到未確認狀態，選取的成員會收到通知；轉派給團隊或升級策略時，會從第一步重新開始。",
+    "add_responders_title": "增派成員",
+    "add_responders_description": "選取的成員會加入負責人名單並收到通知，事件狀態不變。",
+    "reassign_to": "轉派給",
+    "kinds": {
+      "users": "成員",
+      "team": "團隊",
+      "policy": "升級策略"
+    },
+    "people": "成員（最多 {{max}} 位）",
+    "team_hint": "依此團隊的值班策略從第一步重新開始；若團隊未設定值班策略，則使用預設策略。",
+    "policy_hint": "依此策略從第一步重新開始，團隊不變。",
+    "choose": "選擇…",
+    "note_optional": "備註（選填）",
+    "note_placeholder": "留給接手人員的備註，會記錄在時間軸上",
+    "cancel": "取消",
+    "escalate_title": "立即升級",
+    "escalate_description": "選擇一個步驟，立即通知該步驟的對象；已確認的事件會回到未確認狀態。",
+    "loading": "載入中…",
+    "no_policy": "此事件沒有升級策略。",
+    "step_n": "第 {{n}} 步",
+    "current_step": "目前",
+    "schedule_target": "排班表上的值班人員",
+    "escalate_submit": "升級",
+    "snooze_title": "暫緩",
+    "snooze_description": "暫緩期間不會再發送通知；暫緩結束後，事件會回到未確認狀態，並重新通知負責人。尚未確認的事件會先標為已確認。",
+    "snooze_for": "暫緩時間",
+    "snooze_unit": "單位",
+    "units": {
+      "minutes": "分鐘",
+      "hours": "小時"
+    },
+    "merge_title": "合併事件",
+    "merge_description": "併入的事件不再個別通知或升級，主事件解決時會一併解決；合併後無法拆分。",
+    "merge_target": "合併至",
+    "merge_sources": "併入此事件",
+    "merge_nothing": "沒有其他進行中的事件。",
+    "merge_submit_one": "合併 {{count}} 個",
+    "merge_submit_other": "合併 {{count}} 個",
+    "bulk_label": "批次處理",
+    "select_all": "全選",
+    "select": "選取「{{name}}」",
+    "snoozed_until": "暫緩至 {{time}}",
+    "priority": "優先順序",
+    "urgency": "緊急程度",
+    "adjust": "調整"
+  },
+  "incident_timeline": {
+    "notice": {
+      "triggered": "已通知",
+      "escalated": "已發送升級通知給",
+      "acknowledged": "已發送確認通知給",
+      "resolved": "已發送恢復通知給"
+    },
+    "recipient": "{{who}}（{{through}}）",
+    "recipient_failed": "{{who}}（未送達）",
+    "policy_skipped": "有一項策略未發送通知：{{reason}}",
+    "pipeline_processed": "經由管線 {{pipeline}} 處理：",
+    "pipeline_more_one": "另有 {{count}} 處變更",
+    "pipeline_more_other": "另有 {{count}} 處變更",
+    "pipeline_fields": {
+      "summary": "標題",
+      "severity": "嚴重程度",
+      "priority": "優先順序",
+      "urgency": "緊急程度",
+      "labels": "標籤",
+      "annotations": "註解",
+      "affected_services": "服務"
+    },
+    "someone": "某人",
+    "system": "系統",
+    "via": {
+      "api": "（API）",
+      "im": "（透過 IM）",
+      "sms": "（回覆簡訊）",
+      "phone": "（電話按鍵）",
+      "agent": "（Mole Agent）"
+    },
+    "acknowledged": "{{actor}} 確認了{{via}}",
+    "resolved": "{{actor}} 解決了{{via}}",
+    "escalated": "升級到第 {{n}} 步",
+    "escalated_manual": "{{actor}} 立即升級到第 {{n}} 步",
+    "reassigned": "{{actor}} 轉派給 {{target}}",
+    "responders_added": "{{actor}} 增派了 {{people}}",
+    "snoozed": "{{actor}} 暫緩至 {{until}}",
+    "snooze_cancelled": "{{actor}} 取消了暫緩",
+    "retriggered_snooze": "暫緩期滿，回到未確認狀態並重新通知",
+    "retriggered_ack_timeout": "確認後仍未解決，回到未確認狀態並重新通知",
+    "severity_changed": "{{actor}} 將嚴重程度從 {{from}} 改為 {{to}}",
+    "merged": "{{actor}} 將此事件併入",
+    "merged_target": "另一個事件",
+    "merged_in_one": "{{actor}} 將 {{count}} 個事件併入此事件",
+    "merged_in_other": "{{actor}} 將 {{count}} 個事件併入此事件",
+    "merged_recovered": "併入的「{{summary}}」已恢復",
+    "noted": "{{actor}} 寫了備註",
+    "recovered": "已恢復",
+    "merged_list": "併入此事件的事件（{{count}}）",
+    "note_placeholder": "寫一則備註：發現了什麼、做了什麼",
+    "note_label": "備註",
+    "note_too_long": "最多 {{max}} 字",
+    "add_note": "新增備註",
+    "handling": {
+      "snoozed": "{{actor}} 暫緩至 {{until}}",
+      "merged": "已併入",
+      "severity_set": "嚴重程度由 {{actor}} 手動設定，規則不再變更",
+      "inhibition_lifted": "{{actor}} 已解除通知抑制，恢復照常通知"
+    },
+    "remediation_requested": "{{actor}} 發起了修復動作「{{action}}」，等待核准",
+    "remediation_executed": "修復動作「{{action}}」已執行（{{actor}} 核准）",
+    "remediation_failed": "修復動作「{{action}}」執行失敗（{{actor}} 核准）",
+    "remediation_verified": "修復動作「{{action}}」已通過驗證",
+    "remediation_unverified": "修復動作「{{action}}」未通過驗證",
+    "ticket_created": "{{actor}} 建立了 {{system}} 工單",
+    "ticket_updated": "工單 {{key}} 的狀態變更為「{{status}}」",
+    "declared_major": "{{actor}} 宣布為重大事件",
+    "declared_major_auto": "依組織規則宣布為重大事件",
+    "role_assigned": "{{actor}} 指派 {{person}} 為 {{role}}",
+    "role_cleared": "{{actor}} 取消了 {{role}} 的指派",
+    "war_room_created": "已建立作戰室",
+    "join": "進入",
+    "task_added": "{{actor}} 新增了任務「{{title}}」",
+    "task_done": "{{actor}} 完成了任務「{{title}}」",
+    "status_update": "{{actor}} 發布了進度更新",
+    "step_unreachable": "第 {{n}} 級沒有人能收到警示，直接升到下一級",
+    "inhibited": "受規則 {{rule}} 抑制，暫緩傳送通知，原因是",
+    "inhibition_source_recovered": "來源事件已恢復，抑制結束，已送出暫緩的通知",
+    "inhibition_rule_changed": "抑制規則已變更或刪除，已送出暫緩的通知",
+    "inhibition_lifted": "{{actor}} 恢復正常通知，已送出暫緩的通知",
+    "priority_changed": "{{actor}} 將優先順序從 {{from}} 改為 {{to}}",
+    "no_priority": "不設定",
+    "urgency_changed": "{{actor}} 將緊急程度從 {{from}} 改為 {{to}}",
+    "urgency_raised_support_hours": "支援時段開始，緊急程度升為 {{to}}，從第 1 級重新通知",
+    "phases": {
+      "fired": "觸發",
+      "acknowledged": "確認耗時",
+      "resolved": "恢復耗時",
+      "not_yet": "尚未"
+    },
+    "filter_label": "事件類別",
+    "filter": {
+      "all": "全部",
+      "alert": "警示",
+      "notice": "通知",
+      "people": "人員",
+      "notes": "備註"
+    }
+  },
+  "related": {
+    "loading": "載入中…",
+    "similar_none": "近 90 天沒有類似事件。",
+    "lasted": "持續 {{duration}}",
+    "resolved_by": "由 {{name}} 解決",
+    "notes_one": "{{count}} 則備註",
+    "notes_other": "{{count}} 則備註",
+    "reasons": {
+      "fingerprint": "相同警示",
+      "rule": "相同規則",
+      "services": "相同服務",
+      "labels": "標籤相似",
+      "title": "標題相似",
+      "team": "同一團隊"
+    },
+    "changes_none": "從觸發前 30 分鐘到觸發後 10 分鐘，這些服務未回報任何變更，規則在前一天也未變更。",
+    "at_trigger": "觸發時",
+    "before_trigger": "觸發前 {{duration}}",
+    "after_trigger": "觸發後 {{duration}}",
+    "kinds": {
+      "deployment": "部署",
+      "configuration": "設定",
+      "feature_flag": "開關",
+      "rule": "規則變更"
+    },
+    "downstream": "下游",
+    "status": {
+      "failed": "失敗",
+      "rolled_back": "已回復"
+    },
+    "open_link": "檢視管線"
+  },
+  "remediation": {
+    "new_action": "新增修復動作",
+    "actions_title": "修復動作",
+    "empty": "尚無修復動作。定義後，即可在事件中一鍵發起，核准後就會執行。",
+    "all_incidents": "所有事件",
+    "disabled": "已停用",
+    "delete_named": "刪除 {{name}}",
+    "delete_title": "刪除修復動作？",
+    "saved": "已儲存「{{name}}」",
+    "risks": {
+      "l2": "L2 · 一人核准",
+      "l3": "L3 · 兩人核准"
+    },
+    "kinds": {
+      "http": "HTTP 請求",
+      "http_hint": "呼叫 Jenkins、GitHub Actions、Argo、Rundeck 等系統的網址。",
+      "kubernetes": "Kubernetes",
+      "kubernetes_hint": "在已登錄的叢集上重新啟動、擴縮，或將 Deployment 回復至上一版本。"
+    },
+    "operations": {
+      "restart": "重新啟動",
+      "scale": "擴縮",
+      "rollback": "回復至上一版本"
+    },
+    "parameter_kinds": {
+      "text": "文字",
+      "number": "數字",
+      "select": "選項"
+    },
+    "verify_by": {
+      "incident_resolved": "事件已解除",
+      "rule_healthy": "規則恢復正常"
+    },
+    "drawer": {
+      "new_title": "新增修復動作",
+      "edit_title": "編輯修復動作",
+      "subtitle": "在事件中發起的修復動作一律須經審核，核准後才會執行，並記錄於時間軸。",
+      "save": "儲存",
+      "identity": "基本資訊",
+      "name": "名稱",
+      "description": "說明",
+      "target": "執行方式",
+      "method": "方法",
+      "url": "網址",
+      "headers": "請求標頭",
+      "headers_hint": "值會加密儲存，不再顯示；編輯時留空即可保留原值。",
+      "add_header": "新增請求標頭",
+      "remove_header": "移除請求標頭",
+      "header_name": "請求標頭名稱",
+      "header_value": "請求標頭值",
+      "secret_kept": "已設定，留空則維持不變",
+      "body": "請求本文",
+      "body_hint": "JSON 格式。可使用 {{incident.id}}、{{incident.summary}}、{{incident.service}}、{{incident.url}} 和 {{params.name}}（將 name 換成參數名稱）；加上引號會視為字串，不加引號可當作數字使用。",
+      "signing_secret": "簽章金鑰",
+      "signing_secret_hint": "設定後會附上 X-MoleSignal-Timestamp 和 X-MoleSignal-Sign，簽章方式與 Webhook 相同。",
+      "cluster": "叢集",
+      "pick_cluster": "選擇叢集",
+      "operation": "操作",
+      "workload_kind": "工作負載類型",
+      "namespace": "命名空間",
+      "workload_name": "工作負載名稱",
+      "replicas": "複本數",
+      "parameters": "啟動時填寫的參數",
+      "parameters_hint": "在範本中使用 {{params.name}} 取得參數值，並將 name 換成參數名稱。",
+      "add_parameter": "新增參數",
+      "remove_parameter": "移除參數",
+      "parameter_key": "名稱",
+      "parameter_label": "顯示名稱",
+      "parameter_kind": "類型",
+      "parameter_options": "選項（以逗號分隔）",
+      "parameter_default": "預設值",
+      "parameter_required": "必填",
+      "scope": "適用範圍與審核",
+      "services": "適用的服務",
+      "services_hint": "以逗號分隔；留空時適用於所有事件。",
+      "risk": "風險等級",
+      "verify_after": "執行後驗證",
+      "verify_after_hint": "設定幾分鐘後檢查結果；0 表示不驗證。",
+      "verify_by": "有效的判定條件",
+      "enabled": "啟用"
+    },
+    "clusters": {
+      "title": "Kubernetes 叢集",
+      "add": "新增叢集",
+      "empty": "尚未註冊任何叢集。執行 Kubernetes 修復動作前，請先註冊叢集。",
+      "test": "測試連線",
+      "reached": "連線成功，Kubernetes {{version}}",
+      "saved": "已儲存叢集",
+      "edit_title": "編輯叢集",
+      "description": "使用 ServiceAccount Token 連線至 API Server。Token 會加密儲存，且不再顯示。Token 必須具備對目標工作負載的 get、patch 權限；若要復原至先前版本，還須能列出 ReplicaSet。",
+      "name": "名稱",
+      "api_server": "API Server 位址",
+      "ca": "CA 憑證",
+      "ca_hint": "PEM 格式；留空則使用系統信任的根憑證。",
+      "token": "ServiceAccount Token"
+    },
+    "run": {
+      "none": "沒有適用於此事件的修復動作。",
+      "set_up": "前往設定",
+      "start": "執行",
+      "closed": "事件已解決",
+      "by": "由 {{name}} 發起",
+      "approve": "核准",
+      "reject": "駁回",
+      "approved": "已核准",
+      "rejected": "已駁回",
+      "requested_one": "已送審，需要 {{count}} 人核准",
+      "requested_other": "已送審，需要 {{count}} 人核准",
+      "ran_preapproved": "已依預先核准直接執行",
+      "preapproved": "預先核准",
+      "title": "執行「{{name}}」",
+      "needs_one": "送審後須由一位具審核權限的人員核准，核准後立即執行。",
+      "needs_two": "送審後須由兩位具審核權限的人員核准，核准後立即執行。",
+      "reason": "原因",
+      "reason_placeholder": "例如：checkout 連線集區已耗盡，先重新啟動",
+      "submit": "送審",
+      "status": {
+        "awaiting_approval": "等待審核",
+        "running": "執行中",
+        "succeeded": "已執行",
+        "failed": "執行失敗",
+        "declined": "未執行",
+        "verifying": "等待驗證",
+        "verified": "驗證通過",
+        "verification_failed": "驗證未通過"
+      }
+    },
+    "preapproval": {
+      "title": "預先核准",
+      "switch_label": "允許已預先核准的動作無須等待審核即可直接執行",
+      "switch_hint": "預設關閉。動作只會在預先核准涵蓋的事件中直接執行。執行次數不得超過指定時間範圍內的上限，核准人數也須達到風險等級的要求。",
+      "switched_on": "已啟用預先核准",
+      "switched_off": "已停用預先核准",
+      "states": {
+        "none": "未預先核准",
+        "off": "已預先核准 · 組織尚未啟用",
+        "expired": "預先核准已過期",
+        "awaiting_approver": "已預先核准 · 等待第二人確認",
+        "used_up": "已預先核准 · 次數已用完（{{used}}/{{max}}）",
+        "active": "已預先核准 · 時間範圍內已執行 {{used}}/{{max}} 次"
+      },
+      "set": "預先核准",
+      "edit": "編輯預先核准",
+      "confirm": "確認預先核准",
+      "confirmed": "已確認預先核准",
+      "clear": "取消預先核准",
+      "cleared": "已取消預先核准",
+      "save": "儲存預先核准",
+      "saved": "已儲存預先核准",
+      "dialog_title": "預先核准「{{name}}」",
+      "dialog_l2": "這些服務發生事件時，可直接執行動作，無須等待核准。儲存即視為已取得 L2 動作所需的一人核准。",
+      "dialog_l3": "這些服務發生事件時，可直接執行動作，無須等待核准。儲存算是 L3 動作所需的兩人核准中的一人核准，仍須由另一人確認才會生效。",
+      "services": "適用的服務",
+      "services_hint": "以逗號分隔，且須為此動作適用的服務。",
+      "services_hint_any": "以逗號分隔。",
+      "max_runs": "最多執行次數",
+      "window": "時間範圍",
+      "windows": {
+        "900": "15 分鐘",
+        "3600": "1 小時",
+        "21600": "6 小時",
+        "86400": "1 天",
+        "604800": "7 天"
+      },
+      "expires": "有效期限",
+      "expiries": {
+        "1": "1 天",
+        "7": "7 天",
+        "30": "30 天",
+        "90": "90 天",
+        "never": "長期有效"
+      },
+      "channels": "執行後通知",
+      "channels_hint": "每次依預先核准執行後，無論成功或失敗，都會傳送通知。",
+      "channels_denied": "選擇通知管道需要讀取通知連接器的權限。",
+      "channels_none": "目前沒有可傳送通知至群組或位址的連接器。",
+      "add_channel": "新增管道",
+      "remove_channel": "移除管道",
+      "channel_connector": "管道 {{number}} 的連接器",
+      "channel_kind": "管道 {{number}} 的類型",
+      "channel_target": "管道 {{number}} 的群組或位址"
+    }
+  },
+  "tickets": {
+    "new_connector": "新增工單連接器",
+    "empty": "還沒有工單連接器。連線至 Jira、ServiceNow 或飛書專案後，可以從事件建立工單，也可以依規則自動建立工單。",
+    "auto_on": "自動建立工單",
+    "auto_off": "手動建立工單",
+    "test": "測試連線",
+    "reached": "已連線",
+    "reached_as": "已連線，登入身分：{{name}}",
+    "delete_named": "刪除 {{name}}",
+    "delete_title": "刪除工單連接器？",
+    "saved": "已儲存「{{name}}」",
+    "webhook_address": "Jira Webhook 位址（請填入 Jira 系統設定的 Webhooks，金鑰須與連接器中的 Webhook 金鑰相同）",
+    "copy_webhook": "複製位址",
+    "copy_address": "複製位址",
+    "address_copied": "已複製",
+    "sites": {
+      "feishu": "飛書",
+      "lark": "Lark"
+    },
+    "systems": {
+      "jira": "Jira",
+      "meegle": "飛書專案",
+      "servicenow": "ServiceNow"
+    },
+    "drawer": {
+      "new_title": "新增工單連接器",
+      "edit_title": "編輯工單連接器",
+      "subtitle": "憑證會加密儲存，不再顯示；編輯時留空即可保留原值。",
+      "save": "儲存",
+      "identity": "基本資訊",
+      "name": "名稱",
+      "meegle_hint": "飛書專案的海外版是 Meegle。",
+      "jira": "Jira",
+      "site_url": "站台位址",
+      "cloud": "Jira Cloud",
+      "data_center": "Jira Data Center / Server",
+      "email": "帳號電子郵件",
+      "api_token": "API Token",
+      "pat": "個人存取權杖",
+      "project_key": "專案 Key",
+      "issue_type": "問題類型",
+      "priorities": "對應的工單優先順序",
+      "priorities_hint": "請填寫 Jira 中的優先順序名稱。先依事件的優先順序對應，若未設定事件的優先順序或未填寫對應值，則改用嚴重程度。留空表示不設定。",
+      "labels": "標籤",
+      "resolve_transition": "解決事件時的狀態轉換",
+      "resolve_transition_hint": "狀態轉換的名稱或 ID；留空時使用第一個可轉至結案狀態的轉換。",
+      "webhook_secret": "Webhook 密鑰",
+      "webhook_secret_hint": "設定後才會接收 Jira 的 Webhook（驗證 X-Hub-Signature）；未設定時，每 5 分鐘同步一次狀態。",
+      "meegle": "飞书项目",
+      "platform": "平台",
+      "base_url": "站台網址",
+      "plugin_id": "外掛 ID",
+      "plugin_secret": "外掛密鑰",
+      "user_key": "使用誰的身分（user_key）",
+      "user_key_hint": "以這位使用者的名義建立工單和發表留言。",
+      "project_key_meegle": "空間（project_key）",
+      "work_item_type": "工作項目類型（work_item_type_key）",
+      "priority_field": "優先順序欄位 key",
+      "priorities_hint_meegle": "填入優先順序選項的值；優先採用事件的優先順序，未設定或未填值時改用嚴重程度。留空則不設定。",
+      "resolve_transition_id": "解決事件時的狀態轉換 ID",
+      "resolve_transition_id_hint": "用於狀態流程。",
+      "resolve_node_id": "解決事件時要完成的節點 ID",
+      "resolve_node_id_hint": "用於節點流程。",
+      "done_states": "視為結案的狀態",
+      "done_states_hint": "狀態 key，以逗號分隔。",
+      "follow": "與事件同步",
+      "comments": {
+        "acknowledged": "事件獲確認時新增留言",
+        "resolved": "事件解決時新增留言",
+        "notes": "將事件備註新增為留言"
+      },
+      "transition_on_resolve": "解決事件時將工單轉為結案狀態",
+      "resolve_when_done": "工單結案時解決事件",
+      "on_major": "宣告重大事件時建立工單",
+      "auto": "自動建立工單",
+      "auto_hint": "新事件符合條件時，自動建立一張工單。",
+      "auto_enabled": "啟用自動建立工單",
+      "auto_severity": "最低嚴重程度",
+      "auto_services": "服務",
+      "auto_services_hint": "以逗號分隔；留空則不限制。",
+      "servicenow": "ServiceNow",
+      "instance_url": "執行個體網址",
+      "table": "資料表",
+      "table_hint": "預設為 incident；資料表須繼承 task。",
+      "auth_basic": "使用者名稱和密碼",
+      "auth_oauth": "OAuth 用戶端憑證",
+      "auth_oauth_hint": "執行個體需啟用用戶端憑證授權。",
+      "auth_api_key": "API Key",
+      "auth_api_key_hint": "自 Washington DC 版本起支援。",
+      "username": "使用者名稱",
+      "password": "密碼",
+      "client_id": "用戶端 ID",
+      "client_secret": "用戶端密鑰",
+      "api_key": "API Key",
+      "assignment_group": "指派群組",
+      "caller_id": "提單人",
+      "sys_id_hint": "填寫 sys_id；留空則不設定。",
+      "category": "類別",
+      "priorities_hint_servicenow": "填寫 impact/urgency（如 2/1），ServiceNow 會據此計算優先順序；若只填一個數字，兩者皆使用該值。上方是事件的優先順序，下方是嚴重程度，請先看優先順序。",
+      "resolve_state": "解決時的狀態值",
+      "resolve_state_hint": "state 欄位的值；預設為 6（已解決）。",
+      "close_code": "解決代碼",
+      "close_code_hint": "close_code 的選項因執行個體而異；留空則不填寫。",
+      "done_states_hint_servicenow": "state 欄位的值，以逗號分隔；預設為 6、7、8（已解決、已關閉、已取消）。"
+    },
+    "incident": {
+      "none": "還沒有工單。",
+      "created": "已建立工單 {{key}}",
+      "synced": "同步於 {{value}}",
+      "connector": "工單連接器",
+      "create": "建立工單",
+      "create_in": "在 {{name}} 建立工單"
+    }
+  },
+  "major": {
+    "hint": "影響範圍廣、需要多人協作時，請宣布為重大事件：指派角色、建立應變室並召開會議、依清單分工，並統一發布進度。",
+    "declare": "宣布重大事件",
+    "declared": "已宣布為重大事件",
+    "declared_by": "由 {{name}} 宣布為重大事件",
+    "declared_by_rule": "依組織規則宣布為重大事件",
+    "roles": {
+      "commander": "指揮官",
+      "communications": "溝通負責人",
+      "scribe": "記錄員"
+    },
+    "unassigned": "未指派",
+    "war_room": "進入應變室（{{platform}}）",
+    "war_room_made": "已建立群組（{{platform}}）",
+    "platforms": {
+      "lark_app": "飛書",
+      "slack_app": "Slack",
+      "dingtalk_app": "釘釘",
+      "wecom_app": "企業微信"
+    },
+    "meeting": "加入會議",
+    "tasks": "任務",
+    "no_tasks": "還沒有任務。",
+    "remove_task": "刪除任務「{{title}}」",
+    "task_placeholder": "新增一項任務",
+    "add_task": "新增",
+    "post_update": "發布進度",
+    "update_hint": "發布到作戰室，並通知負責人、各角色成員和關注者。",
+    "update": {
+      "impact": "影響",
+      "current": "現況",
+      "next": "下一步"
+    },
+    "send_update": "傳送",
+    "update_sent": "已發布進度",
+    "settings": {
+      "open": "重大事件設定",
+      "title": "重大事件設定",
+      "subtitle": "設定宣告重大事件時如何建立作戰室、召開會議及分工、要通知誰進度，以及哪些事件一建立就列為重大事件。",
+      "saved": "已儲存重大事件設定",
+      "war_room": "作戰室與會議",
+      "war_room_hint": "使用支援建立群組的訊息連接器（飛書 App、Slack App、釘釘、企業微信）建立群組，並依負責人、各角色成員及關注者在連接器中綁定的身分，將他們加入群組。",
+      "connector": "用於建立群組的連接器",
+      "no_war_room": "不建立群組",
+      "meeting": "會議",
+      "meetings": {
+        "none": "不召開會議",
+        "feishu_vc": "預約飛書視訊會議",
+        "fixed_url": "固定的會議連結",
+        "tencent_meeting": "預約騰訊會議",
+        "zoom": "召開 Zoom 會議",
+        "google_meet": "建立 Google Meet 會議"
+      },
+      "meeting_url": "會議連結",
+      "checklist": "檢查清單",
+      "checklist_hint": "宣告時套用的任務，每行一項。",
+      "stakeholders": "關注者",
+      "stakeholders_hint": "不參與處理但需要掌握進度的人，例如主管、客戶成功團隊或公關人員。發布進度時，除了負責人和各角色成員，也會通知關注者；建立作戰室時，也會將他們加入群組。",
+      "auto": "自動宣告",
+      "auto_hint": "符合條件的新事件一建立就會列為重大事件。",
+      "auto_enabled": "啟用自動宣告",
+      "room_notes": {
+        "dingtalk_app": "必須先在釘釘中將應用程式的機器人加入群組，才能把進度傳送到群組；群組名稱最多 20 個字。",
+        "wecom_app": "企業微信應用程式的可見範圍必須設為根部門。群組至少要有兩人，且沒有加入連結；成員可直接在企業微信中看到群組。"
+      },
+      "meeting_connector": "用於預約會議的飛書 App",
+      "same_as_war_room": "與建立群組使用相同的連接器",
+      "meeting_hints": {
+        "feishu_vc": "使用飛書 App 預約一場為期 6 小時的飛書視訊會議，由事件指揮官擔任會議擁有者。應用程式必須啟用預約視訊會議的權限。",
+        "tencent_meeting": "在騰訊會議的企業管理後台建立企業自建應用程式，取得 AppId、SdkId、SecretId 和 SecretKey；預約一場 6 小時的會議，掛在下方這位成員名下。",
+        "zoom": "在 Zoom App Marketplace 建立伺服器對伺服器 OAuth 應用程式，並授予建立會議的權限（meeting:write:meeting:admin）；開一場即時會議，由下方這位使用者主持。",
+        "google_meet": "由服務帳號代召集人建立會議：在 Google Workspace 管理控制台為服務帳號啟用全網域委派，並授予 https://www.googleapis.com/auth/meetings.space.created 權限。"
+      },
+      "secret_kept": "已設定，留空則維持不變",
+      "tencent": {
+        "sdk_id_hint": "應用程式有提供才填",
+        "userid": "會議建立者（userid）",
+        "userid_hint": "會議掛在這位企業成員名下"
+      },
+      "zoom": {
+        "host": "主持人",
+        "host_hint": "Zoom 帳號中某位使用者的電子郵件地址或使用者 ID"
+      },
+      "google": {
+        "organizer": "召集人的電子郵件地址",
+        "organizer_hint": "代這位召集人建立會議",
+        "credentials": "服務帳號金鑰（JSON）"
+      },
+      "auto_priority": "優先順序",
+      "auto_priority_hint": "設定後，未設定優先順序的事件不會自動公告。",
+      "any_priority": "不限優先順序",
+      "at_least_priority": "{{priority}} 以上（含）"
+    }
+  },
+  "postmortems": {
+    "empty": "還沒有事後檢討。請在事件詳細資料中選取「撰寫事後檢討」開始。",
+    "loading": "正在讀取事後檢討…",
+    "none": "還沒有事後檢討。",
+    "start": "撰寫事後檢討",
+    "open": "開啟事後檢討",
+    "summary_line_one": "{{status}} · {{count}} 項改善措施尚未完成",
+    "summary_line_other": "{{status}} · {{count}} 項改善措施尚未完成",
+    "saved": "已儲存事後檢討",
+    "drawer_title": "事後檢討",
+    "title": "標題",
+    "status_label": "狀態",
+    "status": {
+      "draft": "草稿",
+      "in_review": "審查中",
+      "published": "已發布"
+    },
+    "body": "內文（Markdown）",
+    "draft_with_agent": "讓 Mole Agent 起草",
+    "agent_prompt": "請根據這起事件的時間軸、備註、根因分析和觸發查詢，起草一份內部事後檢討（摘要、影響、時間軸、根因、做得好與不足之處、改善措施），完成後儲存為這起事件的事後檢討草稿。",
+    "copy_summary": "複製摘要",
+    "summary_copied": "已複製摘要，可以貼到狀態頁的公開事後檢討",
+    "actions_title": "改善措施",
+    "action_placeholder": "新增一項改善措施",
+    "add_action": "新增",
+    "remove_action": "刪除改善措施「{{title}}」",
+    "make_ticket": "建立工單",
+    "ticket_created": "已建立工單 {{key}}",
+    "open_actions_one": "{{count}} 項改善措施尚未完成",
+    "open_actions_other": "{{count}} 項改善措施尚未完成",
+    "overdue_one": "{{count}} 項逾期",
+    "overdue_other": "{{count}} 項逾期",
+    "template": {
+      "summary": "摘要",
+      "impact": "影響",
+      "duration": "持續時間：{{value}}",
+      "minutes_one": "{{count}} 分鐘",
+      "minutes_other": "{{count}} 分鐘",
+      "ongoing": "仍在進行",
+      "services": "受影響的服務：{{value}}",
+      "severity": "嚴重程度：{{value}}",
+      "timeline": "時間軸",
+      "triggered": "觸發",
+      "resolved": "解決",
+      "root_cause": "根本原因",
+      "went_well": "做得好的地方",
+      "went_badly": "做得不好的地方",
+      "actions": "改善措施",
+      "kinds": {
+        "acknowledged": "確認",
+        "resolved": "解決",
+        "escalated": "升級",
+        "reassigned": "轉派",
+        "responders_added": "增派",
+        "snoozed": "暫緩",
+        "severity_changed": "變更嚴重程度",
+        "merged_in": "併入其他事件",
+        "note": "備註",
+        "remediation_executed": "執行修復動作",
+        "ticket_created": "建立工單",
+        "declared_major": "宣布重大事件",
+        "role_assigned": "指派角色",
+        "war_room_created": "建立作戰室",
+        "task_done": "完成任務",
+        "status_update": "發布進度",
+        "step_unreachable": "收不到警示，直接升級",
+        "priority_changed": "變更優先順序",
+        "urgency_changed": "變更緊急程度"
+      }
+    }
+  },
+  "urgency": {
+    "high": "高",
+    "low": "低"
+  },
+  "importance": {
+    "no_priority": "未設定優先順序",
+    "without_priority": "不設定",
+    "all_priorities": "所有優先順序",
+    "filter_label": "依優先順序篩選",
+    "low_urgency": "低緊急程度",
+    "urgency": {
+      "high": "高緊急程度",
+      "low": "低緊急程度"
+    },
+    "behaviour": {
+      "escalates": "逐級升級",
+      "first_step": "只通知第一級",
+      "quiet_switch": "勿擾期間依個人設定決定是否通知",
+      "quiet_block": "勿擾期間不通知",
+      "steps_high": "採用高緊急程度的步驟",
+      "steps_low": "採用低緊急程度的步驟"
+    }
+  },
+  "create_incident": {
+    "open": "新增事件",
+    "title": "新增事件",
+    "subtitle": "如果是規則沒偵測到的問題，例如客戶通報故障或有人發現異常，可以在這裡新增事件，系統會照常通知和升級。",
+    "submit": "建立事件",
+    "created": "已建立事件",
+    "sections": {
+      "what": "發生了什麼事",
+      "who": "交給誰"
+    },
+    "fields": {
+      "title": "標題",
+      "description": "說明",
+      "severity": "嚴重程度",
+      "priority": "優先順序",
+      "urgency": "緊急程度",
+      "services": "受影響的服務",
+      "labels": "標籤",
+      "team": "團隊",
+      "policy": "升級策略",
+      "people": "成員"
+    },
+    "hints": {
+      "description": "支援 Markdown。",
+      "services": "請填寫服務目錄中的名稱，並以逗號分隔。",
+      "labels": "每行填寫一組 key=value，供路由規則和靜音設定比對。",
+      "people_one": "最多 {{count}} 人；只通知指定成員，不套用升級策略。",
+      "people_other": "最多 {{count}} 人；只通知指定成員，不套用升級策略。"
+    },
+    "placeholders": {
+      "title": "例如：華北地區客戶反映無法開啟付款頁面",
+      "choose": "選擇…"
+    },
+    "assign": {
+      "auto": "依路由分派",
+      "team": "交給團隊",
+      "policy": "交由升級策略處理",
+      "users": "指定成員"
+    },
+    "assign_hints": {
+      "auto": "和規則建立的事件一樣，依路由規則、服務的負責團隊和團隊標籤分派。",
+      "team": "使用團隊的值班策略，未設定時使用預設策略。",
+      "policy": "從這項策略的第一級開始通知。",
+      "users": "直接通知這些成員，不升級。"
+    },
+    "declare_major": "同時宣告為重大事件"
+  },
+  "discovery": {
+    "load_error": "無法載入自動探索結果",
+    "tabs_label": "探索",
+    "tabs": {
+      "open": "進行中",
+      "ended": "已結束"
+    },
+    "filter_kind": "依類型篩選",
+    "all_kinds": "所有類型",
+    "kinds": {
+      "apm_anomaly": "服務突變",
+      "apm_regression": "新版本表現變差",
+      "rum_new_issue": "前端新錯誤",
+      "rum_regressed_issue": "前端錯誤再次出現",
+      "log_error_surge": "錯誤日誌激增",
+      "log_new_error": "新的錯誤日誌",
+      "metric_saturation": "資源快用滿",
+      "metric_shift": "CPU 突變",
+      "metric_restarts": "容器重新啟動"
+    },
+    "metrics": {
+      "error_rate": "錯誤率",
+      "p95": "P95 延遲",
+      "throughput": "流量",
+      "requests": "請求"
+    },
+    "summary": {
+      "apm_anomaly": "{{service}} 的{{metric}}變為 {{value}}（先前為 {{baseline}}）",
+      "apm_regression": "{{service}} {{version}} 的表現比上一個版本差",
+      "rum_new_issue": "{{application}} 出現新錯誤：{{message}}",
+      "rum_regressed_issue": "{{application}} 已解決的錯誤再次出現：{{message}}",
+      "log_error_surge": "{{stream}} 中 {{service}} 的錯誤日誌：15 分鐘內有 {{value}} 筆（平時為 {{baseline}} 筆）",
+      "log_new_error": "{{service}} 出現新錯誤：{{template}}",
+      "metric_saturation": "{{subject}} 已使用 {{value}}",
+      "metric_shift": "{{subject}} 的 CPU 使用率達到 {{value}}（1 小時前為 {{baseline}}）",
+      "metric_restarts": "{{subject}} 在 15 分鐘內重新啟動了 {{value}} 次"
+    },
+    "empty": {
+      "open": {
+        "title": "目前未發現問題",
+        "description": "每 5 分鐘檢查一次，找出 APM 服務的突變、表現變差的新版本，以及前端新出現或再次出現的錯誤。"
+      },
+      "ended": {
+        "title": "最近沒有已結束的問題",
+        "description": "連續三次檢查都未再偵測到的問題會標示為已結束，並保留 30 天。"
+      }
+    },
+    "columns": {
+      "finding": "發現的問題",
+      "started": "開始",
+      "last_seen": "最近一次看到",
+      "ended": "結束"
+    },
+    "new_rule": "建立自動發現規則",
+    "rule_for_kind": "為這類發現建立規則",
+    "downstream": "下游",
+    "version_after": "{{version}}（上一個是 {{previous}}）",
+    "sections": {
+      "what": "發現了什麼",
+      "changes": "相近時間的變更"
+    },
+    "fields": {
+      "kind": "種類",
+      "now": "現在",
+      "before": "前一時段",
+      "last_week": "上週同時段",
+      "version": "版本",
+      "location": "位置",
+      "started": "開始",
+      "last_seen": "最近一次看到",
+      "ended": "結束"
+    },
+    "rule": {
+      "new_title": "建立自動發現規則",
+      "edit_title": "編輯自動發現規則",
+      "subtitle": "每筆符合規則的發現都會建立一個事件，事件的嚴重度與該筆發現相同；發現結束後，事件就會恢復。",
+      "create": "建立規則",
+      "save": "儲存規則",
+      "created": "已建立規則",
+      "updated": "已儲存規則",
+      "name_from": "自動發現：{{subject}}",
+      "source": "自動發現",
+      "condition": "每筆發現建立一個事件",
+      "urgency_low_default": "低（預設）",
+      "sections": {
+        "which": "哪些發現",
+        "who": "通知誰"
+      },
+      "fields": {
+        "name": "名稱",
+        "kinds": "種類",
+        "subjects": "服務或應用程式",
+        "environments": "環境",
+        "min_severity": "最低嚴重度",
+        "policy": "升級策略",
+        "urgency": "緊急度"
+      },
+      "hints": {
+        "kinds": "未勾選任何項目表示包含所有種類。",
+        "subjects": "輸入 APM 服務名稱或 RUM 應用程式 id，以逗號分隔；留空表示全部。",
+        "environments": "用逗號分隔；留空表示全部。",
+        "urgency": "自動發現是推算出來的，預設為低緊急程度：只通知第一級，勿擾時段不發通知。"
+      }
+    },
+    "open": {
+      "apm": "在 APM 中開啟",
+      "rum": "在 RUM 中開啟",
+      "logs": "查看這些日誌",
+      "metrics": "在指標中開啟"
+    },
+    "investigate": "讓 Mole Agent 調查",
+    "investigate_prompt": "調查這筆自動發現：{{summary}}。綜合分析開始前後的日誌、指標、追蹤和變更，找出原因，並說明下一步該怎麼做。"
+  },
+  "rule_transfer": {
+    "menu": "匯入與匯出",
+    "export_all": "匯出所有規則",
+    "export_one": "匯出這 {{count}} 條規則",
+    "export_other": "匯出這 {{count}} 條規則",
+    "exported_one": "已匯出 {{count}} 條規則",
+    "exported_other": "已匯出 {{count}} 條規則",
+    "import": "匯入規則…",
+    "import_title": "匯入規則",
+    "import_subtitle": "貼上或選取 MoleSignal 匯出的規則套件，或 Prometheus 的告警規則檔案（含 PrometheusRule）。先試跑，確認每條規則會如何處理，再一次寫入。",
+    "content": "內容",
+    "content_hint": "JSON 或 YAML。依名稱比對現有規則：沒有同名規則就新增，有就更新。",
+    "choose_file": "選擇檔案",
+    "create_only": "只新增，不變更現有的同名規則",
+    "try": "試跑",
+    "apply_one": "匯入 {{count}} 條",
+    "apply_other": "匯入 {{count}} 條",
+    "cancel": "取消",
+    "imported_one": "已匯入 {{count}} 條規則",
+    "imported_other": "已匯入 {{count}} 條規則",
+    "result": "試跑結果",
+    "has_errors": "有規則出現錯誤，請修正後再匯入",
+    "changes": "變更：{{fields}}",
+    "formats": {
+      "molesignal": "MoleSignal 規則套件",
+      "prometheus": "Prometheus 告警規則",
+      "pagerduty": "PagerDuty 排班",
+      "opsgenie": "Opsgenie 排班"
+    },
+    "actions": {
+      "create": "新增",
+      "update": "更新",
+      "unchanged": "未變更",
+      "skip": "略過",
+      "error": "錯誤"
+    }
+  },
+  "transfer": {
+    "unknown_members": "這些電子郵件地址在此工作區中找不到對應的成員：",
+    "findings": {
+      "schedules_only": "只匯入排班，不匯入升級策略、路由規則和臨時代班。",
+      "shift_based_not_listed": "檔案未列出 PagerDuty 的 shift-based 排班，V2 API 也查不到這些排班，因此這裡可能少了幾個。移轉指令碼會列出這些排班。",
+      "shift_based_not_fetched": "檔案只有這個 shift-based 排班的名稱，沒有排班內容，因此略過。請重新執行移轉指令碼，或使用 GET /v3/schedules/{id} 取得。",
+      "schedule_unreadable": "無法讀取這個排班：{{detail}}",
+      "timezone_unknown": "時區「{{timezone}}」不是 IANA 時區名稱。",
+      "layers_missing": "檔案中沒有這個排班的分層資料。請使用 GET /schedules/{id} 取得。",
+      "rotations_missing": "檔案中沒有這個排班的輪替資料。請使用 GET /v2/schedules/{id} 取得。",
+      "events_missing": "檔案中沒有這個排班的輪替和事件資料。請使用 GET /v3/schedules/{id} 取得。",
+      "time_invalid": "{{rotation}}：「{{value}}」不是有效的時間。",
+      "user_without_email": "{{rotation}}：檔案中沒有 {{user}} 的電子郵件地址。",
+      "participant_team": "{{rotation}}：團隊 {{name}} 參與輪替，但這裡的輪值只能安排個人。",
+      "participant_escalation": "{{rotation}}：升級策略 {{name}} 參與輪替，但這裡的輪值只能安排個人。",
+      "participant_none": "{{rotation}}：有一個班次無人值班，但這裡的輪值不能有空班。",
+      "participant_unknown": "{{rotation}}：無法辨識參與者類型 {{value}}。",
+      "rotations_overlap": "{{rotation}} 和 {{other}} 有重疊，最早從 {{at}} 開始。來源有兩人同時值班，但這裡每個排班同一時間只能有一人值班。請將兩者拆到不同的排班。",
+      "every_member_on_call": "{{rotation}}：所有成員同時值班，但這裡每個排班同一時間只能有一人值班。請將成員拆到不同的排班。",
+      "recurrence_unsupported": "{{rotation}}：無法將重複規則 {{value}} 轉成輪值。",
+      "shifts_per_member_unsupported": "{{rotation}}：每人連續值 {{value}} 班，每週有 {{per_week}} 班，交接沒有固定週期，無法用這裡的輪值表示。",
+      "event_timezones_differ": "{{rotation}} 使用 {{timezone}}，{{other}} 使用 {{other_timezone}}。這裡每個排班只能使用一個時區。請將兩者拆到不同的排班。",
+      "timezone_from_events": "排班的時區是 {{schedule_timezone}}，但事件使用 {{timezone}}。這裡會使用 {{timezone}}，以維持原本的交接時間。",
+      "custom_shifts_one": "從現在起有 {{count}} 個自訂班次：{{at}} 到 {{until}}，由 {{user}} 值班。這裡的輪值不支援一次性班次。請等班次結束後再匯入，或先從檔案的 final_schedule 中刪除該班次，匯入後再用臨時代班補上。",
+      "custom_shifts_other": "從現在起有 {{count}} 個自訂班次，最早的班次是 {{at}} 到 {{until}}，由 {{user}} 值班。這裡的輪值不支援一次性班次。請等這些班次都結束後再匯入，或先從檔案的 final_schedule 中刪除這些班次，匯入後再用臨時代班補上。",
+      "rendered_several_on_call": "從 {{at}} 到 {{until}}，來源的 {{first}} 和 {{second}} 同時值班，但這裡每個排班同一時間只能有一人值班。",
+      "rotation_type_unsupported": "{{rotation}}：無法辨識輪替類型 {{value}}。",
+      "rotation_length_invalid": "{{rotation}}：輪替長度 {{value}} 無效。",
+      "restriction_unsupported": "{{rotation}}：無法將時段限制 {{value}} 轉成每週時段。",
+      "rendered_in_other_zone": "{{rotation}}：這份回應是依其他時區（{{value}}）產生的，無法依排班的時區解讀其中的時段限制。請使用 GET /schedules/{id} 取得，不要傳入 time_zone。",
+      "starts_before_handoff": "{{rotation}}：這個分層比其輪替更早開始，無法確定這段期間由誰值班。",
+      "rendered_mismatch": "從 {{at}} 到 {{until}} 的值班人員與來源不同：來源是 {{expected}}，這次匯入後會是 {{actual}}。",
+      "rendered_mismatch_more_one": "還有 {{count}} 個時段。",
+      "rendered_mismatch_more_other": "還有 {{count}} 個時段。",
+      "rotation_ended": "{{rotation}} 已於 {{at}} 結束，不再影響值班安排，因此略過。",
+      "too_many_rotations": "單一排班的輪值超過 {{limit}} 筆。",
+      "schedule_paused": "來源中的排班已停用，匯入後也會維持暫停，不進行比對。",
+      "rotation_empty": "{{rotation}} 無人值班或從未生效，因此略過。",
+      "team_not_carried": "未匯入團隊 {{name}}：這裡沒有同名團隊，或排班已指派團隊。這不影響值班人員。",
+      "rendered_matched": "已與來源比對 {{from}} 到 {{to}} 的值班表：值班人員一致。",
+      "rendered_missing": "未比對：檔案中沒有來源產生的值班表。匯入後請核對值班人員。",
+      "rendered_stale": "未比對：檔案中來源產生的值班表只涵蓋已經過去的時段，請重新取得一份。",
+      "clock_change_not_compared": "比對範圍未跨越 {{timezone}} 的日光節約時間切換點，因此未比對下次切換後的交接時間。",
+      "overrides_left_out_one": "比對範圍內有 {{count}} 筆臨時代班，不會匯入。",
+      "overrides_left_out_other": "比對範圍內有 {{count}} 筆臨時代班，不會匯入。"
+    },
+    "policies": {
+      "menu": "匯入與匯出",
+      "export_all": "匯出所有升級策略",
+      "export_one": "匯出 {{count}} 項升級策略",
+      "export_other": "匯出 {{count}} 項升級策略",
+      "import": "匯入升級策略…",
+      "import_title": "匯入升級策略",
+      "import_subtitle": "`molesignal.escalation-policies/v1` 格式的套件。依名稱比對：沒有就新增，已有就更新。先模擬，再匯入。",
+      "exported_one": "已匯出 {{count}} 項升級策略",
+      "exported_other": "已匯出 {{count}} 項升級策略",
+      "imported_one": "已匯入 {{count}} 項升級策略",
+      "imported_other": "已匯入 {{count}} 項升級策略",
+      "content_hint": "JSON 或 YAML。使用者依電子郵件地址參照，排班、團隊和假日行事曆依名稱參照。"
+    },
+    "schedules": {
+      "menu": "匯入與匯出",
+      "export_all": "匯出所有排班",
+      "export_one": "匯出 {{count}} 個排班",
+      "export_other": "匯出 {{count}} 個排班",
+      "import": "匯入排班…",
+      "import_title": "匯入排班",
+      "import_subtitle": "`molesignal.schedules/v1` 格式的套件，或 Opsgenie、PagerDuty API 傳回的排班。依名稱比對：沒有就新增，已有就更新。先模擬，再匯入。",
+      "exported_one": "已匯出 {{count}} 個排班",
+      "exported_other": "已匯出 {{count}} 個排班",
+      "imported_one": "已匯入 {{count}} 個排班",
+      "imported_other": "已匯入 {{count}} 個排班",
+      "content_hint": "JSON 或 YAML。成員依電子郵件地址參照，團隊和假日行事曆依名稱參照。檔案不包含臨時代班和換班，更新時會保留這些紀錄。",
+      "has_errors": "請先修正有錯誤的排班，再匯入",
+      "migration_title": "從 Opsgenie 或 PagerDuty 移轉",
+      "migration_intro": "在已安裝 curl 和 jq 的電腦上執行這段指令碼，再選取產生的檔案。API Key 只會留在那台電腦上：MoleSignal 不會儲存它，也不會向來源服務傳送請求。",
+      "migration_key": "請先設定 {{name}}，使用具備讀取權限的 Key 即可。",
+      "migration_copy": "複製指令碼",
+      "migration_docs": "哪些內容可以移轉，哪些不行"
+    },
+    "routing": {
+      "menu": "匯入與匯出",
+      "export_all": "匯出所有路由規則",
+      "export_one": "匯出 {{count}} 條路由規則",
+      "export_other": "匯出 {{count}} 條路由規則",
+      "import": "匯入路由規則…",
+      "import_title": "匯入路由規則",
+      "import_subtitle": "`molesignal.routing-rules/v1` 格式的套件。依名稱比對：沒有就新增，已有就更新。先模擬，再匯入。",
+      "exported_one": "已匯出 {{count}} 條路由規則",
+      "exported_other": "已匯出 {{count}} 條路由規則",
+      "imported_one": "已匯入 {{count}} 條路由規則",
+      "imported_other": "已匯入 {{count}} 條路由規則",
+      "content_hint": "JSON 或 YAML。升級策略、團隊和假日行事曆皆依名稱參照。檔案中的規則依檔案內的順序排在最前面，其餘規則維持原有順序排在後面。"
+    }
+  }
+}

@@ -86,3 +86,23 @@ export function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
   }
   return true;
 }
+
+/**
+ * The plural forms `Intl.PluralRules` gives a locale (`one`, `many`, `other`…).
+ * i18next looks a counted key up as `key_<form>`.
+ */
+export function pluralForms(locale: string): Set<string> {
+  return new Set(new Intl.PluralRules(locale).resolvedOptions().pluralCategories);
+}
+
+/**
+ * The `_many` form of a key the source counts (it has `key_other`), in a
+ * locale whose plural rules have a `many` form the source language lacks —
+ * French, Spanish and Portuguese say "1 million" with it. Such a key is part
+ * of the target, not an orphan; it reads as the `_other` form.
+ */
+export function manyFormOf(locale: string, key: string, sourceKeys: ReadonlySet<string>): boolean {
+  if (!key.endsWith('_many') || !pluralForms(locale).has('many')) return false;
+
+  return sourceKeys.has(`${key.slice(0, -'_many'.length)}_other`);
+}

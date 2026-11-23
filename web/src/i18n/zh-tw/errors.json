@@ -1,0 +1,8 @@
+{
+  "sign_in_failed": "登入失敗",
+  "switch_org_success": "已切換至 {{name}}",
+  "switch_org_failure": "切換組織失敗：{{message}}",
+  "request_failed": "請求失敗",
+  "link_copied": "已複製連結",
+  "generic": "發生錯誤"
+}

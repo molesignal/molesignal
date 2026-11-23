@@ -1,0 +1,472 @@
+{
+  "chrome": {
+    "org_switcher": "Cambiar de organización",
+    "user_menu": "Menú de usuario",
+    "command_palette": "Abrir paleta de comandos",
+    "toggle_theme": "Cambiar de tema",
+    "workspace_settings": "Configuración del espacio de trabajo",
+    "cycle_palette": "Pasar a la siguiente paleta de colores (actual: {{current}})",
+    "select_palette": "Seleccionar paleta de colores (actual: {{current}})",
+    "cycle_language": "Pasar al siguiente idioma (actual: {{current}})",
+    "time_picker": "Abrir selector de intervalo de tiempo",
+    "anchor_label": "Ancla fijada: {{time}}",
+    "close_navigation": "Cerrar navegación"
+  },
+  "topbar": {
+    "search_placeholder": "Buscar páginas · flujos · servicios · paneles…",
+    "open_noc": "Abrir el panel del NOC en modo mural",
+    "noc": "Panel mural del NOC",
+    "notifications": "Notificaciones",
+    "help": "Ayuda",
+    "docs": "Documentación",
+    "keyboard_shortcuts": "Atajos de teclado",
+    "mole_agent": "Abrir Mole Agent (⌘J)",
+    "manage_organizations": "Administrar organizaciones…",
+    "organization_menu": "Organización: {{name}}",
+    "organization_settings": "Configuración de la organización",
+    "members": "Miembros",
+    "switch_to": "Cambiar a",
+    "membership_required": "Debes ser miembro",
+    "about": "Acerca de"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "empty": "No hay notificaciones",
+    "pending_user": "Nuevo usuario pendiente de aprobación",
+    "view_all": "Ver todas las aprobaciones",
+    "tabs_label": "Tipos de notificación",
+    "tabs": {
+      "all": "Todas",
+      "alerts": "Alertas",
+      "approvals": "Aprobaciones"
+    },
+    "mark_all_read": "Marcar todas como leídas",
+    "unread_label_one": "Notificaciones, {{count}} sin leer",
+    "unread_label_other": "Notificaciones, {{count}} sin leer",
+    "acknowledge": "Confirmar recepción",
+    "acknowledged": "Recepción del incidente confirmada",
+    "incident_meta": "{{service}} · en espera desde hace {{age}}",
+    "no_service": "Sin servicio",
+    "pipeline_failed": "Error al ejecutar el pipeline: {{name}}",
+    "agent_approval": "Mole Agent solicita ejecutar {{action}}",
+    "intake_budget_warning": "Presupuesto de ingesta casi agotado: {{name}}",
+    "intake_budget_exceeded": "Presupuesto de ingesta superado: {{name}}",
+    "intake_budget_meta": "Se ha usado el {{percent}}% del presupuesto. Los datos siguen llegando.",
+    "unread_label_many": "Notificaciones, {{count}} sin leer"
+  },
+  "user_menu": {
+    "language": "Idioma"
+  },
+  "account_settings": {
+    "title": "Configuración de la cuenta",
+    "subtitle": "Administra tu perfil de usuario y el contexto actual de tu espacio de trabajo.",
+    "profile_title": "Perfil",
+    "context_title": "Contexto actual",
+    "avatar_hint": "Usa la URL http(s) de una imagen. Deja el campo vacío para mostrar tus iniciales.",
+    "avatar_upload": "Subir avatar",
+    "avatar_uploading": "Subiendo…",
+    "avatar_upload_hint": "PNG, JPEG, WEBP o GIF, hasta 2 MB.",
+    "email_immutable_hint": "Tu correo electrónico te identifica al iniciar sesión y no se puede cambiar.",
+    "fields": {
+      "username": "Nombre de usuario",
+      "email": "Correo electrónico",
+      "avatar_url": "URL del avatar",
+      "user_id": "ID de usuario",
+      "org_name": "Organización",
+      "org_slug": "Slug de la organización",
+      "role": "Rol"
+    }
+  },
+  "theme": {
+    "dark": "Oscuro",
+    "light": "Claro"
+  },
+  "palette": {
+    "default": "Predeterminada",
+    "high_contrast": "Alto contraste",
+    "warm": "Cálida"
+  },
+  "palette_description": {
+    "default": "Interfaz oscura equilibrada para operaciones",
+    "high-contrast": "Mayor contraste en textos y bordes",
+    "warm": "Espacio de trabajo con tonos más cálidos y menos luz azul"
+  },
+  "density": {
+    "compact": "Compacta",
+    "normal": "Normal",
+    "comfortable": "Cómoda"
+  },
+  "language": {
+    "en_us": "en-us",
+    "zh_cn": "zh-cn"
+  },
+  "pages": {
+    "investigate": {
+      "empty_title": "Presiona <kbd>⌘K</kbd> para iniciar una investigación",
+      "empty_more": "Prueba <kbd>⌘⌥E</kbd> para elegir el intervalo de tiempo y <kbdSm>⌘/</kbdSm> para ver todos los atajos de teclado"
+    },
+    "service_graph": {
+      "subtitle": "Última hora"
+    },
+    "placeholder": {
+      "navigate_hint": "Presiona <kbd>⌘K</kbd> para navegar."
+    },
+    "noc": {
+      "title": "Modo de panel NOC",
+      "status_line": "producción · en vivo · última hora",
+      "utc_label": "UTC+8",
+      "return_console": "Volver a la consola",
+      "esc_to_exit": "Pulsa Esc para volver",
+      "edit": {
+        "configure": "Configurar la disposición",
+        "done": "Listo",
+        "reset": "Restablecer",
+        "presets": "Diseños predefinidos",
+        "preset_platform": "Operaciones de plataforma",
+        "preset_sre": "SRE",
+        "preset_executive": "Ejecutivo",
+        "wide": "Alternar entre ancho y estrecho",
+        "show_hide": "Mostrar / ocultar",
+        "move_left": "Mover hacia el inicio",
+        "move_right": "Mover hacia el final"
+      },
+      "panel_names": {
+        "traffic": "Tráfico",
+        "incidents": "Incidentes",
+        "topology": "Topología",
+        "health": "Estado"
+      },
+      "kpis": {
+        "req_per_sec": "req/s (suma)",
+        "p95": "P95 (máx. entre conexiones)",
+        "err_rate": "Tasa de errores",
+        "edges": "Conexiones",
+        "connecting": "Conectando",
+        "unavailable": "Problema con los datos",
+        "no_traffic": "Sin tráfico"
+      },
+      "panels": {
+        "traffic_title": "Tráfico · servicios principales · últimos 60 min",
+        "traffic_pending": "El gráfico de tráfico está a la espera de la integración de `/query` por nivel.",
+        "traffic_empty": "No hay tráfico. La consulta se completó correctamente, pero no se recibieron llamadas a servicios en la última hora.",
+        "traffic_rate": "{{value}} req/s",
+        "data_connecting": "Conectando con los datos en vivo…",
+        "data_unavailable": "La telemetría no está disponible. Revisa el servicio de consultas y la fuente de datos.",
+        "incidents_title": "Incidentes en vivo · {{count}} activos",
+        "incidents_connecting": "Conectando con los datos de alertas…",
+        "incidents_empty": "No hay incidentes activos en este momento.",
+        "incidents_unavailable": "Los datos de alertas no están disponibles. Revisa el servicio de alertas.",
+        "topology_title": "Topología de servicios · última hora",
+        "topology_empty": "La consulta se completó correctamente, pero no se encontraron llamadas a servicios en la última hora.",
+        "health_title": "Estado de los servicios",
+        "health_empty": "No hay tráfico de servicios; la consulta se completó correctamente."
+      },
+      "table": {
+        "service": "Servicio",
+        "qps": "QPS",
+        "p95": "P95",
+        "err_pct": "% de errores"
+      },
+      "status_bar": {
+        "incidents_active": "Incidentes activos",
+        "incidents_connecting": "Conectando con los datos de alertas",
+        "incidents_unavailable": "Problema con los datos de alertas",
+        "no_active_incidents": "No hay incidentes activos",
+        "nominal": "Normal",
+        "data_connecting": "Conectando con los datos en tiempo real",
+        "data_unavailable": "Telemetría no disponible",
+        "no_traffic": "Consulta correcta · Sin tráfico",
+        "data_ok": "Datos en tiempo real sin problemas",
+        "services": "{{count}} SERVICIOS",
+        "req_per_sec_format": "{{value}} REQ/S",
+        "req_per_sec_empty": "Sin tráfico",
+        "p95_format": "P95 {{value}}",
+        "p95_empty": "Sin tráfico",
+        "crit": "{{count}} CRÍT.",
+        "warn": "{{count}} ADV.",
+        "live": "En tiempo real"
+      },
+      "dashboard_wallboard": {
+        "title": "Vista mural del tablero",
+        "subtitle_suffix": "· en tiempo real · tablero configurado",
+        "no_panels": "Aún no hay paneles definidos en este tablero.",
+        "panels_count": "{{count}} PANELES",
+        "version": "VERSIÓN {{version}}",
+        "panel_index": "Panel {{index}}",
+        "render_pending": "adaptador de renderizado pendiente",
+        "live": "en tiempo real"
+      }
+    }
+  },
+  "signin": {
+    "subtitle": "Inicia sesión en tu espacio de trabajo",
+    "tagline_a": "Todas las señales,",
+    "tagline_b": "una sola consulta,",
+    "tagline_c": "una sola línea de tiempo.",
+    "promise": "Observa todo. Entiende lo que importa.",
+    "forgot_password": "¿Olvidaste tu contraseña?",
+    "forgot_title": "Restablecer contraseña",
+    "forgot_subtitle": "Ingresa el correo electrónico de tu cuenta y te enviaremos un enlace para restablecer tu contraseña.",
+    "forgot_privacy_hint": "Para proteger tu cuenta, mostramos el mismo resultado tanto si el correo electrónico está registrado como si no.",
+    "send_reset": "Enviar enlace de restablecimiento",
+    "sending_reset": "Enviando…",
+    "forgot_sent_title": "Revisa tu correo",
+    "forgot_sent_subtitle": "Si {{email}} pertenece a una cuenta activa, pronto recibirás un enlace para restablecer tu contraseña.",
+    "forgot_sent_detail": "El enlace vence en 30 minutos y solo se puede usar una vez. Si no lo recibes, revisa la carpeta de correo no deseado.",
+    "forgot_failed": "No se pudo enviar la solicitud de restablecimiento",
+    "reset_title": "Elige una nueva contraseña",
+    "reset_subtitle": "Establece una nueva contraseña para iniciar sesión en tu cuenta de MoleSignal.",
+    "new_password": "Nueva contraseña",
+    "confirm_password": "Confirma la nueva contraseña",
+    "password_hint": "Usa al menos 8 caracteres.",
+    "password_mismatch": "Las contraseñas no coinciden.",
+    "reset_password": "Actualizar contraseña",
+    "resetting_password": "Actualizando…",
+    "reset_success": "Contraseña actualizada. Inicia sesión con tu nueva contraseña.",
+    "reset_failed": "No se pudo restablecer la contraseña",
+    "reset_invalid": "El enlace de restablecimiento no es válido, venció o ya se usó. Solicita uno nuevo.",
+    "back_to_signin": "Volver al inicio de sesión",
+    "signing_in": "Iniciando sesión…",
+    "email_placeholder": "name@company.com",
+    "password_placeholder": "Ingresa tu contraseña",
+    "or": "O",
+    "no_account": "¿Aún no tienes una cuenta?",
+    "version": "v{{version}}",
+    "sso_loading": "Cargando proveedores de SSO…",
+    "sso_none": "No hay proveedores de SSO configurados",
+    "signup_link": "Regístrate →",
+    "link": {
+      "title": "Confirma que la cuenta es tuya",
+      "subtitle": "Ya hay una cuenta de MoleSignal asociada a {{email}}. Confirma que es tuya y, a partir de ahora, iniciarás sesión en ella con {{provider}} ({{organization}}).",
+      "method": "Confirmar con",
+      "methods": {
+        "password": "Contraseña",
+        "email": "Código por correo"
+      },
+      "code_target": "Enviaremos un código de 6 dígitos a esta dirección de correo.",
+      "send_code": "Enviar código",
+      "sending": "Enviando…",
+      "send_failed": "No se pudo enviar el código",
+      "code": "Código de verificación",
+      "code_placeholder": "6 dígitos",
+      "code_sent": "Código enviado. Revisa tu bandeja de entrada",
+      "resend": "Reenviar",
+      "resend_in": "Reenviar en {{seconds}} s",
+      "confirm": "Confirmar e iniciar sesión",
+      "unavailable": "Esta cuenta no tiene contraseña y esta instancia no puede enviar correos electrónicos, así que no puedes confirmarla aquí. Inicia sesión como antes o pídele a un administrador que configure el correo electrónico."
+    },
+    "continue_with": "Continuar con {{name}}",
+    "continue_with_email": "Continuar con correo electrónico",
+    "last_used": "Último método utilizado",
+    "email_button": "Iniciar sesión con correo electrónico",
+    "email_subtitle": "Ingresa tu correo electrónico.",
+    "password_subtitle": "Ingresa la contraseña de esta cuenta.",
+    "continue": "Continuar",
+    "back": "Volver",
+    "directory_title": "Iniciar sesión con {{name}}",
+    "directory_subtitle": "Ingresa tu nombre de usuario de {{name}}.",
+    "directory_password_subtitle": "Ingresa tu contraseña de {{name}}.",
+    "directory_username": "Nombre de usuario",
+    "show_password": "Mostrar contraseña",
+    "hide_password": "Ocultar contraseña",
+    "passkey": "Continuar con una clave de acceso",
+    "passkey_waiting": "Esperando la clave de acceso…",
+    "passkey_wrong_address": "Esta dirección no es la URL externa de la instancia, así que las claves de acceso no funcionan aquí.",
+    "passkey_unknown": "Esta clave de acceso ya no está registrada aquí. Inicia sesión con tu contraseña.",
+    "mfa": {
+      "title": "Verifica tu identidad",
+      "subtitle_totp": "Esta cuenta usa la autenticación multifactor. Abre tu aplicación de autenticación e ingresa el código de 6 dígitos de MoleSignal.",
+      "subtitle_recovery": "Ingresa un código de recuperación que aún no hayas usado. Cada código solo se puede usar una vez.",
+      "subtitle_passkey": "Esta cuenta usa la autenticación multifactor. Verifica tu identidad con tu clave de acceso.",
+      "code": "Código de verificación",
+      "code_placeholder": "6 dígitos",
+      "recovery_code": "Código de recuperación",
+      "recovery_placeholder": "xxxxx-xxxxx",
+      "use_recovery": "Usar un código de recuperación",
+      "use_totp": "Usar la aplicación de autenticación",
+      "use_passkey": "Usar una clave de acceso",
+      "verify": "Verificar e iniciar sesión",
+      "verifying": "Verificando…",
+      "verify_passkey": "Verificar con una clave de acceso",
+      "passkey_waiting": "Esperando la clave de acceso…",
+      "wrong_code": "El código no es correcto",
+      "passkey_failed": "No se pudo verificar la clave de acceso",
+      "expired": "Este intento de inicio de sesión caducó. Ingresa tu contraseña de nuevo.",
+      "recovery_left_one": "Usaste un código de recuperación. Te queda {{count}} código.",
+      "recovery_left_other": "Usaste un código de recuperación. Te quedan {{count}} códigos.",
+      "recovery_none_left": "Ese era tu último código de recuperación. Genera nuevos códigos en Configuración de la cuenta → Seguridad.",
+      "locked": "Ingresaste demasiados códigos incorrectos. El inicio de sesión está bloqueado temporalmente. Inténtalo de nuevo más tarde.",
+      "recovery_left_many": "Usaste un código de recuperación. Te quedan {{count}} códigos."
+    },
+    "enroll": {
+      "title": "Activa la autenticación multifactor",
+      "subtitle": "«{{organization}}» requiere la autenticación multifactor. Elige un método de verificación para continuar con el inicio de sesión.",
+      "use_passkey": "Usar una llave de acceso",
+      "use_totp": "Usar una aplicación de autenticación",
+      "other_method": "Elegir otro método",
+      "totp_hint": "Escanea el código QR con tu aplicación de autenticación o escribe la clave manualmente. Luego, ingresa el código de 6 dígitos que muestra la aplicación.",
+      "qr_alt": "Código QR para una aplicación de autenticación",
+      "copy_secret": "Copiar clave",
+      "secret_copied": "Clave copiada",
+      "finish_totp": "Activar e iniciar sesión",
+      "passkey_hint": "Pulsa el botón de abajo y sigue las indicaciones de tu navegador para crear una llave de acceso. Puedes guardarla en el llavero de iCloud, en el Gestor de contraseñas de Google o en una llave de seguridad.",
+      "finish_passkey": "Crear una llave de acceso e iniciar sesión",
+      "expired": "Este intento de inicio de sesión ha caducado. Vuelve a iniciar sesión."
+    },
+    "sso_only": "Tu espacio de trabajo solo permite el inicio de sesión único. Inicia sesión con uno de los proveedores de abajo.",
+    "limited_minutes_one": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} minuto.",
+    "limited_minutes_other": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} minutos.",
+    "limited_seconds_one": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} segundo.",
+    "limited_seconds_other": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} segundos.",
+    "limited_with_hint": "{{wait}} {{hint}}",
+    "limited_hint": "También puedes restablecer tu contraseña.",
+    "limited_hint_passkey": "También puedes iniciar sesión con una llave de acceso o restablecer tu contraseña.",
+    "limited_minutes_many": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} minutos.",
+    "limited_seconds_many": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} segundos."
+  },
+  "signup": {
+    "title": "Crea tu cuenta",
+    "subtitle": "Ingresa tu correo electrónico para empezar.",
+    "details_subtitle": "Agrega un nombre y una contraseña para esta dirección de correo electrónico.",
+    "display_name": "Nombre",
+    "display_name_placeholder": "Tu nombre",
+    "submit": "Crear cuenta",
+    "submitting": "Creando…",
+    "pending_title": "Solicitud de registro enviada",
+    "pending_desc": "Tu cuenta está pendiente de aprobación por parte de un administrador.",
+    "failed": "No se pudo completar el registro",
+    "signin_required_title": "Cuenta creada",
+    "signin_required_desc": "Este espacio de trabajo requiere la autenticación multifactor. Inicia sesión y sigue los pasos para activarla.",
+    "check_email_title": "Revisa tu correo electrónico",
+    "check_email_subtitle": "Te estamos enviando un mensaje a {{email}}. Sigue las instrucciones del mensaje para continuar.",
+    "check_email_detail": "El enlace del mensaje es válido durante 30 minutos y solo se puede usar una vez. Si no recibes el mensaje, revisa tu carpeta de correo no deseado.",
+    "back_to_signin": "Volver al inicio de sesión",
+    "link_checking": "Verificando el enlace…",
+    "link_expired_title": "Este enlace ya no funciona",
+    "link_expired_subtitle": "Los enlaces son válidos durante 30 minutos y solo se pueden usar una vez. Vuelve a empezar para obtener uno nuevo.",
+    "start_again": "Volver a empezar"
+  },
+  "unsupported": {
+    "title": "MoleSignal está diseñado para pantallas anchas",
+    "body": "Esta consola está diseñada para flujos de trabajo de SRE en equipos de escritorio y requiere un ancho de al menos 1024px. Usa una pantalla más ancha o maximiza la ventana.",
+    "width": "Ancho actual: {{width}}px · mínimo: 1024px"
+  },
+  "signal_reference": {
+    "types": {
+      "trace": "Traza",
+      "span": "Span",
+      "service": "Servicio",
+      "host": "Host",
+      "stream": "Flujo"
+    },
+    "actions": {
+      "add_filter": "Agregar a los filtros",
+      "filtered": "Agregado a los filtros",
+      "exclude_value": "Excluir este valor",
+      "excluded": "Valor excluido",
+      "copy_value": "Copiar valor",
+      "copy_service": "Copiar nombre del servicio",
+      "copy_span_id": "Copiar ID del span",
+      "copy_trace_id": "Copiar ID de la traza",
+      "copied": "Copiado"
+    },
+    "relations": {
+      "exact": "Coincidencia exacta",
+      "context": "Coincidencia de contexto"
+    },
+    "jumps": {
+      "open_trace": "Abrir la traza actual",
+      "open_traces": "Abrir trazas",
+      "trace_logs": "Ver logs de la traza",
+      "span_logs": "Ver logs del span",
+      "service_metrics": "Ver métricas del servicio",
+      "similar_traces": "Ver trazas similares",
+      "service_traces": "Ver trazas de este servicio",
+      "service_logs": "Ver logs de este servicio",
+      "host_metrics": "Ver métricas de este host",
+      "matching_logs": "Ver logs con etiquetas coincidentes",
+      "open_stream": "Abrir flujo",
+      "stream_metrics": "Abrir métricas",
+      "stream_traces": "Ver trazas de este flujo",
+      "stream_profiles": "Ver perfiles de este flujo",
+      "stream_logs": "Ver logs de este flujo"
+    }
+  },
+  "context_bar": {
+    "label": "Investigación",
+    "frames": "marcos",
+    "resume": "Reanudar investigación",
+    "clear": "Limpiar",
+    "remove_filter": "Quitar filtro",
+    "from_trace": "Desde la traza {{id}}",
+    "back_to_trace": "Volver a los detalles de la traza"
+  },
+  "subnav": {
+    "collapse": "Contraer menú",
+    "expand": "Expandir menú"
+  },
+  "agent_panel": {
+    "title": "Mole Agent",
+    "close": "Cerrar",
+    "open_full": "Abrir el chat completo",
+    "context_label": "Contexto",
+    "loading": "Cargando Mole Agent…"
+  },
+  "about": {
+    "updates": {
+      "menu": "Nueva versión disponible",
+      "available": "Nueva versión disponible: v{{version}}",
+      "checking": "Buscando actualizaciones…",
+      "unavailable": "No se pueden buscar actualizaciones",
+      "current": "Tienes la última versión",
+      "stale": "Se muestra el resultado de la última búsqueda exitosa. GitHub no está disponible en este momento.",
+      "notes": "Notas de la versión y descargas",
+      "check": "Buscar actualizaciones",
+      "cooldown": "Las búsquedas usan una caché compartida. Las búsquedas manuales la actualizan como máximo una vez cada 5 minutos."
+    },
+    "title": "Acerca de",
+    "accessible_title": "Acerca de MoleSignal",
+    "subtitle": "Una plataforma de observabilidad para registros, métricas, trazas y análisis del rendimiento.",
+    "version": "Versión",
+    "edition": "Tipo de edición",
+    "commit": "Hash del commit",
+    "build_id": "ID de compilación",
+    "branch": "Rama de compilación",
+    "built": "Fecha y hora de compilación",
+    "time_with_zone": "{{time}} ({{zone}})",
+    "copy_diagnostics": "Copiar información de diagnóstico",
+    "diagnostics_copied": "Se copió la información de diagnóstico",
+    "copied": "Copiado",
+    "editions": {
+      "community": "Edición de código abierto",
+      "enterprise": "Edición empresarial",
+      "oss": "Edición de código abierto",
+      "pro": "Edición empresarial",
+      "saas": "Edición empresarial"
+    }
+  },
+  "not_found": {
+    "title": "Página no encontrada",
+    "description": "La página que buscas no existe o es posible que haya cambiado de ubicación.",
+    "back_home": "Volver al inicio",
+    "suggestions": "Quizá estés buscando"
+  },
+  "route_error": {
+    "title": "Ocurrió un problema en esta página",
+    "description": "Se produjo un error al mostrar esta página. Las demás páginas no se ven afectadas.",
+    "stale_title": "Hay una nueva versión disponible",
+    "stale_description": "Esta página se actualizó mientras la tenías abierta. Recárgala para ver la nueva versión.",
+    "reload": "Recargar esta página",
+    "home": "Volver al inicio",
+    "copy_report": "Copiar informe de error",
+    "copied": "Copiado"
+  },
+  "access_denied": {
+    "title": "No tienes acceso a esta página",
+    "description": "Tu rol ({{role}}) no te permite abrir {{page}}. Un administrador de la organización puede darte acceso.",
+    "go_on": "Ir a una página que puedas abrir",
+    "copy_request": "Copiar solicitud de acceso",
+    "copied": "Copiado",
+    "request_text": "Por favor, concédeme acceso a {{page}} en MoleSignal ({{path}}). Mi rol actual es {{role}}."
+  }
+}

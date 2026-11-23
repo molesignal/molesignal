@@ -1,0 +1,468 @@
+{
+  "chrome": {
+    "org_switcher": "조직 전환",
+    "user_menu": "사용자 메뉴",
+    "command_palette": "명령 팔레트 열기",
+    "toggle_theme": "테마 전환",
+    "workspace_settings": "워크스페이스 설정",
+    "cycle_palette": "다음 색상 팔레트로 전환 (현재: {{current}})",
+    "select_palette": "색상 팔레트 선택 (현재: {{current}})",
+    "cycle_language": "다음 언어로 전환 (현재: {{current}})",
+    "time_picker": "시간 범위 선택기 열기",
+    "anchor_label": "고정된 기준 시각: {{time}}",
+    "close_navigation": "탐색 메뉴 닫기"
+  },
+  "topbar": {
+    "search_placeholder": "페이지 · 스트림 · 서비스 · 대시보드 검색…",
+    "open_noc": "NOC 월보드 모드 열기",
+    "noc": "NOC 월보드",
+    "notifications": "알림",
+    "help": "도움말",
+    "docs": "문서",
+    "keyboard_shortcuts": "키보드 단축키",
+    "mole_agent": "Mole Agent 열기 (⌘J)",
+    "manage_organizations": "조직 관리…",
+    "organization_menu": "조직: {{name}}",
+    "organization_settings": "조직 설정",
+    "members": "구성원",
+    "switch_to": "전환 대상",
+    "membership_required": "조직 구성원만 이용할 수 있습니다",
+    "about": "제품 정보"
+  },
+  "notifications": {
+    "title": "알림",
+    "empty": "알림이 없습니다",
+    "pending_user": "승인 대기 중인 신규 사용자",
+    "view_all": "모든 승인 요청 보기",
+    "tabs_label": "알림 유형",
+    "tabs": {
+      "all": "전체",
+      "alerts": "경보",
+      "approvals": "승인"
+    },
+    "mark_all_read": "모두 읽음으로 표시",
+    "unread_label_one": "알림, 읽지 않음 {{count}}개",
+    "unread_label_other": "알림, 읽지 않음 {{count}}개",
+    "acknowledge": "확인",
+    "acknowledged": "인시던트를 확인했습니다",
+    "incident_meta": "{{service}} · {{age}} 동안 대기 중",
+    "no_service": "서비스 없음",
+    "pipeline_failed": "파이프라인 실행 실패: {{name}}",
+    "agent_approval": "Mole Agent가 {{action}} 실행을 요청합니다.",
+    "intake_budget_warning": "수집 예산 한도에 근접: {{name}}",
+    "intake_budget_exceeded": "수집 예산 초과: {{name}}",
+    "intake_budget_meta": "예산의 {{percent}}%를 사용했습니다. 데이터는 계속 수집됩니다."
+  },
+  "user_menu": {
+    "language": "언어"
+  },
+  "account_settings": {
+    "title": "계정 설정",
+    "subtitle": "사용자 프로필과 현재 작업 공간 컨텍스트를 관리합니다.",
+    "profile_title": "프로필",
+    "context_title": "현재 컨텍스트",
+    "avatar_hint": "http(s) 이미지 URL을 사용합니다. 비워 두면 이니셜이 표시됩니다.",
+    "avatar_upload": "아바타 업로드",
+    "avatar_uploading": "업로드 중…",
+    "avatar_upload_hint": "PNG, JPEG, WEBP 또는 GIF, 최대 2 MB",
+    "email_immutable_hint": "이메일은 로그인 ID로 사용되며 변경할 수 없습니다.",
+    "fields": {
+      "username": "사용자 이름",
+      "email": "이메일",
+      "avatar_url": "아바타 URL",
+      "user_id": "사용자 ID",
+      "org_name": "조직",
+      "org_slug": "조직 슬러그",
+      "role": "역할"
+    }
+  },
+  "theme": {
+    "dark": "다크",
+    "light": "라이트"
+  },
+  "palette": {
+    "default": "기본",
+    "high_contrast": "고대비",
+    "warm": "따뜻한 색감"
+  },
+  "palette_description": {
+    "default": "균형 잡힌 다크 모드 운영 UI",
+    "high-contrast": "텍스트와 테두리 대비 강화",
+    "warm": "청색광을 줄인 따뜻한 색감의 작업 공간"
+  },
+  "density": {
+    "compact": "좁게",
+    "normal": "보통",
+    "comfortable": "넓게"
+  },
+  "language": {
+    "en_us": "en-us",
+    "zh_cn": "zh-cn"
+  },
+  "pages": {
+    "investigate": {
+      "empty_title": "<kbd>⌘K</kbd>를 눌러 조사를 시작합니다.",
+      "empty_more": "<kbd>⌘⌥E</kbd>로 시간 범위를 설정하고, <kbdSm>⌘/</kbdSm>로 전체 단축키를 확인합니다."
+    },
+    "service_graph": {
+      "subtitle": "최근 1시간"
+    },
+    "placeholder": {
+      "navigate_hint": "<kbd>⌘K</kbd>를 눌러 이동합니다."
+    },
+    "noc": {
+      "title": "NOC 월보드 모드",
+      "status_line": "프로덕션 · 실시간 · 최근 1시간",
+      "utc_label": "UTC+8",
+      "return_console": "콘솔로 돌아가기",
+      "esc_to_exit": "Esc로 돌아가기",
+      "edit": {
+        "configure": "레이아웃 설정",
+        "done": "완료",
+        "reset": "초기화",
+        "presets": "프리셋",
+        "preset_platform": "플랫폼 운영",
+        "preset_sre": "SRE",
+        "preset_executive": "경영진",
+        "wide": "너비 전환(넓게 / 좁게)",
+        "show_hide": "표시 / 숨기기",
+        "move_left": "앞으로 이동",
+        "move_right": "뒤로 이동"
+      },
+      "panel_names": {
+        "traffic": "트래픽",
+        "incidents": "인시던트",
+        "topology": "토폴로지",
+        "health": "상태"
+      },
+      "kpis": {
+        "req_per_sec": "초당 요청 수(합계)",
+        "p95": "P95(에지 최댓값)",
+        "err_rate": "오류율",
+        "edges": "에지",
+        "connecting": "연결 중",
+        "unavailable": "데이터 문제",
+        "no_traffic": "트래픽 없음"
+      },
+      "panels": {
+        "traffic_title": "트래픽 · 상위 서비스 · 최근 60분",
+        "traffic_pending": "트래픽 차트를 표시하려면 계층별 `/query` 연동이 필요합니다.",
+        "traffic_empty": "트래픽이 없습니다. 쿼리는 성공했지만 최근 1시간 동안 서비스 호출이 없었습니다.",
+        "traffic_rate": "{{value}} req/s",
+        "data_connecting": "실시간 데이터에 연결 중…",
+        "data_unavailable": "텔레메트리를 사용할 수 없습니다. 쿼리 서비스와 데이터 소스를 확인해 주세요.",
+        "incidents_title": "실시간 인시던트 · 진행 중 {{count}}건",
+        "incidents_connecting": "알림 데이터에 연결 중…",
+        "incidents_empty": "현재 진행 중인 인시던트가 없습니다.",
+        "incidents_unavailable": "알림 데이터를 사용할 수 없습니다. 알림 서비스를 확인해 주세요.",
+        "topology_title": "서비스 토폴로지 · 최근 1시간",
+        "topology_empty": "쿼리는 성공했지만 최근 1시간 동안의 서비스 호출을 찾을 수 없습니다.",
+        "health_title": "서비스 상태",
+        "health_empty": "데이터 쿼리는 성공했지만 서비스 트래픽이 없습니다."
+      },
+      "table": {
+        "service": "서비스",
+        "qps": "QPS",
+        "p95": "P95",
+        "err_pct": "오류율(%)"
+      },
+      "status_bar": {
+        "incidents_active": "진행 중인 인시던트 있음",
+        "incidents_connecting": "알림 데이터 연결 중",
+        "incidents_unavailable": "알림 데이터 문제",
+        "no_active_incidents": "진행 중인 인시던트 없음",
+        "nominal": "정상",
+        "data_connecting": "실시간 데이터 연결 중",
+        "data_unavailable": "텔레메트리 사용 불가",
+        "no_traffic": "쿼리 성공 · 트래픽 없음",
+        "data_ok": "실시간 데이터 정상",
+        "services": "서비스 {{count}}개",
+        "req_per_sec_format": "{{value}} REQ/S",
+        "req_per_sec_empty": "트래픽 없음",
+        "p95_format": "P95 {{value}}",
+        "p95_empty": "트래픽 없음",
+        "crit": "심각 {{count}}건",
+        "warn": "경고 {{count}}건",
+        "live": "실시간"
+      },
+      "dashboard_wallboard": {
+        "title": "대시보드 월보드",
+        "subtitle_suffix": "· 실시간 · 설정된 대시보드",
+        "no_panels": "이 대시보드에는 아직 설정된 패널이 없습니다.",
+        "panels_count": "패널 {{count}}개",
+        "version": "버전 {{version}}",
+        "panel_index": "패널 {{index}}",
+        "render_pending": "렌더링 어댑터 대기 중",
+        "live": "실시간"
+      }
+    }
+  },
+  "signin": {
+    "subtitle": "워크스페이스에 로그인합니다.",
+    "tagline_a": "모든 신호를",
+    "tagline_b": "하나의 쿼리로,",
+    "tagline_c": "하나의 타임라인에서.",
+    "promise": "모든 것을 관측하고 중요한 것을 파악합니다.",
+    "forgot_password": "비밀번호를 잊으셨나요?",
+    "forgot_title": "비밀번호 재설정",
+    "forgot_subtitle": "계정 이메일 주소를 입력하면 비밀번호 재설정 링크를 보내드립니다.",
+    "forgot_privacy_hint": "계정을 보호하기 위해 이메일 주소의 등록 여부와 관계없이 같은 결과를 표시합니다.",
+    "send_reset": "재설정 링크 보내기",
+    "sending_reset": "전송 중…",
+    "forgot_sent_title": "이메일 확인",
+    "forgot_sent_subtitle": "{{email}}이 활성 계정에 등록되어 있으면 곧 비밀번호 재설정 링크가 도착합니다.",
+    "forgot_sent_detail": "링크는 30분 후 만료되며 한 번만 사용할 수 있습니다. 이메일이 도착하지 않으면 스팸 폴더를 확인해 주세요.",
+    "forgot_failed": "비밀번호 재설정 요청을 보내지 못했습니다",
+    "reset_title": "새 비밀번호 설정",
+    "reset_subtitle": "MoleSignal 계정에 로그인할 때 사용할 새 비밀번호를 설정합니다.",
+    "new_password": "새 비밀번호",
+    "confirm_password": "새 비밀번호 확인",
+    "password_hint": "8자 이상 입력해 주세요.",
+    "password_mismatch": "비밀번호가 일치하지 않습니다.",
+    "reset_password": "비밀번호 변경",
+    "resetting_password": "변경 중…",
+    "reset_success": "비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요.",
+    "reset_failed": "비밀번호를 재설정하지 못했습니다",
+    "reset_invalid": "유효하지 않거나 만료되었거나 이미 사용한 재설정 링크입니다. 새 링크를 요청해 주세요.",
+    "back_to_signin": "로그인으로 돌아가기",
+    "signing_in": "로그인 중…",
+    "email_placeholder": "name@company.com",
+    "password_placeholder": "비밀번호 입력",
+    "or": "또는",
+    "no_account": "아직 계정이 없으신가요?",
+    "version": "v{{version}}",
+    "sso_loading": "SSO 제공업체를 불러오는 중…",
+    "sso_none": "설정된 SSO 제공업체가 없습니다",
+    "signup_link": "가입하기 →",
+    "link": {
+      "title": "계정 소유 확인",
+      "subtitle": "{{email}}에 연결된 MoleSignal 계정이 이미 있습니다. 본인 계정임을 확인하면 이후에는 {{provider}}({{organization}})를 통해 해당 계정에 로그인할 수 있습니다.",
+      "method": "확인 방법",
+      "methods": {
+        "password": "비밀번호",
+        "email": "이메일 인증 코드"
+      },
+      "code_target": "이 이메일 주소로 6자리 인증 코드를 보냅니다.",
+      "send_code": "인증 코드 전송",
+      "sending": "전송 중…",
+      "send_failed": "인증 코드를 보내지 못했습니다",
+      "code": "인증 코드",
+      "code_placeholder": "숫자 6자리",
+      "code_sent": "인증 코드를 보냈습니다. 받은편지함을 확인해 주세요.",
+      "resend": "재전송",
+      "resend_in": "{{seconds}}초 후 재전송 가능",
+      "confirm": "계정 확인 후 로그인",
+      "unavailable": "이 계정에는 비밀번호가 없고 이 인스턴스에서는 이메일을 보낼 수 없어 여기서 계정을 확인할 수 없습니다. 이전과 같은 방법으로 로그인하거나 관리자에게 이메일 발송 설정을 요청하세요."
+    },
+    "continue_with": "{{name}}(으)로 계속",
+    "continue_with_email": "이메일로 계속",
+    "last_used": "마지막으로 사용",
+    "email_button": "이메일로 로그인",
+    "email_subtitle": "이메일 주소를 입력하세요.",
+    "password_subtitle": "이 계정의 비밀번호를 입력하세요.",
+    "continue": "계속",
+    "back": "뒤로",
+    "directory_title": "{{name}}(으)로 로그인",
+    "directory_subtitle": "{{name}} 사용자 이름을 입력하세요.",
+    "directory_password_subtitle": "{{name}} 비밀번호를 입력하세요.",
+    "directory_username": "사용자 이름",
+    "show_password": "비밀번호 표시",
+    "hide_password": "비밀번호 숨기기",
+    "passkey": "패스키로 계속",
+    "passkey_waiting": "패스키 응답 대기 중…",
+    "passkey_wrong_address": "이 주소는 인스턴스의 외부 URL이 아니므로 여기서는 패스키를 사용할 수 없습니다.",
+    "passkey_unknown": "이 패스키는 더 이상 이 인스턴스에 등록되어 있지 않습니다. 비밀번호로 로그인하세요.",
+    "mfa": {
+      "title": "본인 확인",
+      "subtitle_totp": "이 계정은 다단계 인증을 사용합니다. 인증 앱을 열고 MoleSignal의 6자리 코드를 입력하세요.",
+      "subtitle_recovery": "아직 사용하지 않은 복구 코드를 입력하세요. 각 코드는 한 번만 사용할 수 있습니다.",
+      "subtitle_passkey": "이 계정은 다단계 인증을 사용합니다. 패스키로 본인 확인을 진행하세요.",
+      "code": "인증 코드",
+      "code_placeholder": "6자리 숫자",
+      "recovery_code": "복구 코드",
+      "recovery_placeholder": "xxxxx-xxxxx",
+      "use_recovery": "복구 코드 사용",
+      "use_totp": "인증 앱 사용",
+      "use_passkey": "패스키 사용",
+      "verify": "인증 후 로그인",
+      "verifying": "인증 중…",
+      "verify_passkey": "패스키로 인증",
+      "passkey_waiting": "패스키 응답 대기 중…",
+      "wrong_code": "코드가 올바르지 않습니다.",
+      "passkey_failed": "패스키를 확인할 수 없습니다.",
+      "expired": "로그인 요청이 만료되었습니다. 비밀번호를 다시 입력하세요.",
+      "recovery_left_one": "복구 코드를 사용했습니다. 남은 복구 코드는 {{count}}개입니다.",
+      "recovery_left_other": "복구 코드를 사용했습니다. 남은 복구 코드는 {{count}}개입니다.",
+      "recovery_none_left": "마지막 복구 코드를 사용했습니다. 계정 설정 → 보안에서 새 복구 코드를 생성하세요.",
+      "locked": "잘못된 코드를 너무 많이 입력했습니다. 로그인이 일시적으로 제한되었습니다. 잠시 후 다시 시도하세요."
+    },
+    "enroll": {
+      "title": "다단계 인증 활성화",
+      "subtitle": "“{{organization}}”에서는 다단계 인증이 필요합니다. 인증 방법을 선택한 후 로그인을 계속하세요.",
+      "use_passkey": "패스키 사용",
+      "use_totp": "인증 앱 사용",
+      "other_method": "다른 방법 선택",
+      "totp_hint": "인증 앱으로 QR 코드를 스캔하거나 키를 직접 입력한 후, 앱에 표시된 6자리 코드를 입력하세요.",
+      "qr_alt": "인증 앱용 QR 코드",
+      "copy_secret": "키 복사",
+      "secret_copied": "복사됨",
+      "finish_totp": "활성화 후 로그인",
+      "passkey_hint": "아래 버튼을 누르고 브라우저의 안내에 따라 패스키를 생성하세요. 패스키는 iCloud 키체인, Google 비밀번호 관리자 또는 보안 키에 저장할 수 있습니다.",
+      "finish_passkey": "패스키 생성 후 로그인",
+      "expired": "로그인 요청이 만료되었습니다. 다시 로그인하세요."
+    },
+    "sso_only": "이 워크스페이스에서는 싱글 사인온(SSO)만 허용됩니다. 아래 제공업체 중 하나를 선택해 로그인하세요.",
+    "limited_minutes_one": "로그인에 너무 많이 실패했습니다. {{count}}분 후에 다시 시도하세요.",
+    "limited_minutes_other": "로그인에 너무 많이 실패했습니다. {{count}}분 후에 다시 시도하세요.",
+    "limited_seconds_one": "로그인에 너무 많이 실패했습니다. {{count}}초 후에 다시 시도하세요.",
+    "limited_seconds_other": "로그인에 너무 많이 실패했습니다. {{count}}초 후에 다시 시도하세요.",
+    "limited_with_hint": "{{wait}} {{hint}}",
+    "limited_hint": "비밀번호를 재설정할 수도 있습니다.",
+    "limited_hint_passkey": "패스키로 로그인하거나 비밀번호를 재설정할 수도 있습니다."
+  },
+  "signup": {
+    "title": "계정 만들기",
+    "subtitle": "이메일 주소를 입력하여 시작하세요.",
+    "details_subtitle": "이 이메일 주소로 사용할 이름과 비밀번호를 입력하세요.",
+    "display_name": "이름",
+    "display_name_placeholder": "이름 입력",
+    "submit": "계정 만들기",
+    "submitting": "계정 생성 중…",
+    "pending_title": "가입 요청 제출 완료",
+    "pending_desc": "관리자의 계정 승인을 기다리고 있습니다.",
+    "failed": "가입 실패",
+    "signin_required_title": "계정 생성 완료",
+    "signin_required_desc": "이 워크스페이스에서는 다단계 인증이 필요합니다. 로그인한 후 안내에 따라 활성화하세요.",
+    "check_email_title": "이메일 확인",
+    "check_email_subtitle": "{{email}} 주소로 이메일을 보내고 있습니다. 이메일의 안내에 따라 계속 진행하세요.",
+    "check_email_detail": "이메일에 포함된 링크는 30분 동안 유효하며 한 번만 사용할 수 있습니다. 이메일이 도착하지 않으면 스팸 폴더를 확인하세요.",
+    "back_to_signin": "로그인으로 돌아가기",
+    "link_checking": "링크 확인 중…",
+    "link_expired_title": "더 이상 사용할 수 없는 링크입니다",
+    "link_expired_subtitle": "링크는 30분 동안 유효하며 한 번만 사용할 수 있습니다. 새 링크를 받으려면 다시 시작하세요.",
+    "start_again": "다시 시작"
+  },
+  "unsupported": {
+    "title": "Molesignal은 넓은 화면에 최적화되어 있습니다",
+    "body": "이 콘솔은 데스크톱 SRE 작업을 위해 설계되었으며, 창 너비가 1024px 이상이어야 합니다. 더 넓은 화면을 사용하거나 창을 최대화하세요.",
+    "width": "현재 너비 {{width}}px · 최소 너비 1024px"
+  },
+  "signal_reference": {
+    "types": {
+      "trace": "트레이스",
+      "span": "스팬",
+      "service": "서비스",
+      "host": "호스트",
+      "stream": "스트림"
+    },
+    "actions": {
+      "add_filter": "필터에 추가",
+      "filtered": "필터에 추가됨",
+      "exclude_value": "이 값 제외",
+      "excluded": "값 제외됨",
+      "copy_value": "값 복사",
+      "copy_service": "서비스 이름 복사",
+      "copy_span_id": "스팬 ID 복사",
+      "copy_trace_id": "트레이스 ID 복사",
+      "copied": "복사됨"
+    },
+    "relations": {
+      "exact": "정확히 일치",
+      "context": "컨텍스트 일치"
+    },
+    "jumps": {
+      "open_trace": "현재 트레이스 열기",
+      "open_traces": "트레이스 열기",
+      "trace_logs": "트레이스 로그 보기",
+      "span_logs": "스팬 로그 보기",
+      "service_metrics": "서비스 메트릭 보기",
+      "similar_traces": "유사한 트레이스 보기",
+      "service_traces": "이 서비스의 트레이스 보기",
+      "service_logs": "이 서비스의 로그 보기",
+      "host_metrics": "이 호스트의 메트릭 보기",
+      "matching_logs": "라벨이 일치하는 로그 보기",
+      "open_stream": "스트림 열기",
+      "stream_metrics": "메트릭 열기",
+      "stream_traces": "이 스트림의 트레이스 보기",
+      "stream_profiles": "이 스트림의 프로파일 보기",
+      "stream_logs": "이 스트림의 로그 보기"
+    }
+  },
+  "context_bar": {
+    "label": "조사",
+    "frames": "프레임",
+    "resume": "조사 재개",
+    "clear": "지우기",
+    "remove_filter": "필터 제거",
+    "from_trace": "트레이스 {{id}}에서",
+    "back_to_trace": "트레이스 세부 정보로 돌아가기"
+  },
+  "subnav": {
+    "collapse": "메뉴 접기",
+    "expand": "메뉴 펼치기"
+  },
+  "agent_panel": {
+    "title": "Mole Agent",
+    "close": "닫기",
+    "open_full": "전체 채팅 열기",
+    "context_label": "컨텍스트",
+    "loading": "Mole Agent 로딩 중…"
+  },
+  "about": {
+    "updates": {
+      "menu": "새 버전 사용 가능",
+      "available": "새 버전 사용 가능: v{{version}}",
+      "checking": "업데이트 확인 중…",
+      "unavailable": "업데이트를 확인할 수 없습니다.",
+      "current": "최신 버전을 사용 중입니다.",
+      "stale": "마지막으로 확인에 성공했을 때의 결과를 표시합니다. 현재 GitHub에 연결할 수 없습니다.",
+      "notes": "릴리스 노트 및 다운로드",
+      "check": "업데이트 확인",
+      "cooldown": "업데이트 확인에는 공유 캐시를 사용합니다. 수동으로 확인해도 캐시는 5분에 한 번만 새로 고쳐집니다."
+    },
+    "title": "정보",
+    "accessible_title": "MoleSignal 정보",
+    "subtitle": "로그, 메트릭, 트레이스 및 성능 분석을 위한 옵저버빌리티 플랫폼입니다.",
+    "version": "버전",
+    "edition": "에디션 유형",
+    "commit": "커밋 해시",
+    "build_id": "빌드 ID",
+    "branch": "빌드 브랜치",
+    "built": "빌드 일시",
+    "time_with_zone": "{{time}} ({{zone}})",
+    "copy_diagnostics": "진단 정보 복사",
+    "diagnostics_copied": "진단 정보를 복사했습니다.",
+    "copied": "복사 완료",
+    "editions": {
+      "community": "오픈 소스 에디션",
+      "enterprise": "엔터프라이즈 에디션",
+      "oss": "오픈 소스 에디션",
+      "pro": "엔터프라이즈 에디션",
+      "saas": "엔터프라이즈 에디션"
+    }
+  },
+  "not_found": {
+    "title": "페이지를 찾을 수 없습니다.",
+    "description": "찾으시는 페이지가 없거나 이동되었을 수 있습니다.",
+    "back_home": "홈으로 돌아가기",
+    "suggestions": "이 페이지를 찾으시나요?"
+  },
+  "route_error": {
+    "title": "이 페이지에 문제가 발생했습니다",
+    "description": "페이지를 표시하는 중 오류가 발생했습니다. 다른 페이지에는 영향이 없습니다.",
+    "stale_title": "새 버전을 사용할 수 있습니다",
+    "stale_description": "페이지가 열려 있는 동안 업데이트되었습니다. 새 버전을 보려면 새로고침하세요.",
+    "reload": "이 페이지 새로고침",
+    "home": "홈으로 돌아가기",
+    "copy_report": "오류 보고서 복사",
+    "copied": "복사됨"
+  },
+  "access_denied": {
+    "title": "이 페이지에 접근할 권한이 없습니다",
+    "description": "현재 역할({{role}})로는 {{page}}에 접근할 수 없습니다. 조직 관리자가 접근 권한을 부여할 수 있습니다.",
+    "go_on": "접근 가능한 페이지로 이동",
+    "copy_request": "접근 권한 요청 복사",
+    "copied": "복사됨",
+    "request_text": "MoleSignal의 {{page}}({{path}})에 대한 접근 권한을 부여해 주시기 바랍니다. 제 현재 역할은 {{role}}입니다."
+  }
+}

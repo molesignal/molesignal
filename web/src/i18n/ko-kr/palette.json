@@ -1,0 +1,57 @@
+{
+  "placeholder": "명령 및 리소스 검색…",
+  "no_results": "검색 결과가 없습니다.",
+  "groups": {
+    "results": "결과",
+    "actions": "작업",
+    "attention": "조치 필요",
+    "recent": "최근 항목",
+    "kinds": {
+      "action": "작업",
+      "incident": "인시던트",
+      "alert": "알림 규칙",
+      "service": "서비스",
+      "dashboard": "대시보드",
+      "stream": "스트림",
+      "saved_view": "저장된 보기"
+    }
+  },
+  "footer": {
+    "open": "열기",
+    "open_new_stack": "새 스택에서 열기",
+    "stack_on_top": "스택 맨 위에 추가",
+    "close": "닫기",
+    "acknowledge": "확인"
+  },
+  "actions": {
+    "goto_investigate": "조사로 이동",
+    "goto_services": "서비스로 이동",
+    "goto_apm": "APM 서비스로 이동",
+    "goto_dashboards": "대시보드로 이동",
+    "goto_incidents": "인시던트로 이동",
+    "goto_saved_views": "저장된 보기로 이동",
+    "run_sql": "SQL 실행…",
+    "run_promql": "PromQL 실행…",
+    "time_last_5m": "시간 범위: 최근 5m",
+    "time_last_15m": "시간 범위: 최근 15m",
+    "time_last_1h": "시간 범위: 최근 1h",
+    "time_last_6h": "시간 범위: 최근 6h",
+    "time_last_24h": "시간 범위: 최근 24h",
+    "time_last_7d": "시간 범위: 최근 7d",
+    "pin_anchor": "현재 시간 고정",
+    "copy_link": "조사 링크 복사",
+    "toggle_theme": "테마 전환",
+    "toggle_density": "화면 밀도 전환",
+    "help": "키보드 단축키 보기",
+    "sign_out": "로그아웃",
+    "open_settings": "설정 열기",
+    "create_dashboard": "대시보드 만들기",
+    "create_alert": "알림 만들기",
+    "create_pipeline": "파이프라인 만들기",
+    "connect_source": "데이터 소스 연결"
+  },
+  "show_all_one": "{{count}}개 더 보기",
+  "show_all_other": "{{count}}개 더 보기",
+  "acknowledge": "확인",
+  "acknowledged": "인시던트를 확인했습니다"
+}

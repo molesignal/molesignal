@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 
+import { intlLocale, isChinese, toLocale } from '@/i18n/locales';
 import { uiSectionTitleClass } from '@/shell/chrome';
 import type { Incident } from '@/types/alerting';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
@@ -148,9 +149,11 @@ function formatAxisLabel(value: number, hourly: boolean, locale: string): string
   const date = new Date(value);
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  const dateLabel = locale.toLowerCase().startsWith('zh')
+  const dateLabel = isChinese(locale)
     ? `${date.getMonth() + 1}月${date.getDate()}日`
-    : `${month}/${day}`;
+    : toLocale(locale) === 'en-us'
+      ? `${month}/${day}`
+      : new Intl.DateTimeFormat(intlLocale(locale), { month: '2-digit', day: '2-digit' }).format(date);
   if (!hourly) return dateLabel;
 
   const hour = String(date.getHours()).padStart(2, '0');

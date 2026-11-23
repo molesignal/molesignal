@@ -1,0 +1,3489 @@
+{
+  "chats": "チャット",
+  "new_chat": "新しいチャット",
+  "untitled": "無題",
+  "chat_list_resize": "チャットリストをドラッグしてサイズを変更します。ダブルクリックでリセットします。",
+  "chat_delete": "チャットを削除",
+  "chat_rename": "名前を変更",
+  "chat_rename_label": "チャット名",
+  "forked": "新しいチャットにフォークされました",
+  "chat_delete_title": "チャットを削除しますか？",
+  "chat_delete_confirm": "「{{title}}」は削除される前にアーカイブされます。",
+  "chat_delete_action": "削除",
+  "chat_deleting": "削除中…",
+  "chat_deleted": "チャットが削除されました",
+  "history_empty_title": "まだ会話がありません",
+  "history_empty_description": "調査を開始すると、そのコンテキストがここに残ります。",
+  "quick_title": "クイックスタート",
+  "quick": {
+    "scenes": {
+      "incident": {
+        "title": "インシデントを調査",
+        "prompt": "最悪のオープンインシデントを調査します。まず調査計画をリストし、次に証拠を順に示し、プロダクションの変更は行いません。"
+      },
+      "query": {
+        "title": "平易な言葉でデータを尋ねる",
+        "prompt": "過去1時間で最もエラーが発生したサービスはどれですか？サービスごとにカウントをリストしてください。",
+        "prompt_service": "{{service}}の過去1時間のエラーはステータスコードごとにどのように分布していますか？"
+      },
+      "noise": {
+        "title": "アラートノイズを削減",
+        "hint": "過去7日間で無駄にページングされたルールを見つけ、レビュー用の変更を提案します。"
+      },
+      "inspection": {
+        "title": "定期検査を設定",
+        "hint": "Mole Agentにログを定期的にチェックさせ、問題があるときに通知します。"
+      }
+    }
+  },
+  "chat_groups": {
+    "today": "今日",
+    "yesterday": "昨日",
+    "last_7_days": "過去7日間",
+    "older": "以前"
+  },
+  "context": {
+    "title": "現在のコンテキスト",
+    "add": "コンテキストを追加",
+    "clear": "コンテキストをクリア",
+    "auto_description": "サービスやアラートは固定されていません。Mole Agentが質問からデータスコープを選択します。",
+    "editor_title": "調査コンテキストを追加",
+    "editor_description": "これらの値は次のメッセージと共に送信され、あなたに見えるままになります。",
+    "environment": "環境",
+    "environment_placeholder": "例: production",
+    "service": "サービス",
+    "service_placeholder": "例: checkout-api",
+    "alert": "アラート",
+    "alert_placeholder": "例: high_error_rate"
+  },
+  "module_subtitle": "オブザーバビリティのためのAIオペレーションアシスタントです。",
+  "nav": {
+    "label": "Mole Agent ナビゲーション",
+    "chat": "チャット",
+    "investigations": "調査",
+    "automations": "オートメーション",
+    "quality": "品質",
+    "approvals": "承認",
+    "executions": "実行",
+    "settings": "設定",
+    "knowledge": "ナレッジ"
+  },
+  "overview": {
+    "label": "Mole Agent 概要",
+    "active": "調査中",
+    "pending_approvals": "承認待ち"
+  },
+  "workspace": {
+    "start_title": "AI搭載アシスタント",
+    "start_description": "何が起こったか教えてください、フォローアップを尋ねるか、質問を選んで始めてください。この会話は調査のコンテキストを保持します。",
+    "context_title": "コンテキスト",
+    "context_description": "この会話に適用されます",
+    "scope": "スコープ",
+    "signals": "シグナル",
+    "context_auto": "自動検出",
+    "all_environments": "すべての環境",
+    "time_range": "時間範囲",
+    "active_alerts": "アクティブなアラート",
+    "on_call": "オンコール",
+    "unassigned": "未割り当て",
+    "command_bar": "エージェントコマンドバー",
+    "connections": {
+      "metrics": "メトリクス",
+      "logs": "ログ",
+      "traces": "トレース"
+    },
+    "connection_state": {
+      "connected": "オンライン",
+      "attention": "注意が必要",
+      "no_data": "データなし",
+      "checking": "確認中",
+      "unavailable": "制限あり"
+    },
+    "no_model": {
+      "title": "AIモデルが有効化されていません",
+      "description": "Mole AgentはAIモデルを通じて回答しますが、この組織ではまだ有効化されていません。",
+      "ask_admin": "Mole AgentはAIモデルを通じて回答します。管理者に設定で有効化するよう依頼してください。",
+      "configure": "AIモデルを設定する"
+    }
+  },
+  "common": {
+    "status": "ステータス",
+    "updated": "更新済み",
+    "time": "時間",
+    "open": "開く",
+    "back": "戻る",
+    "close": "閉じる",
+    "actions": "アクション",
+    "cancel": "キャンセル",
+    "create": "作成",
+    "edit": "編集",
+    "save": "保存",
+    "saving": "保存中…",
+    "invalid_json": "{{field}} のJSONが無効です: {{message}}",
+    "json_object_required": "{{field}} はJSONオブジェクトでなければなりません"
+  },
+  "confidence": {
+    "high": "高",
+    "medium": "中",
+    "low": "低"
+  },
+  "status": {
+    "draft": "下書き",
+    "pending": "保留中",
+    "running": "実行中",
+    "waiting_for_data": "データ待ち",
+    "waiting_for_approval": "承認待ち",
+    "verifying_recovery": "復旧確認中",
+    "completed": "完了",
+    "partially_completed": "一部完了",
+    "failed": "失敗",
+    "cancelled": "キャンセル済み",
+    "succeeded": "成功",
+    "partially_succeeded": "一部成功",
+    "rolled_back": "ロールバック済み",
+    "verification_failed": "検証失敗",
+    "proposed": "提案済み",
+    "testing": "テスト中",
+    "supported": "サポート済み",
+    "insufficient_evidence": "証拠不十分",
+    "rejected": "拒否済み",
+    "approved": "承認済み",
+    "expired": "期限切れ",
+    "executed": "実行済み",
+    "verified": "検証済み",
+    "unverified": "未検証",
+    "inference": "推論",
+    "suggestion": "提案",
+    "enabled": "有効",
+    "disabled": "無効",
+    "skipped": "スキップ済み"
+  },
+  "investigations": {
+    "title": "調査",
+    "description": "インシデントからの調査または手動での調査: Mole Agentは作業中の手順、証拠、結論を記録します。",
+    "create": "調査を作成",
+    "created": "調査が作成されました",
+    "edit": "調査を編集",
+    "updated": "調査が更新されました",
+    "create_description": "Mole Agentは各ツール、入力、証拠項目、結論への影響を記録します。",
+    "editor_description": "タスクの状態、現在の結論、調査のコンテキスト、初期手順を維持します。",
+    "title_placeholder": "例: 支払いサービスのエラー率調査",
+    "confidence_unset": "未設定",
+    "steps_hint": "1行に1つの調査手順を入力するか、手順をカンマで区切ってください。",
+    "empty_title": "まだ調査がありません",
+    "empty_description": "複雑または長期の質問を追跡可能な調査に変えましょう。",
+    "sections": {
+      "basic": "タスク情報",
+      "steps": "初期手順",
+      "context": "調査コンテキスト"
+    },
+    "fields": {
+      "title": "タイトル",
+      "summary": "現在の結論",
+      "confidence": "信頼度",
+      "current_step": "現在の手順",
+      "steps": "調査手順",
+      "context": "コンテキストJSON"
+    },
+    "columns": {
+      "task": "調査",
+      "current_step": "現在の手順",
+      "source": "ソース"
+    },
+    "default_steps": {
+      "context": "アラートとサービスのコンテキストを収集",
+      "metrics": "エラー率とレイテンシーの変化をクエリ",
+      "logs": "異常なログを見つける",
+      "traces": "異常なトレースを相関付ける",
+      "hypothesis": "主要な根本原因仮説をテスト",
+      "recommendation": "修正案を提案"
+    },
+    "from_incident": "インシデントから",
+    "by_hand": "手書き",
+    "open_chat": "チャットを開く"
+  },
+  "investigation_detail": {
+    "description": "すべてのツール呼び出し、証拠項目、仮説は追跡可能です。",
+    "confidence": "信頼度",
+    "current_conclusion": "現在の結論",
+    "no_conclusion": "Mole Agentは確認済みの結論を形成していません。",
+    "steps": "調査ステップ",
+    "hypotheses": "根本原因の仮説",
+    "timeline": "調査タイムライン",
+    "no_hypotheses": "根本原因の仮説はまだありません。",
+    "no_steps": "調査ステップが記録されていません。",
+    "no_evidence": "証拠が記録されていません。",
+    "operations_title": "提案された操作はありません",
+    "operations_description": "Mole Agentによって提案された操作は承認に進み、直接実行されることはありません。",
+    "runs_title": "関連する実行はありません",
+    "runs_description": "承認された操作は、実行記録にパラメータ、結果、検証状態を保持します。",
+    "tabs": {
+      "overview": "概要",
+      "timeline": "タイムライン",
+      "evidence": "証拠",
+      "queries": "クエリ",
+      "operations": "提案された操作",
+      "runs": "実行履歴"
+    }
+  },
+  "automations": {
+    "title": "オートメーション",
+    "description": "Mole Agentにチャットなしで仕事を任せましょう: スケジュールで、新しいインシデントで、CI/CDジョブの呼び出しで、または手動で。すべての実行は開けるチャットとして保持されます。",
+    "create": "新しいオートメーション",
+    "empty_title": "オートメーションはまだありません",
+    "empty_hint": "インシデント分析や日次ヘルスチェックなどのテンプレートから始めましょう。",
+    "denied": "この範囲でオートメーションを管理する人だけがこれを行うことができます",
+    "list_separator": "、",
+    "clone_name": "{{name}} (コピー)",
+    "columns": {
+      "name": "名前",
+      "trigger": "開始",
+      "last_run": "最終実行",
+      "enabled": "オン",
+      "actions": "アクション"
+    },
+    "cells": {
+      "next": "次は{{when}}",
+      "paused": "一時停止中",
+      "token": "トークン {{prefix}}…",
+      "no_token": "トークンはまだありません",
+      "never": "まだ実行されていません",
+      "writes_rca": "インシデントのRCAを書きます",
+      "channels_one": "{{count}} チャンネルに通知",
+      "channels_other": "{{count}} チャンネルに通知",
+      "no_output": "実行のみ保持"
+    },
+    "actions": {
+      "run": "今すぐ実行",
+      "run_named": "{{name}}を今すぐ実行",
+      "runs": "実行",
+      "runs_named": "{{name}}の実行",
+      "edit": "編集",
+      "edit_named": "{{name}}を編集",
+      "more_named": "{{name}}の詳細",
+      "clone": "複製",
+      "token": "APIトークン",
+      "delete": "削除",
+      "toggle_named": "{{name}}をオンまたはオフにする"
+    },
+    "trigger_kind": {
+      "schedule": "スケジュールで",
+      "incident": "新しいインシデント",
+      "api": "APIコール",
+      "manual": "手動で",
+      "finding": "新しい発見"
+    },
+    "trigger_hint": {
+      "schedule": "cron式の時間に実行され、最大15分ごとに1回です。",
+      "incident": "一致する新しいインシデントごとに実行されます。インシデントまたは同じグループの別のインシデントが30分以内に1回分析されます。",
+      "api": "外部システムがトークンで呼び出すと実行されます。送信されたテキストが実行のコンテキストです。保存後に行からトークンを作成します。",
+      "manual": "誰かが実行したときのみ実行されます。",
+      "finding": "一致する自動発見の新しい発見ごとに実行されます。発見は1回調査されます。"
+    },
+    "trigger_summary": {
+      "incident": "すべての新しいインシデント",
+      "incident_severities": "新しい{{severities}}インシデント",
+      "api": "APIコール",
+      "manual": "手動で",
+      "finding": "すべての新しい発見",
+      "finding_severity": "{{severity}}以上の新しい発見"
+    },
+    "cron": {
+      "weekdays_morning": "平日 09:00",
+      "daily_morning": "毎日 09:00",
+      "monday_morning": "月曜日 10:00",
+      "hourly": "毎時"
+    },
+    "severity": {
+      "critical": "クリティカル",
+      "error": "エラー",
+      "warning": "警告",
+      "info": "情報"
+    },
+    "run_status": {
+      "running": "実行中",
+      "succeeded": "成功",
+      "partial": "一部完了",
+      "failed": "失敗",
+      "skipped": "スキップされました",
+      "blocked": "誰かが必要です",
+      "abandoned": "停止されました"
+    },
+    "reasons": {
+      "budget_exhausted": "今日のMole Agentトークンの予算が使い切られました。",
+      "still_running": "前回の実行が終了していませんでした。",
+      "already_analyzed": "このインシデント、または同じグループのものが少し前に分析されました。",
+      "run_as_unavailable": "実行する人がここでMole Agentを使用できなくなりました。再度保存してあなたとして実行してください。",
+      "no_model": "この組織にはAIモデルがオンになっていません。",
+      "timeout": "時間制限を超えました。",
+      "error": "モデルまたはツールが失敗しました。",
+      "question": "Mole Agentが誰も答えられない質問をし、自分の判断で進めました。",
+      "confirmation": "ツールが誰かの確認を必要としたため、実行されませんでした。",
+      "credential": "MCPサーバーが実行する人の資格情報を必要とし、保存されていません。",
+      "delivery": "通知を送信できませんでした。",
+      "rca": "インシデントのRCAを書けませんでした。",
+      "stopped": "誰かが停止しました。",
+      "interrupted": "実行中のサーバーが停止しました。"
+    },
+    "editor": {
+      "new_title": "新しいオートメーション",
+      "edit_title": "オートメーションを編集",
+      "subtitle": "Mole Agentに何を、いつ、どこで結果を送るかを尋ねます。",
+      "what": "タスク",
+      "name": "名前",
+      "name_placeholder": "毎日の健康チェック",
+      "prompt": "何をするか",
+      "prompt_hint": "毎回Mole Agentに新しいチャットのように尋ねます。スコープのツール、スキル、知識を使用できます。",
+      "prompt_placeholder": "過去24時間のチェックアウトサービスのエラーレートとレイテンシーを確認し、注意が必要な点を述べてください。",
+      "description": "説明",
+      "description_placeholder": "その目的について一行で",
+      "scope": "誰の",
+      "scope_hint": "その実行はこのスコープの知識、スキル、MCPサーバーをロードし、誰が見ることができるかはそれに従います。このスコープに留まります。他のスコープで使用するにはクローンしてください。",
+      "when": "いつ",
+      "trigger": "開始",
+      "presets": "一般的なスケジュール",
+      "cron": "Cron",
+      "cron_hint": "分、時、月の日、月、週の日",
+      "cron_invalid": "5つのフィールド: 分、時、月の日、月、週の日",
+      "timezone": "タイムゾーン",
+      "severities": "重大度",
+      "severities_hint": "選択されていない場合、すべての重大度を取ります。",
+      "rules": "アラートルール",
+      "rules_hint": "選択されていない場合、すべてのルールが適用されます。",
+      "services": "サービス",
+      "services_hint": "カンマ区切り; いずれかに関連するインシデントが一致します。空の場合、すべてのサービスが対象です。",
+      "labels": "ラベル",
+      "labels_hint": "1行につき1つのキー=値; インシデントはすべてを持っている必要があります。",
+      "timeout": "制限時間",
+      "timeout_hint": "長時間かかる実行は停止され、失敗としてカウントされます。",
+      "minutes_one": "{{count}} 分",
+      "minutes_other": "{{count}} 分",
+      "enabled": "オン",
+      "outputs": "結果",
+      "channels": "通知チャンネル",
+      "channels_hint": "実行が完了、必要、または失敗した場合、その結論がリンクと共に送信されます。",
+      "channels_none": "通知コネクタがまだ設定されていません。",
+      "channels_unavailable": "通知コネクタはここで一覧表示できません: チャンネルを選択するには notify.connectors.read が必要です。",
+      "write_rca": "結論をインシデントのRCAとして記録する",
+      "run_as": "保存すると、あなたの権限とMCP資格情報で実行されます。",
+      "save": "保存",
+      "create": "作成",
+      "finding_kinds": "種類",
+      "finding_kinds_hint": "選択されていない場合、すべての種類。",
+      "min_severity": "最低でも",
+      "any_severity": "任意の重大度",
+      "finding_subjects": "サービス、ホスト、またはコンテナ",
+      "finding_subjects_hint": "カンマ区切り; 空の場合、すべてが対象です。"
+    },
+    "runs": {
+      "subtitle": "新しい順。各実行はチャットとして保持されます。",
+      "none": "まだ実行されていません。",
+      "input": "開始時: {{text}}",
+      "undelivered": "{{targets}} に配信されませんでした",
+      "open_chat": "実行を開く",
+      "rca": "インシデントのRCAを記録しました"
+    },
+    "templates": {
+      "title": "新しいオートメーション",
+      "subtitle": "何もない状態から始めるか、タスクと実行タイミングを埋めるテンプレートから始めます。",
+      "blank": "空のオートメーション",
+      "blank_description": "タスクを記述し、実行タイミングを選択します。"
+    },
+    "token": {
+      "title": "{{name}} のAPIトークン",
+      "description": "CI/CDジョブなどの外部システムが、このトークンを送信してオートメーションを開始します。",
+      "shown_once": "トークンを今コピーしてください: 再表示されません。新しいものを作成すると置き換えられます。",
+      "copy": "トークンをコピー",
+      "example": "このように開始します:",
+      "current": "トークンが設定されています（{{prefix}}…）。新しいトークンを作成すると、すぐに置き換えられます。",
+      "none": "まだトークンがありません。",
+      "create": "トークンを作成",
+      "rotate": "新しいトークンを作成",
+      "revoke": "トークンを取り消す",
+      "revoked": "トークンが取り消されました"
+    },
+    "toast": {
+      "created": "オートメーションが作成されました",
+      "saved": "オートメーションが保存されました",
+      "deleted": "オートメーションが削除されました",
+      "started": "{{name}}が実行中です",
+      "not_started": "{{name}}が開始されませんでした: {{reason}}"
+    },
+    "delete_confirm": {
+      "title": "{{name}}を削除しますか？",
+      "description": "実行履歴も一緒に削除されます。実行のチャットは残ります。",
+      "confirm": "削除",
+      "busy": "削除中…"
+    }
+  },
+  "automation_run": {
+    "notice": "オートメーション「{{name}}」の実行が保存されました。再度実行するには、オートメーションを実行してください。",
+    "open": "オートメーション"
+  },
+  "drill_run": {
+    "notice": "ドリル「{{name}}」の実行が保存されました。再度実行するには、品質タブのドリルに移動してください。",
+    "open": "ドリル"
+  },
+  "quality": {
+    "title": "品質",
+    "description": "Mole Agentの回答の品質です。すべての回答はルールによってスコアリングされ、評価者がモデルを使ってサンプルを評価し、低スコアや役に立たない評価はレビュー待ちになります。",
+    "views": {
+      "overview": "概要",
+      "answers": "回答",
+      "reviews": "レビュー",
+      "gaps": "データギャップ",
+      "drills": "ドリル",
+      "evaluators": "評価者"
+    },
+    "gaps": {
+      "description": "ツールが回答の呼び出しでデータに欠けていると示すもの：どこにあるか、サービスごとの名前、データを集計するツール。個人チャットは合計にのみカウントされます。",
+      "empty_title": "この期間にツールを呼び出した回答はありません",
+      "empty_hint": "回答がスコアリングされるときにツールの呼び出しが読み取られます。より長い期間を試してください。",
+      "none_listed": "リストにできるギャップは回答に見つかりませんでした。",
+      "no_stream": "ストリーム",
+      "answers_one": "{{count}} 件の回答",
+      "answers_other": "{{count}} 件の回答",
+      "totals": {
+        "label": "期間中のデータギャップ",
+        "answers": "ツール呼び出しのある回答",
+        "with_gaps": "ギャップあり"
+      },
+      "kinds": {
+        "data_map": {
+          "title": "データの所在",
+          "hint": "同じストリームを何も得られずにクエリした回答、または構造を何度も調べた回答"
+        },
+        "field_alignment": {
+          "title": "サービスごとの名前",
+          "hint": "メトリクスやAPMではサービスが見つかったものの、ログやトレースでは同じ名前で見つからなかった回答"
+        },
+        "feature_tools": {
+          "title": "データの要約",
+          "hint": "パターンやトレンドを確認せず、生ログや生の時系列データを繰り返し取得した回答"
+        }
+      },
+      "fixes": {
+        "data_map": "各サービスのデータの場所と絞り込み方法を、サービスカタログのデータソース欄またはナレッジのMOLE.mdに記載してください。",
+        "field_alignment": "すべてのシグナルでサービス名（service.name）を統一するか、別名をサービスカタログにエイリアスとして登録してください。",
+        "feature_tools": "Mole Agentが「ログパターンを分析」と「メトリクスのトレンドを分析」を使えるように、組織のエージェントプロファイルのツールセットに両方が含まれていることを確認してください。"
+      },
+      "notes": {
+        "repeated_queries_one": "{{stream}}へのクエリ：{{count}}回（うち結果なしまたは失敗：{{misses}}回）",
+        "repeated_queries_other": "{{stream}}へのクエリ：{{count}}回（うち結果なしまたは失敗：{{misses}}回）",
+        "structure_lookups_one": "データ構造の確認：{{count}}回",
+        "structure_lookups_other": "データ構造の確認：{{count}}回",
+        "structure_lookups_stream_one": "データ構造の確認：{{count}}回（主に{{stream}}）",
+        "structure_lookups_stream_other": "データ構造の確認：{{count}}回（主に{{stream}}）",
+        "service_mismatch": "{{service}}のデータはメトリクスやAPMにありますが、同じ名前で{{stream}}を検索しても結果がありませんでした。",
+        "raw_log_pulls_one": "{{stream}}の生ログをパターン分析なしで取得：{{count}}回",
+        "raw_log_pulls_other": "{{stream}}の生ログをパターン分析なしで取得：{{count}}回",
+        "raw_metric_pulls_one": "{{stream}}の生の時系列データをトレンド分析なしで取得：{{count}}回",
+        "raw_metric_pulls_other": "{{stream}}の生の時系列データをトレンド分析なしで取得：{{count}}回"
+      }
+    },
+    "drills": {
+      "description": "解決済みのインシデントを発生中と見なして再調査し、事後に特定された根本原因と回答を照合して採点します。モデル、プロンプト、ツールを変更したら、すべてのドリルを再実行してください。",
+      "new": "新規ドリル",
+      "new_title": "新規ドリル",
+      "new_subtitle": "再調査するインシデントと、回答の照合に使う根本原因",
+      "create": "作成",
+      "created": "ドリル「{{name}}」を作成しました。",
+      "run": "実行",
+      "run_named": "ドリル「{{name}}」を実行",
+      "run_all": "すべて再実行",
+      "runs": "実行履歴",
+      "runs_named": "「{{name}}」の実行履歴",
+      "runs_title": "ドリルの実行履歴",
+      "more_named": "「{{name}}」のその他の操作",
+      "started": "ドリルを実行中です。調査が完了すると採点されます。",
+      "started_all_one": "{{count}}件のドリルを実行中です。",
+      "started_all_other": "{{count}}件のドリルを実行中です。",
+      "deleted": "ドリルを削除しました。",
+      "delete": "削除",
+      "delete_confirm": {
+        "title": "ドリル「{{name}}」を削除しますか？",
+        "description": "実行履歴とスコアも削除されます。各実行のチャットは残ります。",
+        "busy": "削除中…"
+      },
+      "none": "ドリルはまだありません",
+      "none_hint": "過去180日以内に解決され、ポストモーテムに根本原因が記載されているインシデントからドリルを作成してください。",
+      "never_run": "まだ実行されていません",
+      "no_runs": "まだ実行されていません。",
+      "columns": {
+        "drill": "ドリル",
+        "source": "参照",
+        "last_run": "最終実行",
+        "mean": "平均",
+        "runs": "実行回数"
+      },
+      "sources": {
+        "postmortem": "事後分析",
+        "manual": "手書き"
+      },
+      "status": {
+        "running": "調査中…",
+        "grading": "採点中…",
+        "done": "採点済み",
+        "failed": "スコアなし"
+      },
+      "failures": {
+        "budget_exhausted": "本日のAI予算が使い果たされました",
+        "no_model": "AIモデルが設定されていません",
+        "incident_gone": "インシデントが消えました",
+        "start_failed": "実行を開始できませんでした",
+        "run_failed": "調査に失敗しました",
+        "run_cancelled": "調査が中止されました",
+        "run_interrupted": "調査が中断されました",
+        "no_answer": "調査が回答を記録しませんでした",
+        "grading_failed": "回答を採点できませんでした"
+      },
+      "reference": "参照根本原因",
+      "reference_hint": "インシデント後に確立された根本原因です。調査で見つかった根本原因と比較されます。",
+      "reference_text": "根本原因",
+      "own_reference": "事後分析の代わりに根本原因を記述します",
+      "pick_first": "まずインシデントを選択してください。",
+      "incident": "インシデント",
+      "incident_hint": "過去180日間に解決され、事後分析で根本原因が述べられているインシデント。",
+      "candidates": "解決済みインシデント",
+      "candidate_hint": "解決済み {{resolved}} · {{cause}}",
+      "no_candidates": "過去180日間に解決されたインシデントで、事後分析に根本原因が述べられているものはありません。インシデントIDを入力し、その根本原因を記述してください。",
+      "other_incident": "別のインシデント",
+      "other_incident_hint": "そのIDを入力し、根本原因を記述してください",
+      "incident_id": "インシデントID",
+      "incident_id_placeholder": "インシデントのアドレスにあるID",
+      "open_incident": "インシデントを開く",
+      "open_run": "調査を開く",
+      "prompt_version": "プロンプト v{{version}}"
+    },
+    "empty_title": "まだ回答が採点されていません",
+    "empty_hint": "回答は書かれるとスコアが付けられます。評価者の下に評価者を追加して、モデルでサンプルをスコア付けしてください。",
+    "no_score": "—",
+    "rules": "ルール",
+    "evaluator_deleted": "削除された評価者",
+    "list_separator": ", ",
+    "filters": {
+      "days": "期間",
+      "last_days_one": "過去{{count}}日",
+      "last_days_other": "過去{{count}}日",
+      "source": "ソース"
+    },
+    "sources": {
+      "all": "すべてのソース",
+      "personal_chat": "個人チャット",
+      "team_chat": "チームチャット",
+      "automation": "オートメーション",
+      "incident_rca": "インシデントRCA"
+    },
+    "totals": {
+      "label": "合計",
+      "answers": "スコア付けされた回答",
+      "rules_mean": "ルール",
+      "rules_hint": "ルールの平均スコア、0から100まで",
+      "evaluated": "評価済み",
+      "evaluator_mean": "評価者",
+      "evaluator_hint": "評価者のスコアの平均、0から100まで",
+      "thumbs_up": "役に立った",
+      "thumbs_down": "役に立たなかった",
+      "pending_reviews": "レビュー待ち"
+    },
+    "trend": {
+      "title": "日別スコア",
+      "rules": "ルール",
+      "evaluators": "評価者"
+    },
+    "dimensions": {
+      "title": "ルール",
+      "column": "ルール",
+      "tool_success": {
+        "title": "ツール呼び出し",
+        "hint": "失敗しなかった呼び出し"
+      },
+      "evidence": {
+        "title": "証拠",
+        "hint": "ツール呼び出しを裏付ける引用された証拠"
+      },
+      "query_validity": {
+        "title": "クエリ",
+        "hint": "解析されるSQLとPromQL"
+      },
+      "answer_format": {
+        "title": "フォーマット",
+        "hint": "要求された形の回答"
+      },
+      "completion": {
+        "title": "完了",
+        "hint": "ターンが完了した"
+      },
+      "feedback": {
+        "title": "評価",
+        "hint": "質問者による「役に立った」「役に立たなかった」の評価"
+      }
+    },
+    "groups": {
+      "sources": "ソース別",
+      "prompts": "プロンプトのバージョン別",
+      "skills": "スキル別",
+      "models": "モデル別",
+      "prompt_version": "{{name}} v{{version}}",
+      "none": "この期間にはありません"
+    },
+    "columns": {
+      "answer": "回答",
+      "source": "ソース",
+      "score": "スコア",
+      "scored_by": "採点者",
+      "when": "回答日時",
+      "name": "名前",
+      "answers": "回答数",
+      "rules": "ルール",
+      "evaluated": "評価済み",
+      "evaluators": "評価者",
+      "cause": "理由",
+      "status": "ステータス",
+      "actions": "アクション"
+    },
+    "notes": {
+      "tools_ok_one": "ツール呼び出しに成功しました",
+      "tools_ok_other": "{{count}} 件すべてのツール呼び出しに成功しました",
+      "tools_failed": "{{total}} 件中 {{failed}} 件のツール呼び出しに失敗しました",
+      "evidence_none": "根拠を示していません",
+      "evidence_one": "根拠を {{count}} 件示しています",
+      "evidence_other": "根拠を {{count}} 件示しています",
+      "evidence_unbacked_one": "根拠を {{count}} 件示していますが、成功したツール呼び出しはありません",
+      "evidence_unbacked_other": "根拠を {{count}} 件示していますが、成功したツール呼び出しはありません",
+      "queries_ok_one": "クエリを解析できました",
+      "queries_ok_other": "{{count}} 件すべてのクエリを解析できました",
+      "queries_invalid": "{{total}} 件中 {{invalid}} 件のクエリを解析できませんでした",
+      "format_ok": "指定された形式です",
+      "format_plain": "指定された形式ではありません",
+      "completion": {
+        "succeeded": "完了",
+        "blocked": "処理は終了しましたが、人の対応が必要で、誰にも依頼できませんでした",
+        "empty": "回答なしで終了しました",
+        "failed": "失敗",
+        "cancelled": "停止",
+        "interrupted": "中断"
+      },
+      "feedback_up": "「役に立った」と評価されました",
+      "feedback_down": "「役に立たなかった」と評価済み",
+      "feedback_down_reasons": "「役に立たなかった」と評価済み：{{reasons}}"
+    },
+    "answers": {
+      "description": "採点済みの回答を新しい順に表示します。個人チャットの回答は集計にのみ含まれます。",
+      "low_only": "低スコアのみ",
+      "none_low": "レビューのしきい値を下回った回答はありません",
+      "empty_hint": "回答は作成後に採点されます。別の期間やソースをお試しください。",
+      "more": "さらに表示",
+      "no_question": "質問なし"
+    },
+    "answer": {
+      "title": "採点済みの回答",
+      "open_chat": "チャットを開く",
+      "open_incident": "インシデントを開く",
+      "evaluators": "評価者",
+      "not_evaluated": "評価者による採点はありません。",
+      "samples_one": "採点{{count}}回",
+      "samples_other": "{{count}}回の採点の平均",
+      "rules": "ルール",
+      "question": "質問",
+      "answer": "回答",
+      "tools_one": "ツール呼び出し{{count}}件（うち失敗{{failed}}件）",
+      "tools_other": "ツール呼び出し{{count}}件（うち失敗{{failed}}件）",
+      "gone": "チャットまたはRCAはすでに存在しません。"
+    },
+    "reviews": {
+      "description": "レビュー対象は、スコアがしきい値を下回った回答、「役に立たなかった」と評価された回答、または無作為に抽出された回答です。誤りのある回答を承認してください。承認した回答は回帰テストセットに追加され、プロンプトのチェック時に元の質問にもう一度回答します。",
+      "status_label": "ステータス",
+      "filter": {
+        "pending": "レビュー待ち",
+        "accepted": "承認済み",
+        "rejected": "却下済み",
+        "all": "すべて"
+      },
+      "status": {
+        "pending": "レビュー待ち",
+        "accepted": "承認済み",
+        "rejected": "却下済み"
+      },
+      "causes": {
+        "low_score": "低スコア",
+        "thumbs_down": "「役に立たなかった」と評価済み",
+        "sampled": "無作為抽出"
+      },
+      "none_pending": "レビュー待ちの回答はありません",
+      "none": "レビューはありません",
+      "empty_hint": "スコアがレビューのしきい値を下回った回答、質問者が「役に立たなかった」と評価した回答、またはレビュー用に無作為に抽出された回答がここに表示されます。",
+      "note": "メモ",
+      "note_placeholder": "回答のどこに問題があり、適切な回答では何を押さえるべきか",
+      "accept": "承認",
+      "reject": "却下",
+      "accept_hint": "承認すると、回答が誤りと判断され、回帰テストセットに追加されます。却下すると、回答に問題はないと判断されます。",
+      "decided": {
+        "accepted": "承認済み：回帰テストセットに追加",
+        "rejected": "却下済み"
+      }
+    },
+    "evaluators": {
+      "description": "評価器は、作成した評価基準に沿ってモデルで回答を1〜5点で採点し、その理由を1〜2文で説明します。",
+      "new": "新規評価器",
+      "none": "評価器はまだありません",
+      "none_hint": "評価器がなくても、すべての回答はルールに基づいて採点されます。評価器を追加すると、一部の回答をモデルで採点できます。",
+      "new_title": "新規評価器",
+      "edit_title": "評価器の編集",
+      "subtitle": "評価器は、最後に設定を保存したユーザーの表示言語で採点理由を記述します。",
+      "what": "評価の観点",
+      "name": "名前",
+      "rubric": "評価基準",
+      "rubric_hint": "良い回答の条件と減点の基準を指定します。評価器は1〜5点で採点します。",
+      "which": "採点対象",
+      "targets": "回答",
+      "targets_hint": "個人チャットは本人以外が閲覧できないため、ルールに基づいてのみ採点されます。",
+      "sample": "サンプリング率",
+      "sample_hint": "新しい回答のうち、採点する割合です。「役に立たなかった」と評価された回答は必ず採点し、点数が低い回答は再採点します。",
+      "sample_short": "サンプリング率",
+      "model_section": "モデル",
+      "provider": "モデルプロバイダー",
+      "provider_default": "組織で最初に利用可能なプロバイダー",
+      "model": "モデル",
+      "model_default": "プロバイダーのデフォルトモデル",
+      "temperature": "温度",
+      "temperature_hint": "0に設定すると、スコアのばらつきを抑えられます。",
+      "enabled": "オン",
+      "enabled_short": "オン",
+      "toggle": "{{name}}のオン・オフを切り替え",
+      "edit": "編集",
+      "edit_named": "{{name}}を編集",
+      "more_named": "{{name}}のその他の操作",
+      "delete": "削除",
+      "delete_confirm": {
+        "title": "{{name}}を削除しますか？",
+        "description": "採点済みのスコアは残りますが、この評価器での採点を待っている処理は取り消されます。",
+        "busy": "削除中…"
+      },
+      "deleted": "評価器を削除しました",
+      "created": "{{name}}を追加しました",
+      "saved": "{{name}}を保存しました",
+      "create": "追加",
+      "save": "保存",
+      "default_name": "回答の正確性",
+      "default_rubric": "回答が問題をどの程度正しく特定し、説明できているかを評価します。\n5: 結論が正しく、すべての主張がツールで得られた結果に裏付けられています。\n4: 結論は正しいものの、小さな抜けや、結果で裏付けられていない細部があります。\n3: 一部は正しいか、正しくても根拠の説明が曖昧です。\n2: ほとんど根拠がないか、質問に答えていません。\n1: 誤っているか、事実を捏造しています。"
+    },
+    "settings": {
+      "title": "設定",
+      "description": "回答をレビュー対象にする条件と、新しいデフォルトプロンプトのチェック方法を設定します。",
+      "threshold": "レビューのしきい値",
+      "threshold_hint": "スコア（0～100）がこのしきい値を下回る回答は、レビュー待ちになります。",
+      "sample": "ランダムレビュー",
+      "sample_hint": "評価の妥当性を確認するため、しきい値を下回らなかった回答のうち、ランダムにレビュー対象とする割合を指定します。",
+      "gate": "プロンプトをデフォルトに設定する前のチェック",
+      "gates": {
+        "warn": "チェックし、スコアが下がった場合は再確認",
+        "block": "チェックし、スコアが下がった場合は設定を拒否",
+        "off": "チェックしない"
+      },
+      "gate_hint": {
+        "warn": "チャットまたは根本原因分析（RCA）用の組織プロンプトをデフォルトに設定するときに、チェックを求めます。チェックを実施していない場合や、新しいバージョンのスコアが下がった場合は、設定するかどうかを改めて確認します。",
+        "block": "チェックの結果、スコアが下がっていないと確認できたプロンプトのみ、デフォルトに設定できます。",
+        "off": "プロンプトはチェックせずにデフォルトに設定されます。"
+      },
+      "save": "保存",
+      "saved": "設定を保存しました"
+    }
+  },
+  "approvals": {
+    "title": "承認",
+    "description": "実際の書き込みを伴う操作はすべて、実行前にリスクレベルに応じた承認ポリシーを満たす必要があります。",
+    "agent_suggestion": "Mole Agent は次の操作を推奨しています",
+    "reason": "理由",
+    "impact": "影響とリスク",
+    "parameters": "実行パラメーター",
+    "reject": "却下",
+    "approve": "承認",
+    "execute": "承認して実行",
+    "execution_started": "操作の実行を要求しました",
+    "one_time_token_title": "ワンタイム API トークン",
+    "one_time_token_description": "この API トークンを今すぐコピーしてください。トークンの平文は実行履歴に記録されず、再表示できません。",
+    "copy_one_time_token": "API トークンをコピー",
+    "one_time_token_copied": "API トークンをコピーしました",
+    "one_time_token_copy_failed": "API トークンをコピーできませんでした",
+    "empty_title": "確認待ちの承認リクエストはありません",
+    "empty_description": "Mole Agent が提案した承認対象の操作がここに表示されます。"
+  },
+  "executions": {
+    "title": "実行履歴",
+    "description": "パラメーターのスナップショット、冪等性キー、実行結果、復旧の確認状況を確認できます。",
+    "empty_title": "実行履歴はまだありません",
+    "empty_description": "実行履歴には承認済みの操作のみが表示されます。",
+    "columns": {
+      "operation": "操作",
+      "target": "対象",
+      "verification": "検証"
+    }
+  },
+  "settings": {
+    "title": "エージェント設定",
+    "description": "Mole Agent のモデル、プロンプト、ツールと機能、データアクセス範囲、ネットワーク、承認ポリシーを設定します。",
+    "blocked": "ブロック済み",
+    "allowed": "許可済み",
+    "tabs": {
+      "profiles": "エージェントプロファイル",
+      "models": "モデルと推論",
+      "prompts": "プロンプト管理",
+      "tools": "ツールと機能",
+      "inbound_mcp": "インバウンド MCP",
+      "im": "IM",
+      "data": "データアクセス",
+      "network": "ネットワークポリシー",
+      "approvals": "承認ポリシー",
+      "usage": "使用状況",
+      "skills": "スキル"
+    },
+    "inbound_mcp": {
+      "title": "インバウンド MCP サーバー",
+      "description": "外部 AI クライアントが、認証とポリシーによるアクセス制御が適用された MoleSignal の MCP エンドポイントを通じて、この組織を管理できるようにします。",
+      "enabled": "有効",
+      "endpoint": "エンドポイント",
+      "protocols": "プロトコルバージョン",
+      "saved": "インバウンド MCP の設定を保存しました",
+      "invalid_limits": "実行時の上限にはすべて正の整数を指定してください。",
+      "allowed_origins": "許可するブラウザーオリジン",
+      "origins_hint": "完全一致で許可する HTTP または HTTPS のオリジンを 1 行に 1 つ指定してください。Origin ヘッダーのないリクエストと同一オリジンのリクエストは引き続き許可されます。",
+      "copy": "アドレスをコピー",
+      "copied": "アドレスをコピーしました",
+      "save": "設定を保存",
+      "security": {
+        "title": "テナント分離とポリシーの適用",
+        "description": "サーバーは認証情報のみを用いてユーザーと組織を特定します。利用できるのは、トークンの IAM 権限と組織のツールポリシーの両方で許可されているツールのみです。エージェントプロファイルによる追加の制限はありません。"
+      },
+      "credentials": {
+        "title": "認証情報",
+        "description": "個人 API トークン、サービスアカウントの API トークン、または OAuth 2.1 を使用してください。インバウンド MCP が API トークンを平文で返すことはありません。",
+        "api_tokens": "API トークンを管理",
+        "service_accounts": "サービスアカウントを管理"
+      },
+      "runtime": {
+        "title": "リクエストごとの実行時上限",
+        "description": "変更は次の MCP HTTP リクエストの処理開始時から適用されます。処理中のリクエストには、開始時点の設定が引き続き適用されます。",
+        "request_size": "リクエストサイズ (MB)",
+        "response_size": "レスポンスサイズ (MB)",
+        "concurrent_calls": "認証情報ごとの同時呼び出し数",
+        "calls_per_minute": "認証情報ごとの 1 分あたりの呼び出し数",
+        "read_timeout": "読み取りタイムアウト (ms)"
+      },
+      "oauth": {
+        "title": "OAuth 接続",
+        "description": "この組織に発行された OAuth 2.1 トークンファミリーを確認し、取り消すことができます。",
+        "discovery_title": "OAuth 2.1 ディスカバリー",
+        "discovery_description": "クライアントが保護対象リソースを自動検出せず、OAuth を明示的に設定する必要がある場合は、これらのエンドポイントを使用します。",
+        "protected_metadata": "保護対象リソースのメタデータ",
+        "authorization_metadata": "認可サーバーのメタデータ",
+        "registration_endpoint": "動的登録エンドポイント",
+        "token_endpoint": "トークンエンドポイント",
+        "empty": "OAuth 接続なし",
+        "empty_description": "ユーザーが MCP クライアントを認可すると、ここに接続が表示されます。",
+        "authorized_by": "認可したユーザー: {{value}}",
+        "expires": "最新トークンの有効期限: {{value}}",
+        "revoke": "取り消す",
+        "revoked": "OAuth 接続を取り消しました"
+      },
+      "prompt": {
+        "title": "セットアップ用プロンプト",
+        "description": "このプロンプトを Claude Code や Cursor などのエージェントツールに貼り付けると、MoleSignal が MCP サーバーとして追加されます。",
+        "copy": "プロンプトをコピー",
+        "copied": "コピーしました",
+        "protocol": "トランスポート",
+        "stdio": "stdio (推奨)",
+        "http": "Streamable HTTP",
+        "text_stdio": "MoleSignal を MCP サーバーとして追加し、接続してください。\n- 名前: molesignal\n- トランスポート: stdio\n- コマンド: npx -y @molesignal/cli mcp\n追加する前に、ターミナルで npx -y @molesignal/cli login --url {{address}} を実行してください。ブラウザーが開くので、MoleSignal にサインインしてアクセスを許可します。API キーは不要です。\nブラウザーを開けない場合は、代わりにこの MCP サーバーの環境変数に MOLESIGNAL_URL={{address}} と MOLESIGNAL_TOKEN=<MoleSignal API token> を設定してください。トークンは私が MoleSignal で作成してお渡しします。\n設定が完了したら、molesignal が提供するツールを一覧表示して、接続を確認してください。",
+        "text_http": "MoleSignal を MCP サーバーとして追加し、接続してください。\n- 名前: molesignal\n- URL: {{endpoint}}\n- トランスポート: Streamable HTTP\n- 認証: OAuth 2.1。接続時にブラウザーが開くので、MoleSignal にサインインしてアクセスを許可します。API キーは不要です。\nOAuth に対応していない場合は、代わりに Authorization: Bearer <MoleSignal API token> ヘッダーを送信してください。トークンは私が MoleSignal で作成してお渡しします。\n設定が完了したら、molesignal が提供するツールを一覧表示して、接続を確認してください。"
+      }
+    },
+    "im": {
+      "description": "Mole Agent は、これらのコネクターを通じて Feishu、Slack、DingTalk、WeCom、Google Chat、Microsoft Teams、Telegram で応答します。グループでメンションするか、ダイレクトメッセージを送信してください。Microsoft Teams は MoleSignal の公開コールバックアドレスにメッセージを送信します。他のサービスでは、1 台のサーバーが持続接続、ロングポーリング、または Pub/Sub サブスクリプションで受信するため、公開アドレスは不要です。有効にすると、Feishu、Slack、Telegram で送信されるアラート通知に「確認」と「解決」ボタンが表示されます。",
+      "guide": "セットアップガイド",
+      "no_external_url": "外部 URL (http.external_url) が設定されていません。ユーザーは自分で IM アカウントを連携できず、応答にはチャットへのリンクが表示されません。また、Microsoft Teams からメッセージを配信できません。管理者は引き続き、ユーザーの通知方法で IM アカウントを追加し、確認できます。",
+      "none": "IM で応答できるコネクターはまだありません",
+      "none_hint": "通知設定でアプリコネクターを追加し、ここで有効にしてください。",
+      "add_connector": "コネクターを追加",
+      "columns": {
+        "connector": "コネクター",
+        "state": "ステータス",
+        "team": "新規グループスレッド",
+        "enabled": "オン"
+      },
+      "state": {
+        "missing": "要設定: {{fields}}",
+        "connector_off": "コネクターがオフになっています",
+        "off": "オフ",
+        "idle": "サーバー待機中",
+        "connecting": "接続中",
+        "connected": "接続済み",
+        "error": "接続できません"
+      },
+      "fields": {
+        "appToken": "アプリレベルトークン",
+        "botToken": "ボットトークン",
+        "appId": "アプリ ID",
+        "appSecret": "アプリシークレット",
+        "clientId": "クライアント ID",
+        "clientSecret": "クライアントシークレット",
+        "botId": "ボット ID",
+        "botSecret": "長い接続シークレット",
+        "credentials": "サービスアカウントキー",
+        "subscription": "Pub/Sub サブスクリプション",
+        "tenantId": "テナント ID"
+      },
+      "list_separator": "、 ",
+      "platforms": {
+        "feishu": "Feishu (Lark)",
+        "slack": "Slack",
+        "dingtalk": "DingTalk",
+        "wecom": "WeCom",
+        "google_chat": "Google Chat",
+        "teams": "Microsoft Teams",
+        "telegram": "Telegram"
+      },
+      "last_message": "最終メッセージ: {{at}}",
+      "callback": "コールバック",
+      "copy_callback": "コールバックアドレスをコピー",
+      "copied": "コピーしました",
+      "callback_needs_https": "Teams は https の外部 URL にのみメッセージを送信します",
+      "team_personal": "質問者の個人チャット",
+      "team_label": "{{name}} の新規グループスレッドの作成先",
+      "toggle": "{{name}} に IM で回答させる",
+      "turned_on": "{{name}} が IM で回答します",
+      "saved": "{{name}} を保存しました"
+    },
+    "profiles": {
+      "title": "エージェントプロファイル",
+      "description": "動作モードごとに、モデル、ツール、データアクセス範囲、ネットワークアクセス、承認ポリシー、実行時の制限を設定できます。",
+      "create": "プロファイルを作成",
+      "created": "エージェントプロファイルを作成しました",
+      "edit": "プロファイルを編集",
+      "edit_default": "デフォルトプロファイルを編集",
+      "updated": "エージェントプロファイルを更新しました",
+      "create_description": "新規プロファイルでは、登録済みツールが有効になり、ネットワークアクセスはブロックされ、L2/L3 操作には承認が必要です。",
+      "editor_description": "このプロファイルの識別情報、モデル、ツール、データ範囲、ネットワーク、承認ポリシー、実行時の上限を設定します。",
+      "usage_hint": "プロファイルを指定しない場合は、デフォルトのプロファイルが使われます。チャットの「詳細設定」で有効なプロファイルを選ぶと、動作の制約を切り替えられます。",
+      "editing_profile": "編集中のプロファイル: {{name}}",
+      "shortcut_hint": "このショートカットではプロファイル「{{name}}」が表示されます。他のプロファイルは、エージェントプロファイルの一覧から編集できます。",
+      "navigation_label": "プロファイル設定のセクション",
+      "name_placeholder": "例: 本番環境での操作を制限したエージェント",
+      "name_required": "保存する前にプロファイル名を入力してください。",
+      "default_description": "制約付きの Mole Agent 調査プロファイル",
+      "provider_auto": "モデルプロバイダーを自動選択",
+      "model_inherit": "プロバイダーのデフォルトを継承",
+      "list_hint": "複数の値はカンマまたは改行で区切ります。",
+      "empty_means_all": "空欄にすると、アクセス権のあるすべてのリソースを利用できます。",
+      "tag_placeholder": "値を入力して Enter キーを押す",
+      "tag_hint": "Enter キーを押すかカンマを入力すると、値がタグとして追加されます。",
+      "optional_tag_hint": "Enter キーを押すかカンマを入力すると、タグが追加されます。空欄にすると、アクセス権のあるすべてのリソースを利用できます。",
+      "remove_tag": "{{value}} を削除",
+      "tools_selected": "利用可能なツール {{total}} 件のうち {{selected}} 件を選択",
+      "select_all_tools": "すべて選択",
+      "clear_tools": "選択を解除",
+      "no_tools": "許可されたツールなし",
+      "remaining_tools": "残り {{count}} 件のツール",
+      "runtime_summary": "{{minutes}}m · {{calls}} 回の呼び出し",
+      "pagination": {
+        "aria": "エージェントプロファイル一覧のページ切り替え",
+        "page_size_aria": "1 ページあたりのプロファイル数",
+        "page_summary": "{{page}} / {{pages}}",
+        "first_aria": "プロファイル一覧の最初のページ",
+        "previous_aria": "プロファイル一覧の前のページ",
+        "next_aria": "プロファイル一覧の次のページ",
+        "last_aria": "プロファイル一覧の最後のページ"
+      },
+      "invalid_limits": "調査時間は 1 件あたり 0 分を超え 120 分以下、ツール呼び出し回数は 1～256 回、温度は 0～2 に設定してください。",
+      "default": "デフォルト",
+      "empty_title": "エージェントプロファイルはまだありません",
+      "empty_description": "プロファイルを作成して、モデル、ツール、データ範囲、実行時の上限を設定します。",
+      "max_tools": "ツール呼び出し回数の上限",
+      "max_time": "最大実行時間",
+      "network": "ネットワーク",
+      "summary": {
+        "model": "モデル",
+        "tools": "ツールの許可リスト · {{count}} 件",
+        "data": "データ範囲",
+        "approval": "承認が必要な範囲",
+        "runtime": "実行環境の境界",
+        "network": "ネットワーク"
+      },
+      "scope_prefix": {
+        "environment": "環境",
+        "service": "サービス",
+        "stream": "ストリーム"
+      },
+      "sections": {
+        "identity": "プロファイル情報とモデル",
+        "tools": "ツールの許可リスト",
+        "tools_description": "レジストリに登録されているツールのみ選択できます。",
+        "data": "データアクセス",
+        "network": "ネットワークアクセス",
+        "limits": "実行時の制限",
+        "approvals": "承認ポリシー"
+      },
+      "fields": {
+        "name": "名前",
+        "description": "説明",
+        "provider": "モデルプロバイダー",
+        "model": "モデルの上書き",
+        "enabled": "プロファイルを有効にする",
+        "default": "デフォルトのプロファイルに設定",
+        "network": "ネットワークアクセス",
+        "context_tokens": "最大コンテキストトークン数",
+        "duration_minutes": "最大調査時間（分）",
+        "tool_calls": "最大ツール呼び出し回数",
+        "temperature": "温度",
+        "allow_bypass_permissions": "権限確認のスキップを許可"
+      },
+      "policies": {
+        "automatic": "自動",
+        "approval": "1人の承認",
+        "two_person_approval": "2人の承認"
+      },
+      "temperature_hint": "0～2の範囲で設定します。値が低いほど回答が安定し、再現性が高くなります。空欄の場合はデフォルト値の0.2が使われます。",
+      "temperature_placeholder": "デフォルト: 0.2",
+      "allow_bypass_hint": "このプロファイルを使用するチャットでは「権限確認のスキップ」を選択できます。この場合、ユーザーに確認せずに変更が行われますが、承認が必要な変更には引き続き承認が求められます。"
+    },
+    "models": {
+      "title": "モデルと推論",
+      "description": "管理者はモデルキーの書き込みのみ可能です。モデルの呼び出しは Model Gateway を介して分離されます。",
+      "create": "モデルプロバイダーを追加",
+      "created": "モデルプロバイダーを追加しました",
+      "edit": "モデルプロバイダーを編集",
+      "updated": "モデルプロバイダーを更新しました",
+      "create_description": "管理者が承認した Model Gateway の接続先を設定します。",
+      "editor_description": "接続先URL、デフォルトモデル、実行時の設定、書き込み専用の認証情報を設定します。",
+      "name_placeholder": "表示名",
+      "model_placeholder": "デフォルトモデル（例: gpt-5）",
+      "base_url_placeholder": "例: https://api.example.com/v1",
+      "base_url_hint": "OpenAI互換プロバイダーでは必須です。公式のデフォルトエンドポイントを使用するには空欄にします。",
+      "base_url_required": "OpenAI互換プロバイダーにはベースURLが必要です。",
+      "invalid_limits": "タイムアウトは1000〜600000 ms、最大出力トークン数は正の値、単価は0以上にしてください。",
+      "max_tokens_placeholder": "空欄の場合はプロバイダーのデフォルト値を使用",
+      "default_endpoint": "公式のデフォルトエンドポイントを使用中",
+      "key_placeholder": "APIキー（書き込み専用）",
+      "key_create_hint": "APIキーは書き込み専用です。ページにもAPIレスポンスにも表示されません。",
+      "key_edit_hint": "現在のキーを維持する場合は空欄にします。新しいキーを入力すると、保存時に切り替わります。",
+      "key_set": "キー設定済み",
+      "key_unset": "キー未設定",
+      "empty_title": "モデルプロバイダーがまだありません",
+      "sections": {
+        "connection": "接続",
+        "runtime": "実行時設定",
+        "credentials": "認証情報",
+        "pricing": "料金"
+      },
+      "fields": {
+        "provider": "プロバイダーの種類",
+        "name": "表示名",
+        "base_url": "ベースURL",
+        "model": "デフォルトモデル",
+        "timeout_ms": "無応答タイムアウト（ms）",
+        "max_tokens": "最大出力トークン数",
+        "enabled": "モデルプロバイダーを有効化",
+        "api_key": "APIキー",
+        "currency": "通貨",
+        "input_price": "入力単価（キャッシュなし、{{unit}}）",
+        "cached_input_price": "入力単価（キャッシュあり、{{unit}}）",
+        "output_price": "出力単価（{{unit}}）"
+      },
+      "timeout_hint": "データを受信しない状態がこの時間続くと、呼び出しは失敗します。接続エラー、レート制限、一時的な障害が発生した場合は、2回再試行します。非ストリーミングの呼び出しでは応答全体を待つため、最も時間のかかる応答にも間に合うように設定してください。",
+      "pricing_description": "単価を設定すると、使用状況ページに、ここで選んだ通貨で費用が表示されます。このプロバイダーの全モデルに同じ単価が適用されます。キャッシュありの入力に別の単価が適用されるプロバイダーでは、両方の入力単価を設定してください。それ以外の場合は、キャッシュなしの入力単価のみ設定してください。単価を空欄にしても、費用の計算以外には影響しません。",
+      "price_placeholder": "空欄の場合は費用を計算しない",
+      "price_unit": "100万トークンあたり{{symbol}}",
+      "cached_price_placeholder": "空欄の場合はキャッシュなしの入力単価を適用",
+      "price_summary": "100万トークンあたり：入力 {{input}} · キャッシュありの入力 {{cached}} · 出力 {{output}}",
+      "price_summary_flat": "100万トークンあたり：入力 {{input}} · 出力 {{output}}",
+      "unpriced": "単価未設定：費用は集計されません"
+    },
+    "currencies": {
+      "title": "通貨",
+      "description": "モデルプロバイダーの単価は、ここにある通貨のいずれかで設定します。名前や記号を空欄にすると、標準の名前や記号が使われます。モデルプロバイダーが使用中の通貨は削除できません。",
+      "add": "通貨を追加",
+      "edit": "{{code}}を編集",
+      "edit_title": "通貨を編集",
+      "delete": "{{code}}を削除",
+      "delete_title": "通貨{{code}}を削除しますか？",
+      "delete_confirm": "モデルプロバイダーでこの通貨を選択できなくなります。この通貨で記録済みのコストは、引き続き同じ通貨で表示されます。",
+      "delete_action": "削除",
+      "deleting": "削除中…",
+      "deleted": "通貨を削除しました",
+      "saved": "通貨を保存しました",
+      "used_by": "{{count}}件のモデルプロバイダーが使用中",
+      "unused": "未使用",
+      "in_use": "{{names}}が使用中です。先にこれらの料金を別の通貨で設定してください",
+      "editor_description": "コードは英大文字3文字のISO 4217コードです。保存後は変更できません。",
+      "fields": {
+        "code": "コード",
+        "name": "名前",
+        "symbol": "記号"
+      }
+    },
+    "prompts": {
+      "title": "プロンプト管理",
+      "description": "Mole Agentのシステム指示と調査テンプレートを管理します。組み込みプロンプトは読み取り専用ですが、組織単位または個人単位でオーバーライドできます。",
+      "create": "プロンプトを作成",
+      "view": "表示",
+      "override": "オーバーライドを作成",
+      "derived_name": {
+        "override": "{{name}} · オーバーライド",
+        "copy": "{{name}} · コピー"
+      },
+      "set_default": "デフォルトに設定",
+      "restore": "組み込みプロンプトに戻す",
+      "delete": "削除",
+      "delete_confirm": "「{{name}}」を削除しますか？過去のメッセージには、使用時のプロンプトのバージョンが保持されます。",
+      "effective": "適用中",
+      "version": "v{{version}}",
+      "search_label": "プロンプトを検索",
+      "search_placeholder": "名前、用途、本文、組み込みキーで検索…",
+      "name_placeholder": "例：本番環境の根本原因調査",
+      "body_hint": "変数は二重波括弧で囲んで参照します。すべての変数を以下のJSON Schemaで宣言してください。",
+      "schema_hint": "サーバーが安全に値を挿入できる変数のみ宣言してください。テンプレート内の参照は保存前に検証されます。",
+      "enabled_hint": "無効なプロンプトはデフォルトの決定対象から除外され、チャットのプロンプト選択欄にも表示されません。",
+      "default_hint": "個人のデフォルトが優先され、次に組織のデフォルト、最後に組み込みプロンプトが適用されます。",
+      "empty_title": "利用可能なプロンプトがありません",
+      "empty_description": "組織用または個人用のプロンプトを作成するか、組み込みテンプレートの移行が実行済みか確認してください。",
+      "empty_filter": "一致するプロンプトがありません",
+      "empty_filter_description": "検索条件を変更して、もう一度お試しください。",
+      "stats": {
+        "total": "プロンプト総数",
+        "total_hint": "組み込み版と上書き版",
+        "effective": "現在適用中",
+        "effective_hint": "用途ごとに適用されるデフォルト",
+        "customized": "カスタム版",
+        "customized_hint": "組織および個人の上書き設定"
+      },
+      "scopes": {
+        "builtin": "組み込み",
+        "org": "組織",
+        "user": "個人"
+      },
+      "purposes": {
+        "system": {
+          "title": "システム指示",
+          "description": "Mole Agentの役割、安全上の制約、根拠に関する要件、基本動作を定義します。"
+        },
+        "anomaly_analysis": {
+          "title": "異常分析",
+          "description": "メトリクス、ログ、トレースの異常をすばやく関連付けます。"
+        },
+        "root_cause": {
+          "title": "根本原因分析",
+          "description": "複数のステップで調査を進め、仮説を検証し、根拠を総合します。"
+        },
+        "alert_explain": {
+          "title": "アラートの説明",
+          "description": "アラートの発生条件、影響、継続時間、関連するシグナルを説明します。"
+        },
+        "query_generation": {
+          "title": "クエリ生成",
+          "description": "書き込み操作を行わずに、SQL、PromQL、またはトレースフィルターを生成します。"
+        },
+        "evaluation": {
+          "title": "回答評価",
+          "description": "「品質」タブの評価ツールが回答を採点する方法を定義します。各評価ツールの採点基準がこのプロンプトに挿入されます。"
+        }
+      },
+      "fields": {
+        "scope": "スコープ",
+        "purpose": "用途",
+        "name": "名前",
+        "body": "プロンプト本文",
+        "schema": "変数のJSON Schema",
+        "enabled": "プロンプトを有効化",
+        "default": "保存後にデフォルトに設定"
+      },
+      "variables": {
+        "title": "テンプレート変数",
+        "description": "プロンプト本文から変数を検出します。赤色の変数はスキーマで宣言されていません。",
+        "none": "このプロンプトでは変数を参照していません。"
+      },
+      "editor": {
+        "create_title": "プロンプトを作成",
+        "edit_title": "プロンプトを編集",
+        "view_title": "プロンプトを表示",
+        "override_title": "上書き用プロンプトを作成",
+        "description": "保存するたびにバージョン番号が1つ増えます。チャットには、使用したプロンプトのバージョンとコンテンツハッシュが記録されます。",
+        "source": "ソース"
+      },
+      "validation": {
+        "required": "名前とプロンプト本文は必須です。",
+        "invalid_schema": "変数スキーマが有効なJSONではありません: {{message}}",
+        "schema_object_required": "変数スキーマはJSONオブジェクトである必要があります。",
+        "schema_properties_required": "スキーマのpropertiesの値はJSONオブジェクトである必要があります。",
+        "unknown_variables": "次のテンプレート変数はスキーマで宣言されていません: {{variables}}"
+      },
+      "messages": {
+        "created": "プロンプトを作成しました",
+        "updated": "プロンプトを更新しました",
+        "set_default": "デフォルトのプロンプトを更新しました",
+        "restore": "組み込みプロンプトの内容を復元しました",
+        "delete": "プロンプトを削除しました"
+      },
+      "promotion": {
+        "title": "{{name}}をデフォルトに設定",
+        "description": "組織のプロンプトをデフォルトに設定する前に、比較チェックを行います。最近の回答を最大8件選び、このバージョンと現在のデフォルトでそれぞれ回答を再生成します。ツールは再実行せず、同じ評価器で両方を採点します。",
+        "reasons": {
+          "prompt_check_required": "このバージョンはまだ現在のデフォルトと比較されていません。{{mode}}",
+          "prompt_check_running": "比較チェックを実行しています。",
+          "prompt_check_worse": "比較チェックの結果、このバージョンのスコアは現在のデフォルトを下回りました。{{mode}}",
+          "prompt_check_unavailable": "これらの回答を採点する評価器がないため、比較チェックを実行できません。「Mole Agent → 品質 → 評価器」で評価器を追加してください。{{mode}}"
+        },
+        "modes": {
+          "warn": "確認後、そのまま設定できます。",
+          "block": "この組織では、比較チェックで現在のデフォルト以上と判定されたプロンプトのみ設定できます。",
+          "off": "この組織では、プロンプトの比較チェックを行いません。"
+        },
+        "check": "比較チェックを実行",
+        "check_again": "比較チェックを再実行",
+        "picking": "比較する回答を選択しています…",
+        "progress": "{{total}}件中{{done}}件の回答を再生成して採点しました…",
+        "failed": "比較チェックに失敗しました: {{error}}",
+        "verdicts": {
+          "better_one": "改善あり: 同じ{{count}}件を比較した結果、このバージョンのスコアは{{candidate}}、現在のデフォルトは{{baseline}}でした。",
+          "better_other": "改善あり: 同じ{{count}}件を比較した結果、このバージョンのスコアは{{candidate}}、現在のデフォルトは{{baseline}}でした。",
+          "same_one": "低下なし: 同じ{{count}}件を比較した結果、このバージョンのスコアは{{candidate}}、現在のデフォルトは{{baseline}}でした。",
+          "same_other": "低下なし: 同じ{{count}}件を比較した結果、このバージョンのスコアは{{candidate}}、現在のデフォルトは{{baseline}}でした。",
+          "worse_one": "低下あり: 同じ{{count}}件を比較した結果、このバージョンのスコアは{{candidate}}、現在のデフォルトは{{baseline}}でした。",
+          "worse_other": "低下あり: 同じ{{count}}件を比較した結果、このバージョンのスコアは{{candidate}}、現在のデフォルトは{{baseline}}でした。",
+          "inconclusive_one": "判定不可: 比較できた回答は{{count}}件で、判定には不十分です。プロンプトはデフォルトに設定できます。",
+          "inconclusive_other": "判定不可: 比較できた回答は{{count}}件で、判定には不十分です。プロンプトはデフォルトに設定できます。"
+        },
+        "columns": {
+          "sample": "回答",
+          "baseline": "現在のデフォルト",
+          "candidate": "このバージョン"
+        },
+        "kinds": {
+          "chat_answer": "チャットの回答",
+          "incident_rca": "インシデントの根本原因分析 (RCA)"
+        },
+        "regression": "回帰テストセットから抽出",
+        "set_anyway": "そのまま設定"
+      }
+    },
+    "tools": {
+      "title": "ツールと機能",
+      "description": "Mole Agentが呼び出せるツールとMCPサーバーを管理します。実行権限や承認ポリシーも設定できます。",
+      "search_label": "ツールを検索",
+      "search_placeholder": "ツール名、表示名、説明で検索…",
+      "loading": "ツールを読み込んでいます…",
+      "load_error": "ツール一覧を読み込めませんでした",
+      "retry": "再読み込み",
+      "empty_title": "エージェントツールが未設定",
+      "empty_description": "Mole Agent がデータのクエリやタスクの実行を行えるようにするには、MCP サーバーを追加するか、組み込みツールを有効にしてください。",
+      "empty_filter_title": "一致するツールなし",
+      "empty_filter_description": "検索条件を変更するか、フィルターをクリアして、もう一度お試しください。",
+      "profile_restricted": "このツールは有効ですが、デフォルトのエージェントプロファイルに使用権限が付与されていないため、Mole Agent はこのツールを検出できません。",
+      "summary": {
+        "mcp": "MCP サーバー",
+        "mcp_healthy": "接続済み: {{count}} 台",
+        "mcp_unhealthy": "正常: {{healthy}} 台 · 異常: {{unhealthy}} 台"
+      },
+      "actions": {
+        "configure_policy": "ツールポリシーの設定",
+        "add_mcp": "MCP サーバーの追加",
+        "details": "詳細を表示",
+        "test": "ツールをテスト",
+        "calls": "呼び出し履歴を表示",
+        "edit_policy": "ポリシーを編集",
+        "dependencies": "依存関係を表示",
+        "copy_definition": "ツール定義をコピー",
+        "view_mcp": "MCP サーバーを表示",
+        "disable": "ツールを無効化",
+        "enable": "ツールを有効化",
+        "toggle": "{{name}} の有効・無効を切り替え",
+        "more": "{{name}} のその他の操作"
+      },
+      "filters": {
+        "all": "すべて",
+        "read_only": "読み取り専用",
+        "automatic": "自動",
+        "approval": "承認",
+        "disabled": "無効",
+        "advanced": "詳細フィルター",
+        "clear": "フィルターをクリア"
+      },
+      "grouping": {
+        "label": "ツールのグループ化",
+        "domain": "ドメイン別",
+        "mcp": "MCP サーバー別",
+        "none": "グループ化なし",
+        "all_tools": "すべてのツール",
+        "builtin_description": "MoleSignal サーバーが登録・管理するツール",
+        "mcp_description": "MCP サーバーから同期され、明示的に使用を許可されたツール"
+      },
+      "domains": {
+        "observability": {
+          "title": "オブザーバビリティ",
+          "description": "ログ、メトリクス、トレース、APM ユーザーエクスペリエンス、継続的プロファイリング"
+        },
+        "alerts_on_call": {
+          "title": "アラートとオンコール",
+          "description": "アラートインシデント、対応状況、オンコールスケジュール"
+        },
+        "automation": {
+          "title": "自動化",
+          "description": "自動実行、承認リクエスト、操作"
+        },
+        "knowledge_context": {
+          "title": "ナレッジとコンテキスト",
+          "description": "ナレッジベース、ドキュメント、調査コンテキスト"
+        },
+        "dashboard_reports": {
+          "title": "ダッシュボードとレポート",
+          "description": "ダッシュボード、レポートテンプレート、スケジュール済みレポート"
+        },
+        "notify": {
+          "title": "通知",
+          "description": "通知の解析、ルーティング、配信"
+        },
+        "administration": {
+          "title": "管理",
+          "description": "組織、ID、管理リソース"
+        }
+      },
+      "fields": {
+        "tool": "ツール",
+        "display_name": "表示名",
+        "domain": "ドメイン",
+        "source": "ソース",
+        "risk": "リスク",
+        "execution": "実行ポリシー",
+        "status": "ステータス",
+        "timeout": "タイムアウト",
+        "timeout_ms": "タイムアウト（ミリ秒）",
+        "max_calls": "実行あたりの最大呼び出し回数",
+        "max_response": "最大レスポンスサイズ",
+        "max_response_bytes": "最大レスポンスサイズ（バイト）",
+        "dry_run": "ドライラン対応"
+      },
+      "sources": {
+        "builtin": "組み込み",
+        "mcp": "MCP",
+        "custom": "カスタム"
+      },
+      "risk": {
+        "l0": {
+          "title": "読み取り専用",
+          "description": "システムの状態を変更せずにデータを読み取ります。自動で実行される場合があります。"
+        },
+        "l1": {
+          "title": "低リスクの書き込み",
+          "description": "下書き、コメント、レポートを作成します。通常は元に戻せます。"
+        },
+        "l2": {
+          "title": "中リスク",
+          "description": "業務リソースやワークフローを変更します。少なくとも1人の承認が必要です。"
+        },
+        "l3": {
+          "title": "高リスク",
+          "description": "本番サービス、データ、権限に影響する可能性があります。常に承認が必要です。"
+        },
+        "l4": {
+          "title": "破壊的",
+          "description": "元に戻せない、または影響範囲を特定しにくい操作です。デフォルトでは無効で、2人の承認が必要です。"
+        }
+      },
+      "execution": {
+        "automatic": "自動実行",
+        "confirmation": "要確認",
+        "single_approval": "1人の承認が必要",
+        "dual_approval": "二重承認",
+        "disabled": "無効"
+      },
+      "status": {
+        "healthy": "正常",
+        "degraded": "機能低下",
+        "unavailable": "利用不可",
+        "enabled": "有効",
+        "disabled": "無効"
+      },
+      "common": {
+        "yes": "はい",
+        "no": "いいえ"
+      },
+      "detail": {
+        "tabs": {
+          "overview": "概要",
+          "schema": "入出力",
+          "policy": "権限とポリシー",
+          "calls": "呼び出し履歴",
+          "dependencies": "依存関係"
+        },
+        "basic": "基本情報",
+        "description": "説明",
+        "model_definition": "モデルに渡される情報",
+        "statistics": "最近の呼び出し",
+        "input_schema": "入力パラメーター",
+        "output_schema": "出力",
+        "permissions": "権限とポリシー"
+      },
+      "schema": {
+        "json_view": "JSON Schemaを表示",
+        "form_view": "フィールドを表示",
+        "copy": "スキーマをコピー",
+        "no_fields": "このスキーマにはフィールドが定義されていません。"
+      },
+      "stats": {
+        "calls_24h": "過去24時間の呼び出し数",
+        "success_rate": "成功率",
+        "p95": "P95レイテンシー",
+        "last_error": "最新のエラー",
+        "has_error": "エラー",
+        "no_error": "なし"
+      },
+      "policy": {
+        "title": "{{name}}のポリシーを編集",
+        "description": "リスク、実行モード、環境別の上書き設定、実行時の制限を設定します。",
+        "classification": "リスクと実行ポリシー",
+        "hard_floor": "上書き設定でポリシーを厳しくすることはできますが、サーバーが強制する最低リスクレベルを下回ることはできません。",
+        "builtin_risk_locked": "組み込みツールのリスクレベルはサーバーのコードで定義されており、ここでは引き下げられません。",
+        "environment_overrides": "環境別の上書き設定",
+        "inherit": "デフォルトポリシーを継承",
+        "limits": "実行時の制限"
+      },
+      "environments": {
+        "development": "開発",
+        "staging": "ステージング",
+        "production": "本番"
+      },
+      "defaults": {
+        "title": "ツールポリシーの設定",
+        "description": "リスクレベルごとにデフォルトの実行モードを設定し、環境ごとにより厳しい設定で上書きできます。",
+        "risk_title": "デフォルトの実行ポリシー",
+        "risk_description": "ツール単位のポリシーでデフォルトを上書きできますが、リスクレベルに応じた必須の制限は緩和できません。",
+        "environments_title": "環境ポリシー",
+        "environments_description": "上書きするリスクレベルのみ設定します。それ以外のリスクレベルにはデフォルト設定が適用されます。"
+      },
+      "test": {
+        "title": "{{name}}のテスト",
+        "read_description": "ツールのスキーマに従ってパラメーターを入力します。読み取り専用ツールでは、実際にクエリを実行する場合があります。",
+        "write_description": "書き込み可能なツールでは、ドライランまたは検証のみを行い、実際の書き込みは行いません。",
+        "parameters": "テストパラメーター",
+        "no_parameters": "このツールにパラメーターはありません。",
+        "validate": "パラメーターの検証",
+        "execute": "テストを実行",
+        "dry_run": "ドライランを実行",
+        "result": "テスト結果",
+        "success": "テストに成功しました",
+        "failed": "テストに失敗しました",
+        "request": "リクエスト JSON",
+        "response": "レスポンス JSON"
+      },
+      "dependencies": {
+        "title": "{{name}}の依存関係",
+        "description": "無効化する前に、このツールを参照しているエージェントプロファイル、自動化、調査テンプレートを確認してください。",
+        "none": "現在の依存関係なし",
+        "warning": "現在、{{count}}件のオブジェクトがこのツールに依存しています。",
+        "agent_profiles": "エージェントプロファイル",
+        "investigation_templates": "調査テンプレート",
+        "empty": "なし"
+      },
+      "disable": {
+        "title": "{{name}}を無効にしますか？",
+        "description": "Mole Agentはこのツールを検出したり呼び出したりできなくなります。過去の記録は保持されます。",
+        "dependency_warning": "{{count}}件のオブジェクトがこのツールに依存しています。強制的に無効化すると、関連するフローが動作しなくなる可能性があります。",
+        "confirm": "ツールを無効化"
+      },
+      "calls": {
+        "empty": "ツールの呼び出し記録はまだありません。",
+        "arguments": "引数のスナップショット（機密情報はマスク済み）",
+        "policy_decision": "ポリシー判定",
+        "source": {
+          "chat": "チャット",
+          "investigation": "調査",
+          "automation": "自動化",
+          "manual_test": "手動テスト"
+        }
+      },
+      "mcp": {
+        "title": "MCP サーバー",
+        "description": "接続先を制限した MCP 接続、認証情報、ネットワーク境界、同期済みのツールを管理します。",
+        "empty_title": "MCP サーバーがありません",
+        "empty_description": "サーバーを追加し、接続テストが成功したら、インポートするツールを選択します。",
+        "tool_count": "ツール {{count}} 件",
+        "test_connection": "接続テスト",
+        "remove": "サーバーを削除",
+        "remove_drawer": {
+          "title": "{{name}} を削除しますか？",
+          "description": "サーバーを削除するには、そのツールをすべて無効にし、すべての依存関係を置き換える必要があります。",
+          "confirm": "MCP サーバーを削除",
+          "safe": "有効なツールや使用中の依存関係は見つかりませんでした。",
+          "blocked": "有効なツールが {{enabled}} 件、使用中の依存関係が {{dependencies}} 件残っています。",
+          "tools_title": "インポート済みツールと依存関係",
+          "no_tools": "インポート済みのツールはありません。",
+          "dependency_count": "依存関係 {{count}} 件"
+        },
+        "discovered": "ツールが {{count}} 件見つかりました",
+        "new_tools_disabled": "新しくインポートされるツールは無効状態になります",
+        "sync_selected": "選択したツールを同期",
+        "transport": {
+          "streamable_http": "Streamable HTTP",
+          "sse": "SSE（レガシー）",
+          "stdio": "stdio",
+          "unix_socket": "Unix ソケット"
+        },
+        "auth": {
+          "none": "認証なし",
+          "bearer_token": "Bearer トークン",
+          "api_key": "API キー",
+          "oauth": "OAuth トークン",
+          "mtls": "mTLS",
+          "internal_service_identity": "内部サービス ID",
+          "member_secret": "メンバー別の認証情報"
+        },
+        "status": {
+          "healthy": "接続済み",
+          "connecting": "接続中",
+          "error": "エラー",
+          "disabled": "無効",
+          "unauthorized": "認証エラー",
+          "unavailable": "利用不可"
+        },
+        "feedback": {
+          "created": "MCP サーバーを追加しました",
+          "updated": "MCP サーバーを更新しました",
+          "deleted": "MCP サーバーを削除しました",
+          "test_success": "接続に成功し、ツールが {{count}} 件見つかりました",
+          "test_failed": "MCP サーバーへの接続に失敗しました",
+          "sync_success": "ツールを {{count}} 件同期しました",
+          "enabled": "サーバーを有効にしました",
+          "disabled": "サーバーを無効にしました"
+        },
+        "editor": {
+          "create_title": "MCP サーバーの追加",
+          "edit_title": "MCP サーバーの編集",
+          "description": "認証情報は書き込み専用で、保存時に暗号化されます。API や UI で取得することはできません。",
+          "basic": "基本情報",
+          "authentication": "認証",
+          "network": "ネットワークポリシー",
+          "runtime": "実行時の制限",
+          "transport_restricted": "このランタイムは Streamable HTTP にのみ対応しています。他のトランスポートも保存できますが、接続テストでは使用できません。",
+          "credential_set": "認証情報は設定済みです（末尾: {{last4}}）。変更しない場合は空欄のままにします。",
+          "credential_not_set": "認証情報は設定されていません。",
+          "headers": "ヘッダー",
+          "headers_description": "すべてのリクエストに付与されます。ヘッダー名に key、token、secret、password、auth などが含まれる場合、値は暗号化され、末尾の4文字のみが表示されます。既存の値を保持するには、その欄を空欄のままにします。",
+          "env": "環境変数",
+          "env_description": "コマンドの起動時に使用されます。機密性の高い値も暗号化されます。",
+          "stdio_note": "MoleSignal は、自身が動作するサーバー上で stdio サーバーを起動します。stdio を使用できるのは組織のサーバーのみです。このインスタンスで許可されているコマンド: {{commands}}。",
+          "stdio_off": "この MoleSignal インスタンスでは stdio コマンドが一切許可されていません。許可するコマンドは、運用担当者が [agent] mcp_stdio_commands に指定します。",
+          "stdio_org_only": "stdio を使用できるのは組織のサーバーのみです。個人またはチームのサーバーには、アドレスを指定して接続します。",
+          "member_network": "チームおよび個人のサーバーの接続先は、インターネット上のアドレスと、管理者が「ネットワーク」で許可した内部アドレスに限られます。TLS 証明書は常に検証されます。"
+        },
+        "fields": {
+          "name": "名前",
+          "name_placeholder": "例: 社内ナレッジ MCP",
+          "transport": "トランスポート",
+          "endpoint": "エンドポイント URL",
+          "endpoint_placeholder": "例: https://mcp.internal.example.com/mcp",
+          "auth_type": "認証",
+          "auth_header": "認証ヘッダー",
+          "auth_header_placeholder": "例: X-API-Key",
+          "credential": "認証情報",
+          "credential_placeholder": "書き込み専用（表示されません）",
+          "credential_hint": "保存後、サーバーのキーで暗号化されます。一覧および詳細 API は、設定済みかどうかのみを返します。",
+          "private_only": "プライベートネットワークのみ",
+          "private_only_hint": "DNS で名前解決されたアドレスは、すべてプライベートアドレスである必要があります。",
+          "allowed_domains": "許可するドメイン",
+          "allowed_cidrs": "許可する IP/CIDR",
+          "one_per_line": "1行に1件入力します。空欄の場合、追加の制限はありません。",
+          "tls_verify": "TLS 証明書を検証",
+          "redirects_blocked": "サーバーのセキュリティポリシーにより、リダイレクトは常にブロックされます。",
+          "timeout_ms": "リクエストのタイムアウト（ミリ秒）",
+          "max_response_bytes": "レスポンスの最大サイズ（バイト）",
+          "enabled": "MCPサーバーを有効にする",
+          "command": "コマンド",
+          "endpoint_sse_hint": "旧式のSSEトランスポートのイベントストリームです。メッセージの送信先はサーバーが指定し、その送信先はイベントストリームと同一オリジンである必要があります。",
+          "endpoint_sse_placeholder": "例: https://mcp.example.com/sse"
+        },
+        "prompt_count": "プロンプト{{count}}件",
+        "stdio_not_allowed": "このサーバーのコマンドは、このインスタンスでは許可されていません。",
+        "enable": "サーバーを有効にする",
+        "disable": "サーバーを無効にする",
+        "member": {
+          "description": "各メンバーが自分の認証情報を保存します。認証情報は本人の呼び出しにのみ使用され、管理者も参照できません。認証情報を保存していないメンバーがツールを呼び出すと、保存を求められます。",
+          "header": "認証情報を送信するヘッダー",
+          "bearer": "Bearerプレフィックスを付ける",
+          "bearer_hint": "Bearer <credential> の形式で送信されます。",
+          "instructions": "認証情報の取得方法",
+          "instructions_hint": "メンバーが認証情報を作成する場所と、必要な権限を記載します。"
+        },
+        "my_credential": {
+          "title": "{{name}}用の自分の認証情報",
+          "description": "認証情報は自分の呼び出しにのみ使用されます。暗号化され、保存後は誰も参照できません。",
+          "value": "認証情報",
+          "value_hint": "{{header}} ヘッダーで送信されます。",
+          "value_bearer_hint": "{{header}} ヘッダーで Bearer <credential> の形式で送信されます。",
+          "state_saved": "保存済み（末尾: {{last4}}、{{time}}）。新しい値で上書きされます。",
+          "state_missing": "認証情報が保存されていません。このサーバーのツールを呼び出す前に追加してください。",
+          "saved": "認証情報を保存しました。",
+          "cleared": "認証情報を削除しました。",
+          "clear": "認証情報を削除",
+          "button_saved": "自分の認証情報 ••••{{last4}}",
+          "button_missing": "自分の認証情報を追加"
+        },
+        "import": {
+          "open": "インポート",
+          "title": "MCP設定をインポート",
+          "description": "Claude Desktop、Claude Code、Cursor、またはVS CodeのMCP設定を貼り付けて、サーバーを追加できます。",
+          "config": "設定JSON",
+          "config_hint": "url が指定されたサーバーはすぐにテストできます。command が指定されたサーバーは stdio サーバーです。stdio サーバーは組織でのみ設定でき、このインスタンスで許可されているコマンドを使用する必要があります。${input:…} などの変数を参照する値はインポートされないため、後から入力してください。",
+          "submit": "インポート",
+          "result": "結果",
+          "made": "追加済み",
+          "stdio": "MoleSignalが起動するstdioサーバー",
+          "missing": "未入力: {{names}}",
+          "created": "サーバーを{{count}}件追加しました。"
+        },
+        "details": {
+          "toggle": "ツールとプロンプト",
+          "tools": "ツール（{{count}}）",
+          "prompts": "プロンプト（{{count}}）",
+          "prompts_hint": "これらのコマンドをチャットに入力します。",
+          "read_only": "読み取り専用",
+          "enable_read_only": "すべての読み取り専用ツールを有効化（{{count}} 件）",
+          "read_only_enabled": "{{count}} 件の読み取り専用ツールを有効にしました",
+          "tool_switch": "{{name}} を有効化"
+        },
+        "values": {
+          "header_name": "ヘッダー名",
+          "header_name_placeholder": "例：X-Org",
+          "env_name": "変数",
+          "env_name_placeholder": "例：GITHUB_TOKEN",
+          "value": "値",
+          "value_placeholder": "値",
+          "saved": "保存済み：••••{{last4}}（空欄のままにすると現在の値を保持します）",
+          "secret_toggle": "シークレットとして保存",
+          "secret_forced": "名前からシークレットと判定されたため、値は暗号化されます",
+          "remove": "この行を削除",
+          "add_header": "ヘッダーを追加",
+          "add_env": "変数を追加"
+        }
+      },
+      "feedback": {
+        "enabled": "ツールを有効にしました",
+        "disabled": "ツールを無効にしました",
+        "policy_saved": "ツールポリシーを保存しました",
+        "defaults_saved": "デフォルトのツールポリシーを保存しました",
+        "definition_copied": "ツール定義をコピーしました",
+        "schema_copied": "スキーマをコピーしました"
+      },
+      "errors": {
+        "no_tool": "ツールが選択されていません"
+      },
+      "access": {
+        "read_only": "自動実行（読み取り専用）",
+        "preflight": "事前チェックのみ",
+        "managed_mutation": "ポリシーで管理される変更",
+        "creates_approval_request": "承認リクエストの作成のみ",
+        "executes_approved_operation": "承認済みの操作を実行",
+        "chat_record": "チャット記録（チャット内で確定または取り消し）"
+      }
+    },
+    "data": {
+      "title": "データアクセス",
+      "description": "アクセス範囲はデフォルトのエージェントプロファイルで決まり、組織をまたぐアクセスは常に禁止されます。",
+      "configure": "データアクセスを編集",
+      "editor_title": "データアクセスを編集",
+      "editor_description": "現在のデフォルトプロファイルがアクセスできる環境、サービス、ストリームを制限します。",
+      "updated": "データアクセスを更新しました",
+      "environments": "アクセスを許可する環境",
+      "services": "アクセスを許可するサービス",
+      "streams": "アクセスを許可するストリーム",
+      "cross_org": "組織をまたぐアクセス",
+      "all_authorized": "アクセスが許可されているすべてのリソース"
+    },
+    "network": {
+      "title": "ネットワークポリシー",
+      "description": "ネットワークアクセスは現在のデフォルトのエージェントプロファイルで制御されます。ツールで実際に利用できる機能は、ツールレジストリとランタイムによって制限されます。",
+      "configure": "ネットワークポリシーを編集",
+      "editor_title": "ネットワークポリシーを編集",
+      "editor_description": "現在のデフォルトプロファイルに、許可されたツール経由でのネットワークアクセスを許可するかどうかを選択します。",
+      "editor_help": "このポリシーはプロファイル単位でネットワークアクセスを制御するもので、ツールレジストリに未登録の機能は有効になりません。",
+      "updated": "ネットワークポリシーを更新しました",
+      "access": "ネットワークアクセス",
+      "allow_network_access": "ネットワークアクセスを許可",
+      "blocked_explanation": "このプロファイルはネットワークにアクセスできません。許可されたツールのうち、ネットワークアクセスを必要としないもののみ使用できます。",
+      "allowed_explanation": "このプロファイルは、登録済みかつ使用が許可されたツールを通じてネットワークにアクセスできます。任意の HTTP リクエスト、汎用シェル、ブラウザツール、オープン MCP の機能は自動では有効になりません。",
+      "capabilities": "ランタイム機能",
+      "capabilities_description": "これらの機能はツールレジストリと実行環境によって決まり、プロファイルのスイッチでは有効にできません。",
+      "internet": "パブリックインターネット",
+      "dynamic_http": "任意の HTTP リクエスト用ツール",
+      "shell": "汎用シェル",
+      "browser": "ブラウザツール",
+      "open_mcp": "オープン MCP",
+      "members": {
+        "title": "チーム接続と個人接続の内部ネットワーク",
+        "description": "チームメンバーや個人が追加したスキルリポジトリと MCP サーバーは、通常はインターネットにのみアクセスできます。ここに記載した内部ホストと内部 IP 範囲にもアクセスできます。組織の接続には、組織側の設定が適用されます。",
+        "hosts": "内部ホスト",
+        "hosts_hint": "1 行に 1 ドメインを入力します（例: git.corp.example）。サブドメインも対象になります。",
+        "cidrs": "内部 IP 範囲",
+        "cidrs_hint": "1 行に 1 つの CIDR を入力します（例: 10.20.0.0/16）。",
+        "saved": "メンバーに許可する接続先を保存しました",
+        "updated": "最終更新: {{time}}"
+      }
+    },
+    "approval_policy": {
+      "title": "承認ポリシー",
+      "description": "リスクポリシーはサーバー側で適用されます。承認後に、権限、リソースの状態、パラメーターが再検証されます。",
+      "configure": "承認ポリシーを編集",
+      "editor_title": "承認ポリシーを編集",
+      "editor_description": "現在のデフォルトプロファイルで、L0 から L3 までの操作に必要な承認条件を設定します。",
+      "updated": "承認ポリシーを更新しました",
+      "l0": "読み取り専用のクエリと閲覧",
+      "l1": "下書きと推奨事項",
+      "l2": "アラートと設定の書き込み",
+      "l3": "本番環境や外部システムに対する高リスクの操作",
+      "automatic": "自動承認",
+      "configurable": "デフォルトは自動承認です。プロファイルごとに承認条件を厳しくできます。",
+      "single": "承認者は 1 人必要です。申請者本人は承認できません。",
+      "two_person": "2人による承認が必須"
+    },
+    "usage": {
+      "title": "使用量と予算",
+      "description": "Mole Agent によるモデル呼び出しはすべて、UTC 日付ごとに組織の使用量に加算されます。予算を使い切ると、自動根本原因分析、ログ検査、パイプラインの LLM 関数はモデルの呼び出しを停止します。",
+      "today": "本日の使用量",
+      "limit": "1日の上限",
+      "unlimited": "上限なし",
+      "used_share": "使用済み",
+      "resets": "リセット時刻",
+      "cost_today": "本日のコスト",
+      "by_origin": "ソース別",
+      "origins": {
+        "chat": "チャット",
+        "rca": "根本原因分析",
+        "inspection": "ログ検査",
+        "llm_eval": "LLM 関数",
+        "automation": "自動化",
+        "evaluation": "品質スコアリング",
+        "replay_summary": "リプレイの要約"
+      },
+      "calls_hint": "{{calls}} 回の呼び出し",
+      "tokens_value": "{{value}} トークン",
+      "daily_limit": "1日のトークン上限",
+      "limit_choice": {
+        "inherit": "インスタンスのデフォルト（{{value}}）",
+        "custom": "カスタム",
+        "unlimited": "上限なし"
+      },
+      "custom_limit": "トークン",
+      "interactive_mode": "予算を使い切ったときのチャットとオンデマンド分析の動作",
+      "interactive": {
+        "block": "モデルの呼び出しを停止",
+        "warn": "警告のみ表示して回答を続行"
+      },
+      "save": "予算を保存",
+      "saved": "予算を保存しました",
+      "invalid_limit": "カスタム上限には正の整数を指定してください。",
+      "history": "過去30日間",
+      "empty": "過去30日間にモデルの呼び出しはありません。",
+      "columns": {
+        "day": "日付（UTC）",
+        "total": "合計トークン数",
+        "calls": "呼び出し回数",
+        "cost": "コスト"
+      },
+      "cost_unknown": "コストを表示するには、モデルプロバイダーに料金を設定してください。",
+      "cost_partial": "≥ が付いたコストには、料金が未設定のモデルプロバイダーへの呼び出し（過去30日間で {{calls}} 回）は含まれません。"
+    },
+    "skills": {
+      "title": "スキル",
+      "description": "Mole Agent に同梱のスキル、インスタンスのフォルダーにあるスキル、組織、チーム、ユーザーがアップロードしたりリポジトリから取得したりしたスキルが含まれます。チャットではスコープに応じたスキルが自動的に選ばれます。各スキルは / コマンドとしても使えます。",
+      "search_placeholder": "スキルを検索",
+      "filters": {
+        "all": "すべて",
+        "instance": "組み込みとインスタンス",
+        "org": "組織",
+        "team": "チーム",
+        "personal": "個人"
+      },
+      "source": {
+        "builtin": "組み込み",
+        "path": "インスタンスフォルダー",
+        "upload": "アップロード済み",
+        "repository": "リポジトリ"
+      },
+      "needs_runner": "Mole Runner が必要",
+      "empty_title": "スキルはまだありません",
+      "empty_filter": "条件に一致するスキルがありません",
+      "switch": "{{name}} を有効化",
+      "inspect": "表示",
+      "move": "移動先を選択",
+      "delete": "削除",
+      "deleted": "スキルを削除しました",
+      "upload": {
+        "open": "スキルをアップロード",
+        "title": "スキルのアップロード",
+        "description": "SKILL.md（オープンな Agent Skills 形式）を含むフォルダーが入った .zip、.skill、または .tar.gz パッケージです。",
+        "file": "パッケージ",
+        "file_hint": "上限は 20 MiB です。スクリプトは Mole Runner 上でのみ実行されます。",
+        "submit": "アップロード",
+        "replace": "スキルを置き換え",
+        "exists": "このスコープには {{name}} というスキルがすでにあります。もう一度アップロードすると、このパッケージで置き換えられます。",
+        "done": "スキルをアップロードしました"
+      },
+      "repository": {
+        "open": "リポジトリを追加",
+        "title": "スキルリポジトリ",
+        "empty": "リポジトリはまだありません。GitHub、GitLab、Gitea などでホストされているリポジトリを追加してください。SKILL.md を含む各フォルダーが 1 つのスキルになります。",
+        "create_title": "スキルリポジトリの追加",
+        "edit_title": "スキルリポジトリの編集",
+        "description": "ブランチまたはタグをアーカイブとしてダウンロードします。リポジトリのルートや配下のフォルダーに SKILL.md があれば、それぞれ 1 つのスキルとして扱います。保存時に 1 回同期します。",
+        "url": "リポジトリのアドレス",
+        "host": "ホスティングサービス",
+        "hosts": {
+          "auto": "アドレスから自動判定",
+          "github": "GitHub",
+          "gitlab": "GitLab",
+          "gitea": "Gitea / Forgejo",
+          "bitbucket": "Bitbucket",
+          "archive": "アーカイブのアドレス"
+        },
+        "ref": "ブランチまたはタグ",
+        "ref_hint": "空欄の場合はデフォルトブランチを使用します",
+        "archive_url": "アーカイブのアドレス",
+        "archive_url_hint": "{ref} を含む .tar.gz または .zip のアドレス",
+        "dir": "フォルダー",
+        "dir_hint": "スキルがあるフォルダーです。空欄の場合はリポジトリ全体が対象になります",
+        "token": "アクセストークン",
+        "token_hint": "プライベートリポジトリ用（書き込み専用）",
+        "token_saved": "トークンは保存済みです（末尾：{{last4}}）。そのまま使う場合は空欄にします",
+        "clear_token": "保存済みトークンを削除",
+        "auto_sync": "毎日同期",
+        "auto_sync_hint": "リポジトリで変更されたスキルは1日1回更新されます",
+        "network_org": "組織のリポジトリには組織の設定に従って接続します。内部リポジトリにも接続できます。",
+        "network_member": "チームおよび個人のリポジトリの接続先は、インターネット上のアドレスと、管理者が「ネットワーク」で許可した内部アドレスに限られます。",
+        "syncing": "同期中…",
+        "sync": "同期",
+        "delete": "リポジトリを削除",
+        "deleted": "リポジトリとそのスキルを削除しました",
+        "default_branch": "デフォルトブランチ",
+        "synced_at": "同期日時：{{time}}",
+        "daily": "毎日",
+        "status": {
+          "pending": "未同期",
+          "ok": "OK",
+          "partial": "一部インポート済み",
+          "failed": "失敗"
+        },
+        "sync_done": "同期しました：{{imported}} 件追加、{{updated}} 件更新、{{removed}} 件削除。",
+        "sync_problems": "{{count}} 個のフォルダーをインポートできませんでした。理由はリポジトリ一覧で確認できます。",
+        "sync_failed": "同期に失敗しました：{{reason}}"
+      },
+      "paths": {
+        "title": "インスタンスのフォルダー",
+        "description": "サーバー設定（[agent] skill_paths）で指定したフォルダー内のスキルです。読み取り専用ですが、組織で無効にできます。",
+        "rescan": "再スキャン",
+        "scanned_at": "スキャン日時：{{time}}"
+      },
+      "detail": {
+        "invoke": "呼び出し",
+        "version": "バージョン",
+        "hash": "コンテンツハッシュ",
+        "allowed_tools": "使用可能なツール",
+        "dir": "フォルダー",
+        "needs_runner": "このスキルはスクリプトを実行するため、Mole Runner が必要です。現時点ではチャットで使用できません。",
+        "examples": "質問例",
+        "instructions": "手順 (SKILL.md)",
+        "files": "ファイル ({{count}})",
+        "download": "ダウンロード",
+        "try": "チャットで試す"
+      }
+    }
+  },
+  "im_link": {
+    "title": "IM アカウントの連携",
+    "question": "{{platform}} のアカウント {{account}} をお使いの MoleSignal アカウントに連携しますか？",
+    "explain": "連携すると、Mole Agent があなたの権限で、あなたに代わって {{platform}}（{{connector}}）上で質問に回答します。このリンクは {{until}} まで 1 回だけ使用できます。",
+    "confirm": "連携",
+    "linking": "連携中…",
+    "linked": "連携済み",
+    "linked_hint": "{{platform}} に戻って、もう一度質問してください。",
+    "expired": "このリンクは使用済みか、有効期限が切れています",
+    "expired_hint": "IM でもう一度 Mole Agent に質問すると、新しいリンクが届きます。",
+    "platform_fallback": "IM",
+    "platforms": {
+      "feishu": "Feishu",
+      "slack": "Slack",
+      "dingtalk": "DingTalk",
+      "wecom": "WeCom",
+      "google_chat": "Google Chat",
+      "teams": "Teams",
+      "telegram": "Telegram"
+    }
+  },
+  "starter_title": "今夜は何を調査しましょうか？",
+  "starter_title_named": "{{name}} さん、遅くまでお疲れさまです",
+  "greeting": {
+    "morning": "おはようございます",
+    "morning_named": "{{name}} さん、おはようございます",
+    "afternoon": "こんにちは",
+    "afternoon_named": "{{name}} さん、こんにちは",
+    "evening": "こんばんは",
+    "evening_named": "{{name}} さん、こんばんは",
+    "late": "遅くまでお疲れさまです",
+    "late_named": "{{name}} さん、遅くまでお疲れさまです"
+  },
+  "starter_subtitle": "時間範囲を指定して質問してください。アシスタントがバックエンドのツールを使ってログ、メトリクス、トレース、アラートを調べます。",
+  "starter_subtitle_prefix": "Mole Agent です。",
+  "starter_subtitle_suffix": "を作成し、ログ、トレース、メトリクス、イベントの調査をお手伝いします。",
+  "signed_in_as": "サインイン中のアカウント",
+  "try_one": "または、以下の質問をお試しください",
+  "starters": {
+    "query": "過去 1 時間でエラーが最も多かったサービスを特定するクエリを書いてください。",
+    "anomaly": "過去 1 時間で何が変わりましたか？",
+    "root_cause": "最新のインシデントの根本原因を特定してください。",
+    "errors": "最近エラーが急増したのはなぜですか？",
+    "latency": "どのサービスでレイテンシが悪化しましたか？",
+    "dashboard": "Kubernetes ノードの稼働状態を確認するダッシュボードを作成してください。",
+    "alert": "エラー率の異常を検知するアラートルールを作成してください。"
+  },
+  "capability_prompts": {
+    "query": "クエリの作成を手伝ってください。\n\n目的・質問：\nデータソースまたはサービス：\n時間範囲：過去 1h\n期待する出力：SQL または PromQL",
+    "incident": "インシデントの調査を手伝ってください。\n\n症状：\n関連サービス：\n時間範囲：過去 1h\n確認したいこと：発生のきっかけ、影響、次の対応",
+    "dashboard": "ダッシュボードの作成を手伝ってください。\n\nテーマ：\n主なサービスまたはクラスター：\n表示するメトリクス：\n時間範囲：過去 24h",
+    "alert": "アラートルールの作成を手伝ってください。\n\n監視対象：\nトリガー条件：\n継続時間：\n通知経路："
+  },
+  "capabilities": {
+    "query": {
+      "title": "クエリの作成",
+      "description": "ログ、トレース、APM ユーザーエクスペリエンスには SQL、メトリクスのシグナルには PromQL を使用します。"
+    },
+    "incident": {
+      "title": "インシデント調査",
+      "description": "ログ、トレース、メトリクス、アラートを分析し、発生のきっかけを説明します。"
+    },
+    "dashboard": {
+      "title": "ダッシュボードの作成",
+      "description": "CPU、メモリ、再起動、レイテンシなどのテーマから作成を始めます。"
+    },
+    "alert": {
+      "title": "アラートの作成",
+      "description": "しきい値、トレンド、データ取り込みパイプラインに関するアラートルールの下書きを作成します。"
+    }
+  },
+  "suggestions": {
+    "vrl": "nginx のログから JSON をパースする VRL を作成してください。",
+    "email_regex": "メールの編集に使う正規表現を生成してください。",
+    "live_arch": "稼働中のデフォルトの構成を図にしてください。",
+    "cpu_promql": "CPU 使用率が 80% を超える Pod を抽出する PromQL を作成してください。",
+    "datadog": "他のプラットフォームのクエリを MoleSignal のクエリに変換",
+    "last_alert": "直近のアラートはなぜ発報されましたか？"
+  },
+  "suggestion_prompts": {
+    "convert_external": "他のプラットフォームのクエリを MoleSignal のクエリに変換してください。\n\n変換元のプラットフォーム：\n元のクエリ：\n期待する出力："
+  },
+  "range": {
+    "15m": "過去 15m",
+    "30m": "過去 30m",
+    "1h": "過去 1h",
+    "6h": "過去 6h",
+    "24h": "過去 24h",
+    "7d": "過去 7d"
+  },
+  "controls": {
+    "time": "時間",
+    "mode": "モード",
+    "execution": "実行",
+    "team": "チーム"
+  },
+  "mode": {
+    "auto": "自動モード",
+    "quick": "クイック回答",
+    "deep": "詳細調査",
+    "query_only": "クエリ生成のみ"
+  },
+  "mode_descriptions": {
+    "auto": "どんな質問でも、何を調べるべきかを自動で判断します。",
+    "quick": "指定した時間範囲で通常と異なる動作を見つけます。",
+    "deep": "メトリクス、ログ、トレースを関連付けて原因を特定します。",
+    "query_only": "クエリを実行せず、生成のみ行います。"
+  },
+  "execution_policy": {
+    "advice_only": "提案モード",
+    "read_only": "調査モード",
+    "policy": "承認後に実行",
+    "auto": "自動モード",
+    "bypass_permissions": "権限チェックをスキップ"
+  },
+  "execution_mode": {
+    "title": "モード",
+    "recommended": "推奨",
+    "descriptions": {
+      "advice_only": "データを確認して変更を提案しますが、変更は実行しません。",
+      "read_only": "必要に応じて読み取り専用クエリを実行します。変更は一切行いません。",
+      "policy": "クエリは自動で実行します。変更は承認を申請し、承認後に実行します。",
+      "auto": "クエリと元に戻せる変更を実行します。削除する前には確認を求めます。",
+      "bypass_permissions": "確認を求めずに変更を実行します。承認が必要な変更には引き続き承認が必要です。"
+    },
+    "bypass_locked": "管理者が先にエージェントプロファイルで許可する必要があります。",
+    "bypass_confirm": {
+      "title": "権限チェックのスキップを有効にしますか？",
+      "description": "Mole Agent は、削除を含む変更を事前確認なしで実行します。組織のルールで承認が必要な変更は、引き続き承認に回します。Mole Agent が次に何を実行するか把握している場合にのみ有効にしてください。",
+      "confirm": "有効にする"
+    }
+  },
+  "provider_auto": "プロバイダーを自動選択",
+  "model_prefix": "モデル",
+  "model_auto": "自動",
+  "prompt_prefix": "プロンプト",
+  "prompt_auto": "自動",
+  "advanced": {
+    "trigger": "その他",
+    "title": "エージェント設定",
+    "agent_mode": "エージェントモード",
+    "overrides_active": "カスタムのエージェント設定が適用されています。",
+    "profile": "エージェントプロファイル",
+    "profile_auto": "デフォルトプロファイル",
+    "investigation_limit": "調査時間の上限",
+    "tool_limit": "ツール呼び出し回数の上限",
+    "minutes": "{{count}} min",
+    "calls": "{{count}} 回",
+    "manage_profile": "エージェントプロファイルを管理"
+  },
+  "composer_label": "インシデント、サービス、運用タスクについて質問…",
+  "composer_placeholder": "インシデント、サービス、運用タスクについて質問… コマンドを使うには / を入力",
+  "send": "送信",
+  "resend": "再送信",
+  "stop": "停止",
+  "running": "実行中",
+  "tool_detail": "ツールの詳細",
+  "tool_call_count": "{{count}} 回",
+  "tool_arguments": "引数",
+  "tool_result": "結果",
+  "tool_error_result": "エラー",
+  "tool_empty_payload": "なし",
+  "tool_status": {
+    "running": "実行中",
+    "done": "完了",
+    "error": "失敗"
+  },
+  "thinking": "Mole Agent が分析しています…",
+  "answer_versions": {
+    "position": "回答 {{current}} / {{total}}",
+    "previous": "前の回答を表示",
+    "next": "次の回答を表示",
+    "regenerate": "再生成",
+    "regenerating": "再生成中…"
+  },
+  "message_actions": {
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "copy_failed": "クリップボードにコピーできませんでした",
+    "edit": "編集して再送信",
+    "retry": "再試行",
+    "fork": "この回答から新しいチャットに分岐",
+    "pin": "この回答をピン留め",
+    "unpin": "ピン留めを解除",
+    "pinned_one": "ピン留め {{count}} 件",
+    "pinned_other": "ピン留め {{count}} 件"
+  },
+  "message_time": {
+    "days_ago_one": "{{count}} 日前",
+    "days_ago_other": "{{count}} 日前"
+  },
+  "investigation_process": {
+    "running": "{{count}} 件のデータソースを確認中",
+    "completed": "{{count}} 件のデータソースを確認しました",
+    "completed_with_errors": "{{count}} 件の項目を確認し、うち {{errors}} 件は完了しませんでした",
+    "view": "調査を表示",
+    "processing": "処理中",
+    "processed": "処理済み",
+    "rows": "{{count}} 件の結果",
+    "technical_detail": "技術的な詳細"
+  },
+  "activity": {
+    "separator": "、 ",
+    "look_one": "{{count}} 件の項目を確認しました",
+    "look_other": "{{count}} 件の項目を確認しました",
+    "query_one": "{{count}} 件のクエリを実行しました",
+    "query_other": "{{count}} 件のクエリを実行しました",
+    "knowledge_one": "ナレッジベースを参照しました",
+    "knowledge_other": "ナレッジベースを {{count}} 回参照しました",
+    "knowledge_edit_one": "ナレッジファイルを{{count}}件編集しました",
+    "knowledge_edit_other": "ナレッジファイルを{{count}}件編集しました",
+    "memory_one": "記憶を1件呼び出しました",
+    "memory_other": "記憶を{{count}}件呼び出しました",
+    "remember_one": "{{count}}件の情報を記憶しました",
+    "remember_other": "{{count}}件の情報を記憶しました",
+    "question_one": "あなたに質問を1件しました",
+    "question_other": "あなたに質問を{{count}}件しました",
+    "plan_one": "プランを更新しました",
+    "plan_other": "プランを{{count}}回更新しました",
+    "change_one": "変更を{{count}}件提案しました",
+    "change_other": "変更を{{count}}件提案しました",
+    "tool_one": "ツールを{{count}}個使用しました",
+    "tool_other": "ツールを{{count}}個使用しました",
+    "failed_one": "{{count}}件が完了しませんでした",
+    "failed_other": "{{count}}件が完了しませんでした",
+    "running": "処理中"
+  },
+  "oauth": {
+    "invalid_request": "このOAuth認可リクエストは無効か、不完全です。",
+    "title": "があなたのMoleSignalアカウントへのアクセスを求めています",
+    "organization": "組織",
+    "switch_organization": "認可する組織",
+    "allows": "認可すると、{{client}}は以下の操作を行えるようになります。",
+    "permission": {
+      "tools_title": "あなたに代わってMoleSignalツールを使用",
+      "tools_body": "あなたの権限と組織のツールポリシーの両方で許可されているツールのみを使って、ログ、メトリクス、トレースなどのデータを読み取ります。",
+      "changes_title": "承認後に実行される変更の提案",
+      "changes_body": "管理対象の変更には組織の承認ポリシーが適用され、承認手順を省略することはできません。",
+      "offline_title": "アクセス権を取り消すまでアクセスを維持",
+      "offline_body": "アクセス権は自動で更新されるため、その都度認可する必要はありません。"
+    },
+    "trust_title": "{{client}}が信頼できるか確認してください",
+    "trust_registered": "{{client}}は自ら登録しており、MoleSignalはその名前や提供元を確認していません。認可すると、この組織であなたが閲覧できるデータを{{client}}も閲覧できます。アクセス権は<revoke>Mole Agent → 設定 → インバウンドMCP</revoke>でいつでも取り消せます。",
+    "trust_metadata": "{{client}}に関する情報は{{host}}が提供しています。認可すると、この組織であなたが閲覧できるデータを{{client}}も閲覧できます。アクセス権は<revoke>Mole Agent → 設定 → インバウンドMCP</revoke>でいつでも取り消せます。",
+    "client_website": "クライアントのWebサイト",
+    "cancel": "キャンセル",
+    "allow": "認可",
+    "redirect": "認可すると{{origin}}にリダイレクトされます",
+    "details": "認可の詳細",
+    "client_id": "クライアントID",
+    "resource": "保護対象リソース",
+    "scopes": "スコープ",
+    "redirect_uri": "リダイレクトURI",
+    "binding": "この認可は、このクライアント、リダイレクトURI、お使いのアカウント、組織、およびMCPリソースに紐づいています。いずれかを変更する場合は、再認可が必要です。"
+  },
+  "tools": {
+    "tool_search": {
+      "title": "ツールの検索",
+      "description": "有効なツールのカタログを、機能、ドメイン、タグ、または名前の完全一致で検索します。必要なツールが表示されていない場合に使用します。"
+    },
+    "tools_call": {
+      "title": "ツールの呼び出し",
+      "description": "tool_searchで見つかった有効なツールを1つ呼び出します。呼び出し先のツール固有の権限、リスクポリシー、タイムアウト、監査の動作はそのまま適用されます。"
+    },
+    "get_platform_capabilities": {
+      "title": "プラットフォーム機能の取得",
+      "description": "組み込みツールのドメインの全一覧、公開ポリシー、および安全上の理由で意図的に除外されたエントリーポイントを返します。"
+    },
+    "query_logs": {
+      "title": "ログのクエリ",
+      "description": "1つのログストリームに対して、実行範囲を制限した読み取り専用のSQLクエリを実行します。まずget_stream_schemaで正確なスキーマを確認してください。イベント時刻はすでにtime_rangeで絞り込まれています。"
+    },
+    "query_metrics": {
+      "title": "メトリクスのクエリ",
+      "description": "実行範囲を制限した読み取り専用のPromQL範囲クエリを1件実行します。label_values()などのGrafanaのテンプレート用ヘルパーはPromQLではありません。"
+    },
+    "list_streams": {
+      "title": "ストリーム一覧",
+      "description": "クエリ可能なストリームを簡潔な概要付きで一覧表示します。フィールドの確認にはget_stream_schemaを使用してください。"
+    },
+    "get_stream_schema": {
+      "title": "ストリームスキーマの取得",
+      "description": "1つのストリームのフィールド、型、設定、保持期間を正確に返します。"
+    },
+    "get_stream_settings": {
+      "title": "ストリーム設定の取得",
+      "description": "1つのストリームのクエリ、保持、パーティショニング、取り込みの設定を返します。スキーマ全体は再掲しません。"
+    },
+    "list_metric_names": {
+      "title": "メトリクス名一覧",
+      "description": "メトリクス名を一覧表示します。必要に応じて部分一致で絞り込めます。"
+    },
+    "list_metric_label_values": {
+      "title": "メトリクスのラベル値一覧",
+      "description": "PromQL以外のヘルパーを使わず、実在するメトリクスのラベルフィールド1つについて、重複のない値を一覧表示します。"
+    },
+    "list_metric_labels": {
+      "title": "メトリクスのラベル一覧",
+      "description": "1つのメトリクスに実際に存在するラベルフィールドを一覧表示します。"
+    },
+    "list_metric_series": {
+      "title": "メトリクスの時系列一覧",
+      "description": "指定期間内の時系列をメトリクスとラベルの組み合わせごとに重複を除き、件数を制限して一覧表示します。"
+    },
+    "search_around": {
+      "title": "前後のログ検索",
+      "description": "基準となるタイムスタンプの直前と直後のログ行を取得します。"
+    },
+    "search_field_values": {
+      "title": "フィールド値の検索",
+      "description": "ストリーム内の指定フィールド1つについて、重複のない値と各値の出現件数を、結果数を制限して返します。"
+    },
+    "analyze_log_patterns": {
+      "title": "ログパターンの分析",
+      "description": "1つのストリームのログをメッセージパターンごとに分類し、各パターンを基準期間と比較して、新規、急増、減少、横ばいのいずれかを判定します。"
+    },
+    "analyze_metric_trend": {
+      "title": "メトリクスの傾向分析",
+      "description": "PromQLクエリの結果を基準期間と比較し、変化が始まった時期、変化の大きさ、変化に影響した時系列とラベルを要約します。"
+    },
+    "check_data_readiness": {
+      "title": "データの準備状況の確認",
+      "description": "ストリームにサービス、環境、トレースIDが記録されているか、同じサービスがログ、メトリクス、トレースで同じ名前になっているか、メトリクス名に単位が含まれているかを確認し、見つかった問題ごとに修正方法を示します。"
+    },
+    "list_log_inspections": {
+      "title": "ログ検査一覧",
+      "description": "組織でスケジュール設定されているログ検査を一覧表示します。各検査の対象ストリーム、検査内容、スケジュール、有効かどうか、前回の実行結果を表示します。"
+    },
+    "list_log_inspection_runs": {
+      "title": "ログ検査の実行履歴",
+      "description": "1つのログ検査の最近の実行履歴を新しい順に一覧表示します。各実行のステータス、判定、概要を表示します。"
+    },
+    "get_log_inspection_run": {
+      "title": "ログ検査レポートの取得",
+      "description": "ログ検査の実行1件について、判定、検出結果、生成されたレポートを取得します。"
+    },
+    "run_log_inspection": {
+      "title": "ログ検査の実行",
+      "description": "ログ検査を今すぐ1回実行します。実行はキューに追加され、組織のモデル使用量に計上されます。完了後にレポートを確認できます。"
+    },
+    "list_traces": {
+      "title": "トレース一覧",
+      "description": "指定した期間のトレースの概要を、件数を制限して一覧表示します。サービス、所要時間、エラー、トレースIDで絞り込めます。"
+    },
+    "get_trace": {
+      "title": "トレースの取得",
+      "description": "指定したトレースIDのスパンを、件数を制限して取得します。構造だけが必要な場合は get_trace_dag を使用します。"
+    },
+    "get_trace_dag": {
+      "title": "トレースDAGの取得",
+      "description": "1件のトレースについて、完全なスパンペイロードを含めずに、サービスとスパンの依存関係を示すコンパクトなDAGを返します。"
+    },
+    "list_trace_sessions": {
+      "title": "トレースセッション一覧",
+      "description": "トレースストリームにセッションフィールドがある場合に、LLM/AIのトレースセッションを、件数を制限して一覧表示します。"
+    },
+    "get_trace_session": {
+      "title": "トレースセッションの取得",
+      "description": "1件のLLM/AIセッションについて、トレースごとの概要を、件数を制限して取得します。"
+    },
+    "list_trace_users": {
+      "title": "トレースユーザー一覧",
+      "description": "トレースストリームにユーザーフィールドがある場合に、AIトレースのユーザー別集計を、件数を制限して一覧表示します。"
+    },
+    "list_incidents": {
+      "title": "インシデント一覧",
+      "description": "ステータスと、必要に応じて期間を指定し、インシデントを件数を制限して一覧表示します。"
+    },
+    "get_incident": {
+      "title": "インシデントの取得",
+      "description": "インシデントIDを指定して、インシデント1件と関連するアラートルールの情報を取得します。"
+    },
+    "get_incident_rca": {
+      "title": "インシデントの根本原因分析の取得",
+      "description": "インシデントについて、保存済みの最新の根本原因分析を取得します。"
+    },
+    "get_incident_insights": {
+      "title": "インシデントインサイトの取得",
+      "description": "インシデントの件数をステータス、重大度、サービス、ルール別に集計し、結果の件数を制限して返します。"
+    },
+    "get_similar_incidents": {
+      "title": "類似インシデントの取得",
+      "description": "過去90日間で指定のインシデントに最も類似するインシデントを、それぞれの結末と根本原因の説明の冒頭1文とともに一覧表示します。"
+    },
+    "list_changes": {
+      "title": "変更一覧",
+      "description": "指定したサービスまたはインシデントを対象に、該当時刻の前後のデプロイ、設定変更、フィーチャーフラグを一覧表示します。"
+    },
+    "acknowledge_incident": {
+      "title": "インシデントの確認",
+      "description": "オープン状態のインシデント1件を確認済みにします。"
+    },
+    "resolve_incident": {
+      "title": "インシデントの解決",
+      "description": "オープンまたは確認済みのインシデント1件を解決済みにします。"
+    },
+    "reassign_incident": {
+      "title": "インシデントの再割り当て",
+      "description": "アクティブなインシデント1件を、担当者、チーム（そのオンコールポリシー）、またはエスカレーションポリシーに再割り当てします。"
+    },
+    "add_incident_responders": {
+      "title": "対応者の追加",
+      "description": "アクティブなインシデント1件に担当者を追加し、追加した担当者に通知します。"
+    },
+    "escalate_incident": {
+      "title": "インシデントの即時エスカレーション",
+      "description": "アクティブなインシデント1件を、エスカレーションポリシーの指定ステップに即時エスカレーションします。指定がない場合は次のステップに進みます。"
+    },
+    "snooze_incident": {
+      "title": "インシデントのスヌーズ",
+      "description": "アクティブなインシデント1件をスヌーズします。インシデントは確認済みになり、指定時間が経過すると未確認に戻ります。"
+    },
+    "lift_incident_inhibition": {
+      "title": "インシデントの抑制解除",
+      "description": "インシデントの通知抑制を解除し、通常どおり通知します。保留中の通知が送信され、このインシデントの通知は再度抑制されません。"
+    },
+    "set_incident_severity": {
+      "title": "インシデントの重大度を設定",
+      "description": "アクティブなインシデント1件の重大度を設定します。設定後は、ルールによって重大度が変更されることはありません。"
+    },
+    "merge_incidents": {
+      "title": "インシデントを統合",
+      "description": "他のアクティブなインシデントを1件にまとめます。統合されたインシデントは個別に通知されなくなり、統合先と一緒に解決されます。"
+    },
+    "add_incident_note": {
+      "title": "インシデントメモを追加",
+      "description": "判明したことや実施した対応を、インシデントのタイムラインに記録します。"
+    },
+    "get_incident_timeline": {
+      "title": "インシデントのタイムラインを取得",
+      "description": "インシデントのタイムラインを取得します。通知先、対応履歴、メモ、統合されたインシデントが含まれます。"
+    },
+    "list_alert_rules": {
+      "title": "アラートルール一覧",
+      "description": "アラートルールを、状態、クエリ、しきい値、ルーティングのメタデータとともに一覧表示します。"
+    },
+    "get_alert_rule": {
+      "title": "アラートルールを取得",
+      "description": "IDを指定してアラートルールを1件取得します。"
+    },
+    "create_alert_rule": {
+      "title": "アラートルールを作成",
+      "description": "検証後にアラートルールを作成します。"
+    },
+    "update_alert_rule": {
+      "title": "アラートルールを更新",
+      "description": "検証後に既存のアラートルール1件を置き換えます。"
+    },
+    "delete_alert_rule": {
+      "title": "アラートルールを削除",
+      "description": "アラートルールを1件削除します。"
+    },
+    "test_alert_rule": {
+      "title": "アラートルールをテスト",
+      "description": "副作用のないドライランでアラートルールを1件実行し、条件に一致したかどうかと、件数を制限したサンプルを返します。"
+    },
+    "trigger_alert_rule": {
+      "title": "アラートルールを発動",
+      "description": "アラートルール1件のしきい値を評価せずに、対応するインシデントを手動でオープンします。"
+    },
+    "list_incident_groups": {
+      "title": "インシデントグループ一覧",
+      "description": "相関関係に基づくインシデントグループを一覧表示します。ステータスによる絞り込みには制限があります。"
+    },
+    "get_incident_group": {
+      "title": "インシデントグループを取得",
+      "description": "IDを指定して、相関関係に基づくインシデントグループを1件取得します。"
+    },
+    "list_mute_rules": {
+      "title": "ミュートルール一覧",
+      "description": "シークレットを公開せずに、アラートのミュートルールを一覧表示します。"
+    },
+    "get_mute_rule": {
+      "title": "ミュートルールを取得",
+      "description": "IDを指定して、アラートのミュートルールを1件取得します。"
+    },
+    "list_inhibit_rules": {
+      "title": "抑制ルール一覧",
+      "description": "アラートの抑制ルールを一覧表示します。どのインシデントがどのインシデントの通知を抑制しているかと、現在保留中の通知件数を確認できます。"
+    },
+    "get_inhibit_rule": {
+      "title": "抑制ルールを取得",
+      "description": "IDを指定して、アラートの抑制ルールを1件取得します。"
+    },
+    "list_escalation_policies": {
+      "title": "エスカレーションポリシー一覧",
+      "description": "インシデントのエスカレーションポリシーを一覧表示します。"
+    },
+    "get_escalation_policy": {
+      "title": "エスカレーションポリシーを取得",
+      "description": "IDを指定して、インシデントのエスカレーションポリシーを1件取得します。"
+    },
+    "list_on_call_schedules": {
+      "title": "オンコールスケジュール一覧",
+      "description": "オンコールスケジュールと現在の担当者を一覧表示します。"
+    },
+    "get_on_call_schedule": {
+      "title": "オンコールスケジュールの取得",
+      "description": "IDでオンコールスケジュールを1件取得します。"
+    },
+    "get_current_on_call": {
+      "title": "現在のオンコール担当者の取得",
+      "description": "指定したスケジュール、または有効なすべてのスケジュールについて、現在のオンコール担当者を特定します。"
+    },
+    "list_notification_connectors": {
+      "title": "通知コネクター一覧",
+      "description": "認証情報のフィールドを除いて、通知コネクターを一覧表示します。"
+    },
+    "get_notification_connector": {
+      "title": "通知コネクターの取得",
+      "description": "認証情報を除いて、通知コネクターのメタデータを取得します。"
+    },
+    "list_notification_policies": {
+      "title": "通知ポリシー一覧",
+      "description": "通知ルーティングポリシーを一覧表示します。"
+    },
+    "get_notification_policy": {
+      "title": "通知ポリシーの取得",
+      "description": "通知ルーティングポリシーを1件取得します。"
+    },
+    "list_notification_templates": {
+      "title": "通知テンプレート一覧",
+      "description": "組織とシステムの通知テンプレートを一覧表示します。"
+    },
+    "get_notification_template": {
+      "title": "通知テンプレートの取得",
+      "description": "通知テンプレートを1件取得します。"
+    },
+    "list_notification_deliveries": {
+      "title": "通知配信一覧",
+      "description": "通知配信の試行を件数の上限付きで一覧表示します。"
+    },
+    "get_notification_delivery": {
+      "title": "通知配信の取得",
+      "description": "通知配信の試行を1件取得します。"
+    },
+    "retry_notification_delivery": {
+      "title": "通知配信の再試行",
+      "description": "失敗した通知配信を1件再試行します。"
+    },
+    "acknowledge_notification_delivery": {
+      "title": "通知配信の確認",
+      "description": "通知配信を1件、確認済みにします。"
+    },
+    "apm_overview": {
+      "title": "APM概要",
+      "description": "REDメトリクス、トレンド、サービスの健全性、依存関係、上位のエラーを、範囲を限定して返します。"
+    },
+    "list_apm_services": {
+      "title": "APMサービス一覧",
+      "description": "APMサービスを、REDに基づく健全性の概要とともに一覧表示します。"
+    },
+    "search_service_catalog": {
+      "title": "サービスカタログの検索",
+      "description": "名前、エイリアス、説明、タグでサービスを検索し、オーナー、チーム、エイリアス、データの保存先を返します。"
+    },
+    "get_apm_service": {
+      "title": "APMサービスの取得",
+      "description": "1つのサービスについて、REDの詳細なトレンド、トランザクション、依存関係、エラー、バージョンを取得します。"
+    },
+    "list_apm_transactions": {
+      "title": "APMトランザクション一覧",
+      "description": "APMトランザクショングループをREDの概要とともに一覧表示します。"
+    },
+    "get_apm_transaction": {
+      "title": "APMトランザクションの取得",
+      "description": "1つのAPMトランザクションについて、詳細なトレンドとトレースを取得します。"
+    },
+    "list_apm_dependencies": {
+      "title": "APM依存関係一覧",
+      "description": "APMサービスの依存関係を、レイテンシーとエラーの概要とともに一覧表示します。"
+    },
+    "list_apm_errors": {
+      "title": "APMエラー一覧",
+      "description": "APM エラーをグループ別に、影響を受けたサービスとトレース参照情報とともに一覧表示します。"
+    },
+    "get_apm_error": {
+      "title": "APM エラーの取得",
+      "description": "APM エラーグループを 1 件、サンプルとトレース参照情報とともに取得します。"
+    },
+    "compare_apm_versions": {
+      "title": "APM バージョンの比較",
+      "description": "サービスの 2 つのバージョン間で RED メトリクスとパフォーマンスの悪化を比較します。"
+    },
+    "get_apm_health": {
+      "title": "APM の健全性の取得",
+      "description": "APM の集計データの鮮度、カバレッジ、データ品質の状態を返します。"
+    },
+    "get_apm_insights": {
+      "title": "APM インサイトの取得",
+      "description": "直前の同じ長さの期間や前週との比較で見られた変動、その前後の変更、パフォーマンスが悪化したバージョン、処理時間を短縮できる箇所など、APM で見つかった注目点を返します。"
+    },
+    "get_apm_blast_radius": {
+      "title": "サービスの影響範囲の取得",
+      "description": "サービスマップに沿って、対象サービスの呼び出し元と呼び出し先を、異常のあるサービスを優先して返します。"
+    },
+    "correlate_signals": {
+      "title": "シグナルの相関分析",
+      "description": "サービスまたはトレースを対象に、インシデント、トレース、ログ、RUM、プロファイル間の関連を、範囲を限定して返します。"
+    },
+    "get_service_topology": {
+      "title": "サービストポロジーの取得",
+      "description": "指定した期間のサービス依存関係グラフを、範囲を限定して返します。"
+    },
+    "list_rum_sessions": {
+      "title": "RUM セッションの一覧",
+      "description": "リアルユーザーモニタリングのセッションを、範囲を限定して一覧表示します。"
+    },
+    "get_rum_session": {
+      "title": "RUM セッションの取得",
+      "description": "RUM セッションを 1 件取得し、アクションとエラーの概要を範囲を限定して返します。"
+    },
+    "list_rum_actions": {
+      "title": "RUM アクションの一覧",
+      "description": "ページビュー、アクション、リソース、Web Vitals を一覧表示します。"
+    },
+    "list_rum_errors": {
+      "title": "RUM エラーの一覧",
+      "description": "セッションまたはフィンガープリントで RUM エラーを一覧表示します。"
+    },
+    "get_rum_related_traces": {
+      "title": "RUM 関連トレースの取得",
+      "description": "RUM セッションに直接関連付けられたトレースを検索します。直接の関連付けがない場合は、限られた時間範囲内で時刻の相関を使って検索します。"
+    },
+    "get_rum_vitals": {
+      "title": "Web Vitals の概要",
+      "description": "実際のユーザーから計測した Core Web Vitals をページごとに集計し、LCP、INP、CLS、TTFB の 75 パーセンタイル、ページビュー数、「良好」と「不良」のしきい値を返します。"
+    },
+    "list_rum_issues": {
+      "title": "RUM イシューの一覧",
+      "description": "RUM アプリケーションのエラーイシューを一覧表示します。各イシューのステータス、初回と最終の検出時刻、指定期間内に影響を受けたセッション数とユーザー数、発生回数、発生傾向を表示します。"
+    },
+    "get_rum_issue": {
+      "title": "RUM イシューの取得",
+      "description": "RUM イシューを 1 件取得し、履歴、指定期間内の集計結果、直近に発生したセッション、スタックトレースを返します。"
+    },
+    "get_rum_overview": {
+      "title": "RUM アプリケーションの概要",
+      "description": "RUM アプリケーションのセッション、エラーやクラッシュのなかったセッションの割合、Core Web Vitals、閲覧数の多いページ、主なイシューをまとめます。"
+    },
+    "get_rum_frustration": {
+      "title": "RUM フラストレーションの概要",
+      "description": "連打クリック、反応のないクリック、エラーを引き起こしたクリックと、それらが集中する要素、ページ、バージョンをまとめます。"
+    },
+    "get_rum_view_waterfall": {
+      "title": "RUM ビューのウォーターフォールの取得",
+      "description": "1 件のページビューについて、読み込みの各段階のタイミング、最大のコンテンツ要素の描画を待たせた要因、リクエストしたリソース、読み込みをブロックした長時間タスクを取得します。"
+    },
+    "aggregate_rum": {
+      "title": "RUM データの集計",
+      "description": "RUM ストリームの行をフィールド別にグループ化し、件数、平均、パーセンタイルを算出します。必要に応じて時間区間ごとに集計できます。"
+    },
+    "get_rum_funnel": {
+      "title": "RUM ファネルの取得",
+      "description": "一連のページとアクションを順にたどったセッションの数と所要時間を集計します。必要に応じて、ブラウザー、バージョン、国別に集計できます。"
+    },
+    "get_rum_paths": {
+      "title": "RUM の遷移経路を取得",
+      "description": "指定したページの前後にセッションで閲覧されたページをたどり、各ステップで最も多く閲覧されたページと遷移先を表示します。"
+    },
+    "get_rum_retention": {
+      "title": "RUM のリテンションを取得",
+      "description": "指定した日または週に初めて確認されたユーザーのうち、以降の各期間に再訪した人数を集計します。"
+    },
+    "list_continuous_profiles": {
+      "title": "継続プロファイルの一覧を取得",
+      "description": "継続プロファイルのメタデータを一覧表示します。サービス、タイプ、トレース、ラベルで絞り込めます。"
+    },
+    "get_profile_flamegraph": {
+      "title": "プロファイルのフレームグラフを取得",
+      "description": "指定範囲内のプロファイルを統合し、flamebearer 形式のフレームグラフを生成します。"
+    },
+    "compare_profiles": {
+      "title": "プロファイルを比較",
+      "description": "ベースライン期間と比較対象期間のプロファイルを差分フレームグラフで比較します。profiling_enhanced が必要です。"
+    },
+    "list_report_templates": {
+      "title": "レポートテンプレートの一覧を取得",
+      "description": "組み込みおよび組織のレポートテンプレートを一覧表示します。"
+    },
+    "get_report_template": {
+      "title": "レポートテンプレートを取得",
+      "description": "ID を指定してレポートテンプレートを 1 件取得します。"
+    },
+    "list_scheduled_reports": {
+      "title": "スケジュール済みレポートの一覧を取得",
+      "description": "現在の組織のスケジュール済みレポートを一覧表示します。"
+    },
+    "get_scheduled_report": {
+      "title": "スケジュール済みレポートを取得",
+      "description": "ID を指定してスケジュール済みレポートを 1 件取得します。"
+    },
+    "list_report_deliveries": {
+      "title": "レポート配信履歴の一覧を取得",
+      "description": "指定したスケジュール済みレポート 1 件の配信履歴を、範囲を限定して一覧表示します。"
+    },
+    "list_dashboards": {
+      "title": "ダッシュボードの一覧を取得",
+      "description": "ダッシュボードを一覧表示します。必要に応じて、特定のフォルダー内に限定できます。"
+    },
+    "get_dashboard": {
+      "title": "ダッシュボードを取得",
+      "description": "ID を指定してダッシュボードとその完全なモデルを取得します。"
+    },
+    "create_dashboard": {
+      "title": "ダッシュボードを作成",
+      "description": "検証済みの完全なモデルからダッシュボードを作成します。"
+    },
+    "update_dashboard": {
+      "title": "ダッシュボードを更新",
+      "description": "ダッシュボードのモデルを置き換えます。必要に応じて、ダッシュボードを別のフォルダーに移動できます。"
+    },
+    "delete_dashboard": {
+      "title": "ダッシュボードを削除",
+      "description": "ダッシュボードを 1 件削除します。"
+    },
+    "list_folders": {
+      "title": "フォルダーの一覧を取得",
+      "description": "ダッシュボードのフォルダーを一覧表示します。"
+    },
+    "get_folder": {
+      "title": "フォルダーを取得",
+      "description": "ID を指定してダッシュボードのフォルダーを 1 件取得します。"
+    },
+    "create_folder": {
+      "title": "フォルダーを作成",
+      "description": "ダッシュボードのフォルダーを作成します。"
+    },
+    "update_folder": {
+      "title": "フォルダーを更新",
+      "description": "ダッシュボードのフォルダーの名前を変更するか、移動します。"
+    },
+    "delete_folder": {
+      "title": "フォルダーを削除",
+      "description": "空のダッシュボードフォルダーを1つ削除します。"
+    },
+    "list_annotations": {
+      "title": "アノテーション一覧",
+      "description": "指定した期間内の時間アノテーションを一覧表示します。必要に応じて、ダッシュボードまたはパネルで絞り込めます。"
+    },
+    "get_annotation": {
+      "title": "アノテーションの取得",
+      "description": "IDを指定して時間アノテーションを1件取得します。"
+    },
+    "create_annotation": {
+      "title": "アノテーションの作成",
+      "description": "設定済みの実行ポリシーに従って時間アノテーションを作成します。"
+    },
+    "update_annotation": {
+      "title": "アノテーションの更新",
+      "description": "設定済みの実行ポリシーに従って、1件の時間アノテーションの指定フィールドを更新します。"
+    },
+    "delete_annotation": {
+      "title": "アノテーションの削除",
+      "description": "設定済みの実行ポリシーに従って、時間アノテーションを1件削除します。"
+    },
+    "add_dashboard_panel": {
+      "title": "ダッシュボードパネルの追加",
+      "description": "ダッシュボードのルートまたは入れ子のコンテナに、パネルを1つアトミックに追加します。"
+    },
+    "update_dashboard_panel": {
+      "title": "ダッシュボードパネルの更新",
+      "description": "ダッシュボードパネルを1つアトミックに置き換えます。"
+    },
+    "move_dashboard_panel": {
+      "title": "ダッシュボードパネルの移動",
+      "description": "ダッシュボードパネルを1つ、ルートまたは入れ子のコンテナ内の指定位置にアトミックに移動します。"
+    },
+    "delete_dashboard_panel": {
+      "title": "ダッシュボードパネルの削除",
+      "description": "ダッシュボードパネルを1つアトミックに削除します。"
+    },
+    "get_dashboard_capabilities": {
+      "title": "ダッシュボード機能の取得",
+      "description": "ダッシュボードの作成・編集でサポートされる仕様と制限を返します。"
+    },
+    "prepare_dashboard": {
+      "title": "ダッシュボードの準備",
+      "description": "一時的なダッシュボードの下書きを検証し、事前チェックを行って保存します。ダッシュボード自体は作成しません。"
+    },
+    "propose_dashboard_creation": {
+      "title": "ダッシュボード作成の提案",
+      "description": "準備済みの下書きからダッシュボードを作成するための承認リクエストを作成します。ダッシュボードを直接作成することはありません。"
+    },
+    "propose_operation": {
+      "title": "操作の提案",
+      "description": "登録済みの操作に対する承認リクエストを作成します。操作を直接実行することはありません。"
+    },
+    "propose_alert_action": {
+      "title": "アラート操作の提案",
+      "description": "アラートインシデント1件を確認済みまたは解決済みにするための承認リクエストを作成します。"
+    },
+    "propose_synthetic_monitor_action": {
+      "title": "外形監視モニター操作の提案",
+      "description": "外形監視モニター1件を実行、一時停止、再開、またはアーカイブするための承認リクエストを作成します。"
+    },
+    "propose_status_page_action": {
+      "title": "ステータスページ操作の提案",
+      "description": "ステータスページのアーカイブや復元、または自動化の一時停止や再開に対する承認リクエストを作成します。"
+    },
+    "propose_notification_action": {
+      "title": "通知操作の提案",
+      "description": "通知配信1件を再試行または確認済みにするための承認リクエストを作成します。"
+    },
+    "propose_scheduled_pipeline_action": {
+      "title": "スケジュール済みパイプライン操作の提案",
+      "description": "スケジュール済みパイプライン1件を有効化、無効化、または削除するための承認リクエストを作成します。"
+    },
+    "list_saved_views": {
+      "title": "保存済みビュー一覧",
+      "description": "保存済みのSQLおよびPromQLのビューを一覧表示します。"
+    },
+    "get_saved_view": {
+      "title": "保存済みビューの取得",
+      "description": "保存済みのクエリビューを1件取得します。"
+    },
+    "create_saved_view": {
+      "title": "保存済みビューの作成",
+      "description": "SQL または PromQL の保存済みビューを作成します。"
+    },
+    "update_saved_view": {
+      "title": "保存済みビューの更新",
+      "description": "SQL または PromQL の保存済みビューを1件置き換えます。"
+    },
+    "delete_saved_view": {
+      "title": "保存済みビューの削除",
+      "description": "保存済みのクエリビューを1件削除します。"
+    },
+    "list_search_jobs": {
+      "title": "検索ジョブの一覧",
+      "description": "非同期検索ジョブを上限付きで一覧表示します。"
+    },
+    "get_search_job": {
+      "title": "検索ジョブの取得",
+      "description": "非同期検索ジョブのステータスと結果のメタデータを取得します。"
+    },
+    "get_search_job_results": {
+      "title": "検索ジョブの結果の取得",
+      "description": "非同期検索ジョブのデコード済みの結果を、件数に上限を設けて1ページ分取得します。"
+    },
+    "submit_search_job": {
+      "title": "検索ジョブの送信",
+      "description": "永続化される SQL または PromQL の非同期検索ジョブを1件送信します。"
+    },
+    "cancel_search_job": {
+      "title": "検索ジョブのキャンセル",
+      "description": "保留中または実行中の非同期検索ジョブを1件キャンセルします。"
+    },
+    "retry_search_job": {
+      "title": "検索ジョブの再試行",
+      "description": "失敗またはキャンセルされた非同期検索ジョブを1件再試行します。"
+    },
+    "delete_search_job": {
+      "title": "検索ジョブの削除",
+      "description": "非同期検索ジョブを1件、保存された結果とともに削除します。"
+    },
+    "list_scheduled_pipelines": {
+      "title": "スケジュール済みパイプラインの一覧",
+      "description": "スケジュール済みパイプラインを直近の実行状況とともに一覧表示します。"
+    },
+    "get_scheduled_pipeline": {
+      "title": "スケジュール済みパイプラインの取得",
+      "description": "スケジュール済みパイプラインを1件取得します。"
+    },
+    "list_pipeline_runs": {
+      "title": "パイプラインの実行履歴一覧",
+      "description": "スケジュール済みパイプライン1件の実行履歴を上限付きで一覧表示します。"
+    },
+    "enable_scheduled_pipeline": {
+      "title": "スケジュール済みパイプラインの有効化",
+      "description": "スケジュール済みパイプラインを1件有効にします。"
+    },
+    "disable_scheduled_pipeline": {
+      "title": "スケジュール済みパイプラインの無効化",
+      "description": "スケジュール済みパイプラインを1件無効にします。"
+    },
+    "delete_scheduled_pipeline": {
+      "title": "スケジュール済みパイプラインの削除",
+      "description": "スケジュール済みパイプラインを1件削除します。"
+    },
+    "list_functions": {
+      "title": "関数の一覧",
+      "description": "組織の処理関数と組み込みの処理関数を一覧表示します。"
+    },
+    "get_function": {
+      "title": "関数の取得",
+      "description": "処理関数を1件、ソースコードを含めて取得します。"
+    },
+    "test_function": {
+      "title": "関数のテスト",
+      "description": "指定されたサンプル入力を使い、実行に制限を設けて副作用のない関数テストを行います。"
+    },
+    "create_function": {
+      "title": "関数の作成",
+      "description": "コンパイルの事前チェック後に処理関数を作成します。"
+    },
+    "update_function": {
+      "title": "関数の更新",
+      "description": "コンパイルの事前チェック後に、組織の処理関数を1件置き換えます。"
+    },
+    "delete_function": {
+      "title": "関数の削除",
+      "description": "組織の処理関数を1件削除します。"
+    },
+    "list_enrichment_tables": {
+      "title": "エンリッチメントテーブル一覧",
+      "description": "エンリッチメントテーブルとKVテーブルの一覧を取得します。"
+    },
+    "list_enrichment_rows": {
+      "title": "エンリッチメントテーブルの行一覧",
+      "description": "1つのエンリッチメントテーブルから、上限件数まで行を取得します。"
+    },
+    "get_enrichment_value": {
+      "title": "エンリッチメント値の取得",
+      "description": "キーを指定してエンリッチメントテーブルの行を1件取得します。"
+    },
+    "list_log_patterns": {
+      "title": "ログパターン一覧",
+      "description": "保存済みのログパターンの一覧を取得します。"
+    },
+    "get_log_pattern": {
+      "title": "ログパターンの取得",
+      "description": "保存済みのログパターンを1件取得します。"
+    },
+    "list_regex_patterns": {
+      "title": "正規表現パターン一覧",
+      "description": "再利用可能な正規表現パターンの一覧を取得します。"
+    },
+    "get_regex_pattern": {
+      "title": "正規表現パターンの取得",
+      "description": "再利用可能な正規表現パターンを1件取得します。"
+    },
+    "list_field_masking_rules": {
+      "title": "フィールドマスキングルール一覧",
+      "description": "秘密鍵データを除外して、フィールドマスキングルールの一覧を取得します。"
+    },
+    "get_effective_field_masking": {
+      "title": "適用されるフィールドマスキングルールの取得",
+      "description": "指定したストリームに適用されるフィールドマスキングルールを特定します。"
+    },
+    "list_data_connectors": {
+      "title": "データコネクタ一覧",
+      "description": "認証情報に相当する設定値をマスクして、データコネクタの一覧を取得します。"
+    },
+    "get_data_connector": {
+      "title": "データコネクタの取得",
+      "description": "認証情報に相当する設定値をマスクして、データコネクタを1件取得します。"
+    },
+    "list_synthetic_monitors": {
+      "title": "外形監視モニター一覧",
+      "description": "外形監視モニターの一覧と、各モニターの現在のライフサイクル状態を取得します。"
+    },
+    "get_synthetic_monitor": {
+      "title": "外形監視モニターの取得",
+      "description": "外形監視モニターを1件取得し、現在有効なリビジョンも取得します。"
+    },
+    "list_synthetic_revisions": {
+      "title": "外形監視リビジョン一覧",
+      "description": "指定した外形監視モニターのリビジョンを上限件数まで取得します。"
+    },
+    "list_synthetic_results": {
+      "title": "外形監視結果一覧",
+      "description": "外形監視の実行結果を上限件数まで取得します。"
+    },
+    "list_synthetic_locations": {
+      "title": "外形監視ロケーション一覧",
+      "description": "外形監視プローブのロケーション一覧を取得します。"
+    },
+    "list_synthetic_agents": {
+      "title": "外形監視エージェント一覧",
+      "description": "プローブエージェントの一覧を取得します。ロケーションを1つ指定して絞り込むこともできます。"
+    },
+    "list_synthetic_secrets": {
+      "title": "外形監視シークレット一覧",
+      "description": "外形監視用シークレットのメタデータを一覧表示します。シークレットの値は返されません。"
+    },
+    "run_synthetic_monitor": {
+      "title": "外形監視モニターの実行",
+      "description": "外形監視モニターを1件、すぐに実行します。"
+    },
+    "pause_synthetic_monitor": {
+      "title": "外形監視モニターの一時停止",
+      "description": "外形監視モニターを1件、一時停止します。"
+    },
+    "resume_synthetic_monitor": {
+      "title": "外形監視モニターの再開",
+      "description": "外形監視モニターを1件、再開します。"
+    },
+    "archive_synthetic_monitor": {
+      "title": "外形監視モニターのアーカイブ",
+      "description": "外形監視モニターを1件、アーカイブします。"
+    },
+    "list_status_pages": {
+      "title": "ステータスページの一覧",
+      "description": "ステータスページをライフサイクルの状態別に一覧表示します。"
+    },
+    "get_status_page": {
+      "title": "ステータスページの取得",
+      "description": "コンポーネントと現在のイベントを含むステータスページのスナップショットを取得します。"
+    },
+    "list_status_page_incidents": {
+      "title": "ステータスページのインシデント一覧",
+      "description": "ステータスページのインシデントまたはメンテナンスイベントを一覧表示します。"
+    },
+    "get_status_page_incident": {
+      "title": "ステータスページのインシデントの取得",
+      "description": "ステータスページのイベント1件と、その更新情報を取得します。"
+    },
+    "list_status_page_subscribers": {
+      "title": "ステータスページの購読者一覧",
+      "description": "ステータスページの購読者を、件数の上限付きで1ページ分取得します。"
+    },
+    "list_status_page_deliveries": {
+      "title": "ステータスページの通知配信一覧",
+      "description": "ステータスページの通知配信を、件数の上限付きで1ページ分取得します。"
+    },
+    "list_status_page_automation_rules": {
+      "title": "ステータスページの自動化ルール一覧",
+      "description": "ステータスページの有効な自動化ルールを一覧表示します。"
+    },
+    "list_status_page_automation_candidates": {
+      "title": "ステータスページの自動化候補一覧",
+      "description": "ステータスページの自動化候補を、件数の上限付きで一覧表示します。"
+    },
+    "get_status_page_automation_settings": {
+      "title": "ステータスページの自動化設定の取得",
+      "description": "ステータスページ1件の自動化設定を取得します。"
+    },
+    "archive_status_page": {
+      "title": "ステータスページのアーカイブ",
+      "description": "ステータスページを1件、アーカイブします。"
+    },
+    "restore_status_page": {
+      "title": "ステータスページの復元",
+      "description": "アーカイブ済みのステータスページを1件、復元します。"
+    },
+    "pause_status_page_automation": {
+      "title": "ステータスページの自動化の一時停止",
+      "description": "ステータスページ1件の自動化を一時停止します。"
+    },
+    "resume_status_page_automation": {
+      "title": "ステータスページの自動化の再開",
+      "description": "ステータスページ1件の自動化を再開します。"
+    },
+    "draft_status_page_postmortem": {
+      "title": "ステータスページのポストモーテムの下書き作成",
+      "description": "ステータスページで公開済みのインシデント1件について、Markdown形式のポストモーテムの下書きを作成または置き換えます。下書きは公開されません。公開済みのポストモーテムはステータスページ上で更新されます。"
+    },
+    "get_user_profile": {
+      "title": "ユーザープロフィールの取得",
+      "description": "組織内のユーザーについて、安全に開示できるプロフィール項目を取得します。ユーザープリンシパルは自分自身の情報を取得する場合、対象の指定を省略できます。サービスアカウントプリンシパルは対象の指定が必須です。他のユーザーの情報にアクセスするには、メンバーの読み取り権限が必要です。"
+    },
+    "get_user_preferences": {
+      "title": "ユーザー設定の取得",
+      "description": "組織ユーザーのワークスペース設定を取得します。ユーザープリンシパルが自分の設定を取得する場合は対象を省略できます。サービスアカウントのプリンシパルは対象を指定する必要があります。他のユーザーの設定を取得するには、メンバーの読み取り権限が必要です。"
+    },
+    "list_organization_members": {
+      "title": "組織メンバー一覧",
+      "description": "認証済みの組織のメンバーを一覧表示します。パスワードや認証情報は含まれません。"
+    },
+    "list_teams": {
+      "title": "チーム一覧",
+      "description": "認証済みの組織のチームを一覧表示します。"
+    },
+    "list_roles": {
+      "title": "ロール一覧",
+      "description": "認証済みの組織のロールと権限キーを一覧表示します。"
+    },
+    "list_audit_events": {
+      "title": "監査イベント一覧",
+      "description": "範囲を限定して組織の監査イベントを検索します。必要に応じてフィルターを指定できます。"
+    },
+    "get_iam_capabilities": {
+      "title": "IAM権限の取得",
+      "description": "認証済みの主体に適用される有効な権限のスナップショットを返します。"
+    },
+    "list_service_accounts": {
+      "title": "サービスアカウント一覧",
+      "description": "認証済みの組織の非人間プリンシパルを一覧表示します。"
+    },
+    "get_service_account": {
+      "title": "サービスアカウントの取得",
+      "description": "組織の非人間プリンシパルを1件取得します。"
+    },
+    "list_api_tokens": {
+      "title": "APIトークン一覧",
+      "description": "認証済みの組織のAPIトークンのメタデータを、トークンのシークレットを公開せずに一覧表示します。必要に応じてサービスアカウントで絞り込めます。"
+    },
+    "create_api_token": {
+      "title": "APIトークンの作成",
+      "description": "リクエスト元のユーザー用に個人用APIトークンを作成し、実行後に平文のトークンを1回だけ返します。"
+    },
+    "revoke_api_token": {
+      "title": "APIトークンの失効",
+      "description": "APIトークンを1件失効させます。"
+    },
+    "create_service_account": {
+      "title": "サービスアカウントの作成",
+      "description": "組織の非人間プリンシパルを1件作成し、それに紐づく初期APIトークンも同じアトミックな操作で作成します。平文のトークンは実行後に1回だけ返され、実行履歴には記録されません。"
+    },
+    "update_service_account": {
+      "title": "サービスアカウントの更新",
+      "description": "サービスアカウントのメタデータ、または適用されるIAMロールを更新します。"
+    },
+    "enable_service_account": {
+      "title": "サービスアカウントの有効化",
+      "description": "サービスアカウントを1件有効にします。すでに失効したAPIトークンは再有効化されません。"
+    },
+    "disable_service_account": {
+      "title": "サービスアカウントの無効化",
+      "description": "サービスアカウントを1件無効にし、紐づく有効なAPIトークンをすべて同じアトミックな操作で失効させます。"
+    },
+    "delete_service_account": {
+      "title": "サービスアカウントの削除",
+      "description": "サービスアカウントを1件削除し、紐づく有効なAPIトークンをすべて同じアトミックな操作で失効させます。"
+    },
+    "list_agent_investigations": {
+      "title": "エージェントの調査一覧",
+      "description": "Mole Agentの調査を一覧表示します。"
+    },
+    "get_agent_investigation": {
+      "title": "エージェントの調査の取得",
+      "description": "Mole Agentの調査を1件、調査手順、証拠、仮説とともに取得します。"
+    },
+    "list_agent_approvals": {
+      "title": "エージェントの承認リクエスト一覧",
+      "description": "Mole Agentの承認リクエストを一覧表示します。"
+    },
+    "get_agent_approval": {
+      "title": "エージェントの承認リクエストの取得",
+      "description": "Mole Agentの承認リクエストを1件取得します。"
+    },
+    "execute_agent_approval": {
+      "title": "エージェントの承認済み操作の実行",
+      "description": "承認済みの Mole Agent 操作を冪等に実行します。"
+    },
+    "list_agent_executions": {
+      "title": "エージェントの実行一覧",
+      "description": "Mole Agent の承認済み操作の実行一覧を取得します。"
+    },
+    "get_agent_execution": {
+      "title": "エージェントの実行情報の取得",
+      "description": "Mole Agent の承認済み操作の実行情報を1件取得します。"
+    },
+    "list_agent_automations": {
+      "title": "エージェントの自動化一覧",
+      "description": "Mole Agent に設定されている自動化の一覧を取得します。"
+    },
+    "list_skills": {
+      "title": "スキル一覧",
+      "description": "このチャットで使用できるスキルの名前、説明、バージョン、引数の書式を一覧表示します。"
+    },
+    "load_skill": {
+      "title": "スキルの読み込み",
+      "description": "名前を指定して、スキルの手順と参照ファイルの一覧を読み込みます。"
+    },
+    "read_skill_file": {
+      "title": "スキルファイルの読み込み",
+      "description": "スキルのテキスト参照ファイルを1件読み込みます。"
+    },
+    "todo_write": {
+      "title": "タスクリスト",
+      "description": "この調査の各ステップとその状態を記録します。チャットでは「ステップ X／N」と表示されます。"
+    },
+    "ask_user": {
+      "title": "依頼者への確認",
+      "description": "回答によって次のステップが変わり、他のツールでは回答を得られない場合に、依頼者に確認し、その回答に基づいて続行します。"
+    },
+    "list_knowledge": {
+      "title": "ナレッジ一覧",
+      "description": "組織またはチームのナレッジファイルのパス、サイズ、更新日時を一覧表示します。"
+    },
+    "read_knowledge": {
+      "title": "ナレッジの読み込み",
+      "description": "パスを指定してナレッジファイルを1件読み込みます。MOLE.md に @path 形式で記述されたパスは、ナレッジファイルを指します。"
+    },
+    "search_knowledge": {
+      "title": "ナレッジの検索",
+      "description": "サービス名やエラーなどの語句でナレッジファイルを検索し、一致する行を返します。"
+    },
+    "edit_knowledge": {
+      "title": "ナレッジの変更",
+      "description": "このチャットのスコープ内のナレッジファイルを1件書き込むか削除します。変更のたびに、依頼者がチャットで確認します。"
+    },
+    "remember": {
+      "title": "メモリに保存",
+      "description": "設定の好み、手順、事実、教訓を今後のチャットのために保存します。個人チャットでは本人用、チームチャットではチーム用に保存します。"
+    },
+    "forget": {
+      "title": "メモリから削除",
+      "description": "名前を指定して、このチャットのスコープ内のメモリを1件削除します。"
+    },
+    "read_memory": {
+      "title": "メモリの読み込み",
+      "description": "名前を指定してメモリの本文を読み込みます。"
+    },
+    "update_investigation": {
+      "title": "調査の記録",
+      "description": "このチャットが属する調査の手順、証拠、仮説、結論を記録します。"
+    },
+    "get_agent_insights": {
+      "title": "Mole Agent のインサイトの取得",
+      "description": "このチャットのスコープ内での直近数日間の Mole Agent の利用状況をまとめます。質問、回答や自動化の結果、役に立ったかどうかの評価とその理由、使用されたツールとスキルが含まれます。"
+    },
+    "get_incident_tickets": {
+      "title": "インシデントチケットの取得",
+      "description": "1件のインシデントについて Jira、ServiceNow、Meegle で作成されたチケットを、ステータスとともに一覧表示します。"
+    },
+    "create_ticket": {
+      "title": "チケットの作成",
+      "description": "Jira、ServiceNow、Meegle のいずれかのコネクターを使って、1件のインシデントのチケットを作成します。作成できるチケットはコネクターごとに1件です。"
+    },
+    "list_remediation_actions": {
+      "title": "修復アクション一覧",
+      "description": "対象のインシデントで実行できる修復アクションと、各アクションに必要なパラメーターを一覧表示します。"
+    },
+    "run_remediation_action": {
+      "title": "修復アクションの実行",
+      "description": "対象のインシデントに対する修復アクションの実行を提案します。実行には必ず人による承認が必要です。"
+    },
+    "declare_major_incident": {
+      "title": "重大インシデントの宣言",
+      "description": "対象のインシデントを重大インシデントとして宣言し、役割、ウォールーム、チェックリスト、関係者への状況共有を設定します。"
+    },
+    "assign_incident_role": {
+      "title": "インシデント対応の役割の割り当て",
+      "description": "重大インシデントの指揮担当、広報担当、記録担当を割り当てるか、割り当てを解除します。"
+    },
+    "post_incident_update": {
+      "title": "インシデントの状況報告の投稿",
+      "description": "重大インシデントの影響、現在の状況、次の対応をウォールームに投稿し、関係者に共有します。"
+    },
+    "add_incident_task": {
+      "title": "インシデントタスクの追加",
+      "description": "重大インシデントのタスクリストにタスクを追加します。"
+    },
+    "draft_incident_postmortem": {
+      "title": "ポストモーテムの下書き",
+      "description": "インシデントの社内向けポストモーテムをMarkdown形式の下書きとして保存します。公開済みのポストモーテムは変更しません。"
+    },
+    "set_incident_priority": {
+      "title": "インシデントの優先度の設定",
+      "description": "対応中のインシデントの優先度をP1〜P5または未設定にします。通知には影響しません。"
+    },
+    "set_incident_urgency": {
+      "title": "インシデントの緊急度の設定",
+      "description": "対応中のインシデントの緊急度を設定します。未確認のインシデントの緊急度を「高」に引き上げると、最初のエスカレーションレベルからオンコール通知が再送されます。"
+    },
+    "create_incident": {
+      "title": "インシデントの作成",
+      "description": "顧客からの報告など、ルールで検知されなかった問題について、インシデントを手動で作成します。通常どおりオンコール通知とエスカレーションが行われます。チーム、ポリシー、担当者のいずれも指定しない場合は、ルーティングに従って通知先が決まります。"
+    },
+    "list_discovery_findings": {
+      "title": "自動検出結果の一覧",
+      "description": "ルールを使わずに自動検出された結果を一覧表示します。対象は、指標に変化があったAPMサービス、新バージョンでの指標の悪化、フロントエンドエラーの新規発生や再発、ログエラーの急増や新規発生、ホストやコンテナの容量不足、CPU使用率の急上昇、再起動です。デフォルトでは未解決の結果のみを表示します。"
+    },
+    "get_discovery_finding": {
+      "title": "自動検出結果の詳細",
+      "description": "自動検出結果を1件取得し、変化した項目、その値とベースライン、発生時刻、詳細を表示します。"
+    },
+    "get_rum_feature_flags": {
+      "title": "RUMフィーチャーフラグの取得",
+      "description": "セッションで評価されたフィーチャーフラグを一覧表示します。フラグを1つ指定すると、値ごとにセッション、エラー、フラストレーション、Web Vitalsを比較できます。"
+    },
+    "get_rum_heatmap": {
+      "title": "RUMヒートマップの取得",
+      "description": "ページ上でユーザーがクリックした要素と、どこまでスクロールしたかを表示します。"
+    },
+    "get_rum_session_notes": {
+      "title": "セッションリプレイのノートの取得",
+      "description": "記録されたセッションにユーザーが残したノートと、モデルが生成した要約やチャプターを表示します。"
+    }
+  },
+  "dashboard_authoring": {
+    "title": "AIダッシュボードの下書き",
+    "subtitle": "作成を確定する前に、保存済みの下書き、クエリの事前チェック結果、承認状況を確認します。",
+    "loading_title": "ダッシュボードの下書きを読み込み中",
+    "loading_description": "検証済みで保存されているプレビューモデルをサーバーから読み込んでいます。",
+    "load_failed": "ダッシュボードの下書きを読み込めませんでした",
+    "invalid_preview": "下書きモデルを安全にプレビューできません",
+    "invalid_preview_description": "サーバーに保存されているモデルが現在のダッシュボード仕様に適合していません。チャットに戻って再生成してください。",
+    "preview_title": "読み取り専用プレビュー",
+    "preview_description": "本番環境のダッシュボードレンダラーで表示しています。プレビューによってダッシュボードが作成または変更されることはありません。",
+    "review_title": "作成前の確認",
+    "review_description": "下書きはこのモデルハッシュに紐付けられています。有効期限が切れたり、モデルが変更されたりすると、この下書きからダッシュボードを作成できません。",
+    "expires": "残り時間",
+    "expired": "期限切れ",
+    "created_at": "準備日時",
+    "model_hash": "モデルハッシュ",
+    "preflight_range": "事前チェックの時間範囲",
+    "operation_title": "作成ポリシー",
+    "review_progress": "必要な承認 {{required}} 件のうち {{approved}} 件が完了しています。必要な承認がそろうと作成できます。",
+    "confirmation_required": "別のレビュー担当者は不要ですが、リクエストしたユーザーは作成を明示的に確認する必要があります。",
+    "preflight_title": "クエリの事前チェック",
+    "preflight_rows": "{{count}} 行",
+    "no_preflight_panels": "この下書きには、クエリの事前チェックが必要なパネルはありません。",
+    "warnings_title": "生成時の警告",
+    "issues_title": "修正が必要な問題",
+    "retry_in_chat": "チャットに戻って再生成",
+    "open_dashboard": "ダッシュボードを開く",
+    "submitting": "送信中…",
+    "submit_proposal": "作成提案を送信",
+    "creating": "作成中…",
+    "confirm_create": "確認して作成",
+    "view_approval": "承認の進捗を表示",
+    "creation_unavailable": "作成不可",
+    "proposal_reason": "ユーザーは、サーバーに保存されたダッシュボードの下書きのプレビューを確認しました。",
+    "proposal_impact": "既存のダッシュボードは変更せず、ネイティブダッシュボードを1つ作成します。",
+    "proposal_created": "作成提案を送信しました。ポリシーのステータスを確認してください。",
+    "creation_failed": "ダッシュボードの作成に失敗しました。実行記録を確認してください。",
+    "created": "ダッシュボードを作成しました。",
+    "draft_status": {
+      "ready": "レビュー待ち",
+      "consumed": "作成済み",
+      "expired": "期限切れ"
+    },
+    "preflight_status": {
+      "passed": "合格",
+      "empty": "結果なし",
+      "skipped": "スキップ済み"
+    }
+  },
+  "answer": {
+    "conclusion": "結論",
+    "anomaly_points": "異常箇所",
+    "evidence": "根拠",
+    "likely_causes": "考えられる原因",
+    "limitations": "制約",
+    "next_steps": "次のステップ",
+    "related_links": "関連アクション",
+    "confidence": "確信度",
+    "failed_title": "調査を完了できませんでした",
+    "failed_description": "Mole Agent は利用できる結果を取得できませんでした。コンテキストを調整して再試行するか、エラーの詳細を確認してください。",
+    "technical_error": "エラーの詳細を表示",
+    "confidence_levels": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    }
+  },
+  "feedback": {
+    "up": "役に立った",
+    "withdraw_up": "「役に立った」を取り消す",
+    "down": "役に立たなかった",
+    "what_was_wrong": "何が問題でしたか？",
+    "reasons_label": "理由",
+    "reasons": {
+      "wrong_conclusion": "結論または原因が誤っていた",
+      "missed_cause": "問題を特定できなかった",
+      "unusable_advice": "提案を実行できなかった",
+      "off_topic": "質問と無関係だった",
+      "other": "その他"
+    },
+    "comment_label": "コメント",
+    "comment_placeholder": "補足があれば入力（任意）",
+    "withdraw": "取り消す",
+    "cancel": "キャンセル",
+    "submit": "送信",
+    "thanks": "フィードバックありがとうございます"
+  },
+  "chat_budget": {
+    "warning": "Mole Agent は本日の上限の {{percent}}% を使用しました（{{used}} / {{limit}} トークン）。{{time}} にリセットされます。",
+    "exhausted": "Mole Agent は本日のトークン予算を超過しました（{{used}} / {{limit}} トークン）。この組織では引き続き回答が提供されます。予算は {{time}} にリセットされます。",
+    "blocked": "Mole Agent の本日のトークン予算を使い切ったため（{{used}} / {{limit}} トークン）、この質問は送信されませんでした。予算は {{time}} にリセットされます。管理者は予算を引き上げることができます。",
+    "open_usage": "使用量を表示"
+  },
+  "commands": {
+    "menu_label": "コマンド",
+    "groups": {
+      "builtin": "組み込み",
+      "skill": "スキル",
+      "mcp": "MCP"
+    },
+    "applied": "{{value}} を使用するように設定しました",
+    "exported": "{{file}} をダウンロードしました",
+    "export_you": "あなた",
+    "notice": {
+      "unknown_command": "/{{command}} コマンドはありません。/ を入力すると、コマンドの一覧が表示されます。/ で始まるテキストを送信するには、先頭の / を \\/ に置き換えてください。",
+      "client_command": "/{{command}} はメッセージ入力欄でのみ使用できます。",
+      "argument_missing": "/{{command}} には引数が必要です：{{detail}}",
+      "argument_invalid": "/{{command}} の引数には次のいずれかを指定してください：{{detail}}",
+      "name_not_found": "/{{command}}：「{{detail}}」という名前の項目はありません。メニューから選択してください。",
+      "unavailable": "/{{command}} は使用できません：{{detail}}",
+      "target_not_found": "/{{command}}：インシデントが見つからないか、閲覧権限がありません。",
+      "nothing_to_export": "このチャットにはまだエクスポートできる内容がありません。",
+      "ambiguous": "/{{command}} という名前のスキルが複数あります。チームを指定してください: {{detail}}",
+      "needs_runner": "/{{command}} は Mole Runner でスクリプトを実行するため、まだ使用できません。",
+      "needs_credential": "/{{command}} はあなたの認証情報を使用します。先に Mole Agent の設定の「ツール」で {{detail}} の認証情報を追加してください。",
+      "failed": "/{{command}}: MCP サーバーからプロンプトを取得できませんでした。しばらくしてから再試行するか、サーバーを確認してください。",
+      "nothing_to_compact": "このチャットにはまだ圧縮できる内容がありません。"
+    }
+  },
+  "team": {
+    "personal": "個人",
+    "label": "チーム"
+  },
+  "chat_filter": {
+    "label": "チャットを所有者で絞り込む",
+    "all": "すべて",
+    "personal": "個人",
+    "team": "チーム"
+  },
+  "scope": {
+    "field": "所属先",
+    "personal": "個人",
+    "org": "組織",
+    "team": "チーム",
+    "member": "メンバー所有",
+    "instance": "インスタンス",
+    "hint_org": "組織の全員が使用できますが、変更できるのは Mole Agent の管理者だけです。",
+    "hint_team": "チームのメンバーと管理者が変更できます。チームのチャットで使用され、個人チャットから呼び出すとチームが参加します。",
+    "hint_personal": "変更と使用ができるのはあなただけです。管理者は閲覧、無効化、削除ができます。"
+  },
+  "queue_send": "この回答の後に送信",
+  "run": {
+    "queued": "キューに追加済み",
+    "question": {
+      "title": "質問",
+      "other": "別の回答",
+      "placeholder": "回答を入力",
+      "send": "回答する"
+    },
+    "confirmation": {
+      "title": "「{{tool}}」を実行しますか？",
+      "delete_title": "削除しますか？「{{tool}}」が実行します。",
+      "approve": "実行",
+      "decline": "実行しない",
+      "waiting": "{{name}} の確認を待っています。ツールはリクエストしたユーザーとして実行されます。"
+    },
+    "authorization": {
+      "title": "続行には認証が必要",
+      "needed": "{{tool}} を実行するには、{{server}} 用のあなたの認証情報が必要です。保存すると、回答の生成が再開されます。",
+      "rejected": "{{server}} が保存済みの認証情報を拒否しました。新しい認証情報を入力すると、{{tool}} が再実行されます。",
+      "value": "{{server}} 用の認証情報",
+      "placeholder": "認証情報を貼り付け",
+      "hint": "認証情報は暗号化され、あなた自身の呼び出しにのみ使用されます。{{header}} ヘッダーで送信されます。",
+      "hint_bearer": "認証情報は暗号化され、あなた自身の呼び出しにのみ使用されます。{{header}} ヘッダーで Bearer <credential> として送信されます。",
+      "continue": "保存して続行",
+      "skip": "スキップ",
+      "saved": "認証情報を保存しました。回答を続けます",
+      "waiting": "認証情報の所有者である{{name}}の承認を待っています"
+    },
+    "todo": {
+      "progress": "ステップ {{current}} / {{total}}"
+    },
+    "notice": {
+      "compacting": "これまでのチャットを要約しています…",
+      "compacted": "{{count}} 件のメッセージを要約しました。以降の回答では、要約と新しいメッセージを参照します",
+      "compacted_auto": "チャットが長くなったため、前半を要約しました",
+      "team_mounted": "チーム「{{team}}」のナレッジを読み込みました。このチャットでチームのナレッジ、スキル、MCP サーバーを利用できます",
+      "no_response": "1 時間以内に返答がなかったため、Mole Agent は独自の判断で処理を続けました",
+      "memories": "このチャットから {{count}} 件の情報を記憶しました",
+      "bypass_unavailable": "このチャットのエージェントプロファイルで権限チェックのバイパスが許可されなくなったため、この回答では変更のたびに確認を求めます"
+    },
+    "memory": {
+      "remembered": "「{{name}}」を記憶しました",
+      "forgotten": "「{{name}}」をメモリから削除しました",
+      "undo": "元に戻す",
+      "undone": "元に戻しました"
+    },
+    "ended": {
+      "interrupted": "処理中のサーバーが停止したため、回答が中断されました。回答を再生成できます。",
+      "cancelled": "この回答は停止されました。"
+    }
+  },
+  "references": {
+    "menu_title": "添付",
+    "searching": "検索中…",
+    "remove": "「{{name}}」の添付を解除",
+    "kinds": {
+      "incident": "インシデント",
+      "alert_rule": "アラートルール",
+      "service": "サービス",
+      "rum_application": "RUM アプリケーション",
+      "dashboard": "ダッシュボード",
+      "stream": "ストリーム"
+    },
+    "what": "添付するインシデント、アラートルール、サービス、RUM アプリケーション、ダッシュボード、またはストリームの名前を入力してください",
+    "none": "添付できるインシデント、アラートルール、サービス、RUM アプリケーション、ダッシュボード、ストリームはまだありません",
+    "no_match": "「{{query}}」という名前の項目は見つかりませんでした",
+    "failed": "検索に失敗しました：{{reason}}"
+  },
+  "investigate": {
+    "write_rca": "インシデントの根本原因分析（RCA）として保存",
+    "rca_written": "インシデントの根本原因分析（RCA）として保存しました",
+    "start": "Mole Agent で調査",
+    "prefill": "まず調査計画を示し、その後、根拠を項目ごとに提示してください。本番環境には変更を加えないでください。"
+  },
+  "knowledge": {
+    "views": {
+      "knowledge": "ナレッジ",
+      "memory": "メモリ"
+    },
+    "bases_label": "ナレッジベース",
+    "files_label": "ナレッジファイル",
+    "org": "組織",
+    "file_count": "{{count}} 件のファイル",
+    "updated": "変更日時: {{time}}",
+    "quota": "{{files}}/{{maxFiles}} ファイル · {{size}}/{{maxSize}}",
+    "entry_missing": "MOLE.md なし",
+    "entry_badge": "エントリー",
+    "stale_short": "エントリーが最新でない可能性があります",
+    "stale": "MOLE.md の作成後に {{count}} 件のファイルが変更されました。エントリーファイルが最新でない可能性があります。",
+    "update_entry": "AI で MOLE.md を更新",
+    "update_entry_prompt": "MOLE.md の作成後にほかのナレッジファイルが変更されました。現在のファイルに合わせて MOLE.md を更新してください。ファイルごとに 1 行で、@path で参照し、内容の概要を記載してください。",
+    "read_only": "読み取り専用です。組織のナレッジは agent.manage 権限を持つユーザーが、チームのナレッジはそのチームのメンバーが変更できます。",
+    "new_file": "新規ファイル",
+    "new_file_path": "ファイルパス",
+    "new_file_hint": "例: runbooks/payments.md（フォルダーを含むパスも指定できます）",
+    "new_entry": "新規 MOLE.md",
+    "create": "作成",
+    "cancel": "キャンセル",
+    "upload_files": "ファイルをアップロード",
+    "upload_folder": "フォルダーをアップロード",
+    "uploaded": "{{count}} 件のファイルをアップロードしました",
+    "skipped": "{{count}} 件のファイルをスキップしました: {{paths}}",
+    "skip_reasons": {
+      "hidden_or_invalid_path": "非表示または無効なパス",
+      "too_large": "1 MiB 超過",
+      "not_text": "テキスト形式ではありません"
+    },
+    "ask_ai": "AI",
+    "ai_prompt": "ナレッジファイル {{path}} を変更してください: ",
+    "ai_prompt_base": "このナレッジの整理を手伝ってください: ",
+    "init": "/init で作成",
+    "empty_title": "ナレッジがありません",
+    "empty_description": "エントリーファイルとして MOLE.md を作成し、@path でほかのファイルを参照してください。または、/init を使うと、Mole Agent が現在の設定を確認していくつか質問し、承認を受けてからファイルを 1 つずつ作成します。",
+    "select_file": "閲覧するファイルを選択してください。",
+    "mode_label": "表示",
+    "preview": "プレビュー",
+    "edit": "編集",
+    "source": "ソース",
+    "edit_label": "{{path}} を編集",
+    "source_label": "{{path}} のソースを編集",
+    "source_only": "このファイルにはライブエディターで保持できない Markdown（HTML コメントなど）が含まれているため、ここではソースを直接編集します。",
+    "unsaved": "未保存の変更",
+    "discard": "破棄",
+    "save": "保存",
+    "saved": "保存しました",
+    "rename": "名前を変更",
+    "rename_to": "新しいパス",
+    "renamed": "名前を変更しました",
+    "delete": "削除",
+    "deleting": "削除中…",
+    "delete_title": "{{path}}を削除しますか？",
+    "delete_confirm": "削除した項目はチャットで参照されなくなります。フォルダーを削除すると、中身もすべて削除されます。",
+    "deleted": "削除しました",
+    "new": "新規",
+    "new_folder": "新規フォルダー",
+    "new_folder_path": "フォルダーのパス",
+    "new_folder_hint": "フォルダー名（例：runbooks）",
+    "upload": "アップロード",
+    "next": "次へ",
+    "folder_first_file": "最初のファイルと一緒にフォルダーが作成されます。/ の後にファイル名を入力してください。",
+    "ai_hint": "Mole Agentにこのファイルの変更を依頼"
+  },
+  "memory": {
+    "scope_label": "記憶の範囲",
+    "personal": "自分",
+    "description": "Mole Agentがチャットから記憶した設定や好み、手順、事実、教訓です。個人チャットでは自分用に、チームチャットではチーム用に記憶が保存されます。記憶はチャットから追加され、ここで変更や削除ができます。",
+    "distill": "チャット後に記憶を抽出",
+    "distill_hint": "チャットのやり取りが途絶えてから30分後に、モデルが組織のモデル利用予算を使って、記憶すべき内容を抽出します。デフォルトではオフで、agent.manage権限を持つユーザーが設定できます。",
+    "empty": "まだ記憶はありません。チャットで「…を覚えて」と伝えると、Mole Agentが記憶します。",
+    "kinds": {
+      "preference": "設定や好み",
+      "procedure": "手順",
+      "fact": "事実",
+      "lesson": "教訓"
+    },
+    "kind_hints": {
+      "preference": "記憶に記載された範囲内で、スキルのデフォルトの動作より優先されます",
+      "procedure": "使用前に現在の状況と照合されます",
+      "fact": "使用前に現在の状況と照合されます",
+      "lesson": "使用前に現在の状況と照合されます"
+    },
+    "updated": "変更日時：{{time}}",
+    "from_chat": "元のチャットを開く",
+    "edit": "変更",
+    "edit_title": "記憶を変更",
+    "kind": "種類",
+    "name": "名前",
+    "applies_when": "適用条件",
+    "body": "内容",
+    "save": "保存",
+    "saved": "保存しました",
+    "delete": "削除",
+    "deleting": "削除中…",
+    "delete_title": "メモリ「{{name}}」を削除しますか？",
+    "delete_confirm": "今後のチャットでは、このメモリは使用されません。",
+    "deleted": "削除しました"
+  }
+}

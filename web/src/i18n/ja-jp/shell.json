@@ -1,0 +1,468 @@
+{
+  "chrome": {
+    "org_switcher": "組織の切り替え",
+    "user_menu": "ユーザーメニュー",
+    "command_palette": "コマンドパレットを開く",
+    "toggle_theme": "テーマの切り替え",
+    "workspace_settings": "ワークスペース設定",
+    "cycle_palette": "次のカラーパレットに切り替え（現在：{{current}}）",
+    "select_palette": "カラーパレットを選択（現在：{{current}}）",
+    "cycle_language": "次の言語に切り替え（現在：{{current}}）",
+    "time_picker": "時間範囲の選択を開く",
+    "anchor_label": "固定した基準時刻：{{time}}",
+    "close_navigation": "ナビゲーションを閉じる"
+  },
+  "topbar": {
+    "search_placeholder": "ページ・ストリーム・サービス・ダッシュボードを検索…",
+    "open_noc": "NOC ウォールボードモードを開く",
+    "noc": "NOC ウォールボード",
+    "notifications": "通知",
+    "help": "ヘルプ",
+    "docs": "ドキュメント",
+    "keyboard_shortcuts": "キーボードショートカット",
+    "mole_agent": "Mole Agent を開く（⌘J）",
+    "manage_organizations": "組織の管理…",
+    "organization_menu": "組織：{{name}}",
+    "organization_settings": "組織設定",
+    "members": "メンバー",
+    "switch_to": "切り替え先",
+    "membership_required": "メンバー登録が必要です",
+    "about": "製品情報"
+  },
+  "notifications": {
+    "title": "通知",
+    "empty": "通知はありません",
+    "pending_user": "新規ユーザーが承認待ちです",
+    "view_all": "すべての承認リクエストを表示",
+    "tabs_label": "通知の種類",
+    "tabs": {
+      "all": "すべて",
+      "alerts": "アラート",
+      "approvals": "承認リクエスト"
+    },
+    "mark_all_read": "すべて既読にする",
+    "unread_label_one": "通知、未読 {{count}} 件",
+    "unread_label_other": "通知、未読 {{count}} 件",
+    "acknowledge": "確認済みにする",
+    "acknowledged": "インシデントを確認済みにしました",
+    "incident_meta": "{{service}} · 待機時間：{{age}}",
+    "no_service": "サービスなし",
+    "pipeline_failed": "パイプラインの実行に失敗しました: {{name}}",
+    "agent_approval": "Mole Agent が {{action}} の実行許可を求めています",
+    "intake_budget_warning": "データ取り込み予算の上限に近づいています: {{name}}",
+    "intake_budget_exceeded": "データ取り込み予算の上限を超えました: {{name}}",
+    "intake_budget_meta": "予算の {{percent}}% を使用しました。データの取り込みは続行されます。"
+  },
+  "user_menu": {
+    "language": "言語"
+  },
+  "account_settings": {
+    "title": "アカウント設定",
+    "subtitle": "プロフィールと現在のワークスペース情報を管理します。",
+    "profile_title": "プロフィール",
+    "context_title": "現在のワークスペース情報",
+    "avatar_hint": "http(s) の画像 URL を使用してください。空欄にするとイニシャルが表示されます。",
+    "avatar_upload": "アバターをアップロード",
+    "avatar_uploading": "アップロード中…",
+    "avatar_upload_hint": "PNG、JPEG、WEBP、GIF に対応しています（最大 2 MB）。",
+    "email_immutable_hint": "メールアドレスはサインイン時の識別子であり、変更できません。",
+    "fields": {
+      "username": "ユーザー名",
+      "email": "メールアドレス",
+      "avatar_url": "アバター URL",
+      "user_id": "ユーザー ID",
+      "org_name": "組織",
+      "org_slug": "組織スラッグ",
+      "role": "ロール"
+    }
+  },
+  "theme": {
+    "dark": "ダーク",
+    "light": "ライト"
+  },
+  "palette": {
+    "default": "デフォルト",
+    "high_contrast": "ハイコントラスト",
+    "warm": "暖色"
+  },
+  "palette_description": {
+    "default": "バランスの取れたダーク配色の運用画面",
+    "high-contrast": "テキストや枠線のコントラストを高めた配色",
+    "warm": "ブルーライトを抑えた暖色系のワークスペース"
+  },
+  "density": {
+    "compact": "コンパクト",
+    "normal": "標準",
+    "comfortable": "ゆったり"
+  },
+  "language": {
+    "en_us": "en-us",
+    "zh_cn": "zh-cn"
+  },
+  "pages": {
+    "investigate": {
+      "empty_title": "<kbd>⌘K</kbd> を押して調査を開始します",
+      "empty_more": "時間範囲の設定には <kbd>⌘⌥E</kbd>、キーボードショートカットの一覧には <kbdSm>⌘/</kbdSm> をお試しください"
+    },
+    "service_graph": {
+      "subtitle": "過去 1 時間"
+    },
+    "placeholder": {
+      "navigate_hint": "<kbd>⌘K</kbd> を押して画面を移動します。"
+    },
+    "noc": {
+      "title": "NOC ウォールボードモード",
+      "status_line": "本番 · リアルタイム · 過去1時間",
+      "utc_label": "UTC+8",
+      "return_console": "コンソールに戻る",
+      "esc_to_exit": "Esc キーで戻る",
+      "edit": {
+        "configure": "レイアウト設定",
+        "done": "完了",
+        "reset": "リセット",
+        "presets": "プリセット",
+        "preset_platform": "プラットフォーム運用",
+        "preset_sre": "SRE",
+        "preset_executive": "経営層向け",
+        "wide": "表示幅の切り替え（広い／狭い）",
+        "show_hide": "表示／非表示",
+        "move_left": "前に移動",
+        "move_right": "後ろに移動"
+      },
+      "panel_names": {
+        "traffic": "トラフィック",
+        "incidents": "インシデント",
+        "topology": "トポロジー",
+        "health": "健全性"
+      },
+      "kpis": {
+        "req_per_sec": "REQ / SEC（合計）",
+        "p95": "P95（エッジ間の最大値）",
+        "err_rate": "エラー率",
+        "edges": "エッジ",
+        "connecting": "接続中",
+        "unavailable": "データの問題",
+        "no_traffic": "トラフィックなし"
+      },
+      "panels": {
+        "traffic_title": "トラフィック · 上位サービス · 過去60分",
+        "traffic_pending": "各ティアの `/query` 連携が完了すると、トラフィックチャートが表示されます。",
+        "traffic_empty": "トラフィックがありません。クエリは成功しましたが、過去1時間にサービス呼び出しはありませんでした。",
+        "traffic_rate": "{{value}} req/s",
+        "data_connecting": "リアルタイムデータに接続中…",
+        "data_unavailable": "テレメトリを取得できません。クエリサービスとデータソースを確認してください。",
+        "incidents_title": "リアルタイムインシデント · 対応中 {{count}} 件",
+        "incidents_connecting": "アラートデータに接続中…",
+        "incidents_empty": "現在、対応中のインシデントはありません。",
+        "incidents_unavailable": "アラートデータを取得できません。アラートサービスを確認してください。",
+        "topology_title": "サービストポロジー · 過去1時間",
+        "topology_empty": "クエリは成功しましたが、過去1時間のサービス呼び出しは見つかりませんでした。",
+        "health_title": "サービスの健全性",
+        "health_empty": "サービスのトラフィックはありません。データクエリは成功しました。"
+      },
+      "table": {
+        "service": "サービス",
+        "qps": "QPS",
+        "p95": "P95",
+        "err_pct": "エラー率（%）"
+      },
+      "status_bar": {
+        "incidents_active": "対応中のインシデントあり",
+        "incidents_connecting": "アラートデータに接続中",
+        "incidents_unavailable": "アラートデータに問題あり",
+        "no_active_incidents": "対応中のインシデントなし",
+        "nominal": "正常",
+        "data_connecting": "ライブデータに接続中",
+        "data_unavailable": "テレメトリを取得できません",
+        "no_traffic": "クエリ成功 · トラフィックなし",
+        "data_ok": "ライブデータ正常",
+        "services": "{{count}} サービス",
+        "req_per_sec_format": "{{value}} REQ/S",
+        "req_per_sec_empty": "トラフィックなし",
+        "p95_format": "P95 {{value}}",
+        "p95_empty": "トラフィックなし",
+        "crit": "{{count}} 件の重大アラート",
+        "warn": "{{count}} 件の警告",
+        "live": "ライブ"
+      },
+      "dashboard_wallboard": {
+        "title": "ダッシュボードウォールボード",
+        "subtitle_suffix": "· ライブ · 設定済みダッシュボード",
+        "no_panels": "このダッシュボードにはまだパネルが設定されていません。",
+        "panels_count": "{{count}} パネル",
+        "version": "バージョン {{version}}",
+        "panel_index": "パネル {{index}}",
+        "render_pending": "レンダリングアダプターの準備待ち",
+        "live": "ライブ"
+      }
+    }
+  },
+  "signin": {
+    "subtitle": "ワークスペースにサインイン",
+    "tagline_a": "すべてのシグナルを、",
+    "tagline_b": "ひとつのクエリで、",
+    "tagline_c": "ひとつのタイムラインに。",
+    "promise": "すべてを観測し、重要なことを把握できます。",
+    "forgot_password": "パスワードをお忘れですか？",
+    "forgot_title": "パスワードのリセット",
+    "forgot_subtitle": "アカウントのメールアドレスを入力してください。パスワードのリセット用リンクをお送りします。",
+    "forgot_privacy_hint": "アカウントを保護するため、メールアドレスが登録されているかどうかにかかわらず、同じ結果を表示します。",
+    "send_reset": "リセット用リンクを送信",
+    "sending_reset": "送信中…",
+    "forgot_sent_title": "メールをご確認ください",
+    "forgot_sent_subtitle": "{{email}} が有効なアカウントに登録されている場合は、まもなくパスワードの再設定リンクが届きます。",
+    "forgot_sent_detail": "リンクの有効期限は30分で、1回のみ使用できます。メールが届かない場合は、迷惑メールフォルダーをご確認ください。",
+    "forgot_failed": "パスワードの再設定リクエストを送信できませんでした",
+    "reset_title": "新しいパスワードを設定",
+    "reset_subtitle": "MoleSignal アカウントにサインインするための新しいパスワードを設定します。",
+    "new_password": "新しいパスワード",
+    "confirm_password": "新しいパスワード（確認）",
+    "password_hint": "8文字以上で入力してください。",
+    "password_mismatch": "パスワードが一致しません。",
+    "reset_password": "パスワードを更新",
+    "resetting_password": "更新中…",
+    "reset_success": "パスワードを更新しました。新しいパスワードでサインインしてください。",
+    "reset_failed": "パスワードを再設定できませんでした",
+    "reset_invalid": "この再設定リンクは無効か、有効期限切れか、使用済みです。新しいリンクをリクエストしてください。",
+    "back_to_signin": "サインインに戻る",
+    "signing_in": "サインイン中…",
+    "email_placeholder": "name@company.com",
+    "password_placeholder": "パスワードを入力",
+    "or": "または",
+    "no_account": "アカウントをお持ちでないですか？",
+    "version": "v{{version}}",
+    "sso_loading": "SSO プロバイダーを読み込み中…",
+    "sso_none": "SSO プロバイダーが設定されていません",
+    "signup_link": "アカウントを作成 →",
+    "link": {
+      "title": "アカウントの本人確認",
+      "subtitle": "{{email}} はすでに MoleSignal アカウントに登録されています。ご本人のアカウントであることを確認すると、今後は {{provider}}（{{organization}}）でそのアカウントにサインインできます。",
+      "method": "確認方法",
+      "methods": {
+        "password": "パスワード",
+        "email": "メールの確認コード"
+      },
+      "code_target": "このメールアドレスに6桁のコードを送信します。",
+      "send_code": "コードを送信",
+      "sending": "送信中…",
+      "send_failed": "コードを送信できませんでした",
+      "code": "確認コード",
+      "code_placeholder": "6桁の数字",
+      "code_sent": "コードを送信しました。受信トレイをご確認ください",
+      "resend": "再送信",
+      "resend_in": "再送信まで {{seconds}}s",
+      "confirm": "確認してサインイン",
+      "unavailable": "このアカウントにはパスワードが設定されておらず、このインスタンスからメールを送信できないため、ここではアカウントを確認できません。以前と同じ方法でサインインするか、管理者にメール送信の設定を依頼してください。"
+    },
+    "continue_with": "{{name}}で続行",
+    "continue_with_email": "メールアドレスで続行",
+    "last_used": "前回使用",
+    "email_button": "メールアドレスでサインイン",
+    "email_subtitle": "メールアドレスを入力してください。",
+    "password_subtitle": "このアカウントのパスワードを入力してください。",
+    "continue": "続行",
+    "back": "戻る",
+    "directory_title": "{{name}}でサインイン",
+    "directory_subtitle": "{{name}}のユーザー名を入力してください。",
+    "directory_password_subtitle": "{{name}}のパスワードを入力してください。",
+    "directory_username": "ユーザー名",
+    "show_password": "パスワードを表示",
+    "hide_password": "パスワードを非表示",
+    "passkey": "パスキーで続行",
+    "passkey_waiting": "パスキーの入力待ち…",
+    "passkey_wrong_address": "このアドレスはインスタンスの外部URLではないため、ここではパスキーを使用できません。",
+    "passkey_unknown": "このパスキーは、このインスタンスに登録されていません。パスワードでサインインしてください。",
+    "mfa": {
+      "title": "本人確認",
+      "subtitle_totp": "このアカウントでは多要素認証を使用しています。認証アプリを開き、MoleSignalの6桁のコードを入力してください。",
+      "subtitle_recovery": "未使用のリカバリーコードを入力してください。各コードは1回だけ使用できます。",
+      "subtitle_passkey": "このアカウントでは多要素認証を使用しています。パスキーで本人確認を行ってください。",
+      "code": "確認コード",
+      "code_placeholder": "6桁",
+      "recovery_code": "リカバリーコード",
+      "recovery_placeholder": "xxxxx-xxxxx",
+      "use_recovery": "リカバリーコードを使用",
+      "use_totp": "認証アプリを使用",
+      "use_passkey": "パスキーを使用",
+      "verify": "本人確認してサインイン",
+      "verifying": "確認中…",
+      "verify_passkey": "パスキーで本人確認",
+      "passkey_waiting": "パスキーの入力待ち…",
+      "wrong_code": "コードが正しくありません",
+      "passkey_failed": "パスキーを確認できませんでした",
+      "expired": "サインインの有効期限が切れました。パスワードをもう一度入力してください。",
+      "recovery_left_one": "リカバリーコードを使用しました。残りは{{count}}個です。",
+      "recovery_left_other": "リカバリーコードを使用しました。残りは{{count}}個です。",
+      "recovery_none_left": "最後のリカバリーコードを使用しました。「アカウント設定 → セキュリティ」で新しいコードを作成してください。",
+      "locked": "コードの入力ミスが上限に達したため、サインインが一時的にロックされました。しばらくしてからもう一度お試しください。"
+    },
+    "enroll": {
+      "title": "多要素認証の有効化",
+      "subtitle": "「{{organization}}」では多要素認証が必須です。認証方法を選択して、サインインを続けてください。",
+      "use_passkey": "パスキーを使用",
+      "use_totp": "認証アプリを使用",
+      "other_method": "別の方法を選択",
+      "totp_hint": "認証アプリでQRコードを読み取るか、キーを手入力してください。その後、アプリに表示される6桁のコードを入力してください。",
+      "qr_alt": "認証アプリ用のQRコード",
+      "copy_secret": "キーをコピー",
+      "secret_copied": "コピーしました",
+      "finish_totp": "有効化してサインイン",
+      "passkey_hint": "下のボタンを押し、ブラウザーの案内に従ってパスキーを作成してください。パスキーはiCloud Keychain、Google Password Manager、またはセキュリティキーに保存できます。",
+      "finish_passkey": "パスキーを作成してサインイン",
+      "expired": "サインインの有効期限が切れました。もう一度サインインしてください。"
+    },
+    "sso_only": "このワークスペースではシングルサインオンのみ使用できます。以下のプロバイダーを使用してサインインしてください。",
+    "limited_minutes_one": "失敗回数が上限に達しました。{{count}}分後にもう一度お試しください。",
+    "limited_minutes_other": "失敗回数が上限に達しました。{{count}}分後にもう一度お試しください。",
+    "limited_seconds_one": "失敗回数が上限に達しました。{{count}}秒後にもう一度お試しください。",
+    "limited_seconds_other": "失敗回数が上限に達しました。{{count}}秒後にもう一度お試しください。",
+    "limited_with_hint": "{{wait}} {{hint}}",
+    "limited_hint": "パスワードをリセットすることもできます。",
+    "limited_hint_passkey": "パスキーでサインインするか、パスワードをリセットすることもできます。"
+  },
+  "signup": {
+    "title": "アカウントの作成",
+    "subtitle": "まず、メールアドレスを入力してください。",
+    "details_subtitle": "このメールアドレスで使用する名前とパスワードを入力してください。",
+    "display_name": "名前",
+    "display_name_placeholder": "お名前",
+    "submit": "アカウントを作成",
+    "submitting": "作成中…",
+    "pending_title": "登録申請を送信しました",
+    "pending_desc": "アカウントは管理者の承認待ちです。",
+    "failed": "アカウントを作成できませんでした",
+    "signin_required_title": "アカウントを作成しました",
+    "signin_required_desc": "このワークスペースでは多要素認証が必須です。サインインし、案内に従って有効にしてください。",
+    "check_email_title": "メールの確認",
+    "check_email_subtitle": "{{email}}にメールを送信します。メールの案内に従って手続きを続けてください。",
+    "check_email_detail": "メール内のリンクは30分間有効で、1回のみ使用できます。メールが届かない場合は、迷惑メールフォルダーをご確認ください。",
+    "back_to_signin": "サインインに戻る",
+    "link_checking": "リンクを確認中…",
+    "link_expired_title": "このリンクはもう使えません",
+    "link_expired_subtitle": "リンクの有効期限は30分で、1回だけ使えます。新しいリンクを取得するには、最初からやり直してください。",
+    "start_again": "最初からやり直す"
+  },
+  "unsupported": {
+    "title": "MoleSignalは幅の広い画面向けに設計されています",
+    "body": "このコンソールはデスクトップでのSRE業務向けに設計されており、表示幅が1024px以上必要です。幅の広いディスプレイに切り替えるか、ウィンドウを最大化してください。",
+    "width": "現在の幅 {{width}}px · 最小幅 1024px"
+  },
+  "signal_reference": {
+    "types": {
+      "trace": "トレース",
+      "span": "スパン",
+      "service": "サービス",
+      "host": "ホスト",
+      "stream": "ストリーム"
+    },
+    "actions": {
+      "add_filter": "フィルターに追加",
+      "filtered": "フィルターに追加しました",
+      "exclude_value": "この値を除外",
+      "excluded": "値を除外しました",
+      "copy_value": "値をコピー",
+      "copy_service": "サービス名をコピー",
+      "copy_span_id": "スパンIDをコピー",
+      "copy_trace_id": "トレースIDをコピー",
+      "copied": "コピーしました"
+    },
+    "relations": {
+      "exact": "完全一致",
+      "context": "コンテキスト一致"
+    },
+    "jumps": {
+      "open_trace": "現在のトレースを開く",
+      "open_traces": "トレースを開く",
+      "trace_logs": "トレースのログを表示",
+      "span_logs": "スパンのログを表示",
+      "service_metrics": "サービスのメトリクスを表示",
+      "similar_traces": "類似のトレースを表示",
+      "service_traces": "このサービスのトレースを表示",
+      "service_logs": "このサービスのログを表示",
+      "host_metrics": "このホストのメトリクスを表示",
+      "matching_logs": "ラベルが一致するログを表示",
+      "open_stream": "ストリームを開く",
+      "stream_metrics": "メトリクスを開く",
+      "stream_traces": "このストリームのトレースを表示",
+      "stream_profiles": "このストリームのプロファイルを表示",
+      "stream_logs": "このストリームのログを表示"
+    }
+  },
+  "context_bar": {
+    "label": "調査",
+    "frames": "フレーム",
+    "resume": "調査を再開",
+    "clear": "クリア",
+    "remove_filter": "フィルターを削除",
+    "from_trace": "トレース {{id}} から",
+    "back_to_trace": "トレースの詳細に戻る"
+  },
+  "subnav": {
+    "collapse": "メニューを折りたたむ",
+    "expand": "メニューを展開"
+  },
+  "agent_panel": {
+    "title": "Mole Agent",
+    "close": "閉じる",
+    "open_full": "チャットの全画面を開く",
+    "context_label": "コンテキスト",
+    "loading": "Mole Agent を読み込み中…"
+  },
+  "about": {
+    "updates": {
+      "menu": "新しいバージョンがあります",
+      "available": "新しいバージョンがあります：v{{version}}",
+      "checking": "更新を確認中…",
+      "unavailable": "更新を確認できません",
+      "current": "最新バージョンを使用しています",
+      "stale": "前回正常に確認できた結果を表示しています。現在 GitHub にアクセスできません。",
+      "notes": "リリースノートとダウンロード",
+      "check": "更新を確認",
+      "cooldown": "更新の確認には共有キャッシュを使用します。手動で確認しても、キャッシュが更新されるのは5分に1回までです。"
+    },
+    "title": "製品情報",
+    "accessible_title": "MoleSignal の製品情報",
+    "subtitle": "ログ、メトリクス、トレース、パフォーマンス分析に対応したオブザーバビリティプラットフォームです。",
+    "version": "バージョン",
+    "edition": "エディション",
+    "commit": "コミットハッシュ",
+    "build_id": "ビルド ID",
+    "branch": "ビルドブランチ",
+    "built": "ビルド日時",
+    "time_with_zone": "{{time}} ({{zone}})",
+    "copy_diagnostics": "診断情報をコピー",
+    "diagnostics_copied": "診断情報をコピーしました",
+    "copied": "コピーしました",
+    "editions": {
+      "community": "オープンソースエディション",
+      "enterprise": "エンタープライズエディション",
+      "oss": "オープンソースエディション",
+      "pro": "エンタープライズエディション",
+      "saas": "エンタープライズエディション"
+    }
+  },
+  "not_found": {
+    "title": "ページが見つかりません",
+    "description": "お探しのページは存在しないか、移動した可能性があります。",
+    "back_home": "ホームに戻る",
+    "suggestions": "お探しのページの候補"
+  },
+  "route_error": {
+    "title": "このページで問題が発生しました",
+    "description": "ページの表示中にエラーが発生しました。他のページへの影響はありません。",
+    "stale_title": "新しいバージョンが利用可能です",
+    "stale_description": "このページを開いている間に更新がありました。再読み込みすると、新しいバージョンが表示されます。",
+    "reload": "このページを再読み込み",
+    "home": "ホームに戻る",
+    "copy_report": "エラーレポートをコピー",
+    "copied": "コピーしました"
+  },
+  "access_denied": {
+    "title": "このページへのアクセス権がありません",
+    "description": "現在のロール（{{role}}）では、{{page}}を開けません。組織の管理者がアクセス権を付与できます。",
+    "go_on": "アクセスできるページに移動",
+    "copy_request": "アクセス申請文をコピー",
+    "copied": "コピーしました",
+    "request_text": "MoleSignalの{{page}}（{{path}}）へのアクセス権を付与してください。現在のロールは{{role}}です。"
+  }
+}

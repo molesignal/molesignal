@@ -1,0 +1,588 @@
+{
+  "title": "Fluxos",
+  "subtitle": "Veja se os dados continuam chegando, quanto custa armazená-los e como as configurações de consulta e retenção os afetam.",
+  "pagination": {
+    "aria": "Paginação da lista de fluxos",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Fluxos por página",
+    "first_aria": "Primeira página",
+    "previous_aria": "Página anterior",
+    "next_aria": "Próxima página",
+    "last_aria": "Última página"
+  },
+  "list": {
+    "refresh": "Atualizar",
+    "create": "Criar fluxo",
+    "search_placeholder": "Buscar por nome ou descrição…",
+    "status_filter": "Filtrar por status operacional",
+    "result_count": "{{count}} fluxos",
+    "updated_at": "Estatísticas atualizadas {{time}}",
+    "stats_unavailable": "Estatísticas operacionais indisponíveis",
+    "retention_days": "{{days}} dias",
+    "query": "Consultar",
+    "view_detail": "Ver detalhes",
+    "copy_id": "Copiar ID do fluxo",
+    "id_copied": "ID do fluxo copiado",
+    "more_actions": "Mais ações para {{name}}",
+    "kpis": {
+      "healthy": "Recebendo dados normalmente",
+      "healthy_sub": "{{total}} fluxos no total",
+      "attention": "Requer atenção",
+      "attention_sub": "Com atraso, interrupção ou estatísticas indisponíveis",
+      "compressed_24h": "Dados compactados em 24h",
+      "rows_24h": "{{count}} linhas gravadas",
+      "compressed_window": "Dados compactados em {{window}}",
+      "rows_window": "{{count}} linhas gravadas nesse período",
+      "current_storage": "Armazenamento atual",
+      "current_storage_sub": "Dados persistidos"
+    },
+    "status": {
+      "all": "Todos os status",
+      "attention": "Requer atenção",
+      "healthy": "Normal",
+      "idle": "Ocioso",
+      "delayed": "Com atraso",
+      "interrupted": "Interrompido",
+      "unused": "Não utilizado",
+      "unknown": "Estatísticas indisponíveis"
+    },
+    "tabs": {
+      "all": "Todos",
+      "logs": "Logs",
+      "metrics": "Métricas",
+      "traces": "Rastreamentos",
+      "profiles": "Perfis",
+      "extend": "Tabela de referência"
+    },
+    "tabs_label": "Tipos de fluxo",
+    "columns": {
+      "stream": "Fluxo",
+      "type": "Tipo",
+      "status": "Status",
+      "rate": "Taxa de recebimento",
+      "last_received": "Último recebimento",
+      "volume_24h": "Volume compactado (24h)",
+      "volume_window": "Volume compactado ({{window}})",
+      "storage": "Armazenamento atual",
+      "retention": "Retenção",
+      "actions": "Ações",
+      "data_count": "Registros",
+      "collected_size": "Tamanho dos dados coletados",
+      "stored_size": "Tamanho dos dados armazenados",
+      "index_size": "Tamanho dos índices"
+    },
+    "explore": "Explorar",
+    "not_queryable": "Não pode ser consultado",
+    "empty_title": "Ainda não há fluxos",
+    "empty_description": "Crie um fluxo ou envie eventos por uma fonte de dados para registrar o primeiro fluxo.",
+    "storage_notes": {
+      "data_count": "Registros persistidos que ainda estão retidos, independentemente do período de monitoramento.",
+      "collected_size": "Total acumulado de bytes em JSON canônico dos eventos aceitos antes das transformações. O total é atualizado após a gravação do buffer e não inclui o enquadramento do protocolo de transporte. ≥ indica que a contagem histórica está incompleta; — indica que não há medição.",
+      "stored_size": "Bytes ocupados em disco pelos arquivos de dados primários ativos, sem contar os índices.",
+      "index_size": "Bytes ocupados em disco pelos artefatos de índice prontos nos segmentos ativos."
+    },
+    "no_match_title": "Nenhum fluxo encontrado",
+    "no_match_description": "Tente outro nome, tipo ou status."
+  },
+  "drawer": {
+    "title": "Criar fluxo",
+    "subtitle": "Cadastre uma fonte de dados e configure um emissor.",
+    "identity": "Identificação",
+    "stream_name": "Nome do fluxo",
+    "stream_name_hint": "snake_case · até 64 caracteres",
+    "stream_name_placeholder": "my-app-logs",
+    "description": "Descrição (opcional)",
+    "description_placeholder": "Que dados passam por este fluxo?",
+    "signal_type": "Tipo de sinal",
+    "signal_type_description": "Define o comportamento do armazenamento e a linguagem de consulta.",
+    "types": {
+      "logs": {
+        "label": "Logs",
+        "hint": "Consultas SQL, índice de texto completo e armazenamento colunar em Parquet"
+      },
+      "metrics": {
+        "label": "Métricas",
+        "hint": "Armazenamento TSDB compatível com PromQL"
+      },
+      "traces": {
+        "label": "Rastreamentos",
+        "hint": "Spans OTLP, gráficos de chama e mapas de serviços"
+      }
+    },
+    "storage": "Armazenamento",
+    "retention": "Retenção (dias)",
+    "retention_hint": "Após esse período, os dados são arquivados no armazenamento de objetos.",
+    "shards": "Shards",
+    "shards_hint": "Canais paralelos de gravação para fontes de dados. Mantenha o número de shards igual ou superior ao de nós de gravação.",
+    "indexed_fields": "Campos indexados",
+    "indexed_fields_hint": "Separe por vírgulas os campos que serão indexados para acelerar buscas por igualdade ou prefixo.",
+    "encrypted_fields": "Campos criptografados",
+    "encrypted_fields_hint": "Separe por vírgulas os campos a criptografar em repouso. Use decrypt(field) para lê-los. Não é possível alterar essa opção depois.",
+    "queryable": "Permitir consultas",
+    "queryable_hint": "Se você desativar essa opção, o fluxo continuará recebendo e retendo dados, mas não aparecerá nos seletores de consulta e não poderá ser pesquisado. Desative-a se o fluxo servir apenas para alimentar um pipeline de roteamento. Você pode alterar essa opção depois nas configurações."
+  },
+  "toast": {
+    "create_pending": "O fluxo {{name}} é registrado na primeira gravação de uma fonte de dados. Ainda não há um endpoint /streams para criação."
+  },
+  "detail": {
+    "back": "Fluxos",
+    "fallback_title": "Fluxo",
+    "subtitle": "Detalhes do fluxo",
+    "query_logs": "Consultar nos logs",
+    "not_found_title": "Fluxo não encontrado",
+    "not_found_description": "É possível que nenhuma fonte de dados tenha registrado o fluxo ainda.",
+    "fields": {
+      "id": "id",
+      "label": "label",
+      "subtitle": "subtitle"
+    }
+  },
+  "explore": {
+    "subtitle": "Integridade em execução, eficiência das consultas, armazenamento e retenção",
+    "system_stream_immutable": "Nos fluxos do sistema, só é possível configurar a indexação e o mascaramento de campos, a retenção e a redução da resolução dos dados. A identidade, a criptografia e a exclusão são gerenciadas pelo sistema.",
+    "toolbar": {
+      "refresh": "Atualizar",
+      "query_data": "Consultar dados",
+      "more": "Mais ações",
+      "copy_id": "Copiar ID do fluxo",
+      "id_copied": "ID do fluxo copiado",
+      "delete": "Excluir fluxo",
+      "discard": "Descartar alterações",
+      "save": "Salvar e aplicar",
+      "saving": "Aplicando…"
+    },
+    "metadata": {
+      "type": "Tipo",
+      "status": "Status em tempo de execução",
+      "last_received": "Último recebimento",
+      "retention": "Retenção padrão",
+      "active_type": "Tipo atual: {{type}}",
+      "switch_type": "Mudar para o fluxo {{type}}",
+      "switch_blocked": "Salve ou descarte as alterações do tipo atual antes de mudar de tipo."
+    },
+    "tabs": {
+      "overview": "Visão geral",
+      "schema": "Campos e índices",
+      "retention": "Retenção",
+      "usage": "Uso",
+      "settings": "Configurações"
+    },
+    "tabs_label": "Seções do fluxo",
+    "index_options": {
+      "none": "Não indexado",
+      "full_text": "Pesquisa de texto completo",
+      "exact": "Correspondência exata",
+      "bloom": "Filtro de Bloom",
+      "skip": "Índice de salto",
+      "ngram": "Substring de n-gramas",
+      "ip": "Endereço IP",
+      "key_value": "Chaves JSON",
+      "range": "Intervalo numérico"
+    },
+    "kpis": {
+      "events_24h": "Linhas gravadas em 24h",
+      "receive_rate": "Taxa média de recebimento",
+      "compressed_24h": "Dados compactados em 24h",
+      "current_storage": "Armazenamento atual",
+      "index_coverage": "Cobertura de campos indexados",
+      "from_catalog": "Com base nos metadados atuais do armazenamento",
+      "average_24h": "Calculada com base nas últimas 24 horas",
+      "compressed_note": "Dados Parquet compactados",
+      "live_parquet": "Arquivos ativos, não excluídos",
+      "index_coverage_note": "Contagem de campos, não de bytes do índice",
+      "index_backfill": "Reindexando dados antigos. Arquivos restantes: {{count}}"
+    },
+    "overview": {
+      "stats_unavailable": "As estatísticas em tempo de execução estão indisponíveis. Você ainda pode editar a configuração. Atualize a tela para consultar novamente os metadados do armazenamento.",
+      "no_data_title": "Nenhum dado recebido até o momento",
+      "no_data_description": "Envie o tráfego da fonte de dados para “{{stream}}” ou envie um evento de teste para verificar o caminho de ingestão.",
+      "configure_source": "Configurar fonte de dados",
+      "send_test": "Enviar dados de teste",
+      "sending_test": "Enviando…",
+      "test_sent": "Dados de teste enviados: {{accepted}} aceitos, {{rejected}} rejeitados",
+      "operational_state": "Estado em tempo de execução",
+      "first_received": "Primeiro recebimento",
+      "queryability": "Disponibilidade para consulta",
+      "queryable": "Consultável",
+      "not_queryable": "Somente ingestão",
+      "trend_title": "Tendência de ingestão e armazenamento",
+      "trend_subtitle": "Últimas 24 horas · arquivos Parquet reais",
+      "metric_rows": "Linhas gravadas",
+      "metric_storage": "Dados compactados",
+      "no_chart_data": "Não há dados para exibir no gráfico neste intervalo",
+      "now": "Agora"
+    },
+    "schema": {
+      "summary": "{{fields}} campos · {{indexed}} indexados · {{encrypted}} criptografados",
+      "readonly_hint": "Somente leitura por padrão. Use a opção de edição para alterar a indexação e o mascaramento.",
+      "search_placeholder": "Buscar campos",
+      "fts_title": "A busca de texto completo é configurada por campo",
+      "fts_description": "Ative a indexação de texto completo em campos como message ou body para acelerar consultas MATCH. Os dados existentes não são reindexados automaticamente.",
+      "configure_index": "Configurar índice do campo",
+      "storage_type": "Tipo de armazenamento: {{type}}",
+      "field_types": {
+        "boolean": "Booleano",
+        "integer": "Inteiro",
+        "decimal": "Decimal",
+        "string": "String",
+        "timestamp": "Data e hora",
+        "json": "JSON"
+      },
+      "columns": {
+        "name": "Nome do campo",
+        "type": "Tipo",
+        "index_type": "Tipo de índice",
+        "encryption": "Criptografia"
+      },
+      "index_type_hint": "Use correspondência exata para IDs e dimensões com poucos valores, texto completo para o texto dos logs, N-gram para buscas por trechos de URLs e caminhos, IP para buscas de endereços por rede e chaves JSON para filtrar campos JSON por uma de suas chaves.",
+      "encrypted": "Criptografado",
+      "encrypted_hint": "Este campo é criptografado antes do armazenamento. Não é possível alterar essa configuração aqui sem tornar os dados existentes ilegíveis.",
+      "edit_field": "Editar campo {{name}}",
+      "drawer_title": "Editar campo · {{name}}",
+      "drawer_fallback": "Editar campo",
+      "drawer_subtitle": "Configure a indexação para consultas e o mascaramento dos resultados sem alterar o tipo do campo.",
+      "cancel": "Cancelar",
+      "apply": "Aplicar ao rascunho",
+      "no_schema": "Este fluxo ainda não tem um esquema. Os campos aparecem após a primeira gravação de dados da fonte.",
+      "no_match": "Nenhum campo encontrado.",
+      "masking": {
+        "title": "Mascaramento de campos nos resultados",
+        "description": "O backend mascara os campos nos resultados finais das consultas, nas exportações e nas respostas da API. A filtragem, a ordenação e a agregação continuam usando os valores brutos.",
+        "mode": "Política por fluxo",
+        "modes": {
+          "inherit": "Herdar regra global",
+          "custom": "Regra personalizada do fluxo",
+          "none": "Sem mascaramento explícito no fluxo"
+        },
+        "no_global_rule": "Nenhuma regra global se aplica no momento",
+        "no_global_rule_hint": "Com a herança ativa, o campo fica sem mascaramento no momento. Se uma regra global aplicável for criada, ela será aplicada automaticamente.",
+        "explicit_none_hint": "O mascaramento global não se aplica a este campo neste fluxo. Selecione a opção de herança para restaurar o comportamento global.",
+        "metrics_disabled": "O mascaramento de campos não se aplica a fluxos de métricas. Os valores e rótulos das métricas permanecem inalterados, e a indexação continua configurável."
+      }
+    },
+    "retention": {
+      "default_policy": "Retenção padrão",
+      "data_retention_days": "Retenção de dados (dias)",
+      "days_default_hint": "Deixe em branco para usar o padrão da plataforma de {{days}} dias.",
+      "days_placeholder": "Padrão: {{days}} dias",
+      "default_explanation": "Dados que excedem o prazo de retenção são excluídos na próxima limpeza. Reduzir esse prazo também exclui os dados que passarem a excedê-lo.",
+      "downsample": "Redução de resolução",
+      "downsample_toggle": "Reduzir a resolução de amostras antigas",
+      "downsample_hint": "Amostras mais antigas que o número de dias definido são agregadas em intervalos de tempo. As amostras de uma mesma série em cada intervalo viram um único ponto: calcula-se a média dos valores, somam-se as contagens delta e excluem-se as amostras originais. Consultas em períodos longos leem muito menos dados, e os dados antigos mantêm apenas a resolução do intervalo.",
+      "downsample_after_days": "Dias para manter as amostras originais",
+      "downsample_after_days_hint": "Amostras mais antigas que esse limite são agregadas. Depois disso, não é possível recuperar as amostras originais.",
+      "downsample_interval": "Intervalo de agregação",
+      "intervals": {
+        "60": "1 minuto",
+        "300": "5 minutos",
+        "900": "15 minutos",
+        "3600": "1 hora",
+        "86400": "1 dia"
+      }
+    },
+    "usage": {
+      "loading": "Verificando o uso…",
+      "write_source": "Origem da gravação",
+      "write_source_hint": "Endpoint de ingestão que recebe o nome deste fluxo",
+      "intake_endpoint": "Endpoint de ingestão",
+      "pipelines": "Pipelines",
+      "pipelines_hint": "Usam este fluxo como origem ou destino",
+      "saved_queries": "Consultas salvas",
+      "saved_queries_hint": "Vinculadas explicitamente a este fluxo",
+      "alert_rules": "Regras de alerta",
+      "alert_rules_hint": "São avaliadas com base nos dados deste fluxo",
+      "enabled": "Ativado",
+      "disabled": "Desativado",
+      "none": "Nenhum item vinculado",
+      "partial_unavailable": "Alguns serviços dos quais esta verificação depende estão indisponíveis. O resultado pode estar incompleto."
+    },
+    "runtime": {
+      "basic": "Informações básicas",
+      "basic_hint": "Descreva os dados de negócio e a finalidade deste fluxo.",
+      "description_label": "Descrição",
+      "description_placeholder": "Que dados este fluxo recebe?",
+      "query_capabilities": "Configurações de consulta",
+      "query_capabilities_hint": "Controle o acesso e o intervalo das consultas. Desativar o acesso a consultas não interrompe a ingestão.",
+      "max_query_range": "Intervalo máximo de consulta (horas)",
+      "max_query_range_hint": "Número máximo de horas que uma consulta pode abranger. Consultas com intervalos maiores são rejeitadas. Deixe em branco ou use 0 para não impor limite.",
+      "storage_behavior": "Comportamento do armazenamento",
+      "storage_behavior_hint": "Afeta como os arquivos de dados são mesclados e divididos.",
+      "queryable": "Consultável",
+      "queryable_hint": "Quando esta opção está desativada, o fluxo continua recebendo e retendo dados, mas não aparece nos seletores de consulta e é rejeitado pela busca. Desative-a para um fluxo de origem que apenas alimenta um pipeline de roteamento.",
+      "daily_merge": "Mesclar arquivos pequenos por dia",
+      "daily_merge_hint": "Uma hora após o fim de cada dia, os arquivos desse dia são mesclados em um só se o tamanho total não exceder o tamanho-alvo da mesclagem. Assim, uma consulta que abrange vários dias abre bem menos arquivos. A retenção passa a valer por dia: o arquivo mesclado é excluído quando o prazo de retenção expira para todo o dia.",
+      "partition_field": "Particionar por campo",
+      "partition_field_hint": "Os novos dados são divididos em partições conforme os valores desses campos. Uma consulta com condições sobre eles lê apenas as partições que podem conter resultados. É indicado para campos usados em quase todas as consultas, como serviço ou tenant. O hash distribui os dados igualmente e beneficia consultas com = e IN. O primeiro caractere reserva uma partição para cada dígito e cada letra, sem distinguir maiúsculas de minúsculas, e mais uma para os demais caracteres. Esse método também beneficia consultas com LIKE cujo padrão começa com texto, como 'abc%'. Use até dois campos, com um produto de até 256 entre as quantidades de partições.",
+      "partition_none": "Sem particionamento",
+      "partition_total": "{{count}} partições no total",
+      "partition_add": "Adicionar um campo",
+      "partition_remove": "Remover este campo",
+      "partition_method": "Método de particionamento",
+      "partition_methods": {
+        "hash": "Hash · {{count}} partições",
+        "prefix": "Primeiro caractere · {{count}} partições"
+      },
+      "partition_too_many": "O produto das quantidades de partições dos dois campos excede {{max}}.",
+      "clustering_field": "Agrupar por campo",
+      "clustering_field_hint": "Nos novos arquivos de logs, as linhas são organizadas em janelas de tempo e, dentro de cada janela, pelos valores desses campos. Assim, uma consulta com uma condição de igualdade em um desses campos, como service = 'checkout', lê apenas as poucas páginas de cada janela que contêm o valor. É indicado para campos usados com frequência nas consultas e que têm poucos valores distintos, como serviço ou nível. Cada arquivo também contabiliza suas linhas por minuto e por esses campos. Assim, contagens e histogramas por minuto que filtram ou agrupam por esses campos não precisam ler os dados. Use até dois campos. Janelas mais longas permitem pular mais páginas, e a leitura das linhas mais recentes exige a ordenação de mais uma janela.",
+      "clustering_none": "Em ordem cronológica",
+      "clustering_slices": "Janelas de {{interval}}",
+      "clustering_add": "Adicionar um campo",
+      "clustering_remove": "Remover este campo",
+      "clustering_interval": "Janela de tempo",
+      "clustering_minutes_one": "{{count}} minuto",
+      "clustering_minutes_other": "{{count}} minutos",
+      "clustering_seconds_one": "{{count}} segundo",
+      "clustering_seconds_other": "{{count}} segundos",
+      "field_indexes": "Índices de campos",
+      "field_indexes_hint": "Os campos recebem um índice com base no nome quando aparecem pela primeira vez neste fluxo.",
+      "index_pattern": "Índice para novos campos",
+      "index_pattern_name": "Padrão do nome do campo",
+      "index_pattern_hint": "Aplica-se a primeira regra da lista cujo padrão corresponde ao nome e cujo índice é compatível com o tipo do campo: * representa qualquer sequência de caracteres e ? representa um único caractere, como em *_id ou http.*. Isso afeta apenas os campos que aparecerem daqui em diante. Altere os campos existentes em Campos e índices, onde um índice definido pelo nome do campo tem prioridade.",
+      "index_pattern_add": "Adicionar uma regra",
+      "index_pattern_remove": "Remover esta regra",
+      "index_pattern_up": "Mover para cima",
+      "index_pattern_down": "Mover para baixo",
+      "clustering_minutes_many": "{{count}} minutos",
+      "clustering_seconds_many": "{{count}} segundos"
+    },
+    "changes": {
+      "unsaved": "Você tem alterações não salvas",
+      "review": "A nova configuração entra em vigor assim que você salva.",
+      "index_risk": "Os novos dados são indexados imediatamente com a nova configuração. Os dados já gravados são reindexados em segundo plano. Acompanhe o progresso em Cobertura de campos indexados, na visão geral.",
+      "retention_risk": "A retenção será reduzida para {{days}} dias, e os dados expirados poderão ser excluídos.",
+      "query_risk": "Depois que o acesso para consultas for desativado, este fluxo continuará recebendo dados, mas rejeitará consultas e buscas.",
+      "downsample_risk": "As amostras originais com mais de {{days}} dias serão agregadas por intervalo de tempo e depois excluídas. Essa ação não pode ser desfeita.",
+      "partition_risk": "O particionamento se aplica apenas aos novos dados. Os arquivos existentes não serão alterados.",
+      "clustering_risk": "O agrupamento se aplica apenas aos novos dados. Os arquivos existentes não serão alterados."
+    },
+    "validation": {
+      "retention_days": "O período de retenção de dados deve ser um número inteiro de dias entre 1 e {{max}}.",
+      "max_query_range": "O intervalo máximo de consulta deve ser um número inteiro de horas entre 0 e {{max}}.",
+      "downsample_after_days": "O número de dias para manter as amostras originais deve ser um inteiro entre 1 e {{max}}.",
+      "index_pattern_length": "Um padrão de nome de campo pode ter no máximo {{max}} caracteres.",
+      "index_pattern_duplicate": "Os padrões de nomes de campos devem ser diferentes entre si."
+    },
+    "delete_confirm_title": "Excluir este fluxo?",
+    "delete_confirm_description": "O fluxo “{{stream}}” e sua configuração serão excluídos. Essa ação não pode ser desfeita.",
+    "toast": {
+      "updated": "Configuração do fluxo atualizada",
+      "deleted": "Fluxo excluído"
+    },
+    "delete_consequences": {
+      "stored": "Dados armazenados",
+      "rows": "Linhas"
+    }
+  },
+  "jobs": {
+    "title": "Tarefas de busca",
+    "subtitle": "Consultas que entram na fila, são executadas em segundo plano e ficam disponíveis com os resultados até expirarem",
+    "entry": "Tarefas de busca",
+    "views_label": "Status da tarefa",
+    "states": {
+      "all": "Todas",
+      "pending": "Na fila",
+      "running": "Em execução",
+      "done": "Concluídas",
+      "failed": "Com falha",
+      "cancelled": "Canceladas"
+    },
+    "kinds": {
+      "query": "Consulta",
+      "backfill": "Preenchimento retroativo"
+    },
+    "scope_own": "Somente as tarefas que você enviou",
+    "live": "Há tarefas em andamento. A lista é atualizada a cada {{seconds}} s",
+    "columns": {
+      "kind": "Tipo",
+      "job": "Tarefa",
+      "status": "Status",
+      "time_range": "Intervalo consultado",
+      "submitted": "Enviada em",
+      "duration": "Duração / conclusão",
+      "rows": "Linhas de resultado",
+      "attempt": "Tentativa",
+      "expires": "Expira em",
+      "actions": "Ações"
+    },
+    "cells": {
+      "request_unreadable": "Não foi possível ler a consulta desta tarefa",
+      "pipeline": "Abrir pipeline",
+      "finished_at": "Concluída: {{time}}",
+      "not_finished": "Não concluída",
+      "attempt_title": "Tentativa {{number}}",
+      "expired": "Expirada",
+      "expired_title": "Expirada, aguardando limpeza",
+      "error": "Falha: {{error}}"
+    },
+    "actions": {
+      "cancel": "Cancelar tarefa",
+      "cancel_named": "Cancelar tarefa {{id}}",
+      "retry": "Tentar novamente",
+      "retry_named": "Tentar executar a tarefa {{id}} novamente",
+      "download": "Baixar resultados",
+      "download_named": "Baixar os resultados da tarefa {{id}}",
+      "download_empty": "Esta tarefa não tem linhas de resultado",
+      "delete": "Excluir",
+      "delete_named": "Excluir tarefa {{id}}"
+    },
+    "cancel_confirm": {
+      "title": "Cancelar esta tarefa?",
+      "description": "A execução da tarefa será interrompida. Você pode executá-la novamente mais tarde, mas ela começará do zero.",
+      "confirm": "Cancelar tarefa",
+      "keep": "Manter em execução",
+      "busy": "Cancelando…"
+    },
+    "delete_confirm": {
+      "title": "Excluir esta tarefa?",
+      "description": "A tarefa e seus resultados armazenados serão excluídos e não poderão ser restaurados.",
+      "description_active": "A tarefa ainda não foi concluída. Ela será cancelada e depois excluída, sem possibilidade de restauração.",
+      "confirm": "Excluir",
+      "busy": "Excluindo…"
+    },
+    "toast": {
+      "cancelled": "Tarefa cancelada",
+      "retried": "Tarefa colocada na fila novamente",
+      "deleted": "Tarefa excluída",
+      "downloaded": "{{count}} linhas de resultado baixadas"
+    },
+    "empty": {
+      "title": "Ainda não há tarefas de pesquisa",
+      "title_own": "Você ainda não enviou nenhuma tarefa de pesquisa",
+      "description": "Uma tarefa de pesquisa é uma consulta executada em segundo plano que mantém os resultados até expirar. As tarefas têm três origens:",
+      "source_async": "Uma consulta enviada com Prefer: respond-async ou cujo resultado provavelmente será grande demais",
+      "source_backfill": "O preenchimento retroativo de um pipeline de dados",
+      "source_agent": "Uma consulta enviada pelo Mole Agent",
+      "filtered_hint": "Escolha outro status ou veja todas as tarefas.",
+      "filtered": {
+        "pending": "Nenhuma tarefa na fila",
+        "running": "Nenhuma tarefa em execução",
+        "done": "Nenhuma tarefa concluída",
+        "failed": "Nenhuma tarefa falhou",
+        "cancelled": "Nenhuma tarefa foi cancelada"
+      }
+    },
+    "denied": {
+      "title": "Você não pode ver as tarefas de pesquisa",
+      "description": "É necessário ter a permissão query.jobs.read ou sys.telemetry.read."
+    },
+    "pagination": {
+      "aria": "Paginação das tarefas de pesquisa",
+      "page_summary": "{{page}} / {{pages}}",
+      "page_size_aria": "Tarefas por página",
+      "first_aria": "Primeira página",
+      "previous_aria": "Página anterior",
+      "next_aria": "Próxima página",
+      "last_aria": "Última página"
+    }
+  },
+  "usage": {
+    "entry": "Uso de ingestão",
+    "title": "Uso de ingestão",
+    "subtitle": "Veja quanto cada fonte ingeriu e compare com o orçamento. Os orçamentos são apenas informativos: a ingestão continua.",
+    "dimensions_label": "Agrupar por",
+    "dimensions": {
+      "credential": "Credencial",
+      "stream": "Fluxo",
+      "service": "Serviço"
+    },
+    "search_placeholder": "Buscar fonte…",
+    "window_label": "Período",
+    "windows": {
+      "24h": "Últimas 24 horas",
+      "7d": "Últimos 7 dias",
+      "30d": "Últimos 30 dias"
+    },
+    "total": "{{bytes}} · {{events}} eventos no total",
+    "metering_since": "Medição iniciada em {{time}}. Os dados anteriores não entram na contagem.",
+    "truncated": "A lista mostra apenas as 5.000 maiores fontes",
+    "unavailable": "Não foi possível consultar o uso agora",
+    "not_metered": "Ainda não há registros de uso",
+    "no_match": "Nenhuma fonte corresponde à busca",
+    "empty": {
+      "credential": "Nenhuma credencial enviou dados neste período",
+      "stream": "Nenhum fluxo ingeriu dados neste período",
+      "service": "Nenhum evento neste período identifica um serviço",
+      "hint": "O uso aparece aqui em até um minuto após a ingestão dos dados."
+    },
+    "columns": {
+      "source": "Fonte",
+      "source_key": "Chave da origem",
+      "intake_bytes": "Ingestão",
+      "events": "Eventos",
+      "share": "Participação",
+      "budget": "Orçamento",
+      "used": "Uso neste período",
+      "used_ratio": "Orçamento utilizado",
+      "state": "Status"
+    },
+    "states": {
+      "ok": "Dentro do orçamento",
+      "warning": "Orçamento quase esgotado",
+      "exceeded": "Orçamento excedido"
+    },
+    "source": {
+      "internal": "Interno da plataforma",
+      "unnamed_service": "Serviço sem nome",
+      "other_services": "Outros serviços",
+      "connector": "Conector · {{kind}}",
+      "user": "Usuário conectado",
+      "missing": "Excluída"
+    },
+    "token_kinds": {
+      "personal": "Token pessoal",
+      "default_intake": "Token de ingestão padrão",
+      "rum_client": "Token de cliente RUM",
+      "service_account": "Token de conta de serviço"
+    },
+    "budget": {
+      "none": "Não definido",
+      "none_hint": "Esta origem não tem orçamento.",
+      "set": "Definir orçamento",
+      "change": "Alterar",
+      "remove": "Remover orçamento",
+      "per_day": "{{limit}} / dia",
+      "per_month": "{{limit}} / mês",
+      "set_title": "Definir orçamento",
+      "change_title": "Alterar orçamento",
+      "many_subtitle": "O mesmo orçamento para {{count}} origens",
+      "period": "Período",
+      "periods": {
+        "day": "Diário",
+        "day_hint": "O uso é contabilizado por dia do calendário em UTC.",
+        "month": "Mensal",
+        "month_hint": "O uso é contabilizado por mês do calendário em UTC."
+      },
+      "limit": "Limite",
+      "limit_hint": "De 1 MiB a 1 PiB.",
+      "unit": "Unidade",
+      "warn_percent": "Avisar ao atingir (%)",
+      "warn_percent_hint": "As pessoas recebem um aviso ao atingir essa porcentagem do limite e outro quando ele se esgota. Com 0, o aviso só é enviado quando o limite se esgota.",
+      "notify": "Quem recebe avisos",
+      "notify_hint": "As políticas de notificação enviam avisos pelo canal escolhido por cada pessoa.",
+      "notify_self": "Não é possível listar os membros, então só você receberá os avisos.",
+      "notify_required": "Selecione pelo menos uma pessoa.",
+      "save": "Salvar orçamento",
+      "saved_one": "Orçamento salvo",
+      "saved_other": "{{count}} orçamentos salvos",
+      "save_failed": "Não foi possível salvar {{count}} de {{total}} orçamentos: {{reason}}",
+      "remove_title_one": "Remover este orçamento?",
+      "remove_title_other": "Remover {{count}} orçamentos?",
+      "remove_description": "Ninguém mais receberá avisos sobre essas fontes. O uso delas continuará visível nesta página.",
+      "removed_one": "Orçamento removido",
+      "removed_other": "{{count}} orçamentos removidos",
+      "remove_failed": "Não foi possível remover {{count}} de {{total}} orçamentos: {{reason}}",
+      "saved_many": "{{count}} orçamentos salvos",
+      "remove_title_many": "Remover {{count}} orçamentos?",
+      "removed_many": "{{count}} orçamentos removidos"
+    },
+    "detail": {
+      "trend": "Ingestão ao longo do período",
+      "by_credential": "Por credencial",
+      "by_stream": "Por fluxo",
+      "by_service": "Por serviço",
+      "nothing": "Nenhum dado neste período.",
+      "used": "{{used}} de uso ({{percent}})"
+    }
+  }
+}

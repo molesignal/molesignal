@@ -1,0 +1,522 @@
+{
+  "inspector": {
+    "title": "日誌檢查器",
+    "subtitle": "檢查搜尋任務的執行狀態和結果中繼資料。",
+    "back": "日誌",
+    "pick_title": "選擇搜尋任務",
+    "pick_description": "請從已完成的 Logs 搜尋任務開啟檢查器，讓 URL 帶有 job id。",
+    "not_found_title": "找不到任務",
+    "not_found_description": "搜尋任務可能已過期，或 id 無效。",
+    "fields": {
+      "job_id": "job_id",
+      "state": "state",
+      "submitted_at": "submitted_at",
+      "started_at": "started_at",
+      "finished_at": "finished_at",
+      "result_rows": "result_rows",
+      "result_object_key": "result_object_key",
+      "error": "error",
+      "expires_at": "expires_at"
+    }
+  },
+  "explore": {
+    "title": "日誌",
+    "subtitle": "查詢器",
+    "time_ranges": {
+      "last_15m": "近 15 分鐘",
+      "last_1h": "近 1 小時",
+      "last_6h": "近 6 小時",
+      "last_24h": "近 24 小時",
+      "last_7d": "近 7 天"
+    },
+    "jump": {
+      "open_trace": "開啟 trace",
+      "open_span": "開啟 span"
+    },
+    "histogram": {
+      "normal": "非錯誤",
+      "errors": "錯誤",
+      "hide": "隱藏直方圖",
+      "show": "顯示直方圖"
+    },
+    "toolbar": {
+      "histogram": "直方圖",
+      "more_actions_aria": "更多操作",
+      "actions_label": "查詢操作",
+      "copy_query": "複製查詢",
+      "copied_query": "已複製查詢",
+      "reset_query": "重設查詢",
+      "download_results": "下載結果 JSON",
+      "time_range_aria": "選擇日誌時間範圍",
+      "refresh_aria": "重新整理查詢",
+      "run": "查詢",
+      "running": "查詢中…",
+      "clear_query": "清除查詢",
+      "empty_query_summary": "日誌事件",
+      "collapse_editor": "收合查詢",
+      "expand_editor": "展開查詢",
+      "editor": "編輯器"
+    },
+    "views": {
+      "aria": "結果檢視",
+      "raw": "原始日誌",
+      "stats": "統計圖表",
+      "inspection": "智慧巡檢",
+      "patterns": "日誌分群"
+    },
+    "stats": {
+      "measure": "統計",
+      "measure_aria": "統計方式",
+      "measures": {
+        "count": "日誌數",
+        "distinct": "不重複計數",
+        "avg": "平均值",
+        "sum": "加總",
+        "min": "最小值",
+        "max": "最大值",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      },
+      "field_aria": "統計欄位",
+      "group": "分組",
+      "group_aria": "分組方式",
+      "group_time": "依時間",
+      "group_none": "不分組",
+      "limit": "保留前",
+      "limit_aria": "保留的分組數",
+      "chart_aria": "圖表類型",
+      "charts": {
+        "stat": "單值",
+        "bar": "長條圖",
+        "line": "折線圖",
+        "table": "表格"
+      },
+      "written": "根據目前的 SQL 陳述式結果繪製。",
+      "copy_statement": "複製統計陳述式",
+      "edit_statement": "在編輯器中修改",
+      "samples": {
+        "title": "目前的陳述式沒有統計結果",
+        "description": "統計圖表會呈現彙總查詢的結果。你可以從下方的陳述式開始；如果查詢只有篩選條件，也可以直接在這裡選擇統計方式。",
+        "use": "使用這個陳述式"
+      },
+      "dashboard": {
+        "action": "建立儀表板",
+        "title": "建立為儀表板",
+        "description": "建立新的儀表板，並將目前的統計圖表儲存為其中的面板。",
+        "name": "儀表板名稱",
+        "panel": "面板標題",
+        "creating": "建立中…",
+        "created": "儀表板「{{name}}」已建立",
+        "open": "開啟儀表板",
+        "default_name": "{{stream}} 日誌統計",
+        "written_panel": "SQL 統計"
+      }
+    },
+    "inspection": {
+      "title": "智慧巡檢",
+      "intro": "讓 AI 巡檢符合目前查詢條件的日誌：概覽日誌量與層級的變化，找出異常、突然增加的情況及新出現的模式，並提供疑難排解建議。",
+      "target": "巡檢對象",
+      "target_all": "所有日誌",
+      "model": "AI 模型",
+      "requirements": "巡檢要求",
+      "requirements_hint": "選填。若未填寫，將依日誌特徵進行全面巡檢。",
+      "requirements_placeholder": "例如：只關注 production 的 payment-service；將 USER_CANCEL 視為預期的業務結果；發現新的例外堆疊後，依發行版本深入分析。",
+      "disclosure": "巡檢時會將這些日誌的查詢結果傳送給 AI 模型 {{model}}。",
+      "start": "開始巡檢",
+      "running": "巡檢中…",
+      "waiting": "AI 正在讀取日誌…",
+      "writing": "AI 正在撰寫巡檢報告…",
+      "stop": "停止",
+      "again": "重新巡檢",
+      "report": "巡檢報告",
+      "copy_report": "複製巡檢報告",
+      "continue_in_agent": "在 Mole Agent 中繼續",
+      "chat_title": "日誌巡檢 · {{stream}}",
+      "tool_running": "正在呼叫 {{name}}",
+      "tool_done": "已呼叫 {{name}}",
+      "tool_error": "{{name}} 呼叫失敗",
+      "failed": "巡檢未完成",
+      "unavailable": {
+        "loading": "正在檢查 AI 模型…",
+        "permission_title": "沒有使用 Mole Agent 的權限",
+        "permission_description": "智慧巡檢由 Mole Agent 執行，需要 agent.use 權限。",
+        "model_title": "必須先設定並啟用 AI 模型",
+        "model_description": "智慧巡檢由 AI 模型讀取日誌並提出結論，但目前的組織尚未啟用任何模型。",
+        "ask_admin": "請聯絡管理員，在 Mole Agent 設定中啟用 AI 模型。",
+        "configure": "設定 AI 模型",
+        "failed_title": "無法讀取 AI 模型設定"
+      },
+      "prompt": {
+        "task": "請對日誌資料流「{{stream}}」進行一次巡檢，並用中文撰寫巡檢報告。",
+        "range": "時間範圍：{{label}}（{{start}} 至 {{end}}，Unix 微秒）。",
+        "query": "只查看符合這項查詢的日誌：{{statement}}",
+        "query_all": "巡檢這個資料流在這段期間內的所有日誌。",
+        "steps": "請使用可用的日誌查詢工具自行讀取這段期間的資料。在結論中摘要說明日誌量、各層級的占比，以及整體是否正常；在依據中逐項列出：日誌量與各層級隨時間的變化、錯誤與警示的主要類型及其最早出現的時間和涉及的服務、明顯的突增、值得留意的新模式或罕見的日誌；最後說明可能原因，並依嚴重程度排序，提出後續排查建議。",
+        "rules": "僅進行唯讀分析，不要執行任何變更。每項結論都必須以查詢結果為依據；若查不到資料，請直接說明，不要猜測。",
+        "digest_one": "頁面上已載入的 {{count}} 筆日誌概況（僅供初步參考，不代表全部）：",
+        "digest_other": "頁面上已載入的 {{count}} 筆日誌概況（僅供初步參考，不代表全部）：",
+        "digest_levels": "層級",
+        "digest_services": "服務",
+        "requirements": "巡檢要求："
+      },
+      "no_logs": "目前沒有符合查詢條件的日誌，無法立即巡檢。"
+    },
+    "field_analysis": {
+      "scope_all": "範圍：符合查詢條件的所有日誌",
+      "scope_loaded_one": "範圍：已載入的 {{count}} 筆日誌",
+      "scope_loaded_other": "範圍：已載入的 {{count}} 筆日誌"
+    },
+    "left_panel": {
+      "title": "欄位",
+      "collapse": "收合欄位",
+      "expand": "展開欄位",
+      "resize": "拖曳以調整欄位寬度，按兩下以恢復預設寬度",
+      "select_stream_aria": "選取日誌資料流",
+      "select_stream_placeholder": "選取資料流",
+      "loading_streams": "正在載入資料流…",
+      "no_streams": "目前沒有可用的資料流",
+      "field_search_placeholder": "搜尋欄位",
+      "filter_fields_aria": "篩選欄位",
+      "visible_fields": "顯示的欄位",
+      "indexed_fields": "索引欄位",
+      "no_indexed_fields": "這個資料流沒有已建立索引的欄位。",
+      "other_fields": "其他欄位",
+      "no_top_values": "目前的結果中沒有可供統計的值。",
+      "include_value": "新增包含篩選條件",
+      "exclude_value": "新增排除篩選條件",
+      "include_value_aria": "篩選值 {{value}}",
+      "exclude_value_aria": "排除值 {{value}}",
+      "loading_fields": "正在載入欄位…",
+      "no_matching_fields": "沒有符合條件的欄位。",
+      "no_fields_from_query": "這次查詢未傳回任何欄位。",
+      "pick_stream_prompt": "請選取一個資料流以檢視欄位。",
+      "show_field_aria": "顯示 {{name}}",
+      "hide_field_aria": "隱藏 {{name}}",
+      "add_field_aria": "將 {{name}} 加入查詢",
+      "json_query_required": "{{name}} 需要在 SQL 模式中使用 JSON 路徑查詢",
+      "fields_summary": "{{shown}} / {{total}} 個欄位 · 顯示 {{visible}}",
+      "refresh_fields_aria": "重新整理欄位"
+    },
+    "table": {
+      "time_column": "_timestamp",
+      "level_column": "層級",
+      "source_column": "source",
+      "message_column": "訊息",
+      "events_summary": "{{events}} 筆事件 · {{ms}}ms",
+      "pagination_aria": "日誌結果分頁",
+      "page_summary": "{{page}} / {{pages}}",
+      "events_per_page_aria": "每頁事件數",
+      "first_page_aria": "日誌第一頁",
+      "prev_page_aria": "上一頁",
+      "next_page_aria": "下一頁",
+      "prev_page": "上一頁",
+      "next_page": "下一頁",
+      "last_page_aria": "日誌最後一頁",
+      "running_query": "查詢中…",
+      "no_events": "此時間範圍內沒有事件。",
+      "row_aria": "查看第 {{index}} 筆日誌"
+    },
+    "recovery": {
+      "query_failed": "日誌查詢失敗",
+      "no_data_title": "沒有符合條件的日誌",
+      "no_data_description": "目前的時間範圍內找不到相關日誌。可先清除篩選條件或擴大時間範圍，再考慮切換資料流。",
+      "expand_time": "將時間範圍擴大為原來的 4 倍",
+      "clear_filters": "清除篩選條件並重試",
+      "query_docs": "日誌查詢文件"
+    },
+    "conditions": {
+      "unmatched_one": "未加入查詢：{{conditions}}。資料流 {{stream}} 沒有對應的欄位。",
+      "unmatched_other": "未加入查詢：{{conditions}}。資料流 {{stream}} 沒有對應的欄位。",
+      "pinned_one": "固定篩選條件 {{conditions}}",
+      "pinned_other": "固定篩選條件 {{conditions}}",
+      "groups": "{{link}}；{{pinned}}",
+      "meanings": {
+        "trace_id": "Trace ID",
+        "span_id": "Span ID",
+        "service": "服務",
+        "host": "主機",
+        "route": "路由",
+        "operation": "操作",
+        "method": "請求方法",
+        "status": "狀態碼",
+        "environment": "環境",
+        "pod": "Pod"
+      }
+    },
+    "results": {
+      "content": "內容",
+      "columns": "欄位設定",
+      "visible_columns": "顯示欄位",
+      "reorder_columns_hint": "拖曳排序",
+      "available_columns": "可用欄位",
+      "reset_columns": "恢復預設",
+      "drag_column_aria": "調整 {{name}} 的順序。可拖曳，或按 Alt+上／下方向鍵。",
+      "download": "下載日誌",
+      "download_csv": "CSV",
+      "download_log": "LOG（文字）"
+    },
+    "patterns": {
+      "events": "事件數",
+      "share": "占比",
+      "pattern_one": "{{count}} 種模式",
+      "pattern_other": "{{count}} 種模式",
+      "level": "層級",
+      "source": "來源",
+      "open_aria_one": "{{pattern}}：{{count}} 筆事件，檢視日誌",
+      "open_aria_other": "{{pattern}}：{{count}} 筆事件，檢視日誌",
+      "filter": "只看這類日誌",
+      "filter_aria": "只看與 {{pattern}} 類似的日誌",
+      "show_more_one": "再顯示 {{count}} 筆",
+      "show_more_other": "再顯示 {{count}} 筆",
+      "basis_latest": "最新符合條件的事件",
+      "basis_all": "所有符合條件的事件",
+      "basis_returned": "查詢傳回的事件",
+      "basis_back_to": "最早可追溯至 {{moment}}",
+      "read_more": "再讀取 {{logs}} 筆更早的日誌",
+      "reading": "讀取中…",
+      "read_failed": "無法繼續讀取更早的日誌。",
+      "unread_one": "{{count}} 筆事件沒有訊息內容，未歸入任何模式。",
+      "unread_other": "{{count}} 筆事件沒有訊息內容，未歸入任何模式。",
+      "kind": {
+        "number": "數字",
+        "id": "識別碼",
+        "ip": "位址",
+        "url": "URL",
+        "time": "時間",
+        "data": "結構化資料",
+        "any": "值"
+      }
+    },
+    "detail": {
+      "drawer_aria": "日誌詳細資料面板",
+      "filter_placeholder": "篩選欄位",
+      "no_field_match": "沒有符合的欄位。",
+      "views_aria": "日誌檢視方式",
+      "close": "關閉日誌詳細資料",
+      "copy_json": "複製日誌 JSON",
+      "copied_json": "已複製日誌 JSON",
+      "download_json": "下載日誌 JSON",
+      "tabs": {
+        "fields": "欄位",
+        "trace": "呼叫鏈",
+        "json": "原始 JSON",
+        "context": "前後文"
+      },
+      "context_description": "檢視目前結果中前後各 5 筆日誌，點選即可切換詳細資料。",
+      "position": "第 {{current}} / {{total}} 筆",
+      "prev": "上一筆",
+      "next": "下一筆",
+      "include_filter": "新增包含篩選條件",
+      "exclude_filter": "新增排除篩選條件",
+      "copy_value": "複製值",
+      "copied_value": "已複製欄位值",
+      "show_column": "顯示為欄",
+      "hide_column": "隱藏欄",
+      "open_trace": "開啟呼叫鏈",
+      "stream": "資料流",
+      "resize": "調整日誌詳細資料面板的寬度"
+    }
+  },
+  "inspections": {
+    "title": "排程巡檢",
+    "subtitle": "由 AI 定期巡檢日誌資料流，儲存每次巡檢的報告，並在報告判定有異常時發出通知。",
+    "entry": "排程巡檢",
+    "save_as": "儲存為排程巡檢",
+    "new": "新增巡檢",
+    "enabled": "已啟用",
+    "never_run": "尚未執行",
+    "live": "巡檢正在執行，每 {{seconds}} 秒重新整理",
+    "levels": {
+      "normal": "正常",
+      "attention": "需留意",
+      "abnormal": "異常",
+      "unknown": "未判定"
+    },
+    "run_status": {
+      "queued": "排隊中",
+      "running": "巡檢中",
+      "succeeded": "已完成",
+      "failed": "失敗",
+      "timed_out": "逾時"
+    },
+    "failures": {
+      "timed_out": "巡檢已超過時間上限。",
+      "interrupted": "執行巡檢的節點中途退出。",
+      "not_started": "沒有節點執行這次巡檢。",
+      "identity": "執行巡檢所用的身分已無法使用。重新儲存這項巡檢，即可改用你的身分執行。",
+      "model": "巡檢選用的 AI 模型不存在、已停用或沒有金鑰。",
+      "agent": "呼叫 AI 模型失敗。",
+      "internal": "巡檢因內部原因失敗。",
+      "budget": "組織今天的 Mole Agent token 預算已用完。預算重設或調高後，巡檢會照常執行。"
+    },
+    "triggers": {
+      "manual": "手動"
+    },
+    "schedule": {
+      "every": "每 {{duration}}",
+      "daily_at": "每天 {{time}}",
+      "weekly_at": "每{{weekday}} {{time}}"
+    },
+    "schedule_kinds": {
+      "interval": "依間隔",
+      "daily": "每天",
+      "weekly": "每週"
+    },
+    "weekdays": {
+      "1": "週一",
+      "2": "週二",
+      "3": "週三",
+      "4": "週四",
+      "5": "週五",
+      "6": "週六",
+      "7": "週日"
+    },
+    "units": {
+      "minutes_one": "{{count}} 分鐘",
+      "minutes_other": "{{count}} 分鐘",
+      "hours_one": "{{count}} 小時",
+      "hours_other": "{{count}} 小時",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天"
+    },
+    "notify_when": {
+      "abnormal": "僅在異常時通知",
+      "attention": "達「需留意」等級以上時通知",
+      "always": "每次都通知"
+    },
+    "columns": {
+      "name": "巡檢",
+      "schedule": "週期",
+      "last_run": "最近一次",
+      "next_run": "下次執行",
+      "notify": "通知",
+      "enabled": "啟用",
+      "actions": "操作"
+    },
+    "cells": {
+      "window": "涵蓋最近 {{duration}}",
+      "due": "即將執行",
+      "paused": "已停用",
+      "no_channel": "不通知",
+      "channels_one": "{{count}} 個管道",
+      "channels_other": "{{count}} 個管道"
+    },
+    "actions": {
+      "run": "立即執行",
+      "run_named": "立即執行 {{name}}",
+      "run_active": "這項巡檢正在執行",
+      "edit": "編輯",
+      "edit_named": "編輯 {{name}}",
+      "delete": "刪除",
+      "delete_named": "刪除 {{name}}",
+      "toggle_named": "啟用或停用 {{name}}"
+    },
+    "toast": {
+      "created": "定期巡檢已儲存",
+      "saved": "定期巡檢已更新",
+      "enabled": "已啟用，將定期執行",
+      "paused": "已停用，不再定期執行",
+      "queued": "已加入佇列，幾秒後開始執行",
+      "deleted": "定期巡檢已刪除"
+    },
+    "denied": {
+      "title": "沒有檢視定期巡檢的權限",
+      "description": "定期巡檢由 Mole Agent 執行，報告會引用日誌，因此需要 inspections.read 和 logs.read 兩項權限。",
+      "manage": "需要 inspections.manage 權限"
+    },
+    "no_model": {
+      "short": "請先啟用 AI 模型",
+      "notice": "目前的組織未啟用任何 AI 模型，無法執行已儲存的巡檢。"
+    },
+    "capacity": {
+      "full": "已達每個組織 {{max}} 項的上限",
+      "count": "已儲存 {{saved}} 項，上限為 {{max}} 項"
+    },
+    "empty": {
+      "title": "尚無定期巡檢",
+      "description": "儲存巡檢後，AI 會定期檢查所選的資料串流，並將每次的報告保留在這裡。若報告判定有異常，就會透過你選擇的管道發送通知。"
+    },
+    "delete_confirm": {
+      "title": "要刪除「{{name}}」嗎？",
+      "description": "這項巡檢及其所有歷史報告都會被刪除，且無法還原。",
+      "confirm": "刪除",
+      "busy": "刪除中…"
+    },
+    "editor": {
+      "new_title": "新增定期巡檢",
+      "edit_title": "編輯定期巡檢",
+      "subtitle": "AI 會以唯讀方式定期執行巡檢，並儲存每次的報告。",
+      "what": "巡檢項目",
+      "when": "巡檢時間",
+      "whom": "通知對象",
+      "name": "名稱",
+      "name_placeholder": "例如：付款服務錯誤日誌",
+      "stream": "資料串流",
+      "stream_placeholder": "選擇日誌資料串流",
+      "statement": "查詢條件",
+      "statement_hint": "選填。只巡檢符合此查詢條件的日誌；留空則巡檢此資料串流的所有日誌。",
+      "statement_placeholder": "例如：level = 'ERROR'",
+      "schedule": "週期",
+      "interval": "間隔",
+      "weekday": "星期",
+      "time": "執行時間",
+      "hour": "時",
+      "minute": "分",
+      "time_hint": "以 {{timezone}} 時區為準",
+      "window": "涵蓋時段",
+      "window_hint": "每次執行時，查看執行前這段時間內的日誌。",
+      "no_model": "目前沒有可用的 AI 模型。",
+      "model_off": "{{name}}（已停用）",
+      "model_off_hint": "此模型已停用。重新啟用此模型或改選其他模型前，無法儲存或執行巡檢。",
+      "model_placeholder": "選擇 AI 模型",
+      "enabled": "儲存後依週期自動執行",
+      "notify_when": "何時通知",
+      "channels": "通知管道",
+      "channels_denied": "選擇通知管道需要 notify.connectors.read 權限。",
+      "channels_none": "目前沒有已啟用的通知連接器，可在「設定 → 通知」中新增。",
+      "channels_failed": "無法載入通知連接器。",
+      "channels_kept_one": "已選取的 {{count}} 個管道保持不變。",
+      "channels_kept_other": "已選取的 {{count}} 個管道保持不變。",
+      "connector_off": "{{name}}（已停用）",
+      "connector_gone": "{{name}}（不存在）",
+      "channels_hint": "選填。未選擇管道時不會傳送通知，報告仍會儲存在頁面上。執行失敗時，只在狀態由正常轉為失敗的那一次傳送通知。",
+      "add_channel": "新增管道",
+      "remove_channel": "移除管道",
+      "no_channel": "未選擇管道，不會傳送通知。",
+      "channel_connector": "管道 {{number}} 的連接器",
+      "channel_kind": "管道 {{number}} 的目標類型",
+      "channel_target": "管道 {{number}} 的目標",
+      "target_placeholder": {
+        "group": "群組 ID",
+        "address": "位址"
+      },
+      "run_as_you": "儲存後，此巡檢每次執行時，都會使用你當時的權限讀取日誌。",
+      "run_as_change": "目前以 {{name}} 的權限執行；儲存後將改用你的權限執行。",
+      "save": "儲存",
+      "create": "儲存巡檢"
+    },
+    "detail": {
+      "runs": "歷史報告",
+      "older": "更早的報告",
+      "no_runs": "尚未執行過。下次排定的時間一到，就會自動巡檢，也可以點選「立即執行」。",
+      "no_runs_paused": "尚未執行過。這項巡檢已停用，可以點選「立即執行」試跑一次。",
+      "run_missing": "這份報告已不存在",
+      "loading_report": "正在讀取報告…",
+      "run_as": "以 {{name}} 的權限執行",
+      "next_run": "下次 {{time}}"
+    },
+    "report": {
+      "open_logs": "查看這段時間的記錄",
+      "manual_by": "由 {{name}} 手動執行",
+      "scheduled": "排程執行",
+      "took": "耗時 {{duration}}",
+      "tokens": "{{formatted}} tokens",
+      "queued": "已排入佇列，等待在背景執行…",
+      "tools": "讀取過程",
+      "notified": "通知",
+      "delivered": "已送達",
+      "undelivered": "未送達"
+    }
+  }
+}

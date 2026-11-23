@@ -1,0 +1,258 @@
+{
+  "explore": {
+    "title": "メトリクス",
+    "subtitle": "エクスプローラー",
+    "toolbar": {
+      "refresh": "更新",
+      "running": "実行中…",
+      "add_to_dashboard": "ダッシュボードに追加",
+      "clear_query": "クエリをクリア",
+      "collapse_editor": "クエリを折りたたむ",
+      "expand_editor": "クエリを展開",
+      "empty_query_summary": "メトリクスを選択するか、PromQL を入力してください"
+    },
+    "editor": {
+      "label": "クエリ",
+      "aria": "PromQL エディター",
+      "placeholder": "rate(metric_name{...}[5m])",
+      "run": "実行",
+      "running_promql": "PromQL を実行中…"
+    },
+    "function_hint": {
+      "aria": "PromQL 関数のヘルプを開く",
+      "title": "よく使われる PromQL 関数",
+      "description": "クエリバックエンドがサポートする主な関数と集計方法です。",
+      "functions": {
+        "rate": "範囲ベクトルの 1 秒あたりの平均変化率を計算します。",
+        "increase": "指定範囲内の累積増加量を計算します。",
+        "sum": "複数の時系列を合計して集計します。",
+        "avg": "複数の時系列を平均して集計します。"
+      },
+      "docs": "すべての関数",
+      "docs_aria": "PromQL 関数のドキュメントを開く"
+    },
+    "query": {
+      "datasource": "データソース",
+      "metrics_browser": "メトリクスブラウザー",
+      "options": "オプション",
+      "legend": "凡例",
+      "auto": "自動",
+      "verbose": "詳細",
+      "custom": "カスタム",
+      "format": "形式",
+      "time_series": "時系列",
+      "table": "テーブル",
+      "step": "ステップ",
+      "step_placeholder": "auto, 30s, 1m…",
+      "step_invalid": "auto または 30s や 5m などの時間間隔を指定してください。",
+      "type": "タイプ",
+      "range": "範囲",
+      "instant": "インスタント",
+      "exemplars": "エグザンプラー",
+      "on": "オン",
+      "off": "オフ"
+    },
+    "catalog": {
+      "title": "メトリクス",
+      "browser_title": "メトリクスブラウザー",
+      "search_trigger": "メトリクスを検索",
+      "search_description": "メトリクス名で検索し、選択したメトリクスをクエリ A に挿入します。",
+      "search_aria": "メトリクス名で検索",
+      "result_count": "{{count}} 件",
+      "collapse": "メトリクスを折りたたむ",
+      "expand": "メトリクスを展開",
+      "resize": "ドラッグでメトリクス領域のサイズを調整、ダブルクリックでリセット",
+      "filter_placeholder": "メトリクスを絞り込む...",
+      "loading": "カタログを読み込み中…",
+      "load_error": "メトリクスカタログを読み込めませんでした: {{error}}",
+      "unknown_error": "不明なエラー",
+      "no_filter_match": "このフィルターに一致するメトリクスはありません。",
+      "empty": "メトリクスはまだ定義されていません。stream_type = metrics を指定してストリームを作成してください。",
+      "no_indexed_labels": "ラベルなし",
+      "metric_meta": "ラベル {{labels}} 件 · フィールド {{fields}} 件",
+      "select": "選択",
+      "selected": "選択済み",
+      "pagination": {
+        "page_summary": "{{page}} / {{pages}}",
+        "aria": "メトリクスカタログのページ切り替え",
+        "page_size_aria": "1 ページあたりのメトリクス数",
+        "first_aria": "メトリクス一覧の最初のページ",
+        "previous_aria": "メトリクス一覧の前のページ",
+        "next_aria": "メトリクス一覧の次のページ",
+        "previous": "前へ",
+        "next": "次へ",
+        "last_aria": "メトリクス一覧の最後のページ"
+      }
+    },
+    "types": {
+      "counter": "カウンター",
+      "histogram": "ヒストグラム",
+      "gauge": "ゲージ"
+    },
+    "chart": {
+      "mode_line": "線",
+      "mode_bar": "棒",
+      "mode_points": "点",
+      "draw_style": "描画スタイル",
+      "stack_mode": "積み上げ",
+      "stack_none": "オフ",
+      "stack_normal": "通常",
+      "stack_percent": "パーセント",
+      "stack_requires_multiple_series": "積み上げ表示には少なくとも2つの系列が必要です",
+      "http_request_rate": "HTTP リクエストレート",
+      "query_result": "メトリクスクエリの結果",
+      "generic_rate": "{{metric}} のレート",
+      "zoom_hint": "ドラッグで範囲選択 · X 軸をドラッグして横移動 · ダブルクリックでズームアウト",
+      "zoom_aria": "メトリクスの時系列グラフです。横方向にドラッグすると範囲を選択できます。X 軸をドラッグすると表示範囲がリアルタイムに移動し、グラフをダブルクリックすると現在の時間範囲が2倍に広がります。",
+      "reset_zoom": "時間範囲をリセット",
+      "reset_zoom_hint": "グラフを操作する前の時間範囲に戻します",
+      "select_prompt": "上の欄に PromQL を入力するか、メトリクスを検索してから、クエリを実行してください。",
+      "empty": "このクエリと時間範囲に該当するデータポイントはありません。"
+    },
+    "start": {
+      "heading": "メトリクスから開始",
+      "browse": "すべてのメトリクスを参照",
+      "metric_aria": "{{metric}} をグラフに表示",
+      "no_metrics": "メトリクスはまだ受信していません。",
+      "connect": "メトリクスソースを接続"
+    },
+    "recovery": {
+      "query_failed": "PromQL クエリの実行に失敗しました",
+      "promql_docs": "PromQL ドキュメント",
+      "no_data_title": "調査対象の時間範囲にメトリクスデータがありません",
+      "no_data_description": "クエリは有効です。式を変更する前に、時間範囲を広げるか、固定されたフィルターを削除してください。",
+      "expand_time": "時間範囲を4倍に拡大",
+      "clear_filters": "フィルターをクリアして再試行"
+    },
+    "exemplars": {
+      "title": "エグザンプラー",
+      "count": "エグザンプラー {{count}} 件",
+      "open_trace": "トレース {{traceId}} を開く",
+      "no_trace": "エグザンプラーにトレース ID がありません",
+      "hint": "ひし形のマーカーを選択すると、関連するトレースを確認できます。",
+      "query_error": "エグザンプラーを取得できません"
+    },
+    "series": {
+      "title": "系列",
+      "empty": "系列がありません。",
+      "collapse": "折りたたむ",
+      "show_all": "全 {{count}} 系列を表示",
+      "label_count": "ラベル {{count}} 件",
+      "expand_labels": "{{metric}} のラベルを表示",
+      "collapse_labels": "{{metric}} のラベルを非表示",
+      "columns": {
+        "name": "名前",
+        "last": "最終値",
+        "current": "現在値",
+        "average": "平均値",
+        "max": "最大値"
+      }
+    },
+    "query_stats": {
+      "title": "クエリ統計",
+      "empty": "クエリ統計はありません。",
+      "series": "系列",
+      "points": "データポイント",
+      "scanned": "スキャンした行数",
+      "duration": "クエリ実行時間",
+      "range": "時間範囲",
+      "step": "ステップ"
+    },
+    "results": {
+      "graph": "グラフ",
+      "table": "テーブル",
+      "inspector": "クエリインスペクター",
+      "series_count": "{{count}} 系列",
+      "query_time": "{{ms}} ms",
+      "no_table": "結果の行を確認するには、クエリを実行してください。",
+      "table_limit": "{{total}} 行中 {{shown}} 行を表示しています。",
+      "query": "クエリ",
+      "views_aria": "結果ビュー"
+    },
+    "quality": {
+      "title": "データ品質",
+      "healthy": "明らかな異常は検出されていません",
+      "attention": "一部のデータに確認が必要です",
+      "distinguishes_missing": "欠損値、実際のゼロ値、負の値は個別に集計されます。",
+      "negative_points": "負のデータポイント",
+      "missing_data": "欠損データ",
+      "timestamp_anomalies": "タイムスタンプの異常",
+      "negative_rate_title": "カウンターの負の変化率を検出",
+      "negative_rate_description": "このメトリクスはカウンターとして宣言されていますが、結果に負のデータポイントが {{count}} 件含まれています。カウンターの値が減少したか、データが時系列順に届かなかったか、メトリクスの型が誤っている可能性があります。",
+      "view_raw": "生データを表示",
+      "view_anomalies": "異常を表示",
+      "inspect_type": "メトリクスの型を確認"
+    },
+    "top_labels": {
+      "title": "上位ラベル",
+      "empty": "—",
+      "value": "値",
+      "avg": "平均"
+    },
+    "summary": {
+      "title": "統計サマリー",
+      "empty": "—"
+    },
+    "cardinality": {
+      "title": "カーディナリティ",
+      "active_series": "アクティブな系列 · {{rows}} 行をスキャン · {{ms}} ms"
+    },
+    "schema": {
+      "title": "結果のスキーマ",
+      "empty": "—",
+      "columns": {
+        "name": "列",
+        "kind": "種類",
+        "rows": "行数"
+      },
+      "kinds": {
+        "time": "時刻",
+        "value": "値",
+        "label": "ラベル"
+      }
+    },
+    "scan": {
+      "title": "スキャン統計",
+      "label": "スキャン済み行数 · {{ms}} ms"
+    }
+  },
+  "builder": {
+    "metric_label": "メトリクス",
+    "metric_select_aria": "メトリクス名",
+    "metric_select_placeholder": "メトリクスを選択",
+    "label_matchers": "ラベルフィルター",
+    "matcher_name_aria": "ラベルフィルター {{index}} の名前",
+    "matcher_name_placeholder": "status",
+    "matcher_op_aria": "ラベルフィルター {{index}} の演算子",
+    "matcher_value_aria": "ラベルフィルター {{index}} の値",
+    "matcher_value_placeholder": "200",
+    "add_matcher": "ラベルフィルターを追加",
+    "remove_matcher_aria": "ラベルフィルター {{index}} を削除",
+    "no_matchers": "ラベルフィルターがありません。フィルターを追加すると、選択したメトリクスのデータを絞り込めます。",
+    "no_labels": "このメトリクスには選択できるラベルがありません。",
+    "function": "関数",
+    "function_select_aria": "PromQL 関数",
+    "available_functions": "ビルダーで利用可能",
+    "code_only_functions": "追加パラメーター · コードモードを使用",
+    "functions": {
+      "none": "未加工のメトリクス",
+      "rate": "変化率",
+      "irate": "瞬間変化率",
+      "increase": "増加量"
+    },
+    "aggregation": "集計",
+    "aggregation_select_aria": "PromQL の集計",
+    "aggregations": {
+      "none": "なし",
+      "sum": "合計",
+      "avg": "平均",
+      "max": "最大値",
+      "min": "最小値"
+    },
+    "range": "範囲",
+    "range_select_aria": "対象期間",
+    "editor_label": "PromQL",
+    "preview_empty": "メトリクスを選択すると、PromQL 式を作成できます。",
+    "unsupported_expression": "この PromQL 式はビルダーで安全に表現できません。ビルダーの項目を変更するまでは、元の式が保持されます。"
+  }
+}

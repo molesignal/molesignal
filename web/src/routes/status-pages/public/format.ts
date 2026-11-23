@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 
+import { isChinese } from '@/i18n/locales';
 import { formatRelativeSpan } from '@/time/relative';
 
 import { formatDurationMicros } from '../model';
@@ -37,7 +38,7 @@ export function lasted(copy: TFunction, startedAt: number, endedAt: number): str
  * also keeps names written in Latin letters from running into the word between.
  */
 export function listNames(names: string[], language: string): string {
-  if (language.toLowerCase().startsWith('zh')) return names.join('、');
+  if (isChinese(language)) return names.join('、');
 
   return new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(names);
 }

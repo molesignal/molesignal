@@ -13,6 +13,11 @@ The product face, `MoleSignal Sans`, picks its file by weight:
 - 600 to 700, titles, as Ant Design Pro sets them: Alibaba Sans Bold for
   Latin; Chinese falls to Alibaba PuHuiTi 3.0 SemiBold.
 
+A page in Traditional Chinese, Japanese or Korean does not use PuHuiTi, whose
+subset is Simplified Chinese: `languages.css` gives those pages Alibaba Sans
+for Latin (`MoleSignal Latin`) and the platform's face for the language,
+chosen by `<html lang>`.
+
 ## Alibaba Sans
 
 `alibaba-sans-regular.woff2` and `alibaba-sans-bold.woff2` are Alibaba Sans

@@ -1,0 +1,36 @@
+{
+  "templates": {
+    "overview": "概要",
+    "list": "一覧",
+    "detail": "詳細",
+    "builder": "ビルダー",
+    "settings": "設定",
+    "gate": "ゲート",
+    "fixture_title": "テンプレートフィクスチャ",
+    "fixture_subtitle": "ローカルのサンプルデータを使った再利用可能なページのひな形"
+  },
+  "actions": {
+    "create": "作成",
+    "refresh": "再読み込み"
+  },
+  "fixture": {
+    "alerts": "アラート",
+    "cost": "コスト",
+    "dashboards": "ダッシュボード",
+    "errors": "エラー",
+    "filters": "フィルター",
+    "general": "一般",
+    "healthy": "正常",
+    "datasource": "データソース",
+    "last_24h": "過去24時間",
+    "latency": "レイテンシー",
+    "month_to_date": "今月の累計",
+    "name": "名前",
+    "organization": "組織",
+    "owner": "オーナー",
+    "search": "検索",
+    "selected": "{{count}}件選択済み",
+    "state": "状態",
+    "updated": "更新日時"
+  }
+}

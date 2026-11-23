@@ -1,0 +1,314 @@
+{
+  "activation": {
+    "title": "クイックスタート",
+    "drawer_description": "このワークスペースに必要なセットアップを行います。",
+    "complete_title": "クイックスタート完了",
+    "progress": "{{completed}}/{{total}} 件完了",
+    "progress_short": "{{completed}}/{{total}}",
+    "ready": "主要なワークフローが有効になりました",
+    "empty": "まずデータを取り込み、ダッシュボードとアラートを作成して、この組織での運用を開始します。",
+    "remaining_single": "残りのセットアップ手順：1 件",
+    "remaining_multiple": "残りのセットアップ手順：{{count}} 件",
+    "next": "次へ",
+    "complete_action": "セットアップを完了",
+    "open": "開く",
+    "steps": {
+      "datasource": {
+        "title": "データソースを接続",
+        "description": "ログ、メトリクス、トレースのいずれかのストリームの送信を開始します。"
+      },
+      "dashboard": {
+        "title": "ダッシュボードを作成",
+        "description": "チームの運用ビューをピン留めします。"
+      },
+      "alert": {
+        "title": "アラートを作成",
+        "description": "サービスやプラットフォームの監視に使う最初のシグナルを定義します。"
+      },
+      "schedule": {
+        "title": "オンコールスケジュールを設定",
+        "description": "誰がいつアラートに対応するかを決めます。"
+      },
+      "notification": {
+        "title": "通知チャネルを追加",
+        "description": "チャット、メール、SMS、電話で通知を送るためのコネクターを追加します。"
+      },
+      "ai": {
+        "title": "AI モデルを接続",
+        "description": "Mole Agent が調査を支援できるように、モデルプロバイダーを追加します。"
+      },
+      "pipeline": {
+        "title": "パイプラインを自動化",
+        "description": "データ移動やバックフィルのワークフローの実行をスケジュールします。"
+      },
+      "sample_data": {
+        "title": "サンプルデータを読み込む",
+        "description": "相互にリンクされたログ、メトリクス、トレースを、概要ダッシュボードと 4 件の保存済みクエリとともに読み込みます。アラートエディターでは 3 種類のサンプルテンプレートを利用できます。"
+      }
+    },
+    "load": "読み込む",
+    "loading": "読み込み中…",
+    "load_success": "サンプルデータを {{rows}} 行読み込みました。ダッシュボードと 4 件の保存済みクエリを利用できます",
+    "done": "完了"
+  },
+  "home": {
+    "title": "ホーム",
+    "view_all": "すべて表示",
+    "loading": "読み込み中…",
+    "unavailable": "読み込めませんでした",
+    "quick_start_one": "残りのセットアップ手順：{{count}} 件",
+    "quick_start_other": "残りのセットアップ手順：{{count}} 件",
+    "refresh": "更新",
+    "window": {
+      "label": "時間範囲",
+      "1h": "過去1時間",
+      "24h": "過去24時間",
+      "7d": "過去7日間"
+    },
+    "status": {
+      "title": "システムステータス",
+      "loading": "読み込み中",
+      "ok": "すべてのシステムは正常です",
+      "nothing": "現在のロールでは、システムステータスを閲覧できません。",
+      "issues_one": "問題 {{count}} 件",
+      "issues_other": "問題 {{count}} 件",
+      "updated": "更新: {{time}}"
+    },
+    "signal": {
+      "logs": "ログ",
+      "metrics": "メトリクス",
+      "traces": "トレース",
+      "profiles": "プロファイル"
+    },
+    "signal_state": {
+      "healthy": "正常",
+      "delayed": "遅延",
+      "degraded": "異常",
+      "no_data": "データなし",
+      "unknown": "不明"
+    },
+    "severity": {
+      "critical": "重大",
+      "error": "エラー",
+      "warning": "警告",
+      "info": "情報"
+    },
+    "tiles": {
+      "incidents": "進行中のインシデント",
+      "unacknowledged": "未確認 {{count}} 件",
+      "no_incidents": "進行中のインシデントなし",
+      "rules": "発報中のルール",
+      "of_enabled": "有効な {{count}} 件のうち",
+      "pending": "保留中 {{count}} 件",
+      "services": "正常なサービス",
+      "of_total": "全 {{count}} 件のうち",
+      "no_traces": "トレースデータなし",
+      "checks": "合格したチェック",
+      "of_passing": "全 {{count}} 件のうち",
+      "no_checks": "チェックなし",
+      "error_rate": "エラー率",
+      "requests": "{{value}} 件のリクエスト",
+      "p95": "P95 レイテンシ"
+    },
+    "rule_state": {
+      "firing": "発報中",
+      "pending": "保留中",
+      "ok": "正常"
+    },
+    "service_health": {
+      "critical": "重大",
+      "warning": "警告",
+      "healthy": "正常",
+      "no_traffic": "トラフィックなし"
+    },
+    "check_state": {
+      "failing": "失敗",
+      "degraded": "性能低下",
+      "flaky": "不安定",
+      "healthy": "成功",
+      "unknown": "データなし"
+    },
+    "services": {
+      "title": "サービス",
+      "empty": "トレースはまだ受信していません。",
+      "connect": "サービスを接続",
+      "service": "サービス",
+      "health": "稼働状態",
+      "throughput": "スループット",
+      "error_rate": "エラー"
+    },
+    "incidents": {
+      "title": "対応中のインシデント",
+      "empty": "対応中のインシデントはありません",
+      "acknowledge": "確認済みにする"
+    },
+    "incident_status": {
+      "open": "未確認",
+      "acknowledged": "確認済み",
+      "resolved": "解決済み",
+      "closed": "クローズ済み"
+    },
+    "intake": {
+      "title": "データ取り込み",
+      "streams": "ストリーム",
+      "streams_active": "{{total}} 件中 {{active}} 件のストリームで受信中",
+      "stored": "保存済み: {{size}}",
+      "received": "受信済み: {{size}}"
+    },
+    "checks": {
+      "title": "外形監視",
+      "empty": "チェックはまだありません。",
+      "create": "チェックを作成",
+      "availability": "可用性",
+      "all_passing_one": "チェック 1 件が成功しています",
+      "all_passing_other": "全 {{count}} 件のチェックが成功しています"
+    },
+    "oncall": {
+      "title": "自分のオンコール",
+      "schedules": "スケジュール",
+      "on_now": "オンコール中",
+      "next": "次のシフト",
+      "hands_over": "引き継ぎ: {{time}}",
+      "none": "今後30日間に担当シフトはありません。",
+      "covering": "{{name}}の代理でオンコール中 · {{schedule}}",
+      "holding": "オンコール中 · {{schedule}}",
+      "unreachable": "スケジュールに登録されていますが、アラートを受信できません。",
+      "set_up_notify": "通知を設定",
+      "unavailable": "スケジュールを読み込めませんでした",
+      "gap": "現在、{{schedule}}にオンコール担当者はいません。",
+      "arrange": "今すぐ割り当て"
+    }
+  },
+  "datasource": {
+    "endpoint": "エンドポイント",
+    "copy_endpoint": "エンドポイントをコピー",
+    "intake_token": "取り込みトークン",
+    "rum_client_token": "RUMクライアントトークン",
+    "copy_token": "トークンをコピー",
+    "token_loading": "読み込み中…",
+    "token_description": "デフォルトの取り込みトークンです。上記の Authorization: Bearer ヘッダーに貼り付けてください。アカウント設定の「APIトークン」で、トークンの管理や追加作成ができます。",
+    "validation": "検証",
+    "test_event": "テストイベントを送信",
+    "test_event_sending": "送信中…",
+    "test_event_sent": "送信済み · 受理 {{accepted}}件 · 拒否 {{rejected}}件"
+  },
+  "datasource_page": {
+    "title": "データソースのセットアップ",
+    "search_placeholder": "すべてのデータソースを検索…",
+    "clear_search": "検索をクリア",
+    "matching": "{{count}}件が一致",
+    "no_match": "「{{search}}」に一致するデータソースはありません",
+    "no_sources": "データソースなし",
+    "no_signal_match": "「{{category}}」には{{signal}}のデータソースがありません。",
+    "show_all_signals": "すべてのシグナルを表示",
+    "category_navigation": "データソースのカテゴリ",
+    "source_navigation": "データソース",
+    "signal_filter": "シグナル",
+    "guide_region": "セットアップガイド",
+    "categories": {
+      "recommended": "おすすめ",
+      "infrastructure": "インフラストラクチャ",
+      "cloud": "クラウド",
+      "databases": "データベース",
+      "queues": "メッセージング",
+      "applications": "アプリと言語",
+      "security": "セキュリティ",
+      "custom": "カスタム"
+    },
+    "signals": {
+      "all": "すべて",
+      "logs": "ログ",
+      "metrics": "メトリクス",
+      "traces": "トレース",
+      "profiles": "プロファイル",
+      "rum": "RUM"
+    },
+    "group_protocol": "プロトコル",
+    "group_source": "連携元",
+    "category": "カテゴリ：{{category}}",
+    "docs": "ドキュメント",
+    "endpoint_for": "{{signal}}のエンドポイント",
+    "verify_connection": "接続を確認",
+    "steps": {
+      "prepare": {
+        "title": "エンドポイントとトークン",
+        "description": "データの送信先と認証に使うトークンです。以下のコマンドには、どちらも設定済みです。",
+        "description_no_token": "データの送信先と認証に使うトークンです。"
+      },
+      "deploy": {
+        "title": "送信元の設定"
+      },
+      "verify": {
+        "title": "データの受信を確認"
+      }
+    },
+    "create_dedicated_token": "専用トークンを作成",
+    "manage_tokens": "トークンを管理",
+    "show_token": "トークンを表示",
+    "hide_token": "トークンを非表示",
+    "token_permission": "スコープ",
+    "token_workspace": "ワークスペース",
+    "token_expiry": "有効期限",
+    "token_never_expires": "無期限",
+    "token_load_failed": "データ取り込み用トークンを読み込めませんでした。このトークンにはデータの書き込み権限が必要です。",
+    "rum_application_id": "RUMアプリケーション",
+    "rum_application_hint": "以下のクライアントトークンは、このアプリケーションに紐付けられています。他のアプリケーション用に送信されたイベントは拒否されます。",
+    "rum_application_required": "先にRUMアプリケーションを選択してください。選択すると、そのクライアントトークンが表示されます。",
+    "rum_application_placeholder": "アプリケーションを選択",
+    "rum_application_loading": "アプリケーションを読み込み中…",
+    "rum_application_none": "RUMアプリケーションはまだありません。",
+    "rum_application_create": "アプリケーションを作成",
+    "rum_application_load_failed": "アプリケーションを読み込めませんでした。",
+    "validation_overview_unavailable": "現在、受信状況の概要を表示できません。",
+    "validation_endpoint_failed": "レシーバーのヘルスチェックに失敗しました。",
+    "validating": "確認中…",
+    "recheck": "再確認",
+    "validation_state": {
+      "idle": {
+        "title": "未確認",
+        "description": "レシーバーの状態を確認した後、過去1時間にデータを受信したか確認します。"
+      },
+      "success": {
+        "title": "データ受信を確認済み",
+        "description": "過去1時間に、対応する{{total}}種類のシグナルのうち{{active}}種類でデータを受信しました。"
+      },
+      "warning": {
+        "title": "レシーバーは正常ですが、データの確認が必要です",
+        "description": "過去1時間に、対応する{{total}}種類のシグナルのうち{{active}}種類にデータがありました。デプロイを確認するか、次のバッチを待ってください。"
+      },
+      "error": {
+        "title": "検証に失敗しました",
+        "description": "レシーバーとデータの状態を確認できませんでした。"
+      }
+    },
+    "validation_metrics": {
+      "receiver": "レシーバー",
+      "last_received": "最終受信",
+      "streams": "アクティブなストリーム",
+      "volume": "過去1時間"
+    },
+    "receiver_healthy": "正常 · {{ms}} ms",
+    "validation_volume": "{{rate}} · {{rows}} 行 · {{bytes}}",
+    "possible_causes": "考えられる原因",
+    "cause_collector": "コレクターが稼働していないか、現在の構成ではテレメトリが生成されていません。",
+    "cause_token": "トークンが無効または期限切れか、スコープにデータの書き込み権限が含まれていません。",
+    "cause_network": "コレクターがエンドポイントに接続できないか、プロキシまたはファイアウォールが接続をブロックしています。",
+    "view_received_data": "受信データを表示",
+    "create_pipeline": "パイプラインを作成",
+    "validation_prefix": "イベントは通常30～60秒以内に表示されます。",
+    "validation_or": "または",
+    "validation_suffix": "を開き、対応するストリームにデータがあることを確認してください。データが表示されない場合は、",
+    "validation_doc_suffix": " のドキュメントを参照してください。",
+    "logs": "ログ",
+    "streams": "ストリーム",
+    "troubleshooting": "テレメトリのトラブルシューティング",
+    "health_check": "バックエンドの稼働状態を確認",
+    "health_checking": "確認中…",
+    "health_ok": "OK · {{ms}} ms",
+    "copied": "コピーしました",
+    "copy": "コピー",
+    "expand_code": "コードを展開",
+    "collapse_code": "コードを折りたたむ",
+    "token_missing": "取り込み用トークンがありません。トークン管理で作成してください。"
+  }
+}

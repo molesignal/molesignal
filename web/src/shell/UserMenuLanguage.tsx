@@ -3,6 +3,7 @@ import { Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as meApi from '@/api/me';
+import { intlLocale, LOCALE_LABELS, SUPPORTED_LOCALES } from '@/i18n';
 import { toApiError } from '@/lib/http';
 import {
   USER_PREFERENCES_QUERY_KEY,
@@ -19,7 +20,7 @@ import { toast } from '@/shell/ui/sonner';
 import { useThemeStore } from '@/stores/useThemeStore';
 
 /** The languages the product is read in. Each is named in itself, whatever language is on screen. */
-const LANGUAGES: readonly meApi.PreferenceLanguage[] = ['zh-cn', 'en-us'];
+const LANGUAGES: readonly meApi.PreferenceLanguage[] = SUPPORTED_LOCALES;
 
 /**
  * Lists in which the backend names what the product ships with (built-in prompts, built-in
@@ -78,7 +79,7 @@ export function UserMenuLanguage() {
         <Languages className="h-4 w-4 text-tx-2" />
         <span className="min-w-0 flex-1 truncate">{t('user_menu.language')}</span>
         <span data-ui="language-current" className="shrink-0 font-sans text-xs text-tx-3">
-          {t(`user_menu.languages.${language}`)}
+          {LOCALE_LABELS[language]}
         </span>
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent data-ui="language-menu" className="w-44 shadow-none" sideOffset={12}>
@@ -92,10 +93,10 @@ export function UserMenuLanguage() {
             <DropdownMenuRadioItem
               key={option}
               value={option}
-              lang={option === 'zh-cn' ? 'zh-CN' : 'en-US'}
+              lang={intlLocale(option)}
               className="min-h-10 rounded-md"
             >
-              {t(`user_menu.languages.${option}`)}
+              {LOCALE_LABELS[option]}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

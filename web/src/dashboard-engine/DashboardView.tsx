@@ -14,6 +14,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import * as dashboardsApi from '@/api/dashboards';
 import * as foldersApi from '@/api/folders';
+import { toLocale } from '@/i18n/locales';
 import { toApiError } from '@/lib/http';
 import {
   restrictActionAccess,
@@ -37,6 +38,7 @@ import {
 import { toast } from '@/shell/ui/sonner';
 import { setFullscreenDashboard } from '@/shell/wallboard';
 import { useAuthStore } from '@/stores/auth';
+import { formatTimeAmount, SUFFIX_UNITS } from '@/time/units';
 
 import { copiedModel } from './copiedModel';
 import { DashboardRenderer } from './DashboardRenderer';
@@ -447,9 +449,13 @@ function formatRefreshSetting(
 ): string {
   if (value === 'off') return offLabel;
   if (value === 'live') return liveLabel;
-  if (!language.toLowerCase().startsWith('zh')) return value;
+  const locale = toLocale(language);
+  if (locale === 'en-us') return value;
   const match = /^(\d+)(ms|s|m|h|d)$/.exec(value);
   if (!match) return value;
+  if (locale !== 'zh-cn') {
+    return formatTimeAmount(Number(match[1]), SUFFIX_UNITS[match[2] ?? 's'] ?? 'second', language);
+  }
   const unit = ({
     ms: '毫秒',
     s: '秒',

@@ -1,0 +1,29 @@
+{
+  "help_title": "Atajos de teclado",
+  "categories": {
+    "general": "General",
+    "navigation": "Navegación",
+    "investigation": "Investigación",
+    "time": "Tiempo"
+  },
+  "bindings": {
+    "open_palette": "Abrir la paleta de comandos",
+    "show_help": "Mostrar la ayuda de atajos de teclado",
+    "open_time_picker": "Abrir el selector de intervalo de tiempo",
+    "stack_back": "Historial de investigación: retroceder",
+    "stack_forward": "Historial de investigación: avanzar",
+    "goto_services": "Ir a Servicios",
+    "goto_apm_services": "Ir a Servicios de APM",
+    "goto_incidents": "Ir a Incidentes",
+    "goto_dashboards": "Ir a Paneles",
+    "goto_investigate_trace": "Ir a Investigar (trazas)",
+    "goto_investigate_log": "Ir a Investigar (registros)",
+    "goto_rum": "Ir a Experiencia de usuario",
+    "goto_user_experience": "Ir a Experiencia de usuario (RUM)",
+    "goto_functions": "Ir a Funciones",
+    "goto_iam": "Ir a IAM",
+    "pin_anchor": "Fijar o desfijar el punto de referencia temporal",
+    "copy_link": "Copiar el enlace de la investigación",
+    "dismiss_overlay": "Cerrar la capa superpuesta en primer plano"
+  }
+}

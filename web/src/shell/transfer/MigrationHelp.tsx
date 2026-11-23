@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { docsLocale } from '@/i18n';
 import { writeClipboardText } from '@/lib/clipboard';
 import { CopyIconButton } from '@/shell/CopyIconButton';
 import { ViewTabs } from '@/shell/tabs/ViewTabs';
@@ -35,7 +36,7 @@ export function MigrationHelp({ sources, texts }: { sources: readonly MigrationS
     }
   };
 
-  const language = i18n.language?.toLowerCase().startsWith('zh') ? 'zh-Hans' : 'en-US';
+  const language = docsLocale(i18n.language);
 
   return (
     <details data-import-migration className="group font-sans text-sm">

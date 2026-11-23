@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import i18n from './index';
+import i18n, { SUPPORTED_LOCALES } from './index';
 
 describe('i18n', () => {
   it('resolves bundled resources for lowercase regional locale ids', async () => {
@@ -52,17 +52,30 @@ describe('i18n', () => {
   });
 });
 
-/* ─── completeness + en-us ↔ zh-cn consistency ───────────────────────────── */
+/* ─── completeness: every locale against en-us ─────────────────────────────── */
 
 type Bundle = Record<string, unknown>;
 
-const EN = (i18n.getDataByLanguage('en-us') ?? {}) as Record<string, Bundle>;
-const ZH = (i18n.getDataByLanguage('zh-cn') ?? {}) as Record<string, Bundle>;
+// Read from disk rather than from i18next: only English is loaded up front.
+const FILES = import.meta.glob<Bundle>('./*/*.json', { eager: true, import: 'default' });
+
+function bundlesOf(locale: string): Record<string, Bundle> {
+  const bundles: Record<string, Bundle> = {};
+  for (const [path, content] of Object.entries(FILES)) {
+    const match = /^\.\/([^/]+)\/([^/]+)\.json$/.exec(path);
+    if (match?.[1] === locale && match[2]) bundles[match[2]] = content;
+  }
+  return bundles;
+}
+
+const EN = bundlesOf('en-us');
+const TARGETS = SUPPORTED_LOCALES.filter((locale) => locale !== 'en-us');
 
 // CLDR plural categories. i18next emits `key_one` / `key_other` (etc.) per the
-// locale's plural rules — English has `_one` + `_other`, Chinese only `_other`.
-// Strip the suffix so a value pluralized in only one locale doesn't register as
-// a missing key, while genuinely absent keys still surface.
+// locale's plural rules — English has `_one` + `_other`, Chinese only `_other`,
+// French also `_many`. Strip the suffix so a value pluralized differently in
+// one locale doesn't register as a missing key, while genuinely absent keys
+// still surface.
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 
 function leafKeys(obj: Bundle, prefix = ''): string[] {
@@ -91,9 +104,9 @@ function leafValue(bundle: Bundle, dottedKey: string): unknown {
 
 describe('builtin tool catalog translations', () => {
   const enCatalog = leafValue(EN.agent ?? {}, 'tools') as Bundle;
-  const zhCatalog = leafValue(ZH.agent ?? {}, 'tools') as Bundle;
 
-  it('contains complete localized metadata for all builtin tools', () => {
+  it.each(TARGETS)('contains complete %s metadata for all builtin tools', (locale) => {
+    const catalog = leafValue(bundlesOf(locale).agent ?? {}, 'tools') as Bundle;
     const builtinToolKinds = readFileSync(
       resolve('../crates/modules/tool-runtime/src/catalog/kind.rs'),
       'utf8',
@@ -104,7 +117,7 @@ describe('builtin tool catalog translations', () => {
     ).sort();
     expect(builtinNames.length).toBeGreaterThan(0);
     expect(Object.keys(enCatalog).sort()).toEqual(builtinNames);
-    expect(Object.keys(zhCatalog).sort()).toEqual(builtinNames);
+    expect(Object.keys(catalog ?? {}).sort()).toEqual(builtinNames);
 
     for (const [name, metadata] of Object.entries(enCatalog)) {
       expect(name).toMatch(/^[a-z][a-z0-9_]*$/);
@@ -112,7 +125,7 @@ describe('builtin tool catalog translations', () => {
         title: expect.any(String),
         description: expect.any(String),
       });
-      expect(zhCatalog[name]).toMatchObject({
+      expect(catalog[name]).toMatchObject({
         title: expect.any(String),
         description: expect.any(String),
       });
@@ -121,23 +134,24 @@ describe('builtin tool catalog translations', () => {
 });
 
 describe('i18n resource consistency', () => {
-  const namespaces = Object.keys(EN);
+  const namespaces = Object.keys(EN).sort();
+  const cases = TARGETS.flatMap((locale) => namespaces.map((ns) => [locale, ns] as const));
 
-  it('bundles the same namespaces for both locales', () => {
+  it.each(TARGETS)('bundles every namespace for %s', (locale) => {
     expect(namespaces.length).toBeGreaterThan(0);
-    expect(Object.keys(ZH).sort()).toEqual([...namespaces].sort());
+    expect(Object.keys(bundlesOf(locale)).sort()).toEqual(namespaces);
   });
 
-  it.each(namespaces)('namespace "%s" has matching keys in en-us and zh-cn', (ns) => {
+  it.each(cases)('%s namespace "%s" has the keys of en-us', (locale, ns) => {
     const en = normalizedKeySet(EN[ns] ?? {});
-    const zh = normalizedKeySet(ZH[ns] ?? {});
-    const missingInZh = [...en].filter((k) => !zh.has(k)).sort();
-    const missingInEn = [...zh].filter((k) => !en.has(k)).sort();
-    expect({ ns, missingInZh, missingInEn }).toEqual({ ns, missingInZh: [], missingInEn: [] });
+    const target = normalizedKeySet(bundlesOf(locale)[ns] ?? {});
+    const missing = [...en].filter((k) => !target.has(k)).sort();
+    const extra = [...target].filter((k) => !en.has(k)).sort();
+    expect({ locale, ns, missing, extra }).toEqual({ locale, ns, missing: [], extra: [] });
   });
 
-  it.each(['en-us', 'zh-cn'] as const)('every %s leaf value is a non-empty string', (lng) => {
-    const data = lng === 'en-us' ? EN : ZH;
+  it.each(SUPPORTED_LOCALES)('every %s leaf value is a non-empty string', (locale) => {
+    const data = bundlesOf(locale);
     const offenders: string[] = [];
     for (const ns of Object.keys(data)) {
       const bundle = data[ns] ?? {};

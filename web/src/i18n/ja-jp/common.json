@@ -1,0 +1,567 @@
+{
+  "app_name": "MoleSignal",
+  "access": {
+    "super_administrator": "スーパー管理者",
+    "loading": "アクセス権限を読み込み中です。",
+    "read_only": "閲覧のみ可能です。",
+    "page_unavailable": "現在の権限では、このページにアクセスできません。",
+    "permission_required": "{{permission}} 権限が必要です。",
+    "form_invalid": "保存する前に必須項目を入力してください。",
+    "no_changes": "未保存の変更はありません。",
+    "operation_pending": "別のリクエストを処理中です。",
+    "immutable": "この値はワークスペースの作成後に変更できません。",
+    "current_workspace": "現在のワークスペースは削除できません。",
+    "last_workspace": "最後のワークスペースは削除できません。",
+    "system_workspace": "システム組織は変更できません。"
+  },
+  "timezone": {
+    "label": "タイムゾーン",
+    "browser": "ブラウザーのタイムゾーン",
+    "use_personal_default_option": "個人のデフォルト設定を使用 · {{zone}}",
+    "browser_option": "ブラウザーのタイムゾーン · {{zone}}",
+    "page_override_label": "{{zone}} · このページのみ",
+    "search": "タイムゾーンを検索…",
+    "empty": "一致するタイムゾーンはありません。",
+    "set_as_default": "個人のデフォルトタイムゾーンに設定",
+    "saving_default": "デフォルトタイムゾーンを保存中…",
+    "default_saved": "デフォルトタイムゾーンを更新しました",
+    "change": "変更",
+    "done": "完了"
+  },
+  "query_syntax_help": {
+    "aria": "クエリ構文リファレンスを開く",
+    "trigger": "クエリ構文リファレンス",
+    "title": "構文リファレンス",
+    "description": "クエリモードは {{mode}} です。Cmd/Ctrl + Enter で実行できます。",
+    "mode_shortcut": "{{mode}} · Cmd/Ctrl + Enter",
+    "modes": {
+      "fields": "フィールド",
+      "sql": "SQL",
+      "promql": "PromQL"
+    },
+    "labels": {
+      "equals": "完全一致",
+      "contains": "含む",
+      "exclude": "除外",
+      "either": "いずれか",
+      "substring": "部分文字列",
+      "full_text": "全文",
+      "basic": "基本クエリ",
+      "filter": "フィルター",
+      "aggregate": "集計",
+      "sort": "並べ替え"
+    }
+  },
+  "query_tabs": {
+    "list": "開いているクエリ",
+    "new": "新しいタブ",
+    "untitled": "クエリ {{number}}",
+    "close": "{{name}}を閉じる",
+    "close_tab": "閉じる",
+    "close_others": "他のタブを閉じる",
+    "rename": "名前を変更",
+    "duplicate": "複製",
+    "name": "タブ名",
+    "running": "実行中",
+    "limit": "同時に開けるタブは最大{{count}}個です",
+    "split": "画面を2分割",
+    "unsplit": "分割表示を解除",
+    "move_right": "右側に移動",
+    "move_left": "左側に移動"
+  },
+  "query_mode": {
+    "aria": "クエリエディターのモード",
+    "code": "コード",
+    "builder": "ビルダー"
+  },
+  "query_fold": {
+    "expand": "展開",
+    "collapse": "折りたたむ"
+  },
+  "query_language": {
+    "label": "クエリ"
+  },
+  "query_builder": {
+    "filters": "フィルター",
+    "add": "フィルター",
+    "add_aria": "フィルターを追加",
+    "add_in_group": "グループ {{number}} にフィルターを追加",
+    "add_alternative": "OR",
+    "add_alternative_aria": "ORグループを追加",
+    "or": "OR",
+    "group": "グループ {{number}}",
+    "edit": "フィルター「{{filter}}」を編集",
+    "remove": "フィルター「{{filter}}」を削除",
+    "unsupported": "フィルターではありません",
+    "remove_unsupported": "{{part}}を削除",
+    "search_fields": "フィールドを検索…",
+    "no_fields": "一致するフィールドがありません",
+    "use_field": "「{{field}}」を使用",
+    "change_field": "フィールドを変更",
+    "operator": "比較演算子",
+    "value": "値",
+    "value_placeholder": "値…",
+    "suggestions": "結果に含まれる値",
+    "submit_add": "フィルターを追加",
+    "submit_update": "更新",
+    "cancel": "キャンセル",
+    "text": "検索テキスト",
+    "text_in_group": "グループ {{number}} の検索テキスト",
+    "text_placeholder": "検索テキスト…",
+    "sql_active": "「コード」には SQL が入力されているため、フィルターでは表示できません。ここでフィルターを追加すると、フィールドクエリに切り替わります。"
+  },
+  "query_recommendations": {
+    "title": "最適化のヒント",
+    "dismiss": "ヒントを閉じる",
+    "inline_title": "クエリを最適化できます：",
+    "view": "ヒントを表示",
+    "items": {
+      "slow_query": {
+        "title": "低速なクエリ",
+        "detail": "クエリの実行に {{took_ms}} ms かかり、{{scanned_rows}} 行をスキャンしました。時間範囲を狭めるか、より絞り込めるフィルターを追加してください。"
+      },
+      "wide_time_range": {
+        "title": "広すぎるスキャン範囲",
+        "detail": "このクエリは、期間の制限がないか、数週間にわたる時間範囲をスキャンしました。必要な結果を得られる最小限の時間範囲に絞ってください。"
+      },
+      "low_selectivity": {
+        "title": "選択性が低いクエリ",
+        "detail": "クエリは {{scanned_rows}} 行をスキャンし、{{returned_rows}} 行を返しました。インデックス付きフィールドやパーティションキーに条件を追加して、スキャン対象を減らしてください。"
+      },
+      "select_star": {
+        "title": "SELECT * の使用を回避",
+        "detail": "すべての列を選択すると、必要以上のデータが読み込まれます。使用する列だけを選択してください。"
+      },
+      "missing_filter": {
+        "title": "フィルター条件なし",
+        "detail": "WHERE 句のない大規模なスキャンでは、指定した時間範囲のデータがすべて読み込まれます。フィルターを追加して I/O を減らしてください。"
+      },
+      "missing_limit": {
+        "title": "LIMIT を追加",
+        "detail": "このクエリは LIMIT を指定せずに {{returned_rows}} 行を返しました。サンプルや上位の結果だけが必要な場合は、LIMIT を追加してください。"
+      },
+      "promql_wide_range": {
+        "title": "範囲セレクターの期間が長い",
+        "detail": "この範囲セレクターは、時系列ごとに多数のサンプルを読み込みます。記録ルールの使用や時間範囲の短縮を検討してください。"
+      },
+      "promql_subquery": {
+        "title": "サブクエリの実行コスト",
+        "detail": "サブクエリ（[..:..]）はステップごとに内部クエリを再計算するため、処理負荷が高くなることがあります。繰り返し使用する計算には記録ルールを使用してください。"
+      },
+      "promql_regex_matcher": {
+        "title": "正規表現のラベルマッチャー",
+        "detail": "正規表現マッチャー（=~ / !~）は、完全一致の比較よりも多くの時系列をスキャンします。可能であれば = / != を使い、正規表現が必要な場合はアンカーを指定してください。"
+      }
+    }
+  },
+  "actions": {
+    "ok": "OK",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "create": "作成",
+    "delete": "削除",
+    "edit": "編集",
+    "enable": "有効化",
+    "disable": "無効化",
+    "close": "閉じる",
+    "open": "開く",
+    "retry": "再試行",
+    "sign_in": "サインイン",
+    "sign_out": "サインアウト",
+    "settings": "設定",
+    "preferences": "環境設定",
+    "reset": "リセット",
+    "renew": "更新",
+    "rotate": "ローテーション",
+    "add": "追加",
+    "choose_file": "ファイルを選択",
+    "copied": "コピーしました",
+    "confirm": "確認"
+  },
+  "error_state": {
+    "unknown": "不明なエラー",
+    "copy_error_id": "エラーIDをコピー",
+    "copied": "コピーしました",
+    "report": "報告",
+    "details": "詳細",
+    "status": "ステータス",
+    "code": "コード",
+    "message": "メッセージ",
+    "error_id": "エラーID",
+    "empty": "（空）",
+    "request_id": "リクエストID",
+    "copy_request_id": "リクエストIDをコピー"
+  },
+  "status": {
+    "loading": "読み込み中…",
+    "saving": "保存中…",
+    "empty": "データなし",
+    "no_results": "結果なし",
+    "saved": "保存しました",
+    "created": "作成しました",
+    "deleted": "削除しました",
+    "updated": "更新しました",
+    "yes": "はい",
+    "no": "いいえ",
+    "on": "オン",
+    "off": "オフ",
+    "enabled": "有効",
+    "disabled": "無効",
+    "working": "処理中…"
+  },
+  "labels": {
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "workspace": "ワークスペース",
+    "remember_me": "ログイン状態を保持",
+    "search": "検索",
+    "filter": "フィルター",
+    "time_window": "時間範囲",
+    "name": "名前",
+    "enabled": "有効",
+    "updated": "更新日時",
+    "description": "説明",
+    "format": "形式"
+  },
+  "sharing": {
+    "title": "リソースの共有",
+    "access_scope": "アクセス範囲",
+    "access_scope_hint": "誰が、どの権限でアクセスできるかを選択します。",
+    "modes": {
+      "authenticated": "現在のワークスペースのメンバー",
+      "authenticated_hint": "アクセスするには、サインインしたうえでワークスペースの IAM 権限チェックを通過する必要があります。",
+      "cross_org": "特定の組織",
+      "cross_org_hint": "サインインしたユーザーは、組織間で明示的に付与された権限に基づいてリソースにアクセスできます。",
+      "public_link": "リンクを知っている全員",
+      "public_link_hint": "サインインは不要です。リンクは、権限が限定された、取り消し可能な一時認証情報として機能します。",
+      "admin_only": "組織間の権限付与を管理できるメンバーのみ、この共有を設定できます。",
+      "public_disabled": "ワークスペースのポリシーにより、このリソースを公開共有できません。",
+      "public_links_disabled": "このワークスペースでは公開リンクが無効になっています。",
+      "public_dashboards_disabled": "このワークスペースではライブダッシュボードの公開共有が無効になっています。",
+      "production_disabled": "このダッシュボードには production または prod タグが付いています。ワークスペースのポリシーにより、本番ダッシュボードは公開共有できません。ワークスペース内での共有と組織間の共有は引き続き利用できます。"
+    },
+    "policy_blocked_title": "ワークスペースのポリシーによる公開共有の制限",
+    "policy_blocked_action": "共有と公開アクセスの設定を開く",
+    "policy_blocked_admin": "公開アクセスが必要な場合は、ワークスペース管理者にこのポリシーの変更を依頼してください。",
+    "target_organization": "共有先の組織",
+    "target_organization_hint": "この組織にリソースへのアクセス権限を明示的に付与します。",
+    "select_organization": "組織を選択",
+    "expiry": "有効期限",
+    "expiry_hint": "公開リンクは、有効期限が切れるとすぐに使えなくなります。",
+    "authenticated_expiry_hint": "認証が必要なリンクは、有効期限が切れると利用できません。",
+    "expiry_options": {
+      "one_day": "1日",
+      "seven_days": "7日間",
+      "thirty_days": "30日間"
+    },
+    "max_views": "最大アクセス回数",
+    "max_views_hint": "新しい共有セッションごとに1回としてカウントされます。無制限にするには空欄のままにしてください。",
+    "unlimited": "無制限",
+    "password": "アクセスパスワード",
+    "password_hint": "任意です。パスワードの確認後にのみ、アクセスが制限されたセッションが発行されます。",
+    "password_required": "ワークスペースポリシーにより、公開レポートにはアクセスパスワードが必要です。",
+    "dashboard_password_required": "公開ダッシュボードにはアクセスパスワードが必要です。",
+    "validation": {
+      "organization_required": "アクセスを許可する組織を選択してください。",
+      "password_required": "公開レポートのアクセスパスワードを入力してください。",
+      "dashboard_password_required": "公開ダッシュボードのアクセスパスワードを入力してください。"
+    },
+    "public_warning_title": "リンク自体がアクセス権を持つ認証情報",
+    "public_warning": "このリンクを入手した人は誰でも、アクセスが制限されたコンテンツを閲覧できます。機密データは含めないでください。",
+    "report_snapshot_hint": "公開レポートは、リンクの作成時に生成される変更不可のスナップショットです。レポートを開いても、ライブクエリは再実行されません。",
+    "allow_download": "ダウンロードを許可",
+    "allow_download_hint": "オフの場合、静的レポートはオンラインでのプレビューのみ可能です。",
+    "csv_download_disabled": "ワークスペースポリシーにより、公開リンクからのCSVダウンロードは禁止されています。",
+    "dashboard_restrictions": "ダッシュボードの制限",
+    "dashboard_restrictions_hint": "公開ページで実行できるのは、保存済みのパネルクエリのみです。クエリ式と生データの探索ページは表示されません。",
+    "max_time_range": "データの最大時間範囲",
+    "time_ranges": {
+      "one_hour": "1時間",
+      "six_hours": "6時間",
+      "twenty_four_hours": "24時間"
+    },
+    "allow_time_changes": "時間範囲の変更を許可",
+    "allow_time_changes_hint": "閲覧者は、上記の最大時間範囲を超えないプリセットのみ選択できます。",
+    "allowed_variables": "公開変数",
+    "allowed_variables_hint": "選択されていない変数は、公開モデルとリクエストから除外されます。",
+    "allow_variable_changes": "許可リストにある変数の変更を許可",
+    "allow_variable_changes_hint": "オフの場合、変数は許可されたデフォルト値のままになります。",
+    "create_link": "共有リンクを作成",
+    "created": "共有リンクを作成しました",
+    "create_failed": "共有リンクを作成できませんでした",
+    "errors": {
+      "public_links_disabled": "このワークスペースでは公開リンクが無効です。共有ポリシーを変更するか、サインインが必要な方法で共有してください。",
+      "public_dashboards_disabled": "ライブダッシュボードの公開共有は無効です。共有ポリシーを変更するか、サインインが必要な方法で共有してください。",
+      "production_dashboard": "ワークスペースポリシーにより、production または prod タグが付いたダッシュボードは公開共有できません。ポリシーを変更するか、サインインが必要な方法で共有してください。",
+      "csv_download_disabled": "ワークスペースポリシーにより、公開リンクからのCSVダウンロードは禁止されています。「ダウンロードを許可」をオフにして、もう一度お試しください。",
+      "report_password_required": "ワークスペースポリシーにより、公開レポートにはアクセスパスワードが必要です。",
+      "dashboard_password_required": "ダッシュボードの公開共有リンクを作成する前に、アクセスパスワードを設定してください。"
+    },
+    "link_ready": "共有リンクを利用できます",
+    "link_ready_hint": "リンクは安全に保存され、後からでも確認やコピーができます。",
+    "copy_link": "リンクをコピー",
+    "copy_existing_link": "既存の共有リンクをコピー",
+    "copied": "リンクをコピーしました",
+    "copy_failed": "リンクをコピーできませんでした",
+    "rotate_to_show_link": "この共有はリンクの常時表示に対応する前に作成されました。リンクを一度再発行すると、新しいリンクが表示されます。",
+    "create_another": "別のリンクを作成",
+    "existing": "既存の共有",
+    "existing_hint": "リンクはいつでもコピーでき、無効化や再発行はすぐに反映されます。",
+    "views": "{{count}} 回のアクセス",
+    "no_expiry": "有効期限なし",
+    "stop": "無効化",
+    "revoked": "共有リンクを無効化しました",
+    "revoke_failed": "共有リンクを無効化できませんでした",
+    "rotated": "共有リンクを再発行しました",
+    "rotate_failed": "共有リンクを再発行できませんでした",
+    "workspace_policy": "ワークスペースの共有ポリシーを表示",
+    "public": {
+      "read_only": "アクセス制限付き・読み取り専用",
+      "snapshot": "静的スナップショット",
+      "dashboard": "共有ダッシュボード",
+      "report": "共有レポート",
+      "download": "ダウンロード",
+      "time_range": "時間範囲",
+      "expires_at": "有効期限：{{value}}",
+      "watermark": "公開アクセス · {{value}}",
+      "password_title": "この共有はパスワードで保護されています",
+      "password_hint": "作成者が設定したアクセス用パスワードを入力してください。",
+      "password_placeholder": "アクセス用パスワード",
+      "password_invalid": "パスワードが正しくありません。もう一度お試しください。",
+      "visit_ended": "閲覧セッションが終了しました。共有リンクを開き直してください。",
+      "password_unchecked": "パスワードを確認できませんでした。時間をおいてもう一度お試しください。",
+      "continue": "続行",
+      "invalid_dashboard": "ダッシュボードのスナップショットを利用できません",
+      "invalid_dashboard_hint": "公開用データモデルが構造の安全性チェックに合格しませんでした。オーナーに新しいリンクの作成を依頼してください。",
+      "unavailable_title": "リンクを利用できません",
+      "unavailable_hint": "このリンクは無効になったか、共有コンテンツが削除されています。オーナーに新しいリンクの作成を依頼してください。",
+      "open_failed": "この共有を開けませんでした。時間をおいてもう一度お試しください。",
+      "loading_title": "保護された共有を開いています",
+      "loading_hint": "リンクとアクセス制限を確認しています…",
+      "trust_label": "MoleSignal のアクセス制限付き共有",
+      "ranges": {
+        "fifteen_minutes": "15分",
+        "one_hour": "1時間",
+        "six_hours": "6時間",
+        "twenty_four_hours": "24時間",
+        "seven_days": "7日間",
+        "seconds": "{{count}}秒"
+      }
+    }
+  },
+  "date_time_picker": {
+    "placeholder": "日時を選択",
+    "open": "日時選択を開く：{{value}}",
+    "time": "時刻",
+    "hour": "時",
+    "minute": "分",
+    "second": "秒",
+    "clear": "クリア",
+    "apply": "適用",
+    "calendar_navigation": "カレンダーの移動",
+    "choose_month": "月を選択",
+    "choose_year": "年を選択",
+    "next_month": "翌月",
+    "previous_month": "前月",
+    "today": "今日",
+    "selected": "選択済み",
+    "week_number": "第{{value}}週",
+    "week_number_header": "週番号"
+  },
+  "share_query": {
+    "button": "共有",
+    "title": "このクエリを共有",
+    "description": "この組織にサインインしていて、データの閲覧権限があるユーザーは、リンクからこのクエリを開けます。",
+    "time_label": "リンクの時間範囲",
+    "time_fixed": "現在選択中の時間範囲",
+    "time_moving": "リンクを開いた時点からさかのぼって{{range}}",
+    "link_aria": "このクエリへのリンク",
+    "copy": "リンクをコピー",
+    "copied": "リンクをコピーしました",
+    "copy_failed": "リンクをコピーできませんでした"
+  },
+  "field_list": {
+    "group_aria_one": "{{name}}：{{count}}個のフィールド",
+    "group_aria_other": "{{name}}：{{count}}個のフィールド"
+  },
+  "field_analysis": {
+    "open": "分析",
+    "open_aria": "フィールド {{name}} を分析",
+    "close": "フィールド分析を閉じる",
+    "title_aria": "{{name}} の分析",
+    "loading": "{{name}} を分析中",
+    "basics": "基本情報",
+    "distinct": "一意の値",
+    "estimated": "推定値",
+    "subjects": {
+      "logs": {
+        "total": "ログ",
+        "present": "値あり",
+        "missing": "値なし",
+        "none": "これらのログには、このフィールドの値がありません。"
+      },
+      "spans": {
+        "total": "スパン",
+        "present": "値あり",
+        "missing": "値なし",
+        "none": "これらのスパンには、このフィールドの値がありません。"
+      },
+      "traces": {
+        "total": "トレース",
+        "present": "値あり",
+        "missing": "値なし",
+        "none": "これらのトレースには、このフィールドの値がありません。"
+      }
+    },
+    "statistics": "統計",
+    "max": "最大値",
+    "min": "最小値",
+    "avg": "平均値",
+    "median": "中央値",
+    "q1": "第1四分位数（Q1）",
+    "q3": "第3四分位数（Q3）",
+    "stddev_samp": "標本標準偏差",
+    "stddev_pop": "母標準偏差",
+    "kurtosis": "尖度",
+    "kurtosis_hint": "超過尖度：正規分布では0で、裾が重いほど大きくなります。",
+    "skewness": "歪度",
+    "skewness_hint": "0より大きいと右に、0より小さいと左に裾が伸びます。",
+    "quartiles_estimated": "中央値と四分位数は推定値です。",
+    "earliest": "最も早い時刻",
+    "latest": "最も遅い時刻",
+    "distribution": "値の分布",
+    "distribution_aria": "{{name}}の値の分布：{{from}}から{{to}}までに{{count}}件の値があります。各棒の幅は{{width}}で、1本あたり最大{{max}}件です。左右の矢印キーで棒の間を移動できます。",
+    "bar_width": "各棒の幅：{{width}}",
+    "bar_range": "{{from}} – {{to}}",
+    "bar_count_one": "{{formatted}}件",
+    "bar_count_other": "{{formatted}}件",
+    "bar_readout": "{{from}}から{{to}}：{{formatted}}件",
+    "trend_one": "最多出現値の時系列推移",
+    "trend_other": "出現頻度上位{{count}}件の値の時系列推移",
+    "trend_aria_one": "{{name}}で最も出現頻度の高い値の時系列推移",
+    "trend_aria_other": "{{name}}で出現頻度が上位{{count}}件の値の時系列推移",
+    "top": "出現頻度の高い値",
+    "all_different": "ほとんどの値が1回しか出現せず、特に出現頻度の高い値はありません。",
+    "protected": "このフィールドはマスクまたは暗号化されているため、分析できません。",
+    "unavailable": "現在、このフィールドを分析できません。",
+    "fallback": {
+      "time_budget": "一致する結果をすべて集計する処理がタイムアウトしました。",
+      "busy": "実行中のクエリが多すぎるため、一致する結果をすべて集計できません。",
+      "failed": "一致する結果をすべて集計できませんでした。"
+    }
+  },
+  "histogram": {
+    "bar_width": "棒1本あたり{{width}}",
+    "unit_ms": "{{value}} ms",
+    "unit_s": "{{value}} s",
+    "unit_min": "{{value}} min",
+    "unit_h": "{{value}} h",
+    "unit_d": "{{value}} d",
+    "summary": "{{name}}。{{scope}}。期間は{{from}}から{{to}}までで、棒1本あたりの時間幅は{{width}}、件数は最大{{max}}件です。左右の矢印キーで棒の間を移動し、Enterキーで選択した棒の時間範囲に絞り込みます。",
+    "bar_readout": "{{from}}から{{to}}まで：合計{{total}}件、うちエラー{{errors}}件",
+    "bar_readout_whole": "{{from}}から{{to}}まで：合計{{total}}件",
+    "scope_all_one": "一致する結果1件",
+    "scope_all_other": "一致する結果全{{total}}件",
+    "scope_loaded_one": "読み込み済みの結果1件",
+    "scope_loaded_other": "読み込み済みの結果{{total}}件",
+    "scope_because": "{{scope}}：{{reason}}",
+    "counting": "一致する結果をすべて集計しています…",
+    "unavailable": {
+      "time_budget": "一致する結果の全件集計が制限時間を超えました",
+      "busy": "実行中のクエリが多すぎるため、一致する結果をすべて集計できません",
+      "scan_limit": "範囲内の行数が多すぎるため、一致する結果をすべて集計できません",
+      "timestamp_masked": "このストリームの時刻フィールドはマスクされています",
+      "failed": "一致する結果をすべて集計できませんでした"
+    }
+  },
+  "time_picker": {
+    "title": "時間範囲の選択",
+    "button_aria": "時間範囲：{{value}}",
+    "quick_ranges": "時間範囲のプリセット",
+    "absolute": "絶対時間範囲",
+    "zone_time": "タイムゾーン：{{zone}}",
+    "from": "開始",
+    "to": "終了",
+    "apply": "適用",
+    "invalid": "有効な開始時刻と終了時刻を入力してください。",
+    "presets": {
+      "last_5m": "過去5分間",
+      "last_15m": "過去15分間",
+      "last_30m": "過去30分間",
+      "last_1h": "過去1時間",
+      "last_6h": "過去6時間",
+      "last_12h": "過去12時間",
+      "last_24h": "過去24時間",
+      "last_2d": "過去2日間",
+      "last_7d": "過去7日間",
+      "last_30d": "過去30日間"
+    }
+  },
+  "weekly_ranges": {
+    "add": "時間帯を追加",
+    "remove": "時間帯を削除",
+    "weekdays": "曜日",
+    "start": "開始時刻（HH:MM）",
+    "end": "終了時刻（HH:MM）",
+    "hint": "終了時刻が開始時刻以前の場合、時間帯は翌日にまたがり、開始日の時間帯として扱われます。終日を指定するには00:00–24:00と入力します。",
+    "problems": {
+      "no_days": "曜日を1つ以上選択してください。",
+      "same_time": "開始時刻と終了時刻は同じにできません。終日を指定するには00:00–24:00と入力してください。",
+      "bad_time": "時刻は09:30のようにHH:MM形式で入力してください。24:00は終了時刻にのみ指定できます。"
+    },
+    "timezone": "タイムゾーン"
+  },
+  "time_condition": {
+    "label": "時間",
+    "any": "時間指定なし",
+    "inside": "指定した時間帯内のみ",
+    "outside": "指定した時間帯外のみ"
+  },
+  "people": {
+    "someone": "誰か",
+    "non_member": "メンバー以外"
+  },
+  "holidays": {
+    "label": "祝日",
+    "calendar": "祝日カレンダー",
+    "modes": {
+      "none": "祝日を区別しない",
+      "exclude": "祝日を除外",
+      "only": "祝日のみ"
+    },
+    "hints": {
+      "none": "祝日も他の日と同じように扱われます。",
+      "exclude": "祝日にはこの時間帯が適用されません。振替出勤日は月曜日として扱われます。",
+      "only": "この時間帯は祝日にのみ適用されます。"
+    },
+    "no_calendars": "先に「設定 → アラート → 祝日カレンダー」で祝日カレンダーを追加してください。"
+  },
+  "confirm_dialog": {
+    "type_to_confirm": "確認のため、{{name}} と入力してください",
+    "type_required": "先に名前を入力してください"
+  },
+  "unsaved": {
+    "discard_title": "変更を破棄しますか？",
+    "discard_description": "入力した内容は保存されていないため、破棄すると失われます。",
+    "keep_editing": "編集を続ける",
+    "discard": "破棄",
+    "leave_title": "保存せずにこのページを離れますか？",
+    "leave_description": "このページでの変更は保存されていないため、ページを離れると失われます。",
+    "leave": "ページを離れる"
+  },
+  "table": {
+    "select_all": "すべての行を選択",
+    "select_row": "行を選択",
+    "selected_one": "{{count}} 行を選択中",
+    "selected_other": "{{count}} 行を選択中",
+    "clear_selection": "選択を解除",
+    "bulk_label": "選択した行への操作",
+    "export_csv": "CSV をエクスポート",
+    "export_empty": "エクスポートする行がありません",
+    "bulk_done_one": "{{count}} 行を更新しました",
+    "bulk_done_other": "{{count}} 行を更新しました",
+    "bulk_failed_one": "{{total}} 行のうち {{count}} 行の更新に失敗しました：{{reason}}",
+    "bulk_failed_other": "{{total}} 行のうち {{count}} 行の更新に失敗しました：{{reason}}",
+    "clear_filters": "フィルターをクリア"
+  }
+}

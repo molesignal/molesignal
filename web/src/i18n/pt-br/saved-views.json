@@ -1,0 +1,76 @@
+{
+  "title": "Visualizações salvas",
+  "subtitle": "Consultas SQL / PromQL reutilizáveis, compartilhadas na sua organização.",
+  "actions": {
+    "new": "Nova visualização salva",
+    "open": "Abrir",
+    "pin": "Fixar",
+    "unpin": "Desafixar",
+    "edit": "Editar",
+    "delete": "Excluir"
+  },
+  "kpis": {
+    "total": "Visualizações salvas",
+    "pinned": "Fixadas"
+  },
+  "list": {
+    "columns": {
+      "name": "Nome",
+      "language": "Linguagem",
+      "stream": "Fluxo",
+      "tags": "Tags",
+      "range": "Janela de tempo",
+      "updated": "Última atualização",
+      "actions": "Ações"
+    }
+  },
+  "states": {
+    "empty_title": "Ainda não há visualizações salvas",
+    "empty_description": "Salve uma consulta SQL ou PromQL para reutilizá-la em outras investigações."
+  },
+  "confirm": {
+    "delete_title": "Excluir visualização salva?",
+    "delete": "Excluir esta visualização salva? Essa ação não pode ser desfeita.",
+    "cancel": "Cancelar"
+  },
+  "toast": {
+    "saved": "Visualização “{{name}}” salva",
+    "deleted": "Visualização salva excluída"
+  },
+  "drawer": {
+    "edit_title": "Editar visualização salva",
+    "subtitle": "Dê um nome a uma consulta SQL ou PromQL para reutilizá-la depois.",
+    "save": "Salvar alterações",
+    "create": "Criar",
+    "sections": {
+      "identity": "Identificação",
+      "query": "Consulta",
+      "organize": "Organização"
+    },
+    "fields": {
+      "name": "Nome",
+      "language": "Linguagem",
+      "range": "Janela de tempo padrão",
+      "statement": "Instrução",
+      "stream": "Fluxo (opcional)",
+      "tags": "Tags",
+      "pinned": "Fixar no topo"
+    },
+    "hints": {
+      "stream": "Limita a poda de partições ao abrir a visualização.",
+      "tags": "Separe por vírgulas."
+    }
+  },
+  "report": {
+    "time_range": "Intervalo de tempo",
+    "timezone": "Fuso horário",
+    "stream": "Fluxo",
+    "rows": "Linhas",
+    "rows_capped": "Apenas as primeiras {{shown}}",
+    "generated": "Gerado",
+    "results": "Resultados",
+    "empty": "Nenhuma linha neste intervalo de tempo.",
+    "no_view": "O relatório não especifica uma visualização salva.",
+    "no_stream": "A visualização salva não especifica um fluxo, e a organização não tem um fluxo de logs para executar a consulta."
+  }
+}

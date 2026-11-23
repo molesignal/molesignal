@@ -1,0 +1,57 @@
+{
+  "placeholder": "コマンドやリソースを検索…",
+  "no_results": "結果がありません。",
+  "groups": {
+    "results": "結果",
+    "actions": "アクション",
+    "attention": "対応待ち",
+    "recent": "最近の項目",
+    "kinds": {
+      "action": "アクション",
+      "incident": "インシデント",
+      "alert": "アラートルール",
+      "service": "サービス",
+      "dashboard": "ダッシュボード",
+      "stream": "ストリーム",
+      "saved_view": "保存済みビュー"
+    }
+  },
+  "footer": {
+    "open": "開く",
+    "open_new_stack": "新しいスタックで開く",
+    "stack_on_top": "最前面に重ねる",
+    "close": "閉じる",
+    "acknowledge": "確認済みにする"
+  },
+  "actions": {
+    "goto_investigate": "調査に移動",
+    "goto_services": "サービスに移動",
+    "goto_apm": "APM サービスに移動",
+    "goto_dashboards": "ダッシュボードに移動",
+    "goto_incidents": "インシデントに移動",
+    "goto_saved_views": "保存済みビューに移動",
+    "run_sql": "SQL を実行…",
+    "run_promql": "PromQL を実行…",
+    "time_last_5m": "期間: 過去 5m",
+    "time_last_15m": "期間: 過去 15m",
+    "time_last_1h": "期間: 過去 1h",
+    "time_last_6h": "期間: 過去 6h",
+    "time_last_24h": "期間: 過去 24h",
+    "time_last_7d": "期間: 過去 7d",
+    "pin_anchor": "現在時刻を固定",
+    "copy_link": "調査リンクをコピー",
+    "toggle_theme": "テーマを切り替え",
+    "toggle_density": "表示密度を切り替え",
+    "help": "キーボードショートカットを表示",
+    "sign_out": "サインアウト",
+    "open_settings": "設定を開く",
+    "create_dashboard": "ダッシュボードを作成",
+    "create_alert": "アラートを作成",
+    "create_pipeline": "パイプラインを作成",
+    "connect_source": "データソースを接続"
+  },
+  "show_all_one": "残り{{count}}件を表示",
+  "show_all_other": "残り{{count}}件を表示",
+  "acknowledge": "確認済みにする",
+  "acknowledged": "インシデントを確認済みにしました"
+}

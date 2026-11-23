@@ -1,5 +1,8 @@
 import type { ScheduledPipeline } from '@/api/pipelines';
 import type { PipelineRun } from '@/api/pipelines/runs';
+import i18n from '@/i18n';
+import { toLocale } from '@/i18n/locales';
+import { formatTimeAmount, SUFFIX_UNITS } from '@/time/units';
 
 import { executionMode } from './PipelineGraph/model';
 
@@ -35,8 +38,13 @@ export function formatSchedule(cron: string | null | undefined, locale: string):
   const match = /^every:(\d+)([smh])$/.exec(cron.trim());
   if (!match) return cron;
   const count = Number(match[1]);
-  const zh = locale.toLowerCase().startsWith('zh');
+  const language = toLocale(locale);
   const unit = match[2];
+  if (language !== 'en-us' && language !== 'zh-cn') {
+    const interval = formatTimeAmount(count, SUFFIX_UNITS[unit ?? 's'] ?? 'second', locale, 'long');
+    return i18n.t('pipelines:schedule_every', { lng: language, interval });
+  }
+  const zh = language === 'zh-cn';
   if (zh) {
     const label = unit === 's' ? '秒' : unit === 'm' ? '分钟' : '小时';
     return `每 ${count} ${label}`;
@@ -47,7 +55,13 @@ export function formatSchedule(cron: string | null | undefined, locale: string):
 
 export function formatLookback(seconds: number | null | undefined, locale: string): string {
   if (seconds == null) return '—';
-  const zh = locale.toLowerCase().startsWith('zh');
+  const language = toLocale(locale);
+  if (language !== 'en-us' && language !== 'zh-cn') {
+    if (seconds % 3600 === 0) return formatTimeAmount(seconds / 3600, 'hour', locale);
+    if (seconds % 60 === 0) return formatTimeAmount(seconds / 60, 'minute', locale);
+    return formatTimeAmount(seconds, 'second', locale);
+  }
+  const zh = language === 'zh-cn';
   if (seconds % 3600 === 0) {
     const value = seconds / 3600;
     return zh ? `${value} 小时` : `${value}h`;

@@ -1,0 +1,1027 @@
+{
+  "nav": {
+    "label": "Gestión de notificaciones",
+    "root": "Notificaciones",
+    "connectors": "Conectores",
+    "users": "Usuarios",
+    "policies": "Políticas",
+    "defaults": "Rutas alternativas",
+    "deliveries": "Entregas",
+    "templates": "Plantillas"
+  },
+  "common": {
+    "enabled": "Habilitado",
+    "disabled": "Deshabilitado",
+    "configured": "Configurado",
+    "not_configured": "Sin configurar",
+    "verified": "Verificado",
+    "unverified": "Sin verificar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "test": "Enviar prueba",
+    "verify": "Verificar",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "loading": "Cargando…",
+    "loading_error": "No se pudieron cargar los datos de notificaciones",
+    "json_error": "{{field}} debe ser un JSON válido.",
+    "saved": "Se guardó la configuración de notificaciones",
+    "deleted": "Se eliminó el elemento de notificaciones",
+    "test_sent": "Se envió el mensaje de prueba",
+    "test_failed": "No se pudo entregar el mensaje de prueba"
+  },
+  "connector_types": {
+    "email_smtp": "Correo electrónico por SMTP",
+    "slack_app": "Aplicación de Slack",
+    "slack_webhook": "Webhook de Slack",
+    "lark_app": "Aplicación de Lark",
+    "lark_webhook": "Webhook de Lark",
+    "dingtalk_app": "Aplicación de DingTalk",
+    "dingtalk_webhook": "Webhook de DingTalk",
+    "wecom_app": "Aplicación de WeCom",
+    "wecom_webhook": "Webhook de WeCom",
+    "wecom_bot": "Bot inteligente de WeCom",
+    "teams_app": "Bot de Microsoft Teams",
+    "teams_webhook": "Webhook de Microsoft Teams",
+    "google_chat_app": "Aplicación de Google Chat",
+    "google_chat_webhook": "Webhook de Google Chat",
+    "aliyun_voice": "Voz de Alibaba Cloud",
+    "aliyun_sms": "SMS de Alibaba Cloud",
+    "tencent_voice": "Voz de Tencent Cloud",
+    "tencent_sms": "SMS de Tencent Cloud",
+    "huawei_voice": "Voz de Huawei Cloud",
+    "huawei_sms": "SMS de Huawei Cloud",
+    "twilio_voice": "Voz de Twilio",
+    "twilio_sms": "SMS de Twilio",
+    "aws_voice": "Voz de AWS",
+    "aws_sms": "SMS de AWS",
+    "http_sms": "SMS genérico por HTTP",
+    "webhook": "Webhook",
+    "telegram_bot": "Bot de Telegram",
+    "discord_webhook": "Webhook de Discord",
+    "mattermost_bot": "Bot de Mattermost",
+    "mattermost_webhook": "Webhook de Mattermost",
+    "webex_bot": "Bot de Webex",
+    "webex_webhook": "Webhook de Webex",
+    "matrix_bot": "Bot de Matrix",
+    "twilio_whatsapp": "WhatsApp a través de Twilio",
+    "aws_sns": "Amazon SNS",
+    "pagerduty": "PagerDuty"
+  },
+  "connector_channels": {
+    "im": "Mensajería instantánea",
+    "phone": "Llamadas telefónicas",
+    "sms": "SMS",
+    "email": "Correo electrónico",
+    "webhook": "Integraciones",
+    "other": "Otros"
+  },
+  "capabilities": {
+    "directUser": "Envío directo a usuarios",
+    "group": "Grupo",
+    "richText": "Texto enriquecido",
+    "interactive": "Interactivo",
+    "acknowledgement": "Confirmación",
+    "attachments": "Archivos adjuntos"
+  },
+  "connectors": {
+    "title": "Conectores",
+    "subtitle": "Administra las credenciales del espacio de trabajo por separado de los destinatarios y el enrutamiento.",
+    "new": "Nuevo conector",
+    "empty_title": "No hay conectores",
+    "empty_description": "Agrega un conector antes de vincular puntos de conexión de usuarios o rutas alternativas.",
+    "columns": {
+      "name": "Nombre",
+      "type": "Tipo",
+      "capabilities": "Funciones",
+      "last_test": "Última prueba",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "unknown": "Desconocido",
+      "connected": "Conectado",
+      "error": "Error",
+      "disabled": "Deshabilitado"
+    },
+    "drawer": {
+      "new_title": "Nuevo conector",
+      "edit_title": "Editar {{name}}",
+      "subtitle": "Las credenciales se cifran en reposo y nunca se devuelven en texto sin cifrar.",
+      "identity": "Conector",
+      "configuration": "Configuración del proveedor",
+      "name": "Nombre",
+      "type": "Tipo de conector",
+      "enabled": "Permitir que este conector envíe notificaciones",
+      "test_target": "Destino de prueba",
+      "target_type": "Tipo de destino",
+      "target": "Destino",
+      "test_template": "Plantilla de prueba",
+      "test_template_hint": "Este proveedor solo envía plantillas aprobadas. La prueba envía esta plantilla con valores de ejemplo en los marcadores de posición.",
+      "test_template_none": "Aún no hay una plantilla de {{channel}} para este proveedor. Crea una en Plantillas de notificación.",
+      "test_card_hint": "Elige una plantilla de mensajería instantánea para enviar su tarjeta con valores de ejemplo en los marcadores de posición. Si no eliges ninguna, la prueba enviará un mensaje de texto simple.",
+      "test_without_template": "Sin plantilla",
+      "save": "Guardar conector",
+      "test": "Probar conexión",
+      "save_before_test": "Guarda este conector antes de enviar una prueba.",
+      "field": {
+        "host": "Servidor SMTP",
+        "port": "Puerto",
+        "username": "Nombre de usuario",
+        "password": "Contraseña",
+        "from": "Dirección del remitente",
+        "tls": "Modo TLS",
+        "timeoutSecs": "Tiempo de espera (segundos)",
+        "bodyFormat": "Formato del cuerpo",
+        "body": "Cuerpo",
+        "phoneFormat": "Formato del número",
+        "successField": "Campo de éxito",
+        "successValue": "Valor de éxito",
+        "botToken": "Token del bot",
+        "clientId": "ID de cliente",
+        "clientSecret": "Secreto de cliente",
+        "apiBaseUrl": "URL base de la API",
+        "webhookUrl": "URL del webhook",
+        "appId": "ID de la aplicación",
+        "appSecret": "AppSecret",
+        "receiveIdType": "Tipo de ID del destinatario",
+        "secret": "Secreto de firma",
+        "url": "URL predeterminada",
+        "method": "Método HTTP",
+        "headers": "Encabezados (JSON)",
+        "appToken": "Token a nivel de aplicación",
+        "robotCode": "Código del robot",
+        "cardTemplateId": "ID de la plantilla de tarjeta",
+        "corpId": "ID de la empresa",
+        "corpSecret": "Secreto de la aplicación",
+        "agentId": "AgentId",
+        "callbackToken": "Token de devolución de llamada",
+        "callbackAesKey": "EncodingAESKey",
+        "tenantId": "ID del inquilino",
+        "serviceUrl": "URL del servicio",
+        "credentials": "Clave de la cuenta de servicio (JSON)",
+        "botId": "ID del bot",
+        "botSecret": "Secreto de la conexión persistente",
+        "wsUrl": "Dirección de la conexión persistente",
+        "pubsubBaseUrl": "URL de Pub/Sub",
+        "subscription": "Suscripción de Pub/Sub",
+        "accessKeyId": "ID de AccessKey",
+        "secretId": "SecretId",
+        "sdkAppId": "ID de la aplicación (SdkAppId)",
+        "appKey": "AppKey",
+        "signature": "Nombre de la firma",
+        "accessKeySecret": "Secreto de AccessKey",
+        "showNumber": "Identificador de llamadas",
+        "signName": "Firma",
+        "playTimes": "Número de lecturas",
+        "accountSid": "SID de la cuenta",
+        "authToken": "Token de autenticación",
+        "fromNumber": "Número de origen",
+        "language": "Idioma",
+        "voice": "Voz",
+        "sender": "Remitente",
+        "region": "Región",
+        "site": "Plataforma",
+        "cloud": "Nube",
+        "auth": "Autenticación",
+        "accessKey": "ID de clave de acceso",
+        "secretKey": "Clave de acceso secreta",
+        "sessionToken": "Token de sesión",
+        "roleArn": "ARN del rol",
+        "originationIdentity": "Identidad de origen",
+        "voiceId": "Voz de Polly",
+        "externalId": "ID externo",
+        "signingSecret": "Secreto de firma",
+        "replies": "Actuar según las respuestas",
+        "replyTopicArn": "ARN del tema de SNS para respuestas",
+        "avatarUrl": "URL del avatar",
+        "serverUrl": "URL del servidor",
+        "homeserverUrl": "URL del servidor de inicio",
+        "accessToken": "Token de acceso",
+        "topicArn": "ARN del tema",
+        "routingKey": "Clave de integración",
+        "loginBaseUrl": "URL de inicio de sesión"
+      },
+      "hints": {
+        "slack_app": "El token del bot permite enviar notificaciones. Con el ID y el secreto del cliente, quienes visiten una página de estado pueden agregarla a sus propios canales de Slack. Para habilitarlo, elige este conector en la configuración de Slack de la página. Configura al menos una de estas dos opciones. El token de la aplicación (xapp-) permite que Mole Agent responda en Slack mediante el modo Socket.",
+        "lark_app": "Si recibe eventos mediante una conexión persistente, la aplicación también permite que Mole Agent responda en Feishu. Actívala en Mole Agent → Configuración → Mensajería instantánea.",
+        "dingtalk_app": "El bot de una aplicación interna. El código del bot es el ID de cliente, salvo que el bot tenga un código propio. Para un destinatario directo, usa un ID de usuario; para un grupo, usa un openConversationId. Si recibe mensajes mediante Stream, el bot también permite que Mole Agent responda en DingTalk. Para incluir los botones Confirmar y Resolver en las notificaciones de alertas, crea una plantilla de tarjeta interactiva en la plataforma de tarjetas de DingTalk siguiendo la documentación, ingresa aquí su ID y activa el bot en Mole Agent → Configuración → Mensajería instantánea.",
+        "dingtalk_webhook": "Un bot personalizado de un grupo. Ingresa el secreto de firma si el bot firma las solicitudes.",
+        "wecom_app": "Una aplicación propia: ingresa el ID de la empresa, el secreto de la aplicación y su AgentId. Para un destinatario directo, usa el ID de usuario de un miembro; para un grupo, usa el ID de un chat de la aplicación. Agrega la dirección del servidor a las IP de confianza de la aplicación. Para incluir los botones Confirmar y Resolver en las notificaciones de alertas a los miembros, configura la recepción mediante API en la sección Recibir mensajes de la aplicación. Ingresa aquí el token y la EncodingAESKey que se generen, guarda los cambios y luego ingresa en esa sección la URL de devolución de llamada que aparece abajo.",
+        "wecom_webhook": "La dirección del webhook de un bot de grupo.",
+        "wecom_bot": "Un bot inteligente de WeCom en modo API con conexión persistente: ingresa su ID de bot y el secreto de la conexión. Al activarlo en Mole Agent → Configuración → Mensajería instantánea, Mole Agent responde en WeCom y el bot también envía notificaciones, con los botones Confirmar y Resolver en las notificaciones de alertas. Para un destinatario directo, usa el userid de un miembro; para un grupo, usa el chatid del chat. El bot solo puede enviar mensajes a quienes le hayan escrito directamente y a los chats donde alguien lo haya mencionado.",
+        "teams_app": "Un bot de Bot Framework: ingresa el ID de la aplicación, un secreto de cliente y su inquilino (botframework.com si es un bot multiinquilino antiguo). Elige la nube: Global, GCC o una de las nubes del gobierno de EE. UU. (GCC High y DoD). La URL del servicio depende de la nube elegida. Para un destinatario directo, usa un ID de usuario; para un grupo, usa un ID de conversación. El bot debe estar instalado para las personas y los equipos a los que envíe mensajes. El bot también permite que Mole Agent responda en Teams: actívalo en Mole Agent → Configuración → Mensajería instantánea e ingresa la dirección de devolución de llamada que aparece allí como punto de conexión de mensajería del bot de Azure.",
+        "teams_webhook": "Un webhook de canal creado con un flujo de Workflows o un webhook entrante clásico. Los mensajes se envían como Adaptive Cards.",
+        "google_chat_app": "La cuenta de servicio de una aplicación de Google Chat: pega su clave JSON. Para un grupo, usa un espacio (spaces/…); para un destinatario directo, usa un usuario (users/…) que le haya enviado un mensaje a la aplicación. Con una suscripción de Pub/Sub (projects/…/subscriptions/…), la aplicación también permite que Mole Agent responda en Google Chat. Actívala en Mole Agent → Configuración → Mensajería instantánea.",
+        "google_chat_webhook": "La dirección del webhook entrante de un espacio.",
+        "aliyun_voice": "Solo llama a números de China continental. Solicita una plantilla de texto a voz (TTS_…) en la consola de Alibaba Cloud Voice Service, ingresa su código y sus variables en una plantilla de notificación telefónica y selecciona esa plantilla para el canal telefónico en las políticas de notificación. Deja vacío el identificador de llamadas para el modo compartido o ingresa tu número para el modo dedicado. La plantilla debe corresponder al mismo modo. Se puede llamar a un número como máximo una vez por minuto, 5 veces por hora y 20 veces por día.",
+        "aliyun_sms": "Solicita una firma y una plantilla de notificación (SMS_…) en la consola de Alibaba Cloud SMS. Ingresa aquí la firma, agrega el código y las variables de la plantilla a una plantilla de notificación por SMS y selecciona esta última para el canal SMS en las políticas de notificación. De forma predeterminada, cada variable de una plantilla de notificación admite hasta 35 caracteres y no puede contener enlaces ni direcciones IP.",
+        "tencent_voice": "Crea una aplicación y solicita una plantilla de voz en la consola de Tencent Cloud Voice Message. Escribe el ID de la plantilla y las variables en una plantilla de notificación telefónica. Nombra las variables 1, 2, 3 según su posición y selecciona esa plantilla para el canal telefónico en las políticas de notificación. El servicio de voz es prepago: cuando se agota el paquete, se rechazan las llamadas y el error aparece en el registro de entrega.",
+        "tencent_sms": "Crea una aplicación y solicita una firma y una plantilla en la consola de Tencent Cloud SMS. Ingresa aquí el texto de la firma (obligatorio para China continental). Escribe el ID de la plantilla y las variables en una plantilla de notificación por SMS y nombra las variables 1, 2, 3 según su posición. Las cuentas abiertas después del 25 de enero de 2024 y las que llevan mucho tiempo inactivas tienen un límite predeterminado de 6 caracteres por variable. Cuando Tencent Cloud lo aumente, indica el nuevo límite en la plantilla de notificación.",
+        "huawei_voice": "Crea una aplicación, solicita un número de teléfono fijo y envía una plantilla de voz en la consola de Huawei Cloud VoiceCall. Encontrarás AppKey, AppSecret y la dirección de la aplicación en Administración de aplicaciones. Copia la dirección tal como aparece, ya que ninguna API la muestra. El identificador de llamada se compone del código de país, el código de área y el número. Escribe el ID de la plantilla y las variables en una plantilla de notificación telefónica y nombra las variables 1, 2, 3 según su posición. Cada variable admite 32 bytes y cada carácter chino ocupa 3.",
+        "huawei_sms": "Crea una aplicación y configura una firma y una plantilla en la consola de Huawei Cloud Message & SMS. Encontrarás AppKey, AppSecret y la dirección de la aplicación en Administración de aplicaciones. Copia la dirección tal como aparece, ya que ninguna API la muestra. El remitente es el número de canal de la firma. Si usas una plantilla universal, también necesitas el nombre de la firma. Escribe el ID de la plantilla y las variables en una plantilla de notificación por SMS y nombra las variables 1, 2, 3 según su posición.",
+        "twilio_voice": "El número de origen es un número de la cuenta habilitado para llamadas de voz, como +14155550100. El idioma se indica con una etiqueta como en-US o cmn-CN. Para la voz, usa un nombre como Polly.Joanna o Polly.Zhiyu. Si dejas el campo vacío, se usa la voz predeterminada de Twilio.",
+        "twilio_sms": "El remitente puede ser un número de la cuenta, un Messaging Service (MG…) o un ID de remitente alfanumérico. Para enviar SMS a números de Estados Unidos, primero debes registrarte en A2P 10DLC.",
+        "aws_voice": "Mensajes de voz de AWS End User Messaging, leídos por Amazon Polly. La identidad de origen puede ser un número de teléfono habilitado para llamadas de voz, un grupo de números o el ARN de cualquiera de ellos. Si dejas vacío el campo de voz de Polly, se usa MATTHEW. Para mandarín, usa ZHIYU. Una cuenta en un entorno de pruebas solo puede llamar a números verificados. Elige una región habilitada en la cuenta. Para enumerar las regiones, se necesita ec2:DescribeRegions.",
+        "aws_sms": "SMS transaccionales de AWS End User Messaging. Si no indicas una identidad de origen, AWS selecciona un número de la cuenta para el destino. También puedes indicar un número de teléfono, un ID de remitente o un grupo de números. Una cuenta en un entorno de pruebas solo puede enviar SMS a números verificados. Elige una región habilitada en la cuenta. Para enumerar las regiones, se necesita ec2:DescribeRegions.",
+        "http_sms": "Envía SMS a tu propia puerta de enlace de SMS o a un proveedor sin conector propio. Usa estos marcadores en la URL, los encabezados y el cuerpo de la solicitud: {{phone}} es el número y {{content}} es el contenido completo (una línea para el título y otra para el texto, hasta 320 caracteres). También puedes usar {{title}}, {{text}} y {{secret}}, que contiene el secreto de abajo y se almacena cifrado. Los valores se escapan según la sintaxis JSON en un cuerpo JSON y se codifican como URL en un formulario o en la URL. Una respuesta 2xx cuenta como envío exitoso. Si configuras un campo de éxito, el valor de ese campo también debe coincidir con el valor de éxito configurado.",
+        "webhook": "Cada solicitud incluye X-MoleSignal-Event (el tipo de notificación) y X-MoleSignal-Delivery (el ID de entrega, para descartar duplicados). Si configuras un secreto de firma (de al menos 16 caracteres, como el que genera openssl rand -hex 32), también incluye X-MoleSignal-Timestamp y X-MoleSignal-Sign: sha256=<hex>, el HMAC-SHA256 de \"<timestamp>.<body>\" calculado con el secreto. Solo se establece conexión con las direcciones a las que resuelve el host. Se rechazan las direcciones de metadatos de la nube y no se siguen las redirecciones.",
+        "telegram_bot": "Crea un bot en Telegram con @BotFather (/newbot) e ingresa el token que te da como token del bot. Para un destino directo, usa el ID numérico de usuario de la persona, que debe haber enviado /start al bot. Para un destino de grupo, usa el ID de chat de un grupo o canal (negativo; empieza por -100… en supergrupos y canales) o el @username del canal. Agrega el bot al grupo o hazlo administrador del canal. Si activas la integración en Mole Agent → Configuración → Mensajería instantánea, Mole Agent también responde en Telegram y las notificaciones de alerta incluyen los botones Confirmar y Resolver.",
+        "discord_webhook": "Crea un webhook para un canal de Discord en Integraciones → Webhooks y copia su URL. El nombre visible y la URL del avatar son opcionales. Si no los indicas, se usan los del webhook. Los mensajes se envían como contenido incrustado y no mencionan a nadie.",
+        "mattermost_bot": "Una vez que habilites la creación de cuentas de bot en la Consola del sistema, agrega una en Integraciones → Cuentas de bot e ingresa su token de acceso como token del bot. La URL del servidor es la dirección de tu instancia de Mattermost, como https://chat.example.com. Para un destino directo, usa un nombre de usuario (con o sin @) o un ID de usuario. Para un destino de grupo, usa un ID de canal o team-name/channel-name y agrega el bot al equipo y al canal. Si configuras la URL externa, las notificaciones de alerta incluyen los botones Confirmar y Resolver. Se identifica a quien presione uno de esos botones por su método de notificación en este conector. Si la URL externa está en una red interna, agrégala en Permitir conexiones internas no confiables en la Consola del sistema de Mattermost.",
+        "mattermost_webhook": "Para agregar un webhook entrante a un canal de Mattermost, ve a Integraciones → Webhooks entrantes.",
+        "webex_bot": "Crea un bot en My Webex Apps, en developer.webex.com, e ingresa su token de acceso como token del bot. Para un destino directo, usa la dirección de correo electrónico de la cuenta de Webex de la persona o su ID de persona. Para un destino de grupo, usa el ID del espacio (sala) y agrega el bot a ese espacio. Los mensajes se envían como tarjetas adaptables.",
+        "webex_webhook": "Usa la URL que proporciona la integración Incoming Webhooks de Webex App Hub (https://webexapis.com/v1/webhooks/incoming/…). Los mensajes se envían al espacio que seleccionaste al crear el webhook.",
+        "matrix_bot": "Ingresa la URL del servidor de inicio de Matrix (como https://matrix.org) y el token de acceso de la cuenta del bot. Para encontrar el token, inicia sesión con esa cuenta en Element y ve a Configuración → Ayuda y acerca de → Avanzado. Para un destino de grupo, usa el ID (!…) o el alias (#…) de una sala. El bot debe estar en la sala o poder unirse a ella. Para un destino directo, usa un ID de usuario (@name:server). El bot abre una sala directa e invita a esa persona. Los mensajes no se cifran.",
+        "twilio_whatsapp": "Envía mensajes de WhatsApp a través de Twilio. El remitente es un número habilitado para WhatsApp en formato E.164 (como +14155550100) o un Messaging Service (MG…). WhatsApp solo permite a las empresas iniciar conversaciones con plantillas aprobadas. Crea una en Content Template Builder de Twilio y solicita su aprobación para WhatsApp. Luego, escribe su Content SID (HX…) y las variables en el bloque de WhatsApp de una plantilla de notificación por SMS. Nombra las variables 1, 2, 3 según su posición y selecciona esa plantilla para el canal SMS en las políticas de notificación.",
+        "aws_sns": "Publica notificaciones en un tema de Amazon SNS. Sus suscripciones las reenvían a Lambda, SQS, puntos de conexión HTTPS o direcciones de correo electrónico. El ARN del tema tiene un formato como arn:aws:sns:us-east-1:123456789012:alerts. Elige la región en la que está el tema. Para enumerar las regiones se necesita ec2:DescribeRegions; para publicar, sns:Publish. Un tema cifrado también requiere kms:GenerateDataKey y kms:Decrypt. Los mensajes incluyen los atributos event_type y severity para las políticas de filtrado de las suscripciones. Un tema FIFO (.fifo) agrupa los mensajes por alerta y descarta las entregas duplicadas.",
+        "pagerduty": "PagerDuty Events API v2: agrega una integración Events API V2 en la pestaña Integraciones del servicio e ingresa aquí su clave de integración (la clave de enrutamiento). Selecciona EU si tu cuenta está en la región de servicio de la UE. Cuando una alerta de MoleSignal se activa o se escala, se activa una alerta en PagerDuty. Al confirmar o resolver la alerta de MoleSignal, también se confirma o resuelve la de PagerDuty. Se eliminan los duplicados por alerta de MoleSignal."
+      },
+      "options": {
+        "auth": {
+          "access_key": "Clave de acceso",
+          "temporary_key": "Clave temporal",
+          "node_role": "Identidad del nodo",
+          "assume_role": "Asumir un rol",
+          "web_identity": "Identidad web",
+          "password": "Nombre de usuario y contraseña",
+          "microsoft": "Microsoft 365 (OAuth 2.0)",
+          "google": "Google Workspace (OAuth 2.0)"
+        },
+        "site": {
+          "feishu": "Feishu",
+          "lark": "Lark",
+          "slack": "Slack",
+          "govslack": "GovSlack"
+        },
+        "cloud": {
+          "global": "Global",
+          "gcc": "GCC",
+          "gcc_high": "GCC High",
+          "dod": "DoD"
+        },
+        "method": {
+          "post": "POST",
+          "put": "PUT",
+          "patch": "PATCH",
+          "get": "GET"
+        },
+        "bodyFormat": {
+          "json": "JSON",
+          "form": "Formulario (x-www-form-urlencoded)"
+        },
+        "phoneFormat": {
+          "e164": "+8613800138000 (E.164)",
+          "digits": "8613800138000 (sin +)",
+          "mainland": "13800138000 (números de China continental sin código de país)"
+        },
+        "body": {
+          "event": "Evento de MoleSignal",
+          "template": "Cuerpo de la plantilla de notificación"
+        },
+        "region": {
+          "us": "EE. UU.",
+          "eu": "UE"
+        }
+      },
+      "option_hints": {
+        "auth": {
+          "access_key": "Una clave de larga duración de un usuario de IAM. Dale solo los permisos que necesita: sms-voice:SendTextMessage y sms-voice:SendVoiceMessage para enviar SMS y hacer llamadas, sns:Publish para publicar en un tema de SNS y ec2:DescribeRegions para listar las regiones.",
+          "temporary_key": "Una clave de corta duración de AWS STS que solo es válida con su token de sesión. Cuando caduque, dejará de funcionar y tendrás que reemplazarla aquí.",
+          "node_role": "No se almacena ninguna clave. MoleSignal usa la identidad del nodo en el que se ejecuta: EKS IRSA o Pod Identity, un rol de tarea de ECS o un perfil de instancia de EC2. Cualquier organización de esta implementación puede elegir esta opción.",
+          "assume_role": "MoleSignal asume este rol mediante AWS STS con la clave de acceso si proporcionas una o con la identidad del nodo si no lo haces. La política de confianza del rol debe permitir que esa identidad asuma el rol y exigir el ID externo que aparece abajo.",
+          "web_identity": "MoleSignal asume este rol con el token de identidad web del nodo, como el token de cuenta de servicio que EKS proyecta para IRSA (su ruta está en AWS_WEB_IDENTITY_TOKEN_FILE).",
+          "password": "El nombre de usuario y la contraseña de la cuenta SMTP. Si el proveedor de correo lo exige, usa como contraseña el código de autorización o la contraseña de aplicación que te proporcione.",
+          "microsoft": "Envía correo desde un buzón de la nube global de Microsoft 365 mediante OAuth 2.0. Registra una aplicación en Microsoft Entra ID y concédele el permiso de aplicación SMTP.SendAsApp de Office 365 Exchange Online con el consentimiento de un administrador. Luego, un administrador de Exchange debe registrar la entidad de servicio de la aplicación y concederle acceso al buzón remitente. El ID de inquilino y el ID de cliente están en la página Información general de la aplicación. Crea el secreto de cliente en Certificados y secretos. El nombre de usuario es el buzón remitente. Usa el servidor smtp.office365.com, el puerto 587 y STARTTLS.",
+          "google": "Envía correo desde un buzón de Google Workspace mediante OAuth 2.0. Crea una cuenta de servicio y pega su clave JSON. En la sección de delegación de todo el dominio de la consola de administración de Google, autoriza el ID de cliente numérico de la cuenta de servicio para el alcance https://mail.google.com/. El nombre de usuario es el buzón remitente de tu dominio. Usa el servidor smtp.gmail.com, el puerto 587 y STARTTLS."
+        },
+        "cloud": {
+          "gcc_high": "Una nube del Gobierno de EE. UU.: los tokens provienen de login.microsoftonline.us y Bot Framework para el Gobierno verifica los mensajes dirigidos a Mole Agent.",
+          "dod": "Una nube del Gobierno de EE. UU.: los tokens provienen de login.microsoftonline.us y Bot Framework para el Gobierno verifica los mensajes dirigidos a Mole Agent."
+        },
+        "site": {
+          "govslack": "La versión de Slack para el Gobierno de EE. UU.: la API y la autorización de la página de estado están en slack-gov.com."
+        },
+        "body": {
+          "event": "Envía el evento para su procesamiento automático: version, event, alert, rule y escalation, junto con el destino y el mensaje generado. Solo se agregan campos; nunca se eliminan.",
+          "template": "Envía el cuerpo de la plantilla que la política de notificación seleccionó para el canal de webhook tal como está escrito. Si la plantilla es JSON, se envía como JSON con los valores debidamente escapados."
+        },
+        "region": {
+          "eu": "Para cuentas de PagerDuty cuya dirección termina en .eu.pagerduty.com."
+        }
+      },
+      "switch_hints": {
+        "replies": {
+          "twilio_sms": "Quien reciba una alerta por SMS puede responder durante un día con el código correspondiente, por ejemplo, 31 para confirmar la recepción o 32 para resolver la alerta. Las respuestas se procesan en nombre del destinatario y con sus permisos.",
+          "aws_sms": "Quien reciba una alerta por SMS puede responder durante un día con el código correspondiente, por ejemplo, 31 para confirmar la recepción o 32 para resolver la alerta. Las respuestas se procesan en nombre del destinatario y con sus permisos, y llegan a través de SNS desde el servicio de SMS bidireccional.",
+          "http_sms": "Quien reciba una alerta por SMS puede responder durante un día con el código correspondiente, por ejemplo, 31 para confirmar la recepción o 32 para resolver la alerta. Las respuestas se procesan en nombre del destinatario y con sus permisos. La puerta de enlace debe reenviar las respuestas que reciba.",
+          "aliyun_sms": "Alibaba Cloud solo envía plantillas aprobadas. Incluye las variables reply.ack y reply.resolve en los parámetros de la plantilla. El destinatario tiene un día para responder con esos códigos y así confirmar la recepción o resolver la alerta. Las respuestas se procesan en nombre del destinatario y con sus permisos.",
+          "twilio_voice": "Quien conteste puede marcar 1 para confirmar la recepción o 2 para resolver la alerta. La acción se realiza en su nombre y con sus permisos.",
+          "aliyun_voice": "Las llamadas usan un sistema de voz interactivo (IvrCall). Quien conteste puede marcar 1 para confirmar la recepción o 2 para resolver la alerta. Se requiere un número real comprado para IvrCall que se muestre como número de origen.",
+          "tencent_sms": "Tencent Cloud solo envía plantillas aprobadas. Incluye las variables reply.ack y reply.resolve en los parámetros de la plantilla. El destinatario tiene un día para responder con esos códigos y así confirmar la recepción o resolver la alerta. Las respuestas se procesan en nombre del destinatario y con sus permisos.",
+          "tencent_voice": "Quien conteste puede marcar 1 para confirmar la recepción o 2 para resolver la alerta. La plantilla debe indicar estas opciones y el callback de pulsación de teclas debe estar habilitado en la consola. La tecla pulsada se asocia con la llamada más reciente a ese número.",
+          "huawei_sms": "Huawei Cloud solo envía plantillas aprobadas. Incluye las variables reply.ack y reply.resolve en los parámetros de la plantilla. El destinatario tiene un día para responder con esos códigos y así confirmar la recepción o resolver la alerta. Las respuestas se procesan en nombre del destinatario y con sus permisos.",
+          "huawei_voice": "Después de reproducir la plantilla, se registra una sola tecla: quien conteste puede marcar 1 para confirmar la recepción o 2 para resolver la alerta. La plantilla debe indicar estas opciones.",
+          "twilio_whatsapp": "WhatsApp solo envía plantillas aprobadas. Agrega reply.ack y reply.resolve a las variables de la plantilla. El destinatario tiene un día para responder con esos códigos y así confirmar la recepción o resolver la alerta. Las respuestas se procesan en nombre del destinatario y con sus permisos."
+        }
+      },
+      "type_fields": {
+        "http_sms": {
+          "url": "URL de la puerta de enlace",
+          "secret": "Secreto"
+        },
+        "twilio_voice": {
+          "replies": "Ejecutar acciones al pulsar teclas"
+        },
+        "aliyun_voice": {
+          "replies": "Ejecutar acciones al pulsar teclas"
+        },
+        "tencent_voice": {
+          "replies": "Ejecutar acciones al pulsar teclas",
+          "secretKey": "SecretKey"
+        },
+        "tencent_sms": {
+          "secretKey": "SecretKey"
+        },
+        "huawei_voice": {
+          "replies": "Responder a la pulsación de teclas",
+          "apiBaseUrl": "Dirección de la aplicación"
+        },
+        "huawei_sms": {
+          "apiBaseUrl": "Dirección de la aplicación",
+          "sender": "Número de canal"
+        },
+        "discord_webhook": {
+          "username": "Nombre visible"
+        },
+        "twilio_whatsapp": {
+          "sender": "Remitente de WhatsApp"
+        },
+        "aws_sns": {
+          "body": "Mensaje"
+        },
+        "pagerduty": {
+          "region": "Región del servicio"
+        }
+      },
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copy_external_id": "Copiar ID externo",
+      "external_id_hint": "Esta organización asume roles con este ID externo, que no se puede cambiar. Exige este ID en la política de confianza del rol mediante una condición sts:ExternalId. Así, ninguna otra organización podrá asumir el rol, aunque conozca su ARN.",
+      "address_by_region": "Se determina según la región",
+      "regions_loading": "Consultando las regiones del proveedor…",
+      "regions_need_credentials": "Introduce las credenciales para ver las regiones habilitadas en esta cuenta.",
+      "regions_failed": "No se pudieron listar las regiones: {{error}}",
+      "callbacks": {
+        "label": "URL de devolución de llamada",
+        "after_save": "Se mostrará aquí cuando guardes el conector.",
+        "no_external_url": "El servidor no tiene una URL externa, por lo que el proveedor no puede enviar notificaciones a través de la URL de devolución de llamada.",
+        "per_call": "Cada llamada incluye la URL de pulsación de teclas que se envía a Twilio. No tienes que configurar nada.",
+        "hints": {
+          "twilio_sms": "En la configuración de mensajería del número de Twilio, selecciona Webhook y HTTP POST en «A message comes in» e introduce esta URL.",
+          "aws_sms": "Agrega una suscripción HTTPS con este endpoint al tema de SNS que recibe las respuestas. La suscripción se confirma automáticamente.",
+          "aliyun_sms": "En Alibaba Cloud SMS, configura el envío de mensajes entrantes a esta URL mediante HTTP.",
+          "aliyun_voice": "En Alibaba Cloud Voice, configura el envío de confirmaciones a esta URL mediante HTTP. Aquí se reciben las pulsaciones de teclas.",
+          "tencent_sms": "En la configuración de devoluciones de llamada de la consola de Tencent Cloud SMS, usa esta URL para las respuestas.",
+          "tencent_voice": "En la configuración de devoluciones de llamada de eventos de la consola de Tencent Cloud Voice Message, usa esta URL para las pulsaciones de teclas.",
+          "huawei_sms": "Al crear la aplicación de SMS, introduce esta URL como dirección para los mensajes entrantes. Su último segmento es el token de devolución de llamada.",
+          "huawei_voice": "En «App Management», introduce esta URL como dirección para recibir el estado de las llamadas. Su último segmento es el token de devolución de llamada.",
+          "http_sms": "Configura la puerta de enlace para que envíe las respuestas que reciba a esta URL mediante POST en formato JSON, con los campos phone y text.",
+          "wecom_app": "Configura la recepción mediante API en «Receive messages» de la aplicación. Usa esta URL y los valores de los dos campos anteriores para el token y EncodingAESKey. El dominio de la URL debe figurar en un registro ICP de la empresa.",
+          "twilio_whatsapp": "En Twilio, configura esta URL y el método HTTP POST en el webhook de mensajes entrantes del remitente de WhatsApp o de su Messaging Service."
+        }
+      }
+    },
+    "delete_title": "¿Eliminar el conector?",
+    "delete_description": "No puedes eliminar un conector hasta que reasignes los endpoints, las políticas y las rutas alternativas que lo usan."
+  },
+  "users": {
+    "title": "Notificaciones a usuarios",
+    "subtitle": "Vincula las identidades de los proveedores y define el orden de entrega para cada categoría.",
+    "empty_title": "No hay usuarios en el espacio de trabajo",
+    "empty_description": "Los miembros del espacio de trabajo aparecen aquí cuando se unen a la organización.",
+    "columns": {
+      "user": "Usuario",
+      "endpoints": "Endpoints vinculados",
+      "alert": "Método principal de alertas",
+      "oncall": "Método principal de guardia",
+      "report": "Método principal de informes",
+      "status": "Estado"
+    },
+    "drawer_title": "Configuración de notificaciones · {{name}}",
+    "drawer_subtitle": "Administra las identidades, el orden de entrega, el horario de silencio y las pruebas."
+  },
+  "endpoints": {
+    "title": "Identidades de notificación",
+    "description": "Cada identidad pertenece a un solo conector.",
+    "add": "Vincular método de notificación",
+    "empty": "No hay identidades de notificación vinculadas.",
+    "identity": "Identidad externa",
+    "display_name": "Etiqueta",
+    "connector": "Conector",
+    "enabled": "Usar este punto de conexión",
+    "verified": "Confirmar que este punto de conexión está verificado",
+    "new_title": "Vincular método de notificación",
+    "edit_title": "Editar método de notificación",
+    "save": "Guardar punto de conexión",
+    "delete_title": "¿Eliminar el punto de conexión?",
+    "delete_description": "Primero, quita este punto de conexión de todas las preferencias de entrega.",
+    "phone_hint": "Un número de teléfono con + y el código de país, como +14155550100. Los conectores de SMS de Alibaba Cloud, Tencent Cloud y Huawei Cloud, así como los conectores genéricos de SMS por HTTP, también aceptan números de celular de 11 dígitos de China continental.",
+    "identity_hints": {
+      "telegram_bot": "Usa un ID numérico de usuario de Telegram, no el @username. Cualquier persona puede consultar su ID con @userinfobot. Para recibir mensajes del bot, primero debe abrirlo en Telegram y pulsar Iniciar.",
+      "mattermost_bot": "Un nombre de usuario de Mattermost en minúsculas, con o sin @, o el ID de usuario de 26 caracteres. Este valor se usa para identificar a quien pulsa un botón de una tarjeta.",
+      "webex_bot": "La dirección de correo electrónico de la cuenta de Webex o su ID de persona de Webex.",
+      "matrix_bot": "Un ID de usuario de Matrix, como @name:matrix.org. Con la primera notificación, el bot invita a la persona a una sala de chat directo. Al aceptar la invitación, podrá ver los mensajes.",
+      "twilio_whatsapp": "Un número de WhatsApp con + y el código de país, como +14155550100."
+    }
+  },
+  "preferences": {
+    "title": "Preferencias de entrega",
+    "description": "Se intenta la entrega en el orden seleccionado antes de recurrir a las opciones de respaldo del equipo y de la organización.",
+    "alert": "Eventos de alerta",
+    "oncall": "Eventos de guardia",
+    "report": "Informes",
+    "escalation": "Escalamiento de alertas",
+    "security": "Seguridad",
+    "system": "Sistema",
+    "enabled": "Recibir notificaciones de esta categoría",
+    "endpoint_order": "Orden de los puntos de conexión",
+    "move_up": "Subir un paso",
+    "move_down": "Bajar un paso",
+    "no_endpoints": "Vincula un punto de conexión antes de configurar esta categoría.",
+    "quiet_enabled": "Usar horario de silencio",
+    "timezone": "Zona horaria",
+    "start": "Inicio (HH:MM)",
+    "end": "Fin (HH:MM)",
+    "save": "Guardar {{category}}",
+    "wait_label": "Minutos antes del paso {{step}}",
+    "wait_unit": "min después",
+    "wait_hint": "La notificación del primer paso se envía de inmediato. Cada paso posterior se ejecuta tras los minutos que indiques, contados desde la primera notificación, si para entonces nadie ha confirmado la recepción de la alerta. Si dos pasos consecutivos tienen la misma demora, el segundo solo se usa si falla el envío del primero. Si un envío falla, se pasa de inmediato al paso siguiente.",
+    "high_urgency_steps": "Alertas de urgencia alta, en orden",
+    "low_urgency_steps": "Alertas de urgencia baja, en orden",
+    "low_urgency_hint": "Si dejas esta lista vacía, solo se usa el primer método de arriba.",
+    "high_urgency_bypass": "Recibir alertas de urgencia alta incluso durante el horario de silencio",
+    "quiet_low_urgency": "Las alertas de urgencia baja nunca se envían durante el horario de silencio.",
+    "add_step": "Agregar un paso: {{method}}",
+    "remove_step": "Quitar el paso {{step}}",
+    "boost_label": "Aviso urgente del paso {{step}}",
+    "boosts": {
+      "default": {
+        "none": "Sin aviso urgente",
+        "app": "Aviso urgente en la app",
+        "sms": "Aviso urgente por SMS",
+        "phone": "Aviso urgente por teléfono"
+      },
+      "lark_app": {
+        "none": "Sin Buzz",
+        "app": "Buzz en la app",
+        "sms": "Buzz por SMS",
+        "phone": "Buzz por teléfono"
+      },
+      "dingtalk_app": {
+        "none": "Sin DING",
+        "app": "DING en la app",
+        "sms": "DING por SMS",
+        "phone": "DING por teléfono"
+      }
+    },
+    "boost_hint": "Después del mensaje, el aviso urgente se envía como alerta en la app, SMS o llamada.",
+    "boost_wait_hint": "Después del mensaje, el aviso urgente se envía como alerta en la app, SMS o llamada. Puedes usar el mismo método dos veces con avisos distintos: primero envía un mensaje y, si nadie confirma la recepción en 5 minutos, vuelve a usar el mismo método con una llamada.",
+    "boost_notes": {
+      "lark_app": "En Lark, la versión internacional, Buzz solo funciona en la app.",
+      "dingtalk_app": "DING requiere DingTalk Professional o Exclusive. Para usar DING por SMS o por teléfono, debes comprar una cuota."
+    }
+  },
+  "event_types": {
+    "alert": {
+      "triggered": "Alerta activada",
+      "acknowledged": "Recepción de alerta confirmada",
+      "resolved": "Alerta resuelta",
+      "escalated": "Alerta escalada"
+    },
+    "oncall": {
+      "shift": {
+        "starting": "Turno de guardia por comenzar",
+        "started": "Turno de guardia iniciado"
+      },
+      "override": {
+        "created": "Excepción de guardia creada"
+      },
+      "coverage": {
+        "missing": "Falta cobertura de guardia"
+      },
+      "swap": {
+        "updated": "Intercambio de turnos actualizado"
+      },
+      "member": {
+        "unreachable": "No se puede contactar al miembro de guardia"
+      }
+    },
+    "incident": {
+      "status_update": "Actualización de incidente grave"
+    },
+    "agent": {
+      "approval": {
+        "requested": "Se solicitó la aprobación de Mole Agent"
+      }
+    }
+  },
+  "resolver_types": {
+    "alert_owner": "Responsable de la alerta",
+    "current_oncall": "Usuario de guardia actual",
+    "event_users": "Usuarios especificados por el evento",
+    "fixed_users": "Usuarios seleccionados",
+    "next_oncall": "Próximo usuario de guardia",
+    "schedule_members": "Miembros del calendario de guardias",
+    "team_lead": "Líder del equipo",
+    "team_members": "Miembros del equipo"
+  },
+  "policies": {
+    "title": "Políticas de notificación",
+    "subtitle": "Filtra eventos, determina los destinatarios, envía notificaciones según sus preferencias y escala si no se confirma la recepción.",
+    "new": "Nueva política",
+    "empty_title": "No hay políticas de notificación",
+    "empty_description": "Crea una política para vincular los eventos de negocio con los destinatarios y las rutas de entrega.",
+    "columns": {
+      "name": "Política",
+      "event": "Evento",
+      "recipient": "Selector de destinatarios",
+      "delivery": "Entrega",
+      "fallback": "Alternativas",
+      "status": "Estado"
+    },
+    "drawer": {
+      "new_title": "Nueva política de notificación",
+      "edit_title": "Editar {{name}}",
+      "subtitle": "La vista previa muestra los usuarios y las rutas de entrega reales del espacio de trabajo sin enviar notificaciones.",
+      "trigger": "1 · Activador",
+      "recipient": "2 · Destinatarios",
+      "delivery": "3 · Entrega",
+      "failure": "4 · Fallos y escalamiento",
+      "preview": "Vista previa de entrega en tiempo real",
+      "name": "Nombre",
+      "event_type": "Tipo de evento",
+      "category": "Categoría",
+      "priority": "Prioridad",
+      "matchers": "Criterios de coincidencia (JSON)",
+      "resolver": "Selector de destinatarios",
+      "resolver_config": "Configuración del selector de destinatarios (JSON)",
+      "delivery_mode": "Modo de entrega",
+      "template": "Plantilla general",
+      "template_hint": "Los canales sin plantilla propia usan esta plantilla, que se completa con los atributos del evento.",
+      "default_template": "Usar el mensaje generado para el evento",
+      "channel_templates": "Plantillas por canal",
+      "use_general_template": "Usar la plantilla general",
+      "connectors": "Conectores seleccionados",
+      "user_fallbacks": "Usar los endpoints de respaldo del usuario",
+      "team_defaults": "Usar las rutas de respaldo del equipo",
+      "organization_defaults": "Usar las rutas de respaldo de la organización",
+      "merge_window": "Agrupar notificaciones",
+      "merge_window_hint": "Las notificaciones de alerta para una misma persona o un mismo grupo se agrupan dentro del intervalo: la primera se envía de inmediato y las demás se envían juntas al finalizar el intervalo. Las llamadas se agrupan durante al menos 60 segundos; los webhooks nunca se agrupan.",
+      "merge_off": "No agrupar",
+      "merge_seconds_one": "{{count}} segundo",
+      "merge_seconds_other": "{{count}} segundos",
+      "merge_minutes_one": "{{count}} minuto",
+      "merge_minutes_other": "{{count}} minutos",
+      "ack_timeout": "Tiempo de espera para la confirmación (segundos)",
+      "escalation_resolver": "Resolutor de escalamiento",
+      "escalation_config": "Configuración del resolutor de escalamiento (JSON)",
+      "escalation_delivery": "Modo de envío del escalamiento",
+      "escalation_connectors": "Conectores de escalamiento",
+      "event_attributes": "Atributos del evento de vista previa (JSON)",
+      "preview_event": "Vista previa del evento",
+      "preview_waiting": "Completa los campos obligatorios para determinar un plan de envío.",
+      "ack_disabled": "Deja el campo vacío para desactivar el escalamiento",
+      "refresh_preview": "Actualizar vista previa",
+      "matched": "La política coincide",
+      "not_matched": "La política no coincide",
+      "no_recipients": "No se encontraron destinatarios.",
+      "resolved_by": "Resuelto por {{resolver}}",
+      "step_template": "Plantilla: {{name}}",
+      "save": "Guardar política",
+      "restore": "Restaurar valor predeterminado",
+      "builtin_name_hint": "Las políticas integradas conservan su nombre.",
+      "time_hint": "Se usa la hora en que ocurrió el evento que generó la notificación. Si ocurrió fuera del intervalo, esta política no envía nada; las demás siguen aplicándose.",
+      "merge_seconds_many": "{{count}} segundos",
+      "merge_minutes_many": "{{count}} minutos"
+    },
+    "delivery_modes": {
+      "prefer_user": "Respetar la preferencia del usuario",
+      "force_connector": "Forzar el uso de un conector",
+      "multi_connector": "Enviar mediante varios conectores"
+    },
+    "delete_title": "¿Eliminar la política?",
+    "delete_description": "El historial de envíos existente seguirá disponible.",
+    "builtin_label": "Integrada",
+    "builtin_not_deletable": "Puedes desactivar una política integrada, pero no eliminarla.",
+    "builtin": {
+      "alert_triggered": "Alerta activada: notificar a la persona responsable",
+      "alert_resolved": "Alerta resuelta: notificar a la persona responsable",
+      "alert_acknowledged": "Alerta confirmada: notificar a la persona responsable",
+      "alert_escalated_to_users": "Escalamiento: notificar a las personas asignadas al paso",
+      "alert_escalated_to_teams": "Escalamiento: notificar al equipo asignado al paso",
+      "oncall_shift_starting": "Relevo de guardia: notificar a ambas personas",
+      "oncall_coverage_missing": "Turno sin cobertura: notificar a quienes administran el calendario",
+      "oncall_override_created": "Cambio temporal de guardia: notificar a las personas involucradas",
+      "oncall_swap_updated": "Intercambio de turnos: notificar a las personas involucradas",
+      "incident_status_update": "Actualización de incidente grave: notificar a las partes interesadas",
+      "oncall_member_unreachable": "Persona de guardia no disponible: notificarle a ella y a quienes administran el calendario",
+      "intake_budget_warning": "Presupuesto de ingesta a punto de agotarse: notificar a las personas indicadas en el presupuesto",
+      "intake_budget_exceeded": "Presupuesto de ingesta superado: notificar a las personas indicadas en el presupuesto",
+      "agent_approval_requested": "Se requiere aprobación: notificar a quienes pueden aprobar"
+    },
+    "restore_title": "¿Restaurar la configuración predeterminada?",
+    "restore_description": "La política integrada vuelve a su configuración predeterminada y se pierden los cambios realizados.",
+    "restored": "Configuración predeterminada restaurada"
+  },
+  "defaults": {
+    "title": "Rutas de respaldo",
+    "subtitle": "Define las rutas de equipo y de organización que se usan si fallan las rutas de entrega personales.",
+    "scope": "Alcance de la ruta",
+    "organization_scope": "Configuración predeterminada de la organización",
+    "team_scope": "Equipo · {{name}}",
+    "category": "Categoría",
+    "enabled": "Activar este respaldo para la organización",
+    "routes": "Rutas",
+    "connector": "Conector",
+    "target_type": "Tipo de destino",
+    "target": "Destino",
+    "add_route": "Agregar ruta",
+    "remove_route": "Quitar ruta",
+    "save": "Guardar rutas de respaldo",
+    "delete": "Eliminar respaldo",
+    "empty": "No hay rutas de respaldo configuradas para este alcance y esta categoría.",
+    "configured_hint": "Se intenta usar cada ruta en el orden indicado."
+  },
+  "deliveries": {
+    "title": "Entregas de notificaciones",
+    "subtitle": "Revisa cada intento de entrega, etapa de respaldo, confirmación y escalamiento.",
+    "empty_title": "No hay entregas",
+    "empty_description": "Los intentos de entrega aparecen aquí cuando se procesa un evento de notificación que coincide.",
+    "filters": {
+      "event": "ID del evento",
+      "status": "Estado",
+      "stage": "Etapa",
+      "all": "Todas"
+    },
+    "columns": {
+      "event": "Evento",
+      "recipient": "Destinatario",
+      "source": "Resuelto por",
+      "connector": "Conector",
+      "stage": "Etapa",
+      "status": "Estado",
+      "latency": "Latencia",
+      "sent": "Enviado"
+    },
+    "detail_title": "Cadena de entrega",
+    "detail_subtitle": "Intento {{attempt}} · {{status}}",
+    "target": "Destino enmascarado",
+    "error": "Error",
+    "skip_reason": "Motivo",
+    "ack": "Confirmar evento",
+    "retry": "Reintentar las rutas fallidas",
+    "acknowledged": "Evento confirmado",
+    "retried": "Se inició el reintento",
+    "views_label": "Cómo se muestran las entregas",
+    "views": {
+      "events": "Por alerta",
+      "attempts": "Por intento"
+    },
+    "by_event": {
+      "channels": "Canales e intentos",
+      "first_delivered": "Primera entrega",
+      "not_delivered": "Sin entregar",
+      "failed_tries": "Fallidos",
+      "open_try": "Abrir intento {{attempt}}: {{status}}"
+    }
+  },
+  "templates": {
+    "conditions": {
+      "title": "Condiciones",
+      "description": "El contenido del bloque solo se incluye si se cumple la condición. También puedes usar comparaciones con != y una rama else, y anidar bloques.",
+      "items": {
+        "triggered": "Solo cuando se activa la alerta",
+        "resolved": "Solo cuando se resuelve la alerta",
+        "severity": "Texto distinto según la gravedad",
+        "runbook": "Enlace a la guía operativa, si existe"
+      },
+      "problem": "Hay un problema con una condición: {{problem}}"
+    },
+    "title": "Plantillas de notificación",
+    "subtitle": "Mensajes de notificación reutilizables: una plantilla general sirve para todos los canales, y cada canal, como SMS o llamadas, puede tener la suya.",
+    "new": "Nueva plantilla",
+    "empty_title": "No hay plantillas de notificación",
+    "empty_description": "Crea un cuerpo de mensaje reutilizable y selecciónalo en una política de notificación.",
+    "channel_filter": "Filtrar por canal",
+    "all": "Todas",
+    "columns": {
+      "name": "Plantilla",
+      "channel": "Canal",
+      "format": "Formato",
+      "category": "Categoría",
+      "updated": "Última actualización",
+      "actions": "Acciones"
+    },
+    "new_title": "Nueva plantilla de notificación",
+    "edit_title": "Editar {{name}}",
+    "editor_subtitle": "Elige una categoría de notificación e inserta sus variables, o usa una plantilla predefinida.",
+    "name": "Nombre",
+    "category": "Categoría de notificación",
+    "channel": "Canal",
+    "channels": {
+      "general": "General",
+      "im": "Mensajería instantánea",
+      "phone": "Teléfono",
+      "sms": "SMS",
+      "email": "Correo electrónico",
+      "webhook": "Webhook"
+    },
+    "format": "Formato",
+    "body": "Cuerpo del mensaje",
+    "variables_hint": "Abre Variables a la derecha y selecciona una variable para insertarla donde está el cursor.",
+    "body_hint_sms": "El SMS solo incluye el cuerpo del mensaje, sin el título de la notificación.",
+    "body_hint_phone": "La llamada solo lee el cuerpo del mensaje, sin el título de la notificación.",
+    "preview_attributes": "Atributos del evento para la vista previa (JSON)",
+    "preview": "Vista previa del mensaje",
+    "preview_empty": "Empieza a escribir el cuerpo del mensaje.",
+    "length": "{{chars}} / {{limit}} caracteres",
+    "length_over_sms": "{{chars}} caracteres: el SMS solo incluye los primeros {{limit}}.",
+    "length_over_phone": "{{chars}} caracteres: en la llamada solo se leen los primeros {{limit}}.",
+    "attributes_object": "Los atributos de la vista previa deben ser un objeto JSON.",
+    "reference": {
+      "title": "Variables",
+      "description": "Selecciona una variable para insertarla donde está el cursor.",
+      "loading": "Cargando variables…",
+      "error": "No se pudieron cargar las variables.",
+      "dynamic_key": "Clave dinámica encontrada en este espacio de trabajo",
+      "tabs": {
+        "common": "Comunes",
+        "rule": "Regla",
+        "incident": "Alerta",
+        "metadata": "Etiquetas y anotaciones",
+        "schedule": "Calendario",
+        "oncall": "Relevo",
+        "override": "Excepción",
+        "escalation": "Escalamiento"
+      },
+      "groups": {
+        "event": "Evento",
+        "message": "Mensaje",
+        "rule": "Regla de alerta",
+        "incident": "Incidente",
+        "trigger": "Valor de activación",
+        "labels": "Etiquetas",
+        "annotations": "Anotaciones",
+        "escalation": "Escalamiento",
+        "schedule": "Calendario de guardias",
+        "oncall": "Cambio de turno",
+        "override": "Excepción"
+      },
+      "fields": {
+        "event_id": "Identificador único del evento",
+        "event_type": "Tipo de evento",
+        "event_occurred_at": "Hora del evento en microsegundos",
+        "event_time": "Hora del evento (UTC)",
+        "message_title": "Título del mensaje generado por el sistema",
+        "message_text": "Mensaje predeterminado generado por el sistema",
+        "event_attribute": "Cualquier atributo del evento; reemplaza <key>",
+        "rule_id": "ID de la regla de alerta",
+        "rule_name": "Nombre de la regla de alerta",
+        "rule_description": "Descripción de la regla de alerta",
+        "incident_id": "ID del incidente",
+        "incident_fingerprint": "Huella del incidente",
+        "incident_status": "Estado del incidente",
+        "incident_summary": "Resumen del incidente",
+        "incident_url": "Dirección de la alerta en MoleSignal (requiere la URL externa)",
+        "incident_started_time": "Hora de inicio de la alerta (UTC)",
+        "incident_duration": "Duración de la alerta, por ejemplo, 1h 5m",
+        "incident_acknowledged_time": "Hora en que se confirmó la recepción de la alerta (UTC)",
+        "incident_acknowledged_by": "ID del usuario que confirmó la recepción de la alerta",
+        "incident_resolved_time": "Hora en que se resolvió la alerta (UTC)",
+        "incident_resolved_by": "ID del usuario que resolvió la alerta",
+        "incident_assignees": "IDs de los usuarios asignados, separados por comas",
+        "service": "Servicio indicado en las etiquetas o anotaciones",
+        "environment": "Entorno indicado en las etiquetas o anotaciones",
+        "affected_services": "Servicios afectados, separados por comas",
+        "severity": "Gravedad de la alerta",
+        "value": "Valor observado que activó la alerta",
+        "threshold": "Umbral de la regla",
+        "evaluated_at": "Momento de evaluación de la regla en microsegundos",
+        "labels_all": "Todas las etiquetas, como service=api, env=production",
+        "labels_key": "Valor de la etiqueta; reemplaza <key>",
+        "annotations_key": "Valor de la anotación; reemplaza <key>",
+        "reply_ack": "Código para confirmar la alerta al responder, como 31; solo se incluye en los mensajes de conectores que procesan respuestas",
+        "reply_resolve": "Código para marcar la alerta como resuelta al responder, como 32",
+        "escalation_step": "Paso de escalamiento, numerado a partir de 1",
+        "escalation_loop": "Ronda de escalamiento, numerada a partir de 1",
+        "escalation_target": "A quién notifica este paso: user, schedule o team",
+        "escalation_reason": "Motivo de la notificación: step (la política avanzó al siguiente paso), manual (escalamiento manual), reassigned, responder_added, snooze_ended, ack_timeout (la alerta se confirmó, pero no se resolvió a tiempo) o severity_raised",
+        "schedule_id": "ID del horario de guardia",
+        "schedule_name": "Nombre del horario de guardia",
+        "schedule_team_id": "ID del equipo del horario de guardia",
+        "schedule_timezone": "Zona horaria del horario de guardia",
+        "oncall_current_user": "ID del usuario de guardia actual",
+        "oncall_next_user": "ID del próximo usuario de guardia",
+        "oncall_transition_at": "Momento del cambio de guardia en microsegundos",
+        "oncall_transition_time": "Momento del cambio de guardia (UTC)",
+        "override_id": "ID de la sustitución",
+        "override_user": "ID del usuario sustituto",
+        "override_original_user": "ID del usuario de guardia original",
+        "override_start_at": "Inicio de la sustitución en microsegundos",
+        "override_end_at": "Fin de la sustitución en microsegundos",
+        "override_start_time": "Inicio de la sustitución (UTC)",
+        "override_end_time": "Fin de la sustitución (UTC)",
+        "override_reason": "Motivo de la sustitución",
+        "urgency": "Urgencia: clave del nivel, como high o low",
+        "priority": "Prioridad P1–P9; queda vacía si no se establece ninguna",
+        "urgency_name": "Nombre que la organización asignó al nivel de urgencia; queda vacío si no se le asignó uno",
+        "priority_name": "Nombre que la organización asignó a la prioridad; queda vacío si no se le asignó uno"
+      }
+    },
+    "provider": {
+      "title": "Plantillas aprobadas por el proveedor",
+      "description_sms": "Alibaba Cloud, Tencent Cloud y Huawei Cloud solo envían plantillas de SMS que hayan aprobado, y WhatsApp solo envía plantillas de Content que haya aprobado. Sus conectores envían la plantilla indicada aquí; los demás conectores de SMS envían el cuerpo del mensaje de arriba.",
+      "description_phone": "Alibaba Cloud, Tencent Cloud y Huawei Cloud solo leen en voz alta las plantillas de voz que hayan aprobado. Sus conectores de llamadas leen la plantilla indicada aquí; los demás conectores de llamadas leen el cuerpo del mensaje de arriba.",
+      "names": {
+        "aliyun": "Alibaba Cloud",
+        "tencent": "Tencent Cloud",
+        "huawei": "Huawei Cloud",
+        "whatsapp": "WhatsApp"
+      },
+      "code": "Código de la plantilla",
+      "code_labels": {
+        "whatsapp": "SID de contenido"
+      },
+      "max_chars": "Caracteres por variable",
+      "max_chars_placeholder": {
+        "aliyun_sms": "35 (predeterminado)",
+        "aliyun_phone": "35 (predeterminado)",
+        "tencent_sms": "6 (predeterminado)",
+        "tencent_phone": "20 (predeterminado)",
+        "huawei_sms": "20 (predeterminado)",
+        "huawei_phone": "32 (predeterminado)",
+        "whatsapp_sms": "300 (predeterminado)"
+      },
+      "params": "Variables",
+      "param_name": "Variable",
+      "param_value": "Valor",
+      "add_param": "Agregar variable",
+      "remove_param": "Eliminar variable",
+      "params_hint": "Usa el mismo nombre que aparece como {{variable}} en la plantilla. Puedes usar las variables de la derecha en el valor. Al seleccionar una, se inserta en la posición del cursor.",
+      "params_hint_position": "Este proveedor asigna los valores por posición: usa 1, 2 y 3 como nombres de la primera, la segunda y la tercera variable de la plantilla. Puedes usar las variables de la derecha en el valor. Al seleccionar una, se inserta en la posición del cursor.",
+      "preview": "{{provider}} recibe {{code}}",
+      "problem_elsewhere": "Completa la plantilla de {{provider}} antes de guardar.",
+      "problems": {
+        "code": "Ingresa el código de plantilla que te dio el proveedor. Usa letras, dígitos, guiones bajos y guiones.",
+        "content_sid": "Ingresa el SID de contenido de Twilio: HX seguido de 32 caracteres hexadecimales.",
+        "param_name": "El nombre de la variable solo puede contener letras, dígitos y guiones bajos.",
+        "param_twice": "Hay una variable duplicada.",
+        "param_value": "Cada variable debe tener un valor.",
+        "max_chars": "El número de caracteres por variable debe estar entre 1 y 500."
+      }
+    },
+    "card": {
+      "title": "Tarjeta",
+      "description": "Las apps y los bots de grupo de Lark, DingTalk, WeCom, Slack, Teams y Google Chat envían la notificación como una tarjeta con el cuerpo del mensaje de arriba. Si desactivas esta opción, la envían como texto, igual que antes.",
+      "toggle": "Enviar como tarjeta",
+      "card_title": "Título de la tarjeta",
+      "card_title_placeholder": "Si lo dejas en blanco, se usa el título de la notificación",
+      "color": "Color del título",
+      "colors": {
+        "severity": "Según la gravedad",
+        "blue": "Azul",
+        "green": "Verde",
+        "yellow": "Amarillo",
+        "orange": "Naranja",
+        "red": "Rojo",
+        "grey": "Gris"
+      },
+      "fields": "Campos",
+      "field_label": "Nombre del campo",
+      "field_value": "Valor del campo",
+      "add_field": "Agregar campo",
+      "remove_field": "Quitar campo",
+      "links": "Botones de enlace",
+      "link_label": "Texto del botón",
+      "link_url": "Dirección del enlace",
+      "add_link": "Agregar enlace",
+      "remove_link": "Quitar enlace",
+      "note": "Pie de tarjeta",
+      "hint": "Puedes usar variables en cualquier parte. Al seleccionar una a la derecha, se inserta en la posición del cursor. Si el evento no aporta los datos de un campo o enlace, este se omite. El color depende de la gravedad: rojo para los eventos críticos, naranja para los errores, amarillo para las advertencias y azul para el resto. Al resolverse el evento, cambia a verde.",
+      "starting": {
+        "severity": "Gravedad",
+        "status": "Estado",
+        "service": "Servicio",
+        "schedule": "Horario",
+        "next": "Próxima persona de guardia",
+        "runbook": "Guía operativa"
+      },
+      "problems": {
+        "too_many": "Una tarjeta admite hasta 10 campos y 5 enlaces.",
+        "field": "Cada campo necesita un nombre y un valor.",
+        "link": "Cada enlace necesita un texto para el botón y una dirección.",
+        "link_url": "La dirección del enlace debe empezar por http:// o https://, o ser una variable que proporcione una dirección válida.",
+        "too_long": "Se superó un límite de longitud. Límites de caracteres: 200 para el título y el pie de tarjeta, 40 para los nombres de los campos, 500 para sus valores y 30 para el texto de los botones."
+      }
+    },
+    "presets": {
+      "title": "Plantillas predefinidas",
+      "description": "Puedes editar todo el contenido de las plantillas predefinidas.",
+      "items": {
+        "alert_text": "Alerta en texto sin formato",
+        "alert_markdown": "Alerta en Markdown",
+        "alert_html": "Alerta en HTML",
+        "oncall_shift": "Recordatorio de cambio de turno",
+        "oncall_override": "Aviso de reemplazo de guardia",
+        "oncall_coverage": "Aviso de período sin cobertura",
+        "oncall_html": "Cambio de turno en HTML",
+        "escalation_text": "Escalamiento de alerta en texto sin formato",
+        "escalation_markdown": "Escalamiento de alerta en Markdown",
+        "escalation_html": "Escalamiento de alerta en HTML",
+        "report_text": "Informe en texto sin formato",
+        "report_markdown": "Informe en Markdown",
+        "report_html": "Informe en HTML",
+        "security_text": "Seguridad en texto sin formato",
+        "security_markdown": "Seguridad en Markdown",
+        "security_html": "Seguridad en HTML",
+        "system_text": "Sistema en texto sin formato",
+        "system_markdown": "Markdown del sistema",
+        "system_html": "HTML del sistema",
+        "alert_sms": "SMS de alerta",
+        "alert_phone": "Llamada de alerta",
+        "escalation_sms": "SMS de escalamiento",
+        "escalation_phone": "Llamada de escalamiento",
+        "oncall_sms": "SMS de cambio de turno",
+        "alert_resolved_text": "Alerta resuelta en texto sin formato",
+        "alert_resolved_markdown": "Alerta resuelta en Markdown",
+        "alert_acknowledged_markdown": "Alerta confirmada en Markdown",
+        "alert_im_markdown": "Alerta en Markdown con enlace",
+        "alert_email_html": "Correo de alerta con tabla",
+        "alert_resolved_sms": "SMS de alerta resuelta",
+        "oncall_phone": "Llamada de cambio de turno",
+        "oncall_coverage_sms": "SMS de falta de cobertura"
+      }
+    },
+    "delete_title": "¿Eliminar la plantilla de notificación?",
+    "delete_description": "No se puede eliminar {{name}} mientras una política de notificación haga referencia a esta plantilla."
+  },
+  "account": {
+    "title": "Mi configuración de notificaciones",
+    "subtitle": "Administra tus identidades del espacio de trabajo, tus preferencias por categoría y tus horarios de silencio.",
+    "unavailable": "La identidad con la que iniciaste sesión no está disponible.",
+    "reachability": {
+      "none": "No puedes recibir alertas en este momento: no hay un método operativo para las notificaciones de alerta ni para las de escalamiento, y ninguna ruta de equipo u organización las envía a un grupo. Vincula un método abajo y agrégalo a tus pasos.",
+      "group_only": "No tienes un método propio, así que solo recibes alertas a través de un grupo de tu equipo u organización. Vincula un método abajo y agrégalo a tus pasos."
+    }
+  },
+  "action_link": {
+    "loading": "Leyendo el enlace…",
+    "acknowledge": "Confirmar alerta",
+    "resolve": "Resolver alerta",
+    "acknowledging": "Confirmando…",
+    "resolving": "Resolviendo…",
+    "explain_acknowledge": "Confirma la alerta en nombre de la persona que recibió esta notificación. El enlace se puede usar una sola vez, hasta {{until}}.",
+    "explain_resolve": "Resuelve la alerta en nombre de la persona que recibió esta notificación. El enlace se puede usar una sola vez, hasta {{until}}.",
+    "started": "Inicio: {{at}}",
+    "acknowledged": "La alerta está confirmada.",
+    "resolved": "La alerta está resuelta.",
+    "used": "Este enlace ya se usó.",
+    "used_at": "Este enlace se usó el {{at}}.",
+    "inactive": "Esta acción ya no es necesaria: la alerta ya se atendió o la condición que la activó volvió a la normalidad.",
+    "no_access": "Ya no tienes permiso para actuar sobre esta alerta, así que el enlace no realizó ninguna acción.",
+    "expired": "Este enlace venció.",
+    "failed": "No se pudo completar la acción: {{error}}",
+    "unavailable_title": "Este enlace ya no funciona",
+    "unavailable_hint": "El enlace venció o no es válido. Atiende la alerta en MoleSignal.",
+    "load_failed_title": "No se pudo leer este enlace",
+    "open_alert": "Abrir la alerta en MoleSignal",
+    "open_alerts": "Abrir MoleSignal"
+  },
+  "target_types": {
+    "direct_user": "Usuario directo",
+    "fixed_address": "Dirección fija",
+    "fixed_group": "Grupo fijo",
+    "webhook": "Webhook"
+  },
+  "stages": {
+    "user_primary": "Principal del usuario",
+    "user_fallback": "Alternativa del usuario",
+    "team_fallback": "Alternativa del equipo",
+    "organization_fallback": "Alternativa de la organización",
+    "escalation": "Escalamiento",
+    "test": "Prueba",
+    "direct": "Directo"
+  },
+  "statuses": {
+    "pending": "Pendiente",
+    "sending": "Enviando",
+    "success": "Correcto",
+    "failed": "Fallido",
+    "skipped": "Omitido",
+    "acknowledged": "Confirmado",
+    "queued": "En cola para combinar"
+  }
+}

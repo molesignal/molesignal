@@ -1,0 +1,307 @@
+{
+  "title": "報告中心",
+  "subtitle": "統一管理報告排程、產生記錄與傳送結果。",
+  "actions": {
+    "instant_export": "立即匯出",
+    "new_report": "新增報告",
+    "share": "分享",
+    "export": "匯出",
+    "edit": "編輯",
+    "view": "檢視",
+    "enable": "啟用",
+    "pause": "暫停",
+    "delete": "刪除排程",
+    "cancel": "取消",
+    "add": "新增",
+    "save_and_enable": "儲存並啟用",
+    "save_changes": "儲存變更",
+    "use_template": "使用範本",
+    "view_error": "檢視錯誤",
+    "close": "關閉",
+    "remove": "移除"
+  },
+  "tabs": {
+    "schedules": "報告排程",
+    "history": "產生記錄",
+    "templates": "範本庫"
+  },
+  "pagination": {
+    "aria": "報告中心分頁",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "每頁項目數",
+    "first_aria": "第一頁",
+    "previous_aria": "上一頁",
+    "next_aria": "下一頁",
+    "last_aria": "最後一頁"
+  },
+  "kpis": {
+    "running": "執行中",
+    "next_24h": "未來 24h 傳送",
+    "success_rate": "30 天成功率",
+    "failed": "待處理的失敗項目"
+  },
+  "filters": {
+    "search_schedules": "搜尋報告名稱或來源…",
+    "search_history": "搜尋報告或接收者…",
+    "all_statuses": "所有狀態",
+    "all_sources": "所有來源",
+    "all_results": "所有結果",
+    "enabled": "執行中",
+    "paused": "已暫停",
+    "dashboard": "儀表板",
+    "saved_view": "已儲存的檢視",
+    "sent": "成功",
+    "failed": "失敗",
+    "pending": "處理中"
+  },
+  "empty": {
+    "title": "從一份常用報告開始",
+    "description": "選擇範本後，只需指定資料來源和收件者；也可以從空白報告開始。",
+    "custom_title": "自訂報告",
+    "custom_description": "從頭設定內容、排程和傳送方式。",
+    "no_results_title": "沒有符合條件的報告",
+    "no_results_description": "調整搜尋字詞或篩選條件後再試一次。"
+  },
+  "table": {
+    "name_source": "報告與來源",
+    "schedule": "產生排程",
+    "next_run": "下次產生時間",
+    "last_result": "最近一次結果",
+    "recipients": "收件者",
+    "status": "狀態",
+    "actions": "操作",
+    "never": "尚未產生",
+    "first_run": "等待首次產生",
+    "recipient_more": "另有 {{count}} 位"
+  },
+  "status": {
+    "enabled": "執行中",
+    "paused": "已暫停",
+    "sent": "成功",
+    "failed": "失敗",
+    "pending": "處理中",
+    "unknown": "未知"
+  },
+  "schedule": {
+    "hourly": "每小時",
+    "every_6_hours": "每 6 小時",
+    "every_12_hours": "每 12 小時",
+    "daily": "每 24 小時",
+    "weekly": "每 7 天",
+    "custom": "進階 Cron",
+    "custom_summary": "Cron：{{value}}",
+    "timezone_suffix": "{{schedule}} · {{timezone}}",
+    "advanced_hint": "進階 Cron 目前依排程器的 24 小時備援機制執行；建議優先使用上方的間隔排程。"
+  },
+  "source": {
+    "dashboard": "儀表板",
+    "saved_view": "已儲存的檢視",
+    "missing": "未選擇來源",
+    "unavailable": "來源無法使用"
+  },
+  "history": {
+    "empty_title": "尚無產生記錄",
+    "empty_description": "報告首次執行後，格式、接收方和傳送結果會顯示在這裡。",
+    "partial_error": "部分報告的傳送記錄暫時無法載入。",
+    "columns": {
+      "report": "報告",
+      "generated_at": "產生時間",
+      "recipient": "傳送目標",
+      "attempt": "嘗試",
+      "result": "結果",
+      "details": "詳細資料"
+    },
+    "error_title": "傳送失敗詳細資料",
+    "error_description": "最近一次傳送給此接收方時未成功。",
+    "error_report": "報告",
+    "error_recipient": "接收方",
+    "error_time": "發生時間",
+    "error_message": "錯誤訊息",
+    "no_error_message": "後端未傳回具體的錯誤訊息。"
+  },
+  "templates": {
+    "api_warning": "自訂範本暫時無法載入，仍可使用內建範本。",
+    "source_badge": "{{source}} 範本",
+    "builtin_badge": "內建",
+    "custom_badge": "自訂",
+    "new_template": "新增範本",
+    "new_title": "新增報告範本",
+    "edit_title": "編輯報告範本",
+    "editor_description": "定義可重複使用的內容來源和預設輸出設定。",
+    "basic_information": "基本資訊",
+    "default_output": "預設輸出",
+    "source_hint": "選擇使用範本時可繫結的內容類型。",
+    "source_binding_hint": "範本只定義來源類型；建立報告排程時，再選擇要使用的儀表板或已儲存的檢視。",
+    "dashboard_format_hint": "儀表板包含圖表與版面配置，因此範本的輸出格式固定為 PDF。",
+    "custom_range_hint": "選擇「自訂」後，在建立報告排程時指定資料範圍。",
+    "source_descriptions": {
+      "dashboard": "包含圖表與版面配置，適合製作易於閱讀的 PDF 報告",
+      "saved_view": "包含查詢結果，適用於明細資料和稽核清單"
+    },
+    "format_descriptions": {
+      "pdf": "適合閱讀和分享",
+      "csv": "適合表格分析",
+      "json": "適合自動化處理"
+    },
+    "create_template": "建立範本",
+    "save_changes": "儲存變更",
+    "delete_template": "刪除範本",
+    "toast_created": "已建立自訂範本",
+    "toast_updated": "已更新自訂範本",
+    "toast_deleted": "自訂範本已刪除",
+    "confirm_delete": "確定要刪除範本「{{name}}」嗎？使用此範本建立的既有報告不會受到影響。",
+    "fields": {
+      "name": "範本名稱",
+      "description": "範本說明",
+      "description_optional": "範本說明（選填）",
+      "source_type": "來源類型",
+      "format": "預設格式",
+      "time_range": "預設資料範圍"
+    },
+    "placeholders": {
+      "name": "例如：核心服務月報",
+      "description": "說明適用情境、涵蓋內容和目標讀者。"
+    },
+    "errors": {
+      "name_required": "請填寫範本名稱。"
+    },
+    "platform_health": {
+      "name": "平台健康狀態週報",
+      "description": "彙整核心服務的可用性、延遲、錯誤與容量趨勢。"
+    },
+    "rum_experience": {
+      "name": "使用者體驗日報",
+      "description": "彙整 Web 效能、錯誤率與重要頁面的體驗變化。"
+    },
+    "alert_review": {
+      "name": "警示回顧報告",
+      "description": "整理警示數量、復原所需時間、受影響的服務與頻繁觸發的規則。"
+    },
+    "sla_compliance": {
+      "name": "SLA 服務水準月報",
+      "description": "彙整服務可用性、SLA 達標率、錯誤預算用量與違約風險。"
+    },
+    "saved_query": {
+      "name": "查詢結果快照",
+      "description": "定期匯出已儲存的檢視，適合用於明細資料與稽核清單。"
+    }
+  },
+  "workbench": {
+    "new_title": "新增報告",
+    "edit_title": "編輯報告",
+    "view_title": "報告詳細資訊",
+    "subtitle": "設定內容、產生排程與傳送目的地，右側會同步預覽報告結構。",
+    "view_subtitle": "這份報告的內容、產生排程與傳送目的地。",
+    "view_notice": "修改這份報告需要 {{permission}} 權限。",
+    "steps": {
+      "content": "內容與範圍",
+      "schedule": "產生排程",
+      "delivery": "傳送設定"
+    },
+    "step_descriptions": {
+      "content": "選擇報告的資料來源與涵蓋範圍。",
+      "schedule": "使用易讀的間隔排程，僅在必要時填寫 Cron。",
+      "delivery": "新增收件者並選擇產生格式。"
+    },
+    "fields": {
+      "name": "報告名稱",
+      "description": "用途說明",
+      "source_type": "來源類型",
+      "source": "資料來源",
+      "time_range": "資料範圍",
+      "frequency": "產生頻率",
+      "cron": "Cron 運算式",
+      "timezone": "報告時區",
+      "recipients": "傳送目標",
+      "format": "產生格式",
+      "enabled": "儲存後啟用"
+    },
+    "placeholders": {
+      "name": "例如：平台健康週報",
+      "description": "說明這份報告的讀者與用途…",
+      "source": "選取儀表板或已儲存的檢視",
+      "cron": "0 9 * * 1",
+      "recipient": "電子郵件地址、Webhook URL 或 S3 路徑"
+    },
+    "hints": {
+      "source_empty": "目前沒有可用的來源，請先建立儀表板或儲存檢視。",
+      "recipients": "支援電子郵件地址、HTTPS Webhook 和 S3 路徑；每個目標的傳送結果都會分別記錄。",
+      "enabled": "關閉後會儲存為暫停狀態，不會依排程傳送。"
+    },
+    "ranges": {
+      "previous_1_hour": "過去 1 小時",
+      "previous_24_hours": "過去 24 小時",
+      "previous_7_days": "過去 7 天",
+      "previous_30_days": "過去 30 天",
+      "previous_calendar_day": "前一天",
+      "previous_calendar_week": "上一週",
+      "previous_calendar_month": "上一個月",
+      "custom": "自訂"
+    },
+    "recipient_kinds": {
+      "email": "電子郵件",
+      "webhook": "Webhook",
+      "s3": "S3",
+      "slack": "Slack"
+    },
+    "formats": {
+      "pdf_description": "適合閱讀與歸檔",
+      "png_description": "適合貼到協作工具",
+      "csv_description": "適合分析明細",
+      "json_description": "適合系統整合",
+      "svg_description": "適合嵌入摘要卡片"
+    },
+    "preview": {
+      "title": "即時預覽",
+      "sample_badge": "示意資料",
+      "report_label": "MoleSignal 報告",
+      "range_label": "資料範圍",
+      "source_label": "資料來源",
+      "availability": "可用性",
+      "latency": "P95 延遲",
+      "alerts": "警示",
+      "trend": "關鍵趨勢",
+      "footer": "{{format}} · {{schedule}}"
+    }
+  },
+  "export_dialog": {
+    "title": "立即匯出",
+    "description": "選擇一份已儲存的報表，依照目前的內容與格式產生可下載的檔案。",
+    "report": "報表",
+    "format": "格式",
+    "range": "資料範圍",
+    "download": "產生並下載",
+    "empty": "請先建立並儲存一份報表排程。"
+  },
+  "toast": {
+    "created": "已建立報表排程",
+    "updated": "已更新報表排程",
+    "enabled": "已啟用報表排程",
+    "paused": "已暫停報表排程",
+    "deleted": "已刪除報表排程",
+    "exported": "已產生報表預覽",
+    "link_copied": "已複製「{{name}}」的報表短連結",
+    "recipient_exists": "這個傳送目的地已存在"
+  },
+  "confirm": {
+    "delete": "確定要刪除「{{name}}」嗎？現有的報表產生記錄無法從目前的儲存空間還原。"
+  },
+  "run_as": {
+    "label": "執行身分",
+    "you": "{{name}}（你）",
+    "takeover": "儲存後會改用你的權限擷取資料。",
+    "missing": "這份報表沒有可用的執行身分，將無法傳送 {{format}} 格式的報表。",
+    "missing_fix": "儲存後會使用你的權限擷取資料。",
+    "missing_needs_saver": "請由已登入且有權設定報表排程的使用者重新儲存。",
+    "toggle_hint": "切換開關會儲存報表，之後會改用你的權限擷取資料。"
+  },
+  "errors": {
+    "name_required": "請輸入報表名稱。",
+    "source_required": "請選擇資料來源。",
+    "recipient_required": "請至少新增一個傳送目的地。",
+    "recipient_empty": "請輸入傳送目的地。",
+    "recipient_unsupported": "目前後端尚不支援傳送至 Slack，請使用電子郵件、Webhook 或 S3。",
+    "recipient_invalid_email": "請輸入有效的電子郵件地址、HTTPS Webhook URL 或 S3 路徑。",
+    "share_failed": "無法產生或複製報表短連結"
+  }
+}

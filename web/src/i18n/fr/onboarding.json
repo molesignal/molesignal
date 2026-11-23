@@ -1,0 +1,317 @@
+{
+  "activation": {
+    "title": "Démarrage rapide",
+    "drawer_description": "Effectuez les étapes de configuration essentielles de cet espace de travail.",
+    "complete_title": "Démarrage rapide terminé",
+    "progress": "{{completed}} sur {{total}} terminées",
+    "progress_short": "{{completed}}/{{total}}",
+    "ready": "Les processus essentiels sont opérationnels",
+    "empty": "Importez des données, puis créez un tableau de bord et une alerte pour rendre votre organisation opérationnelle.",
+    "remaining_single": "1 étape de configuration restante",
+    "remaining_multiple": "{{count}} étapes de configuration restantes",
+    "next": "Suivant",
+    "complete_action": "Terminer la configuration",
+    "open": "Ouvrir",
+    "steps": {
+      "datasource": {
+        "title": "Connecter une source de données",
+        "description": "Envoyez un premier flux de logs, de métriques ou de traces."
+      },
+      "dashboard": {
+        "title": "Créer un tableau de bord",
+        "description": "Épinglez une vue de suivi opérationnel pour l’équipe."
+      },
+      "alert": {
+        "title": "Créer une alerte",
+        "description": "Définissez un premier signal pour un service ou une plateforme."
+      },
+      "schedule": {
+        "title": "Configurer un planning d’astreinte",
+        "description": "Déterminez qui prend en charge les alertes et à quel moment."
+      },
+      "notification": {
+        "title": "Ajouter un canal de notification",
+        "description": "Ajoutez un connecteur pour contacter les personnes concernées par messagerie instantanée, e-mail, SMS ou appel téléphonique."
+      },
+      "ai": {
+        "title": "Connecter un modèle d’IA",
+        "description": "Ajoutez un fournisseur de modèles pour que Mole Agent puisse vous aider à mener vos investigations."
+      },
+      "pipeline": {
+        "title": "Automatiser un pipeline",
+        "description": "Planifiez un transfert de données ou un rattrapage de données historiques."
+      },
+      "sample_data": {
+        "title": "Charger des données d’exemple",
+        "description": "Chargez des logs, des métriques et des traces corrélés, ainsi qu’un tableau de bord de synthèse et quatre requêtes enregistrées. Trois modèles d’exemple sont disponibles dans l’éditeur d’alertes."
+      }
+    },
+    "load": "Charger",
+    "loading": "Chargement…",
+    "load_success": "{{rows}} lignes de données d’exemple chargées ; votre tableau de bord et vos quatre requêtes enregistrées sont prêts",
+    "done": "Terminé"
+  },
+  "home": {
+    "title": "Accueil",
+    "view_all": "Tout afficher",
+    "loading": "Chargement…",
+    "unavailable": "Impossible de charger",
+    "quick_start_one": "{{count}} étape de configuration restante",
+    "quick_start_other": "{{count}} étapes de configuration restantes",
+    "refresh": "Actualiser",
+    "window": {
+      "label": "Plage horaire",
+      "1h": "Dernière heure",
+      "24h": "24 dernières heures",
+      "7d": "7 derniers jours"
+    },
+    "status": {
+      "title": "État du système",
+      "loading": "Chargement",
+      "ok": "Tous les systèmes fonctionnent normalement",
+      "nothing": "Votre rôle ne vous permet de consulter l’état d’aucun système.",
+      "issues_one": "{{count}} problème",
+      "issues_other": "{{count}} problèmes",
+      "updated": "Mise à jour : {{time}}",
+      "issues_many": "{{count}} problèmes"
+    },
+    "signal": {
+      "logs": "Journaux",
+      "metrics": "Métriques",
+      "traces": "Traces",
+      "profiles": "Profils"
+    },
+    "signal_state": {
+      "healthy": "Normal",
+      "delayed": "En retard",
+      "degraded": "En échec",
+      "no_data": "Aucune donnée",
+      "unknown": "Inconnu"
+    },
+    "severity": {
+      "critical": "Critique",
+      "error": "Erreur",
+      "warning": "Avertissement",
+      "info": "Info"
+    },
+    "tiles": {
+      "incidents": "Incidents actifs",
+      "unacknowledged": "{{count}} sans accusé de réception",
+      "no_incidents": "Aucun incident actif",
+      "rules": "Règles déclenchées",
+      "of_enabled": "sur {{count}} activées",
+      "pending": "{{count}} en attente",
+      "services": "Services opérationnels",
+      "of_total": "sur {{count}}",
+      "no_traces": "Aucune donnée de trace",
+      "checks": "Vérifications réussies",
+      "of_passing": "sur {{count}}",
+      "no_checks": "Aucune vérification",
+      "error_rate": "Taux d’erreur",
+      "requests": "{{value}} requêtes",
+      "p95": "Latence P95"
+    },
+    "rule_state": {
+      "firing": "Déclenchée",
+      "pending": "En attente",
+      "ok": "Normal"
+    },
+    "service_health": {
+      "critical": "Critique",
+      "warning": "Avertissement",
+      "healthy": "Opérationnel",
+      "no_traffic": "Aucun trafic"
+    },
+    "check_state": {
+      "failing": "En échec",
+      "degraded": "Dégradé",
+      "flaky": "Instable",
+      "healthy": "Réussi",
+      "unknown": "Aucune donnée"
+    },
+    "services": {
+      "title": "Services",
+      "empty": "Aucune trace reçue.",
+      "connect": "Connecter un service",
+      "service": "Service",
+      "health": "État de santé",
+      "throughput": "Débit",
+      "error_rate": "Erreurs"
+    },
+    "incidents": {
+      "title": "Incidents actifs",
+      "empty": "Aucun incident actif",
+      "acknowledge": "Accuser réception"
+    },
+    "incident_status": {
+      "open": "Non acquitté",
+      "acknowledged": "Acquitté",
+      "resolved": "Résolu",
+      "closed": "Clos"
+    },
+    "intake": {
+      "title": "Ingestion de données",
+      "streams": "Flux",
+      "streams_active": "{{active}} flux sur {{total}} reçoivent des données",
+      "stored": "{{size}} stockés",
+      "received": "{{size}} reçus"
+    },
+    "checks": {
+      "title": "Tests synthétiques",
+      "empty": "Aucun test pour le moment.",
+      "create": "Créer un test",
+      "availability": "Disponibilité",
+      "all_passing_one": "Le seul test est réussi",
+      "all_passing_other": "Les {{count}} tests sont réussis",
+      "all_passing_many": "Les {{count}} tests sont réussis"
+    },
+    "oncall": {
+      "title": "Mes astreintes",
+      "schedules": "Plannings",
+      "on_now": "D’astreinte",
+      "next": "Prochaine astreinte",
+      "hands_over": "Passage de relais {{time}}",
+      "none": "Vous n’avez aucune astreinte dans les 30 prochains jours.",
+      "covering": "Vous remplacez {{name}} · {{schedule}}",
+      "holding": "Vous êtes d’astreinte · {{schedule}}",
+      "unreachable": "Vous êtes sur le planning, mais vous ne pouvez pas recevoir d’alertes.",
+      "set_up_notify": "Configurer les notifications",
+      "unavailable": "Impossible de charger les plannings",
+      "gap": "Personne n’est d’astreinte pour {{schedule}} en ce moment.",
+      "arrange": "Attribuer l’astreinte"
+    },
+    "quick_start_many": "{{count}} étapes de configuration restantes"
+  },
+  "datasource": {
+    "endpoint": "Point de terminaison",
+    "copy_endpoint": "Copier le point de terminaison",
+    "intake_token": "Jeton d’ingestion",
+    "rum_client_token": "Jeton client RUM",
+    "copy_token": "Copier le jeton",
+    "token_loading": "Chargement…",
+    "token_description": "Jeton d’ingestion par défaut : collez-le dans l’en-tête Authorization: Bearer ci-dessus. Pour gérer vos jetons ou en créer d’autres, accédez à la section Jetons d’API des paramètres de votre compte.",
+    "validation": "Validation",
+    "test_event": "Envoyer un événement de test",
+    "test_event_sending": "Envoi…",
+    "test_event_sent": "Envoi terminé · {{accepted}} accepté(s) · {{rejected}} rejeté(s)"
+  },
+  "datasource_page": {
+    "title": "Configuration des sources de données",
+    "search_placeholder": "Rechercher dans toutes les sources…",
+    "clear_search": "Effacer la recherche",
+    "matching": "Résultats : {{count}}",
+    "no_match": "Aucune source de données ne correspond à « {{search}} »",
+    "no_sources": "Aucune source",
+    "no_signal_match": "Aucune source de type {{signal}} dans la catégorie {{category}}.",
+    "show_all_signals": "Afficher tous les signaux",
+    "category_navigation": "Catégories de sources de données",
+    "source_navigation": "Sources",
+    "signal_filter": "Signal",
+    "guide_region": "Guide de configuration",
+    "categories": {
+      "recommended": "Recommandées",
+      "infrastructure": "Infrastructure",
+      "cloud": "Cloud",
+      "databases": "Bases de données",
+      "queues": "Messagerie",
+      "applications": "Applications et langages",
+      "security": "Sécurité",
+      "custom": "Personnalisées"
+    },
+    "signals": {
+      "all": "Tous",
+      "logs": "Logs",
+      "metrics": "Métriques",
+      "traces": "Traces",
+      "profiles": "Profils",
+      "rum": "RUM"
+    },
+    "group_protocol": "Protocole",
+    "group_source": "Source de l’intégration",
+    "category": "catégorie : {{category}}",
+    "docs": "Documentation",
+    "endpoint_for": "Point de terminaison ({{signal}})",
+    "verify_connection": "Vérifier la connexion",
+    "steps": {
+      "prepare": {
+        "title": "Point de terminaison et jeton",
+        "description": "Le point de terminaison indique où envoyer les données, et le jeton sert à vous authentifier. Les commandes ci-dessous incluent déjà les deux.",
+        "description_no_token": "Le point de terminaison indique où envoyer les données, et le jeton sert à vous authentifier."
+      },
+      "deploy": {
+        "title": "Configurer la source"
+      },
+      "verify": {
+        "title": "Vérifier la réception des données"
+      }
+    },
+    "create_dedicated_token": "Créer un jeton dédié",
+    "manage_tokens": "Gérer les jetons",
+    "show_token": "Afficher le jeton",
+    "hide_token": "Masquer le jeton",
+    "token_permission": "Portée",
+    "token_workspace": "Espace de travail",
+    "token_expiry": "Expiration",
+    "token_never_expires": "Jamais",
+    "token_load_failed": "Impossible de charger un jeton d’ingestion. Ce jeton doit disposer de l’autorisation d’écrire des données.",
+    "rum_application_id": "Application RUM",
+    "rum_application_hint": "Le jeton client ci-dessous est associé à cette application. Les événements envoyés pour toute autre application sont rejetés.",
+    "rum_application_required": "Choisissez d’abord une application RUM : son jeton client s’affichera après la sélection.",
+    "rum_application_placeholder": "Choisissez une application",
+    "rum_application_loading": "Chargement des applications…",
+    "rum_application_none": "Il n’y a pas encore d’application RUM.",
+    "rum_application_create": "Créer une application",
+    "rum_application_load_failed": "Impossible de charger les applications.",
+    "validation_overview_unavailable": "L’aperçu de la réception des données est temporairement indisponible.",
+    "validation_endpoint_failed": "Le contrôle de l’état du récepteur a échoué.",
+    "validating": "Vérification en cours…",
+    "recheck": "Vérifier à nouveau",
+    "validation_state": {
+      "idle": {
+        "title": "Pas encore vérifié",
+        "description": "Le contrôle vérifie l’état du récepteur, puis recherche les données reçues au cours de la dernière heure."
+      },
+      "success": {
+        "title": "Données détectées",
+        "description": "{{active}} signaux pris en charge sur {{total}} ont reçu des données au cours de la dernière heure."
+      },
+      "warning": {
+        "title": "Le récepteur fonctionne, mais les données sont à vérifier",
+        "description": "{{active}} signaux pris en charge sur {{total}} ont reçu des données au cours de la dernière heure. Vérifiez le déploiement ou attendez le prochain lot."
+      },
+      "error": {
+        "title": "Échec de la vérification",
+        "description": "Impossible de vérifier l’état du récepteur et des données."
+      }
+    },
+    "validation_metrics": {
+      "receiver": "Récepteur",
+      "last_received": "Dernière réception",
+      "streams": "Flux actifs",
+      "volume": "Dernière heure"
+    },
+    "receiver_healthy": "Opérationnel · {{ms}} ms",
+    "validation_volume": "{{rate}} · {{rows}} lignes · {{bytes}}",
+    "possible_causes": "Causes possibles",
+    "cause_collector": "Le collecteur ne fonctionne pas ou la configuration actuelle n’a produit aucune donnée de télémétrie.",
+    "cause_token": "Le jeton est invalide, a expiré ou n’autorise pas l’écriture de données.",
+    "cause_network": "Le collecteur ne peut pas joindre le point de terminaison ou un proxy ou un pare-feu bloque l’accès.",
+    "view_received_data": "Voir les données reçues",
+    "create_pipeline": "Créer un pipeline",
+    "validation_prefix": "Les événements s’affichent généralement sous 30 à 60 secondes. Ouvrez",
+    "validation_or": "ou",
+    "validation_suffix": "pour vérifier que le flux correspondant contient des données. Si aucune donnée ne s’affiche, consultez la rubrique",
+    "validation_doc_suffix": " de la documentation.",
+    "logs": "Journaux",
+    "streams": "Flux",
+    "troubleshooting": "Dépannage de la télémétrie",
+    "health_check": "Vérifier l’état du backend",
+    "health_checking": "Vérification en cours…",
+    "health_ok": "OK · {{ms}} ms",
+    "copied": "Copié",
+    "copy": "Copier",
+    "expand_code": "Développer le code",
+    "collapse_code": "Réduire le code",
+    "token_missing": "Aucun jeton d’ingestion n’est disponible ; créez-en un dans la section de gestion des jetons."
+  }
+}

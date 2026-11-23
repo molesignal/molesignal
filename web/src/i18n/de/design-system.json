@@ -1,0 +1,24 @@
+{
+  "states": {
+    "loading": {
+      "title": "Wird geladen",
+      "description": "Die neuesten Daten werden abgerufen."
+    },
+    "empty": {
+      "title": "Noch keine Daten",
+      "description": "Erstellen Sie den ersten Eintrag oder passen Sie die aktuellen Filter an."
+    },
+    "error": {
+      "title": "Anfrage fehlgeschlagen",
+      "description": "Das Backend hat einen Fehler zurückgegeben."
+    },
+    "backend-pending": {
+      "title": "Warten auf das Backend",
+      "description": "Die Oberfläche ist bereit, aber der zugehörige Endpunkt ist noch nicht verfügbar."
+    },
+    "permission-denied": {
+      "title": "Berechtigung erforderlich",
+      "description": "Mit Ihrer aktuellen Rolle können Sie nicht auf diesen Workflow zugreifen."
+    }
+  }
+}

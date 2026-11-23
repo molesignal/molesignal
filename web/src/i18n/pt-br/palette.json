@@ -1,0 +1,58 @@
+{
+  "placeholder": "Buscar comandos e recursos…",
+  "no_results": "Nenhum resultado.",
+  "groups": {
+    "results": "Resultados",
+    "actions": "Ações",
+    "attention": "Aguardando sua ação",
+    "recent": "Recentes",
+    "kinds": {
+      "action": "Ações",
+      "incident": "Incidentes",
+      "alert": "Regras de alerta",
+      "service": "Serviços",
+      "dashboard": "Dashboards",
+      "stream": "Fluxos",
+      "saved_view": "Visualizações salvas"
+    }
+  },
+  "footer": {
+    "open": "abrir",
+    "open_new_stack": "abrir em uma nova pilha",
+    "stack_on_top": "empilhar por cima",
+    "close": "fechar",
+    "acknowledge": "reconhecer"
+  },
+  "actions": {
+    "goto_investigate": "Ir para Investigar",
+    "goto_services": "Ir para Serviços",
+    "goto_apm": "Ir para Serviços de APM",
+    "goto_dashboards": "Ir para Dashboards",
+    "goto_incidents": "Ir para Incidentes",
+    "goto_saved_views": "Ir para Visualizações salvas",
+    "run_sql": "Executar SQL…",
+    "run_promql": "Executar PromQL…",
+    "time_last_5m": "Período: últimos 5m",
+    "time_last_15m": "Período: últimos 15m",
+    "time_last_1h": "Período: última 1h",
+    "time_last_6h": "Período: últimas 6h",
+    "time_last_24h": "Período: últimas 24h",
+    "time_last_7d": "Período: últimos 7d",
+    "pin_anchor": "Fixar horário atual",
+    "copy_link": "Copiar link da investigação",
+    "toggle_theme": "Alternar tema",
+    "toggle_density": "Alternar densidade",
+    "help": "Mostrar atalhos de teclado",
+    "sign_out": "Sair",
+    "open_settings": "Abrir configurações",
+    "create_dashboard": "Criar dashboard",
+    "create_alert": "Criar alerta",
+    "create_pipeline": "Criar pipeline",
+    "connect_source": "Conectar fonte de dados"
+  },
+  "show_all_one": "Mostrar mais {{count}}",
+  "show_all_other": "Mostrar mais {{count}}",
+  "acknowledge": "Reconhecer",
+  "acknowledged": "Incidente reconhecido",
+  "show_all_many": "Mostrar mais {{count}}"
+}

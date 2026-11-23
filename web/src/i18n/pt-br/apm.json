@@ -1,0 +1,1295 @@
+{
+  "title": "Monitoramento de desempenho de aplicações",
+  "subtitle": "Serviços, suas dependências e seus erros, com base nos traces antes da amostragem.",
+  "nav": {
+    "overview": "Visão geral",
+    "services": "Serviços",
+    "map": "Mapa de serviços",
+    "errors": "Erros",
+    "slos": "SLOs",
+    "settings": "Configurações"
+  },
+  "landing": {
+    "pulse_aria": "Desempenho de todos os serviços no período exibido",
+    "kpi": {
+      "services": "Serviços ativos",
+      "services_detail_one": "{{count}} serviço, {{idle}} sem tráfego",
+      "services_detail_other": "{{count}} serviços, {{idle}} sem tráfego",
+      "throughput": "Taxa de requisições",
+      "requests_one": "{{formatted}} requisição",
+      "requests_other": "{{formatted}} requisições",
+      "error_rate": "Taxa de erros",
+      "errors_one": "{{formatted}} erro",
+      "errors_other": "{{formatted}} erros",
+      "p95": "Latência P95",
+      "average": "média: {{value}}",
+      "apdex": "Apdex",
+      "apdex_detail": "T = {{threshold}}",
+      "services_detail_many": "{{count}} serviços, {{idle}} sem tráfego",
+      "requests_many": "{{formatted}} requisições",
+      "errors_many": "{{formatted}} erros"
+    },
+    "health": "Saúde dos serviços",
+    "health_description": "Serviços por estado ao longo do tempo",
+    "rankings": "Rankings de serviços",
+    "ranking": {
+      "slowest": "Mais lentos (P95)",
+      "most_errors": "Maior taxa de erros",
+      "busiest": "Maior tráfego",
+      "empty": "Não há requisições suficientes neste período para gerar o ranking."
+    },
+    "alerts": "Alertas ativos",
+    "alerts_loading": "Carregando alertas…",
+    "alerts_denied": "Você não tem permissão para ver os alertas.",
+    "alerts_unavailable": "Não foi possível carregar os alertas no momento.",
+    "no_alerts": "Nenhum alerta ativo menciona um serviço.",
+    "deployments": "Implantações recentes",
+    "deployments_description": "Versões detectadas pela primeira vez neste período",
+    "no_deployments": "Nenhuma versão nova neste período.",
+    "environments": "Ambientes",
+    "no_environments": "Nenhum serviço neste período.",
+    "environment_services_one": "{{count}} serviço",
+    "environment_services_other": "{{count}} serviços",
+    "instrumentation": "Qualidade da instrumentação",
+    "no_sdks": "Nenhum serviço informou seu SDK ainda.",
+    "unknown": "Desconhecido",
+    "gap_one": "{{formatted}} serviço",
+    "gap_other": "{{formatted}} serviços",
+    "gap_attribute": "não informam",
+    "gap_action": "Abrir o guia de ingestão do OpenTelemetry",
+    "environment_services_many": "{{count}} serviços",
+    "gap_many": "{{formatted}} serviços"
+  },
+  "alerts": {
+    "active_one": "{{count}} alerta",
+    "active_other": "{{count}} alertas",
+    "new": "Novo alerta",
+    "related": "Alertas ativos",
+    "kind": {
+      "threshold": "Alerta de limite",
+      "threshold_hint": "Dispara quando um valor ultrapassa o limite que você definiu",
+      "anomaly": "Alerta de anomalia",
+      "anomaly_hint": "Dispara quando um valor se desvia do padrão observado no mesmo horário nos dias anteriores"
+    },
+    "active_many": "{{count}} alertas"
+  },
+  "slo": {
+    "title": "SLOs",
+    "table": "Objetivos de nível de serviço",
+    "summary_one": "{{count}} SLO",
+    "summary_other": "{{count}} SLOs",
+    "search": "Buscar SLOs ou serviços",
+    "all_states": "Todos os estados",
+    "new": "Novo SLO",
+    "empty": "Nenhum SLO ainda",
+    "empty_description": "Defina um objetivo de disponibilidade ou latência para um serviço ou endpoint e veja se ele foi atingido, quanto do orçamento de erros resta e a taxa de consumo.",
+    "filtered_empty": "Nenhum SLO encontrado.",
+    "removed": "SLO excluído",
+    "edit": "Editar SLO",
+    "remove": "Excluir SLO",
+    "remove_title": "Excluir o SLO {{name}}?",
+    "remove_description": "Apenas o objetivo será excluído. Os dados de APM serão mantidos.",
+    "remove_with_alerts_one": "O SLO e seu {{count}} alerta de taxa de consumo do orçamento de erros serão excluídos. Os dados de APM serão mantidos.",
+    "remove_with_alerts_other": "O SLO e seus {{count}} alertas de taxa de consumo do orçamento de erros serão excluídos. Os dados de APM serão mantidos.",
+    "removing": "Excluindo…",
+    "remove_watched": "Ainda há regras de alerta monitorando este SLO. Exclua essas regras primeiro em Alertas → Regras de alerta.",
+    "service_title": "Objetivos de nível de serviço",
+    "service_empty": "Este serviço ainda não tem SLO.",
+    "budget_left": "{{value}} de orçamento restante",
+    "window_one": "{{count}} dia",
+    "window_other": "{{count}} dias",
+    "state": {
+      "healthy": "Saudável",
+      "at_risk": "Em risco",
+      "breached": "Violado",
+      "no_data": "Sem dados"
+    },
+    "kind": {
+      "availability": "Requisição bem-sucedida",
+      "latency": "Requisição bem-sucedida dentro do limite"
+    },
+    "target": {
+      "availability": "Requisição bem-sucedida",
+      "latency": "Requisição bem-sucedida em até {{threshold}}"
+    },
+    "columns": {
+      "name": "SLO",
+      "target": "Critério de sucesso",
+      "objective": "Objetivo",
+      "sli": "Cumprimento",
+      "budget": "Orçamento restante",
+      "burn_1h": "Consumo em 1h",
+      "burn_6h": "Consumo em 6h",
+      "state": "Estado"
+    },
+    "facts": {
+      "sli": "Cumprimento",
+      "budget": "Orçamento de erros restante",
+      "requests": "{{good}} de {{total}} requisições atenderam ao critério de sucesso"
+    },
+    "burn": {
+      "title": "Taxa de consumo do orçamento de erros",
+      "description": "Indica quantas vezes o consumo é mais rápido do que o objetivo permite. Acima de 14,4× em uma hora ou de 6× em seis horas, o SLO fica em risco",
+      "one_hour": "1 hora",
+      "six_hours": "6 horas",
+      "one_day": "24 horas"
+    },
+    "history": {
+      "title": "Cumprimento por dia",
+      "summary": "O objetivo foi cumprido em {{met}} de {{count}} dias com requisições",
+      "day": {
+        "met": "{{date}}: {{sli}}, objetivo cumprido",
+        "missed": "{{date}}: {{sli}}, objetivo não cumprido",
+        "no_data": "{{date}}: sem requisições"
+      }
+    },
+    "alerts": {
+      "create": "Criar alertas de taxa de consumo",
+      "created_one": "{{count}} alerta de taxa de consumo criado",
+      "created_other": "{{count}} alertas de taxa de consumo criados",
+      "fast_name": "{{name}}: consumo rápido",
+      "slow_name": "{{name}}: consumo lento",
+      "description": "O orçamento de erros do SLO {{name}} está sendo consumido rápido demais",
+      "title": "Alertas de taxa de consumo",
+      "card_description": "Regras de alerta que monitoram a taxa de consumo do orçamento de erros deste SLO",
+      "none": "Nenhum alerta monitora este SLO ainda.",
+      "rule": "Acima de {{threshold}}× em {{window}}",
+      "off": "Desativado",
+      "window_hours_one": "{{count}} hora",
+      "window_hours_other": "{{count}} horas",
+      "window_minutes_one": "{{count}} minuto",
+      "window_minutes_other": "{{count}} minutos",
+      "created_many": "{{count}} alertas de taxa de consumo criados",
+      "window_hours_many": "{{count}} horas",
+      "window_minutes_many": "{{count}} minutos"
+    },
+    "form": {
+      "new_title": "Novo SLO",
+      "edit_title": "Editar SLO",
+      "description": "Proporção de solicitações que o serviço se compromete a atender dentro do critério definido em uma janela móvel.",
+      "name": "Nome",
+      "service": "Serviço",
+      "environment": "Ambiente",
+      "endpoint": "Endpoint",
+      "endpoint_hint": "Aplica-se ao serviço inteiro se nenhum endpoint for selecionado",
+      "whole_service": "Serviço inteiro",
+      "kind": "Solicitação válida quando",
+      "threshold": "Limite de latência (ms)",
+      "objective": "Objetivo (%)",
+      "objective_hint": "Por exemplo, 99,9",
+      "window": "Janela",
+      "notes": "Observações",
+      "choose": "Selecione",
+      "saved": "SLO salvo"
+    },
+    "summary_many": "{{count}} SLOs",
+    "remove_with_alerts_many": "O SLO e seus {{count}} alertas de taxa de consumo do orçamento de erros serão excluídos. Os dados de APM serão mantidos.",
+    "window_many": "{{count}} dias"
+  },
+  "time": {
+    "compare": "Comparar com",
+    "compare_off": "Sem comparação",
+    "compare_day": "Um dia antes",
+    "compare_week": "Uma semana antes",
+    "compare_env": "Comparar com {{environment}}",
+    "resolution": "Resolução",
+    "resolution_auto": "Resolução automática",
+    "resolution_minute": "Por minuto",
+    "resolution_hour": "Por hora"
+  },
+  "quality": {
+    "activation": "Os dados começam neste intervalo",
+    "activation_title": "Os dados de APM começam neste intervalo",
+    "activation_description": "A projeção começou às {{time}}. Não há dados anteriores disponíveis.",
+    "stale": "Dados com atraso",
+    "stale_title": "Os dados agregados de APM estão com atraso",
+    "stale_description": "O último intervalo de agregação completo terminou às {{time}}. Os valores continuam visíveis enquanto a projeção é atualizada.",
+    "partial": "Dados parciais",
+    "partial_title": "Dados parciais de APM",
+    "partial_description_one": "{{count}} lacuna na projeção afeta este intervalo. Os valores continuam disponíveis, mas podem subestimar o tráfego real.",
+    "partial_description_other": "{{count}} lacunas na projeção afetam este intervalo. Os valores continuam disponíveis, mas podem subestimar o tráfego real.",
+    "overflow": "Alguns nomes foram contabilizados em Outros",
+    "overflow_title": "Nomes que excedem os limites de cardinalidade",
+    "overflow_description": "Os nomes que excedem os limites são contabilizados juntos na linha Outros. Os totais continuam completos.",
+    "overflow_dimensions": "Contabilizados em Outros",
+    "complete_through": "Dados completos até {{time}}",
+    "dimension": {
+      "service": "Serviços",
+      "transaction": "Endpoints",
+      "dependency": "Dependências",
+      "error": "Erros"
+    },
+    "partial_description_many": "{{count}} lacunas na projeção afetam este intervalo. Os valores continuam disponíveis, mas podem subestimar o tráfego real."
+  },
+  "health": {
+    "critical": "Crítico",
+    "warning": "Atenção",
+    "healthy": "Saudável",
+    "no_traffic": "Sem tráfego",
+    "with_reasons": "{{health}}: {{reasons}}",
+    "reason_separator": "; ",
+    "reason": {
+      "error_rate": "taxa de erros de {{value}}, igual ou superior a {{threshold}}",
+      "p95": "P95 de {{value}}, igual ou superior a {{threshold}}"
+    }
+  },
+  "actions": {
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "retry": "Tentar novamente",
+    "see_all": "Ver tudo",
+    "previous": "Anterior",
+    "next": "Próximo"
+  },
+  "states": {
+    "empty": "Nenhum dado neste intervalo",
+    "activation_empty": "Ainda sem dados de APM",
+    "activation_empty_description": "Envie rastreamentos do backend para começar a gerar agregações da aplicação antes da amostragem."
+  },
+  "first_run": {
+    "eyebrow": "Desempenho da aplicação",
+    "connect": "Conectar um serviço",
+    "explore_traces": "Abrir rastreamentos",
+    "steps": {
+      "instrument": {
+        "title": "Instrumente um serviço",
+        "description": "Adicione o SDK ou o agente do OpenTelemetry a um serviço de backend."
+      },
+      "send": {
+        "title": "Envie os rastreamentos do serviço",
+        "description": "Aponte o exportador para o endpoint OTLP deste espaço de trabalho."
+      },
+      "watch": {
+        "title": "Veja os dados aparecerem",
+        "description": "A taxa de requisições, os erros e a latência aparecem aqui em até um minuto."
+      }
+    }
+  },
+  "drawer": {
+    "close": "Fechar",
+    "resize": "Redimensionar o painel lateral",
+    "trail": "Aberto a partir de",
+    "back_to": "Voltar para {{name}}"
+  },
+  "columns": {
+    "title": "Colunas",
+    "visible": "Visíveis",
+    "reorder_hint": "Arraste ou use Alt + ↑↓",
+    "drag_aria": "{{name}}: para mover, arraste ou pressione Alt e uma tecla de seta",
+    "reset": "Restaurar colunas padrão",
+    "available": "Adicionar coluna"
+  },
+  "catalog": {
+    "table": "Serviços",
+    "search": "Buscar serviços",
+    "environment": "Ambiente",
+    "all_environments": "Todos os ambientes",
+    "team": "Equipe",
+    "all_teams": "Todas as equipes",
+    "declare": "Declarar serviço",
+    "more": "Carregar mais serviços",
+    "not_reporting": "Sem enviar dados",
+    "filtered_empty": "Nenhum serviço encontrado",
+    "filtered_empty_description": "Altere a busca ou os filtros.",
+    "summary": {
+      "services_one": "{{count}} serviço",
+      "services_other": "{{count}} serviços",
+      "throughput": "Taxa de transferência",
+      "error_rate": "Taxa de erros",
+      "services_many": "{{count}} serviços"
+    },
+    "columns": {
+      "service": "Serviço",
+      "environment": "Ambiente",
+      "type": "Tipo",
+      "team": "Equipe",
+      "owner": "Responsável",
+      "on_call": "Em plantão",
+      "tier": "Nível",
+      "alerts": "Alertas",
+      "lifecycle": "Ciclo de vida",
+      "language": "Linguagem / framework",
+      "throughput": "Taxa de transferência",
+      "error_rate": "Taxa de erros",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "Média",
+      "apdex": "Apdex",
+      "instances": "Instâncias",
+      "region": "Região",
+      "version": "Versão",
+      "last_deploy": "Última implantação",
+      "tags": "Tags",
+      "last_seen": "Última detecção",
+      "favorite": "Favorito"
+    },
+    "favorite": "Adicionar {{name}} aos favoritos",
+    "unfavorite": "Remover {{name}} dos favoritos",
+    "favorites_one": "Favoritos {{count}}",
+    "favorites_other": "Favoritos {{count}}",
+    "archived": "Arquivados",
+    "inactive": "Inativos",
+    "namespace": "Namespace",
+    "all_namespaces": "Todos os namespaces",
+    "tag": "Tag",
+    "all_tags": "Todas as tags",
+    "show_archived_one": "Arquivados {{count}}",
+    "show_archived_other": "Arquivados {{count}}",
+    "group": {
+      "label": "Agrupar por",
+      "off": "Sem agrupamento",
+      "by": {
+        "team": "Equipe",
+        "namespace": "Namespace",
+        "tier": "Nível"
+      },
+      "by_tag": "Tag {{tag}}",
+      "none": {
+        "team": "Sem equipe",
+        "namespace": "Sem namespace",
+        "tier": "Sem nível",
+        "tag": "Sem a tag {{tag}}"
+      }
+    },
+    "missing": "Precisa de {{fields}}",
+    "missing_and": ", ",
+    "missing_fields": {
+      "team": "uma equipe",
+      "owner": "um responsável",
+      "repository": "um repositório"
+    },
+    "missing_hint": "Os requisitos do catálogo nas configurações de APM exigem essas informações para este nível.",
+    "favorites_many": "Favoritos {{count}}",
+    "show_archived_many": "Arquivados {{count}}"
+  },
+  "definition": {
+    "title": "Descrever {{name}}",
+    "declare_title": "Declarar um serviço",
+    "description": "Indique quem é responsável pelo serviço e qual é a importância dele. Os responsáveis são equipes ou membros desta organização.",
+    "fields": {
+      "name": "Nome do serviço",
+      "namespace": "Namespace",
+      "namespace_hint": "service.namespace; se estiver em branco, usa o nome do serviço.",
+      "team": "Equipe responsável",
+      "owner": "Responsável",
+      "owner_hint": "A pessoa responsável pelo serviço.",
+      "tier": "Nível",
+      "lifecycle": "Ciclo de vida",
+      "repository": "Repositório",
+      "repository_hint": "Um endereço https ou git, como git@github.com:acme/checkout.git. Se houver uma senha no endereço, ela será armazenada como ****. Exibido quando o serviço não informa vcs.repository.url.full",
+      "description": "O que o serviço faz",
+      "tags": "Tags",
+      "tags_hint": "Use key=value ou apenas a chave. Separe as tags por vírgulas. As chaves aceitam letras minúsculas, dígitos e os caracteres _ . - /",
+      "apdex": "Limite T do Apdex (ms)",
+      "apdex_hint": "Requisições concluídas em até T são satisfatórias; acima de T e até 4T, são toleradas. Se o campo ficar em branco, será usado o padrão de 500 ms.",
+      "aliases": "Também conhecido como",
+      "aliases_placeholder": "order_service, Order Center",
+      "aliases_hint": "Nomes usados para o serviço em logs, métricas e outros sistemas, separados por vírgulas, como order_service ou Order Center. Você pode encontrar o serviço por esses nomes, e o Mole Agent os consulta. Nenhum dado é mesclado. Para consultar os dados registrados sob um nome antigo como dados deste serviço, adicione um alias de serviço nas configurações de APM."
+    },
+    "aliases_problem": {
+      "length": "O nome deve ter no máximo 128 caracteres: {{alias}}",
+      "own_name": "{{alias}} já é o nome do serviço",
+      "twice": "{{alias}} aparece duas vezes",
+      "too_many": "Um serviço pode ter até 20 outros nomes"
+    },
+    "sources": {
+      "title": "Onde estão os dados do serviço",
+      "hint": "Fluxos de logs, métricas, dashboards e páginas que contêm os dados do serviço. O Mole Agent começa por essas fontes ao investigar o serviço.",
+      "logs": "Fluxos de logs",
+      "metrics": "Métricas",
+      "dashboards": "Dashboards",
+      "links": "Links",
+      "add": "Adicionar",
+      "remove": "Remover",
+      "open": "Abrir",
+      "stream": "Fluxo",
+      "filter": "Filtro: informe uma condição SQL ou deixe em branco para incluir todo o fluxo",
+      "selector": "Seletor PromQL",
+      "dashboard": "Dashboard",
+      "choose_dashboard": "Escolha um dashboard",
+      "link_name": "Nome",
+      "link_url": "Endereço",
+      "problem": {
+        "too_many": "No máximo 10 de cada tipo",
+        "stream": "Informe o fluxo que contém os logs",
+        "filter": "O filtro deve ter no máximo 2000 caracteres",
+        "selector": "Informe um seletor como {service=\"checkout\"} ou o nome de uma métrica com seus rótulos",
+        "link_name": "Dê um nome ao link com até 120 caracteres",
+        "link_url": "Informe um endereço http ou https sem espaços",
+        "dashboard_twice": "Um dashboard aparece duas vezes"
+      }
+    },
+    "none": "Nenhum",
+    "docs_hint": "Os documentos e runbooks ficam em {{path}}, na base de conhecimento do Mole Agent, que também os consulta.",
+    "remove": "Remover a descrição",
+    "saved": "Descrição do serviço salva",
+    "removed": "Descrição do serviço removida",
+    "edit": "Editar responsáveis",
+    "declare_owner": "Definir responsáveis",
+    "on_call": "De plantão",
+    "tier": {
+      "p0": "P0",
+      "p1": "P1",
+      "p2": "P2",
+      "p3": "P3",
+      "p4": "P4",
+      "p5": "P5"
+    },
+    "lifecycle": {
+      "production": "Produção",
+      "staging": "Homologação",
+      "experimental": "Experimental",
+      "deprecated": "Descontinuado"
+    },
+    "tags_problem": {
+      "key": "A chave da tag \"{{tag}}\" pode conter letras minúsculas, dígitos e os símbolos _ . - /, até o limite de 64 caracteres",
+      "value": "O valor da tag {{tag}} deve ter no máximo 128 caracteres",
+      "too_many": "Um serviço pode ter no máximo 32 tags",
+      "twice": "A tag {{tag}} foi inserida duas vezes"
+    },
+    "apdex_problem": "Insira um valor em milissegundos maior que 0 e menor ou igual a 60000",
+    "archive": "Arquivar",
+    "unarchive": "Desarquivar",
+    "archive_hint": "Por padrão, serviços arquivados não aparecem no catálogo, mas seus dados continuam sendo coletados",
+    "unarchive_hint": "Traga este serviço de volta ao catálogo",
+    "archived": "Arquivado",
+    "unarchived": "Desarquivado",
+    "repository_problem": "Insira um endereço http, https, ssh ou git, ou no formato git@host:path, sem espaços"
+  },
+  "docs": {
+    "title": "Documentação",
+    "where": "Base de conhecimento, {{folder}}",
+    "none": "Ainda não há documentos para este serviço.",
+    "team": "Equipe",
+    "start_runbook": "Criar um runbook",
+    "runbook_template": "# Runbook de {{name}}\n\n## O que o serviço faz\n\n## Responsáveis e escalonamento\n\n## Alertas e como agir\n\n## Dashboards e links\n"
+  },
+  "service": {
+    "navigation": "Seções do serviço",
+    "environment": "Ambiente",
+    "version": "Versão",
+    "all_versions": "Todas as versões",
+    "sections": {
+      "overview": "Visão geral",
+      "endpoints": "Endpoints",
+      "traces": "Rastreamentos",
+      "dependencies": "Dependências",
+      "errors": "Erros",
+      "deployments": "Implantações",
+      "runtime": "Ambiente de execução",
+      "settings": "Configurações"
+    },
+    "related": {
+      "logs": "Logs",
+      "metrics": "Métricas",
+      "profiles": "Perfis",
+      "rum": "RUM"
+    },
+    "facts": {
+      "no_data": "Nenhum dado neste intervalo",
+      "last_seen": "Visto pela última vez {{when}}",
+      "system": "Sistema",
+      "environment": "Ambiente",
+      "type": "Tipo",
+      "kinds": {
+        "http": "HTTP",
+        "rpc": "RPC",
+        "messaging": "Consumidor",
+        "span": "Worker"
+      },
+      "stack": "Linguagem / framework",
+      "version": "Versão",
+      "commit": "commit {{commit}}",
+      "team": "Equipe",
+      "instances_one": "{{count}} instância",
+      "instances_other": "{{count}} instâncias",
+      "deployed_label": "Última implantação",
+      "deployed": "implantado {{when}}",
+      "region": "Região",
+      "repository": "Repositório",
+      "aliases": "Também conhecido como",
+      "instances_many": "{{count}} instâncias"
+    },
+    "coverage": {
+      "missing": {
+        "logs": "Nenhum log deste serviço nas últimas 24 horas. Abra para ver como enviá-los",
+        "metrics": "Nenhuma métrica deste serviço na última hora. Abra para ver como enviá-las",
+        "profiles": "Nenhum perfil deste serviço nas últimas 24 horas. Abra para ver como enviá-los"
+      },
+      "reported": {
+        "logs": "Logs em: {{found}}",
+        "metrics": "{{found}} séries de métricas deste serviço na última hora",
+        "profiles": "Tipos de perfil enviados: {{found}}",
+        "rum": "As sessões do navegador estão vinculadas a este serviço pelos rastreamentos dele. Abra um desses rastreamentos"
+      }
+    },
+    "favorite": "Favoritar",
+    "favorited": "Favoritado"
+  },
+  "charts": {
+    "requests": "Requisições",
+    "error_rate": "Taxa de erros",
+    "latency": "Latência",
+    "ok": "Com sucesso",
+    "errors": "Com falha",
+    "previous": "Anterior",
+    "compared_env": "Em {{environment}}",
+    "distribution": "Distribuição de latência",
+    "distribution_row": "{{range}}: {{count}} requisições ({{share}}); {{below}} no limite superior ou abaixo dele",
+    "distribution_previous": "Tracejado: mesma faixa no período anterior",
+    "distribution_compared": "Tracejado: {{what}}",
+    "no_distribution": "Nenhuma requisição neste intervalo.",
+    "apdex_threshold": "(T = {{threshold}})",
+    "vs_previous": "Em relação ao período anterior",
+    "points": "{{value}} pp"
+  },
+  "overview": {
+    "downstream": "Tempo de espera por dependências",
+    "downstream_description": "Parcela do tempo que o serviço passa aguardando cada dependência",
+    "no_downstream": "Nenhuma chamada a dependências neste intervalo.",
+    "top_endpoints": "Endpoints mais demorados",
+    "no_endpoints": "Nenhum endpoint neste intervalo.",
+    "top_errors": "Erros mais frequentes",
+    "no_errors": "Nenhum erro de backend neste intervalo."
+  },
+  "overflow": {
+    "other": "Outros",
+    "other_hint": "Nomes que excedem os limites de cardinalidade são contados em conjunto."
+  },
+  "endpoints": {
+    "search": "Buscar endpoints",
+    "kind_filter": "Tipo",
+    "kinds": {
+      "all": "Todos os tipos",
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "Mensageria",
+      "span": "Workers"
+    },
+    "kind": {
+      "http": "HTTP",
+      "rpc": "RPC",
+      "messaging": "MQ",
+      "span": "Worker",
+      "other": "Outros"
+    },
+    "count_one": "{{count}} endpoint",
+    "count_other": "{{count}} endpoints",
+    "empty": "Nenhum endpoint correspondente.",
+    "table": "Endpoints",
+    "columns": {
+      "kind": "Tipo",
+      "endpoint": "Endpoint",
+      "requests": "Requisições",
+      "throughput": "Taxa de requisições",
+      "error_rate": "Taxa de erros",
+      "p50": "P50",
+      "p90": "P90",
+      "p95": "P95",
+      "p99": "P99",
+      "average": "Média",
+      "apdex": "Apdex",
+      "total_time": "Parcela do tempo total"
+    },
+    "key": "Transação-chave",
+    "key_only_one": "Transação-chave {{count}}",
+    "key_only_other": "Transações-chave {{count}}",
+    "long_tasks_one": "Tarefa longa {{count}}",
+    "long_tasks_other": "Tarefas longas {{count}}",
+    "long_tasks_hint": "Endpoints com P99 igual ou superior a {{threshold}}",
+    "mark_key": "Marcar {{name}} como transação-chave",
+    "unmark_key": "Desmarcar {{name}} como transação-chave",
+    "count_many": "{{count}} endpoints",
+    "key_only_many": "Transações-chave {{count}}",
+    "long_tasks_many": "Tarefas longas {{count}}"
+  },
+  "endpoint": {
+    "errors": "Erros",
+    "no_errors": "Nenhum erro neste endpoint.",
+    "versions": "Versões",
+    "no_versions": "Nenhuma versão detectada.",
+    "summary": "{{requests}} requisições · {{rate}} com falha · P95 {{p95}}",
+    "slow_requests": "Requisições mais lentas",
+    "slow_requests_description": "Do armazenamento de traces. Clique em uma requisição para abrir o trace correspondente.",
+    "in_traces": "Abrir em Traces",
+    "other_has_no_requests": "A categoria Outros agrupa vários endpoints. Abra um deles para ver suas requisições.",
+    "no_requests": "Nenhuma requisição deste endpoint foi armazenada neste intervalo.",
+    "status": {
+      "title": "Códigos de status",
+      "description": "Respostas por código de status (HTTP e gRPC)",
+      "none": "Nenhum código de status foi contabilizado neste intervalo.",
+      "row": "{{status}}: {{count}} respostas, {{share}}",
+      "other": "Outros códigos {{protocol}}",
+      "trend": "Códigos de status ao longo do tempo",
+      "classes": {
+        "1xx": "1xx",
+        "2xx": "2xx",
+        "3xx": "3xx",
+        "4xx": "4xx",
+        "5xx": "5xx",
+        "grpc_ok": "gRPC OK",
+        "grpc_error": "Erros de gRPC",
+        "other": "Outros"
+      }
+    },
+    "time_spent": {
+      "title": "Onde o tempo é gasto",
+      "description_one": "Com base na requisição mais recente no armazenamento de traces",
+      "description_other": "Com base nas {{count}} requisições mais recentes no armazenamento de traces",
+      "about": "Com base em até 200 das requisições mais recentes no armazenamento de traces",
+      "none": "Nenhuma requisição deste endpoint está armazenada neste intervalo.",
+      "unavailable": "O armazenamento de traces não respondeu a tempo. Tente um intervalo mais curto.",
+      "row": "{{part}}: {{share}} do tempo, {{each}} por requisição",
+      "each": "{{time}} por requisição",
+      "parts": {
+        "own": "Código próprio",
+        "database": "Banco de dados",
+        "cache": "Cache",
+        "http": "Chamadas HTTP",
+        "rpc": "Chamadas RPC",
+        "messaging": "Mensageria",
+        "internal": "Processamento interno",
+        "other": "Outros"
+      },
+      "description_many": "Com base nas {{count}} requisições mais recentes no armazenamento de traces"
+    }
+  },
+  "traces": {
+    "title": "Traces",
+    "description": "Traces dos quais este serviço participou",
+    "open_explorer": "Abrir em Traces",
+    "empty": "Nenhum trace deste serviço neste intervalo."
+  },
+  "dependencies": {
+    "map": "Serviços vizinhos",
+    "map_description": "Serviços que chamam este serviço e serviços que ele chama",
+    "map_empty": "Nenhuma chamada entre serviços neste intervalo.",
+    "upstream": "Chamado por",
+    "upstream_description": "Taxa de erros e P95 das chamadas recebidas",
+    "no_upstream": "Nenhum serviço chamou este serviço neste intervalo.",
+    "downstream": "Chamadas de saída",
+    "downstream_description": "Operações agrupadas por destino",
+    "no_downstream": "Nenhuma chamada de saída neste intervalo.",
+    "columns": {
+      "target": "Destino",
+      "category": "Tipo",
+      "requests": "Requisições",
+      "error_rate": "Taxa de erros",
+      "p95": "P95",
+      "health": "Integridade",
+      "change": "Em relação ao período de comparação"
+    },
+    "operations_one": "{{count}} operação",
+    "operations_other": "{{count}} operações",
+    "no_operation": "Sem nome de operação",
+    "category": {
+      "service": "Serviço",
+      "database": "Banco de dados",
+      "cache": "Cache",
+      "messaging": "Mensageria",
+      "external_http": "HTTP",
+      "external_rpc": "RPC",
+      "other": "Outro"
+    },
+    "timeouts_one": "{{count}} chamada excedeu o tempo limite",
+    "timeouts_other": "{{count}} chamadas excederam o tempo limite",
+    "retries_one": "{{count}} chamada foi tentada novamente",
+    "retries_other": "{{count}} chamadas foram tentadas novamente",
+    "slowest_operation": "P95 da operação mais lenta",
+    "score": {
+      "errors": "Chamadas com falha: −{{points}}",
+      "timeouts": "Chamadas que excederam o tempo limite: −{{points}}",
+      "latency": "P95 mais alto: −{{points}}",
+      "none": "Sem desconto de pontos"
+    },
+    "slow_sql": "SQL lento",
+    "slow_sql_description": "Instruções do banco de dados por P95, em formato de modelo: cada literal é substituído por ?",
+    "new_target": "Novo",
+    "operations_many": "{{count}} operações",
+    "timeouts_many": "{{count}} chamadas excederam o tempo limite",
+    "retries_many": "{{count}} chamadas foram tentadas novamente"
+  },
+  "deployments": {
+    "timeline": "Linha do tempo de implantações",
+    "report": "Registrar implantações",
+    "none": "Nenhuma implantação ou versão neste intervalo.",
+    "current": "Atual",
+    "columns": {
+      "time": "Horário",
+      "version": "Versão",
+      "event": "Evento",
+      "change": "Alteração",
+      "requests": "Requisições",
+      "error_rate": "Taxa de erros",
+      "p95": "P95",
+      "verdict": "Em relação à implantação anterior"
+    },
+    "kind": {
+      "deployed": "Implantado",
+      "failed": "Falhou",
+      "rolled_back": "Revertido",
+      "returned": "Retornou",
+      "first_seen": "Primeira detecção",
+      "configuration": "Configuração",
+      "feature_flag": "Feature flag"
+    },
+    "from": "de {{version}}",
+    "pull_request": "PR",
+    "ci_run": "Execução de CI",
+    "compare": "Comparar duas versões",
+    "baseline": "De",
+    "candidate": "Para",
+    "regressed_endpoints": "Endpoints que ficaram mais lentos",
+    "regressed_errors": "Erros que ficaram mais frequentes",
+    "none_regressed": "Nenhum",
+    "status": {
+      "insufficient_data": "Requisições insuficientes",
+      "regressed": "Piorou",
+      "improved": "Melhorou",
+      "neutral": "Sem alteração"
+    },
+    "verdict_title": "Em comparação com {{previous}}: taxa de erros {{rate}}, P95 {{p95}}",
+    "worse": {
+      "error_rate": "Taxa de erros {{delta}}",
+      "latency": "P95 {{delta}}"
+    },
+    "delta": {
+      "requests": "Requisições",
+      "error_rate": "Taxa de erros",
+      "p95": "P95"
+    },
+    "insufficient": "Uma das versões não tem requisições suficientes para a comparação.",
+    "canary": {
+      "title": "{{candidate}} em execução junto com {{baseline}}",
+      "since": "Desde {{since}}",
+      "share": "{{share}} do tráfego na versão mais recente",
+      "figures": "As duas versões lado a lado",
+      "rows": {
+        "requests": "Requisições",
+        "error_rate": "Taxa de erros",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      }
+    }
+  },
+  "errors": {
+    "title": "Grupo de erros",
+    "table": "Grupos de erros",
+    "search": "Buscar erros",
+    "status": "Estado",
+    "status_filter": "Mostrar",
+    "assignee": "Responsável",
+    "unassigned": "Sem responsável",
+    "team": "Equipe",
+    "no_team": "Sem equipe",
+    "saved": "Grupo de erros atualizado",
+    "count_one": "{{count}} grupo",
+    "count_other": "{{count}} grupos",
+    "none": "Nenhum grupo de erros neste intervalo",
+    "none_open": "Nenhum grupo de erros em aberto neste intervalo",
+    "none_description": "Os erros dos spans de backend são agrupados aqui por tipo e pelo local onde foram lançados.",
+    "filter": {
+      "all": "Todos os grupos",
+      "unresolved": "Em aberto",
+      "investigating": "Em investigação",
+      "resolved": "Resolvido",
+      "ignored": "Ignorado"
+    },
+    "set": {
+      "open": "Em aberto",
+      "investigating": "Em investigação",
+      "resolved": "Resolvido",
+      "ignored": "Ignorado"
+    },
+    "state": {
+      "open": "Em aberto",
+      "investigating": "Em investigação",
+      "regressed": "Reincidente",
+      "resolved": "Resolvido",
+      "ignored": "Ignorado"
+    },
+    "columns": {
+      "error": "Erro",
+      "service": "Serviço",
+      "state": "Estado",
+      "assignee": "Responsável",
+      "occurrences": "Ocorrências",
+      "last_seen": "Última ocorrência",
+      "first_seen": "Primeira ocorrência"
+    },
+    "facts": {
+      "occurrences": "Ocorrências",
+      "first_seen": "Primeira ocorrência",
+      "last_seen": "Última ocorrência",
+      "versions": "Versões"
+    },
+    "trend": "Ocorrências ao longo do tempo",
+    "stack": "Onde o erro foi lançado",
+    "endpoints": "Endpoints",
+    "no_endpoints": "Nenhum endpoint registrado.",
+    "samples": "Amostras",
+    "samples_description": "Cada amostra abre o trace em que foi armazenada",
+    "no_samples": "Nenhuma amostra armazenada.",
+    "logs": "Logs relacionados",
+    "sample_logs": "Logs",
+    "breakdown": {
+      "title": "Onde os erros ocorreram",
+      "listed": "Ocorrências de todos os grupos listados",
+      "versions": "Versões",
+      "environments": "Ambientes",
+      "languages": "Linguagens",
+      "unknown": "Não informado",
+      "none": "Nenhum",
+      "row": "{{value}}: {{count}}, {{share}}"
+    },
+    "rules": {
+      "open": "Regras de agrupamento",
+      "title": "Regras de agrupamento de erros",
+      "new": "Nova regra",
+      "new_title": "Nova regra de agrupamento",
+      "edit_title": "Editar regra de agrupamento",
+      "description": "As regras são avaliadas em ordem para os erros detectados daqui em diante. A primeira que corresponder ao erro é aplicada. Ela reúne os erros em um único grupo por serviço ou os mantém fora dos grupos (as requisições correspondentes ainda contam como falhas). Após ser salva, a regra passa a valer em todos os nós em até 30 segundos.",
+      "none": "Ainda não há regras de agrupamento.",
+      "action": {
+        "merge": "Mesclar",
+        "ignore": "Ignorar"
+      },
+      "action_long": {
+        "merge": "Mesclar em um único grupo",
+        "ignore": "Manter fora dos grupos"
+      },
+      "disabled": "Desativada",
+      "every_service": "Todos os serviços",
+      "fields": {
+        "name": "Nome",
+        "name_hint": "O grupo resultante da mesclagem recebe esse nome.",
+        "action": "Ação",
+        "service": "Serviço",
+        "error_type": "Tipo de erro",
+        "message": "Mensagem",
+        "frame": "Local de lançamento",
+        "endpoint": "Endpoint",
+        "enabled": "Ativada"
+      },
+      "placeholder": {
+        "error_type": "*TimeoutException",
+        "message": "*connection reset*",
+        "frame": "com.shop.client.*",
+        "endpoint": "GET /orders/*"
+      },
+      "patterns_hint": "Cada padrão é comparado com o texto inteiro, sem distinção entre maiúsculas e minúsculas. Use * para representar qualquer texto. Um campo vazio aceita qualquer valor. Preencha pelo menos um campo.",
+      "preview_one": "{{count}} grupo de erros listado corresponde a esta regra. Os grupos existentes não mudam: a regra se aplica aos erros detectados daqui em diante.",
+      "preview_other": "{{count}} grupos de erros listados correspondem a esta regra. Os grupos existentes não mudam: a regra se aplica aos erros detectados daqui em diante.",
+      "pattern": {
+        "error_type": "tipo {{pattern}}",
+        "message": "mensagem {{pattern}}",
+        "frame": "em {{pattern}}",
+        "endpoint": "endpoint {{pattern}}"
+      },
+      "move_up": "Mover {{name}} para cima",
+      "move_down": "Mover {{name}} para baixo",
+      "edit": "Editar {{name}}",
+      "remove": "Excluir {{name}}",
+      "remove_title": "Excluir a regra {{name}}?",
+      "remove_description": "A regra não agrupará novos erros. Os grupos que ela criou serão mantidos.",
+      "remove_confirm": "Excluir",
+      "removing": "Excluindo…",
+      "saved": "Regra salva",
+      "removed": "Regra excluída",
+      "from_error": "Criar regra a partir deste erro",
+      "preview_many": "{{count}} grupos de erros listados correspondem a esta regra. Os grupos existentes não mudam: a regra se aplica aos erros detectados daqui em diante."
+    },
+    "count_many": "{{count}} grupos"
+  },
+  "runtime": {
+    "language": "Linguagem",
+    "sdk": "SDK",
+    "instances": "Instâncias recentes",
+    "none_title": "Nenhuma métrica de runtime deste serviço",
+    "none_description": "Os gráficos aparecem por linguagem assim que o serviço envia métricas de runtime com seu service.name: métricas do processo e do runtime da JVM, Go, Node.js, .NET, Python, Ruby, PHP, Rust (Tokio) e Erlang / Elixir. São compatíveis tanto as convenções do OpenTelemetry quanto o cliente Prometheus mais usado em cada linguagem.",
+    "none_action": "Enviar métricas com OpenTelemetry",
+    "chart_empty": "Nenhum valor neste intervalo.",
+    "charts": {
+      "cpu": "Uso de CPU",
+      "memory": "Memória",
+      "threads": "Threads",
+      "file_descriptors": "Descritores de arquivo abertos",
+      "heap": "Heap",
+      "non_heap": "Memória fora do heap",
+      "gc_time": "Tempo de GC por segundo",
+      "gc_count": "Execuções de GC por segundo",
+      "classes": "Classes carregadas",
+      "goroutines": "Goroutines",
+      "scheduler": "Latência de escalonamento",
+      "event_loop_delay": "Atraso do loop de eventos (P99)",
+      "event_loop_utilization": "Uso do loop de eventos",
+      "thread_pool_queue": "Fila do pool de threads",
+      "exceptions": "Exceções por segundo",
+      "heap_slots": "Slots do heap com objetos ativos",
+      "allocations": "Alocações por segundo",
+      "workers": "Workers",
+      "queue": "Fila",
+      "slow_requests": "Requisições lentas por segundo",
+      "opcache": "Memória do OPcache",
+      "tasks": "Tarefas / handles ativos",
+      "busy": "Tempo de atividade por segundo",
+      "processes": "Processos do Erlang",
+      "run_queue": "Fila de execução",
+      "reductions": "Reduções por segundo"
+    },
+    "instance": "Instância",
+    "all_instances": "Todas as instâncias",
+    "each_instance": "Uma linha por instância",
+    "one_instance": "Apenas a instância selecionada",
+    "families": {
+      "process": "Processo",
+      "jvm": "JVM",
+      "go": "Go",
+      "nodejs": "Node.js",
+      "dotnet": ".NET",
+      "python": "Python",
+      "ruby": "Ruby",
+      "php": "PHP",
+      "rust": "Rust / Tokio",
+      "beam": "Erlang / Elixir (BEAM)"
+    },
+    "profile": {
+      "title": "Análise de perfis",
+      "description": "Os perfis do serviço no período são reunidos em um gráfico de chamas, um tipo por vez",
+      "open": "Abrir em Perfis",
+      "none": "Nenhum perfil deste serviço no período",
+      "none_description": "Depois que a coleta contínua de perfis for configurada, os gráficos de chamas de CPU, tempo decorrido, alocações, heap, bloqueios e outras métricas aparecerão aqui.",
+      "types": "Tipo de perfil",
+      "empty": "Nenhuma amostra deste tipo no período"
+    }
+  },
+  "map": {
+    "not_in_apm": "{{name}} não está entre os serviços detectados pelo APM no período.",
+    "namespace": "Namespace",
+    "all_namespaces": "Todos os namespaces",
+    "search": "Buscar um nó",
+    "clear_search": "Limpar",
+    "fold": "Recolher namespaces",
+    "unfold": "Expandir o namespace",
+    "critical": "Caminho mais lento",
+    "change": {
+      "new": "Novo",
+      "gone": "Ausente"
+    },
+    "group_figures_one": "{{count}} serviço",
+    "group_figures_other": "{{count}} serviços",
+    "none": "Nenhuma chamada no período",
+    "none_description": "Os serviços aparecem aqui quando seus spans chegam ao MoleSignal. As chamadas entre eles aparecem quando um span tem um span pai em outro serviço.",
+    "truncated": "Apenas os nós com mais atividade são exibidos.",
+    "reach": "Recebe chamadas de {{callers}} · faz chamadas para {{callees}}",
+    "open_service": "Abrir serviço",
+    "close_chosen": "Fechar",
+    "kind": {
+      "service": "Serviço",
+      "external": "Chamado",
+      "topic": "Tópico",
+      "group": "Namespace"
+    },
+    "category": {
+      "service": "Serviço que não envia dados",
+      "database": "Banco de dados",
+      "cache": "Cache",
+      "messaging": "Sistema de mensageria",
+      "external_http": "HTTP externo",
+      "external_rpc": "RPC externo",
+      "other": "Outro"
+    },
+    "call": {
+      "title": "Chamada",
+      "requests": "Requisições",
+      "error_rate": "Taxa de erros",
+      "kinds": {
+        "call": "Chamada",
+        "publish": "Publicação em um tópico",
+        "consume": "Consumo de um tópico"
+      },
+      "operations": "Operações ao longo da chamada",
+      "endpoints": "Endpoints do serviço chamado",
+      "every_caller": "Conforme solicitado por todos os chamadores",
+      "no_operations": "Nenhuma operação registrada.",
+      "unnamed": "Sem nome",
+      "errors": "Erros de {{service}}",
+      "wait": {
+        "title": "Tempo de espera no tópico",
+        "about": "Com base nos registros de consumo mais recentes do armazenamento de traces, até o limite de 200",
+        "description": "{{matched}} dos {{count}} registros de consumo mais recentes foram associados às respectivas publicações",
+        "p50": "P50",
+        "p95": "P95",
+        "max": "Maior tempo",
+        "none": "Não foi possível associar nenhum registro de consumo à sua publicação: os spans precisam ter links ou spans pai.",
+        "unavailable": "O armazenamento de traces não respondeu a tempo. Tente um intervalo menor."
+      }
+    },
+    "calls": "Chamadas",
+    "calls_out": "Chamadas",
+    "calls_in": "Chamado por",
+    "gone_figures": "Nenhuma chamada desde o intervalo anterior",
+    "group_figures_many": "{{count}} serviços"
+  },
+  "pagination": {
+    "aria": "Páginas da lista",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Linhas por página",
+    "first_aria": "Primeira página",
+    "previous_aria": "Página anterior",
+    "next_aria": "Próxima página",
+    "last_aria": "Última página"
+  },
+  "settings": {
+    "catalog": "Registro no catálogo",
+    "catalog_description": "Mantido manualmente e usado quando a telemetria não fornece a informação",
+    "reported": {
+      "title": "Informado pelo serviço",
+      "description": "O que as instâncias do serviço informam para o intervalo e a versão em exibição",
+      "instances": "Instâncias",
+      "hosts": "Hosts",
+      "language": "Linguagem",
+      "runtime": "Ambiente de execução",
+      "framework": "Framework",
+      "sdk": "SDK",
+      "cluster": "Cluster",
+      "k8s_namespace": "Namespace do Kubernetes",
+      "workload": "Carga de trabalho",
+      "commit": "Commit",
+      "none": "Não informado"
+    },
+    "key_transactions": {
+      "title": "Transações principais",
+      "description": "Os endpoints mais importantes, marcados com uma estrela na lista de endpoints ou no painel de detalhes de um endpoint",
+      "empty": "Ainda não há transações principais. Marque um endpoint com uma estrela na lista para adicionar uma.",
+      "no_traffic": "Nenhuma requisição no intervalo"
+    }
+  },
+  "org_settings": {
+    "save": "Salvar",
+    "reset": "Desfazer alterações",
+    "remove": "Remover",
+    "saved": "Configurações salvas",
+    "thresholds": {
+      "title": "Integridade e limites",
+      "hint": "Limites de referência para avaliar a integridade, o Apdex e as tarefas longas",
+      "error_rate": "Taxa de erros",
+      "warning": "Aviso a partir de",
+      "critical": "Crítico a partir de",
+      "apdex": "Apdex padrão",
+      "apdex_hint": "Para serviços que não definem um valor de T",
+      "long_task": "Tarefa longa",
+      "issues": {
+        "error_rates": "A taxa de erros para aviso deve ser maior que 0 e menor que a taxa crítica, que não pode ultrapassar 100%.",
+        "p95": "O P95 para aviso deve ser maior que 0 e menor que o P95 crítico, que não pode ultrapassar 10 minutos.",
+        "apdex": "Apdex T deve ser maior que 0 e não pode passar de 1 minuto.",
+        "long_task": "Uma tarefa longa dura de 1 ms a 10 minutos.",
+        "numbers": "Todos os campos devem conter um número."
+      }
+    },
+    "naming": {
+      "title": "Nomes dos serviços",
+      "hint": "Ao ler os spans, a primeira regra correspondente renomeia o serviço",
+      "add": "Adicionar regra",
+      "empty": "Sem regras de nomenclatura: os serviços são lidos com os nomes que informam.",
+      "pattern": "Padrão",
+      "pattern_placeholder": "Expressão regular, ex.: ^(checkout)-[a-z0-9]{5}$",
+      "replacement": "Substituição",
+      "replacement_placeholder": "Ex.: $1",
+      "try": "Testar um nome de serviço",
+      "read_as": "Lido como",
+      "unchanged": "Lido sem alterações",
+      "traces_keep": "Os traces mantêm os nomes presentes nos spans",
+      "unread": "Não foi possível interpretar o padrão aqui. O servidor usa expressões regulares de Rust e avisa se também não conseguir interpretá-lo."
+    },
+    "environments": {
+      "title": "Mapeamento de ambientes",
+      "hint": "Na leitura dos spans, o nome de um ambiente é substituído por outro, sem distinguir maiúsculas de minúsculas",
+      "add": "Adicionar mapeamento",
+      "empty": "Sem mapeamentos: os ambientes são lidos com os nomes originais.",
+      "from": "Nome original",
+      "to": "Lido como",
+      "twice": "Um ambiente está mapeado duas vezes."
+    },
+    "aliases": {
+      "title": "Aliases de serviços",
+      "hint": "Os dados enviados com um alias são atribuídos ao serviço correspondente em todas as páginas de APM, inclusive os dados já armazenados. Ao remover o alias, os dados voltam a aparecer separadamente",
+      "add": "Adicionar alias",
+      "empty": "Nenhum alias.",
+      "alias_namespace": "Namespace do alias",
+      "alias": "Alias",
+      "namespace": "Namespace",
+      "service": "Serviço",
+      "issues": {
+        "incomplete": "Informe os nomes dos dois serviços do alias.",
+        "itself": "Um serviço não pode ser seu próprio alias.",
+        "twice": "Um nome foi usado como alias duas vezes.",
+        "chained": "Um alias aponta para um serviço que também é um alias."
+      }
+    },
+    "catalog_rules": {
+      "title": "Requisitos do catálogo",
+      "hint": "Defina os requisitos dos serviços do catálogo por nível. Os serviços que não os atendem são sinalizados",
+      "never": "Não obrigatório",
+      "from_tier": "{{tier}} e superiores",
+      "team_from_tier": "Equipe",
+      "owner_from_tier": "Responsável",
+      "repository_from_tier": "Repositório"
+    },
+    "limits": {
+      "title": "Limites de cardinalidade",
+      "hint": "Em toda a plataforma: o que exceder os limites em uma hora é contabilizado como \"outros\"",
+      "issue": "Cada limite deve ser um número inteiro de 1 a 100000.",
+      "servicesPerOrgHour": "Serviços por organização",
+      "transactionsPerServiceHour": "Endpoints por serviço",
+      "dependenciesPerServiceHour": "Dependências por serviço",
+      "operationsPerDependencyHour": "Operações por dependência",
+      "errorGroupsPerServiceHour": "Grupos de erros por serviço",
+      "versionsPerServiceHour": "Versões por serviço",
+      "instancesPerServiceHour": "Instâncias por serviço"
+    },
+    "sampling": {
+      "title": "Amostragem de traces",
+      "version": "Para toda a plataforma, versão {{version}}",
+      "ratio": "Proporção de traces normais mantidos",
+      "ratio_hint": "Erros, traces lentos e as regras abaixo seguem critérios próprios de retenção. O APM contabiliza todos os traces antes da amostragem",
+      "off": "O armazenamento de traces está desativado",
+      "add": "Adicionar regra",
+      "empty": "Sem regras: vale a proporção padrão.",
+      "name": "Nome",
+      "service": "Serviço",
+      "route": "Rota",
+      "operation": "Operação",
+      "minimum": "A partir de (ms)",
+      "errors_only": "Somente erros",
+      "action": "Ação",
+      "rule_ratio": "Porcentagem mantida (%)",
+      "actions": {
+        "keep": "Manter",
+        "drop": "Descartar",
+        "ratio": "Manter uma porcentagem"
+      },
+      "issue": "Cada regra precisa de um nome, uma duração em milissegundos inteiros e uma porcentagem de 0 a 100%.",
+      "published": "Versão {{version}} da política de amostragem publicada"
+    },
+    "quality": {
+      "title": "Qualidade da coleta",
+      "hint": "Nas últimas 24 horas",
+      "clean": "Nada a corrigir nas últimas 24 horas.",
+      "tone": {
+        "warning": "Corrigir",
+        "suggestion": "Sugestão"
+      },
+      "overflow": "O que excedeu os limites de cardinalidade nestas categorias foi contabilizado como \"outros\": {{kinds}}.",
+      "kinds": {
+        "service": "serviços",
+        "transaction": "endpoints",
+        "dependency": "dependências",
+        "error": "grupos de erros",
+        "instance": "instâncias",
+        "version": "versões"
+      },
+      "and": ", ",
+      "raise_limits": "Aumentar os limites",
+      "limits_by_platform": "Definidos pelos administradores da plataforma",
+      "gaps_one": "O APM não registrou spans em {{count}} trecho.",
+      "gaps_other": "O APM não registrou spans em {{count}} trechos.",
+      "stale": "O APM está atrasado: o último minuto com dados completos é {{at}}.",
+      "missing_one": "{{formatted}} serviço não reporta",
+      "missing_other": "{{formatted}} serviços não reportam",
+      "instrument": "Configurar",
+      "environments": "{{names}} diferem apenas no uso de maiúsculas e minúsculas.",
+      "map_to": "Interpretar todos como {{name}}",
+      "generated": "{{name}} parece ser {{base}} com um sufixo gerado automaticamente.",
+      "add_rule": "Adicionar regra de nomenclatura",
+      "gaps_many": "O APM não registrou spans em {{count}} trechos.",
+      "missing_many": "{{formatted}} serviços não reportam"
+    }
+  },
+  "instances": {
+    "title": "Instâncias",
+    "description": "Processos que executaram o serviço no intervalo e na versão selecionados",
+    "empty": "Nenhuma instância reportou dados neste intervalo",
+    "columns": {
+      "instance": "Instância",
+      "version": "Versão",
+      "where": "Carga de trabalho / host",
+      "runtime": "Ambiente de execução",
+      "last_seen": "Última atividade",
+      "throughput": "Taxa de transferência",
+      "error_rate": "Taxa de erros",
+      "p95": "P95",
+      "signals": "Logs / métricas"
+    },
+    "other": "Outras instâncias",
+    "other_hint": "Instâncias que excedem o limite, contabilizadas em conjunto",
+    "only_charts": "Clique para mostrar apenas esta instância nos gráficos do ambiente de execução",
+    "all_charts": "Clique para mostrar todas as instâncias nos gráficos do ambiente de execução"
+  },
+  "apdex": {
+    "threshold_title": "Limite do Apdex T = {{threshold}}"
+  },
+  "insights": {
+    "title": "Insights",
+    "none": "Nada se destaca neste intervalo.",
+    "separator": "; ",
+    "and": ", ",
+    "before": "{{value}} em relação ao trecho anterior",
+    "week_before": "{{value}} em relação ao mesmo trecho da semana anterior",
+    "since": "desde {{at}}",
+    "changes_near": "Mudanças por volta desse horário:",
+    "severity": {
+      "critical": "Crítico",
+      "warning": "Aviso",
+      "info": "Sugestão"
+    },
+    "kind": {
+      "anomaly": "Variou",
+      "regression": "Piorou",
+      "slow_dependency": "Gargalo",
+      "repeated_call": "N+1",
+      "slow_query": "Consulta SQL lenta",
+      "hot_endpoint": "Endpoint com alto consumo de tempo"
+    },
+    "metric": {
+      "error_rate": "Taxa de erros",
+      "p95": "P95",
+      "throughput": "Taxa de requisições"
+    },
+    "sentence": {
+      "anomaly_up": "{{metric}} subiu para {{value}} (antes: {{before}})",
+      "anomaly_down": "{{metric}} caiu para {{value}} (antes: {{before}})",
+      "regression": "{{version}} teve desempenho pior que {{previous}}: {{metric}} passou de {{before}} para {{value}}",
+      "slow_dependency": "{{target}} consome {{share}} do tempo das requisições",
+      "repeated_call": "chama {{operation}} {{each}} vezes por requisição ({{calls}} chamadas): uma única chamada poderia substituir esse loop",
+      "slow_query": "{{operation}}: P95 de {{p95}} em {{calls}} chamadas",
+      "hot_endpoint": "{{endpoint}} consome {{share}} do tempo do serviço (P95 de {{p95}})"
+    },
+    "change": {
+      "deployment": "Implantação de",
+      "configuration": "Alteração na configuração de",
+      "feature_flag": "Flag de recurso de",
+      "observed": ", com primeiro registro nos spans"
+    },
+    "baseline": {
+      "previous": "Em comparação com o período anterior:",
+      "last_week": "Em comparação com o mesmo período da semana anterior:",
+      "throughput": "taxa de requisições",
+      "error_rate": "taxa de erros",
+      "points": "{{value}} pt"
+    }
+  },
+  "agent": {
+    "investigate": "Investigar",
+    "investigate_title": "Pedir ao Mole Agent para investigar",
+    "prompt": {
+      "service": "Investigue {{service}} no ambiente {{environment}} de {{from}} a {{to}}: quais métricas variaram, por quê e que mudanças ocorreram por volta desse horário.",
+      "endpoint": "Investigue o endpoint {{endpoint}} de {{service}} no ambiente {{environment}} de {{from}} a {{to}}: em que ele gasta tempo, por que ficou lento ou falhou e o que mudou por volta desse horário.",
+      "error": "Investigue o erro {{error}} de {{service}} no ambiente {{environment}} (impressão digital: {{fingerprint}}): desde quando ocorre, quantas requisições falharam por causa dele e qual é a causa provável.",
+      "finding": "Investigue esta constatação sobre {{service}} no ambiente {{environment}} de {{from}} a {{to}}: {{finding}}"
+    }
+  }
+}

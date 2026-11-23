@@ -2,6 +2,7 @@ import { Check, Database, TestTube2 } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { docsLocale } from '@/i18n';
 import { ChromeButton, Dot, Pill, uiSectionTitleClass } from '@/shell/chrome';
 import { ErrorState } from '@/shell/ErrorState';
 import { cn } from '@/shell/lib/cn';
@@ -87,11 +88,7 @@ export function QueryPreview({
         : null,
     [hasData, points, threshold, timestamps],
   );
-  const docsLocale = (i18n.resolvedLanguage ?? i18n.language)
-    .toLowerCase()
-    .startsWith('zh')
-    ? 'zh-Hans'
-    : 'en-US';
+  const docsLanguage = docsLocale(i18n.resolvedLanguage ?? i18n.language);
   return (
     <section data-alert-query-preview className="min-w-0 bg-transparent">
       <header className="flex min-h-12 items-center gap-3 border-b border-bd-0 py-3">
@@ -124,7 +121,7 @@ export function QueryPreview({
             onRetry={onRun}
             help={{
               label: t('workbench.preview.query_docs'),
-              href: `https://docs.molesignal.com/${docsLocale}/query`,
+              href: `https://docs.molesignal.com/${docsLanguage}/query`,
             }}
             className="min-h-[220px] justify-center border-0 bg-transparent"
           />

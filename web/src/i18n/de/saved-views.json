@@ -1,0 +1,76 @@
+{
+  "title": "Gespeicherte Ansichten",
+  "subtitle": "Wiederverwendbare SQL- und PromQL-Abfragen für Ihre gesamte Organisation.",
+  "actions": {
+    "new": "Neue gespeicherte Ansicht",
+    "open": "Öffnen",
+    "pin": "Anheften",
+    "unpin": "Loslösen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen"
+  },
+  "kpis": {
+    "total": "Gespeicherte Ansichten",
+    "pinned": "Angeheftet"
+  },
+  "list": {
+    "columns": {
+      "name": "Name",
+      "language": "Sprache",
+      "stream": "Stream",
+      "tags": "Tags",
+      "range": "Zeitfenster",
+      "updated": "Aktualisiert",
+      "actions": "Aktionen"
+    }
+  },
+  "states": {
+    "empty_title": "Noch keine gespeicherten Ansichten",
+    "empty_description": "Speichern Sie eine SQL- oder PromQL-Abfrage, um sie in mehreren Untersuchungen zu verwenden."
+  },
+  "confirm": {
+    "delete_title": "Gespeicherte Ansicht löschen?",
+    "delete": "Möchten Sie diese gespeicherte Ansicht löschen? Das lässt sich nicht rückgängig machen.",
+    "cancel": "Abbrechen"
+  },
+  "toast": {
+    "saved": "Ansicht „{{name}}“ gespeichert",
+    "deleted": "Gespeicherte Ansicht gelöscht"
+  },
+  "drawer": {
+    "edit_title": "Gespeicherte Ansicht bearbeiten",
+    "subtitle": "Geben Sie einer SQL- oder PromQL-Abfrage einen Namen, um sie später wiederzuverwenden.",
+    "save": "Änderungen speichern",
+    "create": "Erstellen",
+    "sections": {
+      "identity": "Allgemein",
+      "query": "Abfrage",
+      "organize": "Organisation"
+    },
+    "fields": {
+      "name": "Name",
+      "language": "Sprache",
+      "range": "Standardzeitfenster",
+      "statement": "Anweisung",
+      "stream": "Stream (optional)",
+      "tags": "Tags",
+      "pinned": "Oben anheften"
+    },
+    "hints": {
+      "stream": "Schränkt das Partition Pruning beim Öffnen der Ansicht ein.",
+      "tags": "Durch Kommas getrennt."
+    }
+  },
+  "report": {
+    "time_range": "Zeitraum",
+    "timezone": "Zeitzone",
+    "stream": "Stream",
+    "rows": "Zeilen",
+    "rows_capped": "Nur die ersten {{shown}}",
+    "generated": "Erstellt",
+    "results": "Ergebnisse",
+    "empty": "Keine Zeilen in diesem Zeitraum.",
+    "no_view": "Im Bericht ist keine gespeicherte Ansicht angegeben.",
+    "no_stream": "In der gespeicherten Ansicht ist kein Stream angegeben, und die Organisation hat keinen Log-Stream, auf dem die Ansicht ausgeführt werden kann."
+  }
+}

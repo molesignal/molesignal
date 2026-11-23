@@ -1,0 +1,8 @@
+{
+  "sign_in_failed": "Falha ao entrar",
+  "switch_org_success": "Organização alterada para {{name}}",
+  "switch_org_failure": "Não foi possível trocar de organização: {{message}}",
+  "request_failed": "Falha na solicitação",
+  "link_copied": "Link copiado",
+  "generic": "Algo deu errado"
+}

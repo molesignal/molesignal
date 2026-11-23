@@ -54,11 +54,7 @@
     "intake_budget_meta": "{{percent}}% of the budget used. Data keeps coming in."
   },
   "user_menu": {
-    "language": "Language",
-    "languages": {
-      "zh-cn": "中文（简体）",
-      "en-us": "English"
-    }
+    "language": "Language"
   },
   "account_settings": {
     "title": "Account settings",

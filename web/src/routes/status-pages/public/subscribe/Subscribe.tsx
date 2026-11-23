@@ -10,6 +10,7 @@ import type {
   StatusPageLanguage,
   StatusPageSubscriberChannel,
 } from '@/api/statusPages';
+import { fixedT } from '@/i18n';
 import { toApiError } from '@/lib/http';
 import { cn } from '@/shell/lib/cn';
 import { Button } from '@/shell/ui/button';
@@ -73,8 +74,9 @@ export function PublicStatusSubscribe({
   slackApp?: boolean;
   privatePage?: boolean;
 }) {
-  const { i18n } = useTranslation('status-pages');
-  const copy = i18n.getFixedT(language, 'status-pages');
+  // Renders again when the page's language arrives.
+  useTranslation('status-pages');
+  const copy = fixedT(language, 'status-pages');
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(false);

@@ -1,0 +1,31 @@
+{
+  "title": "Serviços",
+  "subtitle": "Catálogo de serviços derivado da topologia dos rastreamentos.",
+  "kpis": {
+    "services": "Serviços",
+    "rps": "RPS total",
+    "degraded": "Degradados (≥1% de erros)"
+  },
+  "list": {
+    "columns": {
+      "name": "Serviço",
+      "rps": "RPS",
+      "error_rate": "Taxa de erros",
+      "p95": "p95",
+      "spans": "Spans"
+    }
+  },
+  "states": {
+    "empty_title": "Nenhum serviço detectado",
+    "empty_description": "Os serviços aparecem quando são recebidos spans rastreados no intervalo selecionado."
+  },
+  "detail": {
+    "not_found_title": "Sem tráfego para este serviço",
+    "not_found_description": "Este serviço não tem spans rastreados no intervalo selecionado.",
+    "upstream": "Upstream (serviços que fazem chamadas)",
+    "downstream": "Downstream (dependências)",
+    "no_upstream": "Nenhum serviço fez chamadas no intervalo.",
+    "no_downstream": "Nenhuma dependência no intervalo.",
+    "edge_rps": "{{rps}} rps"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "title": "Groupes sémantiques",
+  "subtitle": "Regroupez les incidents liés selon les valeurs des étiquettes (comme avec group_by dans Alertmanager).",
+  "actions": {
+    "new": "Nouveau groupe",
+    "import": "Importer",
+    "delete": "Supprimer",
+    "edit_named": "Modifier {{name}}",
+    "delete_named": "Supprimer {{name}}"
+  },
+  "states": {
+    "empty_title": "Aucun groupe sémantique pour le moment",
+    "empty_description": "Définissez un groupe pour réunir les incidents qui partagent les mêmes valeurs d’étiquette."
+  },
+  "list": {
+    "columns": {
+      "name": "Nom",
+      "matchers": "Critères de correspondance",
+      "group_by": "Regrouper par",
+      "enabled": "Activé",
+      "actions": "Actions"
+    }
+  },
+  "enabled": {
+    "yes": "Activé",
+    "no": "Désactivé"
+  },
+  "toast": {
+    "saved": "Groupe « {{name}} » enregistré",
+    "deleted": "Groupe supprimé"
+  },
+  "confirm": {
+    "delete_title": "Supprimer le groupe sémantique ?",
+    "delete": "Supprimer ce groupe ? Les incidents sont conservés. Seule la règle de regroupement est supprimée.",
+    "cancel": "Annuler"
+  },
+  "errors": {
+    "name_required": "Le nom est obligatoire."
+  },
+  "drawer": {
+    "edit_title": "Modifier {{name}}",
+    "subtitle": "Les critères de correspondance déterminent les incidents concernés par ce groupe. group_by définit la clé de regroupement.",
+    "save": "Enregistrer les modifications",
+    "create": "Créer le groupe",
+    "add_matcher": "Ajouter un critère de correspondance",
+    "remove_matcher": "Supprimer le critère de correspondance",
+    "matchers_description": "Pour que ce groupe s’applique à un incident, ses étiquettes doivent satisfaire tous les critères de correspondance. Sans critère, le groupe s’applique à tous les incidents.",
+    "group_by_description": "Les incidents dont les valeurs sont identiques pour ces clés d’étiquette sont réunis dans un seul groupe.",
+    "sections": {
+      "identity": "Identification",
+      "matchers": "Critères de correspondance",
+      "group_by": "Regrouper par"
+    },
+    "fields": {
+      "name": "Nom",
+      "enabled": "Activé",
+      "matcher_label": "Étiquette du critère",
+      "matcher_value": "Valeur du critère",
+      "group_by": "Étiquettes de regroupement"
+    },
+    "hints": {
+      "enabled": "Les groupes désactivés sont ignorés lors du regroupement.",
+      "group_by": "Clés d’étiquette séparées par des virgules, par exemple : service, region."
+    },
+    "placeholders": {
+      "name": "critical-by-service",
+      "matcher_label": "severity",
+      "matcher_value": "critical",
+      "group_by": "service, region"
+    }
+  },
+  "import": {
+    "title": "Importer des groupes sémantiques",
+    "subtitle": "Collez un tableau JSON de groupes (ou { groups: [...] }).",
+    "submit": "Importer",
+    "editor_label": "Groupes au format JSON",
+    "placeholder": "[{ \"name\": \"crit-by-service\", \"enabled\": true, \"matchers\": [{ \"label\": \"severity\", \"op\": \"eq\", \"value\": \"critical\" }], \"groupBy\": [\"service\"] }]",
+    "toast_imported": "{{count}} groupe(s) importé(s)",
+    "invalid_json": "JSON non valide : {{message}}",
+    "expects_array": "Un tableau de groupes non vide est attendu."
+  }
+}

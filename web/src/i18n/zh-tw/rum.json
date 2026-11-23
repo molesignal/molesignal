@@ -1,0 +1,1928 @@
+{
+  "title": "使用者體驗",
+  "subtitle": "查看真實使用者的工作階段、檢視、操作、錯誤與請求。",
+  "refresh": "重新整理",
+  "geo_credit": "IP 地理位置資料由 DB-IP 提供",
+  "map": {
+    "zoom_in": "放大",
+    "zoom_out": "縮小",
+    "zoom_reset": "顯示完整地圖",
+    "zoom_level": "縮放 {{level}}×",
+    "no_data": "沒有資料",
+    "keys": "按 + 和 − 縮放，按 0 顯示完整地圖，放大後可用方向鍵移動。也可以拖曳地圖，或用滾輪縮放。",
+    "wheel_hint": "按住 Ctrl（Mac 上為 ⌘）並轉動滾輪，即可縮放地圖"
+  },
+  "onboarding": {
+    "eyebrow": "RUM 資料串接",
+    "title": "開始收集真實使用者體驗資料",
+    "description": "請先建立應用程式，再將該應用程式的 Client Token 提供給 MoleSignal RUM SDK。收到第一批事件後，這裡就會顯示工作階段、頁面效能和前端錯誤。",
+    "create": "建立應用程式",
+    "view_docs": "查看串接文件",
+    "steps": {
+      "1": "建立應用程式",
+      "2": "使用 Token 安裝 SDK",
+      "3": "傳送測試事件",
+      "4": "開始分析"
+    }
+  },
+  "nav": {
+    "overview": "總覽",
+    "explorer": "探索",
+    "playlists": "播放清單",
+    "errors": "錯誤",
+    "performance": "效能",
+    "applications": "應用程式",
+    "source_maps": "Source Maps 與 Symbols",
+    "upload_source_maps": "上傳偵錯檔案",
+    "frustration": "使用者挫折",
+    "analytics": "分析",
+    "feature_flags": "功能開關"
+  },
+  "overview": {
+    "retry": "重試",
+    "open_dashboard": "在儀表板中開啟",
+    "scope": {
+      "application": "應用程式",
+      "environment": "環境",
+      "all_environments": "所有環境"
+    },
+    "empty": {
+      "title": "這段時間沒有工作階段",
+      "description": "這個應用程式在所選的時間範圍內沒有任何記錄。請擴大時間範圍，或檢查該應用程式的 SDK 是否有傳送資料。",
+      "widen": "擴大時間範圍"
+    },
+    "unavailable": {
+      "time_budget": "統計所需時間已超過時限。請縮小時間範圍後再試。",
+      "busy": "系統正在為其他讀取者進行統計，請稍後再試。",
+      "timestamp_masked": "你的角色無法查看時間欄位，因此無法依時間統計。"
+    },
+    "pulse": {
+      "aria": "工作階段與 Core Web Vitals",
+      "sessions_one": "<n>{{formatted}}</n> 次工作階段",
+      "sessions_other": "<n>{{formatted}}</n> 次工作階段",
+      "people_one": "<n>{{formatted}}</n> 位使用者",
+      "people_other": "<n>{{formatted}}</n> 位使用者",
+      "browser": "<sessions/>，<people/>，其中 <n>{{share}}</n> 的工作階段未發生錯誤。",
+      "app": "<sessions/>，<people/>；<n>{{sessionShare}}</n> 的工作階段和 <n>{{userShare}}</n> 的使用者未遇到當機。"
+    },
+    "vitals": {
+      "label": "{{name}} · p75",
+      "names": {
+        "lcp": "LCP",
+        "inp": "INP",
+        "cls": "CLS"
+      },
+      "grade": {
+        "good": "良好",
+        "needs_improvement": "待改善",
+        "poor": "不佳"
+      },
+      "good_at": "≤ {{value}} 良好",
+      "poor_at": "> {{value}} 不佳",
+      "aria": "{{name}}，第 75 百分位數 {{value}}：{{grade}}",
+      "open": "在效能頁面查看 {{name}}",
+      "none_aria": "{{name}}：沒有任何檢視測得這項指標"
+    },
+    "pages": {
+      "title": "頁面",
+      "screens": "畫面",
+      "description": "瀏覽量最高的項目，附上各項指標的第 75 百分位數",
+      "description_screens": "瀏覽量最高的畫面",
+      "table": "瀏覽量最高的頁面",
+      "columns": {
+        "page": "頁面",
+        "screen": "畫面",
+        "views": "瀏覽量",
+        "errors": "有錯誤"
+      },
+      "open": "在「探索」中開啟 {{page}} 的檢視",
+      "empty": "這段期間沒有檢視資料"
+    },
+    "origins": {
+      "title": "訪客來自哪裡",
+      "description": "依國家統計工作階段數",
+      "map": "顯示工作階段來源的世界地圖",
+      "value_one": "{{formatted}} 次工作階段",
+      "value_other": "{{formatted}} 次工作階段",
+      "legend": "工作階段數"
+    },
+    "shares": {
+      "browsers": "瀏覽器",
+      "systems": "作業系統",
+      "devices": "裝置",
+      "other": "其他",
+      "empty": "沒有包含此欄位的工作階段",
+      "device_types": {
+        "desktop": "桌面",
+        "mobile": "手機",
+        "tablet": "平板",
+        "bot": "網路爬蟲",
+        "other": "其他"
+      }
+    },
+    "frustration": {
+      "title": "令人挫折的元素",
+      "description_click": "發生狂點、點擊無回應或點擊出錯的操作",
+      "description_tap": "發生連續點按或點按出錯的操作",
+      "empty": "這段時間沒有令人挫折的操作",
+      "unnamed": "未命名的元素",
+      "kinds": {
+        "rage": "狂點",
+        "dead": "點擊無回應",
+        "error": "點擊出錯",
+        "rage_tap": "連續點按",
+        "dead_tap": "點按無回應",
+        "error_tap": "點按出錯"
+      }
+    },
+    "issues": {
+      "title": "最新 issue",
+      "description": "新出現和再次發生的 issue，依受影響的工作階段數排序",
+      "all": "全部",
+      "empty": "這段時間內沒有新出現或再次發生的 issue",
+      "sessions_one": "{{formatted}} 個工作階段",
+      "sessions_other": "{{formatted}} 個工作階段",
+      "first_seen": "{{ago}}首次出現 · {{version}}",
+      "first_seen_plain": "{{ago}}首次出現",
+      "regressed": "已於 {{resolved}} 解決，{{ago}}在 {{version}} 再次出現",
+      "regressed_plain": "已解決，{{ago}}再次出現"
+    },
+    "test_traffic": {
+      "title": "這些數字只計入真實使用者，不包含合成監測和 CI 產生的工作階段。點一下即可查看這些工作階段。",
+      "note_one": "未計入 {{value}} 個合成監測工作階段",
+      "note_other": "未計入 {{value}} 個合成監測工作階段"
+    }
+  },
+  "performance": {
+    "empty": {
+      "title": "這段時間沒有網頁瀏覽紀錄"
+    },
+    "not_browser": {
+      "title": "Web Vitals 是在瀏覽器中測量的",
+      "description": "這個應用程式的資料並非來自瀏覽器，因此沒有可評分的網頁載入紀錄。應用程式的畫面和當機紀錄可在總覽和錯誤頁面查看。"
+    },
+    "metrics": {
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "fcp": "FCP",
+      "ttfb": "首位元組"
+    },
+    "dimensions": {
+      "page": "頁面",
+      "browser": "瀏覽器",
+      "os": "作業系統",
+      "device": "裝置",
+      "country": "國家或地區",
+      "version": "版本"
+    },
+    "statement": {
+      "aria": "頁面瀏覽與 Web Vitals",
+      "sentence": "<views/>，LCP 的 p75 是 <lcp/>，INP 是 <inp/>，CLS 是 <cls/>。",
+      "views_one": "<n>{{formatted}}</n> 次頁面瀏覽",
+      "views_other": "<n>{{formatted}}</n> 次頁面瀏覽",
+      "reading": "<figure>{{value}}</figure>（<grade>{{grade}}</grade>）",
+      "not_measured": "沒有資料"
+    },
+    "picker": {
+      "aria": "下方顯示的指標"
+    },
+    "trend": {
+      "title": "{{name}} 走勢",
+      "description": "各時段的第 75 百分位數；虛線標示從良好到待改善、再到不佳的分界",
+      "good": "良好",
+      "poor": "不佳",
+      "empty": "這段期間沒有任何瀏覽測得這項指標",
+      "aria": "{{name}} 的第 75 百分位數隨時間的變化"
+    },
+    "grades": {
+      "title": "各等級的瀏覽",
+      "description": "各項指標中，良好、待改善和不佳各占多少",
+      "empty": "這段期間沒有可評級的瀏覽",
+      "aria": "{{name}}：{{good}} 的瀏覽評為良好",
+      "range": {
+        "good": "≤ {{good}}",
+        "needs_improvement": "{{good}} 到 {{poor}}",
+        "poor": "> {{poor}}"
+      },
+      "note": "測得 {{name}} 的瀏覽次數：{{formatted}}"
+    },
+    "table": {
+      "by": "依",
+      "search": "搜尋表格中的值",
+      "search_label": "搜尋表格中的值",
+      "count_one": "{{count}} 個值",
+      "count_other": "{{count}} 個值",
+      "most_viewed_one": "瀏覽次數最多的值",
+      "most_viewed_other": "瀏覽次數最多的 {{count}} 個值",
+      "few_note": "瀏覽次數少於 {{views}} 的資料列會以灰色顯示",
+      "views": "瀏覽次數",
+      "good": "{{name}} 良好",
+      "none": "（無）",
+      "empty": "這段期間沒有瀏覽",
+      "no_match": "沒有符合的值",
+      "aria": "依{{dimension}}列出的各項指標",
+      "open": "查看 {{value}} 的瀏覽由哪些部分組成",
+      "few": "瀏覽未達 {{views}} 次，樣本太少，不列入排名"
+    },
+    "drawer": {
+      "title": "這些瀏覽慢在哪裡",
+      "tabs": "Web Vitals 指標",
+      "explore": "在探索中查看",
+      "alert": "為此建立警示",
+      "close": "關閉",
+      "views_one": "{{formatted}} 次瀏覽",
+      "views_other": "{{formatted}} 次瀏覽",
+      "none": "這個值的瀏覽沒有 {{name}} 的資料。",
+      "level": "{{name}} 的 p75 為 <reading/>，共 <n>{{formatted}}</n> 次瀏覽。",
+      "longest": "最耗時的階段是 <n>{{part}}</n>：{{value}}，占整體的 {{share}}。"
+    },
+    "makeup": {
+      "title": "{{name}} 由哪些階段組成",
+      "description": {
+        "lcp": "等待第一個位元組、等待圖片開始載入、載入圖片，以及等待圖片繪製完成",
+        "inp": "等待處理函式開始執行、函式執行，以及等待下一個影格繪製完成的時間"
+      },
+      "empty": "這段期間沒有任何瀏覽回報 {{name}} 的各階段資料。",
+      "aria": "{{name}} 的各階段，共 {{total}}",
+      "cohort": "取落在 p75 上下 10% 範圍內的瀏覽（{{formatted}} 次），計算各階段的平均值。"
+    },
+    "parts": {
+      "first_byte": "第一個位元組",
+      "load_delay": "載入延遲",
+      "load_time": "載入時間",
+      "render_delay": "算繪延遲",
+      "input_delay": "輸入延遲",
+      "processing_duration": "處理",
+      "presentation_delay": "呈現延遲"
+    },
+    "elements": {
+      "title": {
+        "lcp": "最後繪製的元素",
+        "inp": "互動的元素",
+        "cls": "位移的元素"
+      },
+      "description": "依元素出現的瀏覽次數排序",
+      "empty": "這段期間沒有任何瀏覽記錄到元素",
+      "columns": {
+        "element": "元素",
+        "resource": "檔案"
+      },
+      "open": "在探索中開啟包含 {{selector}} 的檢視",
+      "no_resource": "文字"
+    },
+    "worst": {
+      "title": "表現最差的瀏覽",
+      "description": "{{name}} 最高的幾次瀏覽",
+      "empty": "沒有可列入排名的瀏覽",
+      "explore": "在探索中開啟",
+      "session": "工作階段",
+      "load": "載入瀑布圖"
+    },
+    "views": {
+      "aria": "效能檢視",
+      "vitals": "Web Vitals",
+      "resources": "資源",
+      "long_tasks": "長任務"
+    },
+    "long_tasks": {
+      "invokers": {
+        "user-callback": "回呼",
+        "event-listener": "事件監聽",
+        "resolve-promise": "Promise 完成",
+        "reject-promise": "Promise 拒絕",
+        "classic-script": "傳統指令碼",
+        "module-script": "模組指令碼"
+      },
+      "statement": {
+        "aria": "頁面的長任務",
+        "tasks_one": "<n>{{formatted}}</n> 個長任務",
+        "tasks_other": "<n>{{formatted}}</n> 個長任務",
+        "sentence": "主執行緒共執行了 <tasks/>，有 <share>{{share}}</share> 的頁面瀏覽至少遇到一個長任務；p75 持續時間為 <n>{{duration}}</n>，p75 阻塞時間為 <n>{{blocking}}</n>。",
+        "sentence_alone": "主執行緒共執行了 <tasks/>；p75 持續時間為 <n>{{duration}}</n>，p75 阻塞時間為 <n>{{blocking}}</n>。",
+        "sentence_share": "主執行緒共執行了 <tasks/>，有 <share>{{share}}</share> 的頁面瀏覽至少遇到一個長任務。",
+        "sentence_count": "主執行緒共執行了 <tasks/>。"
+      },
+      "empty": {
+        "title": "這段期間沒有長任務",
+        "description": "如果頁面的主執行緒從未連續阻塞 50 ms 以上，就不會有長任務。"
+      },
+      "groups": {
+        "script": "指令碼 · 函式",
+        "page": "頁面",
+        "version": "版本",
+        "invoker": "觸發方式"
+      },
+      "heads": {
+        "script": "指令碼",
+        "function": "函式",
+        "page": "頁面",
+        "version": "版本",
+        "invoker": "觸發方式"
+      },
+      "table": {
+        "by": "分組依據",
+        "search": "搜尋指令碼",
+        "search_label": "搜尋表格中的指令碼",
+        "count_one": "{{count}} 組",
+        "count_other": "{{count}} 組",
+        "most_tasks_one": "長任務最多的一組",
+        "most_tasks_other": "長任務最多的 {{count}} 組",
+        "few_note": "不到 {{tasks}} 個長任務：灰色",
+        "empty": "這段期間沒有長任務",
+        "no_match": "沒有符合條件的群組",
+        "aria": "依{{group}}檢視長任務",
+        "open": "查看 {{value}} 的長任務由哪些項目組成",
+        "few": "長任務少於 {{tasks}} 個，無法排名",
+        "none": "（無）",
+        "unattributed": "未歸因",
+        "tasks": "長任務",
+        "views": "瀏覽",
+        "time": "p75 持續時間",
+        "blocking": "p75 阻塞時間"
+      },
+      "panel": {
+        "aria": "這組長任務",
+        "close": "關閉",
+        "tasks_one": "{{formatted}} 個長任務",
+        "tasks_other": "{{formatted}} 個長任務",
+        "unattributed_note": "Safari 和 Firefox 只回報長任務本身，不附指令碼資訊；MoleSignal 開始推導指令碼前收到的長任務也沒有指令碼資訊。這些長任務仍照常計入，沒有遺漏。",
+        "sentence": "p75 持續時間為 <n>{{duration}}</n>，其中 <b>{{blocking}}</b> 為阻塞時間。",
+        "sentence_time": "p75 持續時間為 <n>{{duration}}</n>。",
+        "page": "大多發生在 <code>{{page}}</code>。",
+        "invokers": "觸發方式",
+        "invokers_empty": "這組長任務沒有觸發方式資訊",
+        "unknown": "未說明",
+        "pages": "出現在哪些頁面",
+        "pages_empty": "沒有可顯示的頁面",
+        "samples": "最久的幾個長任務 · 點選即可查看該次頁面瀏覽的載入情形",
+        "samples_empty": "沒有長任務有持續時間紀錄",
+        "open_load": "查看這次瀏覽 {{page}} 的載入情形"
+      }
+    },
+    "section": {
+      "failed": "無法讀取這部分的數據。"
+    },
+    "resources": {
+      "statement": {
+        "aria": "頁面請求",
+        "requests_one": "<n>{{formatted}}</n> 次請求",
+        "requests_other": "<n>{{formatted}}</n> 次請求",
+        "sentence": "頁面共送出 <requests/>，p75 耗時 <n>{{duration}}</n>，失敗率為 <rate>{{rate}}</rate>（狀態碼為 400 以上或未收到回應）。",
+        "sentence_time": "頁面共送出 <requests/>，p75 耗時 <n>{{duration}}</n>。",
+        "sentence_count": "頁面共送出 <requests/>。",
+        "per_view": "每次頁面瀏覽平均載入 <n>{{resources}}</n> 個資源，大小為 <n>{{size}}</n>。"
+      },
+      "empty": {
+        "title": "這段時間沒有請求"
+      },
+      "groups": {
+        "host_type": "主機 · 類型",
+        "path": "主機 · 路徑",
+        "type": "類型",
+        "protocol": "通訊協定",
+        "delivery": "傳遞方式",
+        "blocking": "算繪阻塞"
+      },
+      "heads": {
+        "host": "主機",
+        "type": "類型",
+        "path": "路徑",
+        "protocol": "通訊協定",
+        "delivery": "傳遞",
+        "blocking": "算繪阻塞"
+      },
+      "statuses": {
+        "4xx": "用戶端錯誤（4xx）",
+        "5xx": "伺服器端錯誤（5xx）",
+        "none": "沒有回應"
+      },
+      "table": {
+        "by": "依",
+        "type": "類型",
+        "status": "狀態",
+        "all": "全部",
+        "search": "搜尋主機或路徑",
+        "search_label": "搜尋表格中請求的主機或路徑",
+        "count_one": "{{count}} 組",
+        "count_other": "{{count}} 組",
+        "most_requested_one": "請求最多的一組",
+        "most_requested_other": "請求最多的 {{count}} 組",
+        "few_note": "請求不到 {{requests}} 次：以灰色顯示",
+        "empty": "這段時間沒有請求",
+        "no_match": "沒有符合條件的群組",
+        "aria": "依 {{group}} 檢視請求",
+        "open": "查看 {{value}} 的請求組成",
+        "few": "請求不到 {{requests}} 次：不列入排名",
+        "none": "（無）",
+        "requests": "請求",
+        "time": "p75 耗時",
+        "failed": "失敗率",
+        "size": "p75 大小",
+        "cache": "快取命中"
+      },
+      "panel": {
+        "aria": "這組請求",
+        "close": "關閉",
+        "requests_one": "{{formatted}} 次請求",
+        "requests_other": "{{formatted}} 次請求",
+        "sentence": "p75 耗時 <n>{{duration}}</n>，有 <rate>{{rate}}</rate> 的請求失敗。",
+        "sentence_time": "p75 耗時 <n>{{duration}}</n>。",
+        "longest": "耗時最長的階段是 <n>{{part}}</n>：{{value}}。",
+        "trend": "耗時趨勢",
+        "trend_series": "p75 耗時",
+        "trend_empty": "這段時間這組沒有請求",
+        "trend_aria": "這組請求耗時的第 75 百分位數趨勢",
+        "parts": "接近 p75 的請求各階段耗時",
+        "parts_empty": "這組請求未提供各階段耗時",
+        "statuses": "狀態碼",
+        "statuses_empty": "這組請求沒有狀態碼",
+        "slowest": "最慢的請求 · 點開查看所在檢視的載入情況",
+        "slowest_empty": "沒有任何請求記錄耗時",
+        "open_load": "查看發出 {{path}} 請求的檢視的載入情況",
+        "traced": "{{share}}% 的請求帶有 trace id",
+        "explore": "在「探索」中查看這些請求"
+      }
+    }
+  },
+  "frustration": {
+    "empty": {
+      "title": "這段期間沒有受挫訊號",
+      "description_click": "這段期間沒有人狂點，也沒有點擊後無反應或發生錯誤的情況。請擴大時間範圍，或查看其他應用程式。",
+      "description_tap": "這段期間沒有人連續輕觸，也沒有輕觸後無回應或發生錯誤的情況。請擴大時間範圍，或查看其他應用程式。"
+    },
+    "statement": {
+      "aria": "受挫訊號概況",
+      "sentence": "<share>{{share}}</share> 的工作階段出現了受挫訊號：<kinds/>。",
+      "sentence_count_one": "<n>{{sessions}}</n> 個工作階段出現了受挫訊號：<kinds/>。",
+      "sentence_count_other": "<n>{{sessions}}</n> 個工作階段出現了受挫訊號：<kinds/>。",
+      "join": "，",
+      "sessions_one": "<n>{{formatted}}</n> 個工作階段",
+      "sessions_other": "<n>{{formatted}}</n> 個工作階段",
+      "kinds": {
+        "rage_one": "<k>狂點</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "rage_other": "<k>狂點</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "dead_one": "<k>無反應點擊</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "dead_other": "<k>無反應點擊</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "error_one": "<k>點擊出錯</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "error_other": "<k>點擊出錯</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "rage_tap_one": "<k>連續輕觸</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "rage_tap_other": "<k>連續輕觸</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "dead_tap_one": "<k>無回應輕觸</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "dead_tap_other": "<k>無回應輕觸</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "error_tap_one": "<k>輕觸出錯</k> <n>{{formatted}}</n> 次（<sessions/>）",
+        "error_tap_other": "<k>輕觸出錯</k> <n>{{formatted}}</n> 次（<sessions/>）"
+      }
+    },
+    "groups": {
+      "element": "元素",
+      "page": "頁面",
+      "screen": "畫面",
+      "version": "版本",
+      "browser": "瀏覽器",
+      "system": "系統"
+    },
+    "table": {
+      "by": "依據",
+      "kind": "訊號",
+      "kinds_all": "全部",
+      "search": "搜尋元素或頁面",
+      "search_label": "搜尋表格中的元素或頁面",
+      "count_one": "{{count}} 組",
+      "count_other": "{{count}} 組",
+      "most_one": "影響最多工作階段的一組",
+      "most_other": "影響最多工作階段的 {{count}} 組",
+      "empty": "這段時間沒有受挫訊號",
+      "no_match": "沒有符合條件的群組",
+      "aria": "依{{group}}查看受挫訊號",
+      "open": "查看 {{value}} 包含哪些受挫訊號",
+      "none": "（無）",
+      "unnamed": "（無名稱）",
+      "selector": "選擇器",
+      "sessions": "工作階段"
+    },
+    "panel": {
+      "aria": "這組受挫訊號",
+      "close": "關閉",
+      "sentence_one": "有 <n>{{formatted}}</n> 個工作階段在這個{{noun}}上出現過受挫訊號。",
+      "sentence_other": "有 <n>{{formatted}}</n> 個工作階段在這個{{noun}}上出現過受挫訊號。",
+      "page": "大多發生在 <code>{{page}}</code>。",
+      "trend": "受影響的工作階段",
+      "trend_series": "受影響的工作階段",
+      "trend_aria": "各時段受受挫訊號影響的工作階段數",
+      "trend_empty": "這段時間範圍內沒有受影響的工作階段",
+      "kinds": "訊號",
+      "kinds_empty": "沒有訊號可顯示",
+      "versions": "版本",
+      "versions_empty": "沒有版本可顯示",
+      "pages": "頁面",
+      "screens": "畫面",
+      "pages_empty": "沒有頁面可顯示",
+      "unknown": "未說明",
+      "samples": "近期工作階段 · 重播從訊號出現前 5 秒開始",
+      "samples_empty": "沒有可查看的工作階段",
+      "anonymous": "匿名 {{id}}",
+      "with_error": "有錯誤",
+      "replay": "重播",
+      "replay_at": "重播 {{time}}",
+      "session": "工作階段",
+      "replay_aria": "重播 {{time}} 的工作階段",
+      "session_aria": "查看 {{time}} 的工作階段",
+      "nouns": {
+        "element": "元素",
+        "page": "頁面",
+        "screen": "畫面",
+        "version": "版本",
+        "browser": "瀏覽器",
+        "system": "系統"
+      }
+    }
+  },
+  "analytics": {
+    "views": {
+      "aria": "分析檢視",
+      "funnel": "漏斗",
+      "paths": "路徑",
+      "retention": "留存",
+      "heatmap": "熱圖"
+    },
+    "kinds": {
+      "views": "頁面",
+      "views_app": "畫面",
+      "actions": "操作"
+    },
+    "fields": {
+      "view_url_path_group": "頁面分組",
+      "view_url_path": "完整路徑",
+      "view_name": "檢視名稱",
+      "action_target_name": "目標名稱",
+      "action_target_selector": "目標選擇器",
+      "action_type": "操作類型"
+    },
+    "ops": {
+      "eq": "是",
+      "contains": "包含"
+    },
+    "breakdowns": {
+      "version": "版本",
+      "browser_name": "瀏覽器",
+      "os_name": "系統",
+      "device_type": "裝置類型",
+      "geo_country_iso_code": "國家"
+    },
+    "value": {
+      "search": "搜尋或輸入一個值",
+      "use": "使用「{{value}}」"
+    },
+    "funnel": {
+      "title": "漏斗",
+      "steps_description": "依先後順序排列步驟。每個步驟代表開啟某個頁面或執行某項操作。",
+      "step_kind": "第 {{number}} 步要看什麼",
+      "step_field": "第 {{number}} 步的欄位",
+      "step_op": "第 {{number}} 步的比較方式",
+      "step_value": "第 {{number}} 步的值",
+      "step_placeholder": "選取或輸入一個值",
+      "remove_step": "移除第 {{number}} 步",
+      "add_step": "新增步驟",
+      "window": "時間限制",
+      "window_none": "不限時間",
+      "window_within": "{{time}} 內",
+      "minutes_one": "{{count}} 分鐘",
+      "minutes_other": "{{count}} 分鐘",
+      "hours_one": "{{count}} 小時",
+      "hours_other": "{{count}} 小時",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天",
+      "breakdown": "工作階段依此分組",
+      "breakdown_none": "不分組",
+      "breakdown_by": "依 {{field}} 分組",
+      "choose": {
+        "title": "指定每個步驟要找的內容",
+        "description": "漏斗會統計依序完成這些步驟的工作階段。每個步驟選擇一個頁面或操作。"
+      },
+      "result": "完成步驟的工作階段",
+      "result_description": "每個步驟會統計完成上一步後接著完成這一步的工作階段。",
+      "nobody": "這段期間沒有工作階段到達第一步",
+      "by_title": "漏斗（依 {{field}} 分組）",
+      "no_value": "未設定",
+      "columns": {
+        "step": "步驟",
+        "sessions": "工作階段",
+        "conversion": "占第一步的比例",
+        "from_previous": "流失",
+        "median": "耗時中位數",
+        "overall": "首尾轉換率"
+      }
+    },
+    "paths": {
+      "title": "路徑",
+      "description_after": "顯示工作階段接下來開啟的頁面，依瀏覽次數由多到少分欄顯示。",
+      "description_before": "顯示工作階段先前來自哪些頁面，依瀏覽次數由多到少分欄顯示。",
+      "direction": "方向",
+      "after": "此頁面之後",
+      "before": "此頁面之前",
+      "anchor": "作為路徑基準的頁面",
+      "anchor_first": "從工作階段的第一個頁面開始",
+      "anchor_last": "到工作階段的最後一個頁面為止",
+      "clear": "清除",
+      "depth": "顯示幾頁",
+      "depth_pages_one": "{{count}} 頁",
+      "depth_pages_other": "{{count}} 頁",
+      "told_by": "頁面依此區分",
+      "by": {
+        "view_url_path_group": "頁面分組",
+        "view_url_path": "完整路徑",
+        "view_name": "檢視名稱"
+      },
+      "nobody": "這段時間沒有路徑",
+      "other": "其他頁面",
+      "pick": "從 {{page}} 開始查看路徑",
+      "ends_one": "{{count}} 個工作階段到此結束",
+      "ends_other": "{{count}} 個工作階段到此結束",
+      "begins_one": "{{count}} 個工作階段從這裡開始",
+      "begins_other": "{{count}} 個工作階段從這裡開始",
+      "chart_aria": "{{sessions}} 個工作階段的路徑"
+    },
+    "retention": {
+      "title": "留存",
+      "description": "在某個週期內首次出現的使用者，在後續各週期再次出現的比例。天和週以 UTC 計算。",
+      "period": "分群依據",
+      "periods": "追蹤幾個週期",
+      "by_day": "天",
+      "by_week": "週",
+      "days_after_one": "{{count}} 天後",
+      "days_after_other": "{{count}} 天後",
+      "weeks_after_one": "{{count}} 週後",
+      "weeks_after_other": "{{count}} 週後",
+      "cohort_day": "首次出現的日期",
+      "cohort_week": "首次出現的那一週",
+      "people": "使用者數",
+      "average": "平均",
+      "nobody": "這段時間沒有使用者",
+      "too_short": "這段時間內，第一個週期之後沒有已結束的週期，目前還看不出哪些使用者回訪。請擴大時間範圍。",
+      "cell_one": "{{total}} 位使用者中有 {{count}} 位曾回訪",
+      "cell_other": "{{total}} 位使用者中有 {{count}} 位曾回訪"
+    },
+    "heatmap": {
+      "title": "熱圖",
+      "description_clicks": "使用者點擊了頁面上的哪些位置：標示在一次錄製的頁面畫面上",
+      "description_scroll": "使用者在這個頁面往下捲動到哪裡：顏色越深，看到該區域的人越少",
+      "page": "頁面",
+      "page_placeholder": "選取頁面",
+      "kind": "圖表類型",
+      "kinds": {
+        "clicks": "點擊",
+        "scroll": "捲動"
+      },
+      "device": "視窗",
+      "devices": {
+        "desktop": "桌面",
+        "tablet": "平板",
+        "mobile": "手機",
+        "all": "全部"
+      },
+      "recording": "錄製",
+      "recording_number": "第 {{number}} 次",
+      "open_session": "開啟這次工作階段",
+      "elements": "被點擊的元素",
+      "depths": "看到多遠",
+      "clicks_total_one": "共 {{count}} 次點擊",
+      "clicks_total_other": "共 {{count}} 次點擊",
+      "views_total_one": "共 {{count}} 次瀏覽",
+      "views_total_other": "共 {{count}} 次瀏覽",
+      "sessions_one": "{{count}} 個工作階段",
+      "sessions_other": "{{count}} 個工作階段",
+      "frustrated_one": "{{count}} 次受挫",
+      "frustrated_other": "{{count}} 次受挫",
+      "off_snapshot": "不在這次錄製的頁面上",
+      "median_depth": "有一半的瀏覽看到這裡",
+      "page_height": "頁面長度",
+      "scroll_line": "{{share}}% 的瀏覽看到這裡",
+      "no_clicks": "這個頁面在這段時間內沒有點擊",
+      "no_scroll": "這個頁面在這段時間內沒有捲動資料",
+      "reading_recording": "正在讀取錄製的頁面…",
+      "no_recording": "這個頁面在這段時間內沒有錄到此視窗大小的重播，因此無法繪製熱圖；數字仍然有效。",
+      "recording_denied": "你沒有查看重播的權限，因此無法繪製熱圖；數字仍然有效。",
+      "stage_failed": "無法開啟錄製的頁面：{{reason}}",
+      "not_browser": {
+        "title": "只有瀏覽器應用程式支援熱圖",
+        "description": "這類應用程式的重播使用螢幕截圖，沒有可用來定位元素的頁面。"
+      },
+      "no_pages": {
+        "title": "這段時間沒有頁面",
+        "description": "擴大時間範圍，或確認 SDK 已在回報資料。"
+      }
+    },
+    "segment": {
+      "label": "分群",
+      "everyone": "所有人"
+    }
+  },
+  "playlists": {
+    "title": "播放清單",
+    "create": "新增播放清單",
+    "result_count_one": "{{count}} 個播放清單",
+    "result_count_other": "{{count}} 個播放清單",
+    "application_filter": "應用程式",
+    "all_applications": "所有應用程式",
+    "columns": {
+      "name": "名稱",
+      "application": "應用程式",
+      "sessions": "工作階段",
+      "updated": "更新",
+      "created_by": "建立者"
+    },
+    "empty_title": "還沒有播放清單",
+    "empty_description": "把值得看的工作階段集中起來，再一個接一個看完。你可以在這裡或工作階段頁面新增播放清單。",
+    "empty_no_application": "播放清單隸屬於某個應用程式。請先建立應用程式。",
+    "not_found": "找不到這個播放清單",
+    "play": "從第一個開始播放",
+    "rename": "重新命名",
+    "delete": "刪除播放清單",
+    "cancel": "取消",
+    "all": "所有播放清單",
+    "delete_confirm_title": "刪除 {{name}}？",
+    "delete_confirm_description": "刪除播放清單不會影響其中的工作階段。",
+    "form": {
+      "create_title": "新增播放清單",
+      "edit_title": "重新命名播放清單",
+      "subtitle": "把一連串工作階段一個接一個看完。",
+      "name": "名稱",
+      "name_placeholder": "結帳失敗",
+      "description": "說明",
+      "description_hint": "這些工作階段有什麼共同點？",
+      "application": "應用程式",
+      "application_fixed": "播放清單會一直属於同一個應用程式。",
+      "create": "建立",
+      "save": "儲存"
+    },
+    "sessions": {
+      "title": "工作階段",
+      "count_one": "{{count}} 個工作階段",
+      "count_other": "{{count}} 個工作階段",
+      "empty": "這個播放清單還沒有工作階段。請前往工作階段頁面將它們加入清單。",
+      "session": "工作階段",
+      "person": "使用者",
+      "started": "開始時間",
+      "duration": "持續時間",
+      "signs": "發生了什麼",
+      "opens_at": "從此時間點開啟",
+      "remove": "將 {{id}} 從播放清單移除",
+      "remove_column": "移除",
+      "gone": "在資料中找不到",
+      "errors_one": "{{count}} 個錯誤",
+      "errors_other": "{{count}} 個錯誤",
+      "frustrations_one": "{{count}} 個受挫訊號",
+      "frustrations_other": "{{count}} 個受挫訊號"
+    },
+    "link": {
+      "moment": "複製此時間點的連結",
+      "session": "複製連結",
+      "copied": "連結已複製"
+    },
+    "menu": {
+      "button": "加入播放清單",
+      "title": "這個應用程式的播放清單",
+      "description": "將這個工作階段加入播放清單，或從清單中移除。",
+      "none": "這個應用程式還沒有播放清單。",
+      "at_moment": "從目前的重播時間點開啟",
+      "new_placeholder": "新的播放清單",
+      "new_name": "新播放清單的名稱",
+      "new": "建立並加入"
+    },
+    "bar": {
+      "place": "第 {{index}} 個，共 {{total}} 個",
+      "not_in": "這個工作階段不在此播放清單中",
+      "previous": "上一個",
+      "next": "下一個"
+    }
+  },
+  "errors": {
+    "state": {
+      "open": "待處理",
+      "investigating": "調查中",
+      "regressed": "迴歸",
+      "resolved": "已解決",
+      "ignored": "已忽略"
+    },
+    "filter": {
+      "unresolved": "待處理",
+      "regressed": "迴歸",
+      "investigating": "調查中",
+      "resolved": "已解決",
+      "ignored": "已忽略",
+      "all": "全部 issue"
+    },
+    "filters": {
+      "status": "狀態",
+      "holder": "指派",
+      "source": "來源"
+    },
+    "holder": {
+      "anyone": "全部",
+      "nobody": "未指派"
+    },
+    "search": {
+      "label": "搜尋 issue",
+      "placeholder": "搜尋 issue：訊息、類型、檔案"
+    },
+    "count_one": "{{count}} 個 issue",
+    "count_other": "{{count}} 個 issue",
+    "picked": {
+      "clear": "清除{{dimension}} {{value}}"
+    },
+    "saved": "Issue 已更新",
+    "table": {
+      "label": "Issue 清單",
+      "issue": "問題",
+      "status": "狀態",
+      "holder": "指派",
+      "sessions": "工作階段",
+      "users": "使用者",
+      "trend": "趨勢",
+      "versions": "版本",
+      "last_seen": "最近出現"
+    },
+    "overflow": {
+      "title": "其餘錯誤",
+      "description": "應用程式每小時新建的 issue 數量超過上限後，其餘錯誤會合併到這裡"
+    },
+    "spread": {
+      "title": "出現在哪裡",
+      "description": "依版本、頁面和瀏覽器細分清單中 issue 影響的工作階段",
+      "version": "版本",
+      "page": "頁面",
+      "browser": "瀏覽器",
+      "empty": "沒有工作階段"
+    },
+    "empty": {
+      "unresolved": "此時間範圍內沒有待處理的 issue",
+      "none": "此時間範圍內沒有 issue",
+      "description": "應用程式回報的錯誤會依類型、訊息和擲出位置分組，並顯示在這裡。",
+      "show_all": "顯示所有 issue"
+    },
+    "controls": {
+      "status": "狀態",
+      "team": "團隊",
+      "no_team": "未指派團隊",
+      "holder": "處理人"
+    },
+    "drawer": {
+      "title": "Issue",
+      "untyped": "錯誤",
+      "explore": "在探索中檢視",
+      "close": "關閉",
+      "source": "來源",
+      "handling": "處理方式",
+      "issue_id": "Issue ID",
+      "anonymous": "匿名 {{id}}",
+      "unknown": "未知",
+      "facts": {
+        "state": "狀態",
+        "sessions": "受影響的工作階段",
+        "users": "受影響的使用者",
+        "first_seen": "首次出現",
+        "last_seen": "最近出現",
+        "versions": "版本"
+      },
+      "where": {
+        "title": "出現在哪裡",
+        "description": "僅計入此 issue 的錯誤",
+        "browser": "瀏覽器",
+        "system": "作業系統",
+        "country": "國家"
+      },
+      "samples": {
+        "title": "工作階段樣本",
+        "description": "在各自發生的工作階段中查看近期錯誤",
+        "empty": "近期沒有錯誤",
+        "replay": "重播",
+        "timeline": "時間軸",
+        "not_kept": "工作階段未保留"
+      },
+      "people": {
+        "title": "受影響的使用者",
+        "description": "依出現次數",
+        "empty": "沒有使用者",
+        "times_one": "{{count}} 次",
+        "times_other": "{{count}} 次"
+      }
+    },
+    "trend": {
+      "title": "出現趨勢",
+      "description": "最近 {{days}} 天，按日統計、依版本堆疊，單位：工作階段",
+      "empty": "這幾天沒有工作階段",
+      "aria": "最近 {{days}} 天各版本受影響的工作階段，共 {{count}} 個",
+      "others": "其他版本",
+      "no_version": "無版本",
+      "resolved": "標記為已解決",
+      "resolved_in": "標記為已解決 · {{version}}"
+    },
+    "stack": {
+      "title": "擲回位置",
+      "view": "堆疊框架的顯示方式",
+      "restored": "還原後",
+      "raw": "原始",
+      "restored_tag": "已還原",
+      "library": "相依程式庫",
+      "anonymous": "（匿名）",
+      "empty": "這個錯誤未附帶堆疊",
+      "symbolication": {
+        "completed": "已使用 source map、mapping 或符號檔還原",
+        "partial": "部分堆疊框架已還原",
+        "missing": "未還原：沒有符合此版本的偵錯檔案",
+        "none": "堆疊框架依 SDK 回報的原樣顯示"
+      }
+    },
+    "banner": {
+      "resolved": "{{when}} 標記為已解決。",
+      "resolved_by": "{{when}} 由 {{who}} 標記為已解決。",
+      "resolved_in": "{{when}} 在 {{version}} 標記為已解決。",
+      "resolved_by_in": "{{when}} 由 {{who}} 在 {{version}} 標記為已解決。",
+      "back": "{{when}} 再次出現。",
+      "back_in": "自 {{when}} 起在 {{version}} 再次出現。",
+      "older": "如果錯誤在 {{version}} 或更早的版本出現，不會重新開啟此問題。"
+    }
+  },
+  "applications": {
+    "title": "應用程式",
+    "list_title": "RUM 應用程式",
+    "result_count_one": "{{count}} 個應用程式",
+    "result_count_other": "{{count}} 個應用程式",
+    "create_button": "建立應用程式",
+    "empty_title": "尚無應用程式",
+    "empty_description": "先建立應用程式，再將其 Client Token 提供給 SDK。傳送到不存在的應用程式的事件會遭到拒絕。",
+    "columns": {
+      "application": "應用程式",
+      "platform": "平台",
+      "collection": "收集",
+      "created": "建立時間"
+    },
+    "collection": {
+      "ip": "IP",
+      "geo": "位置"
+    },
+    "platforms": {
+      "browser": "瀏覽器",
+      "android": "Android",
+      "ios": "iOS",
+      "flutter": "Flutter",
+      "react-native": "React Native",
+      "other": "其他"
+    },
+    "create": {
+      "title": "建立應用程式",
+      "subtitle": "SDK 使用識別碼和 Client Token 將事件傳送到應用程式。",
+      "submit": "建立",
+      "name": "名稱",
+      "name_placeholder": "結帳網頁",
+      "id": "識別碼",
+      "id_hint": "留空時會使用 {{id}}。建立後無法修改。",
+      "id_invalid": "只能使用字母、數字及 . _ : -，最多 64 個字元。",
+      "platform": "平台"
+    },
+    "drawer": {
+      "close": "關閉",
+      "save": "儲存",
+      "saving": "儲存中",
+      "cancel": "取消",
+      "token_title": "Client Token",
+      "token_description": "將此 Token 提供給 SDK。此 Token 僅能用於將事件寫入此應用程式。",
+      "show_token": "顯示 Token",
+      "hide_token": "隱藏 Token",
+      "copy_token": "複製 Token",
+      "collection_title": "收集",
+      "collection_description": "隨每筆事件一併儲存的內容。即使不儲存 IP 位址，仍會用它查詢用戶端的位置。",
+      "collect_ip": "儲存 IP 位址",
+      "collect_ip_hint": "由伺服器解析出的請求來源位址。",
+      "collect_geo": "儲存位置",
+      "collect_geo_hint": "依地址查到的國家、地區和城市。",
+      "privacy": "預設隱私層級",
+      "privacy_hint": "整合範例中建議用於工作階段重播的層級。",
+      "privacy_mask": "遮蔽文字和輸入內容",
+      "privacy_allow": "錄製顯示的所有內容",
+      "setup_title": "整合 SDK",
+      "setup_description": "整合精靈會填好端點、Token 和識別碼。",
+      "open_guide": "開啟整合精靈",
+      "no_guide": "此平台需自行將事件傳送至接收端點，詳見文件。",
+      "delete_title": "刪除",
+      "delete_description": "此應用程式的 Client Token 將失效。已傳送的資料會保留到資料串流的保留期限屆滿。",
+      "delete": "刪除應用程式",
+      "delete_confirm_title": "刪除 {{name}}？",
+      "delete_confirm_description": "之後將拒絕使用此應用程式 Token 設定的 SDK。",
+      "scrub_title": "敏感資料",
+      "scrub_description": "寫入事件前，會從事件的地址、錯誤文字、名稱和請求詳細資料中移除敏感資料。SDK 錄製重播時自行套用的遮蔽不受影響。",
+      "scrub": {
+        "secrets": "權杖、金鑰和密碼",
+        "secrets_hint": "Bearer 和 JWT 權杖、API 金鑰、password= 後面的值，以及含有憑證的請求標頭值。",
+        "emails": "電子郵件地址",
+        "emails_hint": "每個地址都會替換成 [email]。",
+        "phones": "電話號碼",
+        "phones_hint": "國際電話號碼，以及中國和北美電話號碼的常見格式。",
+        "cards": "銀行卡號",
+        "cards_hint": "開頭幾位和檢查碼符合銀行卡號規則的數字。",
+        "national_ids": "證件號碼",
+        "national_ids_hint": "中國居民身分證號碼和美國社會安全號碼。",
+        "url_params": "敏感的 URL 參數",
+        "url_params_hint": "token、code、password、session、email 等參數的值，以及主機名稱前的使用者名稱和密碼。"
+      },
+      "sampling_title": "保留的工作階段",
+      "sampling_description": "除了 SDK 本身的取樣外，再保留一部分工作階段。每個工作階段連同重播內容，會完整保留或完整捨棄。保留比例由第一個符合該工作階段的篩選器決定；其餘工作階段則依下方比例保留。",
+      "sample_rate": "工作階段保留比例（%）",
+      "sample_rate_hint": "設為 100 即保留所有工作階段。未保留的工作階段事件不會寫入，接收端的回應會指出捨棄的數量。",
+      "retention": {
+        "new_name": "篩選器 {{number}}",
+        "add_filter": "新增篩選器",
+        "remove_filter": "刪除此篩選器",
+        "filter_up": "上移此篩選器",
+        "filter_down": "下移此篩選器",
+        "no_filters": "沒有篩選器：所有工作階段都依下方比例保留。篩選器可為符合條件的工作階段（例如所有正式環境的工作階段）單獨設定保留比例。",
+        "filter_name": "篩選器名稱",
+        "filter_rate": "符合條件的工作階段保留比例（%）",
+        "add_condition": "新增條件",
+        "remove_condition": "刪除此條件",
+        "condition_field": "條件欄位",
+        "condition_op": "比較方式",
+        "condition_values": "值",
+        "values_placeholder": "prod, production（* 代表任意文字）",
+        "ops": {
+          "is": "是",
+          "is_not": "不是"
+        },
+        "fields": {
+          "env": "環境",
+          "service": "服務",
+          "version": "版本",
+          "source": "平台",
+          "session_type": "工作階段類型",
+          "geo_country_iso_code": "國家代碼",
+          "browser_name": "瀏覽器",
+          "os_name": "系統",
+          "device_type": "裝置類型"
+        },
+        "rest_rate": "其餘工作階段的保留比例（%）",
+        "rest_rate_hint": "適用於不符合任何篩選條件的工作階段。設為 100 會保留這類工作階段。接收端的回應會指出捨棄了多少事件。",
+        "keep_errors": "保留所有錯誤",
+        "keep_errors_hint": "即使工作階段未保留，仍會儲存其中的錯誤，並依實際發生次數計數。若未啟用，罕見錯誤會隨工作階段一併捨棄。"
+      },
+      "issues_title": "Issue",
+      "issues_description": "此應用程式的錯誤如何歸類為 issue。",
+      "issues_per_hour": "每小時新增的 issue 數量",
+      "issues_per_hour_hint": "超過上限後，新的錯誤會併入名為「其餘錯誤」的 issue。",
+      "privacy_mask_user_input": "遮蔽使用者輸入",
+      "sdk": {
+        "title": "SDK 遠端設定",
+        "description": "以 remoteConfiguration: true 初始化的 SDK 會在啟動時讀取這裡的設定，不必重新發布網頁即可變更。留空的項目會沿用網頁中的設定。",
+        "not_said": "沿用網頁設定",
+        "session_sample_rate": "工作階段取樣率（%）",
+        "session_sample_rate_hint": "SDK 回報的工作階段比例，會先於保留比例套用。",
+        "session_replay_sample_rate": "重播取樣率（%）",
+        "session_replay_sample_rate_hint": "已回報的工作階段中，有錄製重播內容的比例。",
+        "privacy": "隱私權等級",
+        "clicks": "收集點擊事件",
+        "on": "收集",
+        "off": "不收集",
+        "console": "轉送主控台訊息",
+        "console_hint": "選擇哪些 console 方法的輸出也會寫入日誌串流。",
+        "console_none": "不轉送",
+        "console_from": "{{level}} 以上"
+      },
+      "segments": {
+        "title": "分群",
+        "description": "可將分析頁的範圍縮小到特定工作階段，依使用者和執行位置分群。",
+        "new_name": "分群 {{number}}",
+        "add": "新增分群",
+        "remove": "移除分群",
+        "none": "尚無分群。",
+        "name": "分群名稱",
+        "property_key": "屬性名稱，例如 plan",
+        "fields": {
+          "geo_country_iso_code": "國家（ISO 代碼）",
+          "geo_continent_code": "洲別",
+          "geo_city": "城市",
+          "browser_name": "瀏覽器",
+          "os_name": "作業系統",
+          "device_type": "裝置類型",
+          "usr_id": "使用者 ID",
+          "usr_email": "使用者電子郵件",
+          "account_id": "帳號 ID",
+          "service": "服務",
+          "version": "版本",
+          "source": "平台",
+          "property": "使用者屬性"
+        }
+      }
+    }
+  },
+  "session_detail": {
+    "title_error": "發生錯誤的工作階段",
+    "no_events": "此工作階段沒有可重播的事件。",
+    "replay_player": "重播播放器",
+    "replay_recorded": "已錄製，可重播",
+    "action_timeline_fallback": "操作時間軸",
+    "replay_loading": "正在載入 DOM 錄製資料…",
+    "replay_request_error": "無法載入此工作階段的錄製資料。",
+    "replay_load_error": "無法還原已錄製的頁面。",
+    "replay_unavailable": "此工作階段沒有可用的 DOM 錄製資料",
+    "replay_unavailable_description": "仍可在下方的事件時間軸查看頁面切換和應用程式事件，但此工作階段未被抽樣錄製 DOM。",
+    "events_unit": "個事件",
+    "restart": "從頭開始",
+    "play": "播放",
+    "pause": "暫停",
+    "seek": "跳至工作階段重播中的指定時間",
+    "user_context": "使用者資訊",
+    "device": "裝置",
+    "ip_address": "IP 位址",
+    "detected_issues": "發現的問題",
+    "no_detected_issues": "未偵測到明顯問題",
+    "event_timeline": "事件時間軸",
+    "event_timeline_description": "頁面跳轉、點擊、錯誤、網路請求和效能事件依發生順序排列。",
+    "related_traces_title": "關聯追蹤",
+    "related_traces_subtitle": "與此使用者工作階段直接關聯或依時間配對的後端追蹤。",
+    "related_empty": "此工作階段沒有相關的後端追蹤。",
+    "relation_direct": "直接關聯",
+    "relation_time_correlated": "時間相關",
+    "primary_service_label": "主要服務",
+    "title": "工作階段",
+    "related_columns": {
+      "spans": "Span"
+    },
+    "not_found": "最近 30 天內找不到此工作階段。",
+    "title_frustration": "出現受挫點擊的工作階段",
+    "user": "使用者",
+    "anonymous_user": "匿名",
+    "location": "位置",
+    "application": "應用程式",
+    "environment": "環境",
+    "version": "版本",
+    "duration": "持續時間",
+    "journey": "頁面",
+    "issue": {
+      "error": "錯誤",
+      "crash": "當機",
+      "frustration": "受挫訊號",
+      "long_task": "長時間工作"
+    },
+    "timeline_truncated": "{{types}} 只列出最前面的部分。",
+    "location_unknown": "未知",
+    "tools": {
+      "aria": "開發人員工具",
+      "tabs_aria": "開發人員工具的分頁",
+      "tabs": {
+        "errors": "錯誤",
+        "network": "網路",
+        "performance": "效能",
+        "logs": "日誌",
+        "comments": "留言"
+      },
+      "view": "檢視",
+      "follow": "跟隨重播",
+      "all_views": "所有檢視",
+      "display": {
+        "label": "顯示方式",
+        "list": "清單",
+        "waterfall": "瀑布圖"
+      },
+      "seek": "跳到 {{time}}",
+      "network": {
+        "aria": "這次工作階段的網路請求",
+        "time": "時間",
+        "method": "方法",
+        "name": "名稱",
+        "status": "狀態",
+        "type": "類型",
+        "duration": "耗時",
+        "size": "大小",
+        "empty": "這個檢視沒有請求",
+        "empty_all": "這次工作階段沒有請求",
+        "no_match": "沒有符合條件的請求"
+      },
+      "errors": {
+        "aria": "這次工作階段的錯誤",
+        "time": "時間",
+        "type": "類型",
+        "message": "訊息",
+        "issue": "Issue",
+        "issue_id": "issue {{id}}",
+        "open_issue": "開啟 issue {{id}}",
+        "crash": "當機",
+        "empty": "這次工作階段沒有錯誤"
+      },
+      "performance": {
+        "aria": "這次工作階段各檢視的效能",
+        "view": "檢視",
+        "resources": "資源",
+        "long_tasks": "長時間工作",
+        "open": "查看 {{view}} 的載入瀑布圖",
+        "empty": "這次工作階段沒有檢視"
+      },
+      "logs": {
+        "aria": "這次工作階段的日誌",
+        "time": "時間",
+        "level": "層級",
+        "message": "內容",
+        "logger": "來源",
+        "empty": "這次工作階段沒有日誌。請在 SDK 中使用 logger 寫入日誌，或啟用 forwardConsoleLogs 轉送主控台日誌。"
+      },
+      "comments": {
+        "aria": "這次重播的留言",
+        "time": "時間",
+        "body": "留言",
+        "author": "作者",
+        "nobody": "（已離開）",
+        "write": "撰寫留言",
+        "placeholder": "在 {{time}} 處撰寫留言",
+        "add": "留言",
+        "edit": "編輯留言",
+        "save": "儲存",
+        "cancel": "取消",
+        "delete": "刪除留言",
+        "empty": "還沒有留言"
+      }
+    },
+    "session_type": "工作階段類型",
+    "session_types": {
+      "synthetics": "合成監測",
+      "ci_test": "CI 測試",
+      "user": "真實使用者"
+    },
+    "summary": {
+      "title": "AI 摘要",
+      "generate": "產生摘要",
+      "regenerate": "重新產生",
+      "generating": "產生中…",
+      "none": "還沒有摘要。產生摘要時會使用 Mole Agent 的模型設定，並計入其每日預算。",
+      "chapters": "章節",
+      "by": "{{model}} · {{tokens}} token"
+    }
+  },
+  "settings": {
+    "title": "RUM 設定",
+    "nav": {
+      "sdk": "SDK 整合",
+      "source_maps": "Source Maps",
+      "sampling": "資料取樣",
+      "privacy": "隱私權設定",
+      "session_replay": "工作階段重播設定"
+    },
+    "docs_title": "整合與設定文件",
+    "docs_description": "查看 Browser RUM SDK 整合、Source Maps、取樣、隱私權與工作階段重播的相關文件。",
+    "view_docs": "查看文件",
+    "sections": {
+      "sdk": {
+        "title": "SDK 整合",
+        "subtitle": "選擇平台並驗證第一筆真實使用者事件。",
+        "heading": "整合 RUM SDK",
+        "description": "應用程式識別碼、環境和版本會作為所有 RUM 分析的共用脈絡。",
+        "steps": {
+          "1": "安裝對應平台的 MoleSignal RUM SDK。",
+          "2": "設定應用程式、環境、版本和資料接收位址。",
+          "3": "傳送測試工作階段，並在探索頁面中找到它。"
+        }
+      },
+      "sampling": {
+        "title": "資料取樣",
+        "subtitle": "控制工作階段、效能與重播資料的收集比例。",
+        "heading": "設定取樣策略",
+        "description": "在 SDK 設定中分別設定工作階段與重播的取樣方式；重播取樣僅適用於已取樣的工作階段。",
+        "steps": {
+          "1": "決定一般工作階段的取樣率。",
+          "2": "設定已取樣工作階段內的重播取樣率。",
+          "3": "發佈設定並觀察資料量與涵蓋率。"
+        }
+      },
+      "privacy": {
+        "title": "隱私權設定",
+        "subtitle": "控制文字、輸入內容、網路和使用者識別資訊的收集範圍。",
+        "heading": "保護使用者隱私",
+        "description": "在用戶端套用遮罩與封鎖規則，敏感資料不應離開使用者裝置。",
+        "steps": {
+          "1": "定義輸入欄位、文字和媒體的預設遮罩策略。",
+          "2": "封鎖敏感頁面、請求欄位和使用者識別資訊。",
+          "3": "使用測試工作階段確認敏感資料的遮蔽結果。"
+        }
+      },
+      "session-replay": {
+        "title": "工作階段重播設定",
+        "subtitle": "設定重播取樣、遮罩和錄製範圍。",
+        "heading": "設定工作階段重播",
+        "description": "只錄製找出使用者體驗問題所需的互動，並遵循隱私遮罩策略。",
+        "steps": {
+          "1": "啟用重播並設定獨立的取樣比例。",
+          "2": "設定頁面、元素和媒體的錄製規則。",
+          "3": "傳送測試工作階段並驗證重播時間軸。"
+        }
+      }
+    }
+  },
+  "source_maps": {
+    "title": "Source Maps 與 Symbols",
+    "subtitle": "統一管理 Web、Flutter、Android 與 iOS 用於還原堆疊的檔案。",
+    "upload_cta": "上傳偵錯檔案",
+    "load_error": "無法載入偵錯檔案",
+    "active_maps": "已上傳的偵錯檔案",
+    "active_maps_description": "目前共有 {{count}} 個可用於還原堆疊的檔案。",
+    "status_active": "已生效",
+    "columns": {
+      "application": "應用程式 ID",
+      "service": "服務",
+      "release": "版本",
+      "kind": "檔案類型",
+      "platform": "平台",
+      "filename": "檔案",
+      "status": "狀態",
+      "uploaded": "上傳時間",
+      "matched_errors": "相符的錯誤"
+    },
+    "kinds": {
+      "javascript_sourcemap": "JavaScript Source Map",
+      "flutter_symbols": "Flutter Symbols",
+      "android_mapping": "Android mapping.txt",
+      "android_native_symbols": "Android Native Symbols",
+      "apple_dsym": "Apple dSYM"
+    },
+    "empty_title": "尚未上傳偵錯檔案",
+    "empty_description": "為每個行動版或 Web 發佈版本上傳對應的偵錯檔案，即可將壓縮或混淆後的位置，以及原生位址，對應回原始碼。",
+    "onboarding_title": "將錯誤堆疊還原為可讀的原始碼",
+    "onboarding_description": "上傳 Source Map、Flutter symbols、Android mapping/native symbols 或 Apple dSYM 後，MoleSignal 會依應用程式和版本自動還原函式與行號。",
+    "view_docs": "查看整合文件",
+    "stack_example": "堆疊還原範例",
+    "before": "壓縮後",
+    "after": "還原後",
+    "demangle": "Source Map 還原",
+    "delete": "刪除",
+    "toast_deleted": "已刪除",
+    "delete_confirm_title": "確定要刪除偵錯產物？",
+    "delete_confirm_description": "現有的錯誤堆疊會保留；此版本後續發生的錯誤將不再還原。"
+  },
+  "upload_source_maps": {
+    "title": "上傳偵錯產物",
+    "application_label": "應用程式 ID",
+    "service_label": "服務",
+    "release_label": "版本",
+    "kind_label": "產物類型",
+    "platform_label": "平台",
+    "platform_hint": "可用選項會依產物類型而異。",
+    "architecture_label": "架構（選填）",
+    "architecture_hint": "若為原生產物，建議填寫架構，例如 arm64、armeabi-v7a 或 x86_64。",
+    "debug_id_label": "Debug ID / UUID（選填）",
+    "debug_id_hint": "同一版本包含多個建置產物時，可用來精確比對。",
+    "debug_id_placeholder": "UUID 或 Build ID",
+    "file_label": "偵錯產物檔案",
+    "file_hint": "支援 .map、mapping.txt、Flutter .symbols、未移除符號的 .so、dSYM 內的 DWARF 檔案，以及這些檔案的 .gz 格式。每個檔案大小上限為 50 MiB。",
+    "submit": "上傳",
+    "uploading": "上傳中…",
+    "file_required": "請選取檔案",
+    "success": "已上傳偵錯產物",
+    "back": "返回偵錯產物"
+  },
+  "explorer": {
+    "title": "探索",
+    "types": {
+      "sessions": "工作階段",
+      "views": "檢視",
+      "actions": "操作",
+      "errors": "錯誤",
+      "resources": "資源",
+      "long_tasks": "長時間工作",
+      "vitals": "指標",
+      "logs": "日誌"
+    },
+    "toolbar": {
+      "refresh": "重新整理"
+    },
+    "query": {
+      "run": "執行查詢",
+      "running": "正在執行查詢",
+      "clear_query": "清除查詢",
+      "collapse_editor": "收合查詢編輯器",
+      "expand_editor": "展開查詢編輯器",
+      "empty_summary": "全部{{type}}",
+      "free_text_label": "文字：",
+      "ignored_label": "已忽略：",
+      "help_title": "RUM 欄位查詢",
+      "help_description": "透過欄位比較篩選目前類型的資料列；未用於比較的字詞會在文字欄位中搜尋。",
+      "example_equals": "某個使用者",
+      "example_contains": "某個頁面",
+      "example_exclude": "排除某種瀏覽器",
+      "example_number": "慢於一秒（奈秒）"
+    },
+    "histogram": {
+      "show": "顯示直方圖",
+      "hide": "隱藏直方圖",
+      "label": "{{type}}隨時間的分布",
+      "ok": "資料列數",
+      "troubled": {
+        "sessions": "有錯誤的工作階段",
+        "views": "有錯誤的檢視",
+        "actions": "有挫折訊號的操作",
+        "errors": "錯誤",
+        "resources": "失敗的要求",
+        "long_tasks": "長時間工作",
+        "logs": "錯誤層級的日誌"
+      }
+    },
+    "columns": {
+      "time": "時間",
+      "user": "使用者",
+      "landing_page": "到達網頁",
+      "duration": "持續時間",
+      "views": "檢視",
+      "actions": "操作",
+      "errors": "錯誤",
+      "session_id": "工作階段",
+      "browser": "瀏覽器",
+      "country": "國家/地區",
+      "page": "頁面",
+      "loading_time": "載入時間",
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "view_id": "檢視",
+      "type": "類型",
+      "target": "目標",
+      "frustration": "受挫訊號",
+      "action_id": "操作",
+      "message": "訊息",
+      "error_type": "錯誤類型",
+      "source": "來源",
+      "handling": "處理",
+      "version": "版本",
+      "error_id": "錯誤",
+      "method": "方法",
+      "url": "URL",
+      "status": "狀態",
+      "size": "大小",
+      "resource_type": "類型",
+      "resource_id": "請求",
+      "entry_type": "種類",
+      "blocking": "阻塞",
+      "long_task_id": "任務"
+    },
+    "fields": {
+      "title": "欄位",
+      "resize": "調整欄位清單寬度",
+      "collapse": "收合欄位清單",
+      "expand": "展開欄位清單",
+      "summary": "{{shown}} / {{total}} 個欄位",
+      "filter_placeholder": "尋找欄位",
+      "filter_aria": "尋找欄位",
+      "displayed_fields": "顯示的欄位",
+      "indexed_fields": "已建立索引的欄位",
+      "other_fields": "其他欄位",
+      "no_match": "沒有符合的欄位",
+      "hide_field_aria": "從表格中移除 {{name}}",
+      "show_field_aria": "在表格中顯示 {{name}}",
+      "add_field_aria": "依 {{name}} 篩選",
+      "json_query_required": "{{name}} 是文件，無法比較",
+      "values_loading": "正在載入 {{name}} 的值",
+      "values_failed": "無法載入欄位值。",
+      "no_values": "這些資料列中沒有欄位值。",
+      "values_top": "最常見的 {{shown}} 個值",
+      "filter_for": "只看此值",
+      "filter_out": "排除此值",
+      "filter_remove": "移除此篩選條件",
+      "filter_for_aria": "只顯示 {{name}} 為 {{value}} 的資料列",
+      "filter_out_aria": "排除 {{name}} 為 {{value}} 的資料列",
+      "unavailable": {
+        "time_budget": "統計耗時過長。",
+        "busy": "執行中的查詢過多。"
+      }
+    },
+    "results": {
+      "loaded_count_one": "已載入 {{count}} 列",
+      "loaded_count_other": "已載入 {{count}} 列",
+      "reset_columns": "還原預設欄位",
+      "export": "下載為 CSV（最多 5,000 列）",
+      "export_more": "檔案僅包含最新的 {{count}} 列，還有其他符合查詢條件的資料列。"
+    },
+    "viz": {
+      "label": "視覺化為",
+      "names": {
+        "list": "清單",
+        "timeseries": "時間序列",
+        "toplist": "排行榜",
+        "table": "表格",
+        "map": "地圖",
+        "distribution": "分布"
+      },
+      "map_unavailable": "這類資料列沒有國家資訊，無法顯示在地圖上。",
+      "map_group": "地圖依國家將資料列分組",
+      "map_empty": "此範圍內沒有含國家資訊的資料列：應用程式未收集位置資訊，或未安裝 GeoIP 程式庫。",
+      "aggregate": "統計項目",
+      "measure": "度量",
+      "measure_edit": "修改度量 {{measure}}",
+      "measure_add": "新增度量",
+      "measure_remove": "移除度量 {{measure}}",
+      "function": "函式",
+      "group": "分組",
+      "group_then": "再分一層",
+      "group_edit": "修改分組 {{field}}",
+      "group_add": "新增分組",
+      "group_remove": "移除分組 {{field}}",
+      "bucket": "時間區間",
+      "bucket_auto_of": "自動 · {{bucket}}",
+      "top": "取前",
+      "search_fields": "搜尋欄位",
+      "no_fields": "沒有符合的欄位。",
+      "no_value": "（無）",
+      "count_of": "{{type}}數",
+      "title_by": "{{measure}}，依 {{groups}} 分組",
+      "vital_good": "良好",
+      "vital_poor": "較差",
+      "status": {
+        "unavailable": "暫時無法使用",
+        "per_point": "每點 {{bucket}}",
+        "groups_one": "{{count}} 組",
+        "groups_other": "{{count}} 組",
+        "top_groups_one": "前 {{count}} 組",
+        "top_groups_other": "前 {{count}} 組",
+        "countries_one": "{{count}} 個國家",
+        "countries_other": "{{count}} 個國家",
+        "rows_one": "{{count}} 列",
+        "rows_other": "{{count}} 列"
+      },
+      "field": "欄位",
+      "field_edit": "更換欄位 {{field}}",
+      "distribution": {
+        "title": "{{field}} 的分布",
+        "aria": "{{title}}，共 {{rows}} 列",
+        "bar": "{{from}} 到 {{to}}：{{rows}} 列",
+        "rows": "列數",
+        "p50": "P50",
+        "p75": "P75",
+        "p95": "P95",
+        "p99": "P99",
+        "max": "最大值"
+      }
+    },
+    "pagination": {
+      "aria": "RUM 結果分頁",
+      "page_size_aria": "每頁列數",
+      "previous": "上一頁",
+      "next": "下一頁"
+    },
+    "drawer": {
+      "title": "資料列詳細資料",
+      "resize": "調整詳細資料面板寬度",
+      "previous": "上一列",
+      "next": "下一列",
+      "open_session": "開啟工作階段",
+      "close": "關閉詳細資料",
+      "loading": "正在載入這一列",
+      "sections": {
+        "aria": "詳細資料區段",
+        "waterfall": "載入瀑布圖",
+        "stack": "堆疊",
+        "fields": "欄位",
+        "json": "JSON"
+      },
+      "failed": "無法讀取這一列。",
+      "position": "第 {{current}} 列，共 {{total}} 列",
+      "copy_json": "複製這一列的 JSON",
+      "copied_json": "已複製",
+      "replay": "查看重播",
+      "find_field": "搜尋欄位",
+      "no_field_match": "沒有相符的欄位",
+      "facts": {
+        "frustrations": "受挫",
+        "email": "電子郵件",
+        "os": "系統",
+        "device": "裝置",
+        "location": "位置",
+        "application": "應用程式",
+        "env": "環境",
+        "resources": "資源",
+        "long_tasks": "長時間工作",
+        "trace": "追蹤",
+        "issue": "問題",
+        "logger": "記錄器"
+      }
+    },
+    "recovery": {
+      "query_failed": "查詢失敗",
+      "no_data_title": "這個時間範圍內沒有資料",
+      "no_data_description": "這段時間沒有收到任何回報，或沒有符合查詢條件的資料列。",
+      "clear_filters": "清除查詢",
+      "expand_time": "擴大時間範圍",
+      "query_docs": "瞭解探索功能"
+    },
+    "saved_views": {
+      "label": "已儲存的檢視",
+      "none": "你儲存的檢視會列在這裡。",
+      "delete": "刪除檢視 {{name}}",
+      "name": "這個檢視的名稱",
+      "save": "儲存"
+    },
+    "export": {
+      "dashboard": {
+        "action": "加入儀表板",
+        "title": "加入儀表板",
+        "description": "面板會以 SQL 讀取相同的資料列，使用相同的篩選條件、量值和分組，時間範圍則依照儀表板設定。和這裡一樣，除非查詢明確納入，否則不會計入合成監控和 CI 產生的工作階段。",
+        "shapes": {
+          "timeseries": "繪製成時間序列圖：計數與加總依組別堆疊成直條，其他量值則以線條呈現。",
+          "toplist": "繪製成橫向長條圖，依第一個量值排名。",
+          "table": "顯示為表格，每個量值各佔一欄，單位與這裡相同。",
+          "distribution": "繪製成直方圖：將最小值到 p99 的範圍分成 40 個區間，並依儀表板的時間範圍重新劃分。"
+        },
+        "list_as_count": "將清單中符合條件的資料列數繪製成時間序列圖，與清單上方的直方圖相同。",
+        "map_as_top": "儀表板不支援地圖，改以橫向長條圖呈現排名前 {{count}} 的國家。",
+        "interval": "依儀表板的「間隔」變數切分時間，初始值為 {{interval}}。",
+        "interval_added": "這個儀表板還沒有「間隔」變數，會一併加入。",
+        "interval_label": "間隔",
+        "intervals": {
+          "1m": "1 分鐘",
+          "5m": "5 分鐘",
+          "15m": "15 分鐘",
+          "1h": "1 小時",
+          "1d": "1 天"
+        },
+        "target": "要加到哪個儀表板",
+        "targets": {
+          "new": "新增儀表板",
+          "existing": "現有儀表板"
+        },
+        "name": "儀表板名稱",
+        "dashboard": "儀表板",
+        "choose": "選擇儀表板",
+        "none": "目前沒有可加入面板的儀表板。",
+        "panel": "面板標題",
+        "create": "建立",
+        "add": "加入",
+        "saving": "儲存中…",
+        "created": "已建立儀表板「{{name}}」",
+        "added": "已加入儀表板「{{name}}」",
+        "open": "開啟",
+        "distribution_title": "分布：{{field}}"
+      },
+      "alert": {
+        "action": "新增告警",
+        "watches": "規則監控：{{measure}}。",
+        "watches_distribution": "規則監控：p75（{{field}}）。",
+        "left": "不會帶入：{{parts}}。",
+        "left_viz": "圖表呈現方式（{{viz}}）",
+        "left_groups": "分組（{{groups}}）",
+        "left_measures": "其餘度量（{{measures}}）",
+        "separator": "、",
+        "application": "規則只適用於一個應用程式，請在編輯器中選擇。",
+        "kinds": {
+          "threshold": "門檻告警",
+          "threshold_hint": "數值跨過門檻時發出告警",
+          "anomaly": "異常告警",
+          "anomaly_hint": "與前幾天的同一時段相比，偏差過大時發出告警"
+        }
+      }
+    }
+  },
+  "alerts": {
+    "button": "告警",
+    "button_aria_one": "告警，{{count}} 則正在發生",
+    "button_aria_other": "告警，{{count}} 則正在發生",
+    "drawer": {
+      "title": "告警",
+      "subtitle": "應用程式和環境與目前頁面一致",
+      "close": "關閉"
+    },
+    "going_on": {
+      "title": "正在發生",
+      "empty": "這個應用程式目前沒有進行中的告警。",
+      "open": "開啟"
+    },
+    "rules": {
+      "title": "這個應用程式的規則",
+      "new": "新增規則",
+      "empty": "目前沒有規則監控這個應用程式，可以使用下方的範本建立一條規則。",
+      "edit": "編輯",
+      "status": {
+        "firing": "觸發中",
+        "dropped": "已由管線捨棄",
+        "no_data": "無資料",
+        "pending": "待定",
+        "healthy": "正常",
+        "off": "已停用"
+      }
+    },
+    "templates": {
+      "title": "範本",
+      "hint_browser": "瀏覽器應用程式 · 點選「建立」即可建立並啟用規則",
+      "hint_app": "App · 點選「建立」即可建立並啟用規則",
+      "recommended": "建議",
+      "optional": "選用",
+      "create": "建立",
+      "creating": "建立中…",
+      "created": "已建立並啟用",
+      "created_off": "已建立，已停用",
+      "created_toast": "已建立並啟用規則「{{name}}」",
+      "view": "檢視規則",
+      "now": "目前",
+      "no_value": "目前沒有值：{{window}}內的{{kind}}不足 {{rows}} 個",
+      "unreadable": "無法讀取目前的值",
+      "would_trip": "建立後會立即進入{{severity}}狀態",
+      "sessions_per_one": "{{count}} 個工作階段 / {{window}}",
+      "sessions_per_other": "{{count}} 個工作階段 / {{window}}",
+      "list_separator": "，",
+      "line": "{{bands}} · {{window}}",
+      "at_least": "至少 {{rows}} 個{{kind}}",
+      "any_environment": "所有環境",
+      "name": "{{application}} · {{title}}",
+      "name_environment": "{{application}} · {{environment}} · {{title}}",
+      "items": {
+        "lcp": {
+          "title": "網頁載入變慢"
+        },
+        "inp": {
+          "title": "互動變慢"
+        },
+        "cls": {
+          "title": "版面配置抖動"
+        },
+        "error_rate": {
+          "title": "網頁錯誤率",
+          "title_app": "畫面錯誤率"
+        },
+        "failed_requests": {
+          "title": "請求失敗率"
+        },
+        "frustration": {
+          "title": "受挫工作階段"
+        },
+        "crash_free": {
+          "title": "當機變多"
+        },
+        "new_issues": {
+          "title": "出現新問題",
+          "rule": "在時間範圍內，於{{where}}首次出現的問題數大於 0 → {{severity}} · {{window}}"
+        },
+        "regressions": {
+          "title": "問題再次出現",
+          "rule": "已解決的問題在{{where}}再次出現 → {{severity}} · {{window}}"
+        },
+        "high_impact": {
+          "title": "影響重大的問題"
+        },
+        "traffic": {
+          "title": "流量中斷",
+          "rule": "時間範圍內的工作階段數小於 1 → {{severity}} · {{window}}（夜間沒有流量的應用程式請勿啟用）"
+        }
+      }
+    }
+  },
+  "waterfall": {
+    "failed": "無法讀取這次瀏覽的請求。",
+    "none": "這次瀏覽未回報任何資源",
+    "no_match": "沒有符合條件的資源",
+    "more": "還有 {{count}} 個資源，多數在 {{duration}} 內完成",
+    "expand": "展開",
+    "collapse": "收合",
+    "late": "另有 {{count}} 個資源在頁面載入後才開始請求",
+    "sentence": {
+      "join": "，",
+      "end": "。",
+      "loaded": "這次瀏覽在 <n>{{value}}</n> 內載入完成",
+      "first_byte": "首位元組 <n>{{value}}</n>",
+      "lcp": "LCP <n>{{value}}</n>（<grade>{{grade}}</grade>）",
+      "lcp_element": "LCP <n>{{value}}</n>（<grade>{{grade}}</grade>，<code>{{element}}</code>）",
+      "resources_one": "<n>{{count}}</n> 個資源",
+      "resources_other": "<n>{{count}}</n> 個資源",
+      "long_tasks_one": "<n>{{count}}</n> 個長時間工作",
+      "long_tasks_other": "<n>{{count}}</n> 個長時間工作",
+      "during": "期間請求了 <resources/>，遇到 <tasks/>。"
+    },
+    "filters": {
+      "type": "類型",
+      "all": "全部",
+      "show": "顯示",
+      "shows": {
+        "all": "全部",
+        "blocking": "阻擋算繪",
+        "slow": "慢（500 ms 以上）",
+        "failed": "失敗"
+      }
+    },
+    "legend": {
+      "wait": "等待",
+      "download": "下載",
+      "long_task": "長時間工作"
+    },
+    "marks": {
+      "first_byte": "首位元組",
+      "fcp": "FCP",
+      "dcl": "DCL",
+      "lcp": "LCP",
+      "load": "load"
+    },
+    "lane": {
+      "title": "主執行緒",
+      "count_one": "{{count}} 個長任務",
+      "count_other": "{{count}} 個長任務",
+      "task": "耗時 {{duration}} 的長任務"
+    },
+    "row": {
+      "blocking": "阻塞",
+      "lcp": "LCP"
+    },
+    "phases": {
+      "title": "階段",
+      "aria": "要求的各個階段，共 {{total}} 個",
+      "redirect": "重新導向",
+      "dns": "DNS",
+      "connect": "連線",
+      "tls": "TLS",
+      "first_byte": "第一個位元組",
+      "download": "下載"
+    },
+    "detail": {
+      "aria": "要求詳細資料",
+      "close": "關閉",
+      "lcp_file": "LCP 等待的檔案",
+      "trace": "追蹤",
+      "yes": "是",
+      "no": "否",
+      "size": "{{size}}（傳輸 {{transfer}}）",
+      "sentence": {
+        "lcp": "等了 <n>{{delay}}</n> 才送出要求，下載花了 <n>{{load}}</n>，又等了 <n>{{render}}</n> 才繪製完成。",
+        "unanswered": "<n>{{duration}}</n> 內未收到回應。",
+        "failed": "<n>{{duration}}</n> 後失敗，狀態為 <n>{{status}}</n>。",
+        "phases": "等了 <n>{{wait}}</n> 才收到第一個位元組，下載花了 <n>{{download}}</n>。",
+        "total": "總共花了 <n>{{duration}}</n>。"
+      },
+      "fields": {
+        "address": "位址",
+        "status": "狀態",
+        "size": "大小",
+        "delivery": "傳送方式",
+        "blocking": "算繪阻塞",
+        "start": "開始"
+      },
+      "delivery": {
+        "cache": "快取",
+        "network": "網路",
+        "other": "網路",
+        "navigational-prefetch": "預先擷取"
+      },
+      "after_load": "這項要求在檢視開始後 <n>{{start}}</n> 才送出，當時網頁已載入完畢，因此未顯示在時間軸上。"
+    },
+    "task": {
+      "unattributed": "長任務",
+      "subtitle": "長任務 · {{duration}}",
+      "none": "瀏覽器未提供指令碼",
+      "sentence": "執行了 <n>{{duration}}</n>。",
+      "sentence_blocking": "執行了 <n>{{duration}}</n>，其中有 <n>{{blocking}}</n> 阻塞了頁面輸入。",
+      "fields": {
+        "script": "指令碼",
+        "function": "函式",
+        "invoker": "觸發方式"
+      }
+    },
+    "truncated": "這個檢視的請求超過 {{count}} 筆，這裡只顯示最新的 {{count}} 筆。"
+  },
+  "agent": {
+    "investigate": "使用 Mole Agent 調查",
+    "investigate_short": "調查",
+    "investigate_title": "讓 Mole Agent 調查這裡。問題會先填入輸入框，由你確認後再送出。",
+    "investigate_element": "調查這個元素",
+    "investigate_session": "調查這個工作階段",
+    "investigate_row": "使用 Mole Agent 調查 {{value}}",
+    "all_environments": "所有環境",
+    "prompt": {
+      "overview": "調查 {{application}}（{{environment}}）從 {{from}} 到 {{to}} 的表現：先查看總覽和最新的問題，指出哪些指標異常，找出最可能的原因，並提出下一步建議。",
+      "errors": "調查 {{application}}（{{environment}}）從 {{from}} 到 {{to}} 的錯誤：哪些問題影響的工作階段最多、哪些是新出現或再次發生的問題、從哪個版本開始、最可能的原因，以及該先做什麼。",
+      "performance": "調查 {{application}}（{{environment}}）的頁面從 {{from}} 到 {{to}} 的速度：Core Web Vitals 和各項評等、哪些頁面、版本和瀏覽器拖慢了速度、最慢的幾個檢視在等什麼，以及該先修正什麼。",
+      "vital": "調查 {{application}}（{{environment}}）從 {{from}} 到 {{to}} 的 {{vital}}：評等如何、哪些頁面、版本和瀏覽器拉低了表現、最慢的幾個檢視在等什麼，以及該先修正什麼。",
+      "frustration": "調查 {{application}}（{{environment}}）的使用者從 {{from}} 到 {{to}} 為什麼受挫：哪些元素、頁面和版本出現狂點、點擊無回應或點擊出錯，點擊後發生了什麼，以及最可能的原因。",
+      "issue": "調查 {{application}}（{{environment}}）的問題「{{error}}」（id {{issue}}），範圍為 {{from}} 到 {{to}}：影響多少個工作階段和多少人、從什麼時候和哪個版本開始、是否再次發生，並根據堆疊和工作階段判斷最可能的原因，提出下一步建議。",
+      "slice": "調查 {{application}}（{{environment}}）中 {{dimension}} 為 {{value}} 的檢視從 {{from}} 到 {{to}} 的表現：整體情況如何、哪裡變慢或出錯、最可能的原因，以及下一步該怎麼做。",
+      "slice_figure": "調查 {{application}}（{{environment}}）中 {{dimension}} 為 {{value}} 的檢視從 {{from}} 到 {{to}} 的表現，其 {{vital}} P75 為 {{figure}}。是什麼拖慢了速度、哪些版本和瀏覽器影響最大、最慢的幾個檢視在等什麼，以及該先修正什麼。",
+      "element": "調查 {{application}}（{{environment}}）的元素「{{element}}」從 {{from}} 到 {{to}} 的情況：使用者在這個元素上出現狂點、點擊無回應或點擊出錯的情形。點擊後發生了什麼、出現在哪些頁面和版本，以及最可能的原因。",
+      "element_selector": "調查 {{application}}（{{environment}}）的元素「{{element}}」（{{selector}}）從 {{from}} 到 {{to}} 的情況：使用者在這個元素上出現狂點、點擊無回應或點擊出錯的情形。點擊後發生了什麼、出現在哪些頁面和版本，以及最可能的原因。",
+      "session": "調查 {{application}}（{{environment}}）的工作階段 {{session}}（{{from}} 到 {{to}}）：這位使用者依序做了什麼、哪裡出了問題，以及最可能的原因。",
+      "incident": "調查 {{application}}（{{environment}}）從 {{from}} 到 {{to}} 的警示「{{summary}}」：是什麼讓這項指標改變、哪些頁面、版本和瀏覽器影響最大、最可能的原因，以及下一步該怎麼做。先列出調查計畫，再逐項提出證據；不要變更正式環境。",
+      "incident_sessions": "調查 {{application}}（{{environment}}）從 {{from}} 到 {{to}} 的警示「{{summary}}」：是什麼讓這項指標改變、哪些頁面、版本和瀏覽器影響最大、最可能的原因，以及下一步該怎麼做。請參考這些工作階段來說明警示：{{sessions}}。先列出調查計畫，再逐項提出證據；不要變更正式環境。"
+    }
+  },
+  "estimate": {
+    "note": "估算值 · 已保留 {{share}} 的工作階段",
+    "hint": "這個範圍內只保留了 {{share}} 的工作階段。這裡的數量依各工作階段的保留比例向上推估；觀測到的人數、最小值和最大值不作推估。探索工具只列出已保留的工作階段。"
+  },
+  "flags": {
+    "list_title": "功能開關",
+    "list_description": "這段期間在工作階段中評估過的功能開關，依工作階段數由多至少排序",
+    "sessions_one": "{{value}} 個工作階段",
+    "sessions_other": "{{value}} 個工作階段",
+    "compare_description": "比較這個開關在不同值下的工作階段表現",
+    "compare_aria": "比較 {{flag}} 的各個值",
+    "no_values": "這段期間沒有檢視包含這個開關",
+    "not_evaluated": "（未評估）",
+    "open": "查看這些檢視",
+    "columns": {
+      "value": "取值",
+      "sessions": "工作階段",
+      "errors": "有錯誤的檢視",
+      "frustration": "有使用者受挫事件的檢視"
+    },
+    "empty": {
+      "title": "這段期間沒有功能開關",
+      "description": "在 SDK 中呼叫 addFeatureFlagEvaluation 後，已評估的功能開關會顯示在這裡。"
+    }
+  }
+}

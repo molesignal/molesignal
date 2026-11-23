@@ -1,0 +1,76 @@
+{
+  "title": "已儲存的檢視",
+  "subtitle": "可重複使用的 SQL / PromQL 查詢，可在組織內共用。",
+  "actions": {
+    "new": "新增儲存的檢視",
+    "open": "開啟",
+    "pin": "置頂",
+    "unpin": "取消置頂",
+    "edit": "編輯",
+    "delete": "刪除"
+  },
+  "kpis": {
+    "total": "已儲存的檢視",
+    "pinned": "已置頂"
+  },
+  "list": {
+    "columns": {
+      "name": "名稱",
+      "language": "語言",
+      "stream": "資料流",
+      "tags": "標籤",
+      "range": "時間範圍",
+      "updated": "更新時間",
+      "actions": "操作"
+    }
+  },
+  "states": {
+    "empty_title": "尚無已儲存的檢視",
+    "empty_description": "儲存 SQL 或 PromQL 查詢，方便在疑難排解時重複使用。"
+  },
+  "confirm": {
+    "delete_title": "要刪除已儲存的檢視嗎？",
+    "delete": "確定要刪除此檢視嗎？此操作無法復原。",
+    "cancel": "取消"
+  },
+  "toast": {
+    "saved": "已儲存檢視「{{name}}」",
+    "deleted": "已刪除儲存的檢視"
+  },
+  "drawer": {
+    "edit_title": "編輯已儲存的檢視",
+    "subtitle": "為 SQL 或 PromQL 查詢命名，方便重複使用。",
+    "save": "儲存變更",
+    "create": "建立",
+    "sections": {
+      "identity": "識別資訊",
+      "query": "查詢",
+      "organize": "整理"
+    },
+    "fields": {
+      "name": "名稱",
+      "language": "語言",
+      "range": "預設時間範圍",
+      "statement": "查詢陳述式",
+      "stream": "資料流（選填）",
+      "tags": "標籤",
+      "pinned": "置頂"
+    },
+    "hints": {
+      "stream": "開啟檢視時用於略過不相關的分割區。",
+      "tags": "以逗號分隔。"
+    }
+  },
+  "report": {
+    "time_range": "時間範圍",
+    "timezone": "時區",
+    "stream": "資料流",
+    "rows": "列數",
+    "rows_capped": "僅前 {{shown}} 列",
+    "generated": "產生時間",
+    "results": "查詢結果",
+    "empty": "這個時間範圍內沒有資料。",
+    "no_view": "報表未指定要呈現的已儲存檢視。",
+    "no_stream": "已儲存的檢視未指定資料流，組織內也沒有可供執行此檢視的日誌資料流。"
+  }
+}

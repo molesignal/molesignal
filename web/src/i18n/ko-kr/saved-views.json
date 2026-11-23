@@ -1,0 +1,76 @@
+{
+  "title": "저장된 뷰",
+  "subtitle": "조직 전체에서 공유하고 재사용할 수 있는 SQL / PromQL 쿼리입니다.",
+  "actions": {
+    "new": "새 저장 뷰",
+    "open": "열기",
+    "pin": "고정",
+    "unpin": "고정 해제",
+    "edit": "편집",
+    "delete": "삭제"
+  },
+  "kpis": {
+    "total": "저장된 뷰",
+    "pinned": "고정됨"
+  },
+  "list": {
+    "columns": {
+      "name": "이름",
+      "language": "언어",
+      "stream": "스트림",
+      "tags": "태그",
+      "range": "시간 범위",
+      "updated": "업데이트 시간",
+      "actions": "작업"
+    }
+  },
+  "states": {
+    "empty_title": "저장된 뷰가 없습니다",
+    "empty_description": "SQL 또는 PromQL 쿼리를 저장하면 여러 조사에서 재사용할 수 있습니다."
+  },
+  "confirm": {
+    "delete_title": "저장된 뷰를 삭제하시겠습니까?",
+    "delete": "이 저장된 뷰를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "cancel": "취소"
+  },
+  "toast": {
+    "saved": "뷰 “{{name}}”을(를) 저장했습니다",
+    "deleted": "저장된 뷰를 삭제했습니다"
+  },
+  "drawer": {
+    "edit_title": "저장된 뷰 편집",
+    "subtitle": "나중에 재사용할 수 있도록 SQL 또는 PromQL 쿼리에 이름을 지정합니다.",
+    "save": "변경 사항 저장",
+    "create": "만들기",
+    "sections": {
+      "identity": "기본 정보",
+      "query": "쿼리",
+      "organize": "정리"
+    },
+    "fields": {
+      "name": "이름",
+      "language": "언어",
+      "range": "기본 시간 범위",
+      "statement": "쿼리문",
+      "stream": "스트림(선택 사항)",
+      "tags": "태그",
+      "pinned": "상단에 고정"
+    },
+    "hints": {
+      "stream": "뷰를 열 때 파티션 프루닝 범위를 제한합니다.",
+      "tags": "쉼표로 구분합니다."
+    }
+  },
+  "report": {
+    "time_range": "시간 범위",
+    "timezone": "시간대",
+    "stream": "스트림",
+    "rows": "행",
+    "rows_capped": "처음 {{shown}}개 행만 표시",
+    "generated": "생성 시간",
+    "results": "결과",
+    "empty": "이 시간 범위에 해당하는 행이 없습니다.",
+    "no_view": "보고서에 저장된 보기의 이름이 지정되어 있지 않습니다.",
+    "no_stream": "저장된 보기에 스트림이 지정되어 있지 않으며, 조직에도 이 보기를 실행할 로그 스트림이 없습니다."
+  }
+}

@@ -1,0 +1,255 @@
+{
+  "title": "継続的プロファイリング",
+  "subtitle": "各サービスの CPU 使用状況、メモリ使用状況、ロック競合をフレームグラフで可視化します。",
+  "refresh": "更新",
+  "live": {
+    "label": "ライブ",
+    "hint": "10s ごとに自動更新"
+  },
+  "filters": {
+    "service": "サービス",
+    "service_all": "すべてのサービス",
+    "type": "プロファイルタイプ",
+    "label": "ラベルフィルター",
+    "label_placeholder": "key:value",
+    "apply": "適用"
+  },
+  "profile_types": {
+    "cpu": "CPU",
+    "wall": "実経過時間",
+    "alloc_space": "割り当て済みメモリ",
+    "alloc_objects": "割り当て済みオブジェクト",
+    "inuse_space": "使用中のメモリ",
+    "inuse_objects": "使用中のオブジェクト",
+    "goroutines": "Goroutine",
+    "lock": "ロック競合",
+    "samples": "サンプル"
+  },
+  "analysis": {
+    "filter_bar_aria": "プロファイル分析フィルター",
+    "clear_trace": "トレースフィルターをクリア",
+    "summary_aria": "分析結果の概要",
+    "hottest": "最大のホットスポット",
+    "hot_share": "自身の割合：{{percent}}%",
+    "no_hotspot": "ホットスポットに該当する関数なし",
+    "samples": "{{count}} サンプル",
+    "service_count_one": "{{count}} 件のサービス",
+    "service_count_other": "{{count}} 件のサービス",
+    "captured": "収集時間：{{duration}}",
+    "profiles_button": "{{selected}} / {{total}} 件のプロファイル",
+    "profiles_button_aria": "分析対象のプロファイルを選択（{{total}} 件中 {{selected}} 件を選択済み）",
+    "workspace_aria": "プロファイル分析ワークスペース",
+    "loading_flamegraph": "選択したプロファイルを統合しています…",
+    "no_selection_title": "分析対象のプロファイルが未選択",
+    "no_selection_description": "選択したプロファイルを統合してフレームグラフを作成します。プロファイルを 1 件以上選択してください。",
+    "no_selection_action": "プロファイルを選択"
+  },
+  "first_run": {
+    "eyebrow": "継続的プロファイリング",
+    "steps": {
+      "send": {
+        "title": "プロファイルを送信",
+        "description": "OTLP または Pyroscope 経由で pprof を送信するか、ファイルをアップロードしてお試しください。"
+      },
+      "narrow": {
+        "title": "分析対象の絞り込み",
+        "description": "サービス、プロファイルの種類、マージするプロファイルを選択します。"
+      },
+      "read": {
+        "title": "フレームグラフの読み方",
+        "description": "フレームの幅が広いほどコストが高く、最もコストの高い関数がページの先頭に表示されます。"
+      }
+    }
+  },
+  "selection": {
+    "title": "分析対象のプロファイル",
+    "selected_summary": "{{selected}} / {{total}} 件を選択済み",
+    "description": "チェックしたプロファイルは、1 つのフレームグラフにマージされます。行をクリックすると、そのプロファイルを単独で表示できます。",
+    "select_all": "すべてのプロファイルを選択",
+    "select_none": "すべてのプロファイルの選択を解除",
+    "row_aria": "分析対象のプロファイル {{id}} の選択を切り替え"
+  },
+  "units": {
+    "nanoseconds": "ns",
+    "bytes": "bytes",
+    "count": "count",
+    "samples": "samples"
+  },
+  "list": {
+    "title": "プロファイル",
+    "kpi": {
+      "total_value": "合計",
+      "samples": "サンプル数",
+      "services": "サービス",
+      "hot_function": "最もコストの高い関数"
+    },
+    "columns": {
+      "service": "サービス",
+      "type": "種類",
+      "timestamp": "キャプチャ日時",
+      "duration": "キャプチャ時間",
+      "samples": "サンプル数",
+      "total_value": "合計",
+      "trace": "トレース"
+    },
+    "tooltip": {
+      "duration": "キャプチャの開始から終了までの実経過時間",
+      "total": "累積 CPU 実行時間（サンプル値の合計）"
+    },
+    "view_flamegraph": "フレームグラフを表示",
+    "open_profile": "プロファイルを開く",
+    "empty_title": "この時間範囲にプロファイルはありません",
+    "empty_description": "［データソース］で取り込み（OTLP / Pyroscope / pprof）を設定するか、［アップロード］から pprof ファイルを直接送信できます。"
+  },
+  "flamegraph": {
+    "title": "フレームグラフ",
+    "search_placeholder": "フレームをハイライト…",
+    "reset_zoom": "ズームをリセット",
+    "fit_canvas": "表示をリセット",
+    "fullscreen": "分析を全画面表示",
+    "exit_fullscreen": "全画面表示を終了",
+    "resize": "ドラッグで分析エリアのサイズを変更し、ダブルクリックで元のサイズに戻します。",
+    "value_type": "値",
+    "no_data_title": "表示できるサンプルがありません",
+    "no_data_description": "選択したサービス、タイプ、時間範囲に一致するプロファイルがありません。",
+    "truncated_notice": "選択した時間範囲がマージの上限を超えたため、一致するプロファイルのうち代表的なものを表示しています。",
+    "frame_aria": "関数 {{name}} を分析",
+    "root_aria": "すべてのサンプルを分析",
+    "root_note": "すべてのサンプル",
+    "frame_self": "自己コスト",
+    "frame_total": "合計コスト",
+    "frame_share": "全体に占める割合",
+    "self_help": "子呼び出しを除いた、この関数自体のコストです。",
+    "total_help": "すべての子呼び出しを含む累積コストです。",
+    "profiles_merged": "{{count}} 件のプロファイルをマージしました",
+    "view": {
+      "flame": "フレームグラフ",
+      "tree": "コールツリー",
+      "top": "上位の関数"
+    },
+    "top": {
+      "function": "関数",
+      "self": "自己コスト",
+      "self_pct": "自己コスト (%)",
+      "cum": "合計コスト",
+      "cum_pct": "合計コスト (%)",
+      "select_hint": "この関数を選択して詳細を確認できます。",
+      "jump_hint": "クリックすると、この関数がフレームグラフで強調表示されます。"
+    },
+    "tree": {
+      "expand": "子呼び出しを展開",
+      "collapse": "子呼び出しを折りたたむ"
+    },
+    "details": {
+      "title": "関数の詳細",
+      "focus": "フレームグラフでフォーカス",
+      "call_tree": "コールツリーで表示",
+      "compare": "比較",
+      "occurrences": "出現回数",
+      "service": "サービス",
+      "all_services": "すべてのサービス",
+      "call_path": "呼び出しパス",
+      "children": "直接の子呼び出し",
+      "no_children": "直接の子呼び出しはありません",
+      "depth": "呼び出しの深さ"
+    },
+    "tooltip": {
+      "focus_hint": "クリックすると、このフレームにフォーカスして関数の詳細を確認できます。"
+    },
+    "legend": {
+      "width": "幅",
+      "cumulative": "累積コスト",
+      "color": "色",
+      "self": "自己コスト",
+      "cold": "コールド",
+      "hot": "ホット"
+    }
+  },
+  "compare": {
+    "title": "プロファイルの比較",
+    "subtitle": "2つの期間を比較し、負荷が増えた箇所と減った箇所を確認できます。どちらの期間も自由に設定できます。",
+    "filters_aria": "比較条件",
+    "baseline_aria": "ベースライン: {{value}}",
+    "baseline_title": "ベースラインの選択",
+    "baseline_relative": "比較期間に連動",
+    "baseline_overlaps": "このベースラインは比較期間と重なります。",
+    "baselines": {
+      "previous": "直前の期間",
+      "day": "1日前の同じ時間帯",
+      "week": "1週間前の同じ時間帯",
+      "custom": "カスタム期間"
+    },
+    "statement_aria": "比較する2つの期間",
+    "comparison": "比較対象",
+    "baseline": "ベースライン",
+    "period_profiles_one": "プロファイル{{count}}件",
+    "period_profiles_other": "プロファイル{{count}}件",
+    "overall": "全体の変化",
+    "unequal_counts": "2つの期間で収集されたプロファイル数が異なるため（比較対象: {{comparison}}、ベースライン: {{baseline}}）、件数の差が変化の一部に影響しています。",
+    "overlap": "2つの期間が重なっています。重複期間に収集されたプロファイルは、両方の期間に含まれます。",
+    "loading": "2つの期間を比較中…",
+    "legend_increase": "増加",
+    "legend_decrease": "減少",
+    "changed": {
+      "title": "変化が大きい関数",
+      "count_one": "{{count}}件の関数に変化",
+      "count_other": "{{count}}件の関数に変化",
+      "function": "関数",
+      "baseline": "ベースライン",
+      "comparison": "比較対象",
+      "change": "自己コストの変化",
+      "new": "新規",
+      "gone": "消失",
+      "show_all": "全{{count}}件を表示",
+      "show_top": "上位{{count}}件を表示",
+      "none": "2つの期間で自己コストが変化した関数はありません。",
+      "select_hint": "フレームグラフでこの関数を強調表示"
+    },
+    "empty": {
+      "none_title": "どちらの期間にもプロファイルがありません",
+      "none_description": "どちらの期間にも、このサービスの指定タイプのプロファイルは収集されていません。収集済みの期間に変更するか、別のタイプを選択してください。",
+      "baseline_title": "ベースラインにプロファイルがありません",
+      "baseline_description": "ベースライン期間にプロファイルがないため、すべての関数が新規として表示されます。プロファイルが収集された期間をベースラインに設定してください。",
+      "comparison_title": "比較期間に収集されたプロファイルがありません",
+      "comparison_description": "選択した期間には、ベースラインと比較できるプロファイルがありません。プロファイルが収集された期間を選択してください。",
+      "open_analysis": "この期間を分析画面で開く"
+    }
+  },
+  "detail": {
+    "title": "プロファイル",
+    "back": "プロファイル一覧に戻る",
+    "download": "pprof をダウンロード",
+    "downloading": "ダウンロード中…",
+    "open_trace": "関連するトレースを開く",
+    "view_span_flamegraph": "このスパンのフレームグラフを表示",
+    "metadata": {
+      "service": "サービス",
+      "type": "タイプ",
+      "captured": "収集日時",
+      "duration": "収集時間",
+      "samples": "サンプル数",
+      "trace": "トレース",
+      "span": "スパン"
+    },
+    "unsymbolized": "シンボルが解決されていないフレームが含まれています"
+  },
+  "upload": {
+    "button": "アップロード",
+    "title": "プロファイルのアップロード",
+    "description": "gzip 圧縮または非圧縮の pprof プロファイルをアップロードします。OTLP / Pyroscope の設定については、データソースを参照してください。",
+    "service": "サービス",
+    "service_placeholder": "my-service",
+    "type": "プロファイルのタイプ",
+    "file": "pprof ファイル",
+    "choose_file": "ファイルを選択…",
+    "submit": "アップロード",
+    "uploading": "アップロード中…",
+    "success": "プロファイルをアップロードしました",
+    "error": "アップロードに失敗しました",
+    "datasource_link": "OTLP / Pyroscope を設定"
+  },
+  "errors": {
+    "load_failed": "プロファイルの読み込みに失敗しました",
+    "flamegraph_failed": "フレームグラフの生成に失敗しました"
+  }
+}

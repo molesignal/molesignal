@@ -1,0 +1,522 @@
+{
+  "inspector": {
+    "title": "ログインスペクター",
+    "subtitle": "検索ジョブの実行状況と結果のメタデータを確認できます。",
+    "back": "ログ",
+    "pick_title": "検索ジョブを選択",
+    "pick_description": "URL にジョブ ID が含まれるよう、ログ画面で完了した検索ジョブからインスペクターを開いてください。",
+    "not_found_title": "ジョブが見つかりません",
+    "not_found_description": "検索ジョブの有効期限が切れたか、ジョブ ID が無効である可能性があります。",
+    "fields": {
+      "job_id": "job_id",
+      "state": "state",
+      "submitted_at": "submitted_at",
+      "started_at": "started_at",
+      "finished_at": "finished_at",
+      "result_rows": "result_rows",
+      "result_object_key": "result_object_key",
+      "error": "error",
+      "expires_at": "expires_at"
+    }
+  },
+  "explore": {
+    "title": "ログ",
+    "subtitle": "エクスプローラー",
+    "time_ranges": {
+      "last_15m": "過去15分間",
+      "last_1h": "過去1時間",
+      "last_6h": "過去6時間",
+      "last_24h": "過去24時間",
+      "last_7d": "過去7日間"
+    },
+    "jump": {
+      "open_trace": "トレースを開く",
+      "open_span": "スパンを開く"
+    },
+    "histogram": {
+      "normal": "エラー以外",
+      "errors": "エラー",
+      "hide": "ヒストグラムを非表示",
+      "show": "ヒストグラムを表示"
+    },
+    "toolbar": {
+      "histogram": "ヒストグラム",
+      "more_actions_aria": "その他の操作",
+      "actions_label": "クエリ操作",
+      "copy_query": "クエリをコピー",
+      "copied_query": "クエリをコピーしました",
+      "reset_query": "クエリをリセット",
+      "download_results": "結果を JSON でダウンロード",
+      "time_range_aria": "ログの期間を選択",
+      "refresh_aria": "クエリを再実行",
+      "run": "実行",
+      "running": "実行中…",
+      "clear_query": "クエリをクリア",
+      "empty_query_summary": "ログイベント",
+      "collapse_editor": "クエリを折りたたむ",
+      "expand_editor": "クエリを展開",
+      "editor": "エディター"
+    },
+    "views": {
+      "aria": "結果ビュー",
+      "raw": "ログ",
+      "stats": "統計",
+      "inspection": "AI 分析",
+      "patterns": "パターン"
+    },
+    "stats": {
+      "measure": "集計方法",
+      "measure_aria": "集計方法",
+      "measures": {
+        "count": "件数",
+        "distinct": "一意の値の数",
+        "avg": "平均",
+        "sum": "合計",
+        "min": "最小値",
+        "max": "最大値",
+        "p50": "P50",
+        "p95": "P95",
+        "p99": "P99"
+      },
+      "field_aria": "集計対象フィールド",
+      "group": "グループ化",
+      "group_aria": "グループ化の基準",
+      "group_time": "時間",
+      "group_none": "グループ化なし",
+      "limit": "上位",
+      "limit_aria": "表示するグループ数",
+      "chart_aria": "グラフの種類",
+      "charts": {
+        "stat": "単一の値",
+        "bar": "棒グラフ",
+        "line": "折れ線グラフ",
+        "table": "テーブル"
+      },
+      "written": "SQL 文の実行結果を表示しています。",
+      "copy_statement": "統計の SQL 文をコピー",
+      "edit_statement": "エディターで編集",
+      "samples": {
+        "title": "この SQL 文には集計がありません",
+        "description": "統計ビューには集計クエリの結果が表示されます。以下の SQL 文のいずれかを使うか、クエリをフィルターで記述し、ここで集計方法を選択してください。",
+        "use": "この SQL 文を使用"
+      },
+      "dashboard": {
+        "action": "ダッシュボードを作成",
+        "title": "ダッシュボードを作成",
+        "description": "この統計をパネルに表示する新しいダッシュボードを作成します。",
+        "name": "ダッシュボード名",
+        "panel": "パネルタイトル",
+        "creating": "作成中…",
+        "created": "ダッシュボード「{{name}}」を作成しました",
+        "open": "ダッシュボードを開く",
+        "default_name": "{{stream}} のログ統計",
+        "written_panel": "SQL 統計"
+      }
+    },
+    "inspection": {
+      "title": "AI 分析",
+      "intro": "このクエリに一致するログを AI モデルで分析し、ログ件数やログレベルの推移、異常や急増、新たに発生した事象、次に調べるべき箇所を確認できます。",
+      "target": "分析対象",
+      "target_all": "すべてのログ",
+      "model": "AI モデル",
+      "requirements": "分析時の注目点",
+      "requirements_hint": "任意です。指定しない場合は、ログ全体を分析します。",
+      "requirements_placeholder": "例：本番環境の payment-service のみを対象にする。USER_CANCEL は想定どおりの結果として扱う。新しいスタックトレースが現れたら、リリース別に内訳を示す。",
+      "disclosure": "分析のため、これらのログのクエリ結果を AI モデル {{model}} に送信します。",
+      "start": "分析を開始",
+      "running": "分析中…",
+      "waiting": "モデルがログを読み込んでいます…",
+      "writing": "モデルがレポートを作成しています…",
+      "stop": "停止",
+      "again": "再分析",
+      "report": "分析レポート",
+      "copy_report": "分析レポートをコピー",
+      "continue_in_agent": "Mole Agent で続ける",
+      "chat_title": "ログ分析 · {{stream}}",
+      "tool_running": "{{name}} を呼び出し中",
+      "tool_done": "{{name}} を呼び出しました",
+      "tool_error": "{{name}} の呼び出しに失敗しました",
+      "failed": "分析が完了しませんでした",
+      "unavailable": {
+        "loading": "AI モデルを確認中…",
+        "permission_title": "Mole Agent を使用できません",
+        "permission_description": "AI 分析は Mole Agent が実行します。実行には agent.use 権限が必要です。",
+        "model_title": "先に AI モデルを設定して有効にしてください",
+        "model_description": "AI モデルがログを読み取り、分析結果をまとめます。この組織では、まだ AI モデルが有効になっていません。",
+        "ask_admin": "Mole Agent の設定で AI モデルを有効にするよう管理者に依頼してください。",
+        "configure": "AI モデルを設定",
+        "failed_title": "AI モデルの設定を読み込めませんでした"
+      },
+      "prompt": {
+        "task": "ログストリーム「{{stream}}」を調査し、調査レポートを英語で作成してください。",
+        "range": "時間範囲: {{label}}（{{start}} ～ {{end}}、Unix 時間、単位: マイクロ秒）",
+        "query": "このクエリに一致するログのみを調査してください: {{statement}}",
+        "query_all": "この時間範囲内のストリームのログをすべて調査してください。",
+        "steps": "利用可能なログクエリツールを使って、この時間範囲のデータを直接確認してください。結論では、ログの件数、レベルごとの割合、全体として正常に見えるかどうかをまとめてください。根拠として、ログの件数とレベルの時間的な推移、主なエラーや警告の種類とそれぞれの初回発生時刻および関連サービス、明らかなスパイク、注意すべき新しいパターンやまれなパターンを項目ごとに示してください。そのうえで、考えられる原因と、重大度順に並べた次の対応手順を示してください。",
+        "rules": "読み取り専用で分析し、何も変更しないでください。すべての所見はクエリ結果に基づくものとし、データを読み取れない場合は推測せず、その旨を明記してください。",
+        "digest_one": "ページに読み込まれたログ{{count}}件の概要（調査の出発点であり、全体像ではありません）:",
+        "digest_other": "ページに読み込まれたログ{{count}}件の概要（調査の出発点であり、全体像ではありません）:",
+        "digest_levels": "レベル",
+        "digest_services": "サービス",
+        "requirements": "確認すべき点:"
+      },
+      "no_logs": "クエリに一致するログがないため、現在調査できるログはありません。"
+    },
+    "field_analysis": {
+      "scope_all": "クエリに一致するすべてのログのうち",
+      "scope_loaded_one": "読み込まれたログ{{count}}件のうち",
+      "scope_loaded_other": "読み込まれたログ{{count}}件のうち"
+    },
+    "left_panel": {
+      "title": "フィールド",
+      "collapse": "フィールドを折りたたむ",
+      "expand": "フィールドを展開",
+      "resize": "ドラッグでフィールドパネルの幅を調整、ダブルクリックでリセット",
+      "select_stream_aria": "ログストリームを選択",
+      "select_stream_placeholder": "ストリームを選択",
+      "loading_streams": "ストリームを読み込み中…",
+      "no_streams": "利用できるストリームがありません",
+      "field_search_placeholder": "フィールドを検索",
+      "filter_fields_aria": "フィールドを絞り込む",
+      "visible_fields": "表示中のフィールド",
+      "indexed_fields": "インデックス付きフィールド",
+      "no_indexed_fields": "このストリームにはインデックス付きフィールドがありません。",
+      "other_fields": "その他のフィールド",
+      "no_top_values": "現在の結果には集計対象の値がありません。",
+      "include_value": "絞り込みフィルターを追加",
+      "exclude_value": "除外フィルターを追加",
+      "include_value_aria": "値「{{value}}」で絞り込む",
+      "exclude_value_aria": "値「{{value}}」を除外",
+      "loading_fields": "フィールドを読み込み中…",
+      "no_matching_fields": "一致するフィールドがありません。",
+      "no_fields_from_query": "このクエリで取得されたフィールドはありません。",
+      "pick_stream_prompt": "フィールドを確認するには、ストリームを選択してください。",
+      "show_field_aria": "{{name}}を表示",
+      "hide_field_aria": "{{name}}を非表示",
+      "add_field_aria": "{{name}}をクエリに追加",
+      "json_query_required": "SQLモードで{{name}}を使用するには、JSONパスのクエリが必要です",
+      "fields_summary": "フィールド {{shown}} / {{total}} · {{visible}}件を表示",
+      "refresh_fields_aria": "フィールドを更新"
+    },
+    "table": {
+      "time_column": "_timestamp",
+      "level_column": "レベル",
+      "source_column": "source",
+      "message_column": "メッセージ",
+      "events_summary": "イベント{{events}}件 · {{ms}}ms",
+      "pagination_aria": "ログ検索結果のページ切り替え",
+      "page_summary": "{{page}} / {{pages}}",
+      "events_per_page_aria": "1ページあたりのイベント数",
+      "first_page_aria": "イベントの最初のページ",
+      "prev_page_aria": "イベントの前のページ",
+      "next_page_aria": "イベントの次のページ",
+      "prev_page": "前へ",
+      "next_page": "次へ",
+      "last_page_aria": "イベントの最後のページ",
+      "running_query": "クエリを実行中…",
+      "no_events": "この時間範囲にイベントはありません。",
+      "row_aria": "ログの{{index}}行目を開く"
+    },
+    "recovery": {
+      "query_failed": "ログクエリに失敗しました",
+      "no_data_title": "一致するログなし",
+      "no_data_description": "この時間範囲に関連するログは見つかりませんでした。ストリームを変更する前に、フィルターをクリアするか、時間範囲を拡大してください。",
+      "expand_time": "時間範囲を4倍に拡大",
+      "clear_filters": "フィルターをクリアして再試行",
+      "query_docs": "ログクエリのドキュメント"
+    },
+    "conditions": {
+      "unmatched_one": "{{conditions}}をクエリに追加できませんでした。ストリーム{{stream}}に対応するフィールドがありません。",
+      "unmatched_other": "{{conditions}}をクエリに追加できませんでした。ストリーム{{stream}}に対応するフィールドがありません。",
+      "pinned_one": "ピン留めされたフィルター：{{conditions}}",
+      "pinned_other": "ピン留めされたフィルター：{{conditions}}",
+      "groups": "{{link}}；{{pinned}}",
+      "meanings": {
+        "trace_id": "トレースID",
+        "span_id": "スパンID",
+        "service": "サービス",
+        "host": "ホスト",
+        "route": "ルート",
+        "operation": "オペレーション",
+        "method": "メソッド",
+        "status": "ステータスコード",
+        "environment": "環境",
+        "pod": "Pod"
+      }
+    },
+    "results": {
+      "content": "内容",
+      "columns": "列",
+      "visible_columns": "表示中のフィールド",
+      "reorder_columns_hint": "ドラッグして並べ替え",
+      "available_columns": "利用可能なフィールド",
+      "reset_columns": "デフォルトに戻す",
+      "drag_column_aria": "{{name}}の表示順を変更できます。ドラッグするか、Alt+↑またはAlt+↓を押してください。",
+      "download": "ログをダウンロード",
+      "download_csv": "CSV",
+      "download_log": "LOG（テキスト）"
+    },
+    "patterns": {
+      "events": "イベント",
+      "share": "共有",
+      "pattern_one": "{{count}}件のパターン",
+      "pattern_other": "{{count}}件のパターン",
+      "level": "レベル",
+      "source": "ソース",
+      "open_aria_one": "{{pattern}}：{{count}}件のイベント。ログを表示",
+      "open_aria_other": "{{pattern}}：{{count}}件のイベント。ログを表示",
+      "filter": "このパターンのログのみ表示",
+      "filter_aria": "{{pattern}}に一致するログのみ表示",
+      "show_more_one": "さらに{{count}}件表示",
+      "show_more_other": "さらに{{count}}件表示",
+      "basis_latest": "条件に一致する最新のイベント",
+      "basis_all": "条件に一致するすべてのイベント",
+      "basis_returned": "クエリが返したイベント",
+      "basis_back_to": "{{moment}}までさかのぼる",
+      "read_more": "過去のログをさらに{{logs}}件読み込む",
+      "reading": "読み込み中…",
+      "read_failed": "これより前のログを読み込めませんでした。",
+      "unread_one": "{{count}}件のイベントにはメッセージがなく、どのパターンにも属していません。",
+      "unread_other": "{{count}}件のイベントにはメッセージがなく、どのパターンにも属していません。",
+      "kind": {
+        "number": "数値",
+        "id": "識別子",
+        "ip": "IPアドレス",
+        "url": "URL",
+        "time": "日時",
+        "data": "構造化データ",
+        "any": "値"
+      }
+    },
+    "detail": {
+      "drawer_aria": "ログ詳細ドロワー",
+      "filter_placeholder": "フィールドを絞り込み",
+      "no_field_match": "一致するフィールドがありません。",
+      "views_aria": "ログの表示切り替え",
+      "close": "ログ詳細を閉じる",
+      "copy_json": "ログのJSONをコピー",
+      "copied_json": "ログのJSONをコピーしました",
+      "download_json": "ログのJSONをダウンロード",
+      "tabs": {
+        "fields": "フィールド",
+        "trace": "トレース",
+        "json": "生のJSON",
+        "context": "コンテキスト"
+      },
+      "context_description": "現在の結果の前後5行ずつを確認できます。行を選択すると、その行の詳細が開きます。",
+      "position": "{{total}}件中{{current}}件目",
+      "prev": "前へ",
+      "next": "次へ",
+      "include_filter": "包含フィルターを追加",
+      "exclude_filter": "除外フィルターを追加",
+      "copy_value": "値をコピー",
+      "copied_value": "フィールドの値をコピーしました",
+      "show_column": "列として表示",
+      "hide_column": "列を非表示",
+      "open_trace": "トレースを開く",
+      "stream": "ストリーム",
+      "resize": "ログ詳細ドロワーのサイズを変更"
+    }
+  },
+  "inspections": {
+    "title": "定期チェック",
+    "subtitle": "AIが設定したスケジュールに沿ってログストリームをチェックし、すべてのレポートを保存します。レポートで問題が報告されると通知します。",
+    "entry": "定期チェック",
+    "save_as": "定期チェックとして保存",
+    "new": "新規チェック",
+    "enabled": "オン",
+    "never_run": "未実行",
+    "live": "チェックを実行中です。{{seconds}} sごとに更新します",
+    "levels": {
+      "normal": "正常",
+      "attention": "要注意",
+      "abnormal": "異常",
+      "unknown": "判定なし"
+    },
+    "run_status": {
+      "queued": "実行待ち",
+      "running": "チェック中",
+      "succeeded": "完了",
+      "failed": "失敗",
+      "timed_out": "タイムアウト"
+    },
+    "failures": {
+      "timed_out": "点検が制限時間を超えました。",
+      "interrupted": "点検を実行していたノードが、点検の完了前に停止しました。",
+      "not_started": "どのノードも点検を引き受けませんでした。",
+      "identity": "点検の実行ユーザーが使用できなくなりました。自分のアカウントで実行するには、点検を保存し直してください。",
+      "model": "点検に指定された AI モデルが見つからないか、無効になっているか、キーが設定されていません。",
+      "agent": "AI モデルの呼び出しに失敗しました。",
+      "internal": "内部エラーにより点検に失敗しました。",
+      "budget": "組織の本日分の Mole Agent トークン使用枠を使い切りました。使用枠がリセットされるか、上限が引き上げられると、点検が再実行されます。"
+    },
+    "triggers": {
+      "manual": "手動"
+    },
+    "schedule": {
+      "every": "{{duration}}ごと",
+      "daily_at": "毎日 {{time}}",
+      "weekly_at": "{{weekday}} {{time}}"
+    },
+    "schedule_kinds": {
+      "interval": "一定間隔",
+      "daily": "毎日",
+      "weekly": "毎週"
+    },
+    "weekdays": {
+      "1": "月曜日",
+      "2": "火曜日",
+      "3": "水曜日",
+      "4": "木曜日",
+      "5": "金曜日",
+      "6": "土曜日",
+      "7": "日曜日"
+    },
+    "units": {
+      "minutes_one": "{{count}}分",
+      "minutes_other": "{{count}}分",
+      "hours_one": "{{count}}時間",
+      "hours_other": "{{count}}時間",
+      "days_one": "{{count}}日",
+      "days_other": "{{count}}日"
+    },
+    "notify_when": {
+      "abnormal": "異常時に通知",
+      "attention": "要注意以上で通知",
+      "always": "毎回通知"
+    },
+    "columns": {
+      "name": "点検",
+      "schedule": "スケジュール",
+      "last_run": "前回の実行",
+      "next_run": "次回の実行",
+      "notify": "通知",
+      "enabled": "有効",
+      "actions": "操作"
+    },
+    "cells": {
+      "window": "直近{{duration}}が対象",
+      "due": "実行予定時刻",
+      "paused": "無効",
+      "no_channel": "通知なし",
+      "channels_one": "{{count}}件のチャンネル",
+      "channels_other": "{{count}}件のチャンネル"
+    },
+    "actions": {
+      "run": "今すぐ実行",
+      "run_named": "{{name}}を今すぐ実行",
+      "run_active": "この検査は実行中です",
+      "edit": "編集",
+      "edit_named": "{{name}}を編集",
+      "delete": "削除",
+      "delete_named": "{{name}}を削除",
+      "toggle_named": "{{name}}の有効・無効を切り替え"
+    },
+    "toast": {
+      "created": "定期検査を保存しました",
+      "saved": "定期検査を更新しました",
+      "enabled": "有効にしました。スケジュールに従って実行されます",
+      "paused": "無効にしました。スケジュールに従った実行は停止します",
+      "queued": "キューに追加しました。数秒以内に開始します",
+      "deleted": "定期検査を削除しました"
+    },
+    "denied": {
+      "title": "定期検査を表示する権限がありません",
+      "description": "Mole Agent が検査を行い、レポートにログが引用されるため、inspections.read と logs.read の両方の権限が必要です。",
+      "manage": "inspections.manage 権限が必要です"
+    },
+    "no_model": {
+      "short": "先にAIモデルを有効にしてください",
+      "notice": "この組織ではAIモデルが有効になっていないため、保存済みの検査を実行できません。"
+    },
+    "capacity": {
+      "full": "組織あたりの検査数が上限の{{max}}件に達しました",
+      "count": "{{saved}}件保存済み（上限{{max}}件）"
+    },
+    "empty": {
+      "title": "定期検査はまだありません",
+      "description": "検査を保存すると、AIが選択したストリームをスケジュールに従って検査します。すべてのレポートがここに保存され、レポートで問題が報告された場合は、指定したチャンネルに通知されます。"
+    },
+    "delete_confirm": {
+      "title": "「{{name}}」を削除しますか？",
+      "description": "検査と過去のレポートがすべて削除されます。この操作は元に戻せません。",
+      "confirm": "削除",
+      "busy": "削除中…"
+    },
+    "editor": {
+      "new_title": "定期検査の作成",
+      "edit_title": "定期検査の編集",
+      "subtitle": "AIはデータを変更せず、スケジュールに従って検査し、すべてのレポートを保存します。",
+      "what": "検査対象",
+      "when": "実行スケジュール",
+      "whom": "通知先",
+      "name": "名前",
+      "name_placeholder": "例：決済サービスのエラーログ",
+      "stream": "ストリーム",
+      "stream_placeholder": "ログストリームを選択",
+      "statement": "クエリ",
+      "statement_hint": "任意。クエリに一致するログのみを検査します。空欄にすると、ストリーム内のすべてのログを検査します。",
+      "statement_placeholder": "例：level = 'ERROR'",
+      "schedule": "スケジュール",
+      "interval": "実行間隔",
+      "weekday": "曜日",
+      "time": "時刻",
+      "hour": "時",
+      "minute": "分",
+      "time_hint": "タイムゾーン：{{timezone}}",
+      "window": "対象期間",
+      "window_hint": "実行するたびに、実行時点からこの期間分さかのぼってログを検査します。",
+      "no_model": "現在使用できるAIモデルはありません。",
+      "model_off": "{{name}}（無効）",
+      "model_off_hint": "このモデルは無効です。モデルを再度有効にするか、別のモデルを選択するまで、検査の保存や実行はできません。",
+      "model_placeholder": "AIモデルを選択",
+      "enabled": "保存後にスケジュールに従って実行",
+      "notify_when": "通知タイミング",
+      "channels": "通知チャネル",
+      "channels_denied": "通知チャネルを選択するには、notify.connectors.read 権限が必要です。",
+      "channels_none": "有効な通知コネクターがありません。「設定 → 通知」で追加してください。",
+      "channels_failed": "通知コネクターを読み込めませんでした。",
+      "channels_kept_one": "選択済みの{{count}}件のチャネルはそのまま保持されます。",
+      "channels_kept_other": "選択済みの{{count}}件のチャネルはそのまま保持されます。",
+      "connector_off": "{{name}}（無効）",
+      "connector_gone": "{{name}}（見つかりません）",
+      "channels_hint": "任意。チャネルを指定しない場合は通知されませんが、レポートはこのページに残ります。検査が成功から失敗に切り替わったときにのみ、失敗を1回通知します。",
+      "add_channel": "チャネルを追加",
+      "remove_channel": "チャネルを削除",
+      "no_channel": "チャネルが選択されていないため、通知は送信されません。",
+      "channel_connector": "チャネル{{number}}のコネクター",
+      "channel_kind": "チャネル{{number}}の通知先タイプ",
+      "channel_target": "チャネル{{number}}の通知先",
+      "target_placeholder": {
+        "group": "グループID",
+        "address": "アドレス"
+      },
+      "run_as_you": "保存後は、実行時点でお持ちのアクセス権限でログを読み取ります。",
+      "run_as_change": "現在は{{name}}のアクセス権限で実行されます。保存後は、あなたのアクセス権限で実行されます。",
+      "save": "保存",
+      "create": "検査を保存"
+    },
+    "detail": {
+      "runs": "過去のレポート",
+      "older": "さらに古いレポート",
+      "no_runs": "まだ実行されていません。次回の予定時刻に自動で検査が実行されます。今すぐ実行することもできます。",
+      "no_runs_paused": "まだ実行されていません。検査は無効になっていますが、今すぐ1回だけ実行できます。",
+      "run_missing": "このレポートはすでに存在しません",
+      "loading_report": "レポートを読み込み中…",
+      "run_as": "{{name}} のアクセス権限で実行されます",
+      "next_run": "次回の実行: {{time}}"
+    },
+    "report": {
+      "open_logs": "この期間のログを開く",
+      "manual_by": "実行者: {{name}}",
+      "scheduled": "スケジュール実行",
+      "took": "所要時間: {{duration}}",
+      "tokens": "{{formatted}} トークン",
+      "queued": "キューに追加済み。バックエンドでの実行を待機中…",
+      "tools": "データの読み取りに使用したツール",
+      "notified": "通知",
+      "delivered": "配信済み",
+      "undelivered": "未配信"
+    }
+  }
+}

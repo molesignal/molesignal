@@ -54,11 +54,7 @@
     "intake_budget_meta": "预算已用 {{percent}}%，数据照常接入。"
   },
   "user_menu": {
-    "language": "语言",
-    "languages": {
-      "zh-cn": "中文（简体）",
-      "en-us": "English"
-    }
+    "language": "语言"
   },
   "account_settings": {
     "title": "账号设置",

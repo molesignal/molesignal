@@ -1,0 +1,258 @@
+{
+  "title": "Profilage continu",
+  "subtitle": "Graphiques en flammes pour le processeur, la mémoire et la contention des verrous dans vos services.",
+  "refresh": "Actualiser",
+  "live": {
+    "label": "En direct",
+    "hint": "Actualisation automatique toutes les 10 s"
+  },
+  "filters": {
+    "service": "Service",
+    "service_all": "Tous les services",
+    "type": "Type de profil",
+    "label": "Filtre par étiquette",
+    "label_placeholder": "key:value",
+    "apply": "Appliquer"
+  },
+  "profile_types": {
+    "cpu": "CPU",
+    "wall": "Temps écoulé",
+    "alloc_space": "Mémoire allouée",
+    "alloc_objects": "Objets alloués",
+    "inuse_space": "Mémoire utilisée",
+    "inuse_objects": "Objets utilisés",
+    "goroutines": "Goroutines",
+    "lock": "Contention des verrous",
+    "samples": "Échantillons"
+  },
+  "analysis": {
+    "filter_bar_aria": "Filtres d’analyse des profils",
+    "clear_trace": "Effacer le filtre de trace",
+    "summary_aria": "Résultats de l’analyse",
+    "hottest": "Fonction la plus coûteuse",
+    "hot_share": "{{percent}} % hors appels",
+    "no_hotspot": "Aucune fonction particulièrement coûteuse",
+    "samples": "{{count}} échantillons",
+    "service_count_one": "{{count}} service",
+    "service_count_other": "{{count}} services",
+    "captured": "Durée de capture : {{duration}}",
+    "profiles_button": "{{selected}} / {{total}} profils",
+    "profiles_button_aria": "Choisir les profils à analyser : {{selected}} sur {{total}} sélectionnés",
+    "workspace_aria": "Espace d’analyse des profils",
+    "loading_flamegraph": "Fusion des profils sélectionnés…",
+    "no_selection_title": "Aucun profil sélectionné pour l’analyse",
+    "no_selection_description": "Le graphique en flammes est généré en fusionnant les profils que vous sélectionnez. Sélectionnez-en au moins un.",
+    "no_selection_action": "Choisir les profils",
+    "service_count_many": "{{count}} services"
+  },
+  "first_run": {
+    "eyebrow": "Profilage continu",
+    "steps": {
+      "send": {
+        "title": "Envoyer des profils",
+        "description": "Envoyez des profils pprof via OTLP ou Pyroscope, ou importez un fichier pour faire un essai."
+      },
+      "narrow": {
+        "title": "Affiner l’analyse",
+        "description": "Choisissez un service, un type de profil et les profils à fusionner."
+      },
+      "read": {
+        "title": "Lire le graphique en flammes",
+        "description": "Les blocs les plus larges sont les plus coûteux ; la fonction la plus coûteuse est affichée en haut de la page."
+      }
+    }
+  },
+  "selection": {
+    "title": "Profils de cette analyse",
+    "selected_summary": "{{selected}} / {{total}} sélectionnés",
+    "description": "Les profils cochés sont fusionnés dans le graphique en flammes. Cliquez sur une ligne pour ouvrir le profil correspondant séparément.",
+    "select_all": "Sélectionner tous les profils",
+    "select_none": "Désélectionner tous les profils",
+    "row_aria": "Inclure ou exclure le profil {{id}} de l’analyse"
+  },
+  "units": {
+    "nanoseconds": "ns",
+    "bytes": "bytes",
+    "count": "nombre",
+    "samples": "échantillons"
+  },
+  "list": {
+    "title": "Profils",
+    "kpi": {
+      "total_value": "Total",
+      "samples": "Échantillons",
+      "services": "Services",
+      "hot_function": "Fonction la plus coûteuse"
+    },
+    "columns": {
+      "service": "Service",
+      "type": "Type",
+      "timestamp": "Date de capture",
+      "duration": "Durée",
+      "samples": "Échantillons",
+      "total_value": "Total",
+      "trace": "Trace"
+    },
+    "tooltip": {
+      "duration": "Temps réel écoulé pendant la capture",
+      "total": "Temps CPU cumulé (somme des valeurs des échantillons)"
+    },
+    "view_flamegraph": "Afficher le graphique en flammes",
+    "open_profile": "Ouvrir le profil",
+    "empty_title": "Aucun profil sur cette période",
+    "empty_description": "Configurez l’ingestion depuis une source de données (OTLP / Pyroscope / pprof) ou utilisez « Importer » pour envoyer directement un fichier pprof."
+  },
+  "flamegraph": {
+    "title": "Graphique en flammes",
+    "search_placeholder": "Mettre en surbrillance les blocs…",
+    "reset_zoom": "Réinitialiser le zoom",
+    "fit_canvas": "Réinitialiser la vue",
+    "fullscreen": "Afficher l’analyse en plein écran",
+    "exit_fullscreen": "Quitter le plein écran",
+    "resize": "Faites glisser pour redimensionner la zone d’analyse ; double-cliquez pour rétablir sa taille initiale",
+    "value_type": "Valeur",
+    "no_data_title": "Aucun échantillon à afficher",
+    "no_data_description": "Aucun profil ne correspond au service, au type et à la période sélectionnés.",
+    "truncated_notice": "Un échantillon représentatif des profils correspondants est affiché, car la période dépasse la limite de fusion.",
+    "frame_aria": "Analyser la fonction {{name}}",
+    "root_aria": "Analyser tous les échantillons",
+    "root_note": "Tous les échantillons",
+    "frame_self": "propre",
+    "frame_total": "total",
+    "frame_share": "du total",
+    "self_help": "Coût de cette fonction, hors appels enfants",
+    "total_help": "Coût cumulé, tous les appels enfants inclus",
+    "profiles_merged": "Profils fusionnés : {{count}}",
+    "view": {
+      "flame": "Graphique en flammes",
+      "tree": "Arbre d’appels",
+      "top": "Classement des fonctions"
+    },
+    "top": {
+      "function": "Fonction",
+      "self": "Coût propre",
+      "self_pct": "Coût propre (%)",
+      "cum": "Coût total",
+      "cum_pct": "Coût total (%)",
+      "select_hint": "Sélectionnez cette fonction pour en examiner les détails",
+      "jump_hint": "Cliquez pour mettre cette fonction en surbrillance dans le graphique en flammes"
+    },
+    "tree": {
+      "expand": "Développer les appels enfants",
+      "collapse": "Réduire les appels enfants"
+    },
+    "details": {
+      "title": "Détails de la fonction",
+      "focus": "Centrer le graphique en flammes",
+      "call_tree": "Afficher dans l’arbre d’appels",
+      "compare": "Comparer",
+      "occurrences": "Occurrences",
+      "service": "Service",
+      "all_services": "Tous les services",
+      "call_path": "Chemin d’appel",
+      "children": "Appels enfants directs",
+      "no_children": "Aucun appel enfant direct",
+      "depth": "Profondeur d’appel"
+    },
+    "tooltip": {
+      "focus_hint": "Cliquez pour centrer la vue sur ce bloc et examiner la fonction."
+    },
+    "legend": {
+      "width": "Largeur",
+      "cumulative": "coût cumulé",
+      "color": "Couleur",
+      "self": "coût propre",
+      "cold": "froid",
+      "hot": "chaud"
+    }
+  },
+  "compare": {
+    "title": "Comparer les profils",
+    "subtitle": "Voyez quels coûts ont augmenté ou diminué d’une période à l’autre. Choisissez librement les deux périodes.",
+    "filters_aria": "Éléments comparés",
+    "baseline_aria": "Référence : {{value}}",
+    "baseline_title": "Choisir la période de référence",
+    "baseline_relative": "Par rapport à la période comparée",
+    "baseline_overlaps": "Cette période de référence chevaucherait la période comparée.",
+    "baselines": {
+      "previous": "Période précédente",
+      "day": "Même créneau la veille",
+      "week": "Même créneau une semaine plus tôt",
+      "custom": "Période personnalisée"
+    },
+    "statement_aria": "Les deux périodes comparées",
+    "comparison": "Comparaison",
+    "baseline": "Référence",
+    "period_profiles_one": "{{count}} profil",
+    "period_profiles_other": "{{count}} profils",
+    "overall": "Variation globale",
+    "unequal_counts": "Les deux périodes ne contiennent pas le même nombre de profils ({{comparison}} contre {{baseline}}). Une partie de la variation s’explique donc par cette différence de collecte.",
+    "overlap": "Les deux périodes se chevauchent : les profils collectés sur la partie commune sont comptés dans les deux périodes.",
+    "loading": "Comparaison des deux périodes…",
+    "legend_increase": "Hausse",
+    "legend_decrease": "Baisse",
+    "changed": {
+      "title": "Fonctions dont le coût a le plus varié",
+      "count_one": "Le coût de {{count}} fonction a varié",
+      "count_other": "Le coût de {{count}} fonctions a varié",
+      "function": "Fonction",
+      "baseline": "Référence",
+      "comparison": "Comparaison",
+      "change": "Variation du coût propre",
+      "new": "nouvelle",
+      "gone": "disparue",
+      "show_all": "Afficher les {{count}} fonctions",
+      "show_top": "Afficher les {{count}} plus fortes variations",
+      "none": "Le coût propre des fonctions n’a pas varié entre les deux périodes.",
+      "select_hint": "Mettre cette fonction en évidence dans le graphique en flammes",
+      "count_many": "Le coût de {{count}} fonctions a varié"
+    },
+    "empty": {
+      "none_title": "Aucun profil dans les deux périodes",
+      "none_description": "Aucun profil de ce type n’a été collecté pour ce service durant ces deux périodes. Choisissez des périodes où des profils ont été collectés ou sélectionnez un autre type.",
+      "baseline_title": "Aucun profil de référence",
+      "baseline_description": "La période de référence ne contient aucun profil. Toutes les fonctions apparaîtraient donc comme nouvelles. Choisissez une période de référence pendant laquelle des profils ont été capturés.",
+      "comparison_title": "Aucun profil capturé pendant la période de comparaison",
+      "comparison_description": "La période sélectionnée ne contient aucun profil à comparer à ceux de la période de référence. Choisissez une période pendant laquelle des profils ont été capturés.",
+      "open_analysis": "Ouvrir cette période dans l’analyse"
+    },
+    "period_profiles_many": "{{count}} profils"
+  },
+  "detail": {
+    "title": "Profil",
+    "back": "Retour aux profils",
+    "download": "Télécharger le fichier pprof",
+    "downloading": "Téléchargement en cours…",
+    "open_trace": "Ouvrir la trace corrélée",
+    "view_span_flamegraph": "Afficher le graphique en flammes de ce span",
+    "metadata": {
+      "service": "Service",
+      "type": "Type",
+      "captured": "Date de capture",
+      "duration": "Durée",
+      "samples": "Échantillons",
+      "trace": "Trace",
+      "span": "Span"
+    },
+    "unsymbolized": "Contient des cadres de pile non symbolisés"
+  },
+  "upload": {
+    "button": "Importer",
+    "title": "Importer un profil",
+    "description": "Importez un profil pprof brut ou compressé avec gzip. Pour configurer OTLP / Pyroscope, consultez la section Source de données.",
+    "service": "Service",
+    "service_placeholder": "my-service",
+    "type": "Type de profil",
+    "file": "Fichier pprof",
+    "choose_file": "Choisir un fichier…",
+    "submit": "Importer",
+    "uploading": "Importation en cours…",
+    "success": "Profil importé",
+    "error": "Échec de l’importation",
+    "datasource_link": "Configurer OTLP / Pyroscope"
+  },
+  "errors": {
+    "load_failed": "Impossible de charger les profils",
+    "flamegraph_failed": "Impossible de générer le graphique en flammes"
+  }
+}

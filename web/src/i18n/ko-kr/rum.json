@@ -1,0 +1,1928 @@
+{
+  "title": "사용자 경험",
+  "subtitle": "실제 사용자의 세션, 뷰, 작업, 오류 및 요청을 살펴봅니다.",
+  "refresh": "새로 고침",
+  "geo_credit": "IP 기반 위치 정보 제공: DB-IP",
+  "map": {
+    "zoom_in": "확대",
+    "zoom_out": "축소",
+    "zoom_reset": "전체 지도 보기",
+    "zoom_level": "확대 배율 {{level}}×",
+    "no_data": "데이터 없음",
+    "keys": "+와 − 키로 지도를 확대하거나 축소하고, 0 키로 전체 지도를 표시합니다. 확대된 지도는 방향키로 이동합니다. 마우스로 드래그해 지도를 이동하고 휠로 확대하거나 축소할 수도 있습니다.",
+    "wheel_hint": "Ctrl(Mac에서는 ⌘)을 누른 채 스크롤하면 지도가 확대되거나 축소됩니다"
+  },
+  "onboarding": {
+    "eyebrow": "RUM 데이터 설정",
+    "title": "실제 사용자 경험 데이터 수집 시작",
+    "description": "애플리케이션을 만든 후 해당 클라이언트 토큰을 MoleSignal RUM SDK에 설정합니다. 첫 이벤트가 수신되면 세션, 페이지 성능 및 프런트엔드 오류가 여기에 표시됩니다.",
+    "create": "애플리케이션 만들기",
+    "view_docs": "설정 문서 보기",
+    "steps": {
+      "1": "애플리케이션 만들기",
+      "2": "클라이언트 토큰으로 SDK 설치",
+      "3": "테스트 이벤트 전송",
+      "4": "분석 시작"
+    }
+  },
+  "nav": {
+    "overview": "개요",
+    "explorer": "탐색기",
+    "playlists": "재생 목록",
+    "errors": "오류",
+    "performance": "성능",
+    "applications": "애플리케이션",
+    "source_maps": "소스 맵 및 심볼",
+    "upload_source_maps": "디버그 아티팩트 업로드",
+    "frustration": "사용자 불편",
+    "analytics": "분석",
+    "feature_flags": "기능 플래그"
+  },
+  "overview": {
+    "retry": "다시 시도",
+    "open_dashboard": "대시보드에서 열기",
+    "scope": {
+      "application": "애플리케이션",
+      "environment": "환경",
+      "all_environments": "모든 환경"
+    },
+    "empty": {
+      "title": "선택한 시간 범위에 세션 없음",
+      "description": "선택한 시간 범위에 이 애플리케이션에서 기록된 데이터가 없습니다. 시간 범위를 넓히거나 SDK가 데이터를 전송하는지 확인해 주세요.",
+      "widen": "시간 범위 넓히기"
+    },
+    "unavailable": {
+      "time_budget": "집계 시간이 제한을 초과했습니다. 시간 범위를 좁혀 주세요.",
+      "busy": "시스템에서 다른 사용자의 집계 요청을 처리 중입니다. 잠시 후 다시 시도해 주세요.",
+      "timestamp_masked": "현재 역할에서는 타임스탬프가 마스킹되어 시간별로 집계할 수 없습니다."
+    },
+    "pulse": {
+      "aria": "세션 및 코어 웹 바이탈",
+      "sessions_one": "세션 <n>{{formatted}}</n>개",
+      "sessions_other": "세션 <n>{{formatted}}</n>개",
+      "people_one": "사용자 <n>{{formatted}}</n>명",
+      "people_other": "사용자 <n>{{formatted}}</n>명",
+      "browser": "<people/>에서 <sessions/>이 발생했으며, 세션의 <n>{{share}}</n>에서 오류가 발생하지 않았습니다.",
+      "app": "<people/>에서 <sessions/>이 발생했으며, 세션의 <n>{{sessionShare}}</n>와 사용자의 <n>{{userShare}}</n>에서 앱 비정상 종료가 발생하지 않았습니다."
+    },
+    "vitals": {
+      "label": "{{name}} · p75",
+      "names": {
+        "lcp": "LCP",
+        "inp": "INP",
+        "cls": "CLS"
+      },
+      "grade": {
+        "good": "양호",
+        "needs_improvement": "개선 필요",
+        "poor": "불량"
+      },
+      "good_at": "≤ {{value}} 양호",
+      "poor_at": "> {{value}} 불량",
+      "aria": "{{name}}, 75번째 백분위수 {{value}}: {{grade}}",
+      "open": "성능 페이지에서 {{name}} 열기",
+      "none_aria": "{{name}}: 측정된 조회 없음"
+    },
+    "pages": {
+      "title": "페이지",
+      "screens": "화면",
+      "description": "조회수 상위 항목 및 각 바이탈 지표의 75번째 백분위수",
+      "description_screens": "조회수 상위 항목",
+      "table": "조회수 상위 페이지",
+      "columns": {
+        "page": "페이지",
+        "screen": "화면",
+        "views": "조회수",
+        "errors": "오류가 발생한 조회수"
+      },
+      "open": "탐색기에서 {{page}} 조회 내역 열기",
+      "empty": "이 기간에 조회 내역이 없습니다."
+    },
+    "origins": {
+      "title": "방문자 위치",
+      "description": "국가별 세션",
+      "map": "세션이 발생한 위치를 표시하는 세계 지도",
+      "value_one": "세션 {{formatted}}개",
+      "value_other": "세션 {{formatted}}개",
+      "legend": "세션"
+    },
+    "shares": {
+      "browsers": "브라우저",
+      "systems": "운영 체제",
+      "devices": "기기",
+      "other": "기타",
+      "empty": "값이 있는 세션이 없습니다",
+      "device_types": {
+        "desktop": "데스크톱",
+        "mobile": "모바일",
+        "tablet": "태블릿",
+        "bot": "봇",
+        "other": "기타"
+      }
+    },
+    "frustration": {
+      "title": "사용자 불편을 유발한 요소",
+      "description_click": "연속 클릭, 무반응 클릭 또는 오류 클릭이 발생한 동작",
+      "description_tap": "연속 탭 또는 오류 탭이 발생한 동작",
+      "empty": "이 기간에 사용자 불편을 유발한 동작이 없습니다",
+      "unnamed": "이름 없는 요소",
+      "kinds": {
+        "rage": "연속 클릭",
+        "dead": "무반응 클릭",
+        "error": "오류 클릭",
+        "rage_tap": "연속 탭",
+        "dead_tap": "무반응 탭",
+        "error_tap": "오류 탭"
+      }
+    },
+    "issues": {
+      "title": "최근 이슈",
+      "description": "신규 및 재발 이슈를 영향받은 세션 수 기준으로 표시",
+      "all": "모든 이슈",
+      "empty": "이 기간에 신규 또는 재발 이슈가 없습니다",
+      "sessions_one": "세션 {{formatted}}개",
+      "sessions_other": "세션 {{formatted}}개",
+      "first_seen": "최초 감지: {{ago}} · {{version}}",
+      "first_seen_plain": "최초 감지: {{ago}}",
+      "regressed": "{{resolved}}에서 해결, {{version}}에서 재발({{ago}})",
+      "regressed_plain": "해결 후 재발({{ago}})"
+    },
+    "test_traffic": {
+      "title": "실제 사용자 세션만 집계하며, 신세틱 검사 및 CI 테스트 세션은 제외합니다. 제외된 세션은 여기에서 확인할 수 있습니다.",
+      "note_one": "테스트 세션 {{value}}개 제외",
+      "note_other": "테스트 세션 {{value}}개 제외"
+    }
+  },
+  "performance": {
+    "empty": {
+      "title": "이 기간에 페이지 조회가 없습니다"
+    },
+    "not_browser": {
+      "title": "Web Vitals는 브라우저에서 측정합니다",
+      "description": "이 애플리케이션은 브라우저에서 데이터를 전송하지 않으므로 평가할 페이지 로드가 없습니다. 화면과 크래시는 개요 및 오류 페이지에서 확인할 수 있습니다."
+    },
+    "metrics": {
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "fcp": "FCP",
+      "ttfb": "TTFB"
+    },
+    "dimensions": {
+      "page": "페이지",
+      "browser": "브라우저",
+      "os": "운영 체제",
+      "device": "기기",
+      "country": "국가 또는 지역",
+      "version": "버전"
+    },
+    "statement": {
+      "aria": "페이지 조회수 및 Web Vitals",
+      "sentence": "<views/>. 75번째 백분위수에서 LCP는 <lcp/>, INP는 <inp/>, CLS는 <cls/>입니다.",
+      "views_one": "페이지 조회 <n>{{formatted}}</n>회",
+      "views_other": "페이지 조회 <n>{{formatted}}</n>회",
+      "reading": "<figure>{{value}}</figure> (<grade>{{grade}}</grade>)",
+      "not_measured": "측정되지 않음"
+    },
+    "picker": {
+      "aria": "아래에 표시된 수준"
+    },
+    "trend": {
+      "title": "{{name}} 추이",
+      "description": "각 구간의 75번째 백분위수를 표시합니다. 점선은 ‘좋음’, ‘개선 필요’, ‘나쁨’ 등급의 경계를 나타냅니다.",
+      "good": "좋음",
+      "poor": "나쁨",
+      "empty": "이 범위에는 이 지표가 측정된 조회가 없습니다.",
+      "aria": "{{name}}의 75번째 백분위수 추이"
+    },
+    "grades": {
+      "title": "등급별 조회수",
+      "description": "각 수준의 ‘좋음’, ‘개선 필요’, ‘나쁨’ 등급별 조회수를 표시합니다.",
+      "empty": "이 범위에는 등급을 매길 수 있는 조회가 없습니다.",
+      "aria": "{{name}}: 전체 조회 중 ‘좋음’ 등급은 {{good}}입니다.",
+      "range": {
+        "good": "≤ {{good}}",
+        "needs_improvement": "{{good}}~{{poor}}",
+        "poor": "> {{poor}}"
+      },
+      "note": "{{name}}이 측정된 조회수: {{formatted}}"
+    },
+    "table": {
+      "by": "그룹화 기준",
+      "search": "값 검색",
+      "search_label": "표의 값 검색",
+      "count_one": "값 {{count}}개",
+      "count_other": "값 {{count}}개",
+      "most_viewed_one": "조회수가 가장 높은 값",
+      "most_viewed_other": "조회수 상위 {{count}}개 값",
+      "few_note": "조회수 {{views}}회 미만: 회색",
+      "views": "조회수",
+      "good": "{{name}} ‘좋음’",
+      "none": "(없음)",
+      "empty": "이 범위에는 조회가 없습니다.",
+      "no_match": "일치하는 값이 없습니다.",
+      "aria": "{{dimension}}별 수준",
+      "open": "{{value}}의 뷰 성능 세부 내역 열기",
+      "few": "뷰 {{views}}개 미만: 순위를 매기기에 부족합니다"
+    },
+    "drawer": {
+      "title": "이 뷰에서 느린 항목",
+      "tabs": "웹 바이탈",
+      "explore": "탐색기에서 보기",
+      "alert": "이 항목에 대한 알림 설정",
+      "close": "닫기",
+      "views_one": "뷰 {{formatted}}개",
+      "views_other": "뷰 {{formatted}}개",
+      "none": "이 값에 해당하는 뷰 중 {{name}} 측정값이 있는 뷰가 없습니다.",
+      "level": "뷰 <n>{{formatted}}</n>개를 기준으로 {{name}} 지표의 75번째 백분위수는 <reading/>입니다.",
+      "longest": "가장 오래 걸린 구간은 <n>{{part}}</n>이며, {{value}}로 전체의 {{share}}를 차지합니다."
+    },
+    "makeup": {
+      "title": "{{name}} 구성 요소",
+      "description": {
+        "lcp": "첫 바이트 수신까지의 시간, 이미지 로드 시작 전 지연 시간, 이미지 로드 시간, 이미지가 화면에 그려지기 전까지의 지연 시간",
+        "inp": "이벤트 핸들러 실행 전 대기 시간, 핸들러 실행 시간, 다음 프레임이 화면에 그려질 때까지의 대기 시간"
+      },
+      "empty": "이 범위에서 {{name}}의 구성 요소별 측정값을 보고한 뷰가 없습니다.",
+      "aria": "{{name}} 구성 요소, 합계 {{total}}",
+      "cohort": "75번째 백분위수 값의 ±10% 범위에 있는 뷰({{formatted}}개)의 구성 요소별 평균입니다."
+    },
+    "parts": {
+      "first_byte": "첫 바이트 수신 시간",
+      "load_delay": "로드 지연 시간",
+      "load_time": "로드 시간",
+      "render_delay": "렌더링 지연 시간",
+      "input_delay": "입력 지연 시간",
+      "processing_duration": "처리 시간",
+      "presentation_delay": "표시 지연 시간"
+    },
+    "elements": {
+      "title": {
+        "lcp": "마지막으로 그려진 요소",
+        "inp": "상호작용이 발생한 요소",
+        "cls": "위치가 바뀐 요소"
+      },
+      "description": "요소가 포함된 뷰 수 기준",
+      "empty": "이 범위에서 요소가 기록된 뷰가 없습니다",
+      "columns": {
+        "element": "요소",
+        "resource": "파일"
+      },
+      "open": "{{selector}} 요소가 포함된 뷰를 탐색기에서 열기",
+      "no_resource": "텍스트"
+    },
+    "worst": {
+      "title": "성능이 가장 낮은 뷰",
+      "description": "{{name}} 값이 가장 높은 뷰",
+      "empty": "순위를 매길 측정값이 있는 뷰가 없습니다",
+      "explore": "탐색기에서 열기",
+      "session": "세션",
+      "load": "로드 워터폴"
+    },
+    "views": {
+      "aria": "성능 보기",
+      "vitals": "Web Vitals",
+      "resources": "리소스",
+      "long_tasks": "긴 작업"
+    },
+    "long_tasks": {
+      "invokers": {
+        "user-callback": "콜백",
+        "event-listener": "이벤트 리스너",
+        "resolve-promise": "Promise 이행",
+        "reject-promise": "Promise 거부",
+        "classic-script": "클래식 스크립트",
+        "module-script": "모듈 스크립트"
+      },
+      "statement": {
+        "aria": "페이지의 긴 작업",
+        "tasks_one": "긴 작업 <n>{{formatted}}</n>개",
+        "tasks_other": "긴 작업 <n>{{formatted}}</n>개",
+        "sentence": "메인 스레드에서 <tasks/>가 실행되었으며, 페이지 조회의 <share>{{share}}</share>에서 긴 작업이 하나 이상 발생했습니다. 75번째 백분위수 기준으로 긴 작업은 <n>{{duration}}</n> 동안 실행되었으며 입력 처리를 <n>{{blocking}}</n> 동안 지연시켰습니다.",
+        "sentence_alone": "메인 스레드에서 <tasks/>가 실행되었습니다. 75번째 백분위수 기준으로 긴 작업은 <n>{{duration}}</n> 동안 실행되었으며 입력 처리를 <n>{{blocking}}</n> 동안 지연시켰습니다.",
+        "sentence_share": "메인 스레드에서 <tasks/>가 실행되었으며, 페이지 조회의 <share>{{share}}</share>에서 긴 작업이 하나 이상 발생했습니다.",
+        "sentence_count": "메인 스레드에서 <tasks/>가 실행되었습니다."
+      },
+      "empty": {
+        "title": "이 범위에 긴 작업이 없습니다",
+        "description": "메인 스레드가 50 ms 이상 차단된 적이 없는 페이지에는 긴 작업이 없습니다."
+      },
+      "groups": {
+        "script": "스크립트 및 함수",
+        "page": "페이지",
+        "version": "버전",
+        "invoker": "실행 계기"
+      },
+      "heads": {
+        "script": "스크립트",
+        "function": "함수",
+        "page": "페이지",
+        "version": "버전",
+        "invoker": "실행 계기"
+      },
+      "table": {
+        "by": "그룹화 기준",
+        "search": "스크립트 검색",
+        "search_label": "표에서 스크립트 검색",
+        "count_one": "그룹 {{count}}개",
+        "count_other": "그룹 {{count}}개",
+        "most_tasks_one": "긴 작업이 가장 많은 그룹",
+        "most_tasks_other": "긴 작업이 가장 많은 상위 {{count}}개 그룹",
+        "few_note": "긴 작업 {{tasks}}개 미만: 회색",
+        "empty": "이 범위에 긴 작업이 없습니다",
+        "no_match": "일치하는 그룹이 없습니다",
+        "aria": "{{group}}별 긴 작업",
+        "open": "{{value}}의 긴 작업 상세 보기",
+        "few": "긴 작업이 {{tasks}}개 미만이어서 순위를 매길 수 없습니다.",
+        "none": "(없음)",
+        "unattributed": "출처 미확인",
+        "tasks": "긴 작업",
+        "views": "뷰",
+        "time": "p75 실행 시간",
+        "blocking": "p75 차단 시간"
+      },
+      "panel": {
+        "aria": "그룹의 긴 작업",
+        "close": "닫기",
+        "tasks_one": "긴 작업 {{formatted}}개",
+        "tasks_other": "긴 작업 {{formatted}}개",
+        "unattributed_note": "Safari와 Firefox는 어떤 스크립트에서 긴 작업이 발생했는지 보고하지 않습니다. MoleSignal이 스크립트를 식별하기 전에 수신한 긴 작업에도 이 정보가 없습니다. 이러한 작업도 집계에 포함합니다.",
+        "sentence": "75번째 백분위수 기준으로 실행 시간은 <n>{{duration}}</n>이며, 그중 <b>{{blocking}}</b> 동안 입력 처리가 차단되었습니다.",
+        "sentence_time": "75번째 백분위수 기준으로 실행 시간은 <n>{{duration}}</n>입니다.",
+        "page": "긴 작업이 가장 많이 발생한 페이지는 <code>{{page}}</code>입니다.",
+        "invokers": "트리거 방식",
+        "invokers_empty": "이 그룹의 긴 작업에는 트리거 정보가 없습니다.",
+        "unknown": "정보 없음",
+        "pages": "작업이 발생한 페이지",
+        "pages_empty": "표시할 페이지가 없습니다.",
+        "samples": "실행 시간이 가장 긴 작업 · 선택하면 해당 뷰의 로드 상세 정보가 열립니다",
+        "samples_empty": "실행 시간이 기록된 긴 작업이 없습니다.",
+        "open_load": "{{page}} 뷰의 로드 상세 보기"
+      }
+    },
+    "section": {
+      "failed": "수치를 불러올 수 없습니다."
+    },
+    "resources": {
+      "statement": {
+        "aria": "페이지 요청",
+        "requests_one": "요청 <n>{{formatted}}</n>건",
+        "requests_other": "요청 <n>{{formatted}}</n>건",
+        "sentence": "페이지에서 <requests/>을 보냈습니다. 요청 소요 시간의 75번째 백분위수는 <n>{{duration}}</n>이며, <rate>{{rate}}</rate>는 오류 상태로 응답했거나 응답이 없어 실패했습니다.",
+        "sentence_time": "페이지에서 <requests/>을 보냈습니다. 요청 소요 시간의 75번째 백분위수는 <n>{{duration}}</n>입니다.",
+        "sentence_count": "페이지에서 <requests/>을 보냈습니다.",
+        "per_view": "페이지 뷰당 평균 <n>{{resources}}</n>개의 리소스를 요청했으며, 평균 총 크기는 <n>{{size}}</n>입니다."
+      },
+      "empty": {
+        "title": "이 범위에 요청 없음"
+      },
+      "groups": {
+        "host_type": "호스트 및 유형",
+        "path": "호스트 및 경로",
+        "type": "유형",
+        "protocol": "프로토콜",
+        "delivery": "전송 방식",
+        "blocking": "렌더링 차단"
+      },
+      "heads": {
+        "host": "호스트",
+        "type": "유형",
+        "path": "경로",
+        "protocol": "프로토콜",
+        "delivery": "전송 방식",
+        "blocking": "렌더링 차단"
+      },
+      "statuses": {
+        "4xx": "클라이언트 오류 (4xx)",
+        "5xx": "서버 오류 (5xx)",
+        "none": "응답 없음"
+      },
+      "table": {
+        "by": "그룹 기준",
+        "type": "유형",
+        "status": "상태",
+        "all": "전체",
+        "search": "호스트 또는 경로 검색",
+        "search_label": "표의 요청 검색",
+        "count_one": "그룹 {{count}}개",
+        "count_other": "그룹 {{count}}개",
+        "most_requested_one": "요청이 가장 많은 그룹",
+        "most_requested_other": "요청 수 상위 {{count}}개 그룹",
+        "few_note": "요청 {{requests}}건 미만: 회색 표시",
+        "empty": "이 기간에 요청이 없습니다",
+        "no_match": "일치하는 그룹이 없습니다",
+        "aria": "{{group}}별 요청",
+        "open": "{{value}}의 요청 구성 보기",
+        "few": "요청 {{requests}}건 미만: 순위 산정에 필요한 요청 수 부족",
+        "none": "(없음)",
+        "requests": "요청 수",
+        "time": "소요 시간(p75)",
+        "failed": "실패",
+        "size": "크기(p75)",
+        "cache": "캐시에서 로드"
+      },
+      "panel": {
+        "aria": "그룹의 요청",
+        "close": "닫기",
+        "requests_one": "요청 {{formatted}}건",
+        "requests_other": "요청 {{formatted}}건",
+        "sentence": "소요 시간의 75번째 백분위수는 <n>{{duration}}</n>이며, 요청의 <rate>{{rate}}</rate>가 실패했습니다.",
+        "sentence_time": "소요 시간의 75번째 백분위수는 <n>{{duration}}</n>입니다.",
+        "longest": "가장 오래 걸린 단계는 <n>{{part}}</n>이며, 소요 시간은 {{value}}입니다.",
+        "trend": "기간 내 소요 시간 추이",
+        "trend_series": "75번째 백분위수",
+        "trend_empty": "이 기간에 이 그룹의 요청이 없습니다",
+        "trend_aria": "시간에 따른 그룹의 75번째 백분위수 요청 소요 시간",
+        "parts": "75번째 백분위수 부근의 요청 단계별 소요 시간",
+        "parts_empty": "이 그룹에 단계별 소요 시간이 기록된 요청이 없습니다",
+        "statuses": "응답 상태",
+        "statuses_empty": "이 그룹에 응답 상태가 기록된 요청이 없습니다",
+        "slowest": "가장 느린 요청 · 각 요청을 선택하면 해당 뷰의 로드 상세 정보가 열립니다",
+        "slowest_empty": "소요 시간이 기록된 요청이 없습니다",
+        "open_load": "{{path}}에 요청을 보낸 뷰의 로드 상세 정보 열기",
+        "traced": "요청의 {{share}}%에 트레이스 ID가 있습니다",
+        "explore": "탐색기에서 요청 보기"
+      }
+    }
+  },
+  "frustration": {
+    "empty": {
+      "title": "이 기간에 사용자 불편 징후가 없습니다",
+      "description_click": "선택한 기간에 연속 클릭, 무반응 클릭 또는 오류 클릭이 발생하지 않았습니다. 기간을 늘리거나 다른 애플리케이션을 확인하세요.",
+      "description_tap": "선택한 기간에 연속 탭, 무반응 탭 또는 오류 탭이 발생하지 않았습니다. 기간을 늘리거나 다른 애플리케이션을 확인하세요."
+    },
+    "statement": {
+      "aria": "사용자 불편 징후",
+      "sentence": "전체 세션 중 <share>{{share}}</share>에서 사용자 불편 징후가 나타났습니다: <kinds/>.",
+      "sentence_count_one": "<n>{{sessions}}</n>개 세션에서 사용자 불편 징후가 나타났습니다: <kinds/>.",
+      "sentence_count_other": "<n>{{sessions}}</n>개 세션에서 사용자 불편 징후가 나타났습니다: <kinds/>.",
+      "join": ", ",
+      "sessions_one": "<n>{{formatted}}</n>개 세션",
+      "sessions_other": "<n>{{formatted}}</n>개 세션",
+      "kinds": {
+        "rage_one": "<k>연속 클릭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "rage_other": "<k>연속 클릭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "dead_one": "<k>무반응 클릭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "dead_other": "<k>무반응 클릭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "error_one": "<k>오류 클릭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "error_other": "<k>오류 클릭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "rage_tap_one": "<k>연속 탭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "rage_tap_other": "<k>연속 탭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "dead_tap_one": "<k>무반응 탭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "dead_tap_other": "<k>무반응 탭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "error_tap_one": "<k>오류 탭</k> <n>{{formatted}}</n>건 (<sessions/>)",
+        "error_tap_other": "<k>오류 탭</k> <n>{{formatted}}</n>건 (<sessions/>)"
+      }
+    },
+    "groups": {
+      "element": "요소",
+      "page": "페이지",
+      "screen": "화면",
+      "version": "버전",
+      "browser": "브라우저",
+      "system": "시스템"
+    },
+    "table": {
+      "by": "그룹화 기준",
+      "kind": "징후",
+      "kinds_all": "전체",
+      "search": "요소 또는 페이지 검색",
+      "search_label": "표에서 요소 또는 페이지 검색",
+      "count_one": "그룹 {{count}}개",
+      "count_other": "그룹 {{count}}개",
+      "most_one": "영향을 받은 세션이 가장 많은 그룹",
+      "most_other": "영향을 받은 세션이 가장 많은 상위 {{count}}개 그룹",
+      "empty": "이 기간에 사용자 불편 신호가 없습니다",
+      "no_match": "검색 조건과 일치하는 그룹이 없습니다",
+      "aria": "{{group}}별 사용자 불편 신호",
+      "open": "{{value}}의 사용자 불편 신호 상세 보기",
+      "none": "(없음)",
+      "unnamed": "(이름 없음)",
+      "selector": "선택자",
+      "sessions": "세션"
+    },
+    "panel": {
+      "aria": "그룹의 사용자 불편 신호",
+      "close": "닫기",
+      "sentence_one": "이 {{noun}}에서 세션 <n>{{formatted}}</n>개에 사용자 불편 신호가 나타났습니다.",
+      "sentence_other": "이 {{noun}}에서 세션 <n>{{formatted}}</n>개에 사용자 불편 신호가 나타났습니다.",
+      "page": "가장 많이 발생한 페이지는 <code>{{page}}</code>입니다.",
+      "trend": "영향을 받은 세션",
+      "trend_series": "영향을 받은 세션",
+      "trend_aria": "시간 구간별 사용자 불편 신호가 나타난 세션 수",
+      "trend_empty": "이 기간에 영향을 받은 세션이 없습니다",
+      "kinds": "신호",
+      "kinds_empty": "표시할 신호가 없습니다",
+      "versions": "버전",
+      "versions_empty": "표시할 버전이 없습니다",
+      "pages": "페이지",
+      "screens": "화면",
+      "pages_empty": "표시할 페이지가 없습니다",
+      "unknown": "정보 없음",
+      "samples": "최신 세션 · 신호 발생 5초 전부터 재생",
+      "samples_empty": "확인할 세션이 없습니다",
+      "anonymous": "익명 {{id}}",
+      "with_error": "오류 발생",
+      "replay": "다시 보기",
+      "replay_at": "{{time}} 다시 보기",
+      "session": "세션",
+      "replay_aria": "{{time}}의 세션 다시 보기",
+      "session_aria": "{{time}} 세션 열기",
+      "nouns": {
+        "element": "요소",
+        "page": "페이지",
+        "screen": "화면",
+        "version": "버전",
+        "browser": "브라우저",
+        "system": "운영 체제"
+      }
+    }
+  },
+  "analytics": {
+    "views": {
+      "aria": "분석 보기",
+      "funnel": "퍼널",
+      "paths": "경로",
+      "retention": "리텐션",
+      "heatmap": "히트맵"
+    },
+    "kinds": {
+      "views": "페이지",
+      "views_app": "화면",
+      "actions": "동작"
+    },
+    "fields": {
+      "view_url_path_group": "페이지 그룹",
+      "view_url_path": "정확한 경로",
+      "view_name": "뷰 이름",
+      "action_target_name": "대상 이름",
+      "action_target_selector": "대상 선택자",
+      "action_type": "유형"
+    },
+    "ops": {
+      "eq": "일치",
+      "contains": "포함"
+    },
+    "breakdowns": {
+      "version": "버전",
+      "browser_name": "브라우저",
+      "os_name": "운영 체제",
+      "device_type": "기기 유형",
+      "geo_country_iso_code": "국가"
+    },
+    "value": {
+      "search": "값 검색 또는 입력",
+      "use": "\"{{value}}\" 사용"
+    },
+    "funnel": {
+      "title": "퍼널",
+      "steps_description": "사용자가 거치는 단계를 순서대로 정의합니다. 각 단계는 사용자가 연 페이지 또는 수행한 동작을 나타냅니다.",
+      "step_kind": "{{number}}단계 분석 대상",
+      "step_field": "{{number}}단계 필드",
+      "step_op": "{{number}}단계 비교 조건",
+      "step_value": "{{number}}단계 값",
+      "step_placeholder": "값 선택 또는 입력",
+      "remove_step": "{{number}}단계 삭제",
+      "add_step": "단계 추가",
+      "window": "제한 시간",
+      "window_none": "시간 제한 없음",
+      "window_within": "{{time}} 이내",
+      "minutes_one": "{{count}}분",
+      "minutes_other": "{{count}}분",
+      "hours_one": "{{count}}시간",
+      "hours_other": "{{count}}시간",
+      "days_one": "{{count}}일",
+      "days_other": "{{count}}일",
+      "breakdown": "세션 집계 기준",
+      "breakdown_none": "모든 세션 통합",
+      "breakdown_by": "{{field}}별",
+      "choose": {
+        "title": "단계별 조건 설정",
+        "description": "퍼널은 각 단계를 순서대로 완료한 세션을 집계합니다. 각 단계에서 페이지 또는 행동을 선택하세요."
+      },
+      "result": "단계별 완료 세션",
+      "result_description": "각 단계에서는 이전 단계를 마친 뒤 해당 단계를 완료한 세션을 집계합니다.",
+      "nobody": "이 기간에는 첫 단계에 도달한 세션이 없습니다",
+      "by_title": "{{field}}별 퍼널",
+      "no_value": "미설정",
+      "columns": {
+        "step": "단계",
+        "sessions": "세션",
+        "conversion": "첫 단계 대비 전환율",
+        "from_previous": "이탈률",
+        "median": "소요 시간 중앙값",
+        "overall": "첫 단계부터 마지막 단계까지"
+      }
+    },
+    "paths": {
+      "title": "경로",
+      "description_after": "세션에서 이후에 방문한 페이지 중 방문이 많은 페이지를 단계별 열에 표시합니다.",
+      "description_before": "세션에서 이전에 방문한 페이지 중 방문이 많은 페이지를 단계별 열에 표시합니다.",
+      "direction": "방향",
+      "after": "기준 페이지 이후",
+      "before": "기준 페이지 이전",
+      "anchor": "기준 페이지",
+      "anchor_first": "첫 페이지에서 시작",
+      "anchor_last": "마지막 페이지에서 종료",
+      "clear": "지우기",
+      "depth": "페이지 수",
+      "depth_pages_one": "{{count}}개 페이지",
+      "depth_pages_other": "{{count}}개 페이지",
+      "told_by": "페이지 구분 기준",
+      "by": {
+        "view_url_path_group": "페이지 그룹",
+        "view_url_path": "정확한 경로",
+        "view_name": "뷰 이름"
+      },
+      "nobody": "이 기간에 경로가 없습니다",
+      "other": "기타 페이지",
+      "pick": "{{page}}에서 경로 시작",
+      "ends_one": "세션 {{count}}개가 여기서 종료되었습니다",
+      "ends_other": "세션 {{count}}개가 여기서 종료되었습니다",
+      "begins_one": "세션 {{count}}개가 여기서 시작되었습니다",
+      "begins_other": "세션 {{count}}개가 여기서 시작되었습니다",
+      "chart_aria": "세션 {{sessions}}개의 경로"
+    },
+    "retention": {
+      "title": "리텐션",
+      "description": "각 기간에 처음 방문한 사용자 중 이후 기간에 다시 방문한 사용자의 비율입니다. 일과 주는 UTC 기준입니다.",
+      "period": "코호트 그룹화 기준",
+      "periods": "추적할 기간 수",
+      "by_day": "일",
+      "by_week": "주",
+      "days_after_one": "{{count}}일 후",
+      "days_after_other": "{{count}}일 후",
+      "weeks_after_one": "{{count}}주 후",
+      "weeks_after_other": "{{count}}주 후",
+      "cohort_day": "최초 방문일",
+      "cohort_week": "최초 방문 주",
+      "people": "사용자",
+      "average": "평균",
+      "nobody": "이 기간에 방문한 사용자가 없습니다",
+      "too_short": "선택한 시간 범위에서 첫 기간 이후 완료된 기간이 없어 재방문 여부를 확인할 수 없습니다. 시간 범위를 넓혀 주세요.",
+      "cell_one": "{{total}}명 중 {{count}}명이 재방문했습니다",
+      "cell_other": "{{total}}명 중 {{count}}명이 재방문했습니다"
+    },
+    "heatmap": {
+      "title": "히트맵",
+      "description_clicks": "사용자가 클릭한 위치를 페이지 녹화 화면 위에 표시합니다.",
+      "description_scroll": "사용자가 페이지를 어디까지 스크롤했는지 보여줍니다. 색이 어두울수록 해당 위치에 도달한 사용자가 적습니다.",
+      "page": "페이지",
+      "page_placeholder": "페이지 선택",
+      "kind": "히트맵 유형",
+      "kinds": {
+        "clicks": "클릭",
+        "scroll": "스크롤"
+      },
+      "device": "화면 크기",
+      "devices": {
+        "desktop": "데스크톱",
+        "tablet": "태블릿",
+        "mobile": "휴대전화",
+        "all": "전체"
+      },
+      "recording": "녹화",
+      "recording_number": "{{number}}번",
+      "open_session": "이 세션 열기",
+      "elements": "클릭한 요소",
+      "depths": "스크롤 깊이",
+      "clicks_total_one": "클릭 {{count}}회",
+      "clicks_total_other": "클릭 {{count}}회",
+      "views_total_one": "방문 {{count}}회",
+      "views_total_other": "방문 {{count}}회",
+      "sessions_one": "세션 {{count}}개",
+      "sessions_other": "세션 {{count}}개",
+      "frustrated_one": "사용자 불편 감지 {{count}}건",
+      "frustrated_other": "사용자 불편 감지 {{count}}건",
+      "off_snapshot": "이 페이지 녹화에 없는 요소",
+      "median_depth": "전체 방문의 절반이 도달한 지점",
+      "page_height": "페이지 길이",
+      "scroll_line": "전체 방문의 {{share}}%가 이 지점에 도달했습니다",
+      "no_clicks": "선택한 범위에서 이 페이지에 대한 클릭이 없습니다",
+      "no_scroll": "선택한 범위에서 이 페이지에 대한 스크롤 데이터가 없습니다",
+      "reading_recording": "녹화된 페이지를 불러오는 중…",
+      "no_recording": "선택한 범위와 시간 구간에 이 페이지에서 녹화된 세션이 없어 히트맵을 표시할 수 없습니다. 집계 수치에는 영향이 없습니다.",
+      "recording_denied": "세션 리플레이를 볼 권한이 없어 히트맵을 표시할 수 없습니다. 집계 수치에는 영향이 없습니다.",
+      "stage_failed": "녹화된 페이지를 열 수 없습니다: {{reason}}",
+      "not_browser": {
+        "title": "히트맵은 브라우저 애플리케이션에서만 사용할 수 있습니다",
+        "description": "앱 리플레이는 스크린샷으로 구성되므로 화면에서 개별 요소를 식별할 수 없습니다."
+      },
+      "no_pages": {
+        "title": "선택한 범위에 페이지가 없습니다",
+        "description": "범위를 넓히거나 SDK가 데이터를 전송하고 있는지 확인하세요."
+      }
+    },
+    "segment": {
+      "label": "세그먼트",
+      "everyone": "모든 사용자"
+    }
+  },
+  "playlists": {
+    "title": "재생목록",
+    "create": "새 재생목록",
+    "result_count_one": "재생목록 {{count}}개",
+    "result_count_other": "재생목록 {{count}}개",
+    "application_filter": "애플리케이션",
+    "all_applications": "모든 애플리케이션",
+    "columns": {
+      "name": "이름",
+      "application": "애플리케이션",
+      "sessions": "세션",
+      "updated": "업데이트 일시",
+      "created_by": "생성자"
+    },
+    "empty_title": "아직 재생목록이 없습니다",
+    "empty_description": "다시 볼 세션을 한곳에 모아 순서대로 재생할 수 있습니다. 여기에서 또는 세션 페이지에서 재생목록을 만들 수 있습니다.",
+    "empty_no_application": "재생목록은 애플리케이션에 속합니다. 먼저 애플리케이션을 만들어 주세요.",
+    "not_found": "재생목록을 찾을 수 없습니다",
+    "play": "처음부터 재생",
+    "rename": "이름 변경",
+    "delete": "재생목록 삭제",
+    "cancel": "취소",
+    "all": "모든 재생목록",
+    "delete_confirm_title": "{{name}}을(를) 삭제하시겠습니까?",
+    "delete_confirm_description": "재생목록만 삭제되며 포함된 세션은 그대로 유지됩니다.",
+    "form": {
+      "create_title": "새 재생목록",
+      "edit_title": "재생목록 이름 변경",
+      "subtitle": "세션을 순서대로 재생할 수 있는 목록입니다.",
+      "name": "이름",
+      "name_placeholder": "결제 실패",
+      "description": "설명",
+      "description_hint": "세션의 공통점을 입력해 주세요.",
+      "application": "애플리케이션",
+      "application_fixed": "재생목록에 연결된 애플리케이션은 변경할 수 없습니다.",
+      "create": "만들기",
+      "save": "저장"
+    },
+    "sessions": {
+      "title": "세션",
+      "count_one": "세션 {{count}}개",
+      "count_other": "세션 {{count}}개",
+      "empty": "이 재생목록에 세션이 없습니다. 세션 페이지에서 추가해 주세요.",
+      "session": "세션",
+      "person": "사용자",
+      "started": "시작 시간",
+      "duration": "지속 시간",
+      "signs": "발생한 이벤트",
+      "opens_at": "재생 시작 위치",
+      "remove": "재생목록에서 {{id}} 제거",
+      "remove_column": "제거",
+      "gone": "데이터에서 찾을 수 없음",
+      "errors_one": "오류 {{count}}건",
+      "errors_other": "오류 {{count}}건",
+      "frustrations_one": "사용자 불편 신호 {{count}}건",
+      "frustrations_other": "사용자 불편 신호 {{count}}건"
+    },
+    "link": {
+      "moment": "현재 재생 위치 링크 복사",
+      "session": "링크 복사",
+      "copied": "링크가 복사되었습니다"
+    },
+    "menu": {
+      "button": "재생목록에 추가",
+      "title": "이 애플리케이션의 재생목록",
+      "description": "이 세션을 재생목록에 추가하거나 재생목록에서 제거할 수 있습니다.",
+      "none": "이 애플리케이션에는 아직 재생목록이 없습니다.",
+      "at_moment": "현재 재생 시점부터 열기",
+      "new_placeholder": "새 재생목록",
+      "new_name": "새 재생목록 이름",
+      "new": "만들고 추가"
+    },
+    "bar": {
+      "place": "{{index}} / {{total}}",
+      "not_in": "이 세션은 재생목록에 없습니다",
+      "previous": "이전",
+      "next": "다음"
+    }
+  },
+  "errors": {
+    "state": {
+      "open": "열림",
+      "investigating": "조사 중",
+      "regressed": "재발",
+      "resolved": "해결됨",
+      "ignored": "무시됨"
+    },
+    "filter": {
+      "unresolved": "미해결",
+      "regressed": "재발",
+      "investigating": "조사 중",
+      "resolved": "해결됨",
+      "ignored": "무시됨",
+      "all": "모든 이슈"
+    },
+    "filters": {
+      "status": "상태",
+      "holder": "담당자",
+      "source": "소스"
+    },
+    "holder": {
+      "anyone": "전체",
+      "nobody": "미할당"
+    },
+    "search": {
+      "label": "이슈 검색",
+      "placeholder": "이슈 검색: 메시지, 유형, 파일"
+    },
+    "count_one": "이슈 {{count}}개",
+    "count_other": "이슈 {{count}}개",
+    "picked": {
+      "clear": "{{dimension}}: {{value}} 필터 해제"
+    },
+    "saved": "이슈가 업데이트되었습니다",
+    "table": {
+      "label": "이슈",
+      "issue": "이슈",
+      "status": "상태",
+      "holder": "담당자",
+      "sessions": "세션",
+      "users": "사용자",
+      "trend": "추세",
+      "versions": "버전",
+      "last_seen": "마지막 발생"
+    },
+    "overflow": {
+      "title": "기타 오류",
+      "description": "애플리케이션이 시간당 이슈 생성 한도에 도달한 후 발생한 오류입니다."
+    },
+    "spread": {
+      "title": "발생 위치",
+      "description": "목록에 있는 이슈가 발생한 세션을 버전, 페이지, 브라우저별로 표시합니다.",
+      "version": "버전",
+      "page": "페이지",
+      "browser": "브라우저",
+      "empty": "세션 없음"
+    },
+    "empty": {
+      "unresolved": "이 기간에 미해결 이슈가 없습니다.",
+      "none": "이 기간에 이슈가 없습니다.",
+      "description": "애플리케이션에서 전송한 오류를 유형, 메시지, 발생 위치별로 그룹화하여 표시합니다.",
+      "show_all": "모든 이슈 보기"
+    },
+    "controls": {
+      "status": "상태",
+      "team": "팀",
+      "no_team": "팀 없음",
+      "holder": "담당자"
+    },
+    "drawer": {
+      "title": "이슈",
+      "untyped": "오류",
+      "explore": "탐색기에서 보기",
+      "close": "닫기",
+      "source": "소스",
+      "handling": "처리 여부",
+      "issue_id": "이슈 ID",
+      "anonymous": "익명 {{id}}",
+      "unknown": "알 수 없음",
+      "facts": {
+        "state": "상태",
+        "sessions": "세션",
+        "users": "사용자",
+        "first_seen": "최초 발생",
+        "last_seen": "마지막 발생",
+        "versions": "버전"
+      },
+      "where": {
+        "title": "발생 위치",
+        "description": "이 이슈에 속한 오류만 표시합니다.",
+        "browser": "브라우저",
+        "system": "시스템",
+        "country": "국가"
+      },
+      "samples": {
+        "title": "최근 세션",
+        "description": "최근 오류를 각각 발생한 세션에서 확인할 수 있습니다.",
+        "empty": "최근 오류 없음",
+        "replay": "리플레이",
+        "timeline": "타임라인",
+        "not_kept": "보관되지 않은 세션"
+      },
+      "people": {
+        "title": "영향을 받은 사용자",
+        "description": "오류 발생 빈도순",
+        "empty": "영향을 받은 사용자 없음",
+        "times_one": "{{count}}회",
+        "times_other": "{{count}}회"
+      }
+    },
+    "trend": {
+      "title": "시간별 추이",
+      "description": "최근 {{days}}일간의 일별 세션 수를 버전별로 누적하여 표시합니다.",
+      "empty": "해당 기간에 세션 없음",
+      "aria": "최근 {{days}}일간의 버전별 세션 수, 총 {{count}}개",
+      "others": "기타 버전",
+      "no_version": "버전 없음",
+      "resolved": "해결됨",
+      "resolved_in": "해결됨 · {{version}}"
+    },
+    "stack": {
+      "title": "오류가 발생한 위치",
+      "view": "표시할 프레임",
+      "restored": "복원됨",
+      "raw": "원본",
+      "restored_tag": "복원됨",
+      "library": "라이브러리",
+      "anonymous": "(익명)",
+      "empty": "이 오류와 함께 전송된 스택 트레이스가 없습니다.",
+      "symbolication": {
+        "completed": "소스 맵, 매핑 또는 심볼 파일을 사용해 복원했습니다.",
+        "partial": "일부 프레임을 복원했습니다.",
+        "missing": "이 릴리스와 일치하는 디버그 파일이 없어 복원하지 못했습니다.",
+        "none": "SDK에서 전송한 프레임을 그대로 표시합니다."
+      }
+    },
+    "banner": {
+      "resolved": "{{when}}에 해결되었습니다.",
+      "resolved_by": "{{who}} 님이 {{when}}에 해결했습니다.",
+      "resolved_in": "{{when}}에 {{version}} 버전에서 해결되었습니다.",
+      "resolved_by_in": "{{who}} 님이 {{when}}에 {{version}} 버전에서 해결했습니다.",
+      "back": "{{when}}에 다시 발생했습니다.",
+      "back_in": "{{when}}에 {{version}} 버전에서 다시 발생했습니다.",
+      "older": "{{version}} 버전 이하에서 오류가 발생해도 해결 상태가 유지됩니다."
+    }
+  },
+  "applications": {
+    "title": "애플리케이션",
+    "list_title": "RUM 애플리케이션",
+    "result_count_one": "애플리케이션 {{count}}개",
+    "result_count_other": "애플리케이션 {{count}}개",
+    "create_button": "애플리케이션 만들기",
+    "empty_title": "아직 애플리케이션이 없습니다",
+    "empty_description": "먼저 애플리케이션을 만든 다음 SDK에 클라이언트 토큰을 설정합니다. 존재하지 않는 애플리케이션으로 전송된 이벤트는 거부됩니다.",
+    "columns": {
+      "application": "애플리케이션",
+      "platform": "플랫폼",
+      "collection": "수집 항목",
+      "created": "생성 일시"
+    },
+    "collection": {
+      "ip": "IP",
+      "geo": "위치"
+    },
+    "platforms": {
+      "browser": "브라우저",
+      "android": "Android",
+      "ios": "iOS",
+      "flutter": "Flutter",
+      "react-native": "React Native",
+      "other": "기타"
+    },
+    "create": {
+      "title": "애플리케이션 만들기",
+      "subtitle": "SDK는 애플리케이션 식별자와 설정된 클라이언트 토큰을 사용해 이벤트를 전송합니다.",
+      "submit": "만들기",
+      "name": "이름",
+      "name_placeholder": "결제 웹",
+      "id": "식별자",
+      "id_hint": "비워 두면 {{id}}를 사용합니다. 나중에 변경할 수 없습니다.",
+      "id_invalid": "영문자, 숫자, . _ : -만 사용할 수 있으며 최대 64자까지 입력할 수 있습니다.",
+      "platform": "플랫폼"
+    },
+    "drawer": {
+      "close": "닫기",
+      "save": "저장",
+      "saving": "저장 중",
+      "cancel": "취소",
+      "token_title": "클라이언트 토큰",
+      "token_description": "SDK에 이 토큰을 설정합니다. 이 토큰으로는 이 애플리케이션에만 이벤트를 기록할 수 있습니다.",
+      "show_token": "토큰 표시",
+      "hide_token": "토큰 숨기기",
+      "copy_token": "토큰 복사",
+      "collection_title": "수집",
+      "collection_description": "각 이벤트와 함께 저장할 항목을 설정합니다. IP 주소를 저장하지 않아도 클라이언트의 위치는 조회합니다.",
+      "collect_ip": "IP 주소 저장",
+      "collect_ip_hint": "서버에서 확인한 요청 출발지 IP 주소입니다.",
+      "collect_geo": "위치 정보 보관",
+      "collect_geo_hint": "주소를 기반으로 국가, 지역, 도시를 조회합니다.",
+      "privacy": "기본 개인정보 보호 수준",
+      "privacy_hint": "설정 스니펫에서 세션 리플레이에 권장하는 개인정보 보호 수준입니다.",
+      "privacy_mask": "텍스트 및 입력값 마스킹",
+      "privacy_allow": "화면에 표시되는 모든 내용 기록",
+      "setup_title": "SDK 설정",
+      "setup_description": "설정 가이드에서 엔드포인트, 토큰, 식별자를 자동으로 채웁니다.",
+      "open_guide": "설정 가이드 열기",
+      "no_guide": "이 플랫폼은 수집 엔드포인트로 이벤트를 직접 전송합니다. 자세한 내용은 문서를 참조하세요.",
+      "delete_title": "삭제",
+      "delete_description": "이 애플리케이션의 클라이언트 토큰은 더 이상 사용할 수 없습니다. 이미 전송된 데이터는 각 스트림의 보존 기간이 끝날 때까지 유지됩니다.",
+      "delete": "애플리케이션 삭제",
+      "delete_confirm_title": "{{name}} 삭제",
+      "delete_confirm_description": "삭제하면 이 토큰을 사용하도록 설정된 SDK의 요청이 거부됩니다.",
+      "scrub_title": "민감 데이터",
+      "scrub_description": "이벤트를 저장하기 전에 주소, 오류 텍스트, 이름, 요청 세부 정보에서 민감 데이터를 제거합니다. SDK가 세션 리플레이를 기록할 때 마스킹하는 내용에는 영향을 주지 않습니다.",
+      "scrub": {
+        "secrets": "토큰, 키 및 비밀번호",
+        "secrets_hint": "Bearer 및 JWT 토큰, API 키, password= 뒤의 값, 인증 정보 헤더의 값을 제거합니다.",
+        "emails": "이메일 주소",
+        "emails_hint": "각 이메일 주소를 [email]로 대체합니다.",
+        "phones": "전화번호",
+        "phones_hint": "국제 형식의 전화번호와 중국 및 북미에서 일반적으로 사용하는 형식의 전화번호를 제거합니다.",
+        "cards": "결제 카드 번호",
+        "cards_hint": "앞자리 숫자와 검증 숫자가 결제 카드 번호 규칙에 맞는 번호를 제거합니다.",
+        "national_ids": "개인 식별 번호",
+        "national_ids_hint": "중국 주민 신분증 번호와 미국 사회보장번호를 제거합니다.",
+        "url_params": "민감한 URL 매개변수",
+        "url_params_hint": "token, code, password, session, email 등의 매개변수 값과 호스트 앞에 표시되는 사용자 이름 및 비밀번호를 제거합니다."
+      },
+      "sampling_title": "세션 보관",
+      "sampling_description": "SDK에서 샘플링한 세션에 보관 비율을 추가로 적용합니다. 세션은 리플레이를 포함해 통째로 보관하거나 제외합니다. 세션과 일치하는 첫 번째 필터의 보관 비율을 적용하고, 일치하는 필터가 없으면 아래 비율을 적용합니다.",
+      "sample_rate": "세션 보관 비율 (%)",
+      "sample_rate_hint": "100으로 설정하면 모든 세션을 보관합니다. 보관 대상에서 제외된 세션의 이벤트는 저장하지 않으며, 수집 엔드포인트의 응답에는 제외된 이벤트 수가 표시됩니다.",
+      "retention": {
+        "new_name": "필터 {{number}}",
+        "add_filter": "필터 추가",
+        "remove_filter": "이 필터 제거",
+        "filter_up": "이 필터를 위로 이동",
+        "filter_down": "이 필터를 아래로 이동",
+        "no_filters": "필터가 없으면 모든 세션에 아래 보관 비율을 적용합니다. 필터를 사용하면 프로덕션 환경의 전체 세션 등 조건에 맞는 세션에 별도의 보관 비율을 적용할 수 있습니다.",
+        "filter_name": "필터 이름",
+        "filter_rate": "필터에 일치하는 세션 보존 비율(%)",
+        "add_condition": "조건 추가",
+        "remove_condition": "이 조건 제거",
+        "condition_field": "조건 필드",
+        "condition_op": "비교 연산자",
+        "condition_values": "값",
+        "values_placeholder": "prod, production (*는 임의의 문자열과 일치)",
+        "ops": {
+          "is": "같음",
+          "is_not": "같지 않음"
+        },
+        "fields": {
+          "env": "환경",
+          "service": "서비스",
+          "version": "버전",
+          "source": "플랫폼",
+          "session_type": "세션 유형",
+          "geo_country_iso_code": "국가 코드",
+          "browser_name": "브라우저",
+          "os_name": "운영 체제",
+          "device_type": "기기 유형"
+        },
+        "rest_rate": "나머지 세션 보존 비율(%)",
+        "rest_rate_hint": "어떤 필터에도 일치하지 않는 세션에 적용합니다. 100으로 설정하면 해당 세션을 모두 보존합니다. 수집 응답에는 제외된 이벤트 수가 표시됩니다.",
+        "keep_errors": "모든 오류 보존",
+        "keep_errors_hint": "세션을 보존하지 않아도 해당 세션의 오류는 저장하고 발생한 횟수만큼 집계합니다. 이 옵션을 끄면 드물게 발생하는 오류가 세션과 함께 누락될 수 있습니다."
+      },
+      "issues_title": "이슈",
+      "issues_description": "이 애플리케이션에서 발생한 오류를 이슈로 그룹화하는 방식을 설정합니다.",
+      "issues_per_hour": "시간당 새 이슈 한도",
+      "issues_per_hour_hint": "한도를 초과하면 새 오류를 ‘기타 오류’라는 하나의 이슈로 묶어 집계합니다.",
+      "privacy_mask_user_input": "사용자 입력 마스킹",
+      "sdk": {
+        "title": "SDK 원격 구성",
+        "description": "remoteConfiguration: true로 초기화된 SDK는 시작할 때 이 구성을 불러옵니다. 페이지를 다시 배포하지 않아도 변경 사항을 적용할 수 있습니다. 비워 둔 항목에는 페이지에서 지정한 설정을 적용합니다.",
+        "not_said": "페이지 설정 따름",
+        "session_sample_rate": "세션 샘플링 비율(%)",
+        "session_sample_rate_hint": "애플리케이션의 보존 설정을 적용하기 전에 SDK가 전송하는 세션의 비율입니다.",
+        "session_replay_sample_rate": "세션 리플레이 샘플링 비율(%)",
+        "session_replay_sample_rate_hint": "전송된 세션 중 리플레이를 기록하는 세션의 비율입니다.",
+        "privacy": "개인정보 보호 수준",
+        "clicks": "클릭 수집",
+        "on": "수집",
+        "off": "수집 안 함",
+        "console": "콘솔 출력 전달",
+        "console_hint": "출력을 로그 스트림에도 기록할 콘솔 메서드를 선택합니다.",
+        "console_none": "전달 안 함",
+        "console_from": "{{level}} 이상"
+      },
+      "segments": {
+        "title": "세그먼트",
+        "description": "사용자와 접속 위치를 기준으로 세션을 그룹화합니다. 분석 페이지에서 세그먼트별로 세션을 필터링할 수 있습니다.",
+        "new_name": "세그먼트 {{number}}",
+        "add": "세그먼트 추가",
+        "remove": "세그먼트 삭제",
+        "none": "아직 세그먼트가 없습니다.",
+        "name": "세그먼트 이름",
+        "property_key": "속성 이름(예: plan)",
+        "fields": {
+          "geo_country_iso_code": "국가(ISO 코드)",
+          "geo_continent_code": "대륙",
+          "geo_city": "도시",
+          "browser_name": "브라우저",
+          "os_name": "운영체제",
+          "device_type": "기기 유형",
+          "usr_id": "사용자 ID",
+          "usr_email": "사용자 이메일",
+          "account_id": "계정 ID",
+          "service": "서비스",
+          "version": "버전",
+          "source": "플랫폼",
+          "property": "사용자 속성"
+        }
+      }
+    }
+  },
+  "session_detail": {
+    "title_error": "오류가 발생한 세션",
+    "no_events": "이 세션에는 재생할 수 있는 이벤트가 없습니다.",
+    "replay_player": "세션 리플레이 플레이어",
+    "replay_recorded": "녹화된 리플레이",
+    "action_timeline_fallback": "동작 타임라인",
+    "replay_loading": "DOM 녹화 로드 중…",
+    "replay_request_error": "세션 녹화를 불러올 수 없습니다.",
+    "replay_load_error": "녹화된 페이지를 재구성할 수 없습니다.",
+    "replay_unavailable": "이 세션에는 DOM 녹화가 없습니다",
+    "replay_unavailable_description": "이 세션은 DOM 녹화 대상으로 샘플링되지 않았지만, 탐색 및 애플리케이션 이벤트는 아래 이벤트 타임라인에서 확인할 수 있습니다.",
+    "events_unit": "이벤트",
+    "restart": "처음부터 재생",
+    "play": "재생",
+    "pause": "일시 정지",
+    "seek": "세션 리플레이 재생 위치 이동",
+    "user_context": "사용자 컨텍스트",
+    "device": "기기",
+    "ip_address": "IP 주소",
+    "detected_issues": "감지된 문제",
+    "no_detected_issues": "뚜렷한 문제가 감지되지 않았습니다.",
+    "event_timeline": "이벤트 타임라인",
+    "event_timeline_description": "페이지 이동, 클릭, 오류, 네트워크 요청, 성능 이벤트를 발생 순서대로 표시합니다.",
+    "related_traces_title": "관련 트레이스",
+    "related_traces_subtitle": "이 사용자 세션에 직접 연결되거나 발생 시간상 연관된 백엔드 트레이스입니다.",
+    "related_empty": "이 세션과 관련된 백엔드 트레이스가 없습니다.",
+    "relation_direct": "직접 연결",
+    "relation_time_correlated": "시간상 연관",
+    "primary_service_label": "주 서비스",
+    "title": "세션",
+    "related_columns": {
+      "spans": "스팬"
+    },
+    "not_found": "최근 30일 동안의 기록에서 이 세션을 찾을 수 없습니다.",
+    "title_frustration": "불편을 나타내는 클릭이 감지된 세션",
+    "user": "사용자",
+    "anonymous_user": "익명",
+    "location": "위치",
+    "application": "애플리케이션",
+    "environment": "환경",
+    "version": "버전",
+    "duration": "지속 시간",
+    "journey": "페이지",
+    "issue": {
+      "error": "오류",
+      "crash": "비정상 종료",
+      "frustration": "사용자 불편 신호",
+      "long_task": "장시간 작업"
+    },
+    "timeline_truncated": "{{types}}의 처음 몇 개 행만 표시합니다.",
+    "location_unknown": "알 수 없음",
+    "tools": {
+      "aria": "개발자 도구",
+      "tabs_aria": "개발자 도구 탭",
+      "tabs": {
+        "errors": "오류",
+        "network": "네트워크",
+        "performance": "성능",
+        "logs": "로그",
+        "comments": "댓글"
+      },
+      "view": "뷰",
+      "follow": "리플레이 따라가기",
+      "all_views": "모든 뷰",
+      "display": {
+        "label": "표시",
+        "list": "목록",
+        "waterfall": "워터폴"
+      },
+      "seek": "{{time}}(으)로 이동",
+      "network": {
+        "aria": "이 세션의 요청",
+        "time": "시간",
+        "method": "메서드",
+        "name": "이름",
+        "status": "상태",
+        "type": "유형",
+        "duration": "소요 시간",
+        "size": "크기",
+        "empty": "이 뷰에서 발생한 요청이 없습니다",
+        "empty_all": "이 세션에서 발생한 요청이 없습니다",
+        "no_match": "조건에 맞는 요청이 없습니다"
+      },
+      "errors": {
+        "aria": "이 세션의 오류",
+        "time": "시간",
+        "type": "유형",
+        "message": "메시지",
+        "issue": "이슈",
+        "issue_id": "이슈 {{id}}",
+        "open_issue": "이슈 {{id}} 열기",
+        "crash": "크래시",
+        "empty": "이 세션에서 발생한 오류가 없습니다"
+      },
+      "performance": {
+        "aria": "이 세션의 뷰별 성능",
+        "view": "뷰",
+        "resources": "요청",
+        "long_tasks": "장기 작업",
+        "open": "{{view}} 로드 상세 보기",
+        "empty": "이 세션에 뷰가 없습니다"
+      },
+      "logs": {
+        "aria": "이 세션의 로그",
+        "time": "시간",
+        "level": "수준",
+        "message": "메시지",
+        "logger": "로거",
+        "empty": "이 세션에 로그가 없습니다. SDK 로거로 로그를 기록하거나 forwardConsoleLogs를 활성화하여 콘솔 로그를 전송하세요."
+      },
+      "comments": {
+        "aria": "이 리플레이의 댓글",
+        "time": "시간",
+        "body": "댓글",
+        "author": "작성자",
+        "nobody": "(탈퇴)",
+        "write": "댓글 작성",
+        "placeholder": "{{time}}에 댓글 작성",
+        "add": "댓글 등록",
+        "edit": "댓글 수정",
+        "save": "저장",
+        "cancel": "취소",
+        "delete": "댓글 삭제",
+        "empty": "아직 댓글이 없습니다."
+      }
+    },
+    "session_type": "세션 유형",
+    "session_types": {
+      "synthetics": "신세틱 검사",
+      "ci_test": "CI 테스트",
+      "user": "실제 사용자"
+    },
+    "summary": {
+      "title": "AI 요약",
+      "generate": "요약 생성",
+      "regenerate": "요약 다시 생성",
+      "generating": "요약 생성 중…",
+      "none": "아직 요약이 없습니다. 요약은 Mole Agent의 모델을 사용하며, 사용량은 Mole Agent의 일일 한도에 포함됩니다.",
+      "chapters": "챕터",
+      "by": "{{model}} · {{tokens}}토큰"
+    }
+  },
+  "settings": {
+    "title": "RUM 설정",
+    "nav": {
+      "sdk": "SDK 설정",
+      "source_maps": "소스 맵",
+      "sampling": "데이터 샘플링",
+      "privacy": "개인정보 보호",
+      "session_replay": "세션 리플레이"
+    },
+    "docs_title": "설치 및 구성 문서",
+    "docs_description": "브라우저 RUM SDK 설정, 소스 맵, 샘플링, 개인정보 보호, 세션 리플레이에 대해 알아봅니다.",
+    "view_docs": "문서 보기",
+    "sections": {
+      "sdk": {
+        "title": "SDK 설정",
+        "subtitle": "플랫폼을 선택하고 첫 실제 사용자 이벤트가 수집되었는지 확인합니다.",
+        "heading": "RUM SDK 설치",
+        "description": "애플리케이션, 환경, 버전은 모든 RUM 분석에서 공통 컨텍스트로 사용됩니다.",
+        "steps": {
+          "1": "플랫폼에 맞는 MoleSignal RUM SDK를 설치합니다.",
+          "2": "애플리케이션, 환경, 버전, 수집 엔드포인트를 구성합니다.",
+          "3": "테스트 세션을 전송한 후 탐색기에서 해당 세션을 찾습니다."
+        }
+      },
+      "sampling": {
+        "title": "데이터 샘플링",
+        "subtitle": "세션, 성능 데이터, 세션 리플레이의 수집 비율을 제어합니다.",
+        "heading": "샘플링 전략 설정",
+        "description": "세션 샘플링과 세션 리플레이 샘플링을 별도로 설정합니다. 세션 리플레이 샘플링은 샘플링된 세션에만 적용됩니다.",
+        "steps": {
+          "1": "기본 세션 샘플링 비율을 선택합니다.",
+          "2": "샘플링된 세션에 적용할 리플레이 샘플링 비율을 선택합니다.",
+          "3": "설정을 배포하고 수집량과 수집 범위를 모니터링합니다."
+        }
+      },
+      "privacy": {
+        "title": "개인정보 보호",
+        "subtitle": "텍스트, 입력값, 네트워크 데이터 및 사용자 식별자의 수집을 제어합니다.",
+        "heading": "사용자 개인정보 보호",
+        "description": "민감한 값이 사용자 기기 외부로 전송되지 않도록 클라이언트에서 마스킹 및 차단을 적용합니다.",
+        "steps": {
+          "1": "입력값, 텍스트 및 미디어의 기본 마스킹 규칙을 설정합니다.",
+          "2": "민감한 페이지, 요청 필드 및 사용자 식별자의 수집을 차단합니다.",
+          "3": "테스트 세션으로 민감한 정보가 가려졌는지 확인합니다."
+        }
+      },
+      "session-replay": {
+        "title": "세션 리플레이 설정",
+        "subtitle": "세션 리플레이의 샘플링, 마스킹 및 녹화 범위를 설정합니다.",
+        "heading": "세션 리플레이 구성",
+        "description": "개인정보 마스킹 규칙을 준수하면서 사용자 경험 문제를 조사하는 데 필요한 상호작용만 녹화합니다.",
+        "steps": {
+          "1": "세션 리플레이를 활성화하고 별도의 샘플링 비율을 선택합니다.",
+          "2": "페이지, 요소 및 미디어의 녹화 규칙을 설정합니다.",
+          "3": "테스트 세션을 전송하고 리플레이 타임라인을 확인합니다."
+        }
+      }
+    }
+  },
+  "source_maps": {
+    "title": "소스 맵 및 심볼",
+    "subtitle": "웹, Flutter, Android 및 iOS의 스택 복원용 아티팩트를 관리합니다.",
+    "upload_cta": "디버그 아티팩트 업로드",
+    "load_error": "디버그 아티팩트를 불러올 수 없습니다.",
+    "active_maps": "업로드된 디버그 아티팩트",
+    "active_maps_description": "현재 파일 {{count}}개를 스택 복원에 사용할 수 있습니다.",
+    "status_active": "활성",
+    "columns": {
+      "application": "애플리케이션 ID",
+      "service": "서비스",
+      "release": "버전",
+      "kind": "아티팩트 유형",
+      "platform": "플랫폼",
+      "filename": "파일",
+      "status": "상태",
+      "uploaded": "업로드 시간",
+      "matched_errors": "일치하는 오류"
+    },
+    "kinds": {
+      "javascript_sourcemap": "JavaScript 소스 맵",
+      "flutter_symbols": "Flutter 심볼",
+      "android_mapping": "Android mapping.txt",
+      "android_native_symbols": "Android 네이티브 심볼",
+      "apple_dsym": "Apple dSYM"
+    },
+    "empty_title": "업로드된 디버그 아티팩트 없음",
+    "empty_description": "코드가 축소되거나 난독화된 스택 또는 네이티브 스택을 복원하려면 각 모바일 또는 웹 릴리스에 해당하는 아티팩트를 업로드합니다.",
+    "onboarding_title": "읽을 수 있는 소스 코드 위치 복원",
+    "onboarding_description": "소스 맵, Flutter 심볼, Android 매핑 파일 또는 네이티브 심볼, Apple dSYM 파일을 업로드합니다. MoleSignal은 애플리케이션과 릴리스를 기준으로 파일을 매칭해 함수 이름과 줄 번호를 복원합니다.",
+    "view_docs": "설정 문서 보기",
+    "stack_example": "스택 복원 예시",
+    "before": "축소됨",
+    "after": "복원됨",
+    "demangle": "소스 맵 복원",
+    "delete": "삭제",
+    "toast_deleted": "삭제했습니다",
+    "delete_confirm_title": "디버그 아티팩트를 삭제하시겠습니까?",
+    "delete_confirm_description": "기존 스택은 유지되지만, 이 릴리스에서 새로 발생하는 오류의 스택은 더 이상 복원되지 않습니다."
+  },
+  "upload_source_maps": {
+    "title": "디버그 아티팩트 업로드",
+    "application_label": "애플리케이션 ID",
+    "service_label": "서비스",
+    "release_label": "버전",
+    "kind_label": "아티팩트 유형",
+    "platform_label": "플랫폼",
+    "platform_hint": "아티팩트 유형에 따라 선택할 수 있는 옵션이 달라집니다.",
+    "architecture_label": "아키텍처 (선택 사항)",
+    "architecture_hint": "네이티브 아티팩트에는 아키텍처를 지정하는 것이 좋습니다(예: arm64, armeabi-v7a, x86_64).",
+    "debug_id_label": "디버그 ID / UUID (선택 사항)",
+    "debug_id_hint": "같은 릴리스에 속한 여러 빌드 아티팩트를 구분합니다.",
+    "debug_id_placeholder": "UUID 또는 빌드 ID",
+    "file_label": "디버그 아티팩트 파일",
+    "file_hint": ".map, mapping.txt, Flutter .symbols, 심볼이 제거되지 않은 .so 파일, dSYM 내부의 DWARF 파일과 각 파일의 .gz 형식을 지원합니다. 최대 50 MiB입니다.",
+    "submit": "업로드",
+    "uploading": "업로드 중…",
+    "file_required": "파일을 선택하세요",
+    "success": "디버그 아티팩트를 업로드했습니다",
+    "back": "디버그 아티팩트 목록으로 돌아가기"
+  },
+  "explorer": {
+    "title": "탐색기",
+    "types": {
+      "sessions": "세션",
+      "views": "뷰",
+      "actions": "작업",
+      "errors": "오류",
+      "resources": "리소스",
+      "long_tasks": "장기 작업",
+      "vitals": "바이탈",
+      "logs": "로그"
+    },
+    "toolbar": {
+      "refresh": "새로고침"
+    },
+    "query": {
+      "run": "쿼리 실행",
+      "running": "쿼리 실행 중",
+      "clear_query": "쿼리 지우기",
+      "collapse_editor": "쿼리 편집기 접기",
+      "expand_editor": "쿼리 편집기 펼치기",
+      "empty_summary": "모든 {{type}}",
+      "free_text_label": "텍스트:",
+      "ignored_label": "무시됨:",
+      "help_title": "RUM 필드 쿼리",
+      "help_description": "조회 중인 행의 필드 값을 비교할 수 있습니다. 비교 조건에 포함되지 않은 단어는 텍스트 열에서 검색합니다.",
+      "example_equals": "특정 사용자",
+      "example_contains": "특정 페이지",
+      "example_exclude": "특정 브라우저 제외",
+      "example_number": "1초 초과(나노초 단위)"
+    },
+    "histogram": {
+      "show": "히스토그램 표시",
+      "hide": "히스토그램 숨기기",
+      "label": "시간대별 {{type}}",
+      "ok": "행",
+      "troubled": {
+        "sessions": "오류가 발생한 세션",
+        "views": "오류가 발생한 뷰",
+        "actions": "사용자 불편 신호가 감지된 액션",
+        "errors": "오류",
+        "resources": "실패한 요청",
+        "long_tasks": "장기 작업",
+        "logs": "오류 로그"
+      }
+    },
+    "columns": {
+      "time": "시간",
+      "user": "사용자",
+      "landing_page": "랜딩 페이지",
+      "duration": "지속 시간",
+      "views": "뷰",
+      "actions": "액션",
+      "errors": "오류",
+      "session_id": "세션",
+      "browser": "브라우저",
+      "country": "국가",
+      "page": "페이지",
+      "loading_time": "로딩 시간",
+      "lcp": "LCP",
+      "inp": "INP",
+      "cls": "CLS",
+      "view_id": "뷰",
+      "type": "유형",
+      "target": "대상",
+      "frustration": "사용자 불편",
+      "action_id": "동작",
+      "message": "메시지",
+      "error_type": "오류 유형",
+      "source": "소스",
+      "handling": "처리 여부",
+      "version": "버전",
+      "error_id": "오류",
+      "method": "메서드",
+      "url": "URL",
+      "status": "상태",
+      "size": "크기",
+      "resource_type": "유형",
+      "resource_id": "요청",
+      "entry_type": "종류",
+      "blocking": "차단",
+      "long_task_id": "작업"
+    },
+    "fields": {
+      "title": "필드",
+      "resize": "필드 목록 크기 조절",
+      "collapse": "필드 목록 접기",
+      "expand": "필드 목록 펼치기",
+      "summary": "전체 {{total}}개 필드 중 {{shown}}개",
+      "filter_placeholder": "필드 검색",
+      "filter_aria": "필드 검색",
+      "displayed_fields": "표시된 필드",
+      "indexed_fields": "인덱싱된 필드",
+      "other_fields": "기타 필드",
+      "no_match": "일치하는 필드가 없습니다",
+      "hide_field_aria": "테이블에서 {{name}} 숨기기",
+      "show_field_aria": "테이블에 {{name}} 표시",
+      "add_field_aria": "{{name}} 기준으로 필터링",
+      "json_query_required": "{{name}} 필드에는 문서가 들어 있어 비교할 수 없습니다",
+      "values_loading": "{{name}} 필드의 값을 불러오는 중입니다",
+      "values_failed": "값을 불러오지 못했습니다.",
+      "no_values": "이 행에는 값이 없습니다.",
+      "values_top": "상위 {{shown}}개 값",
+      "filter_for": "이 값만 포함",
+      "filter_out": "이 값 제외",
+      "filter_remove": "필터 제거",
+      "filter_for_aria": "{{name}} 값이 {{value}}인 행만 표시",
+      "filter_out_aria": "{{name}} 값이 {{value}}인 행 제외",
+      "unavailable": {
+        "time_budget": "개수를 세는 데 시간이 너무 오래 걸렸습니다.",
+        "busy": "실행 중인 쿼리가 너무 많습니다."
+      }
+    },
+    "results": {
+      "loaded_count_one": "행 {{count}}개를 불러왔습니다.",
+      "loaded_count_other": "행 {{count}}개를 불러왔습니다.",
+      "reset_columns": "기본 열로 복원",
+      "export": "CSV로 다운로드(최대 5,000행)",
+      "export_more": "파일에는 최신 {{count}}개 행만 포함됩니다. 쿼리와 일치하는 행이 더 있습니다."
+    },
+    "viz": {
+      "label": "시각화 유형",
+      "names": {
+        "list": "목록",
+        "timeseries": "시계열",
+        "toplist": "상위 목록",
+        "table": "표",
+        "map": "지도",
+        "distribution": "분포"
+      },
+      "map_unavailable": "이 유형의 행에는 국가 정보가 없어 지도에 표시할 수 없습니다.",
+      "map_group": "지도에서 행을 국가별로 그룹화합니다.",
+      "map_empty": "이 범위에는 국가 정보가 있는 행이 없습니다. 애플리케이션이 위치 정보를 저장하지 않거나 GeoIP 데이터베이스가 설치되어 있지 않습니다.",
+      "aggregate": "집계 대상",
+      "measure": "측정값",
+      "measure_edit": "측정값 {{measure}} 변경",
+      "measure_add": "측정값 추가",
+      "measure_remove": "측정값 {{measure}} 제거",
+      "function": "함수",
+      "group": "그룹화 기준",
+      "group_then": "다음 그룹화 기준",
+      "group_edit": "그룹 {{field}} 변경",
+      "group_add": "그룹 추가",
+      "group_remove": "그룹 {{field}} 제거",
+      "bucket": "버킷",
+      "bucket_auto_of": "자동 · {{bucket}}",
+      "top": "상위",
+      "search_fields": "필드 검색",
+      "no_fields": "일치하는 필드가 없습니다.",
+      "no_value": "(없음)",
+      "count_of": "{{type}} 개수",
+      "title_by": "{{groups}}별 {{measure}}",
+      "vital_good": "양호",
+      "vital_poor": "나쁨",
+      "status": {
+        "unavailable": "사용할 수 없음",
+        "per_point": "포인트당 {{bucket}}",
+        "groups_one": "그룹 {{count}}개",
+        "groups_other": "그룹 {{count}}개",
+        "top_groups_one": "상위 그룹 {{count}}개",
+        "top_groups_other": "상위 그룹 {{count}}개",
+        "countries_one": "국가 {{count}}개",
+        "countries_other": "국가 {{count}}개",
+        "rows_one": "행 {{count}}개",
+        "rows_other": "행 {{count}}개"
+      },
+      "field": "필드",
+      "field_edit": "{{field}} 필드 변경",
+      "distribution": {
+        "title": "{{field}} 분포",
+        "aria": "{{title}}, 행 {{rows}}개 기준",
+        "bar": "{{from}}~{{to}}: 행 {{rows}}개",
+        "rows": "행",
+        "p50": "P50",
+        "p75": "P75",
+        "p95": "P95",
+        "p99": "P99",
+        "max": "최댓값"
+      }
+    },
+    "pagination": {
+      "aria": "RUM 결과 페이지 탐색",
+      "page_size_aria": "페이지당 행 수",
+      "previous": "이전",
+      "next": "다음"
+    },
+    "drawer": {
+      "title": "행 상세 정보",
+      "resize": "상세 정보 패널 크기 조정",
+      "previous": "이전 행",
+      "next": "다음 행",
+      "open_session": "세션 열기",
+      "close": "상세 정보 닫기",
+      "loading": "행 로딩 중",
+      "sections": {
+        "aria": "상세 정보 섹션",
+        "waterfall": "로딩 워터폴",
+        "stack": "스택",
+        "fields": "필드",
+        "json": "JSON"
+      },
+      "failed": "이 행을 읽을 수 없습니다.",
+      "position": "전체 {{total}}개 중 {{current}}번째 행",
+      "copy_json": "행을 JSON으로 복사",
+      "copied_json": "복사됨",
+      "replay": "리플레이 보기",
+      "find_field": "필드 검색",
+      "no_field_match": "일치하는 필드가 없습니다.",
+      "facts": {
+        "frustrations": "사용자 불편 신호",
+        "email": "이메일",
+        "os": "OS",
+        "device": "디바이스",
+        "location": "위치",
+        "application": "애플리케이션",
+        "env": "환경",
+        "resources": "리소스",
+        "long_tasks": "장기 작업",
+        "trace": "트레이스",
+        "issue": "이슈",
+        "logger": "로거"
+      }
+    },
+    "recovery": {
+      "query_failed": "쿼리 실행에 실패했습니다.",
+      "no_data_title": "이 시간 범위에 표시할 행이 없습니다.",
+      "no_data_description": "이 시간 범위에 전송된 데이터가 없거나 쿼리와 일치하는 데이터가 없습니다.",
+      "clear_filters": "쿼리 지우기",
+      "expand_time": "시간 범위 확대",
+      "query_docs": "탐색기 문서 보기"
+    },
+    "saved_views": {
+      "label": "저장된 뷰",
+      "none": "저장한 뷰가 여기에 표시됩니다.",
+      "delete": "{{name}} 뷰 삭제",
+      "name": "뷰 이름",
+      "save": "저장"
+    },
+    "export": {
+      "dashboard": {
+        "action": "대시보드에 추가",
+        "title": "대시보드에 추가",
+        "description": "패널은 대시보드의 시간 범위에서 동일한 필터, 측정값, 그룹을 적용해 SQL로 같은 행을 조회합니다. 여기에서와 마찬가지로, 쿼리에서 명시적으로 요청하지 않으면 신테틱 테스트 및 CI에서 실행된 세션은 제외됩니다.",
+        "shapes": {
+          "timeseries": "시계열로 표시합니다. 개수와 합계는 그룹별로 누적한 막대로, 나머지 측정값은 선으로 표시합니다.",
+          "toplist": "첫 번째 측정값으로 순위를 매겨 가로 막대로 표시합니다.",
+          "table": "측정값마다 열을 하나씩 배정해 표로 표시하며, 여기와 동일한 단위를 사용합니다.",
+          "distribution": "최솟값부터 p99까지를 40개 구간으로 나누어 막대로 표시합니다. 구간은 대시보드의 시간 범위에 맞춰 다시 계산합니다."
+        },
+        "list_as_count": "목록은 위의 히스토그램과 같이 시간에 따른 일치 행 개수로 표시합니다.",
+        "map_as_top": "대시보드는 지도를 지원하지 않으므로 상위 {{count}}개 국가를 가로 막대로 표시합니다.",
+        "interval": "대시보드의 간격 변수에 따라 시간을 구간으로 나누며, 초기 간격은 {{interval}}입니다.",
+        "interval_added": "이 대시보드에 간격 변수가 아직 없어 패널과 함께 추가합니다.",
+        "interval_label": "간격",
+        "intervals": {
+          "1m": "1분",
+          "5m": "5분",
+          "15m": "15분",
+          "1h": "1시간",
+          "1d": "1일"
+        },
+        "target": "대상 대시보드",
+        "targets": {
+          "new": "새 대시보드",
+          "existing": "기존 대시보드"
+        },
+        "name": "대시보드 이름",
+        "dashboard": "대시보드",
+        "choose": "대시보드 선택",
+        "none": "패널을 추가할 수 있는 대시보드가 아직 없습니다.",
+        "panel": "패널 제목",
+        "create": "생성",
+        "add": "추가",
+        "saving": "저장 중…",
+        "created": "대시보드 “{{name}}”을(를) 생성했습니다.",
+        "added": "대시보드 “{{name}}”에 추가했습니다.",
+        "open": "열기",
+        "distribution_title": "{{field}}의 분포"
+      },
+      "alert": {
+        "action": "새 알림",
+        "watches": "규칙이 모니터링하는 항목: {{measure}}.",
+        "watches_distribution": "규칙이 모니터링하는 항목: {{field}}의 p75.",
+        "left": "포함되지 않는 항목: {{parts}}.",
+        "left_viz": "시각화 방식({{viz}})",
+        "left_groups": "그룹({{groups}})",
+        "left_measures": "기타 측정값({{measures}})",
+        "separator": ", ",
+        "application": "규칙은 애플리케이션 하나에 적용됩니다. 편집기에서 선택하세요.",
+        "kinds": {
+          "threshold": "임계값 알림",
+          "threshold_hint": "값이 임계값을 넘어서면 알림을 보냅니다.",
+          "anomaly": "이상 감지 알림",
+          "anomaly_hint": "값이 이전 며칠의 같은 시간대에 관측된 값에서 크게 벗어나면 알림을 보냅니다."
+        }
+      }
+    }
+  },
+  "alerts": {
+    "button": "알림",
+    "button_aria_one": "알림, 진행 중 {{count}}건",
+    "button_aria_other": "알림, 진행 중 {{count}}건",
+    "drawer": {
+      "title": "알림",
+      "subtitle": "현재 페이지의 애플리케이션과 환경에 해당하는 알림을 표시합니다.",
+      "close": "닫기"
+    },
+    "going_on": {
+      "title": "진행 중",
+      "empty": "이 애플리케이션에 진행 중인 알림이 없습니다.",
+      "open": "열기"
+    },
+    "rules": {
+      "title": "이 애플리케이션의 규칙",
+      "new": "새 규칙",
+      "empty": "이 애플리케이션을 모니터링하는 규칙이 아직 없습니다. 아래 템플릿에서 규칙을 만들 수 있습니다.",
+      "edit": "편집",
+      "status": {
+        "firing": "발생 중",
+        "dropped": "파이프라인에서 삭제됨",
+        "no_data": "데이터 없음",
+        "pending": "대기 중",
+        "healthy": "정상",
+        "off": "비활성화"
+      }
+    },
+    "templates": {
+      "title": "템플릿",
+      "hint_browser": "브라우저 애플리케이션 · 생성 시 규칙이 활성화됩니다",
+      "hint_app": "앱 · 생성 시 규칙이 활성화됩니다",
+      "recommended": "권장",
+      "optional": "선택 사항",
+      "create": "생성",
+      "creating": "생성 중…",
+      "created": "생성 및 활성화됨",
+      "created_off": "생성됨(비활성화)",
+      "created_toast": "‘{{name}}’ 규칙을 생성하고 활성화했습니다",
+      "view": "규칙 보기",
+      "now": "현재",
+      "no_value": "아직 값 없음: {{window}} 동안 {{kind}} 수가 {{rows}} 미만",
+      "unreadable": "현재 값을 읽을 수 없습니다",
+      "would_trip": "규칙을 생성하면 즉시 심각도 {{severity}}의 알림이 발생합니다",
+      "sessions_per_one": "{{window}} 동안 세션 {{count}}개",
+      "sessions_per_other": "{{window}} 동안 세션 {{count}}개",
+      "list_separator": ", ",
+      "line": "{{bands}} · {{window}}",
+      "at_least": "{{kind}} 수 {{rows}} 이상",
+      "any_environment": "모든 환경",
+      "name": "{{application}} · {{title}}",
+      "name_environment": "{{application}} · {{environment}} · {{title}}",
+      "items": {
+        "lcp": {
+          "title": "느린 페이지 로딩"
+        },
+        "inp": {
+          "title": "느린 상호작용"
+        },
+        "cls": {
+          "title": "레이아웃 이동"
+        },
+        "error_rate": {
+          "title": "페이지 오류",
+          "title_app": "화면 오류"
+        },
+        "failed_requests": {
+          "title": "실패한 요청"
+        },
+        "frustration": {
+          "title": "사용자 불편 세션"
+        },
+        "crash_free": {
+          "title": "충돌 증가"
+        },
+        "new_issues": {
+          "title": "새 이슈",
+          "rule": "평가 기간에 {{where}}에서 처음 감지된 이슈가 0개 초과 → {{severity}} · {{window}}"
+        },
+        "regressions": {
+          "title": "재발한 이슈",
+          "rule": "{{where}}에서 해결된 이슈가 재발 → {{severity}} · {{window}}"
+        },
+        "high_impact": {
+          "title": "영향이 가장 큰 이슈"
+        },
+        "traffic": {
+          "title": "트래픽 중단",
+          "rule": "평가 기간에 세션이 1개 미만 → {{severity}} · {{window}} (야간 트래픽이 적은 애플리케이션에는 적합하지 않음)"
+        }
+      }
+    }
+  },
+  "waterfall": {
+    "failed": "이 뷰의 요청을 읽을 수 없습니다.",
+    "none": "이 뷰에 보고된 리소스 없음",
+    "no_match": "일치하는 리소스 없음",
+    "more": "추가 리소스 {{count}}개(대부분 {{duration}} 이내에 로드 완료)",
+    "expand": "더 보기",
+    "collapse": "접기",
+    "late": "페이지 로드 후 추가 리소스 {{count}}개의 로드가 시작되었습니다",
+    "sentence": {
+      "join": ", ",
+      "end": ". ",
+      "loaded": "이 뷰는 <n>{{value}}</n> 만에 로드되었습니다",
+      "first_byte": "첫 바이트는 <n>{{value}}</n> 후에 도착했습니다",
+      "lcp": "LCP는 <n>{{value}}</n>입니다(<grade>{{grade}}</grade>)",
+      "lcp_element": "LCP는 <n>{{value}}</n>입니다(<grade>{{grade}}</grade>, <code>{{element}}</code>)",
+      "resources_one": "리소스 <n>{{count}}</n>개",
+      "resources_other": "리소스 <n>{{count}}</n>개",
+      "long_tasks_one": "장기 작업 <n>{{count}}</n>개",
+      "long_tasks_other": "장기 작업 <n>{{count}}</n>개",
+      "during": "그동안 <resources/>를 요청했고 <tasks/>가 발생했습니다."
+    },
+    "filters": {
+      "type": "유형",
+      "all": "전체",
+      "show": "표시",
+      "shows": {
+        "all": "전체",
+        "blocking": "렌더링 차단",
+        "slow": "느림(500 ms 이상)",
+        "failed": "실패"
+      }
+    },
+    "legend": {
+      "wait": "대기",
+      "download": "다운로드",
+      "long_task": "장기 작업"
+    },
+    "marks": {
+      "first_byte": "첫 바이트",
+      "fcp": "FCP",
+      "dcl": "DCL",
+      "lcp": "LCP",
+      "load": "로드"
+    },
+    "lane": {
+      "title": "메인 스레드",
+      "count_one": "긴 작업 {{count}}개",
+      "count_other": "긴 작업 {{count}}개",
+      "task": "긴 작업 ({{duration}})"
+    },
+    "row": {
+      "blocking": "차단",
+      "lcp": "LCP"
+    },
+    "phases": {
+      "title": "요청 단계",
+      "aria": "요청 단계, 총 {{total}}개",
+      "redirect": "리디렉션",
+      "dns": "DNS",
+      "connect": "연결",
+      "tls": "TLS",
+      "first_byte": "첫 바이트",
+      "download": "다운로드"
+    },
+    "detail": {
+      "aria": "요청",
+      "close": "닫기",
+      "lcp_file": "LCP가 기다린 파일",
+      "trace": "트레이스",
+      "yes": "예",
+      "no": "아니요",
+      "size": "{{size}} ({{transfer}} 전송됨)",
+      "sentence": {
+        "lcp": "첫 바이트 수신 후 <n>{{delay}}</n>이 지나 로드가 시작되었으며, 로드에 <n>{{load}}</n>, 화면에 표시되기까지 추가로 <n>{{render}}</n>이 걸렸습니다.",
+        "unanswered": "<n>{{duration}}</n> 동안 응답이 없었습니다.",
+        "failed": "<n>{{duration}}</n> 후 상태 코드 <n>{{status}}</n>(으)로 실패했습니다.",
+        "phases": "첫 바이트를 받기까지 <n>{{wait}}</n>, 다운로드에 <n>{{download}}</n>이 걸렸습니다.",
+        "total": "<n>{{duration}}</n>이 걸렸습니다."
+      },
+      "fields": {
+        "address": "주소",
+        "status": "상태",
+        "size": "크기",
+        "delivery": "전송 방식",
+        "blocking": "렌더링 차단",
+        "start": "시작 시점"
+      },
+      "delivery": {
+        "cache": "캐시",
+        "network": "네트워크",
+        "other": "네트워크",
+        "navigational-prefetch": "프리페치"
+      },
+      "after_load": "뷰 시작 후 <n>{{start}}</n> 시점에 요청이 시작되었습니다. 페이지 로드가 끝난 뒤이므로 시간 축에 표시되지 않습니다."
+    },
+    "task": {
+      "unattributed": "긴 작업",
+      "subtitle": "긴 작업 · {{duration}}",
+      "none": "브라우저에서 이름을 제공하지 않음",
+      "sentence": "<n>{{duration}}</n> 동안 실행되었습니다.",
+      "sentence_blocking": "<n>{{duration}}</n> 동안 실행되었으며, 그중 <n>{{blocking}}</n> 동안 페이지의 입력 처리가 지연되었습니다.",
+      "fields": {
+        "script": "스크립트",
+        "function": "함수",
+        "invoker": "호출 주체"
+      }
+    },
+    "truncated": "이 뷰에서 발생한 요청 중 가장 최근 {{count}}개만 표시합니다."
+  },
+  "agent": {
+    "investigate": "Mole Agent로 조사",
+    "investigate_short": "조사",
+    "investigate_title": "이 항목에 대해 Mole Agent와 채팅을 시작합니다. 미리 작성된 질문을 확인한 뒤 전송할 수 있습니다.",
+    "investigate_element": "이 요소 조사",
+    "investigate_session": "이 세션 조사",
+    "investigate_row": "Mole Agent로 {{value}} 조사",
+    "all_environments": "모든 환경",
+    "prompt": {
+      "overview": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})의 상태를 조사해 주세요. 먼저 개요와 최신 이슈를 확인한 뒤, 평소와 다른 점과 추정 원인, 다음 조치를 알려 주세요.",
+      "errors": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})에서 발생한 오류를 조사해 주세요. 가장 많은 세션에 영향을 준 이슈, 새로 발생했거나 재발한 이슈와 발생이 시작된 버전, 추정 원인과 우선 조치를 알려 주세요.",
+      "performance": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})의 페이지 속도를 조사해 주세요. Core Web Vitals와 각 지표의 등급, 지표를 악화시킨 페이지·버전·브라우저, 가장 느린 뷰에서 무엇을 기다렸는지, 우선 수정할 항목을 알려 주세요.",
+      "vital": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})의 {{vital}} 지표를 조사해 주세요. 지표의 등급, 지표를 악화시킨 페이지·버전·브라우저, 가장 느린 뷰에서 무엇을 기다렸는지, 우선 수정할 항목을 알려 주세요.",
+      "frustration": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})에서 사용자가 겪은 불편을 조사해 주세요. 분노 클릭, 무반응 클릭, 오류 클릭이 발생한 요소·페이지·버전과 클릭 시 어떤 일이 일어났는지, 추정 원인을 알려 주세요.",
+      "issue": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})의 “{{error}}” 이슈(ID: {{issue}})를 조사해 주세요. 영향을 받은 세션 수와 사용자 수, 최초 발생 시점과 버전, 재발 여부, 스택과 세션을 바탕으로 추정한 원인, 다음 조치를 알려 주세요.",
+      "slice": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})에서 {{dimension}} 값이 {{value}}인 뷰를 조사해 주세요. 전반적인 상태, 지연이나 실패가 발생하는 부분, 추정 원인과 다음 조치를 알려 주세요.",
+      "slice_figure": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})에서 {{dimension}} 값이 {{value}}인 뷰를 조사해 주세요. 이 뷰들의 {{vital}} 75번째 백분위수는 {{figure}}입니다. 지표를 악화시킨 요인, 영향이 집중된 버전과 브라우저, 가장 느린 뷰에서 무엇을 기다렸는지, 우선 수정할 항목을 알려 주세요.",
+      "element": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})의 “{{element}}” 요소를 조사해 주세요. 이 요소에서 분노 클릭, 무반응 클릭, 오류 클릭이 발생했습니다. 클릭 시 어떤 일이 일어났는지, 어느 페이지와 버전에서 발생했는지, 추정 원인을 알려 주세요.",
+      "element_selector": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})의 “{{element}}” 요소({{selector}})를 조사해 주세요. 이 요소에서 분노 클릭, 무반응 클릭, 오류 클릭이 발생했습니다. 클릭 시 어떤 일이 일어났는지, 어느 페이지와 버전에서 발생했는지, 추정 원인을 알려 주세요.",
+      "session": "{{application}} ({{environment}})에서 {{from}}부터 {{to}}까지 진행된 {{session}} 세션을 조사해 주세요. 사용자가 어떤 순서로 행동했는지, 어떤 문제가 발생했는지, 추정 원인은 무엇인지 알려 주세요.",
+      "incident": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})의 “{{summary}}” 알림을 조사해 주세요. 지표값이 변한 요인, 영향이 집중된 페이지·버전·브라우저, 추정 원인과 다음 조치를 알려 주세요. 먼저 조사 계획을 제시한 뒤 근거를 항목별로 설명해 주세요. 프로덕션 환경은 변경하지 마세요.",
+      "incident_sessions": "{{from}}부터 {{to}}까지 {{application}} ({{environment}})의 “{{summary}}” 알림을 조사해 주세요. 지표값이 변한 요인, 영향이 집중된 페이지·버전·브라우저, 추정 원인과 다음 조치를 알려 주세요. 이 알림의 근거가 된 세션은 다음과 같습니다: {{sessions}}. 먼저 조사 계획을 제시한 뒤 근거를 항목별로 설명해 주세요. 프로덕션 환경은 변경하지 마세요."
+    }
+  },
+  "estimate": {
+    "note": "추정치 · 세션의 {{share}} 보존",
+    "hint": "이 기간의 세션 중 {{share}}만 보존되었습니다. 건수는 각 세션의 보존 비율에 따라 보정했지만, 관측된 사용자 수와 최솟값 및 최댓값은 보정하지 않았습니다. 탐색기에는 보존된 세션이 표시됩니다."
+  },
+  "flags": {
+    "list_title": "기능 플래그",
+    "list_description": "이 기간에 세션에서 평가된 플래그를 세션 수가 많은 순으로 표시합니다.",
+    "sessions_one": "세션 {{value}}개",
+    "sessions_other": "세션 {{value}}개",
+    "compare_description": "이 플래그의 값별 세션 상태를 비교합니다.",
+    "compare_aria": "{{flag}} 값 나란히 비교",
+    "no_values": "이 기간에 이 플래그가 적용된 뷰가 없습니다.",
+    "not_evaluated": "(평가되지 않음)",
+    "open": "해당 뷰 보기",
+    "columns": {
+      "value": "값",
+      "sessions": "세션",
+      "errors": "오류가 발생한 뷰",
+      "frustration": "사용자 불편이 감지된 뷰"
+    },
+    "empty": {
+      "title": "이 기간에 기능 플래그가 없습니다",
+      "description": "SDK가 addFeatureFlagEvaluation을 호출하면 여기에 기능 플래그가 표시됩니다."
+    }
+  }
+}

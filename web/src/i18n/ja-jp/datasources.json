@@ -1,0 +1,591 @@
+{
+  "kubernetes": {
+    "name": "Kubernetes",
+    "description": "Fluent Bit DaemonSet を使用して、クラスター内のすべての Pod から stdout と stderr のログを収集します。",
+    "steps": {
+      "1": {
+        "title": "名前空間と ConfigMap の作成"
+      },
+      "2": {
+        "title": "Fluent Bit DaemonSet のデプロイ",
+        "description": "以下の YAML を fluent-bit-daemonset.yaml として保存し、適用します。"
+      },
+      "3": {
+        "title": "ログの受信確認",
+        "description": "1 分ほど待ってから「ログ」を開き、app-logs ストリームを選択します。kubernetes.* フィールドが表示されます。"
+      }
+    }
+  },
+  "linux": {
+    "name": "Linux ホスト",
+    "description": "Vector を使用して、Linux ホストの journald ログを収集します。",
+    "steps": {
+      "1": {
+        "title": "Vector のインストール"
+      },
+      "2": {
+        "title": "/etc/vector/vector.yaml の設定"
+      }
+    }
+  },
+  "windows": {
+    "name": "Windows ホスト",
+    "description": "Windows イベント転送と winlogbeat を使用して、イベントログを転送します。",
+    "steps": {
+      "1": {
+        "title": "winlogbeat のインストール"
+      },
+      "2": {
+        "title": "winlogbeat.yml の編集"
+      }
+    }
+  },
+  "aws": {
+    "name": "AWS (CloudWatch + S3)",
+    "description": "CloudWatch Logs のサブスクリプションと Kinesis Firehose を経由して、MoleSignal にログをプッシュします。",
+    "steps": {
+      "1": {
+        "title": "Firehose 配信ストリームの作成（送信先: HTTP エンドポイント）",
+        "description": "Firehose は Bearer トークンを送信できないため、プッシュコネクタを経由します。エンドポイント URL には以下のアドレスを、アクセスキーには「データソース」→「コネクタ」で作成したコネクタのプッシュトークンを使用します。"
+      },
+      "2": {
+        "title": "CloudWatch Logs のサブスクリプション設定"
+      }
+    }
+  },
+  "gcp": {
+    "name": "GCP (Cloud Logging)",
+    "description": "Pub/Sub を宛先とするシンクを経由して、Cloud Logging のログを MoleSignal の HTTP エンドポイントにプッシュします。",
+    "steps": {
+      "1": {
+        "title": "Cloud Logging シンクの作成（宛先: Pub/Sub トピック）"
+      },
+      "2": {
+        "title": "Pub/Sub のサブスクライブと MoleSignal への転送",
+        "description": "Cloud Run 関数で Pub/Sub からメッセージを読み取り、Authorization: Bearer <token> を指定して {{ENDPOINT}}/api/v1/intake/logs/default に POST リクエストを送信します。"
+      }
+    }
+  },
+  "azure": {
+    "name": "Azure (Event Hubs)",
+    "description": "診断設定 → Event Hub → Function の順に経由して、MoleSignal に転送します。",
+    "steps": {
+      "1": {
+        "title": "Azure Portal での診断設定の構成",
+        "description": "送信先に Event Hub を指定し、そこからイベントを読み取る Azure Function をデプロイします。この関数は Authorization: Bearer <token> を指定して {{ENDPOINT}}/api/v1/intake/logs/default に POST リクエストを送信します。"
+      }
+    }
+  },
+  "rum": {
+    "name": "Web RUM",
+    "description": "ブラウザーでリアルユーザーモニタリングを行い、ページのパフォーマンス、フロントエンドエラー、リソース、ユーザーセッションを監視します。",
+    "steps": {
+      "1": {
+        "title": "ブラウザー SDK のインストール"
+      },
+      "2": {
+        "title": "アプリケーションの初期化"
+      },
+      "3": {
+        "title": "本番環境用ソースマップのアップロード",
+        "description": "「RUM 設定」→「ソースマップとシンボル」で .map ファイルをアップロードします。アプリケーション ID、サービス、リリースは、イベントの値と完全に一致する必要があります。",
+        "note": "アップロードには RUM クライアントトークンを使用しないでください。デバッグ成果物をアップロードするには、ストリームの設定権限を持つユーザーでサインインする必要があります。"
+      },
+      "4": {
+        "title": "エラーイベントの確認",
+        "description": "テストエラーを発生させ、RUM エクスプローラーの「エラー」タブでアプリケーション、バージョン、ソースコード上の位置を確認します。"
+      }
+    }
+  },
+  "rum-flutter": {
+    "name": "Flutter RUM",
+    "description": "MoleSignal Flutter SDK を使用して、ビュー、インタラクション、エラー、リソース、低速フレーム、セッションリプレイを収集します。",
+    "steps": {
+      "1": {
+        "title": "Flutter SDK のインストール"
+      },
+      "2": {
+        "title": "ナビゲーションオブザーバーの初期化と登録"
+      },
+      "3": {
+        "title": "Flutter AOT シンボルの生成",
+        "description": "リリースとアーキテクチャの組み合わせごとに、対応する .symbols ファイルを保存してください。"
+      },
+      "4": {
+        "title": "シンボルのアップロードと確認",
+        "description": "「RUM 設定」→「ソースマップとシンボル」で「Flutter シンボル」を選択します。ビルド時と同じアプリケーション ID、サービス、リリース、プラットフォーム、アーキテクチャ、デバッグ ID を入力し、各 .symbols ファイルをアップロードします。"
+      },
+      "5": {
+        "title": "セッションとエラーの確認",
+        "description": "リリースビルドを実行してテスト用の例外を発生させ、RUM セッション、エラー、セッションリプレイがこのアプリケーションに紐づいていることを確認します。"
+      }
+    }
+  },
+  "rum-android": {
+    "name": "Android RUM",
+    "description": "ネイティブ Android アプリから RUM イベント形式でエラーを HTTP 経由で送信でき、R8 と NDK のスタックトレースの復元に対応しています。",
+    "steps": {
+      "1": {
+        "title": "HTTP 経由での RUM イベントの送信",
+        "description": "ネイティブ Android SDK がリリースされるまでは、既存のネットワーク層を使って連携します。以下はエラーイベントの例です。ビュー、アクション、リクエストなどのイベントも同じ形式で POST /api/v1/rum/events に送信し、セッションリプレイは /api/v1/rum/replay に送信します。いずれも、クライアントトークンに紐づくアプリケーションに関連付けられます。"
+      },
+      "2": {
+        "title": "R8 の mapping.txt の保存",
+        "description": "リリースビルド後に app/build/outputs/mapping/release/mapping.txt を保存します。このファイルはリリースごとに変わります。"
+      },
+      "3": {
+        "title": "シンボルを削除していない NDK ライブラリの保存",
+        "description": "C/C++ コードを使用する場合は、ABI ごとにシンボルを削除していない .so ファイルを保存します。アップロード前に gzip で圧縮できますが、APK 内のシンボルを削除した .so ファイルだけをアップロードしないでください。"
+      },
+      "4": {
+        "title": "NDK フレームアドレスの送信",
+        "description": "ネイティブクラッシュの各フレームには、モジュール、命令アドレス、イメージのロードアドレス、ビルド ID を含める必要があります。サーバーはこれらのアドレスをモジュール基準の相対アドレスに変換します。"
+      },
+      "5": {
+        "title": "Android デバッグ成果物のアップロード",
+        "description": "「RUM 設定」→「ソースマップとシンボル」で、アプリケーション ID、バージョン、ABI、ビルド ID を指定し、Android の mapping.txt と Android ネイティブシンボルを個別にアップロードします。"
+      },
+      "6": {
+        "title": "難読化を解除したスタックトレースの確認",
+        "description": "リリースビルドでテスト用の例外を発生させ、クラス名、メソッド名、ソースコードの行番号が復元されていることを確認します。"
+      }
+    }
+  },
+  "rum-ios": {
+    "name": "iOS RUM",
+    "description": "ネイティブ iOS アプリからエラーのアドレスを RUM イベント形式で HTTP 経由で送信し、dSYM を使って関数名とソースコード上の位置を復元できます。",
+    "steps": {
+      "1": {
+        "title": "HTTP 経由での RUM イベントの送信",
+        "description": "ネイティブ iOS SDK がリリースされるまでは、URLSession を使って連携します。以下はエラーイベントの例です。ビュー、アクション、リクエストなどのイベントも同じ形式で POST /api/v1/rum/events に送信し、セッションリプレイは /api/v1/rum/replay に送信します。いずれも、クライアントトークンに紐づくアプリケーションに関連付けられます。"
+      },
+      "2": {
+        "title": "アーカイブの作成と dSYM の保存",
+        "description": "Xcode の Archive を実行したら、.xcarchive を保存します。アプリのバイナリと dSYM の UUID は一致している必要があります。"
+      },
+      "3": {
+        "title": "dSYM の DWARF ファイルのアップロード",
+        "description": "「RUM 設定」→「ソースマップとシンボル」で「Apple dSYM」を選択します。dSYM バンドル内の Contents/Resources/DWARF/<AppName> ファイル（またはその .gz ファイル）をアップロードし、UUID を入力します。"
+      },
+      "4": {
+        "title": "リリースビルドのスタックトレースの確認",
+        "description": "実機で TestFlight ビルドまたはリリースビルドを実行してテスト用のエラーを発生させ、関数名、ファイル名、行番号が復元されていることを確認します。"
+      }
+    }
+  },
+  "continuous-profiling": {
+    "name": "継続的プロファイリング",
+    "description": "OTLP Profiles、Pyroscope、または pprof の直接アップロードで継続的プロファイリングを行い、フレームグラフで CPU やメモリの使用箇所、ロックの競合箇所を特定できます。",
+    "steps": {
+      "1": {
+        "title": "OTLP Profiles (OpenTelemetry)",
+        "description": "OTel eBPF プロファイラーまたは SDK の送信先に、組み込みの OTLP Profiles エンドポイント（アルファ版）を指定します。"
+      },
+      "2": {
+        "title": "Pyroscope SDK",
+        "description": "既存の Pyroscope エージェントから、互換性のある取り込みエンドポイントに直接送信できます（format=pprof|folded|lines）。"
+      },
+      "3": {
+        "title": "pprof の直接アップロード",
+        "description": "runtime/pprof などで取得した pprof ファイルを gzip で圧縮し、直接アップロードするか、「プロファイル」ページ右上のアップロードボタンを使います。"
+      }
+    }
+  },
+  "curl": {
+    "name": "curl（生のJSON）",
+    "description": "最も簡単な方法です。JSON配列を取り込みエンドポイントにHTTP POSTで送信します。",
+    "steps": {
+      "1": {
+        "title": "イベントを送信"
+      },
+      "2": {
+        "title": "レスポンス"
+      }
+    }
+  },
+  "bulk-ndjson": {
+    "name": "NDJSONの一括取り込み",
+    "description": "Elasticsearch互換の_bulk APIで一括送信するか、JSON配列をネイティブの取り込みエンドポイントに直接送信します。",
+    "steps": {
+      "1": {
+        "title": "Elasticsearch互換の_bulk",
+        "description": "アクション行とドキュメント行を交互に並べます（NDJSON）。送信先のストリームは_indexで指定します。省略した場合はstream-nameヘッダーの値が使われ、ヘッダーもなければデフォルトのストリームが使われます。"
+      },
+      "2": {
+        "title": "ネイティブの一括取り込み（JSON配列）",
+        "description": "ES形式が不要な場合は、JSON配列を取り込みエンドポイントにPOSTします。上限は1リクエストあたり5 MBです。"
+      }
+    }
+  },
+  "opentelemetry": {
+    "name": "OpenTelemetry",
+    "description": "OpenTelemetry SDKやアプリケーションからOTLP/HTTPで直接送信します。1つのインテグレーションでログ、メトリクス、トレースを取り込めます。",
+    "steps": {
+      "1": {
+        "title": "OTLP/HTTPエンドポイント",
+        "description": "エンドポイントを/apiに設定します。SDKが/v1/{signal}を末尾に追加します（→ /api/v1/tracesなど）。任意のstream-nameヘッダーで送信先のストリームを指定できます。"
+      },
+      "2": {
+        "title": "環境変数（SDK / 自動インストルメンテーション）"
+      },
+      "3": {
+        "title": "OTLP gRPC（:4317）",
+        "description": "OTLP gRPCは常時:4317で待ち受けます。[otlp_grpc]セクションで待ち受けアドレス、ポート、メッセージサイズを変更できます。",
+        "note": "ポートが公開されます。本番環境では、:4317への接続にTLSを適用し、ファイアウォールルールでアクセスを制限します。"
+      }
+    }
+  },
+  "otel-collector": {
+    "name": "OTel Collector",
+    "description": "OpenTelemetry Collectorのotlphttpエクスポーターを使って、ログ、メトリクス、トレースをMoleSignalに転送します。",
+    "steps": {
+      "1": {
+        "title": "Collectorの設定（otlphttpエクスポーター）",
+        "description": "CollectorはOTLP/HTTPで転送します。エンドポイントを/apiに設定すると、末尾に/v1/{signal}が自動で追加されます。"
+      },
+      "2": {
+        "title": "Collectorの設定（otlp gRPCエクスポーター、:4317）",
+        "description": "代わりに組み込みのOTLP gRPC（:4317）を使います。暗号化しない接続ではtls.insecure: trueを追加し、本番環境でTLSを使う場合は削除します。"
+      }
+    }
+  },
+  "nginx": {
+    "name": "NGINX",
+    "description": "Fluent Bitでaccess.logとerror.logを末尾から監視します。",
+    "steps": {
+      "1": {
+        "title": "Fluent Bitの入力設定"
+      }
+    }
+  },
+  "apache": {
+    "name": "Apache httpd",
+    "description": "標準のmod_log_config形式のログをVectorで末尾から監視します。",
+    "steps": {
+      "1": {
+        "title": "NGINXの例に沿って設定（apacheパーサーを使用）",
+        "description": "Fluent BitまたはVectorで/var/log/apache2/access.logを末尾から監視します。"
+      }
+    }
+  },
+  "haproxy": {
+    "name": "HAProxy",
+    "description": "statsソケットとJSON形式のlog-formatを使ってデータを収集します。",
+    "steps": {
+      "1": {
+        "title": "haproxy.cfg"
+      }
+    }
+  },
+  "postgres": {
+    "name": "PostgreSQL",
+    "description": "スロークエリログとpg_stat_statementsのメトリクスを収集します。",
+    "steps": {
+      "1": {
+        "title": "スロークエリログを有効化"
+      },
+      "2": {
+        "title": "Fluent Bitで収集",
+        "description": "parser=postgresを指定して、/var/log/postgresql/postgresql-*.logを末尾から監視します。"
+      }
+    }
+  },
+  "mysql": {
+    "name": "MySQL",
+    "description": "general_log と slow_query_log。",
+    "steps": {
+      "1": {
+        "title": "my.cnf"
+      }
+    }
+  },
+  "mongodb": {
+    "name": "MongoDB",
+    "description": "mongod の systemLog と Atlas のデータベースメトリクス。",
+    "steps": {
+      "1": {
+        "title": "mongod.conf"
+      }
+    }
+  },
+  "clickhouse": {
+    "name": "ClickHouse",
+    "description": "system.query_log を MoleSignal に送信します。",
+    "steps": {
+      "1": {
+        "title": "query_log のエクスポート (JSONEachRow)"
+      }
+    }
+  },
+  "redis": {
+    "name": "Redis",
+    "description": "redis-exporter (Prometheus) とスローログ。",
+    "steps": {
+      "1": {
+        "title": "redis-exporter のデプロイ"
+      },
+      "2": {
+        "title": "Prometheus remote_write",
+        "description": ":9121/metrics をスクレイプし、Authorization: Bearer <token> を付けて remote_write で {{ENDPOINT}}/api/v1/prometheus/api/v1/write に送信します。"
+      }
+    }
+  },
+  "falco": {
+    "name": "Falco",
+    "description": "Kubernetes のランタイムセキュリティイベント。",
+    "steps": {
+      "1": {
+        "title": "falcosidekick 経由での転送",
+        "description": "Falco 標準の http_output ではカスタムリクエストヘッダーを追加できないため、falcosidekick が Bearer トークンを付与します。"
+      }
+    }
+  },
+  "osquery": {
+    "name": "osquery",
+    "description": "ホスト監査と構成ドリフト。",
+    "steps": {
+      "1": {
+        "title": "osquery.conf"
+      }
+    }
+  },
+  "crowdstrike": {
+    "name": "CrowdStrike Falcon",
+    "description": "Falcon Streaming API 経由。",
+    "steps": {
+      "1": {
+        "title": "Falcon SIEM Connector の使用 (sink=MoleSignal HTTP)",
+        "description": "Falcon API クライアントとシークレットが必要です。"
+      }
+    }
+  },
+  "github-actions": {
+    "name": "GitHub Actions",
+    "description": "ワークフローの各デプロイを APM デプロイタイムラインに報告します。",
+    "steps": {
+      "1": {
+        "title": "リポジトリシークレットへのトークンの保存",
+        "description": "トークンのロールには apm.deploy 権限が必要です。取り込みトークンにはこの権限があります。"
+      },
+      "2": {
+        "title": "デプロイステップ後の報告",
+        "description": "デプロイを実行するジョブにこのステップを追加します。バージョンには、サービスのスパンで service.version に設定されている値を使用します。"
+      }
+    }
+  },
+  "gitlab-ci": {
+    "name": "GitLab CI/CD",
+    "description": "パイプラインの各デプロイを APM デプロイタイムラインに報告します。",
+    "steps": {
+      "1": {
+        "title": "CI/CD 変数へのトークンの追加",
+        "description": "「設定」→「CI/CD」→「変数」で、apm.deploy 権限を持つロールのトークンを、マスクされた変数 MOLESIGNAL_TOKEN として追加します。"
+      },
+      "2": {
+        "title": "デプロイジョブからの報告",
+        "description": "after_script はデプロイの成否にかかわらず実行されるため、失敗したデプロイも報告されます。"
+      }
+    }
+  },
+  "argocd": {
+    "name": "ArgoCD",
+    "description": "同期イベントとアプリケーションのヘルス状態。",
+    "steps": {
+      "1": {
+        "title": "argocd-notifications-cm",
+        "description": "MoleSignal の HTTP エンドポイントに送信する Webhook トリガーを設定します。"
+      }
+    }
+  },
+  "jenkins": {
+    "name": "Jenkins",
+    "description": "パイプラインでのデプロイを APM のデプロイタイムラインに毎回報告します。",
+    "steps": {
+      "1": {
+        "title": "トークンを認証情報として追加",
+        "description": "ID が molesignal-token の Secret text 認証情報に、apm.deploy 権限を持つロールのトークンを格納します。"
+      },
+      "2": {
+        "title": "post で報告",
+        "description": "post { always } は失敗したビルドも報告します。デプロイ情報の保存時に、GIT_URL に含まれるパスワードはマスクされます。"
+      }
+    }
+  },
+  "envoy": {
+    "name": "Envoy",
+    "description": "JSON 形式のアクセスログ、statsd メトリクス、OTel トレース。",
+    "steps": {
+      "1": {
+        "title": "アクセスログの設定"
+      }
+    }
+  },
+  "traefik": {
+    "name": "Traefik",
+    "description": "JSON 形式のアクセスログと Prometheus メトリクス。",
+    "steps": {
+      "1": {
+        "title": "traefik.yaml"
+      }
+    }
+  },
+  "cloudflare": {
+    "name": "Cloudflare Logpush",
+    "description": "Logpush で HTTP リクエストログを MoleSignal のエンドポイントに送信します。",
+    "steps": {
+      "1": {
+        "title": "Logpush ジョブの設定",
+        "description": "destination_conf の送信先を {{ENDPOINT}}/api/v1/_cloudflare に設定し、ヘッダー X-Connector-Token=<connector-push-token> を指定します（プッシュコネクターは独自に認証を行うため、Bearer トークンは不要です）。"
+      }
+    }
+  },
+  "kafka": {
+    "name": "Apache Kafka",
+    "description": "Kafka Connect のシンクコネクターまたは kafka-exporter 経由でプッシュします。",
+    "steps": {
+      "1": {
+        "title": "Kafka Connect → HTTP Sink"
+      }
+    }
+  },
+  "rabbitmq": {
+    "name": "RabbitMQ",
+    "description": "rabbitmq_prometheus と shovel プラグイン。",
+    "steps": {
+      "1": {
+        "title": "rabbitmq_prometheus の有効化"
+      }
+    }
+  },
+  "nats": {
+    "name": "NATS",
+    "description": "NATS サーバーの監視エンドポイント /varz と /connz。",
+    "steps": {
+      "1": {
+        "title": ":7777 の /metrics をスクレイプ",
+        "description": "Prometheus の remote_write で取り込みます。"
+      }
+    }
+  },
+  "python": {
+    "name": "Python",
+    "description": "OpenTelemetry Python SDK。",
+    "steps": {
+      "1": {
+        "title": "インストール"
+      },
+      "2": {
+        "title": "実行"
+      }
+    }
+  },
+  "go": {
+    "name": "Go",
+    "description": "otlptracehttp を使用する go.opentelemetry.io/otel SDK。",
+    "steps": {
+      "1": {
+        "title": "main.go"
+      }
+    }
+  },
+  "java": {
+    "name": "Java",
+    "description": "OpenTelemetry Java エージェント（コード変更不要）。",
+    "steps": {
+      "1": {
+        "title": "JVM 起動時にエージェントを追加"
+      }
+    }
+  },
+  "node": {
+    "name": "Node.js",
+    "description": "@opentelemetry/auto-instrumentations-node。",
+    "steps": {
+      "1": {
+        "title": "インストール"
+      },
+      "2": {
+        "title": "起動"
+      }
+    }
+  },
+  "rust": {
+    "name": "Rust",
+    "description": "tracing-opentelemetry と opentelemetry-otlp を使用します。",
+    "steps": {
+      "1": {
+        "title": "Cargo.toml"
+      },
+      "2": {
+        "title": "初期化"
+      }
+    }
+  },
+  "dotnet": {
+    "name": ".NET",
+    "description": ".NET 向けの OpenTelemetry.AutoInstrumentation を使用します。",
+    "steps": {
+      "1": {
+        "title": "環境変数の設定",
+        "description": "Java と同様に、OTel の自動インストルメンテーションを使用します。OTLP_PROTOCOL=http/protobuf を設定し、エンドポイントに /api を指定します。"
+      }
+    }
+  },
+  "openai": {
+    "name": "OpenAI",
+    "description": "OpenAI API の呼び出しごとに、プロンプト、生成結果、トークン数、レイテンシーを記録します。",
+    "steps": {
+      "1": {
+        "title": "OpenLLMetry SDK の使用"
+      }
+    }
+  },
+  "anthropic": {
+    "name": "Anthropic",
+    "description": "Claude API の呼び出しをインストルメンテーションし、モデル、プロンプト、出力、トークン使用量を記録します。",
+    "steps": {
+      "1": {
+        "title": "Python"
+      }
+    }
+  },
+  "langchain": {
+    "name": "LangChain",
+    "description": "チェーンとエージェントの各ステップをトレースします。",
+    "steps": {
+      "1": {
+        "title": "コールバックハンドラー"
+      }
+    }
+  },
+  "llamaindex": {
+    "name": "LlamaIndex",
+    "description": "RAG パイプライン（クエリ → 検索 → 生成）をトレースします。",
+    "steps": {
+      "1": {
+        "title": "set_global_handler(\"molesignal\")",
+        "description": "LangChain と同様に、OpenInference のインストルメンテーションを使用します。"
+      }
+    }
+  },
+  "webhook": {
+    "name": "汎用 HTTP",
+    "description": "任意のサービスから JSON を HTTP POST で送信し、指定したストリームにイベントを取り込めます。",
+    "steps": {
+      "1": {
+        "title": "エンドポイント",
+        "description": "<stream-name> を対象のストリーム名に置き換えます。ストリームが存在しない場合は、取り込み時に自動で作成されます。"
+      }
+    }
+  },
+  "graphql-subscription": {
+    "name": "GraphQL サブスクリプション",
+    "description": "GraphQL サブスクリプションのイベントをストリームとして取り込みます。",
+    "steps": {
+      "1": {
+        "title": "WebSocket リレーの使用",
+        "description": "サブスクリプションデータを MoleSignal に転送するリレーノードをデプロイします。"
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "help_title": "キーボードショートカット",
+  "categories": {
+    "general": "一般",
+    "navigation": "ナビゲーション",
+    "investigation": "調査",
+    "time": "時間"
+  },
+  "bindings": {
+    "open_palette": "コマンドパレットを開く",
+    "show_help": "キーボードショートカットのヘルプを表示",
+    "open_time_picker": "時間範囲セレクターを開く",
+    "stack_back": "調査履歴：戻る",
+    "stack_forward": "調査履歴：進む",
+    "goto_services": "サービスに移動",
+    "goto_apm_services": "APM サービスに移動",
+    "goto_incidents": "インシデントに移動",
+    "goto_dashboards": "ダッシュボードに移動",
+    "goto_investigate_trace": "調査（トレース）に移動",
+    "goto_investigate_log": "調査（ログ）に移動",
+    "goto_rum": "ユーザーエクスペリエンスに移動",
+    "goto_user_experience": "RUM ユーザーエクスペリエンスに移動",
+    "goto_functions": "関数に移動",
+    "goto_iam": "IAM に移動",
+    "pin_anchor": "基準時刻を固定／固定解除",
+    "copy_link": "調査リンクをコピー",
+    "dismiss_overlay": "最前面のオーバーレイを閉じる"
+  }
+}

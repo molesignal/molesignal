@@ -1,0 +1,567 @@
+{
+  "app_name": "MoleSignal",
+  "access": {
+    "super_administrator": "Superadministrator",
+    "loading": "Die Zugriffsberechtigungen werden noch geladen.",
+    "read_only": "Sie haben nur Lesezugriff.",
+    "page_unavailable": "Mit Ihren aktuellen Berechtigungen können Sie nicht auf diese Seite zugreifen.",
+    "permission_required": "Die Berechtigung {{permission}} ist erforderlich.",
+    "form_invalid": "Füllen Sie vor dem Speichern die Pflichtfelder aus.",
+    "no_changes": "Es gibt keine ungespeicherten Änderungen.",
+    "operation_pending": "Eine andere Anfrage wird noch bearbeitet.",
+    "immutable": "Dieser Wert kann nach dem Erstellen des Arbeitsbereichs nicht mehr geändert werden.",
+    "current_workspace": "Der aktuelle Arbeitsbereich kann nicht gelöscht werden.",
+    "last_workspace": "Der letzte Arbeitsbereich kann nicht gelöscht werden.",
+    "system_workspace": "Die Systemorganisation kann nicht geändert werden."
+  },
+  "timezone": {
+    "label": "Zeitzone",
+    "browser": "Zeitzone des Browsers",
+    "use_personal_default_option": "Persönliche Standardzeitzone verwenden · {{zone}}",
+    "browser_option": "Zeitzone des Browsers · {{zone}}",
+    "page_override_label": "{{zone}} · nur auf dieser Seite",
+    "search": "Zeitzonen suchen…",
+    "empty": "Keine passende Zeitzone gefunden.",
+    "set_as_default": "Als meine Standardzeitzone festlegen",
+    "saving_default": "Standardzeitzone wird gespeichert…",
+    "default_saved": "Standardzeitzone aktualisiert",
+    "change": "Ändern",
+    "done": "Fertig"
+  },
+  "query_syntax_help": {
+    "aria": "Referenz zur Abfragesyntax öffnen",
+    "trigger": "Referenz zur Abfragesyntax",
+    "title": "Syntaxreferenz",
+    "description": "Abfragemodus: {{mode}}. Drücken Sie Cmd/Strg + Eingabetaste, um die Abfrage auszuführen.",
+    "mode_shortcut": "{{mode}} · Cmd/Strg + Eingabetaste",
+    "modes": {
+      "fields": "Felder",
+      "sql": "SQL",
+      "promql": "PromQL"
+    },
+    "labels": {
+      "equals": "Exakter Wert",
+      "contains": "Enthält",
+      "exclude": "Ausschließen",
+      "either": "Oder",
+      "substring": "Teilzeichenfolge",
+      "full_text": "Volltext",
+      "basic": "Einfache Abfrage",
+      "filter": "Filtern",
+      "aggregate": "Aggregieren",
+      "sort": "Sortieren"
+    }
+  },
+  "query_tabs": {
+    "list": "Offene Abfragen",
+    "new": "Neuer Tab",
+    "untitled": "Abfrage {{number}}",
+    "close": "{{name}} schließen",
+    "close_tab": "Schließen",
+    "close_others": "Andere Tabs schließen",
+    "rename": "Umbenennen",
+    "duplicate": "Duplizieren",
+    "name": "Tab-Name",
+    "running": "Wird ausgeführt",
+    "limit": "Bis zu {{count}} Tabs können gleichzeitig geöffnet sein",
+    "split": "Ansicht teilen",
+    "unsplit": "Teilung aufheben",
+    "move_right": "In die rechte Hälfte verschieben",
+    "move_left": "In die linke Hälfte verschieben"
+  },
+  "query_mode": {
+    "aria": "Modus des Abfrageeditors",
+    "code": "Code",
+    "builder": "Builder"
+  },
+  "query_fold": {
+    "expand": "Aufklappen",
+    "collapse": "Zuklappen"
+  },
+  "query_language": {
+    "label": "Abfrage"
+  },
+  "query_builder": {
+    "filters": "Filter",
+    "add": "Filter",
+    "add_aria": "Filter hinzufügen",
+    "add_in_group": "Filter zu Gruppe {{number}} hinzufügen",
+    "add_alternative": "ODER",
+    "add_alternative_aria": "ODER-Gruppe hinzufügen",
+    "or": "ODER",
+    "group": "Gruppe {{number}}",
+    "edit": "Filter {{filter}} bearbeiten",
+    "remove": "Filter {{filter}} entfernen",
+    "unsupported": "Kein Filter",
+    "remove_unsupported": "{{part}} entfernen",
+    "search_fields": "Felder suchen…",
+    "no_fields": "Keine passenden Felder",
+    "use_field": "„{{field}}“ verwenden",
+    "change_field": "Feld ändern",
+    "operator": "Vergleich",
+    "value": "Wert",
+    "value_placeholder": "Wert…",
+    "suggestions": "In Ergebnissen gefunden",
+    "submit_add": "Filter hinzufügen",
+    "submit_update": "Aktualisieren",
+    "cancel": "Abbrechen",
+    "text": "Suchtext",
+    "text_in_group": "Suchtext der Gruppe {{number}}",
+    "text_placeholder": "Suchtext…",
+    "sql_active": "Die SQL-Anweisung unter „Code“ lässt sich nicht als Filter darstellen. Wenn Sie hier einen Filter hinzufügen, starten Sie eine Feldabfrage."
+  },
+  "query_recommendations": {
+    "title": "Optimierungstipps",
+    "dismiss": "Tipps ausblenden",
+    "inline_title": "Abfrage lässt sich optimieren:",
+    "view": "Tipps anzeigen",
+    "items": {
+      "slow_query": {
+        "title": "Langsame Abfrage",
+        "detail": "Die Abfrage dauerte {{took_ms}} ms und hat {{scanned_rows}} Zeilen gescannt. Grenzen Sie den Zeitraum ein oder verwenden Sie selektivere Filter."
+      },
+      "wide_time_range": {
+        "title": "Großer Scan-Zeitraum",
+        "detail": "Die Abfrage hat einen unbegrenzten oder mehrere Wochen umfassenden Zeitraum gescannt. Wählen Sie den kürzesten Zeitraum, der Ihre Frage beantwortet."
+      },
+      "low_selectivity": {
+        "title": "Geringe Selektivität",
+        "detail": "Die Abfrage hat {{scanned_rows}} Zeilen gescannt und {{returned_rows}} Zeilen zurückgegeben. Fügen Sie Bedingungen für indizierte oder partitionierte Felder hinzu, um weniger Zeilen zu scannen."
+      },
+      "select_star": {
+        "title": "SELECT * vermeiden",
+        "detail": "Wenn Sie alle Spalten auswählen, werden mehr Daten als nötig gelesen. Wählen Sie nur die Spalten aus, die Sie benötigen."
+      },
+      "missing_filter": {
+        "title": "Keine Filterbedingung",
+        "detail": "Ohne WHERE-Klausel werden bei einem großen Scan die Daten des gesamten Zeitfensters gelesen. Fügen Sie Filter hinzu, um I/O zu reduzieren."
+      },
+      "missing_limit": {
+        "title": "LIMIT hinzufügen",
+        "detail": "Die Abfrage hat ohne LIMIT {{returned_rows}} Zeilen zurückgegeben. Fügen Sie ein LIMIT hinzu, wenn Sie nur eine Stichprobe oder die obersten Ergebnisse benötigen."
+      },
+      "promql_wide_range": {
+        "title": "Bereichsselektor mit großem Zeitfenster",
+        "detail": "Dieser Bereichsselektor liest viele Messwerte pro Zeitreihe. Verwenden Sie nach Möglichkeit eine Aufzeichnungsregel oder ein kleineres Zeitfenster."
+      },
+      "promql_subquery": {
+        "title": "Aufwand für Unterabfragen",
+        "detail": "Unterabfragen ([..:..]) werten die innere Abfrage bei jedem Schritt erneut aus. Das kann rechenintensiv sein. Verwenden Sie eine Aufzeichnungsregel für häufig wiederholte Berechnungen."
+      },
+      "promql_regex_matcher": {
+        "title": "Regex-Label-Filter",
+        "detail": "Regex-Filter (=~ / !~) scannen mehr Zeitreihen als exakte Vergleiche. Verwenden Sie nach Möglichkeit = / != oder verankern Sie den regulären Ausdruck."
+      }
+    }
+  },
+  "actions": {
+    "ok": "OK",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "create": "Erstellen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+    "close": "Schließen",
+    "open": "Öffnen",
+    "retry": "Erneut versuchen",
+    "sign_in": "Anmelden",
+    "sign_out": "Abmelden",
+    "settings": "Einstellungen",
+    "preferences": "Benutzereinstellungen",
+    "reset": "Zurücksetzen",
+    "renew": "Erneuern",
+    "rotate": "Rotieren",
+    "add": "Hinzufügen",
+    "choose_file": "Datei auswählen",
+    "copied": "Kopiert",
+    "confirm": "Bestätigen"
+  },
+  "error_state": {
+    "unknown": "Unbekannter Fehler",
+    "copy_error_id": "Fehler-ID kopieren",
+    "copied": "Kopiert",
+    "report": "Melden",
+    "details": "Details",
+    "status": "Status",
+    "code": "Code",
+    "message": "Meldung",
+    "error_id": "Fehler-ID",
+    "empty": "(leer)",
+    "request_id": "Anfrage-ID",
+    "copy_request_id": "Anfrage-ID kopieren"
+  },
+  "status": {
+    "loading": "Wird geladen…",
+    "saving": "Wird gespeichert…",
+    "empty": "Keine Daten",
+    "no_results": "Keine Ergebnisse",
+    "saved": "Gespeichert",
+    "created": "Erstellt",
+    "deleted": "Gelöscht",
+    "updated": "Aktualisiert",
+    "yes": "ja",
+    "no": "nein",
+    "on": "ein",
+    "off": "aus",
+    "enabled": "aktiviert",
+    "disabled": "deaktiviert",
+    "working": "Wird verarbeitet…"
+  },
+  "labels": {
+    "email": "E-Mail",
+    "password": "Passwort",
+    "workspace": "Arbeitsbereich",
+    "remember_me": "Angemeldet bleiben",
+    "search": "Suchen",
+    "filter": "Filter",
+    "time_window": "Zeitfenster",
+    "name": "Name",
+    "enabled": "Aktiviert",
+    "updated": "Aktualisiert",
+    "description": "Beschreibung",
+    "format": "Format"
+  },
+  "sharing": {
+    "title": "Ressource freigeben",
+    "access_scope": "Zugriffsbereich",
+    "access_scope_hint": "Legen Sie fest, wer zugreifen darf und welche Berechtigungen dafür gelten.",
+    "modes": {
+      "authenticated": "Mitglieder des aktuellen Arbeitsbereichs",
+      "authenticated_hint": "Besucher müssen sich anmelden und die IAM-Berechtigungsprüfung des Arbeitsbereichs bestehen.",
+      "cross_org": "Bestimmte Organisation",
+      "cross_org_hint": "Angemeldete Besucher greifen über eine explizite organisationsübergreifende Zugriffsberechtigung auf die Ressource zu.",
+      "public_link": "Alle mit dem Link",
+      "public_link_hint": "Keine Anmeldung erforderlich. Der Link gewährt vorübergehend eingeschränkten Zugriff und kann widerrufen werden.",
+      "admin_only": "Nur Mitglieder, die organisationsübergreifende Zugriffsberechtigungen verwalten dürfen, können diese Freigabe erstellen.",
+      "public_disabled": "Die Richtlinie des Arbeitsbereichs lässt diese öffentliche Freigabe nicht zu.",
+      "public_links_disabled": "Öffentliche Links sind für diesen Arbeitsbereich deaktiviert.",
+      "public_dashboards_disabled": "Die öffentliche Freigabe von Live-Dashboards ist für diesen Arbeitsbereich deaktiviert.",
+      "production_disabled": "Dieses Dashboard hat das Tag production oder prod. Die Richtlinie des Arbeitsbereichs verbietet die öffentliche Freigabe von Produktions-Dashboards. Freigaben innerhalb des Arbeitsbereichs und über Organisationsgrenzen hinweg sind weiterhin möglich."
+    },
+    "policy_blocked_title": "Die Richtlinie des Arbeitsbereichs schränkt öffentliche Freigaben ein",
+    "policy_blocked_action": "Einstellungen für Freigaben und öffentlichen Zugriff öffnen",
+    "policy_blocked_admin": "Bitten Sie einen Administrator des Arbeitsbereichs, diese Richtlinie zu ändern, wenn öffentlicher Zugriff erforderlich ist.",
+    "target_organization": "Zielorganisation",
+    "target_organization_hint": "Erteilen Sie dieser Organisation eine explizite organisationsübergreifende Zugriffsberechtigung.",
+    "select_organization": "Organisation auswählen",
+    "expiry": "Gültigkeitsdauer",
+    "expiry_hint": "Der öffentliche Link wird mit Ablauf der Gültigkeitsdauer sofort ungültig.",
+    "authenticated_expiry_hint": "Der Link mit Anmeldepflicht kann nach Ablauf der Gültigkeitsdauer nicht mehr verwendet werden.",
+    "expiry_options": {
+      "one_day": "1 Tag",
+      "seven_days": "7 Tage",
+      "thirty_days": "30 Tage"
+    },
+    "max_views": "Maximale Anzahl an Besuchen",
+    "max_views_hint": "Jede neue Sitzung über den Freigabelink zählt einmal. Lassen Sie das Feld leer, wenn es kein Limit geben soll.",
+    "unlimited": "Unbegrenzt",
+    "password": "Zugriffspasswort",
+    "password_hint": "Optional. Eine Sitzung mit eingeschränktem Zugriff wird erst nach Prüfung des Passworts erstellt.",
+    "password_required": "Die Arbeitsbereichsrichtlinie verlangt ein Passwort für öffentliche Berichte.",
+    "dashboard_password_required": "Öffentliche Dashboards erfordern ein Zugriffspasswort.",
+    "validation": {
+      "organization_required": "Wählen Sie die Organisation aus, der Sie Zugriff gewähren möchten.",
+      "password_required": "Geben Sie ein Zugriffspasswort für den öffentlichen Bericht ein.",
+      "dashboard_password_required": "Geben Sie ein Zugriffspasswort für das öffentliche Dashboard ein."
+    },
+    "public_warning_title": "Dieser Link dient als Zugangsnachweis",
+    "public_warning": "Alle, die diesen Link erhalten, können die zugriffsbeschränkten Inhalte sehen. Geben Sie keine sensiblen Daten frei.",
+    "report_snapshot_hint": "Öffentliche Berichte sind unveränderliche Snapshots, die beim Erstellen des Links erzeugt werden. Beim Öffnen werden keine Live-Abfragen erneut ausgeführt.",
+    "allow_download": "Download erlauben",
+    "allow_download_hint": "Ist diese Option deaktiviert, steht der statische Bericht nur als Online-Vorschau zur Verfügung.",
+    "csv_download_disabled": "Die Arbeitsbereichsrichtlinie verbietet öffentliche CSV-Downloads.",
+    "dashboard_restrictions": "Dashboard-Einschränkungen",
+    "dashboard_restrictions_hint": "Die öffentliche Seite kann nur gespeicherte Panel-Abfragen ausführen. Abfrageausdrücke und Seiten zur Rohdatenexploration bleiben verborgen.",
+    "max_time_range": "Maximaler Datenzeitraum",
+    "time_ranges": {
+      "one_hour": "1 Stunde",
+      "six_hours": "6 Stunden",
+      "twenty_four_hours": "24 Stunden"
+    },
+    "allow_time_changes": "Änderungen am Zeitraum erlauben",
+    "allow_time_changes_hint": "Besucher können nur vordefinierte Zeiträume innerhalb des oben festgelegten Maximums auswählen.",
+    "allowed_variables": "Öffentliche Variablen",
+    "allowed_variables_hint": "Nicht ausgewählte Variablen werden aus dem öffentlichen Modell und den Anfragen entfernt.",
+    "allow_variable_changes": "Änderungen an freigegebenen Variablen erlauben",
+    "allow_variable_changes_hint": "Ist diese Option deaktiviert, behalten die Variablen ihre zulässigen Standardwerte.",
+    "create_link": "Freigabelink erstellen",
+    "created": "Freigabelink erstellt",
+    "create_failed": "Freigabelink konnte nicht erstellt werden",
+    "errors": {
+      "public_links_disabled": "Öffentliche Links sind für diesen Arbeitsbereich deaktiviert. Ändern Sie die Freigaberichtlinie oder verwenden Sie eine Freigabe mit Anmeldepflicht.",
+      "public_dashboards_disabled": "Die öffentliche Freigabe von Live-Dashboards ist deaktiviert. Ändern Sie die Freigaberichtlinie oder verwenden Sie eine Freigabe mit Anmeldepflicht.",
+      "production_dashboard": "Die Arbeitsbereichsrichtlinie verbietet die öffentliche Freigabe von Dashboards mit den Tags production oder prod. Ändern Sie die Richtlinie oder verwenden Sie eine Freigabe mit Anmeldepflicht.",
+      "csv_download_disabled": "Die Arbeitsbereichsrichtlinie verbietet öffentliche CSV-Downloads. Deaktivieren Sie „Download erlauben“ und versuchen Sie es erneut.",
+      "report_password_required": "Die Arbeitsbereichsrichtlinie verlangt ein Zugriffspasswort für öffentliche Berichte.",
+      "dashboard_password_required": "Legen Sie ein Zugriffspasswort fest, bevor Sie das Dashboard öffentlich freigeben."
+    },
+    "link_ready": "Freigabelink ist bereit",
+    "link_ready_hint": "Der Link wird sicher gespeichert. Sie können ihn weiterhin ansehen und kopieren.",
+    "copy_link": "Link kopieren",
+    "copy_existing_link": "Vorhandenen Freigabelink kopieren",
+    "copied": "Link kopiert",
+    "copy_failed": "Link konnte nicht kopiert werden",
+    "rotate_to_show_link": "Diese Freigabe wurde erstellt, bevor Links dauerhaft angezeigt wurden. Ersetzen Sie den Link einmalig, damit der neue Link angezeigt wird.",
+    "create_another": "Weiteren Link erstellen",
+    "existing": "Vorhandene Freigaben",
+    "existing_hint": "Die Links können weiterhin kopiert und sofort deaktiviert oder ersetzt werden.",
+    "views": "{{count}} Aufrufe",
+    "no_expiry": "Kein Ablaufdatum",
+    "stop": "Deaktivieren",
+    "revoked": "Freigabelink deaktiviert",
+    "revoke_failed": "Freigabelink konnte nicht deaktiviert werden",
+    "rotated": "Freigabelink ersetzt",
+    "rotate_failed": "Freigabelink konnte nicht ersetzt werden",
+    "workspace_policy": "Freigaberichtlinie des Arbeitsbereichs anzeigen",
+    "public": {
+      "read_only": "Eingeschränkter Lesezugriff",
+      "snapshot": "Statischer Snapshot",
+      "dashboard": "Freigegebenes Dashboard",
+      "report": "Freigegebener Bericht",
+      "download": "Herunterladen",
+      "time_range": "Zeitraum",
+      "expires_at": "Läuft ab: {{value}}",
+      "watermark": "Öffentlicher Zugriff · {{value}}",
+      "password_title": "Diese Freigabe ist passwortgeschützt",
+      "password_hint": "Geben Sie das für diese Freigabe festgelegte Zugangspasswort ein.",
+      "password_placeholder": "Zugangspasswort",
+      "password_invalid": "Falsches Passwort. Versuchen Sie es erneut.",
+      "visit_ended": "Diese Sitzung ist beendet. Öffnen Sie den Freigabelink erneut.",
+      "password_unchecked": "Das Passwort konnte nicht überprüft werden. Versuchen Sie es später erneut.",
+      "continue": "Weiter",
+      "invalid_dashboard": "Dashboard-Snapshot nicht verfügbar",
+      "invalid_dashboard_hint": "Die Struktur des öffentlichen Datenmodells hat die Sicherheitsprüfung nicht bestanden. Bitten Sie die Person, der die Freigabe gehört, einen neuen Link zu erstellen.",
+      "unavailable_title": "Link nicht verfügbar",
+      "unavailable_hint": "Dieser Link ist nicht mehr gültig oder der freigegebene Inhalt wurde gelöscht. Bitten Sie die Person, der die Freigabe gehört, einen neuen Link zu erstellen.",
+      "open_failed": "Diese Freigabe konnte nicht geöffnet werden. Versuchen Sie es später erneut.",
+      "loading_title": "Geschützte Freigabe wird geöffnet",
+      "loading_hint": "Link und Zugriffsbeschränkungen werden überprüft…",
+      "trust_label": "Eingeschränkte MoleSignal-Freigabe",
+      "ranges": {
+        "fifteen_minutes": "15 Minuten",
+        "one_hour": "1 Stunde",
+        "six_hours": "6 Stunden",
+        "twenty_four_hours": "24 Stunden",
+        "seven_days": "7 Tage",
+        "seconds": "{{count}} Sekunden"
+      }
+    }
+  },
+  "date_time_picker": {
+    "placeholder": "Datum und Uhrzeit auswählen",
+    "open": "Auswahl für Datum und Uhrzeit öffnen: {{value}}",
+    "time": "Uhrzeit",
+    "hour": "Stunde",
+    "minute": "Minute",
+    "second": "Sekunde",
+    "clear": "Auswahl löschen",
+    "apply": "Übernehmen",
+    "calendar_navigation": "Kalendernavigation",
+    "choose_month": "Monat auswählen",
+    "choose_year": "Jahr auswählen",
+    "next_month": "Nächster Monat",
+    "previous_month": "Vorheriger Monat",
+    "today": "Heute",
+    "selected": "Ausgewählt",
+    "week_number": "KW {{value}}",
+    "week_number_header": "Kalenderwoche"
+  },
+  "share_query": {
+    "button": "Teilen",
+    "title": "Diese Abfrage teilen",
+    "description": "Alle, die in dieser Organisation angemeldet sind und Leseberechtigung für die Daten haben, können diese Abfrage über den Link öffnen.",
+    "time_label": "Zeitraum für den Link",
+    "time_fixed": "Aktuell ausgewählter Zeitraum",
+    "time_moving": "{{range}}, bezogen auf den Öffnungszeitpunkt",
+    "link_aria": "Link zu dieser Abfrage",
+    "copy": "Link kopieren",
+    "copied": "Link kopiert",
+    "copy_failed": "Der Link konnte nicht kopiert werden"
+  },
+  "field_list": {
+    "group_aria_one": "{{name}}: {{count}} Feld",
+    "group_aria_other": "{{name}}: {{count}} Felder"
+  },
+  "field_analysis": {
+    "open": "Analysieren",
+    "open_aria": "Feld {{name}} analysieren",
+    "close": "Feldanalyse schließen",
+    "title_aria": "Analyse von {{name}}",
+    "loading": "{{name}} wird analysiert",
+    "basics": "Grunddaten",
+    "distinct": "Unterschiedliche Werte",
+    "estimated": "Geschätzt",
+    "subjects": {
+      "logs": {
+        "total": "Logs",
+        "present": "Mit Wert",
+        "missing": "Fehlend",
+        "none": "Keines dieser Logs enthält einen Wert für dieses Feld."
+      },
+      "spans": {
+        "total": "Spans",
+        "present": "Mit Wert",
+        "missing": "Fehlend",
+        "none": "Keiner dieser Spans enthält einen Wert für dieses Feld."
+      },
+      "traces": {
+        "total": "Traces",
+        "present": "Mit Wert",
+        "missing": "Fehlend",
+        "none": "Keiner dieser Traces enthält einen Wert für dieses Feld."
+      }
+    },
+    "statistics": "Statistik",
+    "max": "Max",
+    "min": "Min",
+    "avg": "Mittelwert",
+    "median": "Median",
+    "q1": "Quartil Q1",
+    "q3": "Quartil Q3",
+    "stddev_samp": "Standardabw. (Stichprobe)",
+    "stddev_pop": "Standardabw. (Grundgesamtheit)",
+    "kurtosis": "Kurtosis",
+    "kurtosis_hint": "Kurtosis-Exzess: 0 bei einer Normalverteilung, höher bei stärker ausgeprägten Verteilungsrändern",
+    "skewness": "Schiefe",
+    "skewness_hint": "Über 0 läuft die Verteilung nach rechts aus, unter 0 nach links",
+    "quartiles_estimated": "Der Median und die Quartile sind Schätzwerte.",
+    "earliest": "Frühester Zeitpunkt",
+    "latest": "Spätester Zeitpunkt",
+    "distribution": "Werteverteilung",
+    "distribution_aria": "Werteverteilung von {{name}}: {{count}} Werte von {{from}} bis {{to}}, Balkenbreite {{width}}, höchstens {{max}} Werte pro Balken. Wechseln Sie mit der linken und rechten Pfeiltaste zwischen den Balken.",
+    "bar_width": "Balkenbreite: {{width}}",
+    "bar_range": "{{from}} – {{to}}",
+    "bar_count_one": "{{formatted}} Wert",
+    "bar_count_other": "{{formatted}} Werte",
+    "bar_readout": "{{from}} bis {{to}}: {{formatted}} Werte",
+    "trend_one": "Häufigster Wert im Zeitverlauf",
+    "trend_other": "{{count}} häufigste Werte im Zeitverlauf",
+    "trend_aria_one": "Der häufigste Wert von {{name}} im Zeitverlauf",
+    "trend_aria_other": "Die {{count}} häufigsten Werte von {{name}} im Zeitverlauf",
+    "top": "Häufigste Werte",
+    "all_different": "Fast jeder Wert kommt nur einmal vor. Kein Wert sticht durch seine Häufigkeit hervor.",
+    "protected": "Dieses Feld ist maskiert oder verschlüsselt und kann nicht analysiert werden.",
+    "unavailable": "Dieses Feld kann derzeit nicht analysiert werden.",
+    "fallback": {
+      "time_budget": "Zeitlimit beim Zählen aller Treffer überschritten",
+      "busy": "Es laufen zu viele Abfragen, um alle Treffer zu zählen",
+      "failed": "Es konnten nicht alle Treffer gezählt werden"
+    }
+  },
+  "histogram": {
+    "bar_width": "{{width}} pro Balken",
+    "unit_ms": "{{value}} ms",
+    "unit_s": "{{value}} s",
+    "unit_min": "{{value}} min",
+    "unit_h": "{{value}} h",
+    "unit_d": "{{value}} d",
+    "summary": "{{name}}. {{scope}}, zwischen {{from}} und {{to}}, {{width}} pro Balken, höchstens {{max}} in einem Balken. Mit der linken und rechten Pfeiltaste wechseln Sie zwischen den Balken. Mit der Eingabetaste grenzen Sie den Zeitraum auf den gewählten Balken ein.",
+    "bar_readout": "{{from}} bis {{to}}: insgesamt {{total}}, davon {{errors}} Fehler",
+    "bar_readout_whole": "{{from}} bis {{to}}: insgesamt {{total}}",
+    "scope_all_one": "Der einzige Treffer",
+    "scope_all_other": "Alle {{total}} Treffer",
+    "scope_loaded_one": "Das einzige geladene Ergebnis",
+    "scope_loaded_other": "Die {{total}} geladenen Ergebnisse",
+    "scope_because": "{{scope}}: {{reason}}",
+    "counting": "Alle Treffer werden gezählt…",
+    "unavailable": {
+      "time_budget": "das Zählen aller Treffer hat zu lange gedauert",
+      "busy": "es laufen zu viele Abfragen, um alle Treffer zu zählen",
+      "scan_limit": "der Zeitraum enthält zu viele Zeilen, um alle Treffer zu zählen",
+      "timestamp_masked": "das Zeitfeld dieses Streams ist maskiert",
+      "failed": "es konnten nicht alle Treffer gezählt werden"
+    }
+  },
+  "time_picker": {
+    "title": "Zeitraum auswählen",
+    "button_aria": "Zeitraum: {{value}}",
+    "quick_ranges": "Schnellauswahl",
+    "absolute": "Absoluter Zeitraum",
+    "zone_time": "In {{zone}}",
+    "from": "Von",
+    "to": "Bis",
+    "apply": "Anwenden",
+    "invalid": "Geben Sie einen gültigen Start- und Endzeitpunkt ein.",
+    "presets": {
+      "last_5m": "Letzte 5 Minuten",
+      "last_15m": "Letzte 15 Minuten",
+      "last_30m": "Letzte 30 Minuten",
+      "last_1h": "Letzte Stunde",
+      "last_6h": "Letzte 6 Stunden",
+      "last_12h": "Letzte 12 Stunden",
+      "last_24h": "Letzte 24 Stunden",
+      "last_2d": "Letzte 2 Tage",
+      "last_7d": "Letzte 7 Tage",
+      "last_30d": "Letzte 30 Tage"
+    }
+  },
+  "weekly_ranges": {
+    "add": "Zeitraum hinzufügen",
+    "remove": "Zeitraum entfernen",
+    "weekdays": "Wochentage",
+    "start": "Beginn (HH:MM)",
+    "end": "Ende (HH:MM)",
+    "hint": "Liegt das Ende nicht nach dem Beginn, läuft der Zeitraum über Mitternacht hinaus und zählt zum Tag, an dem er beginnt. Ein ganzer Tag dauert von 00:00–24:00.",
+    "problems": {
+      "no_days": "Wählen Sie mindestens einen Wochentag aus.",
+      "same_time": "Beginn und Ende dürfen nicht gleich sein. Verwenden Sie für einen ganzen Tag 00:00–24:00.",
+      "bad_time": "Geben Sie Uhrzeiten im Format HH:MM ein, z. B. 09:30. 24:00 ist nur als Ende zulässig."
+    },
+    "timezone": "Zeitzone"
+  },
+  "time_condition": {
+    "label": "Zeit",
+    "any": "Jederzeit",
+    "inside": "Nur innerhalb dieser Zeiten",
+    "outside": "Nur außerhalb dieser Zeiten"
+  },
+  "people": {
+    "someone": "Jemand",
+    "non_member": "Kein Mitglied"
+  },
+  "holidays": {
+    "label": "Feiertage",
+    "calendar": "Feiertagskalender",
+    "modes": {
+      "none": "Feiertage nicht gesondert behandeln",
+      "exclude": "Feiertage ausschließen",
+      "only": "Nur an Feiertagen"
+    },
+    "hints": {
+      "none": "Feiertage zählen wie alle anderen Tage.",
+      "exclude": "An Feiertagen gelten diese Zeiten nicht. Ein Nachholarbeitstag zählt als Montag.",
+      "only": "Diese Zeiten gelten nur an Feiertagen."
+    },
+    "no_calendars": "Fügen Sie zuerst unter Einstellungen → Alerting → Feiertagskalender einen Feiertagskalender hinzu."
+  },
+  "confirm_dialog": {
+    "type_to_confirm": "Geben Sie zur Bestätigung {{name}} ein",
+    "type_required": "Geben Sie zuerst den Namen ein"
+  },
+  "unsaved": {
+    "discard_title": "Änderungen verwerfen?",
+    "discard_description": "Ihre Eingaben wurden nicht gespeichert und gehen verloren.",
+    "keep_editing": "Weiter bearbeiten",
+    "discard": "Verwerfen",
+    "leave_title": "Seite ohne Speichern verlassen?",
+    "leave_description": "Ihre Änderungen auf dieser Seite wurden nicht gespeichert und gehen verloren.",
+    "leave": "Seite verlassen"
+  },
+  "table": {
+    "select_all": "Alle Zeilen auswählen",
+    "select_row": "Zeile auswählen",
+    "selected_one": "{{count}} ausgewählt",
+    "selected_other": "{{count}} ausgewählt",
+    "clear_selection": "Auswahl aufheben",
+    "bulk_label": "Aktionen für ausgewählte Zeilen",
+    "export_csv": "Als CSV exportieren",
+    "export_empty": "Keine Zeilen zum Exportieren",
+    "bulk_done_one": "{{count}} Zeile aktualisiert",
+    "bulk_done_other": "{{count}} Zeilen aktualisiert",
+    "bulk_failed_one": "{{count}} von {{total}} fehlgeschlagen: {{reason}}",
+    "bulk_failed_other": "{{count}} von {{total}} fehlgeschlagen: {{reason}}",
+    "clear_filters": "Filter zurücksetzen"
+  }
+}

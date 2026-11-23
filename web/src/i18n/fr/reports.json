@@ -1,0 +1,307 @@
+{
+  "title": "Rapports",
+  "subtitle": "Gérez au même endroit la planification et la génération des rapports ainsi que les résultats d’envoi.",
+  "actions": {
+    "instant_export": "Exporter maintenant",
+    "new_report": "Nouveau rapport",
+    "share": "Partager",
+    "export": "Exporter",
+    "edit": "Modifier",
+    "view": "Afficher",
+    "enable": "Activer",
+    "pause": "Mettre en pause",
+    "delete": "Supprimer la planification",
+    "cancel": "Annuler",
+    "add": "Ajouter",
+    "save_and_enable": "Enregistrer et activer",
+    "save_changes": "Enregistrer les modifications",
+    "use_template": "Utiliser le modèle",
+    "view_error": "Afficher l’erreur",
+    "close": "Fermer",
+    "remove": "Retirer"
+  },
+  "tabs": {
+    "schedules": "Planifications",
+    "history": "Historique de génération",
+    "templates": "Bibliothèque de modèles"
+  },
+  "pagination": {
+    "aria": "Pagination du centre de rapports",
+    "page_summary": "{{page}} / {{pages}}",
+    "page_size_aria": "Éléments par page",
+    "first_aria": "Première page",
+    "previous_aria": "Page précédente",
+    "next_aria": "Page suivante",
+    "last_aria": "Dernière page"
+  },
+  "kpis": {
+    "running": "En cours",
+    "next_24h": "Envois dans les 24 h",
+    "success_rate": "Taux de réussite sur 30 jours",
+    "failed": "Échecs non résolus"
+  },
+  "filters": {
+    "search_schedules": "Rechercher des rapports ou des sources…",
+    "search_history": "Rechercher des rapports ou des destinataires…",
+    "all_statuses": "Tous les statuts",
+    "all_sources": "Toutes les sources",
+    "all_results": "Tous les résultats",
+    "enabled": "En cours",
+    "paused": "En pause",
+    "dashboard": "Tableau de bord",
+    "saved_view": "Vue enregistrée",
+    "sent": "Réussi",
+    "failed": "Échec",
+    "pending": "En cours de traitement"
+  },
+  "empty": {
+    "title": "Commencez par un modèle de rapport",
+    "description": "Choisissez un modèle, puis sélectionnez une source de données et des destinataires, ou partez d’un rapport vierge.",
+    "custom_title": "Rapport personnalisé",
+    "custom_description": "Définissez vous-même le contenu, la planification et les modalités d’envoi.",
+    "no_results_title": "Aucun rapport correspondant",
+    "no_results_description": "Essayez un autre terme de recherche ou un autre filtre."
+  },
+  "table": {
+    "name_source": "Rapport et source",
+    "schedule": "Planification",
+    "next_run": "Prochaine génération",
+    "last_result": "Dernier résultat",
+    "recipients": "Destinataires",
+    "status": "Statut",
+    "actions": "Actions",
+    "never": "Jamais généré",
+    "first_run": "En attente de la première génération",
+    "recipient_more": "{{count}} de plus"
+  },
+  "status": {
+    "enabled": "Actif",
+    "paused": "En pause",
+    "sent": "Réussi",
+    "failed": "Échec",
+    "pending": "En cours de traitement",
+    "unknown": "Inconnu"
+  },
+  "schedule": {
+    "hourly": "Toutes les heures",
+    "every_6_hours": "Toutes les 6 heures",
+    "every_12_hours": "Toutes les 12 heures",
+    "daily": "Toutes les 24 heures",
+    "weekly": "Tous les 7 jours",
+    "custom": "Cron avancé",
+    "custom_summary": "Cron : {{value}}",
+    "timezone_suffix": "{{schedule}} · {{timezone}}",
+    "advanced_hint": "Pour le moment, le mode cron avancé utilise l’intervalle de secours de 24 heures du planificateur. Si possible, choisissez plutôt l’un des intervalles ci-dessus."
+  },
+  "source": {
+    "dashboard": "Tableau de bord",
+    "saved_view": "Vue enregistrée",
+    "missing": "Aucune source sélectionnée",
+    "unavailable": "Source indisponible"
+  },
+  "history": {
+    "empty_title": "Aucun rapport généré pour l’instant",
+    "empty_description": "Le format, le destinataire et le résultat de l’envoi s’affichent ici après la première génération d’un rapport.",
+    "partial_error": "L’historique des envois de certains rapports est temporairement indisponible.",
+    "columns": {
+      "report": "Rapport",
+      "generated_at": "Date de génération",
+      "recipient": "Destinataire",
+      "attempt": "Tentative",
+      "result": "Résultat",
+      "details": "Détails"
+    },
+    "error_title": "Détails de l’échec de l’envoi",
+    "error_description": "Le dernier envoi à ce destinataire a échoué.",
+    "error_report": "Rapport",
+    "error_recipient": "Destinataire",
+    "error_time": "Date de l’échec",
+    "error_message": "Message d’erreur",
+    "no_error_message": "Le serveur n’a pas renvoyé de message d’erreur détaillé."
+  },
+  "templates": {
+    "api_warning": "Impossible de charger les modèles personnalisés. Les modèles intégrés restent disponibles.",
+    "source_badge": "Modèle {{source}}",
+    "builtin_badge": "Intégré",
+    "custom_badge": "Personnalisé",
+    "new_template": "Nouveau modèle",
+    "new_title": "Nouveau modèle de rapport",
+    "edit_title": "Modifier le modèle de rapport",
+    "editor_description": "Définissez des sources de contenu réutilisables et les paramètres de sortie par défaut.",
+    "basic_information": "Informations de base",
+    "default_output": "Sortie par défaut",
+    "source_hint": "Choisissez le type de contenu à associer lors de l’utilisation de ce modèle.",
+    "source_binding_hint": "Le modèle n’enregistre que le type de source. Choisissez le tableau de bord ou la vue enregistrée lorsque vous planifiez un rapport.",
+    "dashboard_format_hint": "Les tableaux de bord comportent des graphiques et une mise en page. Leurs modèles génèrent donc toujours des rapports au format PDF.",
+    "custom_range_hint": "Choisissez la période des données lorsque vous planifiez un rapport.",
+    "source_descriptions": {
+      "dashboard": "Inclut les graphiques et la mise en page pour produire des rapports PDF faciles à lire",
+      "saved_view": "Inclut les résultats des requêtes pour fournir des données détaillées et des listes d’audit"
+    },
+    "format_descriptions": {
+      "pdf": "Idéal pour la lecture et le partage",
+      "csv": "Idéal pour l’analyse dans un tableur",
+      "json": "Idéal pour l’automatisation"
+    },
+    "create_template": "Créer le modèle",
+    "save_changes": "Enregistrer les modifications",
+    "delete_template": "Supprimer le modèle",
+    "toast_created": "Modèle personnalisé créé",
+    "toast_updated": "Modèle personnalisé mis à jour",
+    "toast_deleted": "Modèle personnalisé supprimé",
+    "confirm_delete": "Supprimer « {{name}} » ? Les rapports déjà créés à partir de ce modèle ne seront pas affectés.",
+    "fields": {
+      "name": "Nom du modèle",
+      "description": "Description",
+      "description_optional": "Description (facultative)",
+      "source_type": "Type de source",
+      "format": "Format par défaut",
+      "time_range": "Période des données par défaut"
+    },
+    "placeholders": {
+      "name": "Par exemple : rapport mensuel sur les services essentiels",
+      "description": "Décrivez le cas d’usage, le contenu inclus et le public visé."
+    },
+    "errors": {
+      "name_required": "Saisissez un nom de modèle."
+    },
+    "platform_health": {
+      "name": "État de la plateforme — hebdomadaire",
+      "description": "Résumez les tendances de disponibilité, de latence, d’erreurs et de capacité des services essentiels."
+    },
+    "rum_experience": {
+      "name": "Expérience utilisateur — quotidien",
+      "description": "Regroupez les données sur les performances web, le taux d’erreur et l’évolution de l’expérience utilisateur sur les pages clés."
+    },
+    "alert_review": {
+      "name": "Bilan des alertes",
+      "description": "Examinez le volume d’alertes, le temps de rétablissement, les services affectés et les règles qui génèrent trop d’alertes."
+    },
+    "sla_compliance": {
+      "name": "Respect des SLA — mensuel",
+      "description": "Résumez la disponibilité des services, le respect des SLA, le rythme de consommation du budget d’erreur et le risque de non-respect des SLA."
+    },
+    "saved_query": {
+      "name": "Instantané des résultats de la requête",
+      "description": "Planifiez l’exportation d’une vue enregistrée pour des analyses détaillées ou des listes d’audit."
+    }
+  },
+  "workbench": {
+    "new_title": "Nouveau rapport",
+    "edit_title": "Modifier le rapport",
+    "view_title": "Détails du rapport",
+    "subtitle": "Configurez le contenu, la génération et l’envoi du rapport. Sa structure se met à jour à droite.",
+    "view_subtitle": "Contenu du rapport, calendrier de génération et destination de l’envoi.",
+    "view_notice": "Pour modifier ce rapport, vous devez disposer de l’autorisation {{permission}}.",
+    "steps": {
+      "content": "Contenu et périmètre",
+      "schedule": "Calendrier de génération",
+      "delivery": "Envoi"
+    },
+    "step_descriptions": {
+      "content": "Choisissez la source de données et le périmètre du rapport.",
+      "schedule": "Choisissez un intervalle facile à comprendre et ne saisissez une expression cron que si nécessaire.",
+      "delivery": "Ajoutez des destinataires et choisissez le format du rapport."
+    },
+    "fields": {
+      "name": "Nom du rapport",
+      "description": "Objectif",
+      "source_type": "Type de source",
+      "source": "Source de données",
+      "time_range": "Période des données",
+      "frequency": "Fréquence de génération",
+      "cron": "Expression cron",
+      "timezone": "Fuseau horaire du rapport",
+      "recipients": "Destinations d’envoi",
+      "format": "Format de sortie",
+      "enabled": "Activer après l’enregistrement"
+    },
+    "placeholders": {
+      "name": "Par exemple : état hebdomadaire de la plateforme",
+      "description": "Décrivez le public visé et l’objectif de ce rapport…",
+      "source": "Choisissez un tableau de bord ou une vue enregistrée",
+      "cron": "0 9 * * 1",
+      "recipient": "Adresse e-mail, URL de webhook ou chemin S3"
+    },
+    "hints": {
+      "source_empty": "Aucune source n’est disponible. Créez d’abord un tableau de bord ou une vue enregistrée.",
+      "recipients": "Les adresses e-mail, les webhooks HTTPS et les chemins S3 sont pris en charge. Le résultat de l’envoi est indiqué pour chaque destination.",
+      "enabled": "Désactivez cette option pour enregistrer le rapport en le laissant en pause."
+    },
+    "ranges": {
+      "previous_1_hour": "Dernière heure",
+      "previous_24_hours": "24 dernières heures",
+      "previous_7_days": "7 derniers jours",
+      "previous_30_days": "30 derniers jours",
+      "previous_calendar_day": "Jour calendaire précédent",
+      "previous_calendar_week": "Semaine calendaire précédente",
+      "previous_calendar_month": "Mois calendaire précédent",
+      "custom": "Personnalisée"
+    },
+    "recipient_kinds": {
+      "email": "E-mail",
+      "webhook": "Webhook",
+      "s3": "S3",
+      "slack": "Slack"
+    },
+    "formats": {
+      "pdf_description": "Idéal pour la lecture et l’archivage",
+      "png_description": "Idéal pour les outils collaboratifs",
+      "csv_description": "Idéal pour les analyses détaillées",
+      "json_description": "Idéal pour l’intégration à d’autres systèmes",
+      "svg_description": "Idéal pour intégrer une carte récapitulative"
+    },
+    "preview": {
+      "title": "Aperçu en direct",
+      "sample_badge": "Données d’exemple",
+      "report_label": "Rapport MoleSignal",
+      "range_label": "Période couverte",
+      "source_label": "Source de données",
+      "availability": "Disponibilité",
+      "latency": "Latence P95",
+      "alerts": "Alertes",
+      "trend": "Tendance principale",
+      "footer": "{{format}} · {{schedule}}"
+    }
+  },
+  "export_dialog": {
+    "title": "Exporter maintenant",
+    "description": "Sélectionnez un rapport enregistré pour le télécharger dans son format actuel, avec son contenu actuel.",
+    "report": "Rapport",
+    "format": "Format",
+    "range": "Plage de données",
+    "download": "Générer et télécharger",
+    "empty": "Créez et enregistrez d’abord une planification de rapport."
+  },
+  "toast": {
+    "created": "Planification du rapport créée",
+    "updated": "Planification du rapport mise à jour",
+    "enabled": "Planification du rapport activée",
+    "paused": "Planification du rapport mise en pause",
+    "deleted": "Planification du rapport supprimée",
+    "exported": "Aperçu du rapport généré",
+    "link_copied": "Lien court du rapport copié : {{name}}",
+    "recipient_exists": "Cette destination d’envoi existe déjà"
+  },
+  "confirm": {
+    "delete": "Supprimer « {{name}} » ? L’historique de génération du rapport ne pourra pas être restauré depuis cet espace de stockage."
+  },
+  "run_as": {
+    "label": "Exécuté en tant que",
+    "you": "{{name}} (vous)",
+    "takeover": "Une fois enregistré, le rapport sera exécuté avec vos droits d’accès.",
+    "missing": "Aucun utilisateur n’est associé à l’exécution de ce rapport. Les envois au format {{format}} échouent donc.",
+    "missing_fix": "Enregistrez le rapport pour qu’il soit exécuté avec vos droits d’accès.",
+    "missing_needs_saver": "Un utilisateur connecté et autorisé à planifier des rapports doit enregistrer ce rapport.",
+    "toggle_hint": "Activer ou désactiver cette option enregistre le rapport, qui sera ensuite exécuté avec vos droits d’accès."
+  },
+  "errors": {
+    "name_required": "Saisissez un nom de rapport.",
+    "source_required": "Sélectionnez une source de données.",
+    "recipient_required": "Ajoutez au moins une destination d’envoi.",
+    "recipient_empty": "Saisissez une destination d’envoi.",
+    "recipient_unsupported": "L’envoi via Slack n’est pas encore pris en charge par le serveur. Utilisez une adresse e-mail, un webhook ou un chemin S3.",
+    "recipient_invalid_email": "Saisissez une adresse e-mail, une URL de webhook HTTPS ou un chemin S3 valide.",
+    "share_failed": "Impossible de créer ou de copier le lien court du rapport"
+  }
+}

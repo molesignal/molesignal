@@ -1,4 +1,5 @@
-import { enUS, zhCN } from "date-fns/locale"
+import type { Locale as DateFnsLocale } from "date-fns"
+import { de, enUS, es, fr, ja, ko, ptBR, zhCN, zhTW } from "date-fns/locale"
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -9,8 +10,21 @@ import type { DayButton} from "react-day-picker";
 import { DayPicker, getDefaultClassNames } from "react-day-picker"
 import { useTranslation } from "react-i18next"
 
+import { intlLocale, type Locale, toLocale } from "@/i18n/locales"
 import { cn } from "@/shell/lib/cn"
 import { Button, buttonVariants } from "@/shell/ui/button"
+
+const DATE_FNS_LOCALES: Record<Locale, DateFnsLocale> = {
+  "en-us": enUS,
+  "zh-cn": zhCN,
+  "zh-tw": zhTW,
+  "ja-jp": ja,
+  "ko-kr": ko,
+  de,
+  es,
+  fr,
+  "pt-br": ptBR,
+}
 
 function Calendar({
   className,
@@ -29,15 +43,11 @@ function Calendar({
   const { t, i18n } = useTranslation("common")
   const defaultClassNames = getDefaultClassNames()
   const language = i18n.resolvedLanguage ?? i18n.language
-  const intlLocale = language?.toLowerCase().startsWith("zh")
-    ? "zh-CN"
-    : "en-US"
-  const resolvedLocale =
-    locale ?? (intlLocale === "zh-CN" ? zhCN : enUS)
+  const resolvedLocale = locale ?? DATE_FNS_LOCALES[toLocale(language)]
   const formatDate = (
     date: Date,
     options: Intl.DateTimeFormatOptions
-  ) => new Intl.DateTimeFormat(intlLocale, options).format(date)
+  ) => new Intl.DateTimeFormat(intlLocale(language), options).format(date)
 
   return (
     <DayPicker

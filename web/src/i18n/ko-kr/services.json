@@ -1,0 +1,31 @@
+{
+  "title": "서비스",
+  "subtitle": "트레이스 토폴로지를 기반으로 구성한 서비스 카탈로그입니다.",
+  "kpis": {
+    "services": "서비스",
+    "rps": "총 RPS",
+    "degraded": "상태 저하(오류율 ≥1%)"
+  },
+  "list": {
+    "columns": {
+      "name": "서비스",
+      "rps": "RPS",
+      "error_rate": "오류율",
+      "p95": "p95",
+      "spans": "스팬"
+    }
+  },
+  "states": {
+    "empty_title": "감지된 서비스 없음",
+    "empty_description": "선택한 시간 범위에 트레이스 스팬이 수집되면 서비스가 표시됩니다."
+  },
+  "detail": {
+    "not_found_title": "이 서비스의 트래픽 없음",
+    "not_found_description": "선택한 시간 범위에 이 서비스의 트레이스 스팬이 없습니다.",
+    "upstream": "업스트림(호출 서비스)",
+    "downstream": "다운스트림(종속 서비스)",
+    "no_upstream": "선택한 시간 범위에 호출 서비스가 없습니다.",
+    "no_downstream": "선택한 시간 범위에 종속 서비스가 없습니다.",
+    "edge_rps": "{{rps}} rps"
+  }
+}

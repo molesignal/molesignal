@@ -1,0 +1,29 @@
+{
+  "help_title": "키보드 단축키",
+  "categories": {
+    "general": "일반",
+    "navigation": "탐색",
+    "investigation": "조사",
+    "time": "시간"
+  },
+  "bindings": {
+    "open_palette": "명령 팔레트 열기",
+    "show_help": "키보드 단축키 도움말 표시",
+    "open_time_picker": "시간 범위 선택기 열기",
+    "stack_back": "조사 스택: 뒤로",
+    "stack_forward": "조사 스택: 앞으로",
+    "goto_services": "서비스로 이동",
+    "goto_apm_services": "APM 서비스로 이동",
+    "goto_incidents": "인시던트로 이동",
+    "goto_dashboards": "대시보드로 이동",
+    "goto_investigate_trace": "조사(트레이스)로 이동",
+    "goto_investigate_log": "조사(로그)로 이동",
+    "goto_rum": "사용자 경험으로 이동",
+    "goto_user_experience": "RUM 사용자 경험으로 이동",
+    "goto_functions": "함수로 이동",
+    "goto_iam": "IAM으로 이동",
+    "pin_anchor": "기준 시점 고정 / 해제",
+    "copy_link": "조사 링크 복사",
+    "dismiss_overlay": "맨 위 오버레이 닫기"
+  }
+}

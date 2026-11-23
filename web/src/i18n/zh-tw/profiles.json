@@ -1,0 +1,255 @@
+{
+  "title": "持續效能分析",
+  "subtitle": "跨服務的 CPU、記憶體與鎖定競爭火焰圖。",
+  "refresh": "重新整理",
+  "live": {
+    "label": "即時",
+    "hint": "每 10 秒自動重新整理"
+  },
+  "filters": {
+    "service": "服務",
+    "service_all": "所有服務",
+    "type": "Profile 類型",
+    "label": "標籤篩選",
+    "label_placeholder": "key:value",
+    "apply": "套用"
+  },
+  "profile_types": {
+    "cpu": "CPU",
+    "wall": "實際經過時間",
+    "alloc_space": "已配置的記憶體",
+    "alloc_objects": "已配置的物件",
+    "inuse_space": "使用中的記憶體",
+    "inuse_objects": "使用中的物件",
+    "goroutines": "Goroutine",
+    "lock": "鎖定競爭",
+    "samples": "樣本"
+  },
+  "analysis": {
+    "filter_bar_aria": "效能分析篩選",
+    "clear_trace": "清除 Trace 篩選",
+    "summary_aria": "本次分析的結論",
+    "hottest": "最熱門的函式",
+    "hot_share": "自身占比 {{percent}}%",
+    "no_hotspot": "目前沒有熱點函式",
+    "samples": "{{count}} 個樣本",
+    "service_count_one": "{{count}} 個服務",
+    "service_count_other": "{{count}} 個服務",
+    "captured": "收集了 {{duration}}",
+    "profiles_button": "{{selected}} / {{total}} 個 Profile",
+    "profiles_button_aria": "選取要分析的 Profile：已選取 {{selected}} / {{total}}",
+    "workspace_aria": "Profile 分析工作區",
+    "loading_flamegraph": "正在合併選取的 Profile…",
+    "no_selection_title": "尚未選取要分析的 Profile",
+    "no_selection_description": "火焰圖由勾選的 Profile 合併而成，請至少勾選一個。",
+    "no_selection_action": "選取 Profile"
+  },
+  "first_run": {
+    "eyebrow": "持續效能分析",
+    "steps": {
+      "send": {
+        "title": "回報 Profile",
+        "description": "透過 OTLP 或 Pyroscope 推送 pprof，也可以先上傳一個檔案試試。"
+      },
+      "narrow": {
+        "title": "界定分析範圍",
+        "description": "選擇服務、Profile 類型，以及要合併的 Profile。"
+      },
+      "read": {
+        "title": "閱讀火焰圖",
+        "description": "堆疊框越寬，成本越高；最熱門的函式會顯示在頁面最前面。"
+      }
+    }
+  },
+  "selection": {
+    "title": "納入分析的 Profiles",
+    "selected_summary": "已選取 {{selected}} / {{total}}",
+    "description": "勾選的 Profile 會合併至火焰圖；點選列可單獨開啟該 Profile。",
+    "select_all": "選取所有 Profiles",
+    "select_none": "取消選取所有 Profiles",
+    "row_aria": "切換是否將 Profile {{id}} 納入分析"
+  },
+  "units": {
+    "nanoseconds": "奈秒",
+    "bytes": "位元組",
+    "count": "次",
+    "samples": "樣本"
+  },
+  "list": {
+    "title": "Profiles",
+    "kpi": {
+      "total_value": "總量",
+      "samples": "樣本數",
+      "services": "服務數",
+      "hot_function": "熱點函式"
+    },
+    "columns": {
+      "service": "服務",
+      "type": "類型",
+      "timestamp": "收集時間",
+      "duration": "持續時間",
+      "samples": "樣本數",
+      "total_value": "合計",
+      "trace": "Trace"
+    },
+    "tooltip": {
+      "duration": "收集所經過的實際時間（wall-clock）",
+      "total": "累計 on-CPU 時間（樣本值總和）"
+    },
+    "view_flamegraph": "檢視火焰圖",
+    "open_profile": "開啟 Profile",
+    "empty_title": "目前的時間範圍內沒有 Profile",
+    "empty_description": "在「資料來源」中設定接收方式（OTLP / Pyroscope / pprof），或使用「上傳」直接傳送 pprof 檔案。"
+  },
+  "flamegraph": {
+    "title": "火焰圖",
+    "search_placeholder": "醒目標示堆疊框…",
+    "reset_zoom": "重設縮放比例",
+    "fit_canvas": "重設檢視",
+    "fullscreen": "全螢幕分析",
+    "exit_fullscreen": "結束全螢幕",
+    "resize": "拖曳可調整分析區高度，按兩下可還原預設高度",
+    "value_type": "取值",
+    "no_data_title": "沒有可呈現的樣本",
+    "no_data_description": "所選服務、類型與時間範圍內沒有相符的 profile。",
+    "truncated_notice": "時間範圍內的 profile 數量超過合併上限，目前顯示均勻取樣後的代表性結果。",
+    "frame_aria": "分析函式 {{name}}",
+    "root_aria": "分析所有樣本",
+    "root_note": "所有樣本",
+    "frame_self": "本身",
+    "frame_total": "累計",
+    "frame_share": "占總量比例",
+    "self_help": "函式本身的消耗量，不含子呼叫",
+    "total_help": "函式的累計消耗量，包含所有子呼叫",
+    "profiles_merged": "已合併 {{count}} 個 profile",
+    "view": {
+      "flame": "火焰圖",
+      "tree": "呼叫樹",
+      "top": "熱門函式"
+    },
+    "top": {
+      "function": "函式",
+      "self": "本身",
+      "self_pct": "本身占比",
+      "cum": "累計",
+      "cum_pct": "累計占比",
+      "select_hint": "選取函式以查看詳細資訊",
+      "jump_hint": "點選即可在火焰圖中醒目標示該函式"
+    },
+    "tree": {
+      "expand": "展開子呼叫",
+      "collapse": "收合子呼叫"
+    },
+    "details": {
+      "title": "函式詳細資訊",
+      "focus": "聚焦火焰圖",
+      "call_tree": "在呼叫樹中查看",
+      "compare": "比較",
+      "occurrences": "出現次數",
+      "service": "服務",
+      "all_services": "所有服務",
+      "call_path": "呼叫路徑",
+      "children": "直接子呼叫",
+      "no_children": "沒有直接子呼叫",
+      "depth": "呼叫深度"
+    },
+    "tooltip": {
+      "focus_hint": "點選即可聚焦該呼叫框架，並查看函式詳細資訊。"
+    },
+    "legend": {
+      "width": "寬度",
+      "cumulative": "累計耗時",
+      "color": "顏色",
+      "self": "本身耗時",
+      "cold": "冷",
+      "hot": "熱"
+    }
+  },
+  "compare": {
+    "title": "比較 profile",
+    "subtitle": "比較兩個時段，看看哪些函式變熱、哪些變冷；兩個時段都可以自由設定。",
+    "filters_aria": "比較範圍",
+    "baseline_aria": "基準：{{value}}",
+    "baseline_title": "選擇基準",
+    "baseline_relative": "跟隨比較時段",
+    "baseline_overlaps": "此基準時段會與比較時段重疊。",
+    "baselines": {
+      "previous": "上一個時段",
+      "day": "一天前的同一時段",
+      "week": "一週前的同一時段",
+      "custom": "自訂時段"
+    },
+    "statement_aria": "用於比較的兩個時段",
+    "comparison": "比較時段",
+    "baseline": "基準時段",
+    "period_profiles_one": "{{count}} 個 Profile",
+    "period_profiles_other": "{{count}} 個 Profile",
+    "overall": "總量變化",
+    "unequal_counts": "兩個時段的 Profile 數量不同（{{comparison}} 對 {{baseline}}），總量變化包含收集數量的差異。",
+    "overlap": "兩個時段有重疊，重疊期間收集到的 Profile 會同時計入兩個時段。",
+    "loading": "正在比較兩個時段…",
+    "legend_increase": "增加",
+    "legend_decrease": "減少",
+    "changed": {
+      "title": "變化最大的函式",
+      "count_one": "{{count}} 個函式有變化",
+      "count_other": "{{count}} 個函式有變化",
+      "function": "函式",
+      "baseline": "基準",
+      "comparison": "比較",
+      "change": "自身開銷變化",
+      "new": "新增",
+      "gone": "消失",
+      "show_all": "顯示全部 {{count}} 個",
+      "show_top": "只看前 {{count}} 個",
+      "none": "兩個時段之間，沒有任何函式的自身開銷出現變化。",
+      "select_hint": "在火焰圖中標示此函式"
+    },
+    "empty": {
+      "none_title": "兩個時段都沒有 Profile",
+      "none_description": "這兩個時段都未收集到此服務的該類型 Profile。請選擇有 Profile 的時段，或改選其他類型。",
+      "baseline_title": "沒有可供比較的基準",
+      "baseline_description": "基準時段內沒有 Profile，所有函式都會視為新增。請將基準時段設為有 Profile 的時段。",
+      "comparison_title": "比較時段內沒有 Profile",
+      "comparison_description": "目前檢視的時段未收集到 Profile，無法與基準比較。請改選有 Profile 的時段。",
+      "open_analysis": "在效能分析中檢視此時段"
+    }
+  },
+  "detail": {
+    "title": "Profile",
+    "back": "返回 profiles",
+    "download": "下載 pprof",
+    "downloading": "下載中…",
+    "open_trace": "開啟關聯的 trace",
+    "view_span_flamegraph": "檢視此 span 的火焰圖",
+    "metadata": {
+      "service": "服務",
+      "type": "類型",
+      "captured": "收集時間",
+      "duration": "持續時間",
+      "samples": "樣本數",
+      "trace": "Trace",
+      "span": "Span"
+    },
+    "unsymbolized": "包含未符號化的堆疊框架"
+  },
+  "upload": {
+    "button": "上傳",
+    "title": "上傳 profile",
+    "description": "上傳以 gzip 壓縮的 pprof 或原始 pprof；如需整合 OTLP / Pyroscope，請參閱 Datasource。",
+    "service": "服務",
+    "service_placeholder": "my-service",
+    "type": "Profile 類型",
+    "file": "pprof 檔案",
+    "choose_file": "選擇檔案…",
+    "submit": "上傳",
+    "uploading": "上傳中…",
+    "success": "profile 已上傳",
+    "error": "上傳失敗",
+    "datasource_link": "設定 OTLP / Pyroscope"
+  },
+  "errors": {
+    "load_failed": "載入 profiles 失敗",
+    "flamegraph_failed": "建立火焰圖失敗"
+  }
+}

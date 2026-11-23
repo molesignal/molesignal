@@ -1,0 +1,3489 @@
+{
+  "chats": "Chats",
+  "new_chat": "Neuer Chat",
+  "untitled": "Ohne Titel",
+  "chat_list_resize": "Ziehen Sie, um die Größe der Chatliste zu ändern. Doppelklicken Sie, um sie zurückzusetzen.",
+  "chat_delete": "Chat löschen",
+  "chat_rename": "Umbenennen",
+  "chat_rename_label": "Chatname",
+  "forked": "Als neuer Chat abgezweigt",
+  "chat_delete_title": "Chat löschen?",
+  "chat_delete_confirm": "„{{title}}“ wird archiviert, bevor der Chat aus dem Chatverlauf entfernt wird.",
+  "chat_delete_action": "Löschen",
+  "chat_deleting": "Wird gelöscht…",
+  "chat_deleted": "Chat gelöscht",
+  "history_empty_title": "Noch keine Unterhaltungen",
+  "history_empty_description": "Starten Sie eine Untersuchung. Der zugehörige Kontext bleibt hier erhalten.",
+  "quick_title": "Schnelleinstieg",
+  "quick": {
+    "scenes": {
+      "incident": {
+        "title": "Incident untersuchen",
+        "prompt": "Untersuche den schwerwiegendsten offenen Incident: Lege zuerst den Untersuchungsplan dar und führe dann die Belege Punkt für Punkt auf. Nimm keine Änderungen an der Produktionsumgebung vor."
+      },
+      "query": {
+        "title": "Daten in Alltagssprache abfragen",
+        "prompt": "Welcher Service hatte in der letzten Stunde die meisten Fehler? Liste die Anzahl der Fehler pro Service auf.",
+        "prompt_service": "Wie verteilen sich die Fehler von {{service}} in der letzten Stunde auf die Statuscodes?"
+      },
+      "noise": {
+        "title": "Unnötige Alerts reduzieren",
+        "hint": "Finden Sie Regeln, die den Bereitschaftsdienst in den letzten 7 Tagen unnötig alarmiert haben, und schlagen Sie Änderungen zur Prüfung vor"
+      },
+      "inspection": {
+        "title": "Regelmäßige Prüfung einrichten",
+        "hint": "Lassen Sie Mole Agent die Logs nach Zeitplan prüfen und sich bei Problemen benachrichtigen"
+      }
+    }
+  },
+  "chat_groups": {
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "last_7_days": "Letzte 7 Tage",
+    "older": "Älter"
+  },
+  "context": {
+    "title": "Aktueller Kontext",
+    "add": "Kontext hinzufügen",
+    "clear": "Kontext entfernen",
+    "auto_description": "Es ist weder ein Service noch ein Alert angeheftet. Mole Agent wählt anhand Ihrer Frage die relevanten Daten aus.",
+    "editor_title": "Untersuchungskontext hinzufügen",
+    "editor_description": "Diese Werte werden mit der nächsten Nachricht gesendet und bleiben für Sie sichtbar.",
+    "environment": "Umgebung",
+    "environment_placeholder": "Zum Beispiel: production",
+    "service": "Service",
+    "service_placeholder": "Zum Beispiel: checkout-api",
+    "alert": "Alert",
+    "alert_placeholder": "Zum Beispiel: high_error_rate"
+  },
+  "module_subtitle": "Ihr KI-Assistent für Observability im IT-Betrieb.",
+  "nav": {
+    "label": "Navigation für Mole Agent",
+    "chat": "Chat",
+    "investigations": "Untersuchungen",
+    "automations": "Automatisierungen",
+    "quality": "Qualität",
+    "approvals": "Genehmigungen",
+    "executions": "Ausführungen",
+    "settings": "Einstellungen",
+    "knowledge": "Wissen"
+  },
+  "overview": {
+    "label": "Übersicht zu Mole Agent",
+    "active": "in Untersuchung",
+    "pending_approvals": "Genehmigung ausstehend"
+  },
+  "workspace": {
+    "start_title": "KI-Assistent",
+    "start_description": "Beschreiben Sie, was passiert ist, stellen Sie eine Rückfrage oder wählen Sie eine Frage aus, um zu beginnen. Der Kontext der Untersuchung bleibt in diesem Chat erhalten.",
+    "context_title": "Kontext",
+    "context_description": "Gilt für diesen Chat",
+    "scope": "Umfang",
+    "signals": "Signale",
+    "context_auto": "Automatisch erkennen",
+    "all_environments": "Alle Umgebungen",
+    "time_range": "Zeitraum",
+    "active_alerts": "Aktive Alarme",
+    "on_call": "Rufbereitschaft",
+    "unassigned": "Nicht zugewiesen",
+    "command_bar": "Befehlsleiste für Mole Agent",
+    "connections": {
+      "metrics": "Metriken",
+      "logs": "Logs",
+      "traces": "Traces"
+    },
+    "connection_state": {
+      "connected": "Online",
+      "attention": "Handlungsbedarf",
+      "no_data": "Keine Daten",
+      "checking": "Wird geprüft",
+      "unavailable": "Eingeschränkt"
+    },
+    "no_model": {
+      "title": "Kein KI-Modell aktiviert",
+      "description": "Mole Agent nutzt ein KI-Modell, um zu antworten. In dieser Organisation ist noch keines aktiviert.",
+      "ask_admin": "Mole Agent nutzt ein KI-Modell, um zu antworten. Bitten Sie einen Administrator, in den Einstellungen von Mole Agent ein KI-Modell zu aktivieren.",
+      "configure": "KI-Modell einrichten"
+    }
+  },
+  "common": {
+    "status": "Status",
+    "updated": "Aktualisiert",
+    "time": "Zeit",
+    "open": "Öffnen",
+    "back": "Zurück",
+    "close": "Schließen",
+    "actions": "Aktionen",
+    "cancel": "Abbrechen",
+    "create": "Erstellen",
+    "edit": "Bearbeiten",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "invalid_json": "Ungültiges JSON in {{field}}: {{message}}",
+    "json_object_required": "{{field}} muss ein JSON-Objekt sein"
+  },
+  "confidence": {
+    "high": "Hoch",
+    "medium": "Mittel",
+    "low": "Niedrig"
+  },
+  "status": {
+    "draft": "Entwurf",
+    "pending": "Ausstehend",
+    "running": "Läuft",
+    "waiting_for_data": "Wartet auf Daten",
+    "waiting_for_approval": "Wartet auf Freigabe",
+    "verifying_recovery": "Wiederherstellung wird überprüft",
+    "completed": "Abgeschlossen",
+    "partially_completed": "Teilweise abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "cancelled": "Abgebrochen",
+    "succeeded": "Erfolgreich",
+    "partially_succeeded": "Teilweise erfolgreich",
+    "rolled_back": "Rückgängig gemacht",
+    "verification_failed": "Überprüfung fehlgeschlagen",
+    "proposed": "Vorgeschlagen",
+    "testing": "Wird getestet",
+    "supported": "Gestützt",
+    "insufficient_evidence": "Unzureichende Belege",
+    "rejected": "Abgelehnt",
+    "approved": "Freigegeben",
+    "expired": "Abgelaufen",
+    "executed": "Ausgeführt",
+    "verified": "Verifiziert",
+    "unverified": "Nicht verifiziert",
+    "inference": "Schlussfolgerung",
+    "suggestion": "Vorschlag",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "skipped": "Übersprungen"
+  },
+  "investigations": {
+    "title": "Untersuchungen",
+    "description": "Untersuchungen zu Vorfällen oder manuell erstellt: Mole Agent dokumentiert dabei die Schritte, Befunde und die Schlussfolgerung.",
+    "create": "Untersuchung erstellen",
+    "created": "Untersuchung erstellt",
+    "edit": "Untersuchung bearbeiten",
+    "updated": "Untersuchung aktualisiert",
+    "create_description": "Mole Agent dokumentiert jedes verwendete Tool, jede Eingabe, jeden Befund und deren Einfluss auf die Schlussfolgerung.",
+    "editor_description": "Pflegen Sie den Aufgabenstatus, die aktuelle Schlussfolgerung, den Untersuchungskontext und die ersten Schritte.",
+    "title_placeholder": "Beispiel: Untersuchung der Fehlerrate des Zahlungsdienstes",
+    "confidence_unset": "Nicht festgelegt",
+    "steps_hint": "Geben Sie pro Zeile einen Untersuchungsschritt ein oder trennen Sie die Schritte durch Kommas.",
+    "empty_title": "Noch keine Untersuchungen",
+    "empty_description": "Verfolgen Sie komplexe oder langwierige Fragestellungen in Untersuchungen.",
+    "sections": {
+      "basic": "Aufgabeninformationen",
+      "steps": "Erste Schritte",
+      "context": "Untersuchungskontext"
+    },
+    "fields": {
+      "title": "Titel",
+      "summary": "Aktuelle Schlussfolgerung",
+      "confidence": "Konfidenz",
+      "current_step": "Aktueller Schritt",
+      "steps": "Untersuchungsschritte",
+      "context": "Kontext als JSON"
+    },
+    "columns": {
+      "task": "Untersuchung",
+      "current_step": "Aktueller Schritt",
+      "source": "Quelle"
+    },
+    "default_steps": {
+      "context": "Kontext zu Alarm und Dienst erfassen",
+      "metrics": "Änderungen bei Fehlerrate und Latenz abfragen",
+      "logs": "Auffällige Logs finden",
+      "traces": "Auffällige Traces korrelieren",
+      "hypothesis": "Wahrscheinlichste Ursache überprüfen",
+      "recommendation": "Maßnahmen zur Behebung vorschlagen"
+    },
+    "from_incident": "Aus einem Vorfall",
+    "by_hand": "Manuell verfasst",
+    "open_chat": "Chat öffnen"
+  },
+  "investigation_detail": {
+    "description": "Jeder Tool-Aufruf, jeder Befund und jede Hypothese ist nachvollziehbar.",
+    "confidence": "Konfidenz",
+    "current_conclusion": "Aktuelles Fazit",
+    "no_conclusion": "Mole Agent ist noch zu keinem bestätigten Fazit gelangt.",
+    "steps": "Untersuchungsschritte",
+    "hypotheses": "Hypothesen zur Hauptursache",
+    "timeline": "Zeitverlauf der Untersuchung",
+    "no_hypotheses": "Noch keine Hypothesen zur Hauptursache.",
+    "no_steps": "Keine Untersuchungsschritte erfasst.",
+    "no_evidence": "Keine Belege erfasst.",
+    "operations_title": "Keine vorgeschlagenen Operationen",
+    "operations_description": "Von Mole Agent vorgeschlagene Schreiboperationen werden zur Genehmigung vorgelegt und nie direkt ausgeführt.",
+    "runs_title": "Keine zugehörigen Ausführungen",
+    "runs_description": "Bei genehmigten Operationen werden Parameter, Ergebnisse und Prüfstatus in den Ausführungsprotokollen festgehalten.",
+    "tabs": {
+      "overview": "Übersicht",
+      "timeline": "Zeitverlauf",
+      "evidence": "Belege",
+      "queries": "Abfragen",
+      "operations": "Vorgeschlagene Operationen",
+      "runs": "Ausführungsverlauf"
+    }
+  },
+  "automations": {
+    "title": "Automatisierungen",
+    "description": "Lassen Sie Mole Agent Aufgaben erledigen, ohne selbst am Chat teilzunehmen: nach Zeitplan, bei neuen Incidents, auf Aufruf eines CI/CD-Jobs oder manuell. Jede Ausführung wird als Chat gespeichert, den Sie öffnen können.",
+    "create": "Neue Automatisierung",
+    "empty_title": "Noch keine Automatisierungen",
+    "empty_hint": "Beginnen Sie mit einer Vorlage, etwa für die Incident-Analyse oder den täglichen Health Check.",
+    "denied": "Diese Aktion ist nur Personen erlaubt, die Automatisierungen in diesem Bereich verwalten",
+    "list_separator": ", ",
+    "clone_name": "{{name}} (Kopie)",
+    "columns": {
+      "name": "Name",
+      "trigger": "Auslöser",
+      "last_run": "Letzte Ausführung",
+      "enabled": "Aktiv",
+      "actions": "Aktionen"
+    },
+    "cells": {
+      "next": "Nächste Ausführung: {{when}}",
+      "paused": "Pausiert",
+      "token": "Token {{prefix}}…",
+      "no_token": "Noch kein Token",
+      "never": "Noch nicht ausgeführt",
+      "writes_rca": "Erstellt die Ursachenanalyse (RCA) für den Incident",
+      "channels_one": "Benachrichtigt {{count}} Kanal",
+      "channels_other": "Benachrichtigt {{count}} Kanäle",
+      "no_output": "Nur als Ausführungen gespeichert"
+    },
+    "actions": {
+      "run": "Jetzt ausführen",
+      "run_named": "{{name}} jetzt ausführen",
+      "runs": "Ausführungen",
+      "runs_named": "Ausführungen von {{name}}",
+      "edit": "Bearbeiten",
+      "edit_named": "{{name}} bearbeiten",
+      "more_named": "Weitere Aktionen für {{name}}",
+      "clone": "Klonen",
+      "token": "API-Token",
+      "delete": "Löschen",
+      "toggle_named": "{{name}} aktivieren oder deaktivieren"
+    },
+    "trigger_kind": {
+      "schedule": "Nach Zeitplan",
+      "incident": "Neue Vorfälle",
+      "api": "API-Aufruf",
+      "manual": "Manuell",
+      "finding": "Neue Befunde der automatischen Erkennung"
+    },
+    "trigger_hint": {
+      "schedule": "Wird zu den im Cron-Ausdruck festgelegten Zeiten ausgeführt, höchstens einmal alle 15 Minuten.",
+      "incident": "Wird bei jedem neuen passenden Vorfall ausgeführt. Tritt innerhalb von 30 Minuten ein weiterer Vorfall derselben Gruppe auf, wird nur einer davon analysiert.",
+      "api": "Wird ausgeführt, wenn ein externes System die Automatisierung mit ihrem API-Token aufruft. Der übermittelte Text dient als Kontext für die Ausführung. Erstellen Sie das API-Token nach dem Speichern in der zugehörigen Zeile.",
+      "manual": "Wird nur manuell ausgeführt.",
+      "finding": "Wird bei jedem neuen passenden Befund der automatischen Erkennung ausgeführt. Jeder Befund wird einmal untersucht."
+    },
+    "trigger_summary": {
+      "incident": "Jeder neue Vorfall",
+      "incident_severities": "Neue Vorfälle mit Schweregrad {{severities}}",
+      "api": "API-Aufruf",
+      "manual": "Manuell",
+      "finding": "Jeder neue Befund",
+      "finding_severity": "Neue Befunde ab Schweregrad {{severity}}"
+    },
+    "cron": {
+      "weekdays_morning": "Mo.–Fr. um 09:00 Uhr",
+      "daily_morning": "Täglich um 09:00 Uhr",
+      "monday_morning": "Montags um 10:00 Uhr",
+      "hourly": "Stündlich"
+    },
+    "severity": {
+      "critical": "kritisch",
+      "error": "Fehler",
+      "warning": "Warnung",
+      "info": "Info"
+    },
+    "run_status": {
+      "running": "Wird ausgeführt",
+      "succeeded": "Erfolgreich",
+      "partial": "Teilweise abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "skipped": "Übersprungen",
+      "blocked": "Eingreifen erforderlich",
+      "abandoned": "Gestoppt"
+    },
+    "reasons": {
+      "budget_exhausted": "Das heutige Token-Budget von Mole Agent ist aufgebraucht.",
+      "still_running": "Die vorherige Ausführung war noch nicht abgeschlossen.",
+      "already_analyzed": "Dieser Vorfall oder ein anderer Vorfall aus derselben Gruppe wurde gerade erst analysiert.",
+      "run_as_unavailable": "Die Person, in deren Namen die Automatisierung ausgeführt wird, kann Mole Agent hier nicht mehr nutzen. Speichern Sie die Automatisierung erneut, damit sie in Ihrem Namen ausgeführt wird.",
+      "no_model": "In dieser Organisation ist kein KI-Modell aktiviert.",
+      "timeout": "Das Zeitlimit für die Ausführung wurde überschritten.",
+      "error": "Beim Modell oder bei einem Tool ist ein Fehler aufgetreten.",
+      "question": "Mole Agent hatte eine Frage, die niemand beantworten konnte, und hat nach eigenem Ermessen weitergemacht.",
+      "confirmation": "Ein Tool wurde nicht ausgeführt, weil die erforderliche Bestätigung fehlte.",
+      "credential": "Ein MCP-Server benötigt die Anmeldedaten der Person, in deren Namen die Automatisierung ausgeführt wird. Es sind jedoch keine hinterlegt.",
+      "delivery": "Eine Benachrichtigung konnte nicht gesendet werden.",
+      "rca": "Die Ursachenanalyse (RCA) für den Vorfall konnte nicht erstellt werden.",
+      "stopped": "Die Ausführung wurde manuell gestoppt.",
+      "interrupted": "Der Server, auf dem die Automatisierung lief, wurde gestoppt."
+    },
+    "editor": {
+      "new_title": "Neue Automatisierung",
+      "edit_title": "Automatisierung bearbeiten",
+      "subtitle": "Legen Sie fest, was Mole Agent wann tun soll und wohin das Ergebnis gesendet wird.",
+      "what": "Aufgabe",
+      "name": "Name",
+      "name_placeholder": "Tägliche Zustandsprüfung",
+      "prompt": "Was soll Mole Agent tun?",
+      "prompt_hint": "Mole Agent erhält diese Aufgabe bei jeder Ausführung wie in einem neuen Chat. Dabei kann Mole Agent die Tools, Skills und das Wissen des Geltungsbereichs nutzen.",
+      "prompt_placeholder": "Prüfen Sie die Fehlerrate und Latenz der Checkout-Dienste in den letzten 24 Stunden und geben Sie an, wo Handlungsbedarf besteht.",
+      "description": "Beschreibung",
+      "description_placeholder": "Zweck in einer Zeile",
+      "scope": "Geltungsbereich",
+      "scope_hint": "Bei jeder Ausführung werden das Wissen, die Skills und die MCP-Server dieses Geltungsbereichs geladen. Der Geltungsbereich legt auch fest, wer die Automatisierung sehen kann. Er lässt sich nicht ändern. Duplizieren Sie die Automatisierung, um einen anderen Geltungsbereich zu verwenden.",
+      "when": "Wann",
+      "trigger": "Auslöser",
+      "presets": "Gängige Zeitpläne",
+      "cron": "Cron",
+      "cron_hint": "Minute, Stunde, Tag des Monats, Monat, Wochentag",
+      "cron_invalid": "Fünf Felder: Minute, Stunde, Tag des Monats, Monat und Wochentag",
+      "timezone": "Zeitzone",
+      "severities": "Schweregrade",
+      "severities_hint": "Ohne Auswahl gelten alle Schweregrade.",
+      "rules": "Alarmregeln",
+      "rules_hint": "Ohne Auswahl gelten alle Regeln.",
+      "services": "Services",
+      "services_hint": "Durch Kommas trennen. Ein Incident passt, wenn er mindestens einen dieser Services betrifft. Ohne Angabe gelten alle Services.",
+      "labels": "Labels",
+      "labels_hint": "Ein Eintrag im Format key=value pro Zeile. Ein Incident muss alle angegebenen Labels haben.",
+      "timeout": "Zeitlimit",
+      "timeout_hint": "Wird das Zeitlimit überschritten, wird der Lauf abgebrochen und als fehlgeschlagen gewertet.",
+      "minutes_one": "{{count}} Minute",
+      "minutes_other": "{{count}} Minuten",
+      "enabled": "Ein",
+      "outputs": "Ergebnis",
+      "channels": "Benachrichtigungskanäle",
+      "channels_hint": "Wenn der Lauf abgeschlossen ist, menschliches Eingreifen erfordert oder fehlschlägt, wird das Ergebnis zusammen mit einem Link zum Lauf gesendet.",
+      "channels_none": "Es ist noch kein Benachrichtigungskonnektor eingerichtet.",
+      "channels_unavailable": "Benachrichtigungskonnektoren können hier nicht angezeigt werden. Für die Kanalauswahl ist die Berechtigung notify.connectors.read erforderlich.",
+      "write_rca": "Ergebnis als Ursachenanalyse (RCA) des Incidents speichern",
+      "run_as": "Nach dem Speichern läuft die Automatisierung in Ihrem Namen, mit Ihren Berechtigungen und Ihren eigenen MCP-Zugangsdaten.",
+      "save": "Speichern",
+      "create": "Erstellen",
+      "finding_kinds": "Typen",
+      "finding_kinds_hint": "Ohne Auswahl gelten alle Typen.",
+      "min_severity": "Mindestens",
+      "any_severity": "Beliebiger Schweregrad",
+      "finding_subjects": "Services, Hosts oder Container",
+      "finding_subjects_hint": "Durch Kommas trennen. Ohne Angabe gelten alle."
+    },
+    "runs": {
+      "subtitle": "Neueste zuerst. Jeder Lauf wird als Chat gespeichert.",
+      "none": "Noch keine Läufe.",
+      "input": "Gestartet mit: {{text}}",
+      "undelivered": "Nicht zugestellt an {{targets}}",
+      "open_chat": "Lauf öffnen",
+      "rca": "Ursachenanalyse (RCA) des Incidents gespeichert"
+    },
+    "templates": {
+      "title": "Neue Automatisierung",
+      "subtitle": "Beginnen Sie ohne Vorlage oder nutzen Sie eine Vorlage, die Aufgabe und Auslöser vorgibt.",
+      "blank": "Leere Automatisierung",
+      "blank_description": "Beschreiben Sie die Aufgabe und legen Sie fest, wann sie ausgeführt wird."
+    },
+    "token": {
+      "title": "API-Token für {{name}}",
+      "description": "Ein externes System, etwa ein CI/CD-Job, startet diese Automatisierung, indem es das Token sendet.",
+      "shown_once": "Kopieren Sie das Token jetzt: Es wird nicht erneut angezeigt. Ein neues Token ersetzt das bisherige.",
+      "copy": "Token kopieren",
+      "example": "So starten Sie die Automatisierung:",
+      "current": "Ein Token ist eingerichtet ({{prefix}}…). Wenn Sie ein neues Token erstellen, wird das bisherige sofort ersetzt.",
+      "none": "Noch kein Token vorhanden.",
+      "create": "Token erstellen",
+      "rotate": "Neues Token erstellen",
+      "revoke": "Token widerrufen",
+      "revoked": "Token widerrufen"
+    },
+    "toast": {
+      "created": "Automatisierung erstellt",
+      "saved": "Automatisierung gespeichert",
+      "deleted": "Automatisierung gelöscht",
+      "started": "{{name}} läuft",
+      "not_started": "{{name}} wurde nicht gestartet: {{reason}}"
+    },
+    "delete_confirm": {
+      "title": "{{name}} löschen?",
+      "description": "Der Ausführungsverlauf wird ebenfalls gelöscht. Die Chats zu den Ausführungen bleiben erhalten.",
+      "confirm": "Löschen",
+      "busy": "Wird gelöscht…"
+    }
+  },
+  "automation_run": {
+    "notice": "Diese Ausführung der Automatisierung „{{name}}“ wurde zum Nachlesen gespeichert. Wenn Sie die Frage erneut stellen möchten, führen Sie die Automatisierung erneut aus.",
+    "open": "Automatisierungen"
+  },
+  "drill_run": {
+    "notice": "Diese Ausführung der Übung „{{name}}“ wurde zum Nachlesen gespeichert. Um die Übung zu wiederholen, öffnen Sie im Tab „Qualität“ den Bereich „Übungen“.",
+    "open": "Übungen"
+  },
+  "quality": {
+    "title": "Qualität",
+    "description": "Hier sehen Sie, wie gut Mole Agent antwortet. Jede Antwort wird anhand von Regeln bewertet. Evaluatoren bewerten zusätzlich eine Stichprobe mit einem Modell. Antworten mit niedrigen Punktwerten oder der Rückmeldung „Nicht hilfreich“ stehen zur Überprüfung an.",
+    "views": {
+      "overview": "Übersicht",
+      "answers": "Antworten",
+      "reviews": "Überprüfungen",
+      "gaps": "Datenlücken",
+      "drills": "Übungen",
+      "evaluators": "Evaluatoren"
+    },
+    "gaps": {
+      "description": "Die Tool-Aufrufe in den Antworten zeigen, was fehlt: Angaben dazu, wo die Daten liegen, einheitliche Namen pro Service und Tools zur Datenaggregation. Persönliche Chats fließen nur in die Gesamtzahlen ein.",
+      "empty_title": "Keine Antwort mit Tool-Aufruf in diesem Zeitraum",
+      "empty_hint": "Tool-Aufrufe werden bei der Bewertung der Antwort ausgewertet. Wählen Sie einen längeren Zeitraum.",
+      "none_listed": "In den Antworten, die hier angezeigt werden können, wurden keine Datenlücken gefunden.",
+      "no_stream": "ein Stream",
+      "answers_one": "{{count}} Antwort",
+      "answers_other": "{{count}} Antworten",
+      "totals": {
+        "label": "Datenlücken im Zeitraum",
+        "answers": "Antworten mit Tool-Aufrufen",
+        "with_gaps": "Mit Datenlücke"
+      },
+      "kinds": {
+        "data_map": {
+          "title": "Wo die Daten liegen",
+          "hint": "Antworten, bei denen derselbe Stream vergeblich abgefragt oder die Datenstruktur wiederholt nachgeschlagen wurde"
+        },
+        "field_alignment": {
+          "title": "Ein Name pro Service",
+          "hint": "Antworten, die einen Service in Metriken oder APM gefunden haben, aber nicht unter demselben Namen in Logs oder Traces"
+        },
+        "feature_tools": {
+          "title": "Daten zusammenfassen",
+          "hint": "Antworten, die immer wieder Rohlogs oder rohe Zeitreihen abrufen, statt Logmuster oder Metriktrends auszuwerten"
+        }
+      },
+      "fixes": {
+        "data_map": "Dokumentieren Sie, wo die Daten jedes Services zu finden sind und wie Sie sie filtern können: bei den Datenquellen im Servicekatalog oder in der Datei MOLE.md der Wissensbasis.",
+        "field_alignment": "Verwenden Sie für einen Service in allen Signalen denselben Namen (service.name) oder tragen Sie seine anderen Namen als Aliasse im Servicekatalog ein.",
+        "feature_tools": "Damit Mole Agent die Tools „Logmuster analysieren“ und „Metriktrend analysieren“ nutzen kann, prüfen Sie, ob sie in den Toolsets der Agentenprofile Ihrer Organisation enthalten sind."
+      },
+      "notes": {
+        "repeated_queries_one": "{{stream}} {{count}} Mal abgefragt, davon {{misses}} ohne Ergebnis oder fehlgeschlagen",
+        "repeated_queries_other": "{{stream}} {{count}} Mal abgefragt, davon {{misses}} ohne Ergebnis oder fehlgeschlagen",
+        "structure_lookups_one": "Struktur {{count}} Mal nachgeschlagen",
+        "structure_lookups_other": "Struktur {{count}} Mal nachgeschlagen",
+        "structure_lookups_stream_one": "Struktur {{count}} Mal nachgeschlagen, hauptsächlich die von {{stream}}",
+        "structure_lookups_stream_other": "Struktur {{count}} Mal nachgeschlagen, hauptsächlich die von {{stream}}",
+        "service_mismatch": "Für {{service}} liegen Daten in Metriken oder APM vor, aber eine Abfrage von {{stream}} mit diesem Namen lieferte keine Ergebnisse",
+        "raw_log_pulls_one": "Rohlogs von {{stream}} {{count}} Mal ohne Logmuster abgerufen",
+        "raw_log_pulls_other": "Rohlogs von {{stream}} {{count}} Mal ohne Logmuster abgerufen",
+        "raw_metric_pulls_one": "Rohe Zeitreihen von {{stream}} {{count}} Mal ohne Metriktrend abgerufen",
+        "raw_metric_pulls_other": "Rohe Zeitreihen von {{stream}} {{count}} Mal ohne Metriktrend abgerufen"
+      }
+    },
+    "drills": {
+      "description": "Behobene Vorfälle werden erneut untersucht, als wären sie noch im Gange. Die Antworten werden anhand der im Nachhinein ermittelten Grundursache bewertet. Führen Sie alle Übungen erneut aus, wenn Sie das Modell, einen Prompt oder die Tools ändern.",
+      "new": "Neue Übung",
+      "new_title": "Neue Übung",
+      "new_subtitle": "Ein Vorfall zur erneuten Untersuchung und die Grundursache, mit der die Antwort verglichen wird",
+      "create": "Erstellen",
+      "created": "Übung „{{name}}“ erstellt",
+      "run": "Ausführen",
+      "run_named": "Übung „{{name}}“ ausführen",
+      "run_all": "Alle erneut ausführen",
+      "runs": "Durchläufe",
+      "runs_named": "Durchläufe für „{{name}}“",
+      "runs_title": "Übungsdurchläufe",
+      "more_named": "Weitere Optionen für „{{name}}“",
+      "started": "Die Übung läuft. Die Bewertung erfolgt nach Abschluss der Untersuchung.",
+      "started_all_one": "{{count}} Übung läuft",
+      "started_all_other": "{{count}} Übungen laufen",
+      "deleted": "Übung gelöscht",
+      "delete": "Löschen",
+      "delete_confirm": {
+        "title": "Übung „{{name}}“ löschen?",
+        "description": "Die Durchläufe und Bewertungen werden mitgelöscht. Die Chats der Durchläufe bleiben erhalten.",
+        "busy": "Wird gelöscht…"
+      },
+      "none": "Noch keine Übungen",
+      "none_hint": "Erstellen Sie eine Übung aus einem Vorfall, der in den letzten 180 Tagen behoben wurde und dessen Grundursache im Postmortem dokumentiert ist.",
+      "never_run": "Noch nicht ausgeführt",
+      "no_runs": "Noch nicht ausgeführt.",
+      "columns": {
+        "drill": "Übung",
+        "source": "Referenz",
+        "last_run": "Letzter Durchlauf",
+        "mean": "Mittelwert",
+        "runs": "Durchläufe"
+      },
+      "sources": {
+        "postmortem": "Postmortem",
+        "manual": "Manuell erfasst"
+      },
+      "status": {
+        "running": "Untersuchung läuft…",
+        "grading": "Bewertung läuft…",
+        "done": "Bewertet",
+        "failed": "Keine Bewertung"
+      },
+      "failures": {
+        "budget_exhausted": "Das KI-Budget für heute ist aufgebraucht",
+        "no_model": "Kein KI-Modell ist eingerichtet",
+        "incident_gone": "Der Incident ist nicht mehr verfügbar",
+        "start_failed": "Der Durchlauf konnte nicht gestartet werden",
+        "run_failed": "Die Untersuchung ist fehlgeschlagen",
+        "run_cancelled": "Die Untersuchung wurde abgebrochen",
+        "run_interrupted": "Die Untersuchung wurde unterbrochen",
+        "no_answer": "Die Untersuchung hat keine Antwort geliefert",
+        "grading_failed": "Die Antwort konnte nicht bewertet werden"
+      },
+      "reference": "Grundursache als Referenz",
+      "reference_hint": "Die nach dem Incident ermittelte Grundursache dient als Referenz für die Grundursache, die bei der Untersuchung gefunden wird.",
+      "reference_text": "Grundursache",
+      "own_reference": "Grundursache selbst eingeben, statt sie aus dem Postmortem zu übernehmen",
+      "pick_first": "Wählen Sie zuerst einen Incident aus.",
+      "incident": "Incident",
+      "incident_hint": "In den letzten 180 Tagen behobene Incidents, deren Postmortem eine Grundursache nennt.",
+      "candidates": "Behobene Incidents",
+      "candidate_hint": "Behoben: {{resolved}} · {{cause}}",
+      "no_candidates": "Für keinen der in den letzten 180 Tagen behobenen Incidents nennt das Postmortem eine Grundursache. Geben Sie eine Incident-ID und die zugehörige Grundursache ein.",
+      "other_incident": "Anderer Incident",
+      "other_incident_hint": "Geben Sie die Incident-ID und die zugehörige Grundursache ein",
+      "incident_id": "Incident-ID",
+      "incident_id_placeholder": "ID aus der URL des Incidents",
+      "open_incident": "Incident öffnen",
+      "open_run": "Untersuchung öffnen",
+      "prompt_version": "Prompt v{{version}}"
+    },
+    "empty_title": "Noch keine Antwort bewertet",
+    "empty_hint": "Antworten werden bewertet, sobald sie vorliegen. Fügen Sie unter „Evaluatoren“ einen Evaluator hinzu, um eine Stichprobe der Antworten zusätzlich von einem Modell bewerten zu lassen.",
+    "no_score": "—",
+    "rules": "Regeln",
+    "evaluator_deleted": "Gelöschter Evaluator",
+    "list_separator": ", ",
+    "filters": {
+      "days": "Zeitraum",
+      "last_days_one": "Letzter Tag ({{count}})",
+      "last_days_other": "Letzte {{count}} Tage",
+      "source": "Quelle"
+    },
+    "sources": {
+      "all": "Alle Quellen",
+      "personal_chat": "Persönliche Chats",
+      "team_chat": "Team-Chats",
+      "automation": "Automatisierungen",
+      "incident_rca": "Ursachenanalysen zu Incidents"
+    },
+    "totals": {
+      "label": "Gesamtübersicht",
+      "answers": "Bewertete Antworten",
+      "rules_mean": "Regeln",
+      "rules_hint": "Durchschnittliche regelbasierte Bewertung auf einer Skala von 0 bis 100",
+      "evaluated": "Durch Evaluatoren bewertet",
+      "evaluator_mean": "Evaluatoren",
+      "evaluator_hint": "Durchschnittliche Bewertung durch Evaluatoren auf einer Skala von 0 bis 100",
+      "thumbs_up": "Hilfreich",
+      "thumbs_down": "Nicht hilfreich",
+      "pending_reviews": "Prüfung ausstehend"
+    },
+    "trend": {
+      "title": "Bewertung pro Tag",
+      "rules": "Regeln",
+      "evaluators": "Evaluatoren"
+    },
+    "dimensions": {
+      "title": "Regeln",
+      "column": "Regel",
+      "tool_success": {
+        "title": "Tool-Aufrufe",
+        "hint": "Tool-Aufrufe ohne Fehler"
+      },
+      "evidence": {
+        "title": "Belege",
+        "hint": "Angeführte Belege, die durch einen Tool-Aufruf gestützt werden"
+      },
+      "query_validity": {
+        "title": "Abfragen",
+        "hint": "Syntaktisch gültige SQL- und PromQL-Abfragen"
+      },
+      "answer_format": {
+        "title": "Format",
+        "hint": "Antworten im angeforderten Format"
+      },
+      "completion": {
+        "title": "Abschluss",
+        "hint": "Die Antwort wurde abgeschlossen"
+      },
+      "feedback": {
+        "title": "Nutzerbewertung",
+        "hint": "Hilfreich oder nicht? Feedback von der Person, die gefragt hat"
+      }
+    },
+    "groups": {
+      "sources": "Nach Quelle",
+      "prompts": "Nach Prompt-Version",
+      "skills": "Nach Skill",
+      "models": "Nach Modell",
+      "prompt_version": "{{name}} v{{version}}",
+      "none": "Keine in diesem Zeitraum"
+    },
+    "columns": {
+      "answer": "Antwort",
+      "source": "Quelle",
+      "score": "Punktzahl",
+      "scored_by": "Bewertet von",
+      "when": "Beantwortet",
+      "name": "Name",
+      "answers": "Antworten",
+      "rules": "Regeln",
+      "evaluated": "Ausgewertet",
+      "evaluators": "Evaluatoren",
+      "cause": "Grund",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "notes": {
+      "tools_ok_one": "Der Tool-Aufruf war erfolgreich",
+      "tools_ok_other": "Alle {{count}} Tool-Aufrufe waren erfolgreich",
+      "tools_failed": "{{failed}} von {{total}} Tool-Aufrufen sind fehlgeschlagen",
+      "evidence_none": "Nennt keine Belege",
+      "evidence_one": "Nennt {{count}} Beleg",
+      "evidence_other": "Nennt {{count}} Belege",
+      "evidence_unbacked_one": "Nennt {{count}} Beleg, aber kein Tool-Aufruf war erfolgreich",
+      "evidence_unbacked_other": "Nennt {{count}} Belege, aber kein Tool-Aufruf war erfolgreich",
+      "queries_ok_one": "Die Abfrage ist syntaktisch gültig",
+      "queries_ok_other": "Alle {{count}} Abfragen sind syntaktisch gültig",
+      "queries_invalid": "{{invalid}} von {{total}} Abfragen sind syntaktisch ungültig",
+      "format_ok": "Im angeforderten Format",
+      "format_plain": "Nicht im angeforderten Format",
+      "completion": {
+        "succeeded": "Abgeschlossen",
+        "blocked": "Abgeschlossen, aber eine Rückfrage war nötig und niemand konnte gefragt werden",
+        "empty": "Ohne Antwort abgeschlossen",
+        "failed": "Fehlgeschlagen",
+        "cancelled": "Gestoppt",
+        "interrupted": "Unterbrochen"
+      },
+      "feedback_up": "Als hilfreich bewertet",
+      "feedback_down": "Als nicht hilfreich bewertet",
+      "feedback_down_reasons": "Als nicht hilfreich bewertet: {{reasons}}"
+    },
+    "answers": {
+      "description": "Bewertete Antworten, neueste zuerst. Persönliche Chats fließen nur in die Gesamtzahlen ein.",
+      "low_only": "Nur niedrige Bewertungen",
+      "none_low": "Keine Antwort liegt unter dem Schwellenwert für die Prüfung",
+      "empty_hint": "Antworten werden nach dem Erstellen bewertet. Wählen Sie einen anderen Zeitraum oder eine andere Quelle.",
+      "more": "Mehr anzeigen",
+      "no_question": "Keine Frage"
+    },
+    "answer": {
+      "title": "Bewertete Antwort",
+      "open_chat": "Chat öffnen",
+      "open_incident": "Vorfall öffnen",
+      "evaluators": "Bewerter",
+      "not_evaluated": "Kein Bewerter hat die Antwort bewertet.",
+      "samples_one": "{{count}}-mal bewertet",
+      "samples_other": "Mittelwert aus {{count}} Bewertungen",
+      "rules": "Regeln",
+      "question": "Frage",
+      "answer": "Antwort",
+      "tools_one": "{{count}} Tool-Aufruf, davon {{failed}} fehlgeschlagen",
+      "tools_other": "{{count}} Tool-Aufrufe, davon {{failed}} fehlgeschlagen",
+      "gone": "Der Chat oder die RCA ist nicht mehr verfügbar."
+    },
+    "reviews": {
+      "description": "Hier werden Antworten zur manuellen Prüfung gesammelt: Sie liegen unter dem Schwellenwert, wurden als nicht hilfreich bewertet oder zufällig ausgewählt. Akzeptieren Sie fehlerhafte Antworten. Ihre Fragen werden bei Prompt-Checks als Regressionstests erneut beantwortet.",
+      "status_label": "Status",
+      "filter": {
+        "pending": "Ausstehend",
+        "accepted": "Akzeptiert",
+        "rejected": "Abgelehnt",
+        "all": "Alle"
+      },
+      "status": {
+        "pending": "Ausstehend",
+        "accepted": "Akzeptiert",
+        "rejected": "Abgelehnt"
+      },
+      "causes": {
+        "low_score": "Niedrige Bewertung",
+        "thumbs_down": "Als nicht hilfreich bewertet",
+        "sampled": "Zufällig ausgewählt"
+      },
+      "none_pending": "Keine ausstehenden Prüfungen",
+      "none": "Keine Prüfungen",
+      "empty_hint": "Eine Antwort erscheint hier, wenn sie unter dem Schwellenwert für die Prüfung liegt, von der fragenden Person als nicht hilfreich bewertet oder zufällig zur Prüfung ausgewählt wurde.",
+      "note": "Notiz",
+      "note_placeholder": "Was ist daran falsch, und was würde eine gute Antwort richtig machen?",
+      "accept": "Akzeptieren",
+      "reject": "Ablehnen",
+      "accept_hint": "Annehmen: Die Antwort ist falsch und wird in die Regressionstests aufgenommen. Ablehnen: Die Antwort ist in Ordnung.",
+      "decided": {
+        "accepted": "Angenommen: in die Regressionstests aufgenommen",
+        "rejected": "Abgelehnt"
+      }
+    },
+    "evaluators": {
+      "description": "Ein Evaluator bewertet Antworten mithilfe eines Modells anhand der von Ihnen festgelegten Kriterien auf einer Skala von 1 bis 5 und begründet die Bewertung in ein bis zwei Sätzen.",
+      "new": "Neuer Evaluator",
+      "none": "Noch keine Evaluatoren",
+      "none_hint": "Auch ohne Evaluator wird jede Antwort anhand von Regeln bewertet. Fügen Sie einen Evaluator hinzu, um eine Stichprobe der Antworten mit einem Modell zu bewerten.",
+      "new_title": "Neuer Evaluator",
+      "edit_title": "Evaluator bearbeiten",
+      "subtitle": "Der Evaluator verwendet für seine Begründungen die Oberflächensprache der Person, die ihn zuletzt gespeichert hat.",
+      "what": "Bewertungskriterien",
+      "name": "Name",
+      "rubric": "Bewertungsschema",
+      "rubric_hint": "Legen Sie fest, was eine gute Antwort ausmacht und welche Mängel zu Abzügen führen. Der Evaluator vergibt 1 bis 5 Punkte.",
+      "which": "Umfang der Bewertung",
+      "targets": "Antworten",
+      "targets_hint": "Persönliche Chats werden nur anhand von Regeln bewertet: Niemand sonst kann sie lesen.",
+      "sample": "Stichprobe",
+      "sample_hint": "Anteil neuer Antworten, die der Evaluator bewertet. Als nicht hilfreich eingestufte Antworten werden immer bewertet. Antworten mit niedriger Punktzahl werden erneut bewertet.",
+      "sample_short": "Stichprobe",
+      "model_section": "Modell",
+      "provider": "Modellanbieter",
+      "provider_default": "Erster verfügbarer Anbieter der Organisation",
+      "model": "Modell",
+      "model_default": "Standardmodell des Anbieters",
+      "temperature": "Temperatur",
+      "temperature_hint": "Bei 0 bleiben die Bewertungen konsistent.",
+      "enabled": "An",
+      "enabled_short": "An",
+      "toggle": "{{name}} ein- oder ausschalten",
+      "edit": "Bearbeiten",
+      "edit_named": "{{name}} bearbeiten",
+      "more_named": "Weitere Optionen für {{name}}",
+      "delete": "Löschen",
+      "delete_confirm": {
+        "title": "{{name}} löschen?",
+        "description": "Vorhandene Bewertungen bleiben erhalten. Ausstehende Bewertungen dieses Evaluators werden verworfen.",
+        "busy": "Wird gelöscht…"
+      },
+      "deleted": "Evaluator gelöscht",
+      "created": "{{name}} hinzugefügt",
+      "saved": "{{name}} gespeichert",
+      "create": "Hinzufügen",
+      "save": "Speichern",
+      "default_name": "Korrektheit der Antwort",
+      "default_rubric": "Bewerten Sie, wie gut die Antwort erkennt und erklärt, was nicht stimmt.\n5: Die Schlussfolgerung ist richtig, und jede Aussage ist durch die Ergebnisse der Tools belegt.\n4: Die Antwort ist richtig, weist aber eine kleine Lücke auf oder enthält ein unbelegtes Detail.\n3: Die Antwort ist teilweise richtig oder zwar richtig, bleibt aber bei den Belegen vage.\n2: Die Antwort ist größtenteils unbelegt oder geht an der Frage vorbei.\n1: Die Antwort ist falsch oder erfunden."
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "description": "Legen Sie fest, welche Antworten zur Überprüfung vorgelegt werden und wie ein neuer Standard-Prompt geprüft wird.",
+      "threshold": "Schwellenwert für die Überprüfung",
+      "threshold_hint": "Antworten mit einer Punktzahl unter diesem Schwellenwert (0 bis 100) warten auf Überprüfung.",
+      "sample": "Stichprobenprüfung",
+      "sample_hint": "Anteil der übrigen Antworten, die zur Kontrolle der Bewertungen zufällig zur Überprüfung ausgewählt werden.",
+      "gate": "Bevor ein Prompt zum Standard wird",
+      "gates": {
+        "warn": "Prüfen und bei schlechterem Ergebnis nachfragen",
+        "block": "Prüfen und bei schlechterem Ergebnis blockieren",
+        "off": "Nicht prüfen"
+      },
+      "gate_hint": {
+        "warn": "Wenn Sie einen Organisations-Prompt für Chats oder RCAs als Standard festlegen, werden Sie zur Prüfung aufgefordert. Liegt kein Prüfergebnis vor oder schneidet die neue Version schlechter ab, werden Sie erneut um Bestätigung gebeten.",
+        "block": "Ein Prompt wird nur dann zum Standard, wenn er bei der Prüfung mindestens genauso gut abschneidet wie der bisherige Standard.",
+        "off": "Prompts werden ohne Prüfung zum Standard."
+      },
+      "save": "Speichern",
+      "saved": "Einstellungen gespeichert"
+    }
+  },
+  "approvals": {
+    "title": "Freigaben",
+    "description": "Jeder tatsächliche Schreibvorgang muss vor der Ausführung die Freigaberichtlinie seiner Risikostufe erfüllen.",
+    "agent_suggestion": "Mole Agent empfiehlt folgenden Vorgang",
+    "reason": "Begründung",
+    "impact": "Auswirkungen und Risiko",
+    "parameters": "Ausführungsparameter",
+    "reject": "Ablehnen",
+    "approve": "Freigeben",
+    "execute": "Freigeben und ausführen",
+    "execution_started": "Vorgang zur Ausführung übermittelt",
+    "one_time_token_title": "Einmaliges API-Token",
+    "one_time_token_description": "Kopieren Sie dieses API-Token jetzt. Es wird nicht im Klartext im Ausführungsverlauf gespeichert und kann nicht erneut angezeigt werden.",
+    "copy_one_time_token": "API-Token kopieren",
+    "one_time_token_copied": "API-Token kopiert",
+    "one_time_token_copy_failed": "API-Token konnte nicht kopiert werden",
+    "empty_title": "Keine offenen Freigaben",
+    "empty_description": "Hier erscheinen freigabepflichtige Vorgänge, die Mole Agent vorschlägt."
+  },
+  "executions": {
+    "title": "Ausführungen",
+    "description": "Sehen Sie die zum Ausführungszeitpunkt erfassten Parameter, Idempotenzschlüssel, Ergebnisse und Nachweise zur Wiederherstellung ein.",
+    "empty_title": "Noch keine Ausführungen",
+    "empty_description": "Im Ausführungsprotokoll erscheinen nur freigegebene Vorgänge.",
+    "columns": {
+      "operation": "Vorgang",
+      "target": "Ziel",
+      "verification": "Überprüfung"
+    }
+  },
+  "settings": {
+    "title": "Agent-Einstellungen",
+    "description": "Konfigurieren Sie Modelle, Prompts, Tools und Funktionen, den Umfang des Datenzugriffs, das Netzwerk und die Genehmigungsrichtlinie für Mole Agent.",
+    "blocked": "Blockiert",
+    "allowed": "Zulässig",
+    "tabs": {
+      "profiles": "Agent-Profile",
+      "models": "Modelle und Reasoning",
+      "prompts": "Prompt-Verwaltung",
+      "tools": "Tools und Funktionen",
+      "inbound_mcp": "Eingehendes MCP",
+      "im": "IM",
+      "data": "Datenzugriff",
+      "network": "Netzwerkrichtlinie",
+      "approvals": "Genehmigungsrichtlinie",
+      "usage": "Nutzung",
+      "skills": "Skills"
+    },
+    "inbound_mcp": {
+      "title": "MCP-Server für eingehende Anfragen",
+      "description": "Erlauben Sie externen KI-Clients, diese Organisation über den MCP-Endpunkt von MoleSignal zu verwalten. Der Endpunkt erfordert eine Authentifizierung und setzt Richtlinien durch.",
+      "enabled": "Aktiviert",
+      "endpoint": "Endpunkt",
+      "protocols": "Protokollversionen",
+      "saved": "Einstellungen für eingehendes MCP gespeichert",
+      "invalid_limits": "Jeder Laufzeitgrenzwert muss eine positive Ganzzahl sein.",
+      "allowed_origins": "Zulässige Browser-Origins",
+      "origins_hint": "Pro Zeile genau eine vollständige HTTP- oder HTTPS-Origin. Anfragen ohne Origin-Header und Anfragen mit derselben Origin bleiben zulässig.",
+      "copy": "Adresse kopieren",
+      "copied": "Adresse kopiert",
+      "save": "Einstellungen speichern",
+      "security": {
+        "title": "Mandantentrennung und Durchsetzung von Richtlinien",
+        "description": "Der Server ermittelt die Identität des Benutzers und der Organisation ausschließlich anhand der Anmeldedaten. Verfügbar sind nur Tools, die sowohl durch die IAM-Berechtigungen des Tokens als auch durch die Tool-Richtlinie der Organisation zugelassen sind. Agent-Profile schränken den Zugriff nicht weiter ein."
+      },
+      "credentials": {
+        "title": "Anmeldedaten",
+        "description": "Verwenden Sie ein persönliches API-Token, ein API-Token eines Dienstkontos oder OAuth 2.1. Eingehendes MCP gibt API-Tokens nie im Klartext zurück.",
+        "api_tokens": "API-Tokens verwalten",
+        "service_accounts": "Dienstkonten verwalten"
+      },
+      "runtime": {
+        "title": "Laufzeitgrenzwerte pro Anfrage",
+        "description": "Änderungen werden mit Beginn der nächsten MCP-HTTP-Anfrage wirksam. Für laufende Anfragen gelten weiterhin die Einstellungen vom Anfragebeginn.",
+        "request_size": "Anfragegröße (MB)",
+        "response_size": "Antwortgröße (MB)",
+        "concurrent_calls": "Gleichzeitige Aufrufe pro Anmeldeinformation",
+        "calls_per_minute": "Aufrufe pro Minute und Anmeldeinformation",
+        "read_timeout": "Lese-Timeout (ms)"
+      },
+      "oauth": {
+        "title": "OAuth-Verbindungen",
+        "description": "Prüfen und widerrufen Sie OAuth-2.1-Tokenfamilien, die für diese Organisation ausgestellt wurden.",
+        "discovery_title": "OAuth 2.1 Discovery",
+        "discovery_description": "Verwenden Sie diese Endpunkte, wenn ein Client eine explizite OAuth-Konfiguration benötigt, statt geschützte Ressourcen automatisch zu erkennen.",
+        "protected_metadata": "Metadaten der geschützten Ressource",
+        "authorization_metadata": "Metadaten des Autorisierungsservers",
+        "registration_endpoint": "Endpunkt für die dynamische Registrierung",
+        "token_endpoint": "Token-Endpunkt",
+        "empty": "Keine OAuth-Verbindungen",
+        "empty_description": "Hier erscheinen Verbindungen, sobald jemand einen MCP-Client autorisiert.",
+        "authorized_by": "Autorisiert von {{value}}",
+        "expires": "Neuestes Token läuft ab: {{value}}",
+        "revoke": "Widerrufen",
+        "revoked": "OAuth-Verbindung widerrufen"
+      },
+      "prompt": {
+        "title": "Einrichtungs-Prompt",
+        "description": "Kopieren Sie den Prompt in ein Agent-Tool wie Claude Code oder Cursor. Das Tool fügt MoleSignal dann als MCP-Server hinzu.",
+        "copy": "Prompt kopieren",
+        "copied": "Kopiert",
+        "protocol": "Transport",
+        "stdio": "stdio (empfohlen)",
+        "http": "Streamable HTTP",
+        "text_stdio": "Fügen Sie MoleSignal als MCP-Server hinzu und stellen Sie eine Verbindung her:\n- Name: molesignal\n- Transport: stdio\n- Befehl: npx -y @molesignal/cli mcp\nFühren Sie vor dem Hinzufügen npx -y @molesignal/cli login --url {{address}} in einem Terminal aus. Der Befehl öffnet einen Browser, in dem Sie sich bei MoleSignal anmelden und den Zugriff genehmigen können. Ein API-Schlüssel ist nicht erforderlich.\nFalls sich kein Browser öffnen lässt, setzen Sie stattdessen MOLESIGNAL_URL={{address}} und MOLESIGNAL_TOKEN=<MoleSignal API token> in der Umgebung dieses MCP-Servers. Ich erstelle das Token in MoleSignal und stelle es Ihnen zur Verfügung.\nListen Sie nach der Einrichtung die von molesignal angebotenen Tools auf, um die Verbindung zu bestätigen.",
+        "text_http": "Fügen Sie MoleSignal als MCP-Server hinzu und stellen Sie eine Verbindung her:\n- Name: molesignal\n- URL: {{endpoint}}\n- Transport: Streamable HTTP\n- Authentifizierung: OAuth 2.1. Beim Verbindungsaufbau öffnet sich ein Browser, in dem Sie sich bei MoleSignal anmelden und den Zugriff genehmigen können. Ein API-Schlüssel ist nicht erforderlich.\nFalls Sie OAuth nicht unterstützen, senden Sie stattdessen den Header Authorization: Bearer <MoleSignal API token>. Ich erstelle das Token in MoleSignal und stelle es Ihnen zur Verfügung.\nListen Sie nach der Einrichtung die von molesignal angebotenen Tools auf, um die Verbindung zu bestätigen."
+      }
+    },
+    "im": {
+      "description": "Über diese Konnektoren antwortet Mole Agent in Feishu, Slack, DingTalk, WeCom, Google Chat, Microsoft Teams und Telegram. Erwähnen Sie ihn in einer Gruppe oder schreiben Sie ihm direkt. Teams sendet Nachrichten an eine öffentliche Callback-Adresse von MoleSignal. Bei den anderen Diensten empfängt ein Server die Nachrichten über eine dauerhafte Verbindung, Long Polling oder ein Pub/Sub-Abonnement. Dafür ist keine öffentliche Adresse erforderlich. Nach der Aktivierung enthalten Alarmbenachrichtigungen in Feishu, Slack oder Telegram die Schaltflächen „Bestätigen“ und „Beheben“.",
+      "guide": "Einrichtungsanleitung",
+      "no_external_url": "Es ist keine externe URL konfiguriert (http.external_url). Benutzer können ihre IM-Konten nicht selbst verknüpfen, Antworten enthalten keinen Link zum jeweiligen Chat und Microsoft Teams kann keine Nachrichten zustellen. Administratoren können die IM-Konten weiterhin in den Benachrichtigungsmethoden der Benutzer hinzufügen und verifizieren.",
+      "none": "Noch kein Konnektor für Antworten im IM",
+      "none_hint": "Fügen Sie in den Benachrichtigungseinstellungen einen App-Konnektor hinzu und aktivieren Sie ihn dann hier.",
+      "add_connector": "Konnektor hinzufügen",
+      "columns": {
+        "connector": "Konnektor",
+        "state": "Status",
+        "team": "Neue Gruppen-Threads",
+        "enabled": "Aktiv"
+      },
+      "state": {
+        "missing": "Erforderlich: {{fields}}",
+        "connector_off": "Der Konnektor ist deaktiviert",
+        "off": "Deaktiviert",
+        "idle": "Wartet auf einen Server",
+        "connecting": "Verbindung wird hergestellt",
+        "connected": "Verbunden",
+        "error": "Verbindung nicht möglich"
+      },
+      "fields": {
+        "appToken": "ein Token auf App-Ebene",
+        "botToken": "ein Bot-Token",
+        "appId": "eine App-ID",
+        "appSecret": "ein App-Secret",
+        "clientId": "eine Client-ID",
+        "clientSecret": "ein Client-Secret",
+        "botId": "eine Bot-ID",
+        "botSecret": "ein langes Verbindungs-Secret",
+        "credentials": "ein Dienstkontoschlüssel",
+        "subscription": "ein Pub/Sub-Abo",
+        "tenantId": "eine Mandanten-ID"
+      },
+      "list_separator": ", ",
+      "platforms": {
+        "feishu": "Feishu (Lark)",
+        "slack": "Slack",
+        "dingtalk": "DingTalk",
+        "wecom": "WeCom",
+        "google_chat": "Google Chat",
+        "teams": "Microsoft Teams",
+        "telegram": "Telegram"
+      },
+      "last_message": "letzte Nachricht: {{at}}",
+      "callback": "Callback",
+      "copy_callback": "Callback-Adresse kopieren",
+      "copied": "Kopiert",
+      "callback_needs_https": "Teams stellt Nachrichten nur an externe HTTPS-URLs zu",
+      "team_personal": "Direktchat mit der fragenden Person",
+      "team_label": "Ziel für neue Gruppen-Threads von {{name}}",
+      "toggle": "Mit {{name}} im Chat antworten",
+      "turned_on": "{{name}} antwortet im Chat",
+      "saved": "{{name}} gespeichert"
+    },
+    "profiles": {
+      "title": "Agentenprofile",
+      "description": "Legen Sie für jeden Betriebsmodus ein eigenes Modell, eigene Tools, die Datengrenzen, den Netzwerkzugriff, die Freigaberichtlinie und die Laufzeitlimits fest.",
+      "create": "Profil erstellen",
+      "created": "Agentenprofil erstellt",
+      "edit": "Profil bearbeiten",
+      "edit_default": "Standardprofil bearbeiten",
+      "updated": "Agentenprofil aktualisiert",
+      "create_description": "Neue Profile aktivieren registrierte Tools, blockieren den Netzwerkzugriff und erfordern eine Freigabe für L2/L3-Vorgänge.",
+      "editor_description": "Konfigurieren Sie Identität, Modell, Tools, Datenumfang, Netzwerk, Genehmigungsrichtlinie und Laufzeitlimits für dieses Profil.",
+      "usage_hint": "Wenn kein Profil angegeben ist, wird das Standardprofil verwendet. Wählen Sie im Chat unter „Erweiterte Einstellungen“ ein aktiviertes Profil aus, um die geltenden Einschränkungen zu ändern.",
+      "editing_profile": "Profil bearbeiten: {{name}}",
+      "shortcut_hint": "Über diesen Schnellzugriff öffnen Sie das Profil „{{name}}“. Andere Profile können Sie in der Liste der Agentenprofile bearbeiten.",
+      "navigation_label": "Abschnitte der Profilkonfiguration",
+      "name_placeholder": "Beispiel: Agent mit eingeschränktem Produktionszugriff",
+      "name_required": "Geben Sie vor dem Speichern einen Profilnamen ein.",
+      "default_description": "Profil für kontrollierte Untersuchungen mit Mole Agent",
+      "provider_auto": "Modellanbieter automatisch auswählen",
+      "model_inherit": "Standardeinstellung des Anbieters übernehmen",
+      "list_hint": "Trennen Sie mehrere Werte durch Kommas oder Zeilenumbrüche.",
+      "empty_means_all": "Lassen Sie das Feld leer, um alle autorisierten Ressourcen zuzulassen.",
+      "tag_placeholder": "Wert eingeben und Eingabetaste drücken",
+      "tag_hint": "Drücken Sie nach jedem Wert die Eingabetaste oder geben Sie ein Komma ein, um ihn als Tag hinzuzufügen.",
+      "optional_tag_hint": "Drücken Sie die Eingabetaste oder geben Sie ein Komma ein, um einen Tag hinzuzufügen. Lassen Sie das Feld leer, um alle autorisierten Ressourcen zuzulassen.",
+      "remove_tag": "{{value}} entfernen",
+      "tools_selected": "{{selected}} von {{total}} verfügbaren Tools ausgewählt",
+      "select_all_tools": "Alle auswählen",
+      "clear_tools": "Auswahl aufheben",
+      "no_tools": "Keine Tools zugelassen",
+      "remaining_tools": "Verbleibende Tools: {{count}}",
+      "runtime_summary": "{{minutes}}m · {{calls}} Aufrufe",
+      "pagination": {
+        "aria": "Seitennavigation für Agentenprofile",
+        "page_size_aria": "Profile pro Seite",
+        "page_summary": "{{page}} / {{pages}}",
+        "first_aria": "Erste Seite der Profilliste",
+        "previous_aria": "Vorherige Seite der Profilliste",
+        "next_aria": "Nächste Seite der Profilliste",
+        "last_aria": "Letzte Seite der Profilliste"
+      },
+      "invalid_limits": "Die Laufzeitlimits müssen positiv sein: höchstens 120 Minuten pro Untersuchung, höchstens 256 Tool-Aufrufe und eine Temperatur zwischen 0 und 2.",
+      "default": "Standard",
+      "empty_title": "Noch keine Agentenprofile",
+      "empty_description": "Erstellen Sie ein Profil, um Modelle, Tools, Datenumfang und Laufzeitlimits festzulegen.",
+      "max_tools": "Max. Tool-Aufrufe",
+      "max_time": "Max. Dauer",
+      "network": "Netzwerk",
+      "summary": {
+        "model": "Modell",
+        "tools": "Zugelassene Tools · {{count}}",
+        "data": "Datenumfang",
+        "approval": "Genehmigungsgrenze",
+        "runtime": "Laufzeitbeschränkungen",
+        "network": "Netzwerk"
+      },
+      "scope_prefix": {
+        "environment": "Umgebung",
+        "service": "Service",
+        "stream": "Stream"
+      },
+      "sections": {
+        "identity": "Identität und Modell",
+        "tools": "Liste zulässiger Tools",
+        "tools_description": "Sie können nur Tools auswählen, die in der Registry verfügbar sind.",
+        "data": "Datenzugriff",
+        "network": "Netzwerkzugriff",
+        "limits": "Laufzeitlimits",
+        "approvals": "Genehmigungsrichtlinie"
+      },
+      "fields": {
+        "name": "Name",
+        "description": "Beschreibung",
+        "provider": "Modellanbieter",
+        "model": "Abweichendes Modell",
+        "enabled": "Profil aktivieren",
+        "default": "Als Standardprofil festlegen",
+        "network": "Netzwerkzugriff",
+        "context_tokens": "Max. Anzahl an Kontext-Tokens",
+        "duration_minutes": "Max. Untersuchungsdauer (Minuten)",
+        "tool_calls": "Max. Anzahl an Tool-Aufrufen",
+        "temperature": "Temperatur",
+        "allow_bypass_permissions": "Modus „Berechtigungen umgehen“ zulassen"
+      },
+      "policies": {
+        "automatic": "Automatisch",
+        "approval": "Genehmigung durch eine Person",
+        "two_person_approval": "Genehmigung durch zwei Personen"
+      },
+      "temperature_hint": "Werte von 0 bis 2. Niedrigere Werte führen zu konsistenteren, besser reproduzierbaren Antworten. Bleibt das Feld leer, gilt der Standardwert 0,2.",
+      "temperature_placeholder": "Standardwert: 0,2",
+      "allow_bypass_hint": "In Chats mit diesem Profil kann der Modus „Berechtigungen umgehen“ gewählt werden. Änderungen werden ohne Rückfrage vorgenommen. Genehmigungspflichtige Änderungen werden weiterhin zur Genehmigung vorgelegt."
+    },
+    "models": {
+      "title": "Modelle und Schlussfolgern",
+      "description": "Administratoren können Modellschlüssel hinterlegen, aber nicht auslesen. Aufrufe werden isoliert über das Model Gateway abgewickelt.",
+      "create": "Modellanbieter hinzufügen",
+      "created": "Modellanbieter hinzugefügt",
+      "edit": "Modellanbieter bearbeiten",
+      "updated": "Modellanbieter aktualisiert",
+      "create_description": "Konfigurieren Sie einen von der Administration genehmigten Upstream für das Model Gateway.",
+      "editor_description": "Konfigurieren Sie die Upstream-URL, das Standardmodell, die Laufzeiteinstellungen und die Zugangsdaten. Die Zugangsdaten können nur hinterlegt, nicht ausgelesen werden.",
+      "name_placeholder": "Anzeigename",
+      "model_placeholder": "Standardmodell, z. B. gpt-5",
+      "base_url_placeholder": "Beispiel: https://api.example.com/v1",
+      "base_url_hint": "Für OpenAI-kompatible Anbieter erforderlich. Lassen Sie das Feld leer, um den offiziellen Standardendpunkt zu verwenden.",
+      "base_url_required": "Für OpenAI-kompatible Anbieter ist eine Basis-URL erforderlich.",
+      "invalid_limits": "Der Timeout muss zwischen 1000 und 600000 ms liegen, die maximale Anzahl der Ausgabetokens muss positiv sein und die Preise dürfen nicht negativ sein.",
+      "max_tokens_placeholder": "Leer lassen, um den Standardwert des Anbieters zu verwenden",
+      "default_endpoint": "Der offizielle Standardendpunkt wird verwendet",
+      "key_placeholder": "API-Schlüssel (nur schreibbar)",
+      "key_create_hint": "Der API-Schlüssel ist nur schreibbar und wird weder auf der Seite angezeigt noch von der API zurückgegeben.",
+      "key_edit_hint": "Lassen Sie das Feld leer, um den aktuellen Schlüssel beizubehalten. Geben Sie einen neuen Schlüssel ein, um ihn beim Speichern zu ersetzen.",
+      "key_set": "Schlüssel hinterlegt",
+      "key_unset": "Kein Schlüssel",
+      "empty_title": "Noch keine Modellanbieter",
+      "sections": {
+        "connection": "Verbindung",
+        "runtime": "Anfrageeinstellungen",
+        "credentials": "Zugangsdaten",
+        "pricing": "Preise"
+      },
+      "fields": {
+        "provider": "Anbietertyp",
+        "name": "Anzeigename",
+        "base_url": "Basis-URL",
+        "model": "Standardmodell",
+        "timeout_ms": "Timeout ohne Datenempfang (ms)",
+        "max_tokens": "Max. Ausgabetokens",
+        "enabled": "Modellanbieter aktivieren",
+        "api_key": "API-Schlüssel",
+        "currency": "Währung",
+        "input_price": "Preis für nicht gecachte Eingaben ({{unit}})",
+        "cached_input_price": "Preis für gecachte Eingaben ({{unit}})",
+        "output_price": "Preis für Ausgaben ({{unit}})"
+      },
+      "timeout_hint": "Legt fest, wie lange eine Anfrage ohne Datenempfang offen bleibt, bevor sie abbricht. Bei Verbindungsfehlern, Ratenlimits und vorübergehenden Ausfällen wird die Anfrage zweimal wiederholt. Ohne Streaming wird die Antwort erst vollständig zurückgegeben. Wählen Sie den Timeout daher so, dass er auch für die längste Antwort ausreicht.",
+      "pricing_description": "Wenn Sie Preise hinterlegen, zeigt die Seite „Nutzung“ die Kosten in der hier gewählten Währung an. Für alle Modelle dieses Anbieters gelten dieselben Preise. Wenn der Anbieter gecachte Eingaben separat abrechnet, geben Sie beide Eingabepreise an. Andernfalls geben Sie nur den Preis für nicht gecachte Eingaben an. Wenn Sie die Felder leer lassen, ändert sich sonst nichts.",
+      "price_placeholder": "Leer lassen, um keine Kosten zu berechnen",
+      "price_unit": "{{symbol}} pro Million Tokens",
+      "cached_price_placeholder": "Leer: Preis für nicht gecachte Eingaben gilt",
+      "price_summary": "Eingabe {{input}} · gecachte Eingabe {{cached}} · Ausgabe {{output}} pro Million Tokens",
+      "price_summary_flat": "Eingabe {{input}} · Ausgabe {{output}} pro Million Tokens",
+      "unpriced": "Keine Preise: Kosten werden nicht berechnet"
+    },
+    "currencies": {
+      "title": "Währungen",
+      "description": "Für die Preise eines Modellanbieters gilt jeweils eine dieser Währungen. Wenn Sie den Namen oder das Symbol leer lassen, gilt der jeweilige Standardwert. Eine Währung, die ein Modellanbieter verwendet, kann nicht gelöscht werden.",
+      "add": "Währung hinzufügen",
+      "edit": "{{code}} bearbeiten",
+      "edit_title": "Währung bearbeiten",
+      "delete": "{{code}} löschen",
+      "delete_title": "Währung {{code}} löschen?",
+      "delete_confirm": "Modellanbieter können diese Währung nicht mehr auswählen. Bereits erfasste Kosten werden weiterhin in dieser Währung angezeigt.",
+      "delete_action": "Löschen",
+      "deleting": "Wird gelöscht…",
+      "deleted": "Währung gelöscht",
+      "saved": "Währung gespeichert",
+      "used_by": "Von {{count}} Modellanbietern verwendet",
+      "unused": "Nicht verwendet",
+      "in_use": "Verwendet von {{names}}: Legen Sie für diese Anbieter zuerst die Preise in einer anderen Währung fest",
+      "editor_description": "Der ISO-4217-Code besteht aus drei Großbuchstaben und kann nach dem Speichern nicht mehr geändert werden.",
+      "fields": {
+        "code": "Code",
+        "name": "Name",
+        "symbol": "Symbol"
+      }
+    },
+    "prompts": {
+      "title": "Prompt-Verwaltung",
+      "description": "Verwalten Sie die Systemanweisungen und Untersuchungsvorlagen für Mole Agent. Integrierte Prompts bleiben schreibgeschützt und können auf Organisationsebene oder für den persönlichen Gebrauch überschrieben werden.",
+      "create": "Prompt erstellen",
+      "view": "Anzeigen",
+      "override": "Überschreibung erstellen",
+      "derived_name": {
+        "override": "{{name}} · Überschreibung",
+        "copy": "{{name}} · Kopie"
+      },
+      "set_default": "Als Standard festlegen",
+      "restore": "Integrierten Prompt wiederherstellen",
+      "delete": "Löschen",
+      "delete_confirm": "„{{name}}“ löschen? In früheren Nachrichten bleibt die jeweils verwendete Prompt-Version erhalten.",
+      "effective": "Aktuell gültig",
+      "version": "v{{version}}",
+      "search_label": "Prompts suchen",
+      "search_placeholder": "Nach Name, Zweck, Inhalt oder integriertem Schlüssel suchen…",
+      "name_placeholder": "Beispiel: Ursachenanalyse in der Produktionsumgebung",
+      "body_hint": "Verweisen Sie mit doppelten geschweiften Klammern auf Variablen. Jede Variable muss im folgenden JSON-Schema deklariert sein.",
+      "schema_hint": "Deklarieren Sie nur Variablen, die der Server sicher einsetzen kann. Vorlagenreferenzen werden vor dem Speichern validiert.",
+      "enabled_hint": "Deaktivierte Prompts werden bei der Ermittlung des Standard-Prompts nicht berücksichtigt und erscheinen nicht in der Prompt-Auswahl im Chat.",
+      "default_hint": "Persönliche Standards haben Vorrang, gefolgt von den Organisationsstandards und dem integrierten Prompt als Rückfalloption.",
+      "empty_title": "Keine Prompts verfügbar",
+      "empty_description": "Erstellen Sie einen Prompt für Ihre Organisation oder für den persönlichen Gebrauch, oder prüfen Sie, ob die Migration der integrierten Vorlagen ausgeführt wurde.",
+      "empty_filter": "Keine passenden Prompts",
+      "empty_filter_description": "Ändern Sie die Suchanfrage und versuchen Sie es erneut.",
+      "stats": {
+        "total": "Prompts insgesamt",
+        "total_hint": "Integrierte Versionen und Überschreibungen",
+        "effective": "Derzeit gültig",
+        "effective_hint": "Gültige Standardversionen je Verwendungszweck",
+        "customized": "Angepasste Versionen",
+        "customized_hint": "Organisationsweite und persönliche Überschreibungen"
+      },
+      "scopes": {
+        "builtin": "Integriert",
+        "org": "Organisation",
+        "user": "Persönlich"
+      },
+      "purposes": {
+        "system": {
+          "title": "Systemanweisung",
+          "description": "Legt die Identität von Mole Agent, die Sicherheitsgrenzen, die Anforderungen an Belege und das Grundverhalten fest."
+        },
+        "anomaly_analysis": {
+          "title": "Anomalieanalyse",
+          "description": "Korreliert schnell Anomalien in Metriken, Logs und Traces."
+        },
+        "root_cause": {
+          "title": "Ursachenanalyse",
+          "description": "Steuert mehrstufige Untersuchungen, prüft Hypothesen und führt Belege zusammen."
+        },
+        "alert_explain": {
+          "title": "Alert-Erklärung",
+          "description": "Erklärt Auslösebedingungen, Auswirkungen, Dauer und zugehörige Signale eines Alerts."
+        },
+        "query_generation": {
+          "title": "Abfragegenerierung",
+          "description": "Erstellt SQL- oder PromQL-Abfragen oder Trace-Filter, ohne Schreibvorgänge auszuführen."
+        },
+        "evaluation": {
+          "title": "Antwortbewertung",
+          "description": "Legt fest, wie Antworten auf dem Tab „Qualität“ bewertet werden. Die Kriterien des jeweiligen Bewerters werden in den Prompt eingesetzt."
+        }
+      },
+      "fields": {
+        "scope": "Geltungsbereich",
+        "purpose": "Verwendungszweck",
+        "name": "Name",
+        "body": "Prompt-Text",
+        "schema": "JSON-Schema für Variablen",
+        "enabled": "Prompt aktivieren",
+        "default": "Nach dem Speichern als Standard festlegen"
+      },
+      "variables": {
+        "title": "Vorlagenvariablen",
+        "description": "Variablen werden im Prompt-Text erkannt. Rot markierte Variablen sind nicht im Schema deklariert.",
+        "none": "Dieser Prompt verwendet keine Variablen."
+      },
+      "editor": {
+        "create_title": "Prompt erstellen",
+        "edit_title": "Prompt bearbeiten",
+        "view_title": "Prompt anzeigen",
+        "override_title": "Prompt-Überschreibung erstellen",
+        "description": "Bei jedem Speichern erhöht sich die Versionsnummer. In Chats werden die verwendete Version und der Hash des Inhalts erfasst.",
+        "source": "Quelle"
+      },
+      "validation": {
+        "required": "Name und Prompt-Text sind erforderlich.",
+        "invalid_schema": "Das Variablenschema ist kein gültiges JSON: {{message}}",
+        "schema_object_required": "Das Variablenschema muss ein JSON-Objekt sein.",
+        "schema_properties_required": "Der Wert von „properties“ im Schema muss ein JSON-Objekt sein.",
+        "unknown_variables": "Diese Vorlagenvariablen sind nicht im Schema deklariert: {{variables}}"
+      },
+      "messages": {
+        "created": "Prompt erstellt",
+        "updated": "Prompt aktualisiert",
+        "set_default": "Standard-Prompt aktualisiert",
+        "restore": "Inhalt des integrierten Prompts wiederhergestellt",
+        "delete": "Prompt gelöscht"
+      },
+      "promotion": {
+        "title": "{{name}} als Standard festlegen",
+        "description": "Bevor ein Prompt der Organisation zum Standard wird, wird er geprüft: Für bis zu 8 kürzlich beantwortete Anfragen werden mit dieser Version und dem aktuellen Standard erneut Antworten erzeugt, ohne die Tools erneut auszuführen. Ein Evaluator bewertet beide Varianten.",
+        "reasons": {
+          "prompt_check_required": "Diese Version wurde noch nicht mit dem aktuellen Standard verglichen. {{mode}}",
+          "prompt_check_running": "Die Prüfung läuft.",
+          "prompt_check_worse": "Bei der Prüfung hat diese Version schlechter abgeschnitten als der aktuelle Standard. {{mode}}",
+          "prompt_check_unavailable": "Die Prüfung ist nicht möglich, da kein Evaluator diese Antworten bewertet. Fügen Sie unter Mole Agent → Qualität → Evaluatoren einen hinzu. {{mode}}"
+        },
+        "modes": {
+          "warn": "Nach der Bestätigung können Sie diese Version trotzdem als Standard festlegen.",
+          "block": "Die Organisation lässt einen Prompt nur dann als Standard zu, wenn er bei der Prüfung nicht schlechter abschneidet.",
+          "off": "Die Organisation prüft keine Prompts."
+        },
+        "check": "Prüfung starten",
+        "check_again": "Erneut prüfen",
+        "picking": "Antworten für den Vergleich werden ausgewählt…",
+        "progress": "{{done}} von {{total}} Antworten neu erzeugt und bewertet…",
+        "failed": "Die Prüfung ist fehlgeschlagen: {{error}}",
+        "verdicts": {
+          "better_one": "Besser: Für dieselbe Antwort ({{count}}) erhielt diese Version {{candidate}}, der aktuelle Standard {{baseline}}.",
+          "better_other": "Besser: Für dieselben {{count}} Antworten erhielt diese Version {{candidate}}, der aktuelle Standard {{baseline}}.",
+          "same_one": "Nicht schlechter: Für dieselbe Antwort ({{count}}) erhielt diese Version {{candidate}}, der aktuelle Standard {{baseline}}.",
+          "same_other": "Nicht schlechter: Für dieselben {{count}} Antworten erhielt diese Version {{candidate}}, der aktuelle Standard {{baseline}}.",
+          "worse_one": "Schlechter: Für dieselbe Antwort ({{count}}) erhielt diese Version {{candidate}}, der aktuelle Standard {{baseline}}.",
+          "worse_other": "Schlechter: Für dieselben {{count}} Antworten erhielt diese Version {{candidate}}, der aktuelle Standard {{baseline}}.",
+          "inconclusive_one": "Zu wenige Antworten für ein Urteil: Nur {{count}} Antwort konnte verglichen werden. Der Prompt kann trotzdem als Standard festgelegt werden.",
+          "inconclusive_other": "Zu wenige Antworten für ein Urteil: Nur {{count}} Antworten konnten verglichen werden. Der Prompt kann trotzdem als Standard festgelegt werden."
+        },
+        "columns": {
+          "sample": "Antwort",
+          "baseline": "Aktueller Standard",
+          "candidate": "Diese Version"
+        },
+        "kinds": {
+          "chat_answer": "Chat-Antwort",
+          "incident_rca": "Incident-Ursachenanalyse"
+        },
+        "regression": "Aus dem Regressionstest-Datensatz",
+        "set_anyway": "Trotzdem als Standard festlegen"
+      }
+    },
+    "tools": {
+      "title": "Tools und Funktionen",
+      "description": "Verwalten Sie die Tools und MCP-Server, die Mole Agent aufrufen kann, sowie deren Ausführungsberechtigungen und Genehmigungsrichtlinien.",
+      "search_label": "Tools suchen",
+      "search_placeholder": "Nach Tool-Name, Anzeigename oder Beschreibung suchen…",
+      "loading": "Tools werden geladen…",
+      "load_error": "Die Tool-Liste konnte nicht geladen werden",
+      "retry": "Neu laden",
+      "empty_title": "Keine Agent-Tools konfiguriert",
+      "empty_description": "Fügen Sie einen MCP-Server hinzu oder aktivieren Sie integrierte Tools, damit Mole Agent Daten abfragen und Aufgaben ausführen kann.",
+      "empty_filter_title": "Keine passenden Tools",
+      "empty_filter_description": "Ändern Sie die Suche oder setzen Sie die Filter zurück und versuchen Sie es erneut.",
+      "profile_restricted": "Dieses Tool ist aktiviert, aber nicht für das Standard-Agent-Profil freigegeben. Daher kann Mole Agent es nicht finden.",
+      "summary": {
+        "mcp": "MCP-Server",
+        "mcp_healthy": "{{count}} verbunden",
+        "mcp_unhealthy": "{{healthy}} fehlerfrei · {{unhealthy}} fehlerhaft"
+      },
+      "actions": {
+        "configure_policy": "Tool-Richtlinie konfigurieren",
+        "add_mcp": "MCP-Server hinzufügen",
+        "details": "Details anzeigen",
+        "test": "Tool testen",
+        "calls": "Aufrufprotokolle anzeigen",
+        "edit_policy": "Richtlinie bearbeiten",
+        "dependencies": "Abhängigkeiten anzeigen",
+        "copy_definition": "Tool-Definition kopieren",
+        "view_mcp": "MCP-Server anzeigen",
+        "disable": "Tool deaktivieren",
+        "enable": "Tool aktivieren",
+        "toggle": "{{name}} aktivieren oder deaktivieren",
+        "more": "Weitere Aktionen für {{name}}"
+      },
+      "filters": {
+        "all": "Alle",
+        "read_only": "Schreibgeschützt",
+        "automatic": "Automatisch",
+        "approval": "Genehmigung",
+        "disabled": "Deaktiviert",
+        "advanced": "Erweiterte Filter",
+        "clear": "Filter zurücksetzen"
+      },
+      "grouping": {
+        "label": "Tool-Gruppierung",
+        "domain": "Nach Bereich gruppieren",
+        "mcp": "Nach MCP-Server gruppieren",
+        "none": "Keine Gruppierung",
+        "all_tools": "Alle Tools",
+        "builtin_description": "Tools, die vom MoleSignal-Server registriert und verwaltet werden",
+        "mcp_description": "Tools, die von MCP-Servern synchronisiert und ausdrücklich freigegeben werden"
+      },
+      "domains": {
+        "observability": {
+          "title": "Observability",
+          "description": "Logs, Metriken, Traces, APM-Benutzererfahrung und kontinuierliches Profiling"
+        },
+        "alerts_on_call": {
+          "title": "Alarme und Bereitschaftsdienst",
+          "description": "Alarmvorfälle, Bearbeitungsstatus und Bereitschaftspläne"
+        },
+        "automation": {
+          "title": "Automatisierung",
+          "description": "Automatisierte Ausführung, Freigabeanfragen und Betriebsabläufe"
+        },
+        "knowledge_context": {
+          "title": "Wissen und Kontext",
+          "description": "Wissensdatenbank, Dokumente und Kontext zur Untersuchung"
+        },
+        "dashboard_reports": {
+          "title": "Dashboard und Berichte",
+          "description": "Dashboards, Berichtsvorlagen und geplante Berichte"
+        },
+        "notify": {
+          "title": "Benachrichtigungen",
+          "description": "Analyse, Weiterleitung und Zustellung von Benachrichtigungen"
+        },
+        "administration": {
+          "title": "Verwaltung",
+          "description": "Ressourcen für Organisation, Identitäten und Verwaltung"
+        }
+      },
+      "fields": {
+        "tool": "Tool",
+        "display_name": "Anzeigename",
+        "domain": "Bereich",
+        "source": "Quelle",
+        "risk": "Risiko",
+        "execution": "Ausführungsrichtlinie",
+        "status": "Status",
+        "timeout": "Timeout",
+        "timeout_ms": "Timeout (Millisekunden)",
+        "max_calls": "Max. Aufrufe pro Ausführung",
+        "max_response": "Max. Antwortgröße",
+        "max_response_bytes": "Max. Antwortgröße in Byte",
+        "dry_run": "Unterstützt Dry Run"
+      },
+      "sources": {
+        "builtin": "Integriert",
+        "mcp": "MCP",
+        "custom": "Benutzerdefiniert"
+      },
+      "risk": {
+        "l0": {
+          "title": "Nur Lesezugriff",
+          "description": "Liest Daten, ohne den Systemzustand zu ändern, und kann automatisch ausgeführt werden."
+        },
+        "l1": {
+          "title": "Schreibzugriff mit geringem Risiko",
+          "description": "Erstellt Entwürfe, Kommentare oder Berichte. Die Änderungen lassen sich in der Regel rückgängig machen."
+        },
+        "l2": {
+          "title": "Mittleres Risiko",
+          "description": "Ändert eine geschäftliche Ressource oder einen Workflow und erfordert die Freigabe durch mindestens eine Person."
+        },
+        "l3": {
+          "title": "Hohes Risiko",
+          "description": "Kann sich auf Produktionsdienste, Daten oder Berechtigungen auswirken und erfordert immer eine Freigabe."
+        },
+        "l4": {
+          "title": "Destruktiv",
+          "description": "Die Auswirkungen sind irreversibel oder schwer einzugrenzen. Standardmäßig deaktiviert; erfordert die Freigabe durch zwei Personen."
+        }
+      },
+      "execution": {
+        "automatic": "Automatisch",
+        "confirmation": "Bestätigung",
+        "single_approval": "Eine Freigabe",
+        "dual_approval": "Vier-Augen-Freigabe",
+        "disabled": "Deaktiviert"
+      },
+      "status": {
+        "healthy": "Funktionsfähig",
+        "degraded": "Beeinträchtigt",
+        "unavailable": "Nicht verfügbar",
+        "enabled": "Aktiviert",
+        "disabled": "Deaktiviert"
+      },
+      "common": {
+        "yes": "Ja",
+        "no": "Nein"
+      },
+      "detail": {
+        "tabs": {
+          "overview": "Übersicht",
+          "schema": "Ein- und Ausgabe",
+          "policy": "Berechtigungen und Richtlinie",
+          "calls": "Aufrufprotokoll",
+          "dependencies": "Abhängigkeiten"
+        },
+        "basic": "Grundinformationen",
+        "description": "Beschreibung",
+        "model_definition": "Informationen für das Modell",
+        "statistics": "Letzte Aufrufe",
+        "input_schema": "Eingabeparameter",
+        "output_schema": "Ausgabe",
+        "permissions": "Berechtigungen und Richtlinie"
+      },
+      "schema": {
+        "json_view": "JSON-Schema anzeigen",
+        "form_view": "Felder anzeigen",
+        "copy": "Schema kopieren",
+        "no_fields": "Dieses Schema definiert keine Felder."
+      },
+      "stats": {
+        "calls_24h": "Aufrufe in 24 h",
+        "success_rate": "Erfolgsrate",
+        "p95": "P95-Latenz",
+        "last_error": "Letzter Fehler",
+        "has_error": "Fehler",
+        "no_error": "Keiner"
+      },
+      "policy": {
+        "title": "Richtlinie für {{name}} bearbeiten",
+        "description": "Konfigurieren Sie Risikostufe, Ausführungsmodus, umgebungsspezifische Ausnahmen und Laufzeitlimits.",
+        "classification": "Risikostufe und Ausführungsrichtlinie",
+        "hard_floor": "Ausnahmen können die Richtlinie verschärfen, aber die vom Server vorgegebene Mindestrisikostufe nicht unterschreiten.",
+        "builtin_risk_locked": "Die Risikostufe integrierter Tools ist im Servercode festgelegt und kann hier nicht gesenkt werden.",
+        "environment_overrides": "Umgebungsspezifische Ausnahmen",
+        "inherit": "Standardrichtlinie übernehmen",
+        "limits": "Laufzeitlimits"
+      },
+      "environments": {
+        "development": "Entwicklung",
+        "staging": "Staging",
+        "production": "Produktion"
+      },
+      "defaults": {
+        "title": "Tool-Richtlinie konfigurieren",
+        "description": "Legen Sie Standard-Ausführungsmodi nach Risikostufe und strengere Vorgaben für einzelne Umgebungen fest.",
+        "risk_title": "Standard-Ausführungsrichtlinie",
+        "risk_description": "Eine Tool-Richtlinie kann Standardvorgaben überschreiben, muss aber die verbindlichen Mindestanforderungen der Risikostufe einhalten.",
+        "environments_title": "Umgebungsrichtlinie",
+        "environments_description": "Legen Sie nur die Risikostufen fest, für die andere Vorgaben gelten sollen. Für alle übrigen gelten die Standardvorgaben."
+      },
+      "test": {
+        "title": "{{name}} testen",
+        "read_description": "Geben Sie die Parameter gemäß dem Tool-Schema ein. Tools mit reinem Lesezugriff können eine echte Abfrage ausführen.",
+        "write_description": "Tools mit Schreibzugriff führen nur einen Dry Run oder eine Validierung durch und schreiben keine Daten.",
+        "parameters": "Testparameter",
+        "no_parameters": "Dieses Tool erwartet keine Parameter.",
+        "validate": "Parameter validieren",
+        "execute": "Test ausführen",
+        "dry_run": "Dry Run ausführen",
+        "result": "Testergebnis",
+        "success": "Test erfolgreich",
+        "failed": "Test fehlgeschlagen",
+        "request": "Anfrage-JSON",
+        "response": "Antwort-JSON"
+      },
+      "dependencies": {
+        "title": "Abhängigkeiten von {{name}}",
+        "description": "Prüfen Sie vor dem Deaktivieren, welche Agentenprofile, Automatisierungen und Untersuchungsvorlagen dieses Tool verwenden.",
+        "none": "Keine aktuellen Abhängigkeiten",
+        "warning": "{{count}} Objekte hängen derzeit von diesem Tool ab.",
+        "agent_profiles": "Agentenprofile",
+        "investigation_templates": "Untersuchungsvorlagen",
+        "empty": "Keine"
+      },
+      "disable": {
+        "title": "{{name}} deaktivieren?",
+        "description": "Mole Agent kann dieses Tool danach nicht mehr finden oder aufrufen. Bisherige Einträge bleiben erhalten.",
+        "dependency_warning": "{{count}} Objekte hängen von diesem Tool ab. Wenn Sie die Deaktivierung erzwingen, können die betroffenen Abläufe fehlschlagen.",
+        "confirm": "Tool deaktivieren"
+      },
+      "calls": {
+        "empty": "Noch keine Tool-Aufrufe erfasst.",
+        "arguments": "Momentaufnahme der Argumente (geschwärzt)",
+        "policy_decision": "Entscheidung gemäß Richtlinie",
+        "source": {
+          "chat": "Chat",
+          "investigation": "Untersuchung",
+          "automation": "Automatisierung",
+          "manual_test": "Manueller Test"
+        }
+      },
+      "mcp": {
+        "title": "MCP-Server",
+        "description": "Verwalten Sie eingeschränkte MCP-Verbindungen, Zugangsdaten, Netzwerkgrenzen und synchronisierte Tools.",
+        "empty_title": "Keine MCP-Server",
+        "empty_description": "Fügen Sie einen Server hinzu, testen Sie die Verbindung und wählen Sie nach erfolgreichem Test die zu importierenden Tools aus.",
+        "tool_count": "{{count}} Tools",
+        "test_connection": "Verbindung testen",
+        "remove": "Server entfernen",
+        "remove_drawer": {
+          "title": "{{name}} entfernen?",
+          "description": "Der Server kann erst entfernt werden, wenn seine Tools deaktiviert und alle Abhängigkeiten ersetzt wurden.",
+          "confirm": "MCP-Server entfernen",
+          "safe": "Keine aktivierten Tools oder aktiven Abhängigkeiten gefunden.",
+          "blocked": "{{enabled}} Tools sind noch aktiviert und {{dependencies}} Abhängigkeiten sind noch aktiv.",
+          "tools_title": "Importierte Tools und Abhängigkeiten",
+          "no_tools": "Keine importierten Tools.",
+          "dependency_count": "{{count}} Abhängigkeiten"
+        },
+        "discovered": "{{count}} Tools gefunden",
+        "new_tools_disabled": "Neu importierte Tools sind deaktiviert",
+        "sync_selected": "Ausgewählte Tools synchronisieren",
+        "transport": {
+          "streamable_http": "Streamable HTTP",
+          "sse": "SSE (veraltet)",
+          "stdio": "stdio",
+          "unix_socket": "Unix-Socket"
+        },
+        "auth": {
+          "none": "Keine Authentifizierung",
+          "bearer_token": "Bearer-Token",
+          "api_key": "API-Schlüssel",
+          "oauth": "OAuth-Token",
+          "mtls": "mTLS",
+          "internal_service_identity": "Interne Dienstidentität",
+          "member_secret": "Eigene Zugangsdaten pro Mitglied"
+        },
+        "status": {
+          "healthy": "Verbunden",
+          "connecting": "Verbindung wird hergestellt",
+          "error": "Fehler",
+          "disabled": "Deaktiviert",
+          "unauthorized": "Nicht autorisiert",
+          "unavailable": "Nicht verfügbar"
+        },
+        "feedback": {
+          "created": "MCP-Server hinzugefügt",
+          "updated": "MCP-Server aktualisiert",
+          "deleted": "MCP-Server entfernt",
+          "test_success": "Verbunden; {{count}} Tools gefunden",
+          "test_failed": "Verbindung zum MCP-Server fehlgeschlagen",
+          "sync_success": "{{count}} Tools synchronisiert",
+          "enabled": "Server aktiviert",
+          "disabled": "Server deaktiviert"
+        },
+        "editor": {
+          "create_title": "MCP-Server hinzufügen",
+          "edit_title": "MCP-Server bearbeiten",
+          "description": "Zugangsdaten können nur geschrieben werden, werden verschlüsselt gespeichert und weder über die API zurückgegeben noch in der Benutzeroberfläche angezeigt.",
+          "basic": "Grundinformationen",
+          "authentication": "Authentifizierung",
+          "network": "Netzwerkrichtlinie",
+          "runtime": "Grenzwerte der Laufzeitumgebung",
+          "transport_restricted": "Diese Laufzeitumgebung unterstützt nur Streamable HTTP. Andere Transportarten können gespeichert, aber bei Verbindungstests nicht verwendet werden.",
+          "credential_set": "Zugangsdaten hinterlegt (Endung: {{last4}}). Lassen Sie das Feld leer, um sie beizubehalten.",
+          "credential_not_set": "Keine Zugangsdaten hinterlegt.",
+          "headers": "Header",
+          "headers_description": "Header werden bei jeder Anfrage mitgesendet. Enthält ein Headername key, token, secret, password, auth o. Ä., wird sein Wert verschlüsselt gespeichert. Angezeigt werden nur die letzten vier Zeichen. Lassen Sie ein Wertefeld leer, um den vorhandenen Wert beizubehalten.",
+          "env": "Umgebungsvariablen",
+          "env_description": "Diese Variablen werden beim Starten des Befehls verwendet. Geheime Werte werden ebenfalls verschlüsselt.",
+          "stdio_note": "MoleSignal startet einen stdio-Server auf dem eigenen Server. Nur Organisationsserver können stdio verwenden, und zwar mit einem der von dieser Instanz zugelassenen Befehle: {{commands}}.",
+          "stdio_off": "Diese MoleSignal-Instanz lässt keine stdio-Befehle zu. Der Betreiber legt die zulässigen Befehle in [agent] mcp_stdio_commands fest.",
+          "stdio_org_only": "Nur Organisationsserver verwenden stdio. Persönliche Server und Teamserver verbinden sich mit einer Adresse.",
+          "member_network": "Teamserver und persönliche Server können nur auf das Internet und auf die internen Adressen zugreifen, die Administratoren unter „Netzwerk“ freigeben. TLS-Zertifikate werden immer geprüft."
+        },
+        "fields": {
+          "name": "Name",
+          "name_placeholder": "Beispiel: MCP für internes Wissen",
+          "transport": "Transport",
+          "endpoint": "Endpunkt-URL",
+          "endpoint_placeholder": "Beispiel: https://mcp.internal.example.com/mcp",
+          "auth_type": "Authentifizierung",
+          "auth_header": "Authentifizierungsheader",
+          "auth_header_placeholder": "Beispiel: X-API-Key",
+          "credential": "Zugangsdaten",
+          "credential_placeholder": "Nur schreibbar, nie sichtbar",
+          "credential_hint": "Nach dem Speichern werden die Zugangsdaten mit dem Serverschlüssel verschlüsselt. Die API gibt bei Listen- und Detailabfragen nur an, ob Zugangsdaten hinterlegt sind.",
+          "private_only": "Nur privates Netzwerk",
+          "private_only_hint": "Alle per DNS aufgelösten Adressen müssen privat sein.",
+          "allowed_domains": "Zulässige Domains",
+          "allowed_cidrs": "Zulässige IP-Adressen/CIDR-Blöcke",
+          "one_per_line": "Ein Eintrag pro Zeile. Lassen Sie das Feld leer, wenn keine weitere Einschränkung gelten soll.",
+          "tls_verify": "TLS-Zertifikat prüfen",
+          "redirects_blocked": "Die Sicherheitsrichtlinie des Servers blockiert Weiterleitungen grundsätzlich.",
+          "timeout_ms": "Anfrage-Timeout (Millisekunden)",
+          "max_response_bytes": "Max. Antwortgröße (Bytes)",
+          "enabled": "MCP-Server aktivieren",
+          "command": "Befehl",
+          "endpoint_sse_hint": "Der Ereignisstream des älteren SSE-Transports. Der Server gibt die Zieladresse für Nachrichten vor. Diese muss denselben Ursprung (Origin) haben.",
+          "endpoint_sse_placeholder": "Beispiel: https://mcp.example.com/sse"
+        },
+        "prompt_count": "{{count}} Prompts",
+        "stdio_not_allowed": "Der Befehl des Servers ist auf dieser Instanz nicht zulässig",
+        "enable": "Server aktivieren",
+        "disable": "Server deaktivieren",
+        "member": {
+          "description": "Jedes Mitglied speichert eigene Zugangsdaten. Sie werden nur für die Aufrufe dieses Mitglieds verwendet und sind auch für Administratoren nicht einsehbar. Mitglieder ohne gespeicherte Zugangsdaten werden beim Aufruf eines Tools aufgefordert, sie zu hinterlegen.",
+          "header": "Header für die Zugangsdaten",
+          "bearer": "Präfix Bearer hinzufügen",
+          "bearer_hint": "Wird als Bearer <credential> gesendet",
+          "instructions": "So erhalten Sie Zugangsdaten",
+          "instructions_hint": "Geben Sie an, wo Mitglieder ihre Zugangsdaten erstellen und welche Berechtigungen dafür nötig sind."
+        },
+        "my_credential": {
+          "title": "Meine Zugangsdaten für {{name}}",
+          "description": "Ihre Zugangsdaten werden nur für Ihre Aufrufe verwendet. Sie werden verschlüsselt gespeichert und können von niemandem ausgelesen werden.",
+          "value": "Zugangsdaten",
+          "value_hint": "Wird im Header {{header}} gesendet",
+          "value_bearer_hint": "Wird als Bearer <credential> im Header {{header}} gesendet",
+          "state_saved": "Gespeichert (Endung: {{last4}}, {{time}}). Ein neuer Wert ersetzt den bisherigen.",
+          "state_missing": "Sie haben noch keine Zugangsdaten gespeichert. Hinterlegen Sie sie, bevor Sie Tools dieses Servers aufrufen.",
+          "saved": "Zugangsdaten gespeichert",
+          "cleared": "Zugangsdaten entfernt",
+          "clear": "Zugangsdaten entfernen",
+          "button_saved": "Meine Zugangsdaten ••••{{last4}}",
+          "button_missing": "Meine Zugangsdaten hinzufügen"
+        },
+        "import": {
+          "open": "Importieren",
+          "title": "MCP-Konfiguration importieren",
+          "description": "Fügen Sie die MCP-Konfiguration aus Claude Desktop, Claude Code, Cursor oder VS Code ein, um einen oder mehrere Server hinzuzufügen.",
+          "config": "Konfiguration (JSON)",
+          "config_hint": "Server mit `url` können sofort getestet werden. Server mit `command` sind stdio-Server. Sie sind nur auf Organisationsebene verfügbar und müssen einen auf dieser Instanz zulässigen Befehl verwenden. Werte, die auf ${input:…} oder andere Variablen verweisen, werden nicht importiert. Tragen Sie sie anschließend ein.",
+          "submit": "Importieren",
+          "result": "Ergebnis",
+          "made": "Hinzugefügt",
+          "stdio": "stdio-Server, von MoleSignal gestartet",
+          "missing": "Noch auszufüllen: {{names}}",
+          "created": "{{count}} Server hinzugefügt"
+        },
+        "details": {
+          "toggle": "Tools und Prompts",
+          "tools": "Tools ({{count}})",
+          "prompts": "Prompts ({{count}})",
+          "prompts_hint": "Geben Sie diese Befehle in einem Chat ein.",
+          "read_only": "Nur Lesezugriff",
+          "enable_read_only": "Alle Tools mit reinem Lesezugriff aktivieren ({{count}})",
+          "read_only_enabled": "{{count}} Tools mit reinem Lesezugriff aktiviert",
+          "tool_switch": "{{name}} aktivieren"
+        },
+        "values": {
+          "header_name": "Header-Name",
+          "header_name_placeholder": "Beispiel: X-Org",
+          "env_name": "Variable",
+          "env_name_placeholder": "Beispiel: GITHUB_TOKEN",
+          "value": "Wert",
+          "value_placeholder": "Wert",
+          "saved": "Gespeichert: ••••{{last4}}. Zum Beibehalten leer lassen.",
+          "secret_toggle": "Als Geheimnis speichern",
+          "secret_forced": "Der Name deutet auf ein Geheimnis hin. Der Wert wird verschlüsselt.",
+          "remove": "Zeile entfernen",
+          "add_header": "Header hinzufügen",
+          "add_env": "Variable hinzufügen"
+        }
+      },
+      "feedback": {
+        "enabled": "Tool aktiviert",
+        "disabled": "Tool deaktiviert",
+        "policy_saved": "Tool-Richtlinie gespeichert",
+        "defaults_saved": "Standardrichtlinie für Tools gespeichert",
+        "definition_copied": "Tool-Definition kopiert",
+        "schema_copied": "Schema kopiert"
+      },
+      "errors": {
+        "no_tool": "Kein Tool ausgewählt"
+      },
+      "access": {
+        "read_only": "Automatisch, nur Lesezugriff",
+        "preflight": "Nur Vorabprüfung",
+        "managed_mutation": "Änderung gemäß Richtlinie",
+        "creates_approval_request": "Erstellt nur eine Genehmigungsanfrage",
+        "executes_approved_operation": "Führt genehmigte Aktion aus",
+        "chat_record": "Chat-Eintrag (im Chat bestätigt oder rückgängig gemacht)"
+      }
+    },
+    "data": {
+      "title": "Datenzugriff",
+      "description": "Das Standardprofil des Agenten legt den Zugriffsumfang fest. Organisationsübergreifender Zugriff ist immer untersagt.",
+      "configure": "Datenzugriff bearbeiten",
+      "editor_title": "Datenzugriff bearbeiten",
+      "editor_description": "Legen Sie fest, auf welche Umgebungen, Dienste und Streams das aktuelle Standardprofil zugreifen darf.",
+      "updated": "Datenzugriff aktualisiert",
+      "environments": "Erlaubte Umgebungen",
+      "services": "Erlaubte Dienste",
+      "streams": "Erlaubte Streams",
+      "cross_org": "Organisationsübergreifender Zugriff",
+      "all_authorized": "Alle autorisierten Ressourcen"
+    },
+    "network": {
+      "title": "Netzwerkrichtlinie",
+      "description": "Das aktuelle Standardprofil des Agents steuert den Netzwerkzugriff. Die verfügbaren Tool-Funktionen bleiben durch die Tool-Registry und die Laufzeitumgebung begrenzt.",
+      "configure": "Netzwerkrichtlinie bearbeiten",
+      "editor_title": "Netzwerkrichtlinie bearbeiten",
+      "editor_description": "Legen Sie fest, ob das aktuelle Standardprofil über autorisierte Tools auf das Netzwerk zugreifen darf.",
+      "editor_help": "Diese Richtlinie steuert den Netzwerkzugriff des Profils und schaltet keine nicht registrierten Tool-Funktionen frei.",
+      "updated": "Netzwerkrichtlinie aktualisiert",
+      "access": "Netzwerkzugriff",
+      "allow_network_access": "Netzwerkzugriff erlauben",
+      "blocked_explanation": "Dieses Profil hat keinen Netzwerkzugriff und kann nur autorisierte Tools nutzen, die keinen Netzwerkzugriff benötigen.",
+      "allowed_explanation": "Dieses Profil darf über registrierte, autorisierte Tools auf das Netzwerk zugreifen. Beliebige HTTP-Tools, allgemeiner Shell-Zugriff, Browser-Tools und offene MCP-Funktionen werden nicht automatisch aktiviert.",
+      "capabilities": "Laufzeitfunktionen",
+      "capabilities_description": "Die Tool-Registry und die Laufzeitumgebung bestimmen, welche Funktionen verfügbar sind. Über den Profilschalter lassen sie sich nicht aktivieren.",
+      "internet": "Öffentliches Internet",
+      "dynamic_http": "Beliebige HTTP-Tools",
+      "shell": "Allgemeiner Shell-Zugriff",
+      "browser": "Browser-Tools",
+      "open_mcp": "Offenes MCP",
+      "members": {
+        "title": "Internes Netzwerk für Team- und persönliche Verbindungen",
+        "description": "Skill-Repositories und MCP-Server, die Teammitglieder oder einzelne Personen hinzufügen, können standardmäßig nur auf das Internet zugreifen. Die hier aufgeführten internen Hosts und Adressbereiche sind für sie freigegeben. Für Organisationsverbindungen gelten eigene Einstellungen.",
+        "hosts": "Interne Hosts",
+        "hosts_hint": "Eine Domain pro Zeile, einschließlich ihrer Subdomains, z. B. git.corp.example",
+        "cidrs": "Interne Adressbereiche",
+        "cidrs_hint": "Ein CIDR-Block pro Zeile, z. B. 10.20.0.0/16",
+        "saved": "Verbindungsfreigaben für Mitglieder gespeichert",
+        "updated": "Zuletzt geändert: {{time}}"
+      }
+    },
+    "approval_policy": {
+      "title": "Genehmigungsrichtlinie",
+      "description": "Risikoregeln werden serverseitig durchgesetzt. Nach der Genehmigung werden Berechtigungen, Ressourcenstatus und Parameter erneut geprüft.",
+      "configure": "Genehmigungsrichtlinie bearbeiten",
+      "editor_title": "Genehmigungsrichtlinie bearbeiten",
+      "editor_description": "Legen Sie die Genehmigungsanforderungen für Vorgänge der Stufen L0 bis L3 im aktuellen Standardprofil fest.",
+      "updated": "Genehmigungsrichtlinie aktualisiert",
+      "l0": "Abfragen und Anzeigen ohne Schreibzugriff",
+      "l1": "Entwürfe und Empfehlungen",
+      "l2": "Änderungen an Alarmen und Konfigurationen",
+      "l3": "Hochriskante Aktionen in Produktions- und externen Systemen",
+      "automatic": "Automatisch",
+      "configurable": "Standardmäßig automatisch; strengere Regeln pro Profil möglich",
+      "single": "Genehmigung durch eine Person; keine Selbstgenehmigung",
+      "two_person": "Verbindliche Freigabe nach dem Vier-Augen-Prinzip"
+    },
+    "usage": {
+      "title": "Nutzung und Budget",
+      "description": "Jeder Modellaufruf durch Mole Agent zählt zur Nutzung der Organisation am jeweiligen UTC-Tag. Sobald das Budget aufgebraucht ist, rufen automatische Ursachenanalysen, Log-Prüfungen und LLM-Funktionen in Pipelines das Modell nicht mehr auf.",
+      "today": "Heute verbraucht",
+      "limit": "Tageslimit",
+      "unlimited": "Kein Limit",
+      "used_share": "Verbraucht",
+      "resets": "Wird zurückgesetzt um",
+      "cost_today": "Heutige Kosten",
+      "by_origin": "Nach Quelle",
+      "origins": {
+        "chat": "Chat",
+        "rca": "Ursachenanalyse",
+        "inspection": "Log-Prüfungen",
+        "llm_eval": "LLM-Funktionen",
+        "automation": "Automatisierungen",
+        "evaluation": "Qualitätsbewertung",
+        "replay_summary": "Replay-Zusammenfassungen"
+      },
+      "calls_hint": "{{calls}} Aufrufe",
+      "tokens_value": "{{value}} Token",
+      "daily_limit": "Tägliches Token-Limit",
+      "limit_choice": {
+        "inherit": "Instanzstandard ({{value}})",
+        "custom": "Benutzerdefiniert",
+        "unlimited": "Kein Limit"
+      },
+      "custom_limit": "Token",
+      "interactive_mode": "Verhalten von Chats und Analysen auf Abruf bei aufgebrauchtem Budget",
+      "interactive": {
+        "block": "Modell nicht mehr aufrufen",
+        "warn": "Weiter antworten und nur warnen"
+      },
+      "save": "Budget speichern",
+      "saved": "Budget gespeichert",
+      "invalid_limit": "Ein benutzerdefiniertes Limit muss eine positive ganze Zahl sein.",
+      "history": "Letzte 30 Tage",
+      "empty": "Keine Modellaufrufe in den letzten 30 Tagen.",
+      "columns": {
+        "day": "Tag (UTC)",
+        "total": "Token insgesamt",
+        "calls": "Aufrufe",
+        "cost": "Kosten"
+      },
+      "cost_unknown": "Hinterlegen Sie Preise für einen Modellanbieter, damit hier Kosten angezeigt werden.",
+      "cost_partial": "Mit ≥ gekennzeichnete Kosten enthalten keine Aufrufe an Modellanbieter ohne hinterlegte Preise ({{calls}} in den letzten 30 Tagen)."
+    },
+    "skills": {
+      "title": "Skills",
+      "description": "Hier finden Sie Skills, die Mole Agent mitliefert, die in den Ordnern der Instanz liegen oder die von der Organisation, von Teams oder von einzelnen Personen hochgeladen oder aus Repositorys bezogen werden. Jeder Chat wählt automatisch die Skills aus seinem Geltungsbereich aus. Jeder Skill steht auch als /-Befehl zur Verfügung.",
+      "search_placeholder": "Skills suchen",
+      "filters": {
+        "all": "Alle",
+        "instance": "Integriert und Instanz",
+        "org": "Organisation",
+        "team": "Team",
+        "personal": "Persönlich"
+      },
+      "source": {
+        "builtin": "Integriert",
+        "path": "Instanzordner",
+        "upload": "Hochgeladen",
+        "repository": "Repository"
+      },
+      "needs_runner": "Erfordert einen Mole Runner",
+      "empty_title": "Noch keine Skills",
+      "empty_filter": "Keine passenden Skills",
+      "switch": "{{name}} aktivieren",
+      "inspect": "Anzeigen",
+      "move": "Verschieben nach",
+      "delete": "Löschen",
+      "deleted": "Skill gelöscht",
+      "upload": {
+        "open": "Skill hochladen",
+        "title": "Skill hochladen",
+        "description": "Ein Paket im Format .zip, .skill oder .tar.gz mit einem Ordner, der die Datei SKILL.md enthält (offenes Agent-Skills-Format).",
+        "file": "Paket",
+        "file_hint": "Bis zu 20 MiB. Skripte werden ausschließlich auf einem Mole Runner ausgeführt.",
+        "submit": "Hochladen",
+        "replace": "Skill ersetzen",
+        "exists": "In diesem Geltungsbereich gibt es bereits einen Skill namens {{name}}. Laden Sie das Paket erneut hoch, um den Skill damit zu ersetzen.",
+        "done": "Skill hochgeladen"
+      },
+      "repository": {
+        "open": "Repository hinzufügen",
+        "title": "Skill-Repositories",
+        "empty": "Noch keine Repositories. Fügen Sie ein Repository von GitHub, GitLab, Gitea oder einem anderen Anbieter hinzu. Jeder Ordner darin, der eine SKILL.md enthält, ist ein Skill.",
+        "create_title": "Skill-Repository hinzufügen",
+        "edit_title": "Skill-Repository bearbeiten",
+        "description": "Ein Branch oder Tag wird als Archiv heruntergeladen. Jeder Ordner im Repository oder in einem seiner Unterordner, der eine SKILL.md enthält, ist ein Skill. Beim Speichern wird das Repository einmalig synchronisiert.",
+        "url": "Repository-Adresse",
+        "host": "Hosting-Anbieter",
+        "hosts": {
+          "auto": "Aus der Adresse ermitteln",
+          "github": "GitHub",
+          "gitlab": "GitLab",
+          "gitea": "Gitea / Forgejo",
+          "bitbucket": "Bitbucket",
+          "archive": "Archiv-URL"
+        },
+        "ref": "Branch oder Tag",
+        "ref_hint": "Ohne Angabe wird der Standard-Branch verwendet",
+        "archive_url": "Archiv-URL",
+        "archive_url_hint": "URL zu einem .tar.gz- oder .zip-Archiv, die {ref} enthält",
+        "dir": "Ordner",
+        "dir_hint": "Ordner mit den Skills. Ohne Angabe wird das gesamte Repository verwendet.",
+        "token": "Zugriffstoken",
+        "token_hint": "Für private Repositorys. Das Token kann nur gespeichert, nicht ausgelesen werden.",
+        "token_saved": "Token gespeichert (Endung: {{last4}}). Lassen Sie das Feld leer, um es beizubehalten.",
+        "clear_token": "Gespeichertes Token entfernen",
+        "auto_sync": "Täglich synchronisieren",
+        "auto_sync_hint": "Im Repository geänderte Skills werden einmal täglich aktualisiert",
+        "network_org": "Für Verbindungen zu Organisations-Repositorys gelten die Einstellungen der Organisation. Diese Repositorys können auch intern sein.",
+        "network_member": "Für Team- und persönliche Repositorys sind nur Verbindungen ins Internet und zu internen Adressen möglich, die Administratoren unter „Netzwerk“ freigeben.",
+        "syncing": "Wird synchronisiert…",
+        "sync": "Synchronisieren",
+        "delete": "Repository löschen",
+        "deleted": "Repository und zugehörige Skills wurden gelöscht",
+        "default_branch": "Standard-Branch",
+        "synced_at": "Synchronisiert: {{time}}",
+        "daily": "Täglich",
+        "status": {
+          "pending": "Nicht synchronisiert",
+          "ok": "OK",
+          "partial": "Teilweise importiert",
+          "failed": "Fehlgeschlagen"
+        },
+        "sync_done": "Synchronisiert: {{imported}} hinzugefügt, {{updated}} aktualisiert, {{removed}} entfernt.",
+        "sync_problems": "{{count}} Ordner wurden nicht importiert. Die Gründe stehen in der Repository-Liste.",
+        "sync_failed": "Synchronisierung fehlgeschlagen: {{reason}}"
+      },
+      "paths": {
+        "title": "Instanzordner",
+        "description": "Skills aus den in der Serverkonfiguration festgelegten Ordnern ([agent] skill_paths). Sie sind schreibgeschützt und können von der Organisation deaktiviert werden.",
+        "rescan": "Erneut scannen",
+        "scanned_at": "Gescannt: {{time}}"
+      },
+      "detail": {
+        "invoke": "Aufrufen",
+        "version": "Version",
+        "hash": "Inhalts-Hash",
+        "allowed_tools": "Zulässige Tools",
+        "dir": "Ordner",
+        "needs_runner": "Dieser Skill führt Skripte aus und benötigt einen Mole Runner. Er kann noch nicht im Chat verwendet werden.",
+        "examples": "Beispielfragen",
+        "instructions": "Anleitung (SKILL.md)",
+        "files": "Dateien ({{count}})",
+        "download": "Herunterladen",
+        "try": "Im Chat ausprobieren"
+      }
+    }
+  },
+  "im_link": {
+    "title": "IM-Konto verknüpfen",
+    "question": "Möchten Sie das Konto {{account}} bei {{platform}} mit Ihrem MoleSignal-Konto verknüpfen?",
+    "explain": "Mole Agent beantwortet dann Ihre Fragen in {{platform}} ({{connector}}) in Ihrem Namen und mit Ihren Berechtigungen. Der Link ist nur einmal nutzbar und bis {{until}} gültig.",
+    "confirm": "Verknüpfen",
+    "linking": "Wird verknüpft…",
+    "linked": "Verknüpft",
+    "linked_hint": "Kehren Sie zu {{platform}} zurück und stellen Sie Ihre Frage erneut.",
+    "expired": "Dieser Link wurde bereits verwendet oder ist abgelaufen",
+    "expired_hint": "Stellen Sie Mole Agent Ihre Frage erneut im IM-Chat. Sie erhalten dann einen neuen Link.",
+    "platform_fallback": "IM",
+    "platforms": {
+      "feishu": "Feishu",
+      "slack": "Slack",
+      "dingtalk": "DingTalk",
+      "wecom": "WeCom",
+      "google_chat": "Google Chat",
+      "teams": "Teams",
+      "telegram": "Telegram"
+    }
+  },
+  "starter_title": "Was sollen wir heute Nacht untersuchen?",
+  "starter_title_named": "Noch am Arbeiten, {{name}}?",
+  "greeting": {
+    "morning": "Guten Morgen",
+    "morning_named": "Guten Morgen, {{name}}",
+    "afternoon": "Guten Tag",
+    "afternoon_named": "Guten Tag, {{name}}",
+    "evening": "Guten Abend",
+    "evening_named": "Guten Abend, {{name}}",
+    "late": "Noch am Arbeiten?",
+    "late_named": "Noch am Arbeiten, {{name}}?"
+  },
+  "starter_subtitle": "Stellen Sie eine Frage zu einem bestimmten Zeitraum. Der Assistent nutzt Backend-Tools, um Ihre Logs, Metriken, Traces und Alarme zu untersuchen.",
+  "starter_subtitle_prefix": "Ich bin Mole Agent. Ich kann Folgendes schreiben:",
+  "starter_subtitle_suffix": "und Ihnen bei der Analyse von Logs, Traces, Metriken und Ereignissen helfen.",
+  "signed_in_as": "Angemeldet als",
+  "try_one": "Oder probieren Sie eines dieser Beispiele aus",
+  "starters": {
+    "query": "Schreiben Sie eine Abfrage, die die Dienste mit den meisten Fehlern in der letzten Stunde ermittelt.",
+    "anomaly": "Was hat sich in der letzten Stunde geändert?",
+    "root_cause": "Ermitteln Sie die Grundursache des jüngsten Vorfalls.",
+    "errors": "Warum ist die Zahl der Fehler in letzter Zeit sprunghaft gestiegen?",
+    "latency": "Bei welchem Dienst ist die Latenz gestiegen?",
+    "dashboard": "Erstellen Sie ein Dashboard zum Zustand der Kubernetes-Knoten.",
+    "alert": "Erstellen Sie eine Alarmregel für Anomalien bei der Fehlerrate."
+  },
+  "capability_prompts": {
+    "query": "Helfen Sie mir, eine Abfrage zu schreiben.\n\nZiel/Frage:\nDatenquelle oder Dienst:\nZeitraum: Letzte 1h\nErwartete Ausgabe: SQL oder PromQL",
+    "incident": "Helfen Sie mir, einen Vorfall zu untersuchen.\n\nSymptom:\nBetroffener Dienst:\nZeitraum: Letzte 1h\nBenötigt: Auslöser, Auswirkungen und nächste Schritte",
+    "dashboard": "Helfen Sie mir, ein Dashboard zu erstellen.\n\nThema:\nWichtigster Dienst oder Cluster:\nAnzuzeigende Metriken:\nZeitraum: Letzte 24h",
+    "alert": "Helfen Sie mir, eine Alarmregel zu erstellen.\n\nAlarmziel:\nAuslösebedingung:\nDauer:\nBenachrichtigungsweg:"
+  },
+  "capabilities": {
+    "query": {
+      "title": "Abfrage schreiben",
+      "description": "SQL für Logs, Traces und APM User Experience; PromQL für Metriksignale."
+    },
+    "incident": {
+      "title": "Vorfälle untersuchen",
+      "description": "Analysieren Sie Logs, Traces, Metriken und Alarme, um den Auslöser zu ermitteln."
+    },
+    "dashboard": {
+      "title": "Dashboards erstellen",
+      "description": "Beginnen Sie mit einem Thema wie CPU, Arbeitsspeicher, Neustarts oder Latenz."
+    },
+    "alert": {
+      "title": "Alarme erstellen",
+      "description": "Entwerfen Sie Alarmregeln für Schwellenwerte, Trends oder Datenaufnahme-Pipelines."
+    }
+  },
+  "suggestions": {
+    "vrl": "Schreiben Sie VRL, um JSON aus nginx-Logs zu parsen.",
+    "email_regex": "Erstellen Sie einen regulären Ausdruck zum Bearbeiten von E-Mails.",
+    "live_arch": "Stellen Sie meine Standard-Live-Architektur grafisch dar.",
+    "cpu_promql": "Schreiben Sie eine PromQL-Abfrage für Pods mit > 80% CPU-Auslastung.",
+    "datadog": "Wandeln Sie eine Abfrage einer anderen Plattform in eine MoleSignal-Abfrage um",
+    "last_alert": "Warum wurde mein letzter Alarm ausgelöst?"
+  },
+  "suggestion_prompts": {
+    "convert_external": "Wandeln Sie eine Abfrage einer anderen Plattform in eine MoleSignal-Abfrage um.\n\nQuellplattform:\nUrsprüngliche Abfrage:\nErwartete Ausgabe:"
+  },
+  "range": {
+    "15m": "Letzte 15m",
+    "30m": "Letzte 30m",
+    "1h": "Letzte 1h",
+    "6h": "Letzte 6h",
+    "24h": "Letzte 24h",
+    "7d": "Letzte 7d"
+  },
+  "controls": {
+    "time": "Zeit",
+    "mode": "Modus",
+    "execution": "Ausführung",
+    "team": "Team"
+  },
+  "mode": {
+    "auto": "Automatikmodus",
+    "quick": "Schnelle Antwort",
+    "deep": "Detaillierte Untersuchung",
+    "query_only": "Nur Abfrage erstellen"
+  },
+  "mode_descriptions": {
+    "auto": "Stellen Sie eine beliebige Frage. Der Agent entscheidet, was er untersucht",
+    "quick": "Erkennt Auffälligkeiten im Zeitraum",
+    "deep": "Verknüpft Metriken, Logs und Traces, um die Ursache zu finden",
+    "query_only": "Schreibt die Abfrage, ohne sie auszuführen"
+  },
+  "execution_policy": {
+    "advice_only": "Beratungsmodus",
+    "read_only": "Untersuchungsmodus",
+    "policy": "Mit Genehmigung ausführen",
+    "auto": "Automatikmodus",
+    "bypass_permissions": "Berechtigungen umgehen"
+  },
+  "execution_mode": {
+    "title": "Modus",
+    "recommended": "Empfohlen",
+    "descriptions": {
+      "advice_only": "Analysiert die Daten und schlägt Änderungen vor, ohne sie vorzunehmen",
+      "read_only": "Führt bei Bedarf schreibgeschützte Abfragen aus und nimmt keine Änderungen vor",
+      "policy": "Führt Abfragen automatisch aus und nimmt Änderungen erst nach Genehmigung vor",
+      "auto": "Führt Abfragen aus und nimmt reversible Änderungen vor. Vor dem Löschen fragt der Agent nach",
+      "bypass_permissions": "Nimmt Änderungen ohne Rückfrage vor. Genehmigungspflichten gelten weiterhin"
+    },
+    "bypass_locked": "Ein Administrator muss diese Option zuerst im Agent-Profil zulassen",
+    "bypass_confirm": {
+      "title": "„Berechtigungen umgehen“ aktivieren?",
+      "description": "Mole Agent nimmt Änderungen ohne vorherige Rückfrage vor, auch Löschungen. Änderungen, für die Ihre Organisation eine Genehmigung verlangt, müssen weiterhin genehmigt werden. Aktivieren Sie diese Option nur, wenn Sie wissen, was Mole Agent als Nächstes tun wird.",
+      "confirm": "Aktivieren"
+    }
+  },
+  "provider_auto": "Anbieter automatisch wählen",
+  "model_prefix": "Modell",
+  "model_auto": "Automatisch",
+  "prompt_prefix": "Prompt",
+  "prompt_auto": "Automatisch",
+  "advanced": {
+    "trigger": "Mehr",
+    "title": "Agent-Einstellungen",
+    "agent_mode": "Agent-Modus",
+    "overrides_active": "Benutzerdefinierte Agent-Einstellungen sind aktiv",
+    "profile": "Agent-Profil",
+    "profile_auto": "Standardprofil",
+    "investigation_limit": "Zeitlimit für Untersuchungen",
+    "tool_limit": "Limit für Tool-Aufrufe",
+    "minutes": "{{count}} min",
+    "calls": "{{count}} Aufrufe",
+    "manage_profile": "Agent-Profile verwalten"
+  },
+  "composer_label": "Fragen Sie nach Incidents, Services oder Betriebsaufgaben…",
+  "composer_placeholder": "Fragen Sie nach Incidents, Services oder Betriebsaufgaben… Geben Sie / für Befehle ein",
+  "send": "Senden",
+  "resend": "Erneut senden",
+  "stop": "Stoppen",
+  "running": "läuft",
+  "tool_detail": "Tool-Details",
+  "tool_call_count": "{{count}} Aufrufe",
+  "tool_arguments": "Argumente",
+  "tool_result": "Ergebnis",
+  "tool_error_result": "Fehler",
+  "tool_empty_payload": "Keine",
+  "tool_status": {
+    "running": "läuft",
+    "done": "abgeschlossen",
+    "error": "fehlgeschlagen"
+  },
+  "thinking": "Mole Agent analysiert…",
+  "answer_versions": {
+    "position": "Antwort {{current}} / {{total}}",
+    "previous": "Vorherige Antwort anzeigen",
+    "next": "Nächste Antwort anzeigen",
+    "regenerate": "Neu generieren",
+    "regenerating": "Wird neu generiert…"
+  },
+  "message_actions": {
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "copy_failed": "Kopieren in die Zwischenablage fehlgeschlagen",
+    "edit": "Bearbeiten und erneut senden",
+    "retry": "Erneut versuchen",
+    "fork": "Neuen Chat aus dieser Antwort abzweigen",
+    "pin": "Diese Antwort anheften",
+    "unpin": "Anheftung aufheben",
+    "pinned_one": "{{count}} angeheftet",
+    "pinned_other": "{{count}} angeheftet"
+  },
+  "message_time": {
+    "days_ago_one": "vor {{count}} Tag",
+    "days_ago_other": "vor {{count}} Tagen"
+  },
+  "investigation_process": {
+    "running": "{{count}} Datenquellen werden geprüft",
+    "completed": "{{count}} Datenquellen geprüft",
+    "completed_with_errors": "{{count}} Elemente geprüft; bei {{errors}} wurde die Prüfung nicht abgeschlossen",
+    "view": "Untersuchung anzeigen",
+    "processing": "Wird verarbeitet",
+    "processed": "Verarbeitet",
+    "rows": "{{count}} Ergebnisse",
+    "technical_detail": "Technisches Detail"
+  },
+  "activity": {
+    "separator": ", ",
+    "look_one": "{{count}} Element angesehen",
+    "look_other": "{{count}} Elemente angesehen",
+    "query_one": "{{count}} Abfrage ausgeführt",
+    "query_other": "{{count}} Abfragen ausgeführt",
+    "knowledge_one": "In der Wissensdatenbank nachgelesen",
+    "knowledge_other": "{{count}}-mal in der Wissensdatenbank nachgelesen",
+    "knowledge_edit_one": "{{count}} Wissensdatei bearbeitet",
+    "knowledge_edit_other": "{{count}} Wissensdateien bearbeitet",
+    "memory_one": "Eine Erinnerung abgerufen",
+    "memory_other": "{{count}} Erinnerungen abgerufen",
+    "remember_one": "{{count}} Sache gemerkt",
+    "remember_other": "{{count}} Sachen gemerkt",
+    "question_one": "Ihnen eine Frage gestellt",
+    "question_other": "Ihnen {{count}} Fragen gestellt",
+    "plan_one": "Den Plan aktualisiert",
+    "plan_other": "Den Plan {{count}}-mal aktualisiert",
+    "change_one": "{{count}} Änderung vorgeschlagen",
+    "change_other": "{{count}} Änderungen vorgeschlagen",
+    "tool_one": "{{count}} Tool verwendet",
+    "tool_other": "{{count}} Tools verwendet",
+    "failed_one": "{{count}} nicht abgeschlossen",
+    "failed_other": "{{count}} nicht abgeschlossen",
+    "running": "In Arbeit"
+  },
+  "oauth": {
+    "invalid_request": "Diese OAuth-Autorisierungsanfrage ist ungültig oder unvollständig.",
+    "title": "möchte auf Ihr MoleSignal-Konto zugreifen",
+    "organization": "Organisation",
+    "switch_organization": "Organisation für die Autorisierung",
+    "allows": "Sie erlauben {{client}} damit Folgendes:",
+    "permission": {
+      "tools_title": "MoleSignal-Tools in Ihrem Namen verwenden",
+      "tools_body": "Logs, Metriken, Traces und andere Daten lesen, und zwar nur mit Tools, die sowohl Ihre Berechtigungen als auch die Tool-Richtlinie der Organisation zulassen.",
+      "changes_title": "Änderungen vorschlagen, die nach der Genehmigung ausgeführt werden",
+      "changes_body": "Für verwaltete Änderungen gilt die Genehmigungsrichtlinie der Organisation. Sie lässt sich nicht umgehen.",
+      "offline_title": "Zugriff behalten, bis Sie ihn widerrufen",
+      "offline_body": "Sie müssen den Zugriff nicht jedes Mal neu autorisieren. Er wird automatisch verlängert."
+    },
+    "trust_title": "Vergewissern Sie sich, dass Sie {{client}} vertrauen",
+    "trust_registered": "{{client}} hat sich selbst registriert. MoleSignal hat weder den Namen noch den Herausgeber geprüft. Nach der Autorisierung kann der Client die Daten sehen, auf die Sie in dieser Organisation Zugriff haben. Sie können den Zugriff jederzeit unter <revoke>Mole Agent → Einstellungen → Eingehendes MCP</revoke> widerrufen.",
+    "trust_metadata": "Die Beschreibung von {{client}} stammt von {{host}}. Nach der Autorisierung kann der Client die Daten sehen, auf die Sie in dieser Organisation Zugriff haben. Sie können den Zugriff jederzeit unter <revoke>Mole Agent → Einstellungen → Eingehendes MCP</revoke> widerrufen.",
+    "client_website": "Website des Clients",
+    "cancel": "Abbrechen",
+    "allow": "Autorisieren",
+    "redirect": "Nach der Autorisierung werden Sie zu {{origin}} weitergeleitet",
+    "details": "Autorisierungsdetails",
+    "client_id": "Client-ID",
+    "resource": "Geschützte Ressource",
+    "scopes": "Berechtigungsbereiche",
+    "redirect_uri": "Weiterleitungs-URI",
+    "binding": "Die Autorisierung ist an diesen Client, diese Weiterleitungs-URI, Ihr Konto, die Organisation und die MCP-Ressource gebunden. Wenn sich einer dieser Faktoren ändert, ist eine neue Autorisierung erforderlich."
+  },
+  "tools": {
+    "tool_search": {
+      "title": "Tools suchen",
+      "description": "Durchsuchen Sie den Katalog der aktivierten Tools nach Funktion, Domäne, Tag oder exaktem Namen. Verwenden Sie die Suche, wenn das benötigte Tool noch nicht sichtbar ist."
+    },
+    "tools_call": {
+      "title": "Tool aufrufen",
+      "description": "Rufen Sie ein aktiviertes Tool auf, das Sie mit tool_search gefunden haben. Die Berechtigungen, Risikorichtlinie, Zeitüberschreitung und Audit-Protokollierung des aufgerufenen Tools bleiben unverändert."
+    },
+    "get_platform_capabilities": {
+      "title": "Plattformfunktionen abrufen",
+      "description": "Gibt das vollständige Verzeichnis der Domänen integrierter Tools, die Richtlinie zur Freigabe und die bewusst ausgeschlossenen unsicheren Einstiegspunkte zurück."
+    },
+    "query_logs": {
+      "title": "Logs abfragen",
+      "description": "Führen Sie eine begrenzte, schreibgeschützte SQL-Abfrage für einen Log-Stream aus. Prüfen Sie zuerst das genaue Schema mit get_stream_schema. time_range schränkt die Ereigniszeit bereits ein."
+    },
+    "query_metrics": {
+      "title": "Metriken abfragen",
+      "description": "Führen Sie eine einzelne begrenzte, schreibgeschützte PromQL-Bereichsabfrage aus. Grafana-Template-Hilfsfunktionen wie label_values() gehören nicht zu PromQL."
+    },
+    "list_streams": {
+      "title": "Streams auflisten",
+      "description": "Listet abfragbare Streams in einer kompakten Übersicht auf. Rufen Sie die Felder mit get_stream_schema ab."
+    },
+    "get_stream_schema": {
+      "title": "Stream-Schema abrufen",
+      "description": "Gibt die genauen Felder, Typen, Einstellungen und die Aufbewahrungsdauer eines Streams zurück."
+    },
+    "get_stream_settings": {
+      "title": "Stream-Einstellungen abrufen",
+      "description": "Gibt die Einstellungen für Abfragen, Aufbewahrung, Partitionierung und Datenaufnahme eines Streams zurück, ohne das vollständige Schema erneut auszugeben."
+    },
+    "list_metric_names": {
+      "title": "Metriknamen auflisten",
+      "description": "Listet Metriknamen auf, optional gefiltert nach einer Teilzeichenfolge."
+    },
+    "list_metric_label_values": {
+      "title": "Werte eines Metrik-Labels auflisten",
+      "description": "Listet die unterschiedlichen Werte eines vorhandenen Metrik-Label-Felds auf, ohne Hilfsfunktionen außerhalb von PromQL zu verwenden."
+    },
+    "list_metric_labels": {
+      "title": "Metrik-Labels auflisten",
+      "description": "Listet die vorhandenen Label-Felder einer Metrik auf."
+    },
+    "list_metric_series": {
+      "title": "Metrik-Zeitreihen auflisten",
+      "description": "Listet für einen Zeitraum eine begrenzte Anzahl unterschiedlicher Zeitreihen nach Metrik und Labels auf."
+    },
+    "search_around": {
+      "title": "Um einen Zeitpunkt suchen",
+      "description": "Ruft Log-Zeilen unmittelbar vor und nach einem Referenzzeitpunkt ab."
+    },
+    "search_field_values": {
+      "title": "Feldwerte suchen",
+      "description": "Gibt für ein bestimmtes Stream-Feld eine begrenzte Anzahl unterschiedlicher Werte und deren Häufigkeiten zurück."
+    },
+    "analyze_log_patterns": {
+      "title": "Log-Muster analysieren",
+      "description": "Gruppiert die Logs eines Streams nach Meldungsmustern und vergleicht jedes Muster mit einem Referenzzeitraum: neu, stark zunehmend, rückläufig oder stabil."
+    },
+    "analyze_metric_trend": {
+      "title": "Metriktrend analysieren",
+      "description": "Fasst zusammen, wie sich das Ergebnis einer PromQL-Abfrage gegenüber einem Referenzzeitraum verändert hat: wann die Änderung begann, wie stark sie war und welche Zeitreihen und Labels dazu beitrugen."
+    },
+    "check_data_readiness": {
+      "title": "Dateneignung prüfen",
+      "description": "Prüft, ob Streams den Dienst, die Umgebung und die Trace-ID erfassen, ob ein Dienst in Logs, Metriken und Traces denselben Namen hat und ob Metriknamen die Einheiten enthalten. Gibt zu jedem Befund eine konkrete Empfehlung."
+    },
+    "list_log_inspections": {
+      "title": "Log-Inspektionen auflisten",
+      "description": "Listet die geplanten Log-Inspektionen der Organisation auf. Zeigt für jede Inspektion den gelesenen Stream, die Prüfkriterien, den Zeitplan, ob sie aktiviert ist und wie der letzte Lauf endete."
+    },
+    "list_log_inspection_runs": {
+      "title": "Läufe einer Log-Inspektion auflisten",
+      "description": "Listet die letzten Läufe einer Log-Inspektion mit Status, Bewertung und Zusammenfassung auf, beginnend mit dem neuesten."
+    },
+    "get_log_inspection_run": {
+      "title": "Log-Inspektionsbericht abrufen",
+      "description": "Rufen Sie das Ergebnis, die Befunde und den Bericht eines Log-Prüflaufs ab."
+    },
+    "run_log_inspection": {
+      "title": "Log-Prüfung starten",
+      "description": "Starten Sie jetzt eine Log-Prüfung. Der Lauf wird in die Warteschlange gestellt und auf die Modellnutzung der Organisation angerechnet. Nach Abschluss können Sie den Bericht abrufen."
+    },
+    "list_traces": {
+      "title": "Traces auflisten",
+      "description": "Listen Sie für einen Zeitraum eine begrenzte Anzahl von Trace-Zusammenfassungen auf. Optional können Sie nach Dienst, Dauer, Fehler und Trace-ID filtern."
+    },
+    "get_trace": {
+      "title": "Trace abrufen",
+      "description": "Rufen Sie eine begrenzte Anzahl von Spans zu einer Trace-ID ab. Verwenden Sie get_trace_dag, wenn Sie nur die Struktur benötigen."
+    },
+    "get_trace_dag": {
+      "title": "Trace-DAG abrufen",
+      "description": "Rufen Sie für einen Trace einen kompakten DAG der Abhängigkeiten zwischen Diensten und Spans ab, ohne die vollständigen Span-Nutzdaten."
+    },
+    "list_trace_sessions": {
+      "title": "Trace-Sitzungen auflisten",
+      "description": "Listen Sie eine begrenzte Anzahl von LLM-/KI-Trace-Sitzungen auf, sofern der Trace-Stream Sitzungsfelder enthält."
+    },
+    "get_trace_session": {
+      "title": "Trace-Sitzung abrufen",
+      "description": "Rufen Sie für eine LLM-/KI-Sitzung eine begrenzte Anzahl von Zusammenfassungen zu einzelnen Traces ab."
+    },
+    "list_trace_users": {
+      "title": "Trace-Nutzer auflisten",
+      "description": "Listen Sie eine begrenzte Anzahl von Aggregaten nach Nutzer für KI-Traces auf, sofern der Trace-Stream Nutzerfelder enthält."
+    },
+    "list_incidents": {
+      "title": "Incidents auflisten",
+      "description": "Listen Sie eine begrenzte Anzahl von Incidents nach Status und optional nach Zeitraum auf."
+    },
+    "get_incident": {
+      "title": "Incident abrufen",
+      "description": "Rufen Sie einen Incident und den Kontext seiner Alarmregel anhand der Incident-ID ab."
+    },
+    "get_incident_rca": {
+      "title": "Ursachenanalyse zum Incident abrufen",
+      "description": "Rufen Sie die zuletzt gespeicherte Ursachenanalyse zu einem Incident ab."
+    },
+    "get_incident_insights": {
+      "title": "Incident-Statistik abrufen",
+      "description": "Rufen Sie Incident-Zählwerte ab, gruppiert nach Status, Schweregrad, Dienst und Regel. Die Anzahl der Ergebnisse ist begrenzt."
+    },
+    "get_similar_incidents": {
+      "title": "Ähnliche Incidents abrufen",
+      "description": "Listet die Incidents der letzten 90 Tage auf, die einem bestimmten Incident am ähnlichsten sind. Zu jedem Incident werden der Ausgang und der erste Satz der Ursachenbeschreibung angezeigt."
+    },
+    "list_changes": {
+      "title": "Änderungen auflisten",
+      "description": "Listet Deployments, Konfigurationsänderungen und Feature-Flags rund um einen Zeitpunkt auf, entweder für ausgewählte Dienste oder für einen Incident."
+    },
+    "acknowledge_incident": {
+      "title": "Incident bestätigen",
+      "description": "Bestätigen Sie einen offenen Incident."
+    },
+    "resolve_incident": {
+      "title": "Incident beheben",
+      "description": "Markieren Sie einen offenen oder bestätigten Incident als behoben."
+    },
+    "reassign_incident": {
+      "title": "Incident neu zuweisen",
+      "description": "Weisen Sie einen aktiven Incident anderen Personen, einem Team (über dessen Bereitschaftsrichtlinie) oder einer Eskalationsrichtlinie zu."
+    },
+    "add_incident_responders": {
+      "title": "Einsatzkräfte hinzufügen",
+      "description": "Weisen Sie einem aktiven Incident weitere Personen zu und benachrichtigen Sie diese."
+    },
+    "escalate_incident": {
+      "title": "Incident sofort eskalieren",
+      "description": "Eskalieren Sie einen aktiven Incident sofort auf eine Stufe seiner Eskalationsrichtlinie. Standardmäßig ist dies die nächste Stufe."
+    },
+    "snooze_incident": {
+      "title": "Incident zurückstellen",
+      "description": "Stellen Sie einen aktiven Incident zurück. Er wird bestätigt und erscheint nach Ablauf der Frist wieder als unbestätigt."
+    },
+    "lift_incident_inhibition": {
+      "title": "Incident-Unterdrückung aufheben",
+      "description": "Die Benachrichtigungsunterdrückung für einen Incident aufheben: Zurückgehaltene Benachrichtigungen werden versendet, und für diesen Incident werden keine weiteren Benachrichtigungen unterdrückt."
+    },
+    "set_incident_severity": {
+      "title": "Incident-Schweregrad festlegen",
+      "description": "Den Schweregrad eines aktiven Incidents festlegen. Die Regel ändert ihn danach nicht mehr."
+    },
+    "merge_incidents": {
+      "title": "Incidents zusammenführen",
+      "description": "Andere aktive Incidents mit einem Incident zusammenführen. Die hinzugefügten Incidents senden keine weiteren Benachrichtigungen und werden zusammen mit ihm gelöst."
+    },
+    "add_incident_note": {
+      "title": "Incident-Notiz schreiben",
+      "description": "In der Incident-Zeitleiste festhalten, was festgestellt und unternommen wurde."
+    },
+    "get_incident_timeline": {
+      "title": "Incident-Zeitleiste abrufen",
+      "description": "Die Zeitleiste eines Incidents abrufen: benachrichtigte Personen, ergriffene Maßnahmen, Notizen und zusammengeführte Incidents."
+    },
+    "list_alert_rules": {
+      "title": "Alarmregeln auflisten",
+      "description": "Alarmregeln mit Status, Abfrage, Schwellenwerten und Routing-Metadaten auflisten."
+    },
+    "get_alert_rule": {
+      "title": "Alarmregel abrufen",
+      "description": "Eine Alarmregel anhand ihrer ID abrufen."
+    },
+    "create_alert_rule": {
+      "title": "Alarmregel erstellen",
+      "description": "Eine Alarmregel nach der Validierung erstellen."
+    },
+    "update_alert_rule": {
+      "title": "Alarmregel aktualisieren",
+      "description": "Eine Alarmregel nach der Validierung ersetzen."
+    },
+    "delete_alert_rule": {
+      "title": "Alarmregel löschen",
+      "description": "Eine Alarmregel löschen."
+    },
+    "test_alert_rule": {
+      "title": "Alarmregel testen",
+      "description": "Eine Alarmregel ohne Seiteneffekte testen und zurückgeben, ob die Regelbedingung erfüllt ist, sowie eine begrenzte Stichprobe liefern."
+    },
+    "trigger_alert_rule": {
+      "title": "Alarmregel auslösen",
+      "description": "Den zu einer Alarmregel gehörenden Incident manuell öffnen, ohne den Schwellenwert der Regel zu prüfen."
+    },
+    "list_incident_groups": {
+      "title": "Incident-Gruppen auflisten",
+      "description": "Gruppen korrelierter Incidents mit eingeschränkter Filterung nach Status auflisten."
+    },
+    "get_incident_group": {
+      "title": "Incident-Gruppe abrufen",
+      "description": "Eine Gruppe korrelierter Incidents anhand ihrer ID abrufen."
+    },
+    "list_mute_rules": {
+      "title": "Stummschaltungsregeln auflisten",
+      "description": "Regeln zur Stummschaltung von Alarmen auflisten, ohne geheime Daten offenzulegen."
+    },
+    "get_mute_rule": {
+      "title": "Stummschaltungsregel abrufen",
+      "description": "Eine Regel zur Stummschaltung von Alarmen anhand ihrer ID abrufen."
+    },
+    "list_inhibit_rules": {
+      "title": "Unterdrückungsregeln auflisten",
+      "description": "Regeln zur Unterdrückung von Alarmbenachrichtigungen auflisten: welche Incidents die Benachrichtigungen welcher anderen Incidents unterdrücken und wie viele Benachrichtigungen derzeit zurückgehalten werden."
+    },
+    "get_inhibit_rule": {
+      "title": "Unterdrückungsregel abrufen",
+      "description": "Eine Regel zur Unterdrückung von Alarmbenachrichtigungen anhand ihrer ID abrufen."
+    },
+    "list_escalation_policies": {
+      "title": "Eskalationsrichtlinien auflisten",
+      "description": "Eskalationsrichtlinien für Incidents auflisten."
+    },
+    "get_escalation_policy": {
+      "title": "Eskalationsrichtlinie abrufen",
+      "description": "Eine Eskalationsrichtlinie für Incidents anhand ihrer ID abrufen."
+    },
+    "list_on_call_schedules": {
+      "title": "Bereitschaftspläne auflisten",
+      "description": "Dienstpläne für die Rufbereitschaft und die aktuell eingeteilten Personen auflisten."
+    },
+    "get_on_call_schedule": {
+      "title": "Dienstplan für Rufbereitschaft abrufen",
+      "description": "Einen Dienstplan für die Rufbereitschaft anhand seiner ID abrufen."
+    },
+    "get_current_on_call": {
+      "title": "Aktuelle Rufbereitschaft abrufen",
+      "description": "Die aktuell zuständigen Personen für einen oder alle aktivierten Dienstpläne ermitteln."
+    },
+    "list_notification_connectors": {
+      "title": "Benachrichtigungskonnektoren auflisten",
+      "description": "Benachrichtigungskonnektoren ohne Felder für Zugangsdaten auflisten."
+    },
+    "get_notification_connector": {
+      "title": "Benachrichtigungskonnektor abrufen",
+      "description": "Metadaten eines Benachrichtigungskonnektors ohne Zugangsdaten abrufen."
+    },
+    "list_notification_policies": {
+      "title": "Benachrichtigungsrichtlinien auflisten",
+      "description": "Richtlinien für das Routing von Benachrichtigungen auflisten."
+    },
+    "get_notification_policy": {
+      "title": "Benachrichtigungsrichtlinie abrufen",
+      "description": "Eine Richtlinie für das Routing von Benachrichtigungen abrufen."
+    },
+    "list_notification_templates": {
+      "title": "Benachrichtigungsvorlagen auflisten",
+      "description": "Benachrichtigungsvorlagen der Organisation und des Systems auflisten."
+    },
+    "get_notification_template": {
+      "title": "Benachrichtigungsvorlage abrufen",
+      "description": "Eine Benachrichtigungsvorlage abrufen."
+    },
+    "list_notification_deliveries": {
+      "title": "Benachrichtigungszustellungen auflisten",
+      "description": "Eine begrenzte Auswahl an Zustellversuchen für Benachrichtigungen auflisten."
+    },
+    "get_notification_delivery": {
+      "title": "Benachrichtigungszustellung abrufen",
+      "description": "Einen Zustellversuch für eine Benachrichtigung abrufen."
+    },
+    "retry_notification_delivery": {
+      "title": "Benachrichtigungszustellung wiederholen",
+      "description": "Eine fehlgeschlagene Benachrichtigungszustellung erneut versuchen."
+    },
+    "acknowledge_notification_delivery": {
+      "title": "Benachrichtigungszustellung bestätigen",
+      "description": "Eine Benachrichtigungszustellung bestätigen."
+    },
+    "apm_overview": {
+      "title": "APM-Übersicht",
+      "description": "Eine begrenzte Übersicht mit RED-Metriken, Trends, Servicezustand, Abhängigkeiten und den häufigsten Fehlern ausgeben."
+    },
+    "list_apm_services": {
+      "title": "APM-Services auflisten",
+      "description": "APM-Services mit einer Übersicht ihres Zustands anhand von RED-Metriken auflisten."
+    },
+    "search_service_catalog": {
+      "title": "Servicekatalog durchsuchen",
+      "description": "Services nach Name, Alias, Beschreibung oder Tag suchen und Verantwortliche, Team, Aliasse und den Speicherort ihrer Daten anzeigen."
+    },
+    "get_apm_service": {
+      "title": "APM-Service abrufen",
+      "description": "Detaillierte Trends der RED-Metriken sowie Transaktionen, Abhängigkeiten, Fehler und Versionen eines Services abrufen."
+    },
+    "list_apm_transactions": {
+      "title": "APM-Transaktionen auflisten",
+      "description": "APM-Transaktionsgruppen mit einer Übersicht der RED-Metriken auflisten."
+    },
+    "get_apm_transaction": {
+      "title": "APM-Transaktion abrufen",
+      "description": "Detaillierte Trends und Traces für eine APM-Transaktion abrufen."
+    },
+    "list_apm_dependencies": {
+      "title": "APM-Abhängigkeiten auflisten",
+      "description": "Abhängigkeiten von APM-Services mit Übersichten zu Latenz und Fehlern auflisten."
+    },
+    "list_apm_errors": {
+      "title": "APM-Fehler auflisten",
+      "description": "APM-Fehlergruppen mit betroffenen Services und Trace-Referenzen auflisten."
+    },
+    "get_apm_error": {
+      "title": "APM-Fehler abrufen",
+      "description": "Eine APM-Fehlergruppe mit Beispielen und Trace-Referenzen abrufen."
+    },
+    "compare_apm_versions": {
+      "title": "APM-Versionen vergleichen",
+      "description": "RED-Metriken und Regressionen zweier Serviceversionen vergleichen."
+    },
+    "get_apm_health": {
+      "title": "APM-Zustand abrufen",
+      "description": "Aktualität und Abdeckung der APM-Projektion sowie die Datenqualität ausgeben."
+    },
+    "get_apm_insights": {
+      "title": "APM-Erkenntnisse abrufen",
+      "description": "APM-Auffälligkeiten anzeigen: Abweichungen vom vorherigen Zeitraum und von der Vorwoche, zeitnahe Änderungen, Versionen mit Regressionen und Möglichkeiten zur Zeiteinsparung."
+    },
+    "get_apm_blast_radius": {
+      "title": "Auswirkungsbereich eines Service abrufen",
+      "description": "Anhand der Service-Map anzeigen, welche Services den ausgewählten Service aufrufen und welche er selbst aufruft. Services mit beeinträchtigtem Zustand zuerst anzeigen."
+    },
+    "correlate_signals": {
+      "title": "Signale korrelieren",
+      "description": "Eine begrenzte Auswahl an Verknüpfungen zwischen Vorfällen, Traces, Logs, RUM und Profilen für einen Service oder Trace ausgeben."
+    },
+    "get_service_topology": {
+      "title": "Service-Topologie abrufen",
+      "description": "Einen begrenzten Abhängigkeitsgraphen der Services für einen Zeitraum ausgeben."
+    },
+    "list_rum_sessions": {
+      "title": "RUM-Sitzungen auflisten",
+      "description": "Eine begrenzte Anzahl von Sitzungen aus dem Real User Monitoring auflisten."
+    },
+    "get_rum_session": {
+      "title": "RUM-Sitzung abrufen",
+      "description": "Eine RUM-Sitzung mit einer begrenzten Übersicht über Aktionen und Fehler abrufen."
+    },
+    "list_rum_actions": {
+      "title": "RUM-Aktionen auflisten",
+      "description": "Seitenaufrufe, Aktionen, Ressourcen und Web Vitals auflisten."
+    },
+    "list_rum_errors": {
+      "title": "RUM-Fehler auflisten",
+      "description": "RUM-Fehler nach Sitzung oder Fingerabdruck auflisten."
+    },
+    "get_rum_related_traces": {
+      "title": "Verknüpfte RUM-Traces abrufen",
+      "description": "Direkt mit einer RUM-Sitzung verknüpfte Traces finden, ersatzweise über eine Korrelation in einem begrenzten Zeitfenster."
+    },
+    "get_rum_vitals": {
+      "title": "Web Vitals zusammenfassen",
+      "description": "Die bei echten Nutzern gemessenen Core Web Vitals pro Seite zusammenfassen: das 75. Perzentil von LCP, INP, CLS und TTFB, die Anzahl der Seitenaufrufe sowie die Schwellenwerte für „gut“ und „schlecht“."
+    },
+    "list_rum_issues": {
+      "title": "RUM-Probleme auflisten",
+      "description": "Fehlerprobleme einer RUM-Anwendung mit Status, erstem und letztem Auftreten auflisten. Für den gewählten Zeitraum je Problem die betroffenen Sitzungen und Nutzer, die Anzahl der Vorkommnisse und den Trend anzeigen."
+    },
+    "get_rum_issue": {
+      "title": "RUM-Problem abrufen",
+      "description": "Ein RUM-Problem mit Verlauf, Kennzahlen für den gewählten Zeitraum, den zuletzt betroffenen Sitzungen und dem Stacktrace abrufen."
+    },
+    "get_rum_overview": {
+      "title": "RUM-Anwendung zusammenfassen",
+      "description": "Eine Übersicht über die RUM-Anwendung geben: Sitzungen, Anteil der Sitzungen ohne Fehler oder Abstürze, Core Web Vitals, meistbesuchte Seiten und wichtigste Probleme."
+    },
+    "get_rum_frustration": {
+      "title": "RUM-Frustsignale zusammenfassen",
+      "description": "Anzeigen, was Nutzer frustriert: Rage-Klicks, Klicks ohne Reaktion und Klicks mit Fehlern sowie die Elemente, Seiten und Versionen, bei denen sie gehäuft auftreten."
+    },
+    "get_rum_view_waterfall": {
+      "title": "RUM-Ladewasserfall abrufen",
+      "description": "Den Ladeverlauf eines Seitenaufrufs anzeigen: wichtige Zeitpunkte, Verzögerungsursachen beim Largest Contentful Paint, angeforderte Ressourcen und blockierende lange Tasks."
+    },
+    "aggregate_rum": {
+      "title": "RUM-Daten aggregieren",
+      "description": "Zeilen eines RUM-Datenstroms zählen und Mittelwerte sowie Perzentile berechnen, gruppiert nach Feldern und optional nach Zeitintervallen."
+    },
+    "get_rum_funnel": {
+      "title": "RUM-Funnel abrufen",
+      "description": "Ermitteln, wie viele Sitzungen eine Abfolge von Seiten und Aktionen in der vorgegebenen Reihenfolge durchlaufen haben und wie lange sie dafür brauchten, optional aufgeschlüsselt nach Browser, Version oder Land."
+    },
+    "get_rum_paths": {
+      "title": "RUM-Pfade abrufen",
+      "description": "Nachverfolgen, welche Seiten in Sitzungen vor oder nach einer bestimmten Seite aufgerufen wurden. Zeigt die meistbesuchten Seiten pro Schritt und den Verlauf der Sitzungen."
+    },
+    "get_rum_retention": {
+      "title": "RUM-Nutzerbindung abrufen",
+      "description": "Ermitteln, wie viele der an einem Tag oder in einer Woche erstmals erfassten Personen in den jeweiligen Folgezeiträumen zurückgekehrt sind."
+    },
+    "list_continuous_profiles": {
+      "title": "Kontinuierliche Profile auflisten",
+      "description": "Metadaten kontinuierlicher Profile auflisten und nach Dienst, Typ, Trace und Label filtern."
+    },
+    "get_profile_flamegraph": {
+      "title": "Profil-Flamegraph abrufen",
+      "description": "Eine begrenzte Auswahl an Profilen zu einem Flamegraph im flamebearer-Format zusammenführen."
+    },
+    "compare_profiles": {
+      "title": "Profile vergleichen",
+      "description": "Profile aus Referenz- und Vergleichszeitraum in einem differenziellen Flamegraph gegenüberstellen. Erfordert profiling_enhanced."
+    },
+    "list_report_templates": {
+      "title": "Berichtsvorlagen auflisten",
+      "description": "Integrierte und organisationsspezifische Berichtsvorlagen auflisten."
+    },
+    "get_report_template": {
+      "title": "Berichtsvorlage abrufen",
+      "description": "Eine Berichtsvorlage anhand ihrer ID abrufen."
+    },
+    "list_scheduled_reports": {
+      "title": "Geplante Berichte auflisten",
+      "description": "Geplante Berichte der aktuellen Organisation auflisten."
+    },
+    "get_scheduled_report": {
+      "title": "Geplanten Bericht abrufen",
+      "description": "Einen geplanten Bericht anhand seiner ID abrufen."
+    },
+    "list_report_deliveries": {
+      "title": "Berichtszustellungen auflisten",
+      "description": "Einen begrenzten Ausschnitt aus dem Zustellverlauf eines geplanten Berichts auflisten."
+    },
+    "list_dashboards": {
+      "title": "Dashboards auflisten",
+      "description": "Dashboards auflisten, optional nur in einem bestimmten Ordner."
+    },
+    "get_dashboard": {
+      "title": "Dashboard abrufen",
+      "description": "Ein Dashboard samt vollständigem Modell anhand seiner ID abrufen."
+    },
+    "create_dashboard": {
+      "title": "Dashboard erstellen",
+      "description": "Ein Dashboard aus einem vollständigen, validierten Modell erstellen."
+    },
+    "update_dashboard": {
+      "title": "Dashboard aktualisieren",
+      "description": "Das Modell eines Dashboards ersetzen und das Dashboard optional in einen anderen Ordner verschieben."
+    },
+    "delete_dashboard": {
+      "title": "Dashboard löschen",
+      "description": "Ein Dashboard löschen."
+    },
+    "list_folders": {
+      "title": "Ordner auflisten",
+      "description": "Dashboard-Ordner auflisten."
+    },
+    "get_folder": {
+      "title": "Ordner abrufen",
+      "description": "Einen Dashboard-Ordner anhand seiner ID abrufen."
+    },
+    "create_folder": {
+      "title": "Ordner erstellen",
+      "description": "Einen Dashboard-Ordner erstellen."
+    },
+    "update_folder": {
+      "title": "Ordner aktualisieren",
+      "description": "Einen Dashboard-Ordner umbenennen oder verschieben."
+    },
+    "delete_folder": {
+      "title": "Ordner löschen",
+      "description": "Einen leeren Dashboard-Ordner löschen."
+    },
+    "list_annotations": {
+      "title": "Annotationen auflisten",
+      "description": "Zeitlich begrenzte Annotationen für einen Zeitraum auflisten, optional für ein bestimmtes Dashboard oder Panel."
+    },
+    "get_annotation": {
+      "title": "Annotation abrufen",
+      "description": "Eine Zeitannotation anhand ihrer ID abrufen."
+    },
+    "create_annotation": {
+      "title": "Annotation erstellen",
+      "description": "Eine Zeitannotation gemäß der konfigurierten Ausführungsrichtlinie erstellen."
+    },
+    "update_annotation": {
+      "title": "Annotation aktualisieren",
+      "description": "Ausgewählte Felder einer Zeitannotation gemäß der konfigurierten Ausführungsrichtlinie aktualisieren."
+    },
+    "delete_annotation": {
+      "title": "Annotation löschen",
+      "description": "Eine Zeitannotation gemäß der konfigurierten Ausführungsrichtlinie löschen."
+    },
+    "add_dashboard_panel": {
+      "title": "Dashboard-Panel hinzufügen",
+      "description": "Ein Panel atomar auf der obersten Ebene eines Dashboards oder in einem verschachtelten Container hinzufügen."
+    },
+    "update_dashboard_panel": {
+      "title": "Dashboard-Panel aktualisieren",
+      "description": "Ein Dashboard-Panel atomar ersetzen."
+    },
+    "move_dashboard_panel": {
+      "title": "Dashboard-Panel verschieben",
+      "description": "Ein Dashboard-Panel atomar an eine Position auf der obersten Ebene oder in einem verschachtelten Container verschieben."
+    },
+    "delete_dashboard_panel": {
+      "title": "Dashboard-Panel löschen",
+      "description": "Ein Dashboard-Panel atomar löschen."
+    },
+    "get_dashboard_capabilities": {
+      "title": "Dashboard-Funktionen abrufen",
+      "description": "Unterstützte Spezifikationen und Grenzwerte für die Dashboard-Erstellung zurückgeben."
+    },
+    "prepare_dashboard": {
+      "title": "Dashboard vorbereiten",
+      "description": "Einen temporären Dashboard-Entwurf validieren, vorab prüfen und speichern, ohne ein Dashboard zu erstellen."
+    },
+    "propose_dashboard_creation": {
+      "title": "Dashboard-Erstellung vorschlagen",
+      "description": "Eine Genehmigungsanfrage für einen bereits vorbereiteten Dashboard-Entwurf erstellen, ohne das Dashboard direkt zu erstellen."
+    },
+    "propose_operation": {
+      "title": "Vorgang vorschlagen",
+      "description": "Eine Genehmigungsanfrage für einen registrierten Vorgang erstellen, ohne ihn direkt auszuführen."
+    },
+    "propose_alert_action": {
+      "title": "Alarmaktion vorschlagen",
+      "description": "Eine Genehmigungsanfrage zum Bestätigen oder Beheben eines Alarmvorfalls erstellen."
+    },
+    "propose_synthetic_monitor_action": {
+      "title": "Aktion für synthetischen Monitor vorschlagen",
+      "description": "Eine Genehmigungsanfrage zum Ausführen, Pausieren, Fortsetzen oder Archivieren eines synthetischen Monitors erstellen."
+    },
+    "propose_status_page_action": {
+      "title": "Statusseitenaktion vorschlagen",
+      "description": "Eine Genehmigungsanfrage zum Archivieren oder Wiederherstellen einer Statusseite oder zum Pausieren oder Fortsetzen ihrer Automatisierung erstellen."
+    },
+    "propose_notification_action": {
+      "title": "Benachrichtigungsaktion vorschlagen",
+      "description": "Eine Genehmigungsanfrage erstellen, um die Zustellung einer Benachrichtigung erneut zu versuchen oder zu bestätigen."
+    },
+    "propose_scheduled_pipeline_action": {
+      "title": "Aktion für geplante Pipeline vorschlagen",
+      "description": "Eine Genehmigungsanfrage zum Aktivieren, Deaktivieren oder Löschen einer geplanten Pipeline erstellen."
+    },
+    "list_saved_views": {
+      "title": "Gespeicherte Ansichten auflisten",
+      "description": "Gespeicherte SQL- und PromQL-Ansichten auflisten."
+    },
+    "get_saved_view": {
+      "title": "Gespeicherte Ansicht abrufen",
+      "description": "Eine gespeicherte Abfrageansicht abrufen."
+    },
+    "create_saved_view": {
+      "title": "Gespeicherte Ansicht erstellen",
+      "description": "Eine gespeicherte Ansicht für SQL oder PromQL erstellen."
+    },
+    "update_saved_view": {
+      "title": "Gespeicherte Ansicht aktualisieren",
+      "description": "Eine gespeicherte Ansicht für SQL oder PromQL ersetzen."
+    },
+    "delete_saved_view": {
+      "title": "Gespeicherte Ansicht löschen",
+      "description": "Eine gespeicherte Abfrageansicht löschen."
+    },
+    "list_search_jobs": {
+      "title": "Suchjobs auflisten",
+      "description": "Eine begrenzte Liste asynchroner Suchjobs abrufen."
+    },
+    "get_search_job": {
+      "title": "Suchjob abrufen",
+      "description": "Den Status und die Ergebnis-Metadaten eines asynchronen Suchjobs abrufen."
+    },
+    "get_search_job_results": {
+      "title": "Suchergebnisse abrufen",
+      "description": "Eine Seite mit einer begrenzten Anzahl dekodierter Ergebnisse eines asynchronen Suchjobs abrufen."
+    },
+    "submit_search_job": {
+      "title": "Suchjob einreichen",
+      "description": "Einen persistenten asynchronen Suchjob für SQL oder PromQL einreichen."
+    },
+    "cancel_search_job": {
+      "title": "Suchjob abbrechen",
+      "description": "Einen ausstehenden oder laufenden asynchronen Suchjob abbrechen."
+    },
+    "retry_search_job": {
+      "title": "Suchjob erneut ausführen",
+      "description": "Einen fehlgeschlagenen oder abgebrochenen asynchronen Suchjob erneut ausführen."
+    },
+    "delete_search_job": {
+      "title": "Suchjob löschen",
+      "description": "Einen asynchronen Suchjob und sein gespeichertes Ergebnis löschen."
+    },
+    "list_scheduled_pipelines": {
+      "title": "Geplante Pipelines auflisten",
+      "description": "Geplante Pipelines und den Status ihrer letzten Ausführungen auflisten."
+    },
+    "get_scheduled_pipeline": {
+      "title": "Geplante Pipeline abrufen",
+      "description": "Eine geplante Pipeline abrufen."
+    },
+    "list_pipeline_runs": {
+      "title": "Pipeline-Ausführungen auflisten",
+      "description": "Eine begrenzte Anzahl vergangener Ausführungen einer geplanten Pipeline auflisten."
+    },
+    "enable_scheduled_pipeline": {
+      "title": "Geplante Pipeline aktivieren",
+      "description": "Eine geplante Pipeline aktivieren."
+    },
+    "disable_scheduled_pipeline": {
+      "title": "Geplante Pipeline deaktivieren",
+      "description": "Eine geplante Pipeline deaktivieren."
+    },
+    "delete_scheduled_pipeline": {
+      "title": "Geplante Pipeline löschen",
+      "description": "Eine geplante Pipeline löschen."
+    },
+    "list_functions": {
+      "title": "Funktionen auflisten",
+      "description": "Verarbeitungsfunktionen der Organisation und integrierte Verarbeitungsfunktionen auflisten."
+    },
+    "get_function": {
+      "title": "Funktion abrufen",
+      "description": "Eine Verarbeitungsfunktion einschließlich ihres Quellcodes abrufen."
+    },
+    "test_function": {
+      "title": "Funktion testen",
+      "description": "Einen begrenzten Funktionstest ohne Seiteneffekte mit den bereitgestellten Beispieldaten ausführen."
+    },
+    "create_function": {
+      "title": "Funktion erstellen",
+      "description": "Nach einer Kompilierungsprüfung eine Verarbeitungsfunktion erstellen."
+    },
+    "update_function": {
+      "title": "Funktion aktualisieren",
+      "description": "Nach einer Kompilierungsprüfung eine Verarbeitungsfunktion der Organisation ersetzen."
+    },
+    "delete_function": {
+      "title": "Funktion löschen",
+      "description": "Eine Verarbeitungsfunktion der Organisation löschen."
+    },
+    "list_enrichment_tables": {
+      "title": "Anreicherungstabellen auflisten",
+      "description": "Anreicherungstabellen bzw. KV-Tabellen auflisten."
+    },
+    "list_enrichment_rows": {
+      "title": "Anreicherungszeilen auflisten",
+      "description": "Eine begrenzte Anzahl von Zeilen einer Anreicherungstabelle auflisten."
+    },
+    "get_enrichment_value": {
+      "title": "Anreicherungswert abrufen",
+      "description": "Eine Zeile einer Anreicherungstabelle anhand ihres Schlüssels abrufen."
+    },
+    "list_log_patterns": {
+      "title": "Log-Muster auflisten",
+      "description": "Gespeicherte Log-Muster auflisten."
+    },
+    "get_log_pattern": {
+      "title": "Log-Muster abrufen",
+      "description": "Ein gespeichertes Log-Muster abrufen."
+    },
+    "list_regex_patterns": {
+      "title": "Regex-Muster auflisten",
+      "description": "Wiederverwendbare Regex-Muster auflisten."
+    },
+    "get_regex_pattern": {
+      "title": "Regex-Muster abrufen",
+      "description": "Ein wiederverwendbares Regex-Muster abrufen."
+    },
+    "list_field_masking_rules": {
+      "title": "Feldmaskierungsregeln auflisten",
+      "description": "Feldmaskierungsregeln ohne geheimes Schlüsselmaterial auflisten."
+    },
+    "get_effective_field_masking": {
+      "title": "Angewendete Feldmaskierung abrufen",
+      "description": "Ermitteln, welche Feldmaskierungsregeln für einen Stream gelten."
+    },
+    "list_data_connectors": {
+      "title": "Datenkonnektoren auflisten",
+      "description": "Datenkonnektoren auflisten und Konfigurationswerte ausblenden, die wie Zugangsdaten aussehen."
+    },
+    "get_data_connector": {
+      "title": "Datenkonnektor abrufen",
+      "description": "Einen Datenkonnektor abrufen und Konfigurationswerte ausblenden, die wie Zugangsdaten aussehen."
+    },
+    "list_synthetic_monitors": {
+      "title": "Synthetische Monitore auflisten",
+      "description": "Synthetische Monitore mit ihrem aktuellen Lebenszyklusstatus auflisten."
+    },
+    "get_synthetic_monitor": {
+      "title": "Synthetischen Monitor abrufen",
+      "description": "Einen synthetischen Monitor und seine aktive Revision abrufen."
+    },
+    "list_synthetic_revisions": {
+      "title": "Revisionen synthetischer Monitore auflisten",
+      "description": "Eine begrenzte Anzahl von Revisionen eines synthetischen Monitors auflisten."
+    },
+    "list_synthetic_results": {
+      "title": "Ergebnisse synthetischer Tests auflisten",
+      "description": "Eine begrenzte Anzahl von Ergebnissen synthetischer Testläufe auflisten."
+    },
+    "list_synthetic_locations": {
+      "title": "Standorte für synthetische Tests auflisten",
+      "description": "Standorte der Prüfagenten für synthetische Tests auflisten."
+    },
+    "list_synthetic_agents": {
+      "title": "Agenten für synthetische Tests auflisten",
+      "description": "Prüfagenten auflisten, optional nach Standort gefiltert."
+    },
+    "list_synthetic_secrets": {
+      "title": "Secrets für synthetische Tests auflisten",
+      "description": "Metadaten zu Geheimnissen für synthetische Monitore auflisten. Die geheimen Werte werden nie zurückgegeben."
+    },
+    "run_synthetic_monitor": {
+      "title": "Synthetischen Monitor ausführen",
+      "description": "Einen synthetischen Monitor sofort ausführen."
+    },
+    "pause_synthetic_monitor": {
+      "title": "Synthetischen Monitor pausieren",
+      "description": "Einen synthetischen Monitor pausieren."
+    },
+    "resume_synthetic_monitor": {
+      "title": "Synthetischen Monitor fortsetzen",
+      "description": "Einen synthetischen Monitor fortsetzen."
+    },
+    "archive_synthetic_monitor": {
+      "title": "Synthetischen Monitor archivieren",
+      "description": "Einen synthetischen Monitor archivieren."
+    },
+    "list_status_pages": {
+      "title": "Statusseiten auflisten",
+      "description": "Statusseiten nach Lebenszyklusstatus auflisten."
+    },
+    "get_status_page": {
+      "title": "Statusseite abrufen",
+      "description": "Eine Momentaufnahme der Statusseite mit Komponenten und aktuellen Ereignissen abrufen."
+    },
+    "list_status_page_incidents": {
+      "title": "Störungen der Statusseite auflisten",
+      "description": "Störungen oder Wartungsereignisse der Statusseite auflisten."
+    },
+    "get_status_page_incident": {
+      "title": "Störung der Statusseite abrufen",
+      "description": "Ein Ereignis der Statusseite samt Aktualisierungen abrufen."
+    },
+    "list_status_page_subscribers": {
+      "title": "Abonnenten der Statusseite auflisten",
+      "description": "Eine Ergebnisseite mit einer begrenzten Anzahl von Abonnenten der Statusseite auflisten."
+    },
+    "list_status_page_deliveries": {
+      "title": "Benachrichtigungszustellungen der Statusseite auflisten",
+      "description": "Eine Ergebnisseite mit einer begrenzten Anzahl von Benachrichtigungszustellungen der Statusseite auflisten."
+    },
+    "list_status_page_automation_rules": {
+      "title": "Automatisierungsregeln der Statusseite auflisten",
+      "description": "Aktive Automatisierungsregeln der Statusseite auflisten."
+    },
+    "list_status_page_automation_candidates": {
+      "title": "Automatisierungskandidaten der Statusseite auflisten",
+      "description": "Eine begrenzte Anzahl von Automatisierungskandidaten der Statusseite auflisten."
+    },
+    "get_status_page_automation_settings": {
+      "title": "Automatisierungseinstellungen der Statusseite abrufen",
+      "description": "Die Automatisierungseinstellungen einer Statusseite abrufen."
+    },
+    "archive_status_page": {
+      "title": "Statusseite archivieren",
+      "description": "Eine Statusseite archivieren."
+    },
+    "restore_status_page": {
+      "title": "Statusseite wiederherstellen",
+      "description": "Eine archivierte Statusseite wiederherstellen."
+    },
+    "pause_status_page_automation": {
+      "title": "Automatisierung der Statusseite pausieren",
+      "description": "Die Automatisierung für eine Statusseite pausieren."
+    },
+    "resume_status_page_automation": {
+      "title": "Automatisierung der Statusseite fortsetzen",
+      "description": "Die Automatisierung für eine Statusseite fortsetzen."
+    },
+    "draft_status_page_postmortem": {
+      "title": "Postmortem für die Statusseite entwerfen",
+      "description": "Den Markdown-Entwurf eines Postmortems zu einer auf der Statusseite veröffentlichten Störung erstellen oder ersetzen. Der Entwurf wird nicht veröffentlicht. Ein bereits veröffentlichtes Postmortem wird auf der Statusseite überarbeitet."
+    },
+    "get_user_profile": {
+      "title": "Benutzerprofil abrufen",
+      "description": "Unbedenkliche Profilfelder eines Benutzers der Organisation abrufen. Wenn Sie Ihr eigenes Profil abrufen, können Sie die Zielangabe weglassen. Dienstkonten müssen das Ziel angeben. Für den Zugriff auf das Profil eines anderen Benutzers ist die Leseberechtigung für Mitglieder erforderlich."
+    },
+    "get_user_preferences": {
+      "title": "Benutzereinstellungen abrufen",
+      "description": "Arbeitsbereichseinstellungen eines Organisationsmitglieds abrufen. Benutzer können die Zielangabe weglassen, um ihre eigenen Einstellungen abzurufen. Dienstkonten müssen das Ziel angeben. Für den Zugriff auf die Einstellungen anderer Benutzer ist die Leseberechtigung für Mitglieder erforderlich."
+    },
+    "list_organization_members": {
+      "title": "Organisationsmitglieder auflisten",
+      "description": "Mitglieder der authentifizierten Organisation auflisten, ohne Passwörter oder andere Anmeldedaten offenzulegen."
+    },
+    "list_teams": {
+      "title": "Teams auflisten",
+      "description": "Teams in der authentifizierten Organisation auflisten."
+    },
+    "list_roles": {
+      "title": "Rollen auflisten",
+      "description": "Rollen und Berechtigungsschlüssel in der authentifizierten Organisation auflisten."
+    },
+    "list_audit_events": {
+      "title": "Audit-Ereignisse auflisten",
+      "description": "Audit-Ereignisse der Organisation in einem begrenzten Abfragebereich abrufen, optional mit Filtern."
+    },
+    "get_iam_capabilities": {
+      "title": "IAM-Berechtigungen abrufen",
+      "description": "Eine Momentaufnahme der effektiven Berechtigungen der authentifizierten Identität zurückgeben."
+    },
+    "list_service_accounts": {
+      "title": "Dienstkonten auflisten",
+      "description": "Nicht menschliche Identitäten in der authentifizierten Organisation auflisten."
+    },
+    "get_service_account": {
+      "title": "Dienstkonto abrufen",
+      "description": "Eine einzelne nicht menschliche Identität der Organisation abrufen."
+    },
+    "list_api_tokens": {
+      "title": "API-Token auflisten",
+      "description": "Metadaten zu API-Token in der authentifizierten Organisation auflisten, ohne geheime Token-Werte offenzulegen. Optional nach Dienstkonto filtern."
+    },
+    "create_api_token": {
+      "title": "API-Token erstellen",
+      "description": "Ein persönliches API-Token für den anfragenden Benutzer erstellen und nach der Ausführung einmalig im Klartext zurückgeben."
+    },
+    "revoke_api_token": {
+      "title": "API-Token widerrufen",
+      "description": "Ein einzelnes API-Token widerrufen."
+    },
+    "create_service_account": {
+      "title": "Dienstkonto erstellen",
+      "description": "Eine nicht menschliche Identität der Organisation und das ihr zugeordnete erste API-Token in einem atomaren Vorgang erstellen. Das Token wird nach der Ausführung einmalig im Klartext zurückgegeben und nicht im Ausführungsverlauf gespeichert."
+    },
+    "update_service_account": {
+      "title": "Dienstkonto aktualisieren",
+      "description": "Die Metadaten oder die effektive IAM-Rolle eines Dienstkontos aktualisieren."
+    },
+    "enable_service_account": {
+      "title": "Dienstkonto aktivieren",
+      "description": "Ein Dienstkonto aktivieren. Bereits widerrufene API-Token bleiben widerrufen."
+    },
+    "disable_service_account": {
+      "title": "Dienstkonto deaktivieren",
+      "description": "Ein Dienstkonto deaktivieren und alle zugeordneten aktiven API-Token im selben atomaren Vorgang widerrufen."
+    },
+    "delete_service_account": {
+      "title": "Dienstkonto löschen",
+      "description": "Ein Dienstkonto löschen und alle zugeordneten aktiven API-Token im selben atomaren Vorgang widerrufen."
+    },
+    "list_agent_investigations": {
+      "title": "Agent-Untersuchungen auflisten",
+      "description": "Untersuchungen von Mole Agent auflisten."
+    },
+    "get_agent_investigation": {
+      "title": "Agent-Untersuchung abrufen",
+      "description": "Eine Untersuchung von Mole Agent mit Schritten, Belegen und Hypothesen abrufen."
+    },
+    "list_agent_approvals": {
+      "title": "Agent-Freigabeanfragen auflisten",
+      "description": "Freigabeanfragen von Mole Agent auflisten."
+    },
+    "get_agent_approval": {
+      "title": "Agent-Freigabeanfrage abrufen",
+      "description": "Eine Freigabeanfrage von Mole Agent abrufen."
+    },
+    "execute_agent_approval": {
+      "title": "Freigegebene Agent-Aktion ausführen",
+      "description": "Eine genehmigte Mole Agent-Operation idempotent ausführen."
+    },
+    "list_agent_executions": {
+      "title": "Agent-Ausführungen auflisten",
+      "description": "Ausführungen genehmigter Mole Agent-Operationen auflisten."
+    },
+    "get_agent_execution": {
+      "title": "Agent-Ausführung abrufen",
+      "description": "Eine einzelne Ausführung einer genehmigten Mole Agent-Operation abrufen."
+    },
+    "list_agent_automations": {
+      "title": "Agent-Automatisierungen auflisten",
+      "description": "Konfigurierte Mole Agent-Automatisierungen auflisten."
+    },
+    "list_skills": {
+      "title": "Skills auflisten",
+      "description": "Die in diesem Chat verfügbaren Skills mit Name, Beschreibung, Version und Argumentsyntax auflisten."
+    },
+    "load_skill": {
+      "title": "Skill laden",
+      "description": "Die Anweisungen eines Skills anhand seines Namens lesen und seine Referenzdateien auflisten."
+    },
+    "read_skill_file": {
+      "title": "Skill-Datei lesen",
+      "description": "Eine Referenzdatei eines Skills im Textformat lesen."
+    },
+    "todo_write": {
+      "title": "Aufgabenliste",
+      "description": "Die Schritte dieser Untersuchung mit ihrem jeweiligen Status festhalten. Im Chat erscheinen sie als „Schritt X von N“."
+    },
+    "ask_user": {
+      "title": "Rückfrage stellen",
+      "description": "Bei der Person nachfragen, die die Frage gestellt hat, wenn die Antwort den nächsten Schritt beeinflusst und kein anderes Tool sie ermitteln kann. Anschließend mit der Antwort fortfahren."
+    },
+    "list_knowledge": {
+      "title": "Wissensdateien auflisten",
+      "description": "Die Wissensdateien der Organisation oder eines Teams mit Pfad, Größe und Zeitpunkt der letzten Änderung auflisten."
+    },
+    "read_knowledge": {
+      "title": "Wissensdatei lesen",
+      "description": "Eine Wissensdatei anhand ihres Pfads lesen. In MOLE.md als @path angegebene Pfade verweisen auf Wissensdateien."
+    },
+    "search_knowledge": {
+      "title": "Wissensdateien durchsuchen",
+      "description": "In den Wissensdateien nach Begriffen wie einem Dienstnamen oder einem Fehler suchen und die passenden Zeilen ausgeben."
+    },
+    "edit_knowledge": {
+      "title": "Wissensdatei ändern",
+      "description": "Eine Wissensdatei im Geltungsbereich dieses Chats schreiben oder löschen. Die Person, die die Frage gestellt hat, bestätigt jede Änderung im Chat."
+    },
+    "remember": {
+      "title": "Merken",
+      "description": "Eine Präferenz, ein Vorgehen, einen Fakt oder eine Erkenntnis für spätere Chats speichern: in einem persönlichen Chat für die jeweilige Person, in einem Teamchat für das Team."
+    },
+    "forget": {
+      "title": "Vergessen",
+      "description": "Einen gespeicherten Eintrag im Geltungsbereich dieses Chats anhand seines Namens löschen."
+    },
+    "read_memory": {
+      "title": "Gespeicherten Eintrag lesen",
+      "description": "Den Inhalt eines gespeicherten Eintrags anhand seines Namens lesen."
+    },
+    "update_investigation": {
+      "title": "Untersuchung dokumentieren",
+      "description": "Die Schritte, Belege, Hypothesen und das Fazit der Untersuchung festhalten, zu der dieser Chat gehört."
+    },
+    "get_agent_insights": {
+      "title": "Mole Agent-Nutzungsübersicht abrufen",
+      "description": "Die Nutzung von Mole Agent im Geltungsbereich dieses Chats in den letzten Tagen zusammenfassen: Fragen, Ergebnisse von Antworten und Automatisierungen, Bewertungen als hilfreich oder nicht hilfreich samt Begründungen sowie verwendete Tools und Skills."
+    },
+    "get_incident_tickets": {
+      "title": "Incident-Tickets abrufen",
+      "description": "Die für einen Incident in Jira, ServiceNow oder Meegle erstellten Tickets mit ihrem Status auflisten."
+    },
+    "create_ticket": {
+      "title": "Ticket erstellen",
+      "description": "Für einen Incident über einen Jira-, ServiceNow- oder Meegle-Konnektor ein Ticket erstellen (eins pro Konnektor)."
+    },
+    "list_remediation_actions": {
+      "title": "Maßnahmen zur Fehlerbehebung auflisten",
+      "description": "Listet die für einen Vorfall verfügbaren Behebungsmaßnahmen und die jeweils benötigten Parameter auf."
+    },
+    "run_remediation_action": {
+      "title": "Behebungsmaßnahme ausführen",
+      "description": "Schlägt für einen Vorfall eine Behebungsmaßnahme vor. Sie wird erst ausgeführt, wenn jemand sie freigibt."
+    },
+    "declare_major_incident": {
+      "title": "Schwerwiegenden Vorfall ausrufen",
+      "description": "Stuft einen Vorfall als schwerwiegend ein und aktiviert Rollen, War Room, Checkliste und Statusmeldungen für Stakeholder."
+    },
+    "assign_incident_role": {
+      "title": "Vorfallsrolle zuweisen",
+      "description": "Weist bei einem schwerwiegenden Vorfall die Einsatzleitung, die Kommunikationsleitung oder die Protokollführung zu oder hebt die Zuweisung auf."
+    },
+    "post_incident_update": {
+      "title": "Statusmeldung zum Vorfall veröffentlichen",
+      "description": "Veröffentlicht eine Statusmeldung zu einem schwerwiegenden Vorfall (Auswirkungen, aktueller Stand und nächste Schritte) im War Room und sendet sie an die Stakeholder."
+    },
+    "add_incident_task": {
+      "title": "Aufgabe zum Vorfall hinzufügen",
+      "description": "Fügt der Aufgabenliste eines schwerwiegenden Vorfalls eine Aufgabe hinzu."
+    },
+    "draft_incident_postmortem": {
+      "title": "Postmortem entwerfen",
+      "description": "Speichert einen Markdown-Entwurf für das interne Postmortem eines Vorfalls. Ein bereits veröffentlichtes Postmortem bleibt unverändert."
+    },
+    "set_incident_priority": {
+      "title": "Vorfallspriorität festlegen",
+      "description": "Legt für einen aktiven Vorfall die Priorität fest (P1 bis P5 oder keine). Benachrichtigungen bleiben unverändert."
+    },
+    "set_incident_urgency": {
+      "title": "Dringlichkeit des Vorfalls festlegen",
+      "description": "Legt die Dringlichkeit eines aktiven Vorfalls fest. Wird sie auf „Hoch“ gesetzt, löst ein noch nicht bestätigter Vorfall erneut eine Alarmierung ab der ersten Eskalationsstufe aus."
+    },
+    "create_incident": {
+      "title": "Vorfall erstellen",
+      "description": "Erstellt manuell einen Vorfall für ein Problem, das keine Regel erkannt hat, etwa eine Kundenmeldung. Alarmierung und Eskalation erfolgen wie bei anderen Vorfällen. Die Routingregeln greifen, sofern weder ein Team noch eine Richtlinie oder bestimmte Personen angegeben sind."
+    },
+    "list_discovery_findings": {
+      "title": "Automatisch erkannte Auffälligkeiten auflisten",
+      "description": "Listet Auffälligkeiten auf, die ohne Regel automatisch erkannt wurden: Veränderungen bei APM-Diensten, neue Versionen mit schlechteren Werten, neue und erneut auftretende Frontend-Fehler, neue oder sprunghaft häufigere Log-Fehler sowie Hosts oder Container mit knappem Speicherplatz, sprunghaft gestiegener CPU-Last oder Neustarts. Standardmäßig werden nur offene Auffälligkeiten angezeigt."
+    },
+    "get_discovery_finding": {
+      "title": "Automatisch erkannte Auffälligkeit anzeigen",
+      "description": "Zeigt eine automatisch erkannte Auffälligkeit an: was sich geändert hat, den Messwert und seinen Referenzwert, den Beginn und die Details."
+    },
+    "get_rum_feature_flags": {
+      "title": "RUM-Feature-Flags abrufen",
+      "description": "Listet die Feature-Flags auf, die in den Sitzungen ausgewertet wurden. Vergleicht für ein einzelnes Flag die Sitzungen, Fehler, Frustrationssignale und Web Vitals nach Flag-Wert."
+    },
+    "get_rum_heatmap": {
+      "title": "RUM-Heatmap abrufen",
+      "description": "Zeigt, auf welche Seitenelemente Nutzer klicken und wie weit sie nach unten scrollen."
+    },
+    "get_rum_session_notes": {
+      "title": "Notizen zur Sitzungsaufzeichnung abrufen",
+      "description": "Zeigt die Kommentare zu einer Sitzungsaufzeichnung sowie die von einem Modell erstellte Zusammenfassung und Kapiteleinteilung."
+    }
+  },
+  "dashboard_authoring": {
+    "title": "KI-Dashboard-Entwurf",
+    "subtitle": "Prüfen Sie den gespeicherten Entwurf, die Vorabprüfung der Abfragen und den Freigabestatus, bevor Sie das Dashboard ausdrücklich erstellen.",
+    "loading_title": "Dashboard-Entwurf wird geladen",
+    "loading_description": "Das validierte und gespeicherte Vorschaumodell wird vom Server geladen.",
+    "load_failed": "Der Dashboard-Entwurf konnte nicht geladen werden",
+    "invalid_preview": "Für das Entwurfsmodell kann keine sichere Vorschau angezeigt werden",
+    "invalid_preview_description": "Das auf dem Server gespeicherte Modell erfüllt die aktuelle Dashboard-Spezifikation nicht. Kehren Sie zum Chat zurück und erstellen Sie den Entwurf erneut.",
+    "preview_title": "Schreibgeschützte Vorschau",
+    "preview_description": "Die Vorschau wird vom produktiven Dashboard Renderer angezeigt. Dabei wird kein Dashboard erstellt oder geändert.",
+    "review_title": "Prüfung vor der Erstellung",
+    "review_description": "Der Entwurf ist an diesen Modell-Hash gebunden. Nach Ablauf des Entwurfs oder bei einer Änderung des Hashs kann das Dashboard nicht mehr aus diesem Entwurf erstellt werden.",
+    "expires": "Verbleibende Zeit",
+    "expired": "Abgelaufen",
+    "created_at": "Vorbereitet am",
+    "model_hash": "Modell-Hash",
+    "preflight_range": "Zeitraum der Vorabprüfung",
+    "operation_title": "Erstellungsrichtlinie",
+    "review_progress": "{{approved}} von {{required}} erforderlichen Freigaben erteilt. Sobald alle vorliegen, ist die Erstellung möglich.",
+    "confirmation_required": "Eine separate Prüfung ist nicht nötig. Die anfragende Person muss die Erstellung dennoch ausdrücklich bestätigen.",
+    "preflight_title": "Vorabprüfung der Abfragen",
+    "preflight_rows": "{{count}} Zeilen",
+    "no_preflight_panels": "Keines der Panels in diesem Entwurf erfordert eine Vorabprüfung der Abfragen.",
+    "warnings_title": "Warnungen bei der Generierung",
+    "issues_title": "Zu behebende Probleme",
+    "retry_in_chat": "Zum Chat zurückkehren und neu generieren",
+    "open_dashboard": "Dashboard öffnen",
+    "submitting": "Wird eingereicht…",
+    "submit_proposal": "Erstellungsvorschlag einreichen",
+    "creating": "Wird erstellt…",
+    "confirm_create": "Bestätigen und erstellen",
+    "view_approval": "Freigabestatus anzeigen",
+    "creation_unavailable": "Erstellung nicht verfügbar",
+    "proposal_reason": "Die anfragende Person hat die Vorschau des auf dem Server gespeicherten Dashboard-Entwurfs geprüft.",
+    "proposal_impact": "Erstellt ein natives Dashboard, ohne bestehende Dashboards zu ändern.",
+    "proposal_created": "Der Erstellungsvorschlag wurde eingereicht. Prüfen Sie den Status gemäß der Erstellungsrichtlinie.",
+    "creation_failed": "Das Dashboard konnte nicht erstellt werden. Prüfen Sie das Ausführungsprotokoll.",
+    "created": "Dashboard erstellt.",
+    "draft_status": {
+      "ready": "Bereit zur Prüfung",
+      "consumed": "Erstellt",
+      "expired": "Abgelaufen"
+    },
+    "preflight_status": {
+      "passed": "Bestanden",
+      "empty": "Leeres Ergebnis",
+      "skipped": "Übersprungen"
+    }
+  },
+  "answer": {
+    "conclusion": "Fazit",
+    "anomaly_points": "Auffällige Datenpunkte",
+    "evidence": "Belege",
+    "likely_causes": "Wahrscheinliche Ursachen",
+    "limitations": "Einschränkungen",
+    "next_steps": "Nächste Schritte",
+    "related_links": "Zugehörige Aktionen",
+    "confidence": "Konfidenz",
+    "failed_title": "Die Untersuchung konnte nicht abgeschlossen werden",
+    "failed_description": "Mole Agent hat kein brauchbares Ergebnis erhalten. Passen Sie den Kontext an und versuchen Sie es erneut oder sehen Sie sich die technischen Fehlerdetails an.",
+    "technical_error": "Technische Fehlerdetails anzeigen",
+    "confidence_levels": {
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig"
+    }
+  },
+  "feedback": {
+    "up": "Hilfreich",
+    "withdraw_up": "„Hilfreich“ zurücknehmen",
+    "down": "Nicht hilfreich",
+    "what_was_wrong": "Was war nicht in Ordnung?",
+    "reasons_label": "Gründe",
+    "reasons": {
+      "wrong_conclusion": "Falsche Schlussfolgerung oder Ursache",
+      "missed_cause": "Problem nicht erkannt",
+      "unusable_advice": "Empfehlung nicht umsetzbar",
+      "off_topic": "Am Thema vorbei",
+      "other": "Sonstiges"
+    },
+    "comment_label": "Kommentar",
+    "comment_placeholder": "Möchten Sie etwas ergänzen? (optional)",
+    "withdraw": "Zurücknehmen",
+    "cancel": "Abbrechen",
+    "submit": "Absenden",
+    "thanks": "Vielen Dank für Ihr Feedback"
+  },
+  "chat_budget": {
+    "warning": "Mole Agent hat {{percent}} % des heutigen Limits verbraucht ({{used}} von {{limit}} Tokens). Das Limit wird um {{time}} zurückgesetzt.",
+    "exhausted": "Mole Agent hat das heutige Budget überschritten ({{used}} von {{limit}} Tokens), beantwortet aber für diese Organisation weiterhin Fragen. Das Budget wird um {{time}} zurückgesetzt.",
+    "blocked": "Das heutige Tokenbudget für Mole Agent ist aufgebraucht ({{used}} von {{limit}}). Ihre Frage wurde daher nicht gesendet. Das Budget wird um {{time}} zurückgesetzt und kann von einem Administrator erhöht werden.",
+    "open_usage": "Verbrauch anzeigen"
+  },
+  "commands": {
+    "menu_label": "Befehle",
+    "groups": {
+      "builtin": "Integriert",
+      "skill": "Skills",
+      "mcp": "MCP"
+    },
+    "applied": "{{value}} wird jetzt verwendet",
+    "exported": "{{file}} heruntergeladen",
+    "export_you": "Sie",
+    "notice": {
+      "unknown_command": "Den Befehl /{{command}} gibt es nicht. Geben Sie / ein, um die Befehle anzuzeigen. Wenn Ihr Text mit / beginnen soll, schreiben Sie stattdessen \\/.",
+      "client_command": "/{{command}} funktioniert nur im Nachrichtenfeld.",
+      "argument_missing": "/{{command}} benötigt ein Argument: {{detail}}",
+      "argument_invalid": "/{{command}} akzeptiert einen der folgenden Werte: {{detail}}",
+      "name_not_found": "/{{command}}: Es gibt keinen Eintrag namens „{{detail}}“. Wählen Sie einen Eintrag aus dem Menü.",
+      "unavailable": "/{{command}} steht Ihnen nicht zur Verfügung: {{detail}}",
+      "target_not_found": "/{{command}}: Der Incident wurde nicht gefunden oder Sie haben keinen Zugriff darauf.",
+      "nothing_to_export": "In diesem Chat gibt es noch nichts zu exportieren.",
+      "ambiguous": "Mehrere Skills heißen /{{command}}. Geben Sie das Team an: {{detail}}",
+      "needs_runner": "/{{command}} führt Skripte auf einem Mole Runner aus und kann noch nicht verwendet werden.",
+      "needs_credential": "/{{command}} verwendet Ihre eigenen Zugangsdaten. Hinterlegen Sie diese zuerst für {{detail}} in den Einstellungen von Mole Agent unter „Tools“.",
+      "failed": "/{{command}}: Der MCP-Server konnte diesen Prompt nicht bereitstellen. Versuchen Sie es später erneut oder überprüfen Sie den Server.",
+      "nothing_to_compact": "In diesem Chat gibt es noch nichts zusammenzufassen."
+    }
+  },
+  "team": {
+    "personal": "Persönlich",
+    "label": "Team"
+  },
+  "chat_filter": {
+    "label": "Chats nach Zugehörigkeit filtern",
+    "all": "Alle",
+    "personal": "Persönlich",
+    "team": "Team"
+  },
+  "scope": {
+    "field": "Gehört zu",
+    "personal": "Persönlich",
+    "org": "Organisation",
+    "team": "Team",
+    "member": "Einem Mitglied",
+    "instance": "Instanz",
+    "hint_org": "Alle in der Organisation können es verwenden. Änderungen sind nur für Administratoren von Mole Agent möglich.",
+    "hint_team": "Teammitglieder und Administratoren können es ändern. Es wird in den Chats des Teams verwendet. Wenn Sie es in einem persönlichen Chat aufrufen, wird das Team hinzugezogen.",
+    "hint_personal": "Nur Sie können es ändern und verwenden. Administratoren können es einsehen, deaktivieren und entfernen."
+  },
+  "queue_send": "Nach dieser Antwort senden",
+  "run": {
+    "queued": "In der Warteschlange",
+    "question": {
+      "title": "Frage",
+      "other": "Andere Antwort",
+      "placeholder": "Antwort eingeben",
+      "send": "Antworten"
+    },
+    "confirmation": {
+      "title": "„{{tool}}“ ausführen?",
+      "delete_title": "Löschen? „{{tool}}“ führt den Vorgang aus",
+      "approve": "Ausführen",
+      "decline": "Nicht ausführen",
+      "waiting": "Warten auf die Bestätigung von {{name}}: Das Tool wird im Namen der anfragenden Person ausgeführt."
+    },
+    "authorization": {
+      "title": "Autorisieren, um fortzufahren",
+      "needed": "{{tool}} benötigt Ihre eigenen Zugangsdaten für {{server}}. Speichern Sie sie, damit die Antwort fortgesetzt wird.",
+      "rejected": "{{server}} hat Ihre gespeicherten Zugangsdaten abgelehnt. Geben Sie neue ein, damit {{tool}} erneut ausgeführt wird.",
+      "value": "Ihre Zugangsdaten für {{server}}",
+      "placeholder": "Zugangsdaten einfügen",
+      "hint": "Werden verschlüsselt und nur für Ihre eigenen Aufrufe verwendet. Die Übertragung erfolgt im Header {{header}}.",
+      "hint_bearer": "Werden verschlüsselt und nur für Ihre eigenen Aufrufe verwendet. Die Übertragung erfolgt als Bearer <credential> im Header {{header}}.",
+      "continue": "Speichern und fortfahren",
+      "skip": "Überspringen",
+      "saved": "Zugangsdaten gespeichert. Die Antwort wird fortgesetzt.",
+      "waiting": "Warten auf die Freigabe durch {{name}}: Die Zugangsdaten gehören dieser Person."
+    },
+    "todo": {
+      "progress": "Schritt {{current}} von {{total}}"
+    },
+    "notice": {
+      "compacting": "Bisherigen Chat zusammenfassen…",
+      "compacted": "{{count}} Nachrichten wurden zusammengefasst. Künftige Antworten berücksichtigen die Zusammenfassung und die neuen Nachrichten.",
+      "compacted_auto": "Der Chat ist lang geworden. Der frühere Teil wurde zusammengefasst.",
+      "team_mounted": "Teamwissen von {{team}} geladen: Wissen, Skills und MCP-Server des Teams sind jetzt in diesem Chat verfügbar.",
+      "no_response": "Innerhalb einer Stunde kam keine Antwort. Mole Agent hat nach eigenem Ermessen weitergemacht.",
+      "memories": "{{count}} Einträge aus diesem Chat gespeichert",
+      "bypass_unavailable": "Das Agentenprofil dieses Chats erlaubt es nicht mehr, Freigaben zu umgehen. Daher fragt Mole Agent für diese Antwort vor jeder Änderung nach."
+    },
+    "memory": {
+      "remembered": "„{{name}}“ gespeichert",
+      "forgotten": "„{{name}}“ aus dem Gedächtnis entfernt",
+      "undo": "Rückgängig machen",
+      "undone": "Rückgängig gemacht"
+    },
+    "ended": {
+      "interrupted": "Die Antwort wurde unterbrochen, weil der zuständige Server nicht mehr läuft. Sie können die Antwort erneut anfordern.",
+      "cancelled": "Die Antwort wurde abgebrochen."
+    }
+  },
+  "references": {
+    "menu_title": "Anhängen",
+    "searching": "Suche läuft…",
+    "remove": "{{name}} entfernen",
+    "kinds": {
+      "incident": "Incident",
+      "alert_rule": "Alarmregel",
+      "service": "Service",
+      "rum_application": "RUM-Anwendung",
+      "dashboard": "Dashboard",
+      "stream": "Stream"
+    },
+    "what": "Geben Sie den Namen eines Incidents, einer Alarmregel, eines Service, einer RUM-Anwendung, eines Dashboards oder eines Streams ein, um das Element anzuhängen.",
+    "none": "Es gibt noch keine Incidents, Alarmregeln, Services, RUM-Anwendungen, Dashboards oder Streams zum Anhängen.",
+    "no_match": "Kein Eintrag mit dem Namen „{{query}}“ gefunden",
+    "failed": "Suche fehlgeschlagen: {{reason}}"
+  },
+  "investigate": {
+    "write_rca": "Als Ursachenanalyse (RCA) im Incident speichern",
+    "rca_written": "Als Ursachenanalyse (RCA) im Incident gespeichert",
+    "start": "Mit Mole Agent untersuchen",
+    "prefill": "Skizzieren Sie zuerst den Untersuchungsplan und führen Sie dann die Belege Punkt für Punkt auf. Nehmen Sie keine Änderungen an der Produktionsumgebung vor."
+  },
+  "knowledge": {
+    "views": {
+      "knowledge": "Wissen",
+      "memory": "Gedächtnis"
+    },
+    "bases_label": "Wissensdatenbanken",
+    "files_label": "Wissensdateien",
+    "org": "Organisation",
+    "file_count": "{{count}} Dateien",
+    "updated": "Geändert {{time}}",
+    "quota": "{{files}}/{{maxFiles}} Dateien · {{size}}/{{maxSize}}",
+    "entry_missing": "Keine MOLE.md",
+    "entry_badge": "Einstieg",
+    "stale_short": "Einstiegsdatei möglicherweise veraltet",
+    "stale": "{{count}} Dateien wurden geändert, nachdem MOLE.md geschrieben wurde. Die Einstiegsdatei ist möglicherweise veraltet.",
+    "update_entry": "MOLE.md von der KI aktualisieren lassen",
+    "update_entry_prompt": "Andere Wissensdateien wurden geändert, nachdem MOLE.md geschrieben wurde. Passen Sie MOLE.md an den aktuellen Stand an: eine Zeile pro Datei mit einem Verweis über @path und einer kurzen Beschreibung des Inhalts.",
+    "read_only": "Schreibgeschützt: Das Wissen der Organisation können nur Personen mit der Berechtigung agent.manage ändern, das Wissen eines Teams nur dessen Mitglieder.",
+    "new_file": "Neue Datei",
+    "new_file_path": "Dateipfad",
+    "new_file_hint": "Zum Beispiel runbooks/payments.md. Unterordner sind möglich.",
+    "new_entry": "Neue MOLE.md",
+    "create": "Erstellen",
+    "cancel": "Abbrechen",
+    "upload_files": "Dateien hochladen",
+    "upload_folder": "Ordner hochladen",
+    "uploaded": "{{count}} Dateien hochgeladen",
+    "skipped": "{{count}} Dateien übersprungen: {{paths}}",
+    "skip_reasons": {
+      "hidden_or_invalid_path": "ausgeblendet oder ungültiger Pfad",
+      "too_large": "größer als 1 MiB",
+      "not_text": "keine Textdatei"
+    },
+    "ask_ai": "KI",
+    "ai_prompt": "Ändern Sie die Wissensdatei {{path}}: ",
+    "ai_prompt_base": "Helfen Sie mir, dieses Wissen zu ordnen: ",
+    "init": "Mit /init erstellen",
+    "empty_title": "Noch keine Wissensdateien",
+    "empty_description": "Erstellen Sie eine MOLE.md als Einstiegsdatei und verweisen Sie mit @path auf weitere Dateien. Oder nutzen Sie /init: Mole Agent prüft die vorhandene Konfiguration, stellt Ihnen einige Fragen und erstellt jede Datei nach Ihrer Bestätigung.",
+    "select_file": "Wählen Sie eine Datei zum Lesen aus.",
+    "mode_label": "Ansicht",
+    "preview": "Vorschau",
+    "edit": "Bearbeiten",
+    "source": "Quelltext",
+    "edit_label": "{{path}} bearbeiten",
+    "source_label": "Quelltext von {{path}} bearbeiten",
+    "source_only": "Diese Datei enthält Markdown-Elemente, die der Live-Editor nicht beibehält (z. B. HTML-Kommentare). Deshalb bearbeiten Sie hier den Quelltext.",
+    "unsaved": "Ungespeicherte Änderungen",
+    "discard": "Verwerfen",
+    "save": "Speichern",
+    "saved": "Gespeichert",
+    "rename": "Umbenennen",
+    "rename_to": "Neuer Pfad",
+    "renamed": "Umbenannt",
+    "delete": "Löschen",
+    "deleting": "Wird gelöscht…",
+    "delete_title": "{{path}} löschen?",
+    "delete_confirm": "Chats greifen danach nicht mehr darauf zu. Ordner werden mitsamt ihrem Inhalt gelöscht.",
+    "deleted": "Gelöscht",
+    "new": "Neu",
+    "new_folder": "Neuer Ordner",
+    "new_folder_path": "Ordnerpfad",
+    "new_folder_hint": "Ordnername, z. B. runbooks",
+    "upload": "Hochladen",
+    "next": "Weiter",
+    "folder_first_file": "Ein Ordner wird mit seiner ersten Datei angelegt. Geben Sie den Dateinamen nach dem / ein.",
+    "ai_hint": "Datei von Mole Agent ändern lassen"
+  },
+  "memory": {
+    "scope_label": "Wessen Erinnerungen?",
+    "personal": "Meine",
+    "description": "Mole Agent merkt sich Präferenzen, Vorgehensweisen, Fakten und Erkenntnisse aus Chats. Was aus persönlichen Chats stammt, ist für Sie bestimmt, was aus Team-Chats stammt, für das Team. Die Einträge entstehen in Chats und lassen sich hier ändern oder löschen.",
+    "distill": "Wissenswertes aus Chats speichern",
+    "distill_hint": "Wenn in einem Chat eine halbe Stunde lang keine neuen Nachrichten eingehen, wählt das Modell aus, was es sich daraus merken soll. Dafür nutzt es das Modellbudget der Organisation. Standardmäßig deaktiviert. Nur mit der Berechtigung agent.manage konfigurierbar.",
+    "empty": "Noch keine Erinnerungen gespeichert. Schreiben Sie „Merken Sie sich …“ in einen Chat, damit Mole Agent es speichert.",
+    "kinds": {
+      "preference": "Präferenzen",
+      "procedure": "Vorgehensweisen",
+      "fact": "Fakten",
+      "lesson": "Erkenntnisse"
+    },
+    "kind_hints": {
+      "preference": "Haben im beschriebenen Rahmen Vorrang vor dem Standardverhalten eines Skills",
+      "procedure": "Vor der Verwendung mit dem aktuellen Stand abgeglichen",
+      "fact": "Vor der Verwendung mit dem aktuellen Stand abgeglichen",
+      "lesson": "Vor der Verwendung mit dem aktuellen Stand abgeglichen"
+    },
+    "updated": "Geändert: {{time}}",
+    "from_chat": "Ursprünglichen Chat öffnen",
+    "edit": "Ändern",
+    "edit_title": "Erinnerung ändern",
+    "kind": "Typ",
+    "name": "Name",
+    "applies_when": "Gilt, wenn",
+    "body": "Inhalt",
+    "save": "Speichern",
+    "saved": "Gespeichert",
+    "delete": "Löschen",
+    "deleting": "Wird gelöscht…",
+    "delete_title": "Erinnerung „{{name}}“ löschen?",
+    "delete_confirm": "In späteren Chats wird diese Erinnerung nicht mehr verwendet.",
+    "deleted": "Gelöscht"
+  }
+}

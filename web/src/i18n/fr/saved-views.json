@@ -1,0 +1,76 @@
+{
+  "title": "Vues enregistrées",
+  "subtitle": "Requêtes SQL ou PromQL réutilisables, partagées au sein de votre organisation.",
+  "actions": {
+    "new": "Nouvelle vue enregistrée",
+    "open": "Ouvrir",
+    "pin": "Épingler",
+    "unpin": "Désépingler",
+    "edit": "Modifier",
+    "delete": "Supprimer"
+  },
+  "kpis": {
+    "total": "Vues enregistrées",
+    "pinned": "Épinglées"
+  },
+  "list": {
+    "columns": {
+      "name": "Nom",
+      "language": "Langage",
+      "stream": "Flux",
+      "tags": "Tags",
+      "range": "Fenêtre temporelle",
+      "updated": "Dernière modification",
+      "actions": "Actions"
+    }
+  },
+  "states": {
+    "empty_title": "Aucune vue enregistrée pour le moment",
+    "empty_description": "Enregistrez une requête SQL ou PromQL pour la réutiliser lors de vos investigations."
+  },
+  "confirm": {
+    "delete_title": "Supprimer la vue enregistrée ?",
+    "delete": "Supprimer cette vue enregistrée ? Cette action est irréversible.",
+    "cancel": "Annuler"
+  },
+  "toast": {
+    "saved": "La vue « {{name}} » a été enregistrée",
+    "deleted": "Vue enregistrée supprimée"
+  },
+  "drawer": {
+    "edit_title": "Modifier la vue enregistrée",
+    "subtitle": "Nommez une requête SQL ou PromQL pour la réutiliser plus tard.",
+    "save": "Enregistrer les modifications",
+    "create": "Créer",
+    "sections": {
+      "identity": "Identification",
+      "query": "Requête",
+      "organize": "Organisation"
+    },
+    "fields": {
+      "name": "Nom",
+      "language": "Langage",
+      "range": "Fenêtre temporelle par défaut",
+      "statement": "Instruction",
+      "stream": "Flux (facultatif)",
+      "tags": "Tags",
+      "pinned": "Épingler en haut"
+    },
+    "hints": {
+      "stream": "Limite l’élagage des partitions à l’ouverture de la vue.",
+      "tags": "Séparés par des virgules."
+    }
+  },
+  "report": {
+    "time_range": "Plage temporelle",
+    "timezone": "Fuseau horaire",
+    "stream": "Flux",
+    "rows": "Lignes",
+    "rows_capped": "{{shown}} premières lignes uniquement",
+    "generated": "Généré le",
+    "results": "Résultats",
+    "empty": "Aucune ligne dans cette plage temporelle.",
+    "no_view": "Le rapport ne spécifie aucune vue enregistrée.",
+    "no_stream": "La vue enregistrée ne spécifie aucun flux et l’organisation ne dispose d’aucun flux de logs sur lequel l’exécuter."
+  }
+}

@@ -1,0 +1,468 @@
+{
+  "chrome": {
+    "org_switcher": "Organisation wechseln",
+    "user_menu": "Benutzermenü",
+    "command_palette": "Befehlspalette öffnen",
+    "toggle_theme": "Design wechseln",
+    "workspace_settings": "Arbeitsbereichseinstellungen",
+    "cycle_palette": "Zur nächsten Farbpalette wechseln (aktuell: {{current}})",
+    "select_palette": "Farbpalette auswählen (aktuell: {{current}})",
+    "cycle_language": "Zur nächsten Sprache wechseln (aktuell: {{current}})",
+    "time_picker": "Zeitraumauswahl öffnen",
+    "anchor_label": "Fixierter Zeitanker: {{time}}",
+    "close_navigation": "Navigation schließen"
+  },
+  "topbar": {
+    "search_placeholder": "Seiten · Streams · Dienste · Dashboards durchsuchen…",
+    "open_noc": "NOC-Wallboard-Modus öffnen",
+    "noc": "NOC-Wallboard",
+    "notifications": "Benachrichtigungen",
+    "help": "Hilfe",
+    "docs": "Dokumentation",
+    "keyboard_shortcuts": "Tastenkürzel",
+    "mole_agent": "Mole Agent öffnen (⌘J)",
+    "manage_organizations": "Organisationen verwalten…",
+    "organization_menu": "Organisation: {{name}}",
+    "organization_settings": "Organisationseinstellungen",
+    "members": "Mitglieder",
+    "switch_to": "Wechseln zu",
+    "membership_required": "Mitgliedschaft erforderlich",
+    "about": "Über MoleSignal"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "empty": "Keine Benachrichtigungen",
+    "pending_user": "Neues Benutzerkonto wartet auf Genehmigung",
+    "view_all": "Alle Genehmigungen anzeigen",
+    "tabs_label": "Benachrichtigungstypen",
+    "tabs": {
+      "all": "Alle",
+      "alerts": "Alarme",
+      "approvals": "Genehmigungen"
+    },
+    "mark_all_read": "Alle als gelesen markieren",
+    "unread_label_one": "Benachrichtigungen, {{count}} ungelesen",
+    "unread_label_other": "Benachrichtigungen, {{count}} ungelesen",
+    "acknowledge": "Quittieren",
+    "acknowledged": "Vorfall quittiert",
+    "incident_meta": "{{service}} · wartet seit {{age}}",
+    "no_service": "Kein Dienst",
+    "pipeline_failed": "Pipeline-Lauf fehlgeschlagen: {{name}}",
+    "agent_approval": "Mole Agent bittet um Freigabe für {{action}}",
+    "intake_budget_warning": "Budget für die Datenaufnahme fast aufgebraucht: {{name}}",
+    "intake_budget_exceeded": "Budget für die Datenaufnahme überschritten: {{name}}",
+    "intake_budget_meta": "{{percent}} % des Budgets verbraucht. Es gehen weiterhin Daten ein."
+  },
+  "user_menu": {
+    "language": "Sprache"
+  },
+  "account_settings": {
+    "title": "Kontoeinstellungen",
+    "subtitle": "Verwalten Sie Ihr Benutzerprofil und den Kontext Ihres aktuellen Arbeitsbereichs.",
+    "profile_title": "Profil",
+    "context_title": "Aktueller Kontext",
+    "avatar_hint": "Verwenden Sie eine http(s)-URL zu einem Bild. Lassen Sie das Feld leer, um Ihre Initialen anzuzeigen.",
+    "avatar_upload": "Avatar hochladen",
+    "avatar_uploading": "Wird hochgeladen…",
+    "avatar_upload_hint": "PNG, JPEG, WEBP oder GIF, bis zu 2 MB.",
+    "email_immutable_hint": "Ihre E-Mail-Adresse dient zur Anmeldung und kann nicht geändert werden.",
+    "fields": {
+      "username": "Benutzername",
+      "email": "E-Mail-Adresse",
+      "avatar_url": "Avatar-URL",
+      "user_id": "Benutzer-ID",
+      "org_name": "Organisation",
+      "org_slug": "Organisations-Slug",
+      "role": "Rolle"
+    }
+  },
+  "theme": {
+    "dark": "Dunkel",
+    "light": "Hell"
+  },
+  "palette": {
+    "default": "Standard",
+    "high_contrast": "Hoher Kontrast",
+    "warm": "Warm"
+  },
+  "palette_description": {
+    "default": "Ausgewogene dunkle Oberfläche für den Betrieb",
+    "high-contrast": "Stärkerer Kontrast für Text und Rahmen",
+    "warm": "Arbeitsbereich mit wärmeren Farben und weniger Blaulicht"
+  },
+  "density": {
+    "compact": "Kompakt",
+    "normal": "Normal",
+    "comfortable": "Komfortabel"
+  },
+  "language": {
+    "en_us": "en-us",
+    "zh_cn": "zh-cn"
+  },
+  "pages": {
+    "investigate": {
+      "empty_title": "Drücken Sie <kbd>⌘K</kbd>, um eine Untersuchung zu starten",
+      "empty_more": "Drücken Sie <kbd>⌘⌥E</kbd> für die Zeitauswahl oder <kbdSm>⌘/</kbdSm> für alle Tastenkürzel"
+    },
+    "service_graph": {
+      "subtitle": "Letzte Stunde"
+    },
+    "placeholder": {
+      "navigate_hint": "Drücken Sie <kbd>⌘K</kbd>, um zu navigieren."
+    },
+    "noc": {
+      "title": "NOC-Wallboard-Modus",
+      "status_line": "Produktion · live · letzte Stunde",
+      "utc_label": "UTC+8",
+      "return_console": "Zurück zur Konsole",
+      "esc_to_exit": "Zurück mit Esc",
+      "edit": {
+        "configure": "Layout konfigurieren",
+        "done": "Fertig",
+        "reset": "Zurücksetzen",
+        "presets": "Vorlagen",
+        "preset_platform": "Plattformbetrieb",
+        "preset_sre": "SRE",
+        "preset_executive": "Management",
+        "wide": "Breit / schmal umschalten",
+        "show_hide": "Ein- / ausblenden",
+        "move_left": "Nach vorn verschieben",
+        "move_right": "Nach hinten verschieben"
+      },
+      "panel_names": {
+        "traffic": "Traffic",
+        "incidents": "Vorfälle",
+        "topology": "Topologie",
+        "health": "Zustand"
+      },
+      "kpis": {
+        "req_per_sec": "REQ / SEC (Summe)",
+        "p95": "P95 (höchster Kantenwert)",
+        "err_rate": "Fehlerrate",
+        "edges": "Kanten",
+        "connecting": "Verbindung wird hergestellt",
+        "unavailable": "Datenproblem",
+        "no_traffic": "Kein Traffic"
+      },
+      "panels": {
+        "traffic_title": "Traffic · Top-Services · letzte 60 min",
+        "traffic_pending": "Das Traffic-Diagramm wartet auf die Anbindung von `/query` pro Ebene.",
+        "traffic_empty": "Kein Traffic. Die Abfrage war erfolgreich, aber in der letzten Stunde sind keine Serviceaufrufe eingegangen.",
+        "traffic_rate": "{{value}} req/s",
+        "data_connecting": "Verbindung zu Live-Daten wird hergestellt…",
+        "data_unavailable": "Telemetriedaten sind nicht verfügbar. Prüfen Sie den Abfragedienst und die Datenquelle.",
+        "incidents_title": "Live-Vorfälle · {{count}} aktiv",
+        "incidents_connecting": "Verbindung zu Alarmdaten wird hergestellt…",
+        "incidents_empty": "Derzeit sind keine Vorfälle aktiv.",
+        "incidents_unavailable": "Alarmdaten sind nicht verfügbar. Prüfen Sie den Alarmdienst.",
+        "topology_title": "Service-Topologie · letzte Stunde",
+        "topology_empty": "Die Abfrage war erfolgreich, hat aber für die letzte Stunde keine Serviceaufrufe gefunden.",
+        "health_title": "Servicezustand",
+        "health_empty": "Kein Service-Traffic; die Datenabfrage war erfolgreich."
+      },
+      "table": {
+        "service": "Service",
+        "qps": "QPS",
+        "p95": "P95",
+        "err_pct": "Fehler (%)"
+      },
+      "status_bar": {
+        "incidents_active": "Aktive Vorfälle",
+        "incidents_connecting": "Verbindung zu Alarmdaten wird hergestellt",
+        "incidents_unavailable": "Problem mit Alarmdaten",
+        "no_active_incidents": "Keine aktiven Vorfälle",
+        "nominal": "Normal",
+        "data_connecting": "Verbindung zu Live-Daten wird hergestellt",
+        "data_unavailable": "Telemetriedaten nicht verfügbar",
+        "no_traffic": "Abfrage OK · Kein Traffic",
+        "data_ok": "Live-Daten OK",
+        "services": "{{count}} SERVICES",
+        "req_per_sec_format": "{{value}} REQ/S",
+        "req_per_sec_empty": "Kein Traffic",
+        "p95_format": "P95 {{value}}",
+        "p95_empty": "Kein Traffic",
+        "crit": "{{count}} KRIT.",
+        "warn": "{{count}} WARN.",
+        "live": "Live"
+      },
+      "dashboard_wallboard": {
+        "title": "Dashboard-Wallboard",
+        "subtitle_suffix": "· live · konfiguriertes Dashboard",
+        "no_panels": "Für dieses Dashboard sind noch keine Panels definiert.",
+        "panels_count": "{{count}} PANELS",
+        "version": "VERSION {{version}}",
+        "panel_index": "Panel {{index}}",
+        "render_pending": "Rendering-Adapter noch ausstehend",
+        "live": "live"
+      }
+    }
+  },
+  "signin": {
+    "subtitle": "Melden Sie sich in Ihrem Arbeitsbereich an",
+    "tagline_a": "Alle Signale,",
+    "tagline_b": "eine Abfrage,",
+    "tagline_c": "eine Zeitleiste.",
+    "promise": "Beobachten Sie alles. Verstehen Sie, worauf es ankommt.",
+    "forgot_password": "Passwort vergessen?",
+    "forgot_title": "Passwort zurücksetzen",
+    "forgot_subtitle": "Geben Sie die E-Mail-Adresse Ihres Kontos ein. Wir senden Ihnen einen Link zum Zurücksetzen Ihres Passworts.",
+    "forgot_privacy_hint": "Zum Schutz Ihres Kontos zeigen wir dieselbe Meldung an, unabhängig davon, ob die E-Mail-Adresse bei uns registriert ist.",
+    "send_reset": "Link zum Zurücksetzen senden",
+    "sending_reset": "Wird gesendet…",
+    "forgot_sent_title": "Prüfen Sie Ihr E-Mail-Postfach",
+    "forgot_sent_subtitle": "Wenn {{email}} zu einem aktiven Konto gehört, erhalten Sie in Kürze einen Link zum Zurücksetzen.",
+    "forgot_sent_detail": "Der Link läuft nach 30 Minuten ab und kann nur einmal verwendet werden. Prüfen Sie Ihren Spam-Ordner, falls die E-Mail nicht ankommt.",
+    "forgot_failed": "Anfrage zum Zurücksetzen konnte nicht gesendet werden",
+    "reset_title": "Neues Passwort wählen",
+    "reset_subtitle": "Legen Sie ein neues Passwort für die Anmeldung bei Ihrem MoleSignal-Konto fest.",
+    "new_password": "Neues Passwort",
+    "confirm_password": "Neues Passwort bestätigen",
+    "password_hint": "Verwenden Sie mindestens 8 Zeichen.",
+    "password_mismatch": "Die Passwörter stimmen nicht überein.",
+    "reset_password": "Passwort aktualisieren",
+    "resetting_password": "Wird aktualisiert…",
+    "reset_success": "Passwort aktualisiert. Melden Sie sich mit Ihrem neuen Passwort an.",
+    "reset_failed": "Passwort konnte nicht zurückgesetzt werden",
+    "reset_invalid": "Dieser Link zum Zurücksetzen ist ungültig, abgelaufen oder wurde bereits verwendet. Fordern Sie einen neuen Link an.",
+    "back_to_signin": "Zurück zur Anmeldung",
+    "signing_in": "Anmeldung läuft…",
+    "email_placeholder": "name@company.com",
+    "password_placeholder": "Geben Sie Ihr Passwort ein",
+    "or": "ODER",
+    "no_account": "Noch kein Konto?",
+    "version": "v{{version}}",
+    "sso_loading": "SSO-Anbieter werden geladen…",
+    "sso_none": "Keine SSO-Anbieter konfiguriert",
+    "signup_link": "Registrieren →",
+    "link": {
+      "title": "Bestätigen Sie, dass das Konto Ihnen gehört",
+      "subtitle": "Für {{email}} besteht bereits ein MoleSignal-Konto. Bestätigen Sie, dass es Ihnen gehört. Danach melden Sie sich über {{provider}} ({{organization}}) an.",
+      "method": "Bestätigen mit",
+      "methods": {
+        "password": "Passwort",
+        "email": "Code per E-Mail"
+      },
+      "code_target": "Wir senden einen 6-stelligen Code an diese E-Mail-Adresse.",
+      "send_code": "Code senden",
+      "sending": "Wird gesendet…",
+      "send_failed": "Code konnte nicht gesendet werden",
+      "code": "Bestätigungscode",
+      "code_placeholder": "6 Ziffern",
+      "code_sent": "Code gesendet. Prüfen Sie Ihren Posteingang.",
+      "resend": "Erneut senden",
+      "resend_in": "Erneut senden in {{seconds}} s",
+      "confirm": "Bestätigen und anmelden",
+      "unavailable": "Dieses Konto hat kein Passwort und diese Instanz kann keine E-Mails versenden. Deshalb lässt sich das Konto hier nicht bestätigen. Melden Sie sich wie bisher an oder bitten Sie einen Administrator, den E-Mail-Versand einzurichten."
+    },
+    "continue_with": "Mit {{name}} fortfahren",
+    "continue_with_email": "Mit E-Mail-Adresse fortfahren",
+    "last_used": "Zuletzt verwendet",
+    "email_button": "Mit E-Mail-Adresse anmelden",
+    "email_subtitle": "Geben Sie Ihre E-Mail-Adresse ein.",
+    "password_subtitle": "Geben Sie das Passwort für dieses Konto ein.",
+    "continue": "Weiter",
+    "back": "Zurück",
+    "directory_title": "Mit {{name}} anmelden",
+    "directory_subtitle": "Geben Sie Ihren Benutzernamen für {{name}} ein.",
+    "directory_password_subtitle": "Geben Sie Ihr Passwort für {{name}} ein.",
+    "directory_username": "Benutzername",
+    "show_password": "Passwort anzeigen",
+    "hide_password": "Passwort ausblenden",
+    "passkey": "Mit Passkey fortfahren",
+    "passkey_waiting": "Warten auf den Passkey…",
+    "passkey_wrong_address": "Diese Adresse ist nicht die externe URL der Instanz. Deshalb funktionieren Passkeys hier nicht.",
+    "passkey_unknown": "Dieser Passkey ist hier nicht mehr registriert. Melden Sie sich mit Ihrem Passwort an.",
+    "mfa": {
+      "title": "Identität bestätigen",
+      "subtitle_totp": "Dieses Konto verwendet die Mehr-Faktor-Authentifizierung. Öffnen Sie Ihre Authenticator-App und geben Sie den 6-stelligen Code für MoleSignal ein.",
+      "subtitle_recovery": "Geben Sie einen noch nicht verwendeten Wiederherstellungscode ein. Jeder Code ist nur einmal gültig.",
+      "subtitle_passkey": "Dieses Konto verwendet die Mehr-Faktor-Authentifizierung. Bestätigen Sie Ihre Identität mit Ihrem Passkey.",
+      "code": "Bestätigungscode",
+      "code_placeholder": "6 Ziffern",
+      "recovery_code": "Wiederherstellungscode",
+      "recovery_placeholder": "xxxxx-xxxxx",
+      "use_recovery": "Wiederherstellungscode verwenden",
+      "use_totp": "Authenticator-App verwenden",
+      "use_passkey": "Passkey verwenden",
+      "verify": "Bestätigen und anmelden",
+      "verifying": "Wird überprüft…",
+      "verify_passkey": "Mit Passkey bestätigen",
+      "passkey_waiting": "Warten auf den Passkey…",
+      "wrong_code": "Der Code ist falsch",
+      "passkey_failed": "Der Passkey konnte nicht verifiziert werden",
+      "expired": "Dieser Anmeldeversuch ist abgelaufen. Geben Sie Ihr Passwort erneut ein.",
+      "recovery_left_one": "Wiederherstellungscode verwendet. Noch {{count}} Code verfügbar.",
+      "recovery_left_other": "Wiederherstellungscode verwendet. Noch {{count}} Codes verfügbar.",
+      "recovery_none_left": "Das war Ihr letzter Wiederherstellungscode. Erstellen Sie neue Codes unter Kontoeinstellungen → Sicherheit.",
+      "locked": "Zu viele falsche Codes. Die Anmeldung ist vorübergehend gesperrt. Versuchen Sie es später erneut."
+    },
+    "enroll": {
+      "title": "Multi-Faktor-Authentifizierung aktivieren",
+      "subtitle": "„{{organization}}“ verlangt Multi-Faktor-Authentifizierung. Wählen Sie eine Methode zur Bestätigung Ihrer Identität und setzen Sie die Anmeldung fort.",
+      "use_passkey": "Passkey verwenden",
+      "use_totp": "Authenticator-App verwenden",
+      "other_method": "Andere Methode wählen",
+      "totp_hint": "Scannen Sie den QR-Code mit Ihrer Authenticator-App oder geben Sie den Schlüssel manuell ein. Geben Sie anschließend den 6-stelligen Code aus der App ein.",
+      "qr_alt": "QR-Code für eine Authenticator-App",
+      "copy_secret": "Schlüssel kopieren",
+      "secret_copied": "Kopiert",
+      "finish_totp": "Aktivieren und anmelden",
+      "passkey_hint": "Klicken Sie auf die Schaltfläche unten und folgen Sie den Anweisungen Ihres Browsers, um einen Passkey zu erstellen. Sie können ihn in iCloud Keychain, in Google Password Manager oder auf einem Sicherheitsschlüssel speichern.",
+      "finish_passkey": "Passkey erstellen und anmelden",
+      "expired": "Diese Anmeldung ist abgelaufen. Melden Sie sich erneut an."
+    },
+    "sso_only": "Ihr Arbeitsbereich erlaubt nur Single Sign-on. Melden Sie sich über einen der unten aufgeführten Anbieter an.",
+    "limited_minutes_one": "Zu viele fehlgeschlagene Versuche. Versuchen Sie es in {{count}} Minute erneut.",
+    "limited_minutes_other": "Zu viele fehlgeschlagene Versuche. Versuchen Sie es in {{count}} Minuten erneut.",
+    "limited_seconds_one": "Zu viele fehlgeschlagene Versuche. Versuchen Sie es in {{count}} Sekunde erneut.",
+    "limited_seconds_other": "Zu viele fehlgeschlagene Versuche. Versuchen Sie es in {{count}} Sekunden erneut.",
+    "limited_with_hint": "{{wait}} {{hint}}",
+    "limited_hint": "Sie können auch Ihr Passwort zurücksetzen.",
+    "limited_hint_passkey": "Sie können sich auch mit einem Passkey anmelden oder Ihr Passwort zurücksetzen."
+  },
+  "signup": {
+    "title": "Konto erstellen",
+    "subtitle": "Geben Sie zunächst Ihre E-Mail-Adresse ein.",
+    "details_subtitle": "Geben Sie einen Namen und ein Passwort für diese E-Mail-Adresse ein.",
+    "display_name": "Name",
+    "display_name_placeholder": "Ihr Name",
+    "submit": "Konto erstellen",
+    "submitting": "Konto wird erstellt…",
+    "pending_title": "Registrierung eingereicht",
+    "pending_desc": "Ihr Konto muss noch von der Administration freigegeben werden.",
+    "failed": "Registrierung fehlgeschlagen",
+    "signin_required_title": "Konto erstellt",
+    "signin_required_desc": "Dieser Arbeitsbereich verlangt Multi-Faktor-Authentifizierung. Melden Sie sich an und folgen Sie den Schritten zur Aktivierung.",
+    "check_email_title": "Prüfen Sie Ihr E-Mail-Postfach",
+    "check_email_subtitle": "Wir senden eine E-Mail an {{email}}. Folgen Sie den Anweisungen in der E-Mail, um fortzufahren.",
+    "check_email_detail": "Der Link in der E-Mail ist 30 Minuten gültig und nur einmal verwendbar. Sehen Sie im Spam-Ordner nach, falls die E-Mail nicht ankommt.",
+    "back_to_signin": "Zurück zur Anmeldung",
+    "link_checking": "Link wird geprüft…",
+    "link_expired_title": "Dieser Link funktioniert nicht mehr",
+    "link_expired_subtitle": "Links sind 30 Minuten lang gültig und nur einmal verwendbar. Starten Sie erneut, um einen neuen Link zu erhalten.",
+    "start_again": "Erneut starten"
+  },
+  "unsupported": {
+    "title": "MoleSignal ist für breite Bildschirme ausgelegt",
+    "body": "Diese Konsole ist für SRE-Workflows am Desktop ausgelegt und benötigt eine Breite von mindestens 1024px. Wechseln Sie zu einem breiteren Bildschirm oder maximieren Sie Ihr Fenster.",
+    "width": "Aktuelle Breite: {{width}}px · mindestens 1024px"
+  },
+  "signal_reference": {
+    "types": {
+      "trace": "Trace",
+      "span": "Span",
+      "service": "Service",
+      "host": "Host",
+      "stream": "Stream"
+    },
+    "actions": {
+      "add_filter": "Zu Filtern hinzufügen",
+      "filtered": "Zu Filtern hinzugefügt",
+      "exclude_value": "Diesen Wert ausschließen",
+      "excluded": "Wert ausgeschlossen",
+      "copy_value": "Wert kopieren",
+      "copy_service": "Service-Name kopieren",
+      "copy_span_id": "Span-ID kopieren",
+      "copy_trace_id": "Trace-ID kopieren",
+      "copied": "Kopiert"
+    },
+    "relations": {
+      "exact": "Exakte Übereinstimmung",
+      "context": "Kontextübereinstimmung"
+    },
+    "jumps": {
+      "open_trace": "Aktuellen Trace öffnen",
+      "open_traces": "Traces öffnen",
+      "trace_logs": "Trace-Logs anzeigen",
+      "span_logs": "Span-Logs anzeigen",
+      "service_metrics": "Service-Metriken anzeigen",
+      "similar_traces": "Ähnliche Traces anzeigen",
+      "service_traces": "Traces für diesen Service anzeigen",
+      "service_logs": "Logs für diesen Service anzeigen",
+      "host_metrics": "Metriken für diesen Host anzeigen",
+      "matching_logs": "Logs mit passenden Labels anzeigen",
+      "open_stream": "Stream öffnen",
+      "stream_metrics": "Metriken öffnen",
+      "stream_traces": "Traces aus diesem Stream anzeigen",
+      "stream_profiles": "Profile aus diesem Stream anzeigen",
+      "stream_logs": "Logs aus diesem Stream anzeigen"
+    }
+  },
+  "context_bar": {
+    "label": "Untersuchung",
+    "frames": "Frames",
+    "resume": "Untersuchung fortsetzen",
+    "clear": "Zurücksetzen",
+    "remove_filter": "Filter entfernen",
+    "from_trace": "Aus Trace {{id}}",
+    "back_to_trace": "Zurück zu den Trace-Details"
+  },
+  "subnav": {
+    "collapse": "Menü einklappen",
+    "expand": "Menü ausklappen"
+  },
+  "agent_panel": {
+    "title": "Mole Agent",
+    "close": "Schließen",
+    "open_full": "Vollständigen Chat öffnen",
+    "context_label": "Kontext",
+    "loading": "Mole Agent wird geladen…"
+  },
+  "about": {
+    "updates": {
+      "menu": "Neue Version verfügbar",
+      "available": "Neue Version verfügbar: v{{version}}",
+      "checking": "Suche nach Updates…",
+      "unavailable": "Suche nach Updates nicht möglich",
+      "current": "Sie sind auf dem neuesten Stand",
+      "stale": "Das Ergebnis der letzten erfolgreichen Suche wird angezeigt. GitHub ist derzeit nicht erreichbar.",
+      "notes": "Versionshinweise und Downloads",
+      "check": "Nach Updates suchen",
+      "cooldown": "Die Update-Suche nutzt einen gemeinsamen Cache. Manuelle Suchen aktualisieren ihn höchstens einmal alle 5 Minuten."
+    },
+    "title": "Info",
+    "accessible_title": "Über MoleSignal",
+    "subtitle": "Eine Observability-Plattform für Logs, Metriken, Traces und Performance-Analysen.",
+    "version": "Version",
+    "edition": "Edition",
+    "commit": "Commit-Hash",
+    "build_id": "Build-ID",
+    "branch": "Build-Branch",
+    "built": "Build-Zeitpunkt",
+    "time_with_zone": "{{time}} ({{zone}})",
+    "copy_diagnostics": "Diagnoseinformationen kopieren",
+    "diagnostics_copied": "Diagnoseinformationen kopiert",
+    "copied": "Kopiert",
+    "editions": {
+      "community": "Open-Source-Edition",
+      "enterprise": "Enterprise-Edition",
+      "oss": "Open-Source-Edition",
+      "pro": "Enterprise-Edition",
+      "saas": "Enterprise-Edition"
+    }
+  },
+  "not_found": {
+    "title": "Seite nicht gefunden",
+    "description": "Die gesuchte Seite existiert nicht oder wurde möglicherweise verschoben.",
+    "back_home": "Zurück zur Startseite",
+    "suggestions": "Vielleicht suchen Sie nach"
+  },
+  "route_error": {
+    "title": "Auf dieser Seite ist ein Fehler aufgetreten",
+    "description": "Beim Anzeigen dieser Seite ist ein Fehler aufgetreten. Andere Seiten sind nicht betroffen.",
+    "stale_title": "Eine neue Version ist verfügbar",
+    "stale_description": "Diese Seite wurde aktualisiert, während Sie sie geöffnet hatten. Laden Sie die Seite neu, um die neue Version zu sehen.",
+    "reload": "Seite neu laden",
+    "home": "Zurück zur Startseite",
+    "copy_report": "Fehlerbericht kopieren",
+    "copied": "Kopiert"
+  },
+  "access_denied": {
+    "title": "Sie haben keinen Zugriff auf diese Seite",
+    "description": "Ihre Rolle ({{role}}) erlaubt keinen Zugriff auf {{page}}. Die Administration Ihrer Organisation kann Ihnen Zugriff gewähren.",
+    "go_on": "Zu einer Seite wechseln, auf die Sie Zugriff haben",
+    "copy_request": "Zugriffsanfrage kopieren",
+    "copied": "Kopiert",
+    "request_text": "Bitte gewähren Sie mir Zugriff auf {{page}} in MoleSignal ({{path}}). Meine aktuelle Rolle ist {{role}}."
+  }
+}

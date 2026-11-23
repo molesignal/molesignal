@@ -1,0 +1,1025 @@
+{
+  "nav": {
+    "label": "Benachrichtigungsverwaltung",
+    "root": "Benachrichtigungen",
+    "connectors": "Konnektoren",
+    "users": "Benutzer",
+    "policies": "Richtlinien",
+    "defaults": "Fallback-Routen",
+    "deliveries": "Zustellungen",
+    "templates": "Vorlagen"
+  },
+  "common": {
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "configured": "Konfiguriert",
+    "not_configured": "Nicht konfiguriert",
+    "verified": "Verifiziert",
+    "unverified": "Nicht verifiziert",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "test": "Testnachricht senden",
+    "verify": "Verifizieren",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "loading": "Wird geladen…",
+    "loading_error": "Benachrichtigungsdaten konnten nicht geladen werden",
+    "json_error": "{{field}} muss gültiges JSON enthalten.",
+    "saved": "Benachrichtigungseinstellungen gespeichert",
+    "deleted": "Benachrichtigungseintrag gelöscht",
+    "test_sent": "Testnachricht gesendet",
+    "test_failed": "Zustellung der Testnachricht fehlgeschlagen"
+  },
+  "connector_types": {
+    "email_smtp": "E-Mail (SMTP)",
+    "slack_app": "Slack-App",
+    "slack_webhook": "Slack-Webhook",
+    "lark_app": "Lark-App",
+    "lark_webhook": "Lark-Webhook",
+    "dingtalk_app": "DingTalk-App",
+    "dingtalk_webhook": "DingTalk-Webhook",
+    "wecom_app": "WeCom-App",
+    "wecom_webhook": "WeCom-Webhook",
+    "wecom_bot": "Intelligenter WeCom-Bot",
+    "teams_app": "Microsoft Teams-Bot",
+    "teams_webhook": "Microsoft Teams-Webhook",
+    "google_chat_app": "Google Chat-App",
+    "google_chat_webhook": "Google Chat-Webhook",
+    "aliyun_voice": "Alibaba Cloud-Sprachanrufe",
+    "aliyun_sms": "Alibaba Cloud-SMS",
+    "tencent_voice": "Tencent Cloud-Sprachanrufe",
+    "tencent_sms": "Tencent Cloud-SMS",
+    "huawei_voice": "Huawei Cloud-Sprachanrufe",
+    "huawei_sms": "Huawei Cloud-SMS",
+    "twilio_voice": "Twilio-Sprachanrufe",
+    "twilio_sms": "Twilio-SMS",
+    "aws_voice": "AWS-Sprachanrufe",
+    "aws_sms": "AWS-SMS",
+    "http_sms": "Generische HTTP-SMS",
+    "webhook": "Webhook",
+    "telegram_bot": "Telegram-Bot",
+    "discord_webhook": "Discord-Webhook",
+    "mattermost_bot": "Mattermost-Bot",
+    "mattermost_webhook": "Mattermost-Webhook",
+    "webex_bot": "Webex-Bot",
+    "webex_webhook": "Webex-Webhook",
+    "matrix_bot": "Matrix-Bot",
+    "twilio_whatsapp": "WhatsApp über Twilio",
+    "aws_sns": "Amazon SNS",
+    "pagerduty": "PagerDuty"
+  },
+  "connector_channels": {
+    "im": "Instant Messaging",
+    "phone": "Telefonanrufe",
+    "sms": "SMS",
+    "email": "E-Mail",
+    "webhook": "Integrationen",
+    "other": "Sonstige"
+  },
+  "capabilities": {
+    "directUser": "Einzelne Benutzer",
+    "group": "Gruppe",
+    "richText": "Formatierter Text",
+    "interactive": "Interaktiv",
+    "acknowledgement": "Bestätigung",
+    "attachments": "Anhänge"
+  },
+  "connectors": {
+    "title": "Konnektoren",
+    "subtitle": "Verwalten Sie die Zugangsdaten des Workspace getrennt von Empfängern und Routing.",
+    "new": "Neuer Konnektor",
+    "empty_title": "Keine Konnektoren",
+    "empty_description": "Fügen Sie einen Konnektor hinzu, bevor Sie Benutzerendpunkte oder Ausweichrouten verknüpfen.",
+    "columns": {
+      "name": "Name",
+      "type": "Typ",
+      "capabilities": "Funktionen",
+      "last_test": "Letzter Test",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "status": {
+      "unknown": "Unbekannt",
+      "connected": "Verbunden",
+      "error": "Fehler",
+      "disabled": "Deaktiviert"
+    },
+    "drawer": {
+      "new_title": "Neuer Konnektor",
+      "edit_title": "{{name}} bearbeiten",
+      "subtitle": "Zugangsdaten werden verschlüsselt gespeichert und nie im Klartext zurückgegeben.",
+      "identity": "Konnektor",
+      "configuration": "Anbieterkonfiguration",
+      "name": "Name",
+      "type": "Konnektortyp",
+      "enabled": "Versand über diesen Konnektor erlauben",
+      "test_target": "Testziel",
+      "target_type": "Zieltyp",
+      "target": "Ziel",
+      "test_template": "Testvorlage",
+      "test_template_hint": "Dieser Anbieter versendet nur Nachrichten aus freigegebenen Vorlagen. Beim Test wird diese Vorlage mit Beispielwerten für die Platzhalter gesendet.",
+      "test_template_none": "Für diesen Anbieter gibt es noch keine Vorlage für {{channel}}. Erstellen Sie eine unter „Benachrichtigungsvorlagen“.",
+      "test_card_hint": "Wählen Sie eine Chatvorlage aus, um die zugehörige Karte mit Beispielwerten für die Platzhalter zu senden. Ohne Vorlage wird eine einfache Testnachricht gesendet.",
+      "test_without_template": "Keine Vorlage",
+      "save": "Konnektor speichern",
+      "test": "Verbindung testen",
+      "save_before_test": "Speichern Sie diesen Konnektor, bevor Sie eine Testnachricht senden.",
+      "field": {
+        "host": "SMTP-Host",
+        "port": "Port",
+        "username": "Benutzername",
+        "password": "Passwort",
+        "from": "Absenderadresse",
+        "tls": "TLS-Modus",
+        "timeoutSecs": "Timeout (Sekunden)",
+        "bodyFormat": "Nachrichtenformat",
+        "body": "Nachrichteninhalt",
+        "phoneFormat": "Rufnummernformat",
+        "successField": "Feld für Erfolgsstatus",
+        "successValue": "Wert für Erfolgsstatus",
+        "botToken": "Bot-Token",
+        "clientId": "Client-ID",
+        "clientSecret": "Client-Secret",
+        "apiBaseUrl": "API-Basis-URL",
+        "webhookUrl": "Webhook-URL",
+        "appId": "App-ID",
+        "appSecret": "AppSecret",
+        "receiveIdType": "Typ der Empfänger-ID",
+        "secret": "Signatur-Secret",
+        "url": "Standard-URL",
+        "method": "HTTP-Methode",
+        "headers": "Header (JSON)",
+        "appToken": "Token auf App-Ebene",
+        "robotCode": "Robotercode",
+        "cardTemplateId": "ID der Kartenvorlage",
+        "corpId": "Unternehmens-ID",
+        "corpSecret": "App-Secret",
+        "agentId": "AgentId",
+        "callbackToken": "Callback-Token",
+        "callbackAesKey": "EncodingAESKey",
+        "tenantId": "Mandanten-ID",
+        "serviceUrl": "Dienst-URL",
+        "credentials": "Dienstkontoschlüssel (JSON)",
+        "botId": "Bot-ID",
+        "botSecret": "Secret für dauerhafte Verbindung",
+        "wsUrl": "Adresse für dauerhafte Verbindung",
+        "pubsubBaseUrl": "Pub/Sub-URL",
+        "subscription": "Pub/Sub-Abonnement",
+        "accessKeyId": "AccessKey-ID",
+        "secretId": "SecretId",
+        "sdkAppId": "App-ID (SdkAppId)",
+        "appKey": "AppKey",
+        "signature": "Signaturname",
+        "accessKeySecret": "AccessKey-Secret",
+        "showNumber": "Angezeigte Rufnummer",
+        "signName": "Signatur",
+        "playTimes": "Anzahl der Wiedergaben",
+        "accountSid": "Konto-SID",
+        "authToken": "Authentifizierungstoken",
+        "fromNumber": "Absenderrufnummer",
+        "language": "Sprache",
+        "voice": "Stimme",
+        "sender": "Absender",
+        "region": "Region",
+        "site": "Plattform",
+        "cloud": "Cloud",
+        "auth": "Authentifizierung",
+        "accessKey": "Zugriffsschlüssel-ID",
+        "secretKey": "Geheimer Zugriffsschlüssel",
+        "sessionToken": "Sitzungstoken",
+        "roleArn": "Rollen-ARN",
+        "originationIdentity": "Absenderidentität",
+        "voiceId": "Polly-Stimme",
+        "externalId": "Externe ID",
+        "signingSecret": "Signaturgeheimnis",
+        "replies": "Antworten verarbeiten",
+        "replyTopicArn": "SNS-Themen-ARN für Antworten",
+        "avatarUrl": "Avatar-URL",
+        "serverUrl": "Server-URL",
+        "homeserverUrl": "Homeserver-URL",
+        "accessToken": "Zugriffstoken",
+        "topicArn": "Themen-ARN",
+        "routingKey": "Integrationsschlüssel",
+        "loginBaseUrl": "Anmelde-URL"
+      },
+      "hints": {
+        "slack_app": "Das Bot-Token dient zum Senden von Benachrichtigungen. Mit Client-ID und Client-Secret können Besucher einer Statusseite diese zu ihren eigenen Slack-Kanälen hinzufügen. Wählen Sie dazu diesen Konnektor in den Slack-Einstellungen der Seite aus. Richten Sie mindestens eine der beiden Optionen ein. Mit dem App-Token (xapp-) kann Mole Agent über Socket Mode in Slack antworten.",
+        "lark_app": "Wenn die App Ereignisse über eine dauerhafte Verbindung empfängt, kann Mole Agent auch in Feishu antworten. Aktivieren Sie die App unter Mole Agent → Einstellungen → IM.",
+        "dingtalk_app": "Der Bot einer internen App. Wenn der Bot keinen eigenen Code hat, dient die Client-ID als Bot-Code. Als direktes Ziel dient eine Benutzer-ID, als Gruppenziel eine openConversationId. Wenn der Bot Nachrichten über Stream empfängt, kann Mole Agent auch in DingTalk antworten. Damit Alarmbenachrichtigungen die Schaltflächen „Bestätigen“ und „Beheben“ enthalten, erstellen Sie wie in der Dokumentation beschrieben eine interaktive Kartenvorlage auf der DingTalk-Kartenplattform, tragen Sie deren ID hier ein und aktivieren Sie den Bot unter Mole Agent → Einstellungen → IM.",
+        "dingtalk_webhook": "Ein benutzerdefinierter Bot einer Gruppe. Geben Sie das Signaturgeheimnis ein, wenn der Bot Anfragen signiert.",
+        "wecom_app": "Für eine selbst erstellte App benötigen Sie die Unternehmens-ID, das App-Secret und die AgentId. Als direktes Ziel dient die Benutzer-ID eines Mitglieds, als Gruppenziel eine App-Chat-ID. Fügen Sie die Serveradresse zur Liste der vertrauenswürdigen IP-Adressen der App hinzu. Damit Alarmbenachrichtigungen an Mitglieder die Schaltflächen „Bestätigen“ und „Beheben“ enthalten, richten Sie in der App unter „Nachrichten empfangen“ den Empfang per API ein. Geben Sie das generierte Token und den EncodingAESKey hier ein und speichern Sie. Tragen Sie anschließend die unten angezeigte Callback-URL in der App ein.",
+        "wecom_webhook": "Die Webhook-Adresse eines Gruppenbots.",
+        "wecom_bot": "Für einen intelligenten WeCom-Bot im API-Modus mit dauerhafter Verbindung benötigen Sie die Bot-ID und das Secret für diese Verbindung. Sobald Sie den Bot unter Mole Agent → Einstellungen → IM aktivieren, kann Mole Agent in WeCom antworten. Der Bot sendet dann auch Benachrichtigungen und fügt Alarmbenachrichtigungen die Schaltflächen „Bestätigen“ und „Beheben“ hinzu. Als direktes Ziel dient die userid eines Mitglieds, als Gruppenziel die chatid eines Chats. Der Bot erreicht nur Personen, die ihm direkt geschrieben haben, und Chats, in denen er erwähnt wurde.",
+        "teams_app": "Für einen Bot auf Basis von Bot Framework benötigen Sie die App-ID, ein Client-Secret und den Mandanten (botframework.com bei älteren mehrmandantenfähigen Bots). Wählen Sie die Cloud aus: Global, GCC oder eine der US-Regierungsclouds GCC High und DoD. Daraus ergibt sich die Dienst-URL. Als direktes Ziel dient eine Benutzer-ID, als Gruppenziel eine Konversations-ID. Der Bot muss für die Personen und Teams installiert sein, denen er Nachrichten sendet. Damit Mole Agent auch in Teams antworten kann, aktivieren Sie den Bot unter Mole Agent → Einstellungen → IM und tragen Sie die dort angezeigte Callback-Adresse als Nachrichtenendpunkt des Azure Bot ein.",
+        "teams_webhook": "Ein Kanal-Webhook aus einem Flow in Workflows oder ein klassischer eingehender Webhook. Nachrichten werden als Adaptive Cards gesendet.",
+        "google_chat_app": "Fügen Sie den JSON-Schlüssel des Dienstkontos einer Chat-App ein. Als Gruppenziel dient ein Bereich (spaces/…), als direktes Ziel ein Benutzer (users/…), der der App bereits geschrieben hat. Mit einem Pub/Sub-Abonnement (projects/…/subscriptions/…) kann Mole Agent auch in Google Chat antworten. Aktivieren Sie die App unter Mole Agent → Einstellungen → IM.",
+        "google_chat_webhook": "Die Adresse eines eingehenden Webhooks für einen Bereich.",
+        "aliyun_voice": "Anrufe sind nur an Rufnummern auf dem chinesischen Festland möglich. Beantragen Sie in der Konsole von Alibaba Cloud Voice Service eine Text-to-Speech-Vorlage (TTS_…). Tragen Sie deren Code und Variablen in eine Benachrichtigungsvorlage für Anrufe ein und wählen Sie diese Vorlage in den Benachrichtigungsrichtlinien für den Telefonkanal aus. Lassen Sie die Absenderrufnummer im gemeinsamen Modus leer oder geben Sie im dedizierten Modus Ihre eigene Rufnummer ein. Die Vorlage muss zum gewählten Modus passen. Dieselbe Rufnummer wird höchstens einmal pro Minute, 5-mal pro Stunde und 20-mal pro Tag angerufen.",
+        "aliyun_sms": "Beantragen Sie in der Konsole von Alibaba Cloud SMS eine Signatur und eine Benachrichtigungsvorlage (SMS_…). Geben Sie die Signatur hier ein. Tragen Sie den Vorlagencode und die Variablen in eine SMS-Benachrichtigungsvorlage ein und wählen Sie diese Vorlage in den Benachrichtigungsrichtlinien für den SMS-Kanal aus. Eine Variable in einer Benachrichtigungsvorlage ist standardmäßig auf 35 Zeichen begrenzt und darf keine Links oder IP-Adressen enthalten.",
+        "tencent_voice": "Erstellen Sie in der Tencent Cloud Voice Message-Konsole eine App und beantragen Sie eine Sprachvorlage. Tragen Sie die Vorlagen-ID und die Variablen in eine Telefon-Benachrichtigungsvorlage ein. Benennen Sie die Variablen entsprechend ihrer Position mit 1, 2, 3 und wählen Sie diese Vorlage in den Benachrichtigungsrichtlinien für den Telefonkanal aus. Sprachanrufe werden im Voraus bezahlt: Ist das Paket aufgebraucht, werden Anrufe abgelehnt. Der Fehler wird bei der Zustellung angezeigt.",
+        "tencent_sms": "Erstellen Sie in der Tencent Cloud SMS-Konsole eine App und beantragen Sie eine Signatur und eine Vorlage. Geben Sie hier den Signaturtext ein (für Festlandchina erforderlich). Tragen Sie die Vorlagen-ID und die Variablen in eine SMS-Benachrichtigungsvorlage ein und benennen Sie die Variablen entsprechend ihrer Position mit 1, 2, 3. Bei Konten, die nach dem 25. Januar 2024 eröffnet wurden oder lange inaktiv waren, sind standardmäßig 6 Zeichen pro Variable zulässig. Sobald Tencent Cloud das Limit erhöht, tragen Sie das neue Limit in die Benachrichtigungsvorlage ein.",
+        "huawei_voice": "Erstellen Sie in der Huawei Cloud VoiceCall-Konsole eine App, bestellen Sie eine Festnetznummer und reichen Sie eine Sprachvorlage ein. AppKey, AppSecret und App-Adresse finden Sie unter App Management. Kopieren Sie die Adresse unverändert, da sie über keine API abrufbar ist. Die Anrufer-ID besteht aus Ländervorwahl, Ortsvorwahl und Rufnummer. Tragen Sie die Vorlagen-ID und die Variablen in eine Telefon-Benachrichtigungsvorlage ein und benennen Sie die Variablen entsprechend ihrer Position mit 1, 2, 3. Pro Variable sind 32 Byte zulässig; ein chinesisches Zeichen belegt 3 Byte.",
+        "huawei_sms": "Erstellen Sie in der Huawei Cloud Message & SMS-Konsole eine App und richten Sie eine Signatur und eine Vorlage ein. AppKey, AppSecret und App-Adresse finden Sie unter App Management. Kopieren Sie die Adresse unverändert, da sie über keine API abrufbar ist. Als Absender dient die Kanalnummer der Signatur. Bei einer universellen Vorlage ist zusätzlich der Signaturname erforderlich. Tragen Sie die Vorlagen-ID und die Variablen in eine SMS-Benachrichtigungsvorlage ein und benennen Sie die Variablen entsprechend ihrer Position mit 1, 2, 3.",
+        "twilio_voice": "Die Anrufernummer ist eine für Sprachanrufe freigeschaltete Rufnummer des Kontos, z. B. +14155550100. Geben Sie die Sprache als Sprach-Tag an, z. B. en-US oder cmn-CN, und die Stimme mit einem Namen wie Polly.Joanna oder Polly.Zhiyu. Bleibt das Feld für die Stimme leer, verwendet Twilio seine Standardstimme.",
+        "twilio_sms": "Als Absender dient eine Rufnummer des Kontos, ein Messaging Service (MG…) oder eine alphanumerische Absender-ID. Für SMS an US-Rufnummern ist vorab eine A2P 10DLC-Registrierung erforderlich.",
+        "aws_voice": "AWS End User Messaging versendet Sprachnachrichten, die Amazon Polly vorliest. Als Absenderidentität dient eine für Sprachanrufe freigeschaltete Rufnummer, ein Pool oder die jeweilige ARN. Wenn Sie keine Polly-Stimme angeben, wird MATTHEW verwendet, für Mandarin ZHIYU. Ein Konto in der Sandbox kann nur verifizierte Rufnummern anrufen. Wählen Sie eine für das Konto aktivierte Region. Zum Auflisten der Regionen ist ec2:DescribeRegions erforderlich.",
+        "aws_sms": "AWS End User Messaging versendet Transaktions-SMS. Ohne Absenderidentität wählt AWS eine zum Ziel passende Rufnummer des Kontos. Alternativ können Sie eine Rufnummer, eine Absender-ID oder einen Pool angeben. Ein Konto in der Sandbox kann SMS nur an verifizierte Rufnummern senden. Wählen Sie eine für das Konto aktivierte Region. Zum Auflisten der Regionen ist ec2:DescribeRegions erforderlich.",
+        "http_sms": "Leitet SMS an Ihr eigenes SMS-Gateway oder an einen Anbieter ohne eigenen Connector weiter. Verwenden Sie Platzhalter in der Gateway-URL, in den Headern und im Body: {{phone}} steht für die Rufnummer, {{content}} für den Nachrichtentext (Titel- und Textzeile, bis zu 320 Zeichen), {{title}} für den Titel, {{text}} für den Text und {{secret}} für den unten angegebenen, verschlüsselt gespeicherten Geheimwert. In einem JSON-Body werden Werte nach JSON-Regeln maskiert, in Formulardaten oder in der URL werden sie URL-kodiert. Bei einer 2xx-Antwort gilt die SMS als gesendet. Ist ein Erfolgsfeld angegeben, muss dessen Wert zusätzlich mit dem Erfolgswert übereinstimmen.",
+        "webhook": "Jede Anfrage enthält X-MoleSignal-Event (Benachrichtigungstyp) und X-MoleSignal-Delivery (Zustell-ID zum Verwerfen von Duplikaten). Ist ein Signaturschlüssel hinterlegt (mindestens 16 Zeichen, z. B. mit openssl rand -hex 32 erzeugt), enthält sie außerdem X-MoleSignal-Timestamp und X-MoleSignal-Sign: sha256=<hex>. Die Signatur ist der mit dem Schlüssel berechnete HMAC-SHA256 von \"<timestamp>.<body>\". Verbindungen werden nur zu Adressen aufgebaut, zu denen der Hostname aufgelöst wird. Adressen von Cloud-Metadatendiensten werden blockiert, und Weiterleitungen werden nicht verfolgt.",
+        "telegram_bot": "Erstellen Sie in Telegram mit @BotFather einen Bot (/newbot) und geben Sie den erhaltenen Token als Bot-Token ein. Für ein Direktziel geben Sie die numerische Benutzer-ID an. Die Person muss dem Bot zuvor /start gesendet haben. Für ein Gruppenziel geben Sie die Chat-ID einer Gruppe oder eines Kanals (negativ, bei Supergruppen und Kanälen mit dem Präfix -100…) oder den @username eines Kanals an. Fügen Sie den Bot der Gruppe hinzu oder machen Sie ihn zum Administrator des Kanals. Sobald Sie die Integration unter Mole Agent → Einstellungen → IM aktivieren, antwortet Mole Agent auch in Telegram und Alarmbenachrichtigungen enthalten die Schaltflächen „Bestätigen“ und „Beheben“.",
+        "discord_webhook": "Erstellen Sie unter Integrationen → Webhooks einen Webhook für den Discord-Kanal und kopieren Sie seine URL. Anzeigename und Avatar-URL sind optional. Wenn Sie die Felder leer lassen, gelten die Einstellungen des Webhooks. Nachrichten werden als Embed gesendet und erwähnen niemanden.",
+        "mattermost_bot": "Erlauben Sie in der Mattermost-Systemkonsole das Erstellen von Bot-Konten. Legen Sie dann unter Integrationen → Bot-Konten ein Konto an und geben Sie dessen Zugriffstoken als Bot-Token ein. Die Server-URL ist die Adresse Ihrer Mattermost-Instanz, z. B. https://chat.example.com. Für ein Direktziel geben Sie einen Benutzernamen (mit oder ohne @) oder eine Benutzer-ID an. Für ein Gruppenziel geben Sie eine Kanal-ID oder team-name/channel-name an und fügen den Bot dem Team und dem Kanal hinzu. Wenn die externe URL eingerichtet ist, enthalten Alarmbenachrichtigungen die Schaltflächen „Bestätigen“ und „Beheben“. Wer darauf klickt, wird anhand der für diesen Connector hinterlegten Benachrichtigungsmethode identifiziert. Liegt die externe URL in einem internen Netzwerk, fügen Sie sie in der Mattermost-Systemkonsole unter „Allow untrusted internal connections“ hinzu.",
+        "mattermost_webhook": "Fügen Sie in Mattermost unter Integrationen → Eingehende Webhooks einen eingehenden Webhook für den Kanal hinzu.",
+        "webex_bot": "Erstellen Sie auf developer.webex.com unter My Webex Apps einen Bot und geben Sie dessen Zugriffstoken als Bot-Token ein. Für ein Direktziel geben Sie die E-Mail-Adresse des Webex-Kontos der Person oder ihre Personen-ID an. Für ein Gruppenziel geben Sie die ID eines Bereichs (Raums) an und fügen den Bot dem Bereich hinzu. Nachrichten werden als Adaptive Cards gesendet.",
+        "webex_webhook": "Geben Sie die URL ein, die die Integration Incoming Webhooks im Webex App Hub bereitstellt (https://webexapis.com/v1/webhooks/incoming/…). Nachrichten gehen an den Bereich, den Sie beim Erstellen des Webhooks ausgewählt haben.",
+        "matrix_bot": "Geben Sie für das Matrix-Bot-Konto die Homeserver-URL (z. B. https://matrix.org) und den Zugriffstoken des Kontos an. Melden Sie sich dazu in Element mit dem Konto an. Den Token finden Sie unter Einstellungen → Hilfe und Über → Erweitert. Für ein Gruppenziel geben Sie eine Raum-ID (!…) oder einen Raumalias (#…) an. Der Bot muss bereits im Raum sein oder ihm beitreten können. Für ein Direktziel geben Sie eine Benutzer-ID (@name:server) an. Der Bot erstellt einen Raum für die Direktunterhaltung und lädt die Person ein. Nachrichten werden nicht verschlüsselt.",
+        "twilio_whatsapp": "Sendet WhatsApp-Nachrichten über Twilio. Als Absender dient eine für WhatsApp freigeschaltete Rufnummer im E.164-Format (z. B. +14155550100) oder ein Messaging Service (MG…). Unternehmen können eine Unterhaltung auf WhatsApp nur mit einer von WhatsApp genehmigten Vorlage beginnen. Erstellen Sie im Content Template Builder von Twilio eine Vorlage und lassen Sie sie für WhatsApp genehmigen. Tragen Sie dann die Content SID (HX…) und die Variablen in den WhatsApp-Abschnitt einer SMS-Benachrichtigungsvorlage ein. Benennen Sie die Variablen entsprechend ihrer Position mit 1, 2, 3 und wählen Sie die Vorlage in den Benachrichtigungsrichtlinien für den SMS-Kanal aus.",
+        "aws_sns": "Veröffentlicht Benachrichtigungen in einem Amazon SNS-Thema. Dessen Abonnements leiten sie an Lambda, SQS, HTTPS-Endpunkte oder per E-Mail weiter. Die ARN des Themas hat das Format arn:aws:sns:us-east-1:123456789012:alerts. Wählen Sie die Region des Themas aus. Zum Auflisten der Regionen ist ec2:DescribeRegions erforderlich, zum Veröffentlichen sns:Publish und bei einem verschlüsselten Thema zusätzlich kms:GenerateDataKey und kms:Decrypt. Nachrichten enthalten die Attribute event_type und severity für die Filterrichtlinien der Abonnements. Ein FIFO-Thema (.fifo) gruppiert Nachrichten nach Alarm und verwirft doppelte Zustellungen.",
+        "pagerduty": "PagerDuty Events API v2: Fügen Sie auf der Registerkarte Integrations des Dienstes eine Events API V2-Integration hinzu und geben Sie hier den Integrationsschlüssel (Routing-Schlüssel) ein. Wählen Sie EU, wenn sich das Konto in der EU-Dienstregion befindet. Wird ein MoleSignal-Alarm ausgelöst oder eskaliert, löst er einen PagerDuty-Alarm aus. Dieser wird zusammen mit dem MoleSignal-Alarm bestätigt und behoben. Pro MoleSignal-Alarm werden Duplikate unterdrückt."
+      },
+      "options": {
+        "auth": {
+          "access_key": "Zugriffsschlüssel",
+          "temporary_key": "Temporärer Schlüssel",
+          "node_role": "Knotenidentität",
+          "assume_role": "Rolle übernehmen",
+          "web_identity": "Web-Identität",
+          "password": "Benutzername und Passwort",
+          "microsoft": "Microsoft 365 (OAuth 2.0)",
+          "google": "Google Workspace (OAuth 2.0)"
+        },
+        "site": {
+          "feishu": "Feishu",
+          "lark": "Lark",
+          "slack": "Slack",
+          "govslack": "GovSlack"
+        },
+        "cloud": {
+          "global": "Global",
+          "gcc": "GCC",
+          "gcc_high": "GCC High",
+          "dod": "DoD"
+        },
+        "method": {
+          "post": "POST",
+          "put": "PUT",
+          "patch": "PATCH",
+          "get": "GET"
+        },
+        "bodyFormat": {
+          "json": "JSON",
+          "form": "Formular (x-www-form-urlencoded)"
+        },
+        "phoneFormat": {
+          "e164": "+8613800138000 (E.164)",
+          "digits": "8613800138000 (ohne +)",
+          "mainland": "13800138000 (Festlandchina, ohne Ländervorwahl)"
+        },
+        "body": {
+          "event": "MoleSignal-Ereignis",
+          "template": "Inhalt der Benachrichtigungsvorlage"
+        },
+        "region": {
+          "us": "US",
+          "eu": "EU"
+        }
+      },
+      "option_hints": {
+        "auth": {
+          "access_key": "Ein langlebiger Zugriffsschlüssel eines IAM-Benutzers. Erteilen Sie dem Benutzer nur die nötigen Berechtigungen: sms-voice:SendTextMessage für SMS, sms-voice:SendVoiceMessage für Anrufe, sns:Publish zum Veröffentlichen in einem SNS-Thema und ec2:DescribeRegions zum Auflisten der Regionen.",
+          "temporary_key": "Ein kurzlebiger Zugriffsschlüssel von AWS STS, der nur zusammen mit seinem Sitzungstoken gültig ist. Nach Ablauf funktioniert er nicht mehr und muss hier ersetzt werden.",
+          "node_role": "Es wird kein Schlüssel gespeichert. MoleSignal nutzt die Identität des Knotens, auf dem es ausgeführt wird: EKS IRSA oder Pod Identity, eine ECS-Aufgabenrolle oder ein EC2-Instance-Profil. Jede Organisation in dieser Bereitstellung kann diese Option auswählen.",
+          "assume_role": "MoleSignal übernimmt diese Rolle über AWS STS. Wenn Sie einen Zugriffsschlüssel angeben, verwendet MoleSignal diesen, andernfalls die Identität des Knotens. Die Vertrauensrichtlinie der Rolle muss die jeweilige Identität zulassen und die unten angegebene externe ID voraussetzen.",
+          "web_identity": "MoleSignal übernimmt diese Rolle mit dem Webidentitätstoken auf dem Knoten, etwa dem Dienstkontotoken, das EKS für IRSA bereitstellt. Der Pfad steht in AWS_WEB_IDENTITY_TOKEN_FILE.",
+          "password": "Benutzername und Kennwort des SMTP-Kontos. Falls der E-Mail-Anbieter einen Autorisierungscode oder ein App-Kennwort verlangt, verwenden Sie diesen Code bzw. dieses Kennwort.",
+          "microsoft": "Versendet E-Mails über OAuth 2.0 im Namen eines Postfachs in der globalen Microsoft 365-Cloud. Registrieren Sie eine App in Microsoft Entra ID und erteilen Sie ihr mit Administratorzustimmung die Anwendungsberechtigung SMTP.SendAsApp für Office 365 Exchange Online. Anschließend registriert ein Exchange-Administrator den Dienstprinzipal der App und erteilt ihm die Sendeberechtigung für das Postfach. Mandanten-ID und Client-ID finden Sie auf der Seite „Übersicht“ der App. Erstellen Sie den geheimen Clientschlüssel unter „Zertifikate und Geheimnisse“. Verwenden Sie das Absenderpostfach als Benutzernamen. Server: smtp.office365.com, Port 587, STARTTLS.",
+          "google": "Versendet E-Mails über OAuth 2.0 im Namen eines Google Workspace-Postfachs. Erstellen Sie ein Dienstkonto und fügen Sie dessen JSON-Schlüssel ein. Autorisieren Sie in der Google Admin-Konsole unter „Domainweite Delegierung“ die numerische Client-ID des Dienstkontos für den Berechtigungsbereich https://mail.google.com/. Verwenden Sie das Absenderpostfach in Ihrer Domain als Benutzernamen. Server: smtp.gmail.com, Port 587, STARTTLS."
+        },
+        "cloud": {
+          "gcc_high": "Cloud für US-Behörden: Die Token stammen von login.microsoftonline.us. Nachrichten an Mole Agent werden vom Bot Framework für US-Behörden geprüft.",
+          "dod": "Cloud für US-Behörden: Die Token stammen von login.microsoftonline.us. Nachrichten an Mole Agent werden vom Bot Framework für US-Behörden geprüft."
+        },
+        "site": {
+          "govslack": "Slack für US-Behörden: Die API und die Autorisierung für die Statusseite laufen über slack-gov.com."
+        },
+        "body": {
+          "event": "Sendet das Ereignis in maschinenlesbarer Form: Version, Ereignis, Alarm, Regel und Eskalation sowie das Ziel und die gerenderte Nachricht. Felder werden nur hinzugefügt, nie entfernt.",
+          "template": "Sendet den Inhalt der Vorlage, die die Benachrichtigungsrichtlinie für den Webhook-Kanal auswählt, wie er in der Vorlage steht. JSON-Vorlagen werden als JSON gesendet, wobei ihre Werte maskiert werden."
+        },
+        "region": {
+          "eu": "Für PagerDuty-Konten, deren Adresse auf .eu.pagerduty.com endet."
+        }
+      },
+      "switch_hints": {
+        "replies": {
+          "twilio_sms": "Wer eine Alarm-SMS erhält, kann einen Tag lang mit dem jeweiligen Code antworten, z. B. mit 31 zum Quittieren oder 32 zum Beheben. Antworten werden im Namen und mit den Berechtigungen der empfangenden Person verarbeitet.",
+          "aws_sms": "Wer eine Alarm-SMS erhält, kann einen Tag lang mit dem jeweiligen Code antworten, z. B. mit 31 zum Quittieren oder 32 zum Beheben. Antworten werden im Namen und mit den Berechtigungen der empfangenden Person verarbeitet und per bidirektionaler SMS über SNS empfangen.",
+          "http_sms": "Wer eine Alarm-SMS erhält, kann einen Tag lang mit dem jeweiligen Code antworten, z. B. mit 31 zum Quittieren oder 32 zum Beheben. Antworten werden im Namen und mit den Berechtigungen der empfangenden Person verarbeitet. Das Gateway muss eingehende Antworten weiterleiten.",
+          "aliyun_sms": "Alibaba Cloud sendet nur genehmigte Vorlagen. Fügen Sie die Variablen reply.ack und reply.resolve in die Vorlagenparameter ein. Die empfangende Person kann einen Tag lang mit diesen Codes antworten, um den Alarm zu quittieren oder zu beheben. Antworten werden in ihrem Namen und mit ihren Berechtigungen verarbeitet.",
+          "twilio_voice": "Wer den Anruf annimmt, drückt 1 zum Quittieren oder 2 zum Beheben. Die Aktion erfolgt im eigenen Namen und mit den eigenen Berechtigungen.",
+          "aliyun_voice": "Die Anrufe erfolgen per interaktivem Sprachdialog (IvrCall). Wer den Anruf annimmt, drückt 1 zum Quittieren oder 2 zum Beheben. Als angezeigte Rufnummer ist eine für IvrCall erworbene Rufnummer erforderlich.",
+          "tencent_sms": "Tencent Cloud sendet nur genehmigte Vorlagen. Fügen Sie die Variablen reply.ack und reply.resolve in die Vorlagenparameter ein. Die empfangende Person kann einen Tag lang mit diesen Codes antworten, um den Alarm zu quittieren oder zu beheben. Antworten werden in ihrem Namen und mit ihren Berechtigungen verarbeitet.",
+          "tencent_voice": "Wer den Anruf annimmt, drückt 1 zum Quittieren oder 2 zum Beheben. Die Vorlage muss diese Anweisungen enthalten und der Callback für Tasteneingaben muss in der Konsole aktiviert sein. Eine Tasteneingabe gilt für den letzten Anruf an diese Nummer.",
+          "huawei_sms": "Huawei Cloud sendet nur genehmigte Vorlagen. Fügen Sie die Variablen reply.ack und reply.resolve in die Vorlagenparameter ein. Die empfangende Person kann einen Tag lang mit diesen Codes antworten, um den Alarm zu quittieren oder zu beheben. Antworten werden in ihrem Namen und mit ihren Berechtigungen verarbeitet.",
+          "huawei_voice": "Nach der Wiedergabe der Vorlage wird eine einzelne Tasteneingabe erfasst. Wer den Anruf annimmt, drückt 1 zum Quittieren oder 2 zum Beheben. Die Vorlage muss diese Anweisungen enthalten.",
+          "twilio_whatsapp": "WhatsApp sendet nur genehmigte Vorlagen. Fügen Sie reply.ack und reply.resolve als Vorlagenvariablen ein. Die empfangende Person kann einen Tag lang mit diesen Codes antworten, um den Alarm zu quittieren oder zu beheben. Antworten werden in ihrem Namen und mit ihren Berechtigungen verarbeitet."
+        }
+      },
+      "type_fields": {
+        "http_sms": {
+          "url": "Gateway-URL",
+          "secret": "Geheimschlüssel"
+        },
+        "twilio_voice": {
+          "replies": "Tasteneingaben verarbeiten"
+        },
+        "aliyun_voice": {
+          "replies": "Tasteneingaben verarbeiten"
+        },
+        "tencent_voice": {
+          "replies": "Tasteneingaben verarbeiten",
+          "secretKey": "SecretKey"
+        },
+        "tencent_sms": {
+          "secretKey": "SecretKey"
+        },
+        "huawei_voice": {
+          "replies": "Auf Tasteneingaben reagieren",
+          "apiBaseUrl": "App-Adresse"
+        },
+        "huawei_sms": {
+          "apiBaseUrl": "App-Adresse",
+          "sender": "Kanalnummer"
+        },
+        "discord_webhook": {
+          "username": "Anzeigename"
+        },
+        "twilio_whatsapp": {
+          "sender": "WhatsApp-Absender"
+        },
+        "aws_sns": {
+          "body": "Nachricht"
+        },
+        "pagerduty": {
+          "region": "Dienstregion"
+        }
+      },
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copy_external_id": "Externe ID kopieren",
+      "external_id_hint": "Diese Organisation verwendet diese unveränderliche externe ID, um Rollen zu übernehmen. Schreiben Sie die ID in der Vertrauensrichtlinie der Rolle mit der Bedingung sts:ExternalId vor. So kann keine andere Organisation die Rolle übernehmen, selbst wenn sie deren ARN kennt.",
+      "address_by_region": "Durch die Region vorgegeben",
+      "regions_loading": "Regionen werden beim Anbieter abgefragt…",
+      "regions_need_credentials": "Geben Sie die Zugangsdaten ein, um die für dieses Konto aktivierten Regionen anzuzeigen.",
+      "regions_failed": "Regionen konnten nicht abgerufen werden: {{error}}",
+      "callbacks": {
+        "label": "Callback-URL",
+        "after_save": "Wird hier angezeigt, sobald der Konnektor gespeichert ist.",
+        "no_external_url": "Der Server hat keine externe URL. Der Anbieter kann daher keinen Callback senden.",
+        "per_call": "Die URL für Tasteneingaben wird bei jedem Anruf an Twilio übermittelt. Sie müssen nichts konfigurieren.",
+        "hints": {
+          "twilio_sms": "Wählen Sie in den Messaging-Einstellungen der Twilio-Nummer unter „A message comes in“ die Option „Webhook“ aus und geben Sie diese URL mit der Methode HTTP POST an.",
+          "aws_sms": "Fügen Sie dem SNS-Thema, das die Antworten empfängt, ein HTTPS-Abonnement mit diesem Endpunkt hinzu. Das Abonnement wird automatisch bestätigt.",
+          "aliyun_sms": "Konfigurieren Sie Alibaba Cloud SMS so, dass eingehende Nachrichten per HTTP an diese URL gesendet werden.",
+          "aliyun_voice": "Konfigurieren Sie Alibaba Cloud Voice so, dass Rückmeldungen per HTTP an diese URL gesendet werden. Dort gehen auch Tasteneingaben ein.",
+          "tencent_sms": "Hinterlegen Sie diese URL in der Tencent Cloud SMS-Konsole in den Callback-Einstellungen für Antworten.",
+          "tencent_voice": "Hinterlegen Sie diese URL in der Tencent Cloud Voice Message-Konsole in den Ereignis-Callback-Einstellungen für Tasteneingaben.",
+          "huawei_sms": "Geben Sie diese URL beim Erstellen der SMS-App als Adresse für eingehende Nachrichten an. Das letzte Segment der URL ist das Callback-Token.",
+          "huawei_voice": "Geben Sie diese URL unter „App Management“ als Adresse für den Anrufstatus an. Das letzte Segment der URL ist das Callback-Token.",
+          "http_sms": "Konfigurieren Sie das Gateway so, dass es empfangene Antworten per HTTP POST als JSON mit den Feldern phone und text an diese URL sendet.",
+          "wecom_app": "Richten Sie in der App unter „Receive messages“ den Empfang per API ein. Verwenden Sie diese URL und übernehmen Sie das Token und den EncodingAESKey aus den beiden obigen Feldern. Die Domain der URL muss in einer ICP-Registrierung des Unternehmens aufgeführt sein.",
+          "twilio_whatsapp": "Hinterlegen Sie in Twilio diese URL als Webhook für eingehende Nachrichten des WhatsApp-Absenders (oder seines Messaging Service) und wählen Sie HTTP POST."
+        }
+      }
+    },
+    "delete_title": "Konnektor löschen?",
+    "delete_description": "Ein Konnektor kann erst gelöscht werden, wenn alle Endpunkte, Richtlinien und Ausweichrouten, die ihn verwenden, umgestellt wurden."
+  },
+  "users": {
+    "title": "Benutzerbenachrichtigungen",
+    "subtitle": "Verknüpfen Sie Anbieteridentitäten und legen Sie die Zustellreihenfolge je Kategorie fest.",
+    "empty_title": "Keine Benutzer im Arbeitsbereich",
+    "empty_description": "Mitglieder des Arbeitsbereichs werden hier angezeigt, sobald sie der Organisation beigetreten sind.",
+    "columns": {
+      "user": "Benutzer",
+      "endpoints": "Verknüpfte Endpunkte",
+      "alert": "Primärkanal für Alarme",
+      "oncall": "Primärkanal für Rufbereitschaft",
+      "report": "Primärkanal für Berichte",
+      "status": "Status"
+    },
+    "drawer_title": "Benachrichtigungseinstellungen · {{name}}",
+    "drawer_subtitle": "Verwalten Sie Identitäten, Zustellreihenfolge, Ruhezeiten und Tests."
+  },
+  "endpoints": {
+    "title": "Benachrichtigungsidentitäten",
+    "description": "Jede Identität gehört zu genau einem Konnektor.",
+    "add": "Benachrichtigungsmethode verknüpfen",
+    "empty": "Keine Benachrichtigungsidentitäten verknüpft.",
+    "identity": "Externe Identität",
+    "display_name": "Bezeichnung",
+    "connector": "Konnektor",
+    "enabled": "Diesen Endpunkt verwenden",
+    "verified": "Endpunkt als verifiziert bestätigen",
+    "new_title": "Benachrichtigungsmethode verknüpfen",
+    "edit_title": "Benachrichtigungsmethode bearbeiten",
+    "save": "Endpunkt speichern",
+    "delete_title": "Endpunkt löschen?",
+    "delete_description": "Entfernen Sie diesen Endpunkt zuerst aus allen Zustelleinstellungen.",
+    "phone_hint": "Geben Sie eine Telefonnummer mit + und Landesvorwahl ein, z. B. +14155550100. Die Konnektoren für Alibaba Cloud, Tencent Cloud, Huawei Cloud und generische HTTP-SMS-Dienste akzeptieren auch eine elfstellige Mobilfunknummer vom chinesischen Festland.",
+    "identity_hints": {
+      "telegram_bot": "Geben Sie die numerische Telegram-Benutzer-ID ein, nicht den @username. @userinfobot zeigt die eigene ID an. Die Person muss den Bot zuerst in Telegram öffnen und auf „Start“ tippen. Erst dann kann der Bot ihr Nachrichten senden.",
+      "mattermost_bot": "Geben Sie den Mattermost-Benutzernamen in Kleinbuchstaben mit oder ohne @ oder die 26-stellige Benutzer-ID ein. Bei Klicks auf Schaltflächen in Karten wird die Identität mit diesem Wert abgeglichen.",
+      "webex_bot": "Geben Sie die E-Mail-Adresse des Webex-Kontos oder die zugehörige Webex-Personen-ID ein.",
+      "matrix_bot": "Geben Sie eine Matrix-Benutzer-ID ein, z. B. @name:matrix.org. Bei der ersten Benachrichtigung lädt der Bot die Person in einen privaten Chatraum ein. Sobald sie die Einladung annimmt, sieht sie die Nachrichten.",
+      "twilio_whatsapp": "Geben Sie eine WhatsApp-Nummer mit + und Landesvorwahl ein, z. B. +14155550100."
+    }
+  },
+  "preferences": {
+    "title": "Zustelleinstellungen",
+    "description": "Die Zustellung wird zuerst in der gewählten Reihenfolge versucht. Erst danach greifen die Ausweichoptionen des Teams und der Organisation.",
+    "alert": "Alarmereignisse",
+    "oncall": "Rufbereitschaftsereignisse",
+    "report": "Berichte",
+    "escalation": "Alarmeskalation",
+    "security": "Sicherheit",
+    "system": "System",
+    "enabled": "Benachrichtigungen dieser Kategorie erhalten",
+    "endpoint_order": "Reihenfolge der Endpunkte",
+    "move_up": "Schritt nach oben verschieben",
+    "move_down": "Schritt nach unten verschieben",
+    "no_endpoints": "Verknüpfen Sie einen Endpunkt, bevor Sie diese Kategorie konfigurieren.",
+    "quiet_enabled": "Ruhezeiten verwenden",
+    "timezone": "Zeitzone",
+    "start": "Beginn (HH:MM)",
+    "end": "Ende (HH:MM)",
+    "save": "{{category}} speichern",
+    "wait_label": "Minuten bis Schritt {{step}}",
+    "wait_unit": "Min. später",
+    "wait_hint": "Die Benachrichtigung im ersten Schritt wird sofort gesendet. Für jeden weiteren Schritt zählt die angegebene Wartezeit ab der ersten Benachrichtigung. Der Schritt wird nur ausgeführt, wenn bis dahin niemand den Alarm bestätigt hat. Hat ein Schritt dieselbe Wartezeit wie der vorherige, wird er nur ausgeführt, wenn der Versand im vorherigen Schritt fehlschlägt. Schlägt der Versand fehl, folgt der nächste Schritt immer sofort.",
+    "high_urgency_steps": "Alarme mit hoher Dringlichkeit (Reihenfolge)",
+    "low_urgency_steps": "Alarme mit niedriger Dringlichkeit (Reihenfolge)",
+    "low_urgency_hint": "Wenn Sie die Liste leer lassen, wird nur die erste Methode oben verwendet.",
+    "high_urgency_bypass": "Alarme mit hoher Dringlichkeit auch während der Ruhezeiten erhalten",
+    "quiet_low_urgency": "Alarme mit niedriger Dringlichkeit werden während der Ruhezeiten nicht gesendet.",
+    "add_step": "Schritt hinzufügen: {{method}}",
+    "remove_step": "Schritt {{step}} entfernen",
+    "boost_label": "Dringende Zusatzbenachrichtigung für Schritt {{step}}",
+    "boosts": {
+      "default": {
+        "none": "Nicht dringend",
+        "app": "Dringend per App",
+        "sms": "Dringend per SMS",
+        "phone": "Dringend per Anruf"
+      },
+      "lark_app": {
+        "none": "Kein Buzz",
+        "app": "Buzz in der App",
+        "sms": "Buzz per SMS",
+        "phone": "Buzz per Anruf"
+      },
+      "dingtalk_app": {
+        "none": "Kein DING",
+        "app": "DING in der App",
+        "sms": "DING per SMS",
+        "phone": "DING per Anruf"
+      }
+    },
+    "boost_hint": "Bei einer dringenden Zusatzbenachrichtigung folgt auf die Nachricht ein Alarm in der App, eine SMS oder ein Anruf.",
+    "boost_wait_hint": "Bei einer dringenden Zusatzbenachrichtigung folgt auf die Nachricht ein Alarm in der App, eine SMS oder ein Anruf. Sie können dieselbe Methode zweimal mit unterschiedlichen Zusatzbenachrichtigungen einsetzen: zuerst eine Nachricht und, wenn sie innerhalb von 5 Minuten niemand bestätigt hat, erneut dieselbe Methode mit einem zusätzlichen Anruf.",
+    "boost_notes": {
+      "lark_app": "In der internationalen Version von Lark funktioniert Buzz nur in der App.",
+      "dingtalk_app": "Für DING benötigen Sie DingTalk Professional oder Exclusive. Für DING per SMS oder Anruf ist ein kostenpflichtiges Kontingent erforderlich."
+    }
+  },
+  "event_types": {
+    "alert": {
+      "triggered": "Alarm ausgelöst",
+      "acknowledged": "Alarm bestätigt",
+      "resolved": "Alarm behoben",
+      "escalated": "Alarm eskaliert"
+    },
+    "oncall": {
+      "shift": {
+        "starting": "Bereitschaftsschicht beginnt",
+        "started": "Bereitschaftsschicht begonnen"
+      },
+      "override": {
+        "created": "Ausnahme im Bereitschaftsplan erstellt"
+      },
+      "coverage": {
+        "missing": "Bereitschaft nicht besetzt"
+      },
+      "swap": {
+        "updated": "Schichttausch aktualisiert"
+      },
+      "member": {
+        "unreachable": "Person im Bereitschaftsdienst nicht erreichbar"
+      }
+    },
+    "incident": {
+      "status_update": "Statusmeldung zu einem schwerwiegenden Vorfall"
+    },
+    "agent": {
+      "approval": {
+        "requested": "Freigabe für Mole Agent angefordert"
+      }
+    }
+  },
+  "resolver_types": {
+    "alert_owner": "Für den Alarm zuständige Person",
+    "current_oncall": "Aktuell im Bereitschaftsdienst",
+    "event_users": "Im Ereignis angegebene Benutzer",
+    "fixed_users": "Ausgewählte Benutzer",
+    "next_oncall": "Als Nächstes im Bereitschaftsdienst",
+    "schedule_members": "Mitglieder des Bereitschaftsplans",
+    "team_lead": "Teamleitung",
+    "team_members": "Teammitglieder"
+  },
+  "policies": {
+    "title": "Benachrichtigungsrichtlinien",
+    "subtitle": "Filtern Sie Ereignisse, ermitteln Sie Empfänger, stellen Sie Benachrichtigungen nach den Zustellpräferenzen zu und eskalieren Sie bei ausbleibender Bestätigung.",
+    "new": "Neue Richtlinie",
+    "empty_title": "Keine Benachrichtigungsrichtlinien",
+    "empty_description": "Erstellen Sie eine Richtlinie, um Geschäftsereignissen Empfänger und Zustellwege zuzuordnen.",
+    "columns": {
+      "name": "Richtlinie",
+      "event": "Ereignis",
+      "recipient": "Empfängerermittlung",
+      "delivery": "Zustellung",
+      "fallback": "Ausweichoptionen",
+      "status": "Status"
+    },
+    "drawer": {
+      "new_title": "Neue Benachrichtigungsrichtlinie",
+      "edit_title": "{{name}} bearbeiten",
+      "subtitle": "Die Vorschau ermittelt die tatsächlichen Empfänger im Arbeitsbereich und ihre Zustellwege, ohne Benachrichtigungen zu senden.",
+      "trigger": "1 · Auslöser",
+      "recipient": "2 · Empfänger",
+      "delivery": "3 · Zustellung",
+      "failure": "4 · Fehler und Eskalation",
+      "preview": "Live-Vorschau der Zustellung",
+      "name": "Name",
+      "event_type": "Ereignistyp",
+      "category": "Kategorie",
+      "priority": "Priorität",
+      "matchers": "Filterbedingungen (JSON)",
+      "resolver": "Empfängerermittlung",
+      "resolver_config": "Konfiguration der Empfängerermittlung (JSON)",
+      "delivery_mode": "Zustellmodus",
+      "template": "Allgemeine Vorlage",
+      "template_hint": "Kanäle ohne eigene Vorlage verwenden diese Vorlage. Sie wird mit den Attributen des Ereignisses ausgefüllt.",
+      "default_template": "Generierte Ereignismeldung verwenden",
+      "channel_templates": "Vorlagen nach Kanal",
+      "use_general_template": "Allgemeine Vorlage verwenden",
+      "connectors": "Ausgewählte Konnektoren",
+      "user_fallbacks": "Fallback-Endpunkte des Benutzers verwenden",
+      "team_defaults": "Fallback-Routen des Teams verwenden",
+      "organization_defaults": "Fallback-Routen der Organisation verwenden",
+      "merge_window": "Benachrichtigungen bündeln",
+      "merge_window_hint": "Alarmbenachrichtigungen an dieselbe Person oder Gruppe werden innerhalb des Zeitfensters gebündelt: Die erste wird sofort gesendet, die übrigen gemeinsam am Ende des Zeitfensters. Für Anrufe beträgt das Zeitfenster mindestens 60 Sekunden. Webhooks werden nie gebündelt.",
+      "merge_off": "Nicht bündeln",
+      "merge_seconds_one": "{{count}} Sekunde",
+      "merge_seconds_other": "{{count}} Sekunden",
+      "merge_minutes_one": "{{count}} Minute",
+      "merge_minutes_other": "{{count}} Minuten",
+      "ack_timeout": "Wartezeit auf Bestätigung (Sekunden)",
+      "escalation_resolver": "Eskalations-Resolver",
+      "escalation_config": "Konfiguration des Eskalations-Resolvers (JSON)",
+      "escalation_delivery": "Zustellmodus bei Eskalation",
+      "escalation_connectors": "Konnektoren für Eskalationen",
+      "event_attributes": "Attribute des Vorschauereignisses (JSON)",
+      "preview_event": "Vorschauereignis",
+      "preview_waiting": "Füllen Sie die Pflichtfelder aus, damit der Zustellplan ermittelt werden kann.",
+      "ack_disabled": "Lassen Sie das Feld leer, um die Eskalation zu deaktivieren",
+      "refresh_preview": "Vorschau aktualisieren",
+      "matched": "Richtlinie trifft zu",
+      "not_matched": "Richtlinie trifft nicht zu",
+      "no_recipients": "Keine Empfänger ermittelt.",
+      "resolved_by": "Ermittelt von {{resolver}}",
+      "step_template": "Vorlage: {{name}}",
+      "save": "Richtlinie speichern",
+      "restore": "Standard wiederherstellen",
+      "builtin_name_hint": "Der Name einer integrierten Richtlinie kann nicht geändert werden.",
+      "time_hint": "Maßgeblich ist der Zeitpunkt des Ereignisses, das die Benachrichtigung ausgelöst hat. Liegt er außerhalb des Zeitfensters, sendet diese Richtlinie nichts. Andere Richtlinien gelten weiterhin."
+    },
+    "delivery_modes": {
+      "prefer_user": "Benutzerpräferenz berücksichtigen",
+      "force_connector": "Einen Konnektor erzwingen",
+      "multi_connector": "Über mehrere Konnektoren senden"
+    },
+    "delete_title": "Richtlinie löschen?",
+    "delete_description": "Der bisherige Zustellverlauf bleibt verfügbar.",
+    "builtin_label": "Integriert",
+    "builtin_not_deletable": "Eine integrierte Richtlinie kann deaktiviert, aber nicht gelöscht werden.",
+    "builtin": {
+      "alert_triggered": "Alarm ausgelöst: zuständige Person benachrichtigen",
+      "alert_resolved": "Alarm behoben: zuständige Person benachrichtigen",
+      "alert_acknowledged": "Alarm bestätigt: zuständige Person benachrichtigen",
+      "alert_escalated_to_users": "Eskalation: Personen dieser Stufe benachrichtigen",
+      "alert_escalated_to_teams": "Eskalation: Team dieser Stufe benachrichtigen",
+      "oncall_shift_starting": "Bereitschaftsübergabe: beide Personen benachrichtigen",
+      "oncall_coverage_missing": "Lücke im Bereitschaftsdienst: Verantwortliche für den Dienstplan benachrichtigen",
+      "oncall_override_created": "Ausnahme im Bereitschaftsplan: beteiligte Personen benachrichtigen",
+      "oncall_swap_updated": "Schichttausch: beteiligte Personen benachrichtigen",
+      "incident_status_update": "Statusupdate zu einem schwerwiegenden Vorfall: Stakeholder benachrichtigen",
+      "oncall_member_unreachable": "Bereitschaftsperson nicht erreichbar: diese Person und die Verantwortlichen für den Dienstplan benachrichtigen",
+      "intake_budget_warning": "Budget für die Datenaufnahme fast ausgeschöpft: hinterlegte Personen benachrichtigen",
+      "intake_budget_exceeded": "Budget für die Datenaufnahme überschritten: hinterlegte Personen benachrichtigen",
+      "agent_approval_requested": "Genehmigung erforderlich: genehmigungsberechtigte Personen benachrichtigen"
+    },
+    "restore_title": "Standardeinstellungen wiederherstellen?",
+    "restore_description": "Die integrierte Richtlinie wird auf ihre Standardeinstellungen zurückgesetzt. Alle Änderungen gehen verloren.",
+    "restored": "Standardeinstellungen wiederhergestellt"
+  },
+  "defaults": {
+    "title": "Ausweichrouten",
+    "subtitle": "Legen Sie Routen für Teams und die Organisation fest, die verwendet werden, wenn die persönlichen Zustellwege fehlschlagen.",
+    "scope": "Geltungsbereich der Route",
+    "organization_scope": "Organisationsstandard",
+    "team_scope": "Team · {{name}}",
+    "category": "Kategorie",
+    "enabled": "Diese Ausweichkonfiguration für die Organisation aktivieren",
+    "routes": "Routen",
+    "connector": "Konnektor",
+    "target_type": "Zieltyp",
+    "target": "Ziel",
+    "add_route": "Route hinzufügen",
+    "remove_route": "Route entfernen",
+    "save": "Ausweichrouten speichern",
+    "delete": "Ausweichkonfiguration löschen",
+    "empty": "Für diesen Geltungsbereich und diese Kategorie sind keine Ausweichrouten konfiguriert.",
+    "configured_hint": "Die Zustellung wird über die Routen in der angezeigten Reihenfolge versucht."
+  },
+  "deliveries": {
+    "title": "Benachrichtigungszustellungen",
+    "subtitle": "Prüfen Sie alle Zustellversuche, Ausweichstufen, Bestätigungen und Eskalationen.",
+    "empty_title": "Keine Zustellungen",
+    "empty_description": "Hier erscheinen Zustellversuche, sobald ein passendes Benachrichtigungsereignis verarbeitet wurde.",
+    "filters": {
+      "event": "Ereignis-ID",
+      "status": "Status",
+      "stage": "Stufe",
+      "all": "Alle"
+    },
+    "columns": {
+      "event": "Ereignis",
+      "recipient": "Empfänger",
+      "source": "Aufgelöst durch",
+      "connector": "Konnektor",
+      "stage": "Stufe",
+      "status": "Status",
+      "latency": "Latenz",
+      "sent": "Gesendet"
+    },
+    "detail_title": "Zustellkette",
+    "detail_subtitle": "Versuch {{attempt}} · {{status}}",
+    "target": "Maskiertes Zustellziel",
+    "error": "Fehler",
+    "skip_reason": "Grund",
+    "ack": "Ereignis bestätigen",
+    "retry": "Fehlgeschlagene Zustellrouten erneut versuchen",
+    "acknowledged": "Ereignis bestätigt",
+    "retried": "Erneuter Versuch gestartet",
+    "views_label": "Zustellansicht",
+    "views": {
+      "events": "Nach Alarm",
+      "attempts": "Nach Versuch"
+    },
+    "by_event": {
+      "channels": "Kanäle und Versuche",
+      "first_delivered": "Erstmals zugestellt",
+      "not_delivered": "Nicht zugestellt",
+      "failed_tries": "Fehlgeschlagen",
+      "open_try": "Versuch {{attempt}} öffnen: {{status}}"
+    }
+  },
+  "templates": {
+    "conditions": {
+      "title": "Bedingungen",
+      "description": "Der Inhalt eines Blocks wird nur übernommen, wenn die Bedingung erfüllt ist. Vergleiche mit !=, ein else-Zweig und verschachtelte Blöcke werden ebenfalls unterstützt.",
+      "items": {
+        "triggered": "Nur bei Alarmauslösung",
+        "resolved": "Nur bei Behebung des Alarms",
+        "severity": "Unterschiedlicher Text je nach Schweregrad",
+        "runbook": "Link zum Runbook, falls vorhanden"
+      },
+      "problem": "Fehler in einer Bedingung: {{problem}}"
+    },
+    "title": "Benachrichtigungsvorlagen",
+    "subtitle": "Verwenden Sie eine allgemeine Vorlage für alle Kanäle oder eigene Vorlagen für SMS, Telefon und andere Kanäle.",
+    "new": "Neue Vorlage",
+    "empty_title": "Keine Benachrichtigungsvorlagen",
+    "empty_description": "Erstellen Sie einen wiederverwendbaren Nachrichtentext und wählen Sie ihn in einer Benachrichtigungsrichtlinie aus.",
+    "channel_filter": "Nach Kanal filtern",
+    "all": "Alle",
+    "columns": {
+      "name": "Vorlage",
+      "channel": "Kanal",
+      "format": "Format",
+      "category": "Kategorie",
+      "updated": "Aktualisiert",
+      "actions": "Aktionen"
+    },
+    "new_title": "Neue Benachrichtigungsvorlage",
+    "edit_title": "{{name}} bearbeiten",
+    "editor_subtitle": "Wählen Sie eine Benachrichtigungskategorie und fügen Sie deren Variablen ein oder verwenden Sie eine vordefinierte Vorlage.",
+    "name": "Name",
+    "category": "Benachrichtigungskategorie",
+    "channel": "Kanal",
+    "channels": {
+      "general": "Allgemein",
+      "im": "Instant Messaging",
+      "phone": "Telefon",
+      "sms": "SMS",
+      "email": "E-Mail",
+      "webhook": "Webhook"
+    },
+    "format": "Format",
+    "body": "Nachrichtentext",
+    "variables_hint": "Öffnen Sie rechts „Variablen“ und wählen Sie eine Variable aus, um sie an der Cursorposition einzufügen.",
+    "body_hint_sms": "Die SMS enthält nur den Nachrichtentext, ohne den Titel der Benachrichtigung.",
+    "body_hint_phone": "Beim Anruf wird nur der Nachrichtentext vorgelesen, ohne den Titel der Benachrichtigung.",
+    "preview_attributes": "Ereignisattribute für die Vorschau (JSON)",
+    "preview": "Nachrichtenvorschau",
+    "preview_empty": "Geben Sie einen Nachrichtentext ein.",
+    "length": "{{chars}} / {{limit}} Zeichen",
+    "length_over_sms": "{{chars}} Zeichen: Per SMS werden höchstens {{limit}} Zeichen gesendet. Der Rest wird abgeschnitten.",
+    "length_over_phone": "{{chars}} Zeichen: Beim Anruf werden höchstens {{limit}} Zeichen vorgelesen. Der Rest entfällt.",
+    "attributes_object": "Die Vorschauattribute müssen ein JSON-Objekt sein.",
+    "reference": {
+      "title": "Variablen",
+      "description": "Wählen Sie eine Variable aus, um sie an der Cursorposition einzufügen.",
+      "loading": "Variablen werden geladen…",
+      "error": "Die Variablen konnten nicht geladen werden.",
+      "dynamic_key": "Dynamischer Schlüssel in diesem Arbeitsbereich gefunden",
+      "tabs": {
+        "common": "Allgemein",
+        "rule": "Regel",
+        "incident": "Alert",
+        "metadata": "Labels und Annotationen",
+        "schedule": "Bereitschaftsplan",
+        "oncall": "Schichtübergabe",
+        "override": "Ausnahme",
+        "escalation": "Eskalation"
+      },
+      "groups": {
+        "event": "Ereignis",
+        "message": "Nachricht",
+        "rule": "Alarmregel",
+        "incident": "Vorfall",
+        "trigger": "Auslösewert",
+        "labels": "Labels",
+        "annotations": "Annotationen",
+        "escalation": "Eskalation",
+        "schedule": "Bereitschaftsplan",
+        "oncall": "Schichtwechsel",
+        "override": "Ausnahme"
+      },
+      "fields": {
+        "event_id": "Eindeutige Ereignis-ID",
+        "event_type": "Ereignistyp",
+        "event_occurred_at": "Ereigniszeit in Mikrosekunden",
+        "event_time": "Ereigniszeit (UTC)",
+        "message_title": "Automatisch generierter Nachrichtentitel",
+        "message_text": "Automatisch generierte Standardnachricht",
+        "event_attribute": "Beliebiges Ereignisattribut; ersetzen Sie <key>",
+        "rule_id": "ID der Alarmregel",
+        "rule_name": "Name der Alarmregel",
+        "rule_description": "Beschreibung der Alarmregel",
+        "incident_id": "Vorfall-ID",
+        "incident_fingerprint": "Fingerprint des Vorfalls",
+        "incident_status": "Status des Vorfalls",
+        "incident_summary": "Zusammenfassung des Vorfalls",
+        "incident_url": "Adresse des Alarms in MoleSignal (externe URL erforderlich)",
+        "incident_started_time": "Beginn des Alarms (UTC)",
+        "incident_duration": "Bisherige Dauer des Alarms, z. B. 1h 5m",
+        "incident_acknowledged_time": "Zeitpunkt der Bestätigung (UTC)",
+        "incident_acknowledged_by": "Benutzer-ID der Person, die den Alarm bestätigt hat",
+        "incident_resolved_time": "Zeitpunkt der Behebung (UTC)",
+        "incident_resolved_by": "Benutzer-ID der Person, die den Alarm behoben hat",
+        "incident_assignees": "Benutzer-IDs der zugewiesenen Personen, durch Kommas getrennt",
+        "service": "Service aus den Labels oder Annotationen",
+        "environment": "Umgebung aus den Labels oder Annotationen",
+        "affected_services": "Betroffene Services, durch Kommas getrennt",
+        "severity": "Schweregrad des Alarms",
+        "value": "Gemessener Auslösewert",
+        "threshold": "Schwellenwert der Regel",
+        "evaluated_at": "Zeitpunkt der Regelauswertung in Mikrosekunden",
+        "labels_all": "Alle Labels, z. B. service=api, env=production",
+        "labels_key": "Labelwert; ersetzen Sie <key>",
+        "annotations_key": "Annotationswert; ersetzen Sie <key>",
+        "reply_ack": "Code zur Bestätigung per Antwort, z. B. 31; nur in Texten von Konnektoren verfügbar, die Antworten verarbeiten",
+        "reply_resolve": "Code zur Behebung per Antwort, z. B. 32",
+        "escalation_step": "Eskalationsschritt, ab 1 gezählt",
+        "escalation_loop": "Eskalationsrunde, ab 1 gezählt",
+        "escalation_target": "Ziel der Benachrichtigung in diesem Schritt: user, schedule oder team",
+        "escalation_reason": "Grund für die Benachrichtigung: step (nächster Schritt der Eskalationsrichtlinie), manual (manuell eskaliert), reassigned, responder_added, snooze_ended, ack_timeout (bestätigt, aber zu lange nicht behoben) oder severity_raised",
+        "schedule_id": "ID des Bereitschaftsplans",
+        "schedule_name": "Name des Bereitschaftsplans",
+        "schedule_team_id": "Team-ID des Bereitschaftsplans",
+        "schedule_timezone": "Zeitzone des Bereitschaftsplans",
+        "oncall_current_user": "Benutzer-ID der aktuellen Bereitschaft",
+        "oncall_next_user": "Benutzer-ID der nächsten Bereitschaft",
+        "oncall_transition_at": "Zeitpunkt des Bereitschaftswechsels in Mikrosekunden",
+        "oncall_transition_time": "Zeitpunkt des Bereitschaftswechsels (UTC)",
+        "override_id": "ID der Vertretung",
+        "override_user": "Benutzer-ID der Vertretung",
+        "override_original_user": "Benutzer-ID der ursprünglich eingeteilten Person",
+        "override_start_at": "Beginn der Vertretung in Mikrosekunden",
+        "override_end_at": "Ende der Vertretung in Mikrosekunden",
+        "override_start_time": "Beginn der Vertretung (UTC)",
+        "override_end_time": "Ende der Vertretung (UTC)",
+        "override_reason": "Grund für die Vertretung",
+        "urgency": "Dringlichkeit: Schlüssel der Stufe, z. B. high oder low",
+        "priority": "Priorität P1–P9; leer, wenn keine festgelegt ist",
+        "urgency_name": "Von der Organisation vergebener Name der Dringlichkeitsstufe; leer, wenn kein Name vergeben wurde",
+        "priority_name": "Von der Organisation vergebener Name der Priorität; leer, wenn kein Name vergeben wurde"
+      }
+    },
+    "provider": {
+      "title": "Vom Anbieter genehmigte Vorlagen",
+      "description_sms": "Alibaba Cloud, Tencent Cloud und Huawei Cloud versenden nur von ihnen genehmigte SMS-Vorlagen, WhatsApp nur von WhatsApp genehmigte Content-Vorlagen. Ihre Konnektoren versenden die hier hinterlegte Vorlage. Andere SMS-Konnektoren verwenden den Nachrichtentext oben.",
+      "description_phone": "Alibaba Cloud, Tencent Cloud und Huawei Cloud lesen nur von ihnen genehmigte Sprachvorlagen vor. Ihre Telefon-Konnektoren lesen die hier hinterlegte Vorlage vor, andere Telefon-Konnektoren den Nachrichtentext oben.",
+      "names": {
+        "aliyun": "Alibaba Cloud",
+        "tencent": "Tencent Cloud",
+        "huawei": "Huawei Cloud",
+        "whatsapp": "WhatsApp"
+      },
+      "code": "Vorlagencode",
+      "code_labels": {
+        "whatsapp": "Content SID"
+      },
+      "max_chars": "Zeichen pro Variable",
+      "max_chars_placeholder": {
+        "aliyun_sms": "35 (Standard)",
+        "aliyun_phone": "35 (Standard)",
+        "tencent_sms": "6 (Standard)",
+        "tencent_phone": "20 (Standard)",
+        "huawei_sms": "20 (Standard)",
+        "huawei_phone": "32 (Standard)",
+        "whatsapp_sms": "300 (Standard)"
+      },
+      "params": "Variablen",
+      "param_name": "Variable",
+      "param_value": "Wert",
+      "add_param": "Variable hinzufügen",
+      "remove_param": "Variable entfernen",
+      "params_hint": "Benennen Sie die Variable wie in der Vorlage angegeben ({{variable}}). Im Wert können Sie die rechts angezeigten Variablen verwenden. Wählen Sie dort eine Variable aus, um sie an der Cursorposition einzufügen.",
+      "params_hint_position": "Dieser Anbieter befüllt Variablen nach ihrer Position. Benennen Sie die erste, zweite und dritte Variable der Vorlage mit 1, 2 bzw. 3. Im Wert können Sie die rechts angezeigten Variablen verwenden. Wählen Sie dort eine Variable aus, um sie an der Cursorposition einzufügen.",
+      "preview": "{{provider}} erhält {{code}}",
+      "problem_elsewhere": "Vervollständigen Sie vor dem Speichern die Vorlage für {{provider}}.",
+      "problems": {
+        "code": "Geben Sie den Vorlagencode des Anbieters ein. Erlaubt sind Buchstaben, Ziffern, Unterstriche und Bindestriche.",
+        "content_sid": "Geben Sie die Twilio Content SID ein: HX gefolgt von 32 Hexadezimalzeichen.",
+        "param_name": "Variablennamen dürfen nur Buchstaben, Ziffern und Unterstriche enthalten.",
+        "param_twice": "Eine Variable wurde doppelt angegeben.",
+        "param_value": "Jede Variable benötigt einen Wert.",
+        "max_chars": "Die Zeichenanzahl pro Variable muss zwischen 1 und 500 liegen."
+      }
+    },
+    "card": {
+      "title": "Karte",
+      "description": "Apps und Gruppenbots für Lark, DingTalk, WeCom, Slack, Teams und Google Chat senden die Benachrichtigung als Karte mit dem obigen Nachrichtentext. Ist die Option deaktiviert, senden sie die Benachrichtigung wie bisher als Text.",
+      "toggle": "Als Karte senden",
+      "card_title": "Kartentitel",
+      "card_title_placeholder": "Leer lassen, um den Benachrichtigungstitel zu verwenden",
+      "color": "Titelfarbe",
+      "colors": {
+        "severity": "Nach Schweregrad",
+        "blue": "Blau",
+        "green": "Grün",
+        "yellow": "Gelb",
+        "orange": "Orange",
+        "red": "Rot",
+        "grey": "Grau"
+      },
+      "fields": "Felder",
+      "field_label": "Feldname",
+      "field_value": "Feldwert",
+      "add_field": "Feld hinzufügen",
+      "remove_field": "Feld entfernen",
+      "links": "Link-Schaltflächen",
+      "link_label": "Schaltflächentext",
+      "link_url": "Link-Adresse",
+      "add_link": "Link hinzufügen",
+      "remove_link": "Link entfernen",
+      "note": "Fußzeile",
+      "hint": "Alle Bestandteile unterstützen Variablen. Wenn Sie rechts eine Variable auswählen, wird sie an der Cursorposition eingefügt. Felder und Links, für die das Ereignis keine Werte liefert, werden weggelassen. Die Farbe richtet sich nach dem Schweregrad: Rot für „Kritisch“, Orange für „Fehler“, Gelb für „Warnung“ und Blau für alle anderen. Nach der Behebung wird die Karte grün.",
+      "starting": {
+        "severity": "Schweregrad",
+        "status": "Status",
+        "service": "Service",
+        "schedule": "Dienstplan",
+        "next": "Als Nächstes in Bereitschaft",
+        "runbook": "Runbook"
+      },
+      "problems": {
+        "too_many": "Eine Karte kann höchstens 10 Felder und 5 Links enthalten.",
+        "field": "Jedes Feld benötigt einen Namen und einen Wert.",
+        "link": "Jeder Link benötigt einen Schaltflächentext und eine Adresse.",
+        "link_url": "Eine Link-Adresse muss mit http:// oder https:// beginnen oder aus einer Variablen bestehen, die eine solche Adresse liefert.",
+        "too_long": "Mindestens ein Eintrag ist zu lang. Zeichenlimits: Titel und Fußzeile je 200, Feldnamen 40, Feldwerte 500, Schaltflächentexte 30."
+      }
+    },
+    "presets": {
+      "title": "Vorgefertigte Vorlagen",
+      "description": "Die Inhalte der Vorlagen bleiben vollständig bearbeitbar.",
+      "items": {
+        "alert_text": "Alarm (Klartext)",
+        "alert_markdown": "Alarm (Markdown)",
+        "alert_html": "Alarm (HTML)",
+        "oncall_shift": "Erinnerung an den Schichtwechsel",
+        "oncall_override": "Hinweis auf eine Vertretung im Bereitschaftsdienst",
+        "oncall_coverage": "Hinweis auf eine Lücke im Bereitschaftsdienst",
+        "oncall_html": "Schichtwechsel (HTML)",
+        "escalation_text": "Alarmeskalation (Klartext)",
+        "escalation_markdown": "Alarmeskalation (Markdown)",
+        "escalation_html": "Alarmeskalation (HTML)",
+        "report_text": "Bericht (Klartext)",
+        "report_markdown": "Bericht (Markdown)",
+        "report_html": "Bericht (HTML)",
+        "security_text": "Sicherheit (Klartext)",
+        "security_markdown": "Sicherheit (Markdown)",
+        "security_html": "Sicherheit (HTML)",
+        "system_text": "System (Klartext)",
+        "system_markdown": "System (Markdown)",
+        "system_html": "System (HTML)",
+        "alert_sms": "Alarm-SMS",
+        "alert_phone": "Alarmanruf",
+        "escalation_sms": "Eskalations-SMS",
+        "escalation_phone": "Eskalationsanruf",
+        "oncall_sms": "SMS zum Schichtwechsel",
+        "alert_resolved_text": "Alarm behoben (Klartext)",
+        "alert_resolved_markdown": "Alarm behoben (Markdown)",
+        "alert_acknowledged_markdown": "Alarm bestätigt (Markdown)",
+        "alert_im_markdown": "Alarm mit Link (Markdown)",
+        "alert_email_html": "Alarm-E-Mail mit Tabelle",
+        "alert_resolved_sms": "Alarm behoben (SMS)",
+        "oncall_phone": "Anruf zum Schichtwechsel",
+        "oncall_coverage_sms": "SMS bei Lücke im Bereitschaftsdienst"
+      }
+    },
+    "delete_title": "Benachrichtigungsvorlage löschen?",
+    "delete_description": "{{name}} kann nicht gelöscht werden, solange eine Benachrichtigungsrichtlinie diese Vorlage verwendet."
+  },
+  "account": {
+    "title": "Meine Benachrichtigungseinstellungen",
+    "subtitle": "Verwalten Sie Ihre Identitäten im Arbeitsbereich, Ihre Einstellungen pro Kategorie und Ihre Ruhezeiten.",
+    "unavailable": "Ihre Anmeldeidentität ist nicht verfügbar.",
+    "reachability": {
+      "none": "Sie können derzeit keine Alarme empfangen: Für Alarm- und Eskalationsbenachrichtigungen gibt es keinen funktionierenden Benachrichtigungskanal, und keine Weiterleitungsregel Ihres Teams oder Ihrer Organisation leitet sie an eine Gruppe weiter. Verknüpfen Sie unten einen Kanal und fügen Sie ihn zu Ihren Benachrichtigungsschritten hinzu.",
+      "group_only": "Sie haben keinen eigenen Benachrichtigungskanal und erhalten Alarme daher nur über eine Gruppe Ihres Teams oder Ihrer Organisation. Verknüpfen Sie unten einen Kanal und fügen Sie ihn zu Ihren Benachrichtigungsschritten hinzu."
+    }
+  },
+  "action_link": {
+    "loading": "Link wird gelesen…",
+    "acknowledge": "Alarm bestätigen",
+    "resolve": "Alarm als behoben markieren",
+    "acknowledging": "Alarm wird bestätigt…",
+    "resolving": "Alarm wird als behoben markiert…",
+    "explain_acknowledge": "Bestätigt den Alarm im Namen der Person, an die diese Benachrichtigung gesendet wurde. Der Link ist bis {{until}} einmalig nutzbar.",
+    "explain_resolve": "Markiert den Alarm im Namen der Person, an die diese Benachrichtigung gesendet wurde, als behoben. Der Link ist bis {{until}} einmalig nutzbar.",
+    "started": "Gestartet: {{at}}",
+    "acknowledged": "Der Alarm wurde bestätigt.",
+    "resolved": "Der Alarm ist behoben.",
+    "used": "Dieser Link wurde bereits verwendet.",
+    "used_at": "Dieser Link wurde am {{at}} verwendet.",
+    "inactive": "Es ist keine Aktion mehr erforderlich: Der Alarm wurde bereits bearbeitet oder die Alarmbedingung trifft nicht mehr zu.",
+    "no_access": "Sie dürfen diesen Alarm nicht mehr bearbeiten. Der Link hat daher nichts geändert.",
+    "expired": "Dieser Link ist abgelaufen.",
+    "failed": "Aktion konnte nicht abgeschlossen werden: {{error}}",
+    "unavailable_title": "Dieser Link funktioniert nicht mehr",
+    "unavailable_hint": "Der Link ist abgelaufen oder ungültig. Bearbeiten Sie den Alarm in MoleSignal.",
+    "load_failed_title": "Dieser Link konnte nicht gelesen werden",
+    "open_alert": "Alarm in MoleSignal öffnen",
+    "open_alerts": "MoleSignal öffnen"
+  },
+  "target_types": {
+    "direct_user": "Direkt an Benutzer",
+    "fixed_address": "Feste Adresse",
+    "fixed_group": "Feste Gruppe",
+    "webhook": "Webhook"
+  },
+  "stages": {
+    "user_primary": "Primärkontakt des Benutzers",
+    "user_fallback": "Ersatzkontakt des Benutzers",
+    "team_fallback": "Ersatzkontakt des Teams",
+    "organization_fallback": "Ersatzkontakt der Organisation",
+    "escalation": "Eskalation",
+    "test": "Test",
+    "direct": "Direkt"
+  },
+  "statuses": {
+    "pending": "Ausstehend",
+    "sending": "Wird gesendet",
+    "success": "Erfolgreich",
+    "failed": "Fehlgeschlagen",
+    "skipped": "Übersprungen",
+    "acknowledged": "Bestätigt",
+    "queued": "Zur Zusammenführung vorgemerkt"
+  }
+}

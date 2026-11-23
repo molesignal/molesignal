@@ -1,0 +1,31 @@
+{
+  "title": "Services",
+  "subtitle": "Servicekatalog auf Basis der Trace-Topologie.",
+  "kpis": {
+    "services": "Services",
+    "rps": "RPS gesamt",
+    "degraded": "Beeinträchtigt (≥1 % Fehler)"
+  },
+  "list": {
+    "columns": {
+      "name": "Service",
+      "rps": "RPS",
+      "error_rate": "Fehlerrate",
+      "p95": "p95",
+      "spans": "Spans"
+    }
+  },
+  "states": {
+    "empty_title": "Keine Services erfasst",
+    "empty_description": "Services werden angezeigt, sobald für den ausgewählten Zeitraum Spans eingehen."
+  },
+  "detail": {
+    "not_found_title": "Kein Traffic für diesen Service",
+    "not_found_description": "Für diesen Service wurden im ausgewählten Zeitraum keine Spans erfasst.",
+    "upstream": "Upstream (aufrufende Services)",
+    "downstream": "Downstream (Abhängigkeiten)",
+    "no_upstream": "Keine aufrufenden Services im Zeitraum.",
+    "no_downstream": "Keine Abhängigkeiten im Zeitraum.",
+    "edge_rps": "{{rps}} rps"
+  }
+}

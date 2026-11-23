@@ -1,0 +1,3138 @@
+{
+  "title": "Alarme",
+  "subtitle": "Welche Alarme aktiv sind, welche Regeln sie auslösen und wer benachrichtigt wird.",
+  "incident_detail": {
+    "loading": "Vorfall",
+    "not_found_title": "Vorfall nicht gefunden",
+    "not_found_description": "Dieser Vorfall wurde möglicherweise gelöscht oder gehört zu einer anderen Organisation.",
+    "meta": {
+      "status": "Status",
+      "fired": "Ausgelöst",
+      "rule": "Regel",
+      "synthetic": "Synthetische Prüfung",
+      "source": "Quelle",
+      "created_by": "Eröffnet von"
+    },
+    "firing_for": "Aktiv seit {{duration}}",
+    "recovered_after": "Behoben nach {{duration}}",
+    "no_owner": "Noch nicht übernommen",
+    "someone": "Jemand"
+  },
+  "actions": {
+    "new_rule": "Neue Regel",
+    "edit_rule": "{{name}} bearbeiten",
+    "new_anomaly": "Regel zur Anomalieerkennung",
+    "new_anomaly_description": "Abweichungen anhand einer dynamischen MAD- oder EWMA-Basislinie erkennen.",
+    "new_threshold_rule": "Schwellenwertregel",
+    "new_threshold_rule_description": "Alarm auslösen, wenn ein Abfragewert dauerhaft über bzw. unter einem festen Schwellenwert liegt.",
+    "silence_incident": "Vorfall {{name}} stummschalten"
+  },
+  "silence_incident": {
+    "title": "Diesen Vorfall stummschalten",
+    "description": "Weitere Benachrichtigungen und Eskalationen nur für „{{name}}“ pausieren. Der Vorfall bleibt erfasst.",
+    "default_name": "dieser Vorfall",
+    "duration": "Dauer der Stummschaltung",
+    "reason": "Grund (optional)",
+    "reason_placeholder": "Z. B. Untersuchung läuft; keine weiteren Bereitschaftsalarme nötig",
+    "scope_hint": "Dies betrifft nur diesen aktiven Vorfall. Die Regel bleibt aktiv, und andere Vorfälle desselben Dienstes werden nicht stummgeschaltet.",
+    "confirm": "Vorfall stummschalten",
+    "silencing": "Wird stummgeschaltet…",
+    "cancel": "Abbrechen",
+    "success": "Vorfall „{{name}}“ stummgeschaltet",
+    "durations": {
+      "one_hour": "1 Stunde",
+      "four_hours": "4 Stunden",
+      "one_day": "24 Stunden",
+      "one_week": "7 Tage"
+    }
+  },
+  "kpis": {
+    "critical_firing": "Aktive kritische Alarme",
+    "warning_firing": "Aktive Warnungen",
+    "pending": "Ausstehend",
+    "resolved_24h": "Behoben (24h)",
+    "total_rules": "Regeln insgesamt",
+    "incidents_open": "Offene Vorfälle"
+  },
+  "tabs": {
+    "firing": "Ausgelöst",
+    "pending": "Ausstehend",
+    "resolved": "Behoben",
+    "disabled": "Deaktiviert",
+    "all": "Alle Regeln"
+  },
+  "subnav": {
+    "label": "Alarmansichten",
+    "incidents": "Vorfälle",
+    "rules": "Regeln",
+    "sources": "Quellen",
+    "status_pages": "Statusseiten",
+    "history": "Verlauf",
+    "insights": "Erkenntnisse",
+    "groups": "Gruppen",
+    "escalations": "Eskalationen",
+    "schedules": "Bereitschaftspläne",
+    "inhibitions": "Unterdrückung",
+    "silences": "Stummschaltungsregeln",
+    "routing": "Routing",
+    "remediation": "Fehlerbehebung",
+    "tickets": "Tickets",
+    "postmortems": "Postmortems",
+    "discovery": "Erkennung",
+    "group_respond": "Reagieren",
+    "group_detect": "Erkennen",
+    "group_noise": "Alarmflut reduzieren",
+    "group_notify": "Benachrichtigen",
+    "group_follow_up": "Nachbereiten",
+    "search_placeholder": "Alarmseiten durchsuchen…",
+    "search_aria": "Seiten im Bereich „Alarme“ durchsuchen",
+    "no_results": "Keine passenden Seiten",
+    "collapse_group": "{{group}} einklappen",
+    "expand_group": "{{group}} ausklappen",
+    "open_navigation": "Alarmnavigation öffnen",
+    "collapse_navigation": "Alarmnavigation einklappen",
+    "expand_navigation": "Alarmnavigation ausklappen"
+  },
+  "history": {
+    "error_title": "Alarmverlauf konnte nicht geladen werden",
+    "empty_title": "Keine alarmbezogenen Vorfälle",
+    "empty_description": "Sobald ein Alarm ausgelöst wird, sehen Sie hier seinen aktuellen Status, die Zeitpunkte, die Dauer und die Details zum Vorfall.",
+    "no_matches_title": "Keine passenden Vorfälle",
+    "no_matches_description": "Passen Sie die Suche oder die Filter an, um mehr Ergebnisse zu sehen.",
+    "filters": {
+      "search_placeholder": "Nach Vorfall, Dienst oder Vorfall-ID suchen…",
+      "search_label": "Alarmverlauf durchsuchen",
+      "severity_label": "Nach Schweregrad filtern",
+      "status_label": "Nach Status filtern",
+      "all_severities": "Alle Schweregrade",
+      "all_statuses": "Alle Status"
+    },
+    "status": {
+      "open": "Aktiv",
+      "acknowledged": "Bestätigt",
+      "resolved": "Behoben",
+      "closed": "Geschlossen"
+    },
+    "columns": {
+      "summary": "Vorfall",
+      "current_status": "Aktueller Status",
+      "created": "Ausgelöst",
+      "resolved": "Behoben",
+      "duration": "Dauer",
+      "priority": "Priorität"
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Warnung",
+      "error": "Fehler",
+      "critical": "Kritisch"
+    },
+    "pagination": {
+      "page": "{{page}} / {{count}}",
+      "label": "Seitennavigation im Alarmverlauf",
+      "page_size": "Zeilen pro Seite",
+      "first": "Erste Seite",
+      "previous": "Vorherige Seite",
+      "next": "Nächste Seite",
+      "last": "Letzte Seite"
+    }
+  },
+  "center": {
+    "retry": "Erneut versuchen",
+    "incidents": {
+      "load_error": "Alarmvorfälle konnten nicht geladen werden",
+      "kpis": {
+        "services": "Betroffene Dienste",
+        "waiting": "Bestätigung ausstehend",
+        "waiting_sub": "Noch nicht zugewiesen",
+        "recovered": "Behoben (24h)",
+        "no_recovery": "In den letzten 24 Stunden wurde kein Vorfall behoben"
+      },
+      "tabs": {
+        "active": "Aktiv",
+        "unacknowledged": "Unbestätigt",
+        "my_teams": "Meine Teams",
+        "inhibited": "Unterdrückt"
+      },
+      "columns": {
+        "severity": "Schweregrad",
+        "incident": "Vorfall / Dienst",
+        "status": "Status",
+        "duration": "Dauer",
+        "owner": "Zuständig",
+        "actions": "Aktionen",
+        "priority": "Priorität"
+      },
+      "status": {
+        "open": "Wartend",
+        "acknowledged": "In Bearbeitung",
+        "resolved": "Behoben",
+        "closed": "Geschlossen"
+      },
+      "actions": {
+        "ack": "Bestätigen",
+        "silence": "Stummschalten",
+        "runbook": "Runbook"
+      },
+      "healthy": {
+        "title": "Keine aktiven Alarme"
+      },
+      "no_rules": {
+        "title": "Noch keine Alarmregeln",
+        "description": "Erstellen Sie eine Regel, um Metriken, Logs oder Traces fortlaufend auszuwerten und hier Vorfälle zu eröffnen.",
+        "action": "Erste Regel erstellen",
+        "steps": {
+          "condition": {
+            "title": "Legen Sie fest, was nicht passieren darf",
+            "description": "Definieren Sie eine Abfrage für Metriken, Logs oder Traces und einen Grenzwert für das Ergebnis."
+          },
+          "route": {
+            "title": "Legen Sie fest, wer benachrichtigt wird",
+            "description": "Eine Eskalationsrichtlinie meldet den Vorfall zuerst der Person in Rufbereitschaft und leitet ihn weiter, wenn niemand reagiert."
+          },
+          "respond": {
+            "title": "Reagieren Sie direkt hier",
+            "description": "Bestätigen Sie Vorfälle, schalten Sie sie stumm, öffnen Sie das Runbook oder wechseln Sie vom Vorfall zum zugehörigen Trace."
+          }
+        }
+      },
+      "empty": {
+        "unacknowledged": {
+          "title": "Keine Vorfälle warten auf Bestätigung",
+          "description": "Jedem aktiven Vorfall ist bereits eine zuständige Person zugewiesen."
+        },
+        "my_teams": {
+          "title": "Keine aktiven Vorfälle für Ihre Teams",
+          "description": "Hier sehen Sie Vorfälle, die einem Ihrer Teams zugewiesen wurden."
+        },
+        "priority": {
+          "title": "Keine Vorfälle mit dieser Priorität",
+          "description": "Wählen Sie eine andere Priorität oder „Alle Prioritäten“."
+        }
+      },
+      "tabs_label": "Vorfallstatus",
+      "standing": {
+        "label": "Aktuelle Vorfälle",
+        "eyebrow": "Derzeit aktiv",
+        "firing_one": "{{count}} Vorfall",
+        "firing_other": "{{count}} Vorfälle",
+        "oldest": "Der älteste Vorfall ist seit {{duration}} aktiv.",
+        "watching_one": "{{count}} Regel wird ausgewertet.",
+        "watching_other": "{{count}} Regeln werden ausgewertet.",
+        "all_owned": "Alle Vorfälle sind zugewiesen",
+        "last_recovery": "Zuletzt behoben: {{when}}"
+      },
+      "recent": {
+        "title": "Kürzlich behoben",
+        "recovered": "behoben: {{when}}",
+        "lasted": "dauerte {{duration}}"
+      }
+    },
+    "rules": {
+      "load_error": "Alarmregeln konnten nicht geladen werden",
+      "search": "Nach Regeln, Diensten oder Quellen suchen",
+      "tabs": {
+        "all": "Alle",
+        "enabled": "Aktiviert",
+        "disabled": "Deaktiviert"
+      },
+      "columns": {
+        "rule": "Regel",
+        "source": "Datenquelle",
+        "condition": "Auslösebedingung",
+        "state": "Status",
+        "last_evaluation": "Letzte Auswertung",
+        "actions": "Aktionen"
+      },
+      "state": {
+        "not_evaluated": "Nicht ausgewertet",
+        "healthy": "Normal",
+        "pending": "Wartezeit läuft",
+        "no_data": "Keine Daten",
+        "firing": "Ausgelöst",
+        "inhibited": "Ausgelöst (unterdrückt)",
+        "dropped": "Von der Pipeline verworfen",
+        "disabled": "Deaktiviert"
+      },
+      "kinds": {
+        "scheduled": "Schwellenwertregel",
+        "real_time": "Echtzeitregel",
+        "anomaly": "Anomalieerkennung",
+        "composite": "Kombinierte Regel",
+        "forecast": "Prognose",
+        "outlier": "Ausreißer",
+        "heartbeat": "Heartbeat"
+      },
+      "never_evaluated": "Nie ausgewertet",
+      "no_match": {
+        "title": "Keine passenden Regeln",
+        "description": "Versuchen Sie es mit einem anderen Suchbegriff oder Statusfilter."
+      },
+      "tabs_label": "Regelstatus",
+      "evaluated_ago": "vor {{age}}",
+      "bulk_delete_title_one": "{{count}} Regel löschen?",
+      "bulk_delete_title_other": "{{count}} Regeln löschen?",
+      "bulk_delete_description": "Gelöschte Regeln werden nicht mehr ausgewertet und können nicht wiederhergestellt werden."
+    }
+  },
+  "workbench": {
+    "new_title": "Neue Alarmregel",
+    "edit_title": "Alarmregel bearbeiten",
+    "edit_named": "Regel bearbeiten · {{name}}",
+    "subtitle": "Erstellen Sie die Abfrage, prüfen Sie die Schwellenwerte und hinterlegen Sie anschließend das Notify-Routing und die Hinweise zur Reaktion.",
+    "actions": {
+      "cancel": "Abbrechen",
+      "save_draft": "Entwurf speichern",
+      "test": "Regel testen",
+      "testing": "Wird getestet…",
+      "save": "Speichern und aktivieren",
+      "create": "Regel erstellen",
+      "add_threshold": "Schweregrad hinzufügen",
+      "remove_threshold": "Schwellenwert entfernen"
+    },
+    "sections": {
+      "identity": "Grundlegende Informationen",
+      "identity_description": "Wird für Incident-Titel, die Suche und die Zuordnung von Service-Verantwortlichen verwendet.",
+      "condition": "Abfrage und Auslösebedingung",
+      "condition_description": "Prüfen Sie Abfrage, Schwellenwert und Dauer gemeinsam.",
+      "delivery": "Notify und Reaktion",
+      "delivery_description": "Notify-Richtlinien leiten Ereignisse im Lebenszyklus von Alarmen weiter. Hinterlegen Sie die Hinweise für das Einsatzteam direkt in der Regel.",
+      "guide": "Leitfaden zur Untersuchung",
+      "guide_description": "Beschreiben Sie die ersten Schritte zur Untersuchung eines Incidents, den diese Regel ausgelöst hat. Der Leitfaden wird im Incident angezeigt, und Mole Agent liest ihn vor der Untersuchung."
+    },
+    "guide": {
+      "steps": "Schritte",
+      "steps_hint": "Markdown: Was ist zuerst zu prüfen und in welcher Reihenfolge?",
+      "steps_placeholder": "1. Prüfen Sie, von welchen Endpunkten die Fehler stammen…",
+      "queries": "Abfragen",
+      "queries_hint": "Die Abfragen lassen sich direkt aus dem Incident öffnen und verwenden dessen Zeitraum. Maximal {{count}}.",
+      "add_query": "Abfrage hinzufügen",
+      "remove_query": "Abfrage {{index}} entfernen",
+      "query_name": "Name",
+      "query_name_placeholder": "Fehler nach Endpunkt",
+      "query_language": "Abfragesprache",
+      "query_stream": "Stream",
+      "query_stream_type": "Stream-Typ",
+      "query_statement": "Abfrage",
+      "stream_types": {
+        "logs": "Logs",
+        "traces": "Traces",
+        "metrics": "Metriken"
+      },
+      "dashboards": "Dashboards",
+      "dashboards_hint": "Die Dashboards lassen sich direkt aus dem Incident öffnen. Maximal {{count}}.",
+      "add_dashboard": "Dashboard hinzufügen",
+      "no_dashboards": "Keine Dashboards zum Hinzufügen vorhanden",
+      "remove_dashboard": "{{name}} entfernen"
+    },
+    "fields": {
+      "name": "Regelname",
+      "service": "Service",
+      "description": "Beschreibung",
+      "signal": "Regeltyp",
+      "stream": "Zielstream",
+      "interval": "Auswertungsintervall",
+      "query": "Abfrage",
+      "query_language": "Abfragesprache",
+      "group_by": "Gruppieren nach",
+      "thresholds": "Auslösebedingungen",
+      "runbook": "Reaktionsleitfaden / Runbook-URL",
+      "delay": "Auswertungsverzögerung",
+      "priority": "Priorität",
+      "urgency": "Dringlichkeit",
+      "home_cluster": "Entscheidender Cluster"
+    },
+    "placeholders": {
+      "name": "z. B. api_high_error_rate",
+      "service": "z. B. api-gateway",
+      "description": "Beschreiben Sie den Nutzerpfad oder die Systemfunktion, die diese Regel schützt",
+      "stream": "z. B. app_metrics",
+      "group_by": "z. B. host, service"
+    },
+    "hints": {
+      "query": "Beim Testen der Regel wird diese Abfrage mit realen Daten der letzten sechs Stunden ausgeführt.",
+      "thresholds": "Es gilt der höchste zutreffende Schweregrad. Die Dauer wird in Auswertungsintervalle umgerechnet.",
+      "runbook": "Optional. Das Einsatzteam kann das Runbook direkt aus der Incident-Liste öffnen.",
+      "group_by": "Geben Sie bis zu 8 Spalten aus dem Abfrageergebnis an, z. B. host oder service, durch Kommas getrennt. Pro Wertegruppe wird der Wert aus der ersten anderen numerischen Spalte separat mit den Schwellenwerten verglichen. Bei Erfüllung der Auslösebedingungen wird für die Gruppe ein eigener Incident eröffnet. Lassen Sie das Feld leer, wenn pro Regel nur ein Incident eröffnet werden soll.",
+      "delay": "Verschiebt das Auswertungsfenster nach hinten, damit verspätete oder noch nicht gespeicherte Daten berücksichtigt werden. Automatisch: keine Verzögerung bei einem einzelnen Prozess, Plattformeinstellung im Cluster.",
+      "priority": "Incidents werden mit dieser Priorität eröffnet. Wenn Sie keine Priorität festlegen, kann eine Alert-Pipeline eine zuweisen.",
+      "urgency": "Wenn Sie keine Dringlichkeit festlegen, bestimmt sie die Eskalationsrichtlinie, der der Incident zugewiesen wird.",
+      "home_cluster": "In einer Föderation zählt jeder Cluster die Datensätze, die in ihn geschrieben werden. Wählen Sie einen Cluster aus, der die Zählwerte aller dieser Organisation zugeordneten Cluster summiert und dort die Incidents eröffnet. Die übrigen Cluster zählen nur."
+    },
+    "signals": {
+      "metrics": "Metrik-Alert",
+      "logs": "Log-Alert",
+      "traces": "Trace-Alert",
+      "apm": "APM-Alert",
+      "rum": "RUM-Alert"
+    },
+    "quick_start": "Schnellstart",
+    "presets": {
+      "error_rate": {
+        "title": "Hohe Fehlerrate",
+        "description": "Der Anteil der HTTP-5xx-Antworten bleibt über einem Schwellenwert"
+      },
+      "latency": {
+        "title": "Hohe P95-Latenz",
+        "description": "Das Perzentil der Anfragelatenz bleibt erhöht"
+      },
+      "cpu": {
+        "title": "Hohe CPU-Auslastung",
+        "description": "Die durchschnittliche CPU-Auslastung des Prozesses überschreitet den unbedenklichen Grenzwert"
+      },
+      "log_errors": {
+        "title": "Spitze bei Fehlerlogs",
+        "description": "Die Anzahl der Logs mit Fehlerstufe überschreitet einen Schwellenwert"
+      },
+      "no_data": {
+        "title": "Keine Daten",
+        "description": "Der Datenstrom enthält im Auswertungszeitfenster keine Einträge"
+      },
+      "trace_errors": {
+        "title": "Spitze bei Trace-Fehlern",
+        "description": "Die Anzahl fehlgeschlagener Traces überschreitet einen Schwellenwert"
+      },
+      "trace_latency": {
+        "title": "Hohe Trace-Latenz",
+        "description": "Die durchschnittliche Trace-Dauer bleibt erhöht"
+      },
+      "sample_errors": {
+        "title": "Beispiel · Fehler-Logs",
+        "description": "Zählen Sie die Fehler in den Beispiel-Logs. Wählen Sie vor dem Speichern ein Zeitfenster und legen Sie fest, wer zuständig ist."
+      },
+      "sample_no_data": {
+        "title": "Beispiel · Keine eingehenden Daten",
+        "description": "Die Beispieldaten werden einmalig importiert. Sobald sie nicht mehr im Zeitfenster liegen, fällt die Anzahl auf null."
+      },
+      "sample_latency": {
+        "title": "Beispiel · Span-Latenz",
+        "description": "Messen Sie die Latenz der Beispiel-Spans in Millisekunden."
+      }
+    },
+    "intervals": {
+      "1m": "Jede Minute",
+      "5m": "Alle 5 Minuten",
+      "10m": "Alle 10 Minuten"
+    },
+    "threshold": {
+      "severity": "Schweregrad",
+      "operator": "Wenn das Ergebnis",
+      "value": "Schwellenwert",
+      "duration": "Und zwar für",
+      "minutes": "Minuten"
+    },
+    "conditions": {
+      "recovery": "Entwarnung",
+      "recovery_hint": "Wenn der Wert um den Schwellenwert schwankt, verhindert ein Entwarnungsschwellenwert oder eine Wartezeit bis zur Entwarnung, dass der Alarm ständig ausgelöst und zurückgesetzt wird.",
+      "recovery_threshold": "Entwarnungsschwellenwert",
+      "recovery_threshold_placeholder": "Wie der Schwellenwert",
+      "no_data": "Wenn keine Daten vorliegen",
+      "no_data_hint": "Fehlt ein Wert oder fehlt bei einer Regel mit Gruppierung eine Gruppe im Ergebnis, gilt das als „Keine Daten“.",
+      "no_data_action": "Werten als",
+      "no_data_actions": {
+        "resolve": "Entwarnt",
+        "keep": "Status beibehalten",
+        "alert": "Incident wegen fehlender Daten öffnen",
+        "zero": "Null"
+      },
+      "no_data_duration": "Ohne Daten für"
+    },
+    "operators": {
+      "gt": "> (gt)",
+      "gte": "≥ (gte)",
+      "lt": "< (lt)",
+      "lte": "≤ (lte)",
+      "eq": "= (eq)",
+      "neq": "≠ (neq)"
+    },
+    "notify": {
+      "title": "Benachrichtigungsrouting",
+      "description": "Ereignisse im Lebenszyklus eines Alerts werden gemäß den passenden Notify-Richtlinien an die vorgesehenen Empfänger zugestellt, bei Bedarf über Ausweichrouten.",
+      "manage_policies": "Richtlinien verwalten",
+      "manage_connectors": "Konnektoren verwalten"
+    },
+    "preview": {
+      "title": "Abfragevorschau",
+      "window": "Echte Daten · letzte 6 Stunden",
+      "window_hours_one": "Echte Daten · letzte Stunde",
+      "window_hours_other": "Echte Daten · letzte {{count}} Stunden",
+      "window_open": "Echte Daten",
+      "not_run": "Test noch nicht ausgeführt",
+      "not_run_description": "Führen Sie den Test aus, um den Abfrageverlauf, die Schwellenwertlinie und die geschätzten Auslösungen im Testzeitraum zu sehen.",
+      "stale": "Abfrage seit dem letzten Test geändert",
+      "stale_description": "Wiederholen Sie den Test, damit die Vorschau und die Aktivierungsprüfung auf der aktuellen Abfrage basieren.",
+      "failed": "Abfrage fehlgeschlagen",
+      "query_docs": "Abfragedokumentation",
+      "no_data": "Abfrage erfolgreich, aber keine numerischen Daten zurückgegeben",
+      "no_data_description": "Prüfen Sie den Zeitraum, den Zielstream und die zurückgegebenen Spalten.",
+      "query_value": "Abfrageergebnis",
+      "threshold": "Schwellenwert",
+      "current": "Aktueller Wert",
+      "cost": "Gescannte Zeilen · Latenz",
+      "groups_one": "{{count}} Gruppe nach {{columns}}",
+      "groups_other": "{{count}} Gruppen nach {{columns}}",
+      "backtest_fires_one": "Unter diesen Bedingungen hätte der Alert {{count}}-mal ausgelöst ({{times}}).",
+      "backtest_fires_other": "Unter diesen Bedingungen hätte der Alert {{count}}-mal ausgelöst ({{times}}).",
+      "backtest_quiet": "Unter diesen Bedingungen hätte der Alert nicht ausgelöst.",
+      "backtest_near_one": "Der Schwellenwert wurde {{count}} weiteres Mal überschritten, aber nicht über {{periods}} Prüfzyklen hinweg.",
+      "backtest_near_other": "Der Schwellenwert wurde {{count}} weitere Male überschritten, aber nicht über {{periods}} Prüfzyklen hinweg.",
+      "span_pending": "Schwellenwert überschritten, Mindestdauer noch nicht erreicht",
+      "span_firing": "Hätte ausgelöst"
+    },
+    "validation": {
+      "title": "Prüfungen vor dem Erstellen",
+      "identity": "Angaben zur Regelidentität sind vollständig",
+      "query": "Abfrage ausgeführt und numerische Daten zurückgegeben",
+      "thresholds": "Schwellenwerte sind gültig und widerspruchsfrei",
+      "runbook": "Runbook-URL hat ein gültiges Format",
+      "ready": "Bereit",
+      "pending": "Ausstehend",
+      "blockers": {
+        "identity": "Geben Sie vor dem Aktivieren einen Regelnamen ein.",
+        "preview_running": "Warten Sie vor dem Aktivieren, bis der Abfragetest abgeschlossen ist.",
+        "preview_required": "Führen Sie vor dem Aktivieren „Regel testen“ mit der aktuellen Abfrage erfolgreich aus.",
+        "thresholds": "Beheben Sie vor dem Aktivieren die Fehler bei der Schwellenwertprüfung.",
+        "runbook": "Geben Sie vor der Aktivierung eine gültige Runbook-URL ein.",
+        "composite": "Geben Sie den Ausdruck ein und wählen Sie die zugehörigen Regeln aus, bevor Sie die Regel aktivieren.",
+        "heartbeat": "Das Check-in-Intervall beträgt mindestens eine Minute."
+      },
+      "composite": "Der Ausdruck ist festgelegt und die zugehörigen Regeln sind ausgewählt",
+      "heartbeat": "Das Check-in-Intervall ist gültig"
+    },
+    "errors": {
+      "load_rule": "Alert-Regel konnte nicht geladen werden",
+      "org_required": "Die aktuelle Organisation ist nicht verfügbar.",
+      "name_required": "Ein Regelname ist erforderlich.",
+      "stream_required": "Ein Ziel-Stream ist erforderlich.",
+      "stream_audit": "Eine Alert-Regel kann _audit nicht lesen: Regeln werden im Hintergrund ausgewertet, wo keine audit.read-Berechtigung eines Benutzers greift.",
+      "query_required": "Eine Abfrage ist erforderlich.",
+      "threshold_required": "Mindestens ein gültiger Schwellenwert ist erforderlich.",
+      "threshold_conflict": "Ein höherer Schweregrad darf nicht leichter ausgelöst werden als ein niedrigerer.",
+      "runbook_invalid": "Geben Sie eine gültige http- oder https-URL ein.",
+      "apm_service_required": "Wählen Sie den Service für die Alert-Regel aus",
+      "rum_application_required": "Wählen Sie die Anwendung für die Alert-Regel aus",
+      "group_by_missing": "Im Abfrageergebnis fehlen die Spalten zum Gruppieren: {{columns}}",
+      "group_by_too_many": "Gruppieren Sie nach höchstens {{count}} Spalten.",
+      "recovery_side": "Der Rückkehrschwellenwert muss auf der Seite des Normalbereichs liegen: Bei Auslösung durch Überschreitung darf er nicht höher liegen als der Auslöseschwellenwert, bei Auslösung durch Unterschreitung nicht niedriger. Die Auslöserichtung muss für alle Bereiche gleich sein.",
+      "guide": {
+        "steps_too_long": "Die Schritte des Untersuchungsleitfadens dürfen insgesamt höchstens {{limit}} Zeichen umfassen.",
+        "too_many_queries": "Ein Untersuchungsleitfaden darf höchstens {{limit}} Abfragen enthalten.",
+        "query_name_required": "Abfrage {{index}} im Untersuchungsleitfaden benötigt einen Namen.",
+        "query_name_too_long": "Der Name der Abfrage {{index}} ist länger als {{limit}} Zeichen.",
+        "query_statement_required": "Abfrage {{index}} im Untersuchungsleitfaden ist leer.",
+        "query_statement_too_long": "Abfrage {{index}} ist länger als {{limit}} Zeichen.",
+        "query_stream_required": "Abfrage {{index}} ist eine SQL-Abfrage. Geben Sie den Stream an, aus dem sie liest.",
+        "too_many_dashboards": "Ein Untersuchungsleitfaden kann auf höchstens {{limit}} Dashboards verlinken."
+      }
+    },
+    "toast": {
+      "saved": "Regel „{{name}}“ gespeichert und aktiviert",
+      "draft_saved": "Regelentwurf „{{name}}“ gespeichert"
+    },
+    "apm": {
+      "service": "Service",
+      "service_placeholder": "Service auswählen",
+      "environment": "Umgebung",
+      "every_environment": "Alle Umgebungen",
+      "endpoint": "Endpunkt",
+      "whole_service": "Gesamter Service",
+      "metric": "Kennzahl",
+      "unit": {
+        "percent": "In Prozent",
+        "milliseconds": "In Millisekunden",
+        "per_second": "Anfragen pro Sekunde",
+        "count": "Anzahl",
+        "score": "Von 0 bis 1",
+        "burn_rate": "Wie viel Mal so schnell wie zulässig das Fehlerbudget verbraucht wird"
+      },
+      "metrics": {
+        "error_rate": "Fehlerrate",
+        "p50": "P50-Latenz",
+        "p90": "P90-Latenz",
+        "p95": "P95-Latenz",
+        "p99": "P99-Latenz",
+        "average": "Durchschnittliche Dauer",
+        "throughput": "Durchsatz",
+        "request_count": "Anfragen",
+        "error_count": "Fehler",
+        "new_error_groups": "Neue Fehlergruppen",
+        "apdex": "Apdex",
+        "slo_burn_rate": "SLO-Burn-Rate"
+      }
+    },
+    "rum": {
+      "application": "Anwendung",
+      "application_placeholder": "Anwendung auswählen",
+      "environment": "Umgebung",
+      "every_environment": "Alle Umgebungen",
+      "page": "Seite",
+      "every_page": "Alle Seiten",
+      "screen": "Bildschirm",
+      "every_screen": "Alle Bildschirme",
+      "version": "Version",
+      "every_version": "Alle Versionen",
+      "metric": "Kennzahl",
+      "window": "Zeitfenster",
+      "windows": {
+        "300": "5 Minuten",
+        "900": "15 Minuten",
+        "3600": "1 Stunde"
+      },
+      "min_samples": "Mindestanzahl an Zeilen",
+      "min_samples_hint": "Bei weniger {{kind}} als angegeben hat die Kennzahl keinen Wert und es wird kein Alarm ausgelöst. Standard: {{rows}}.",
+      "sample_kinds": {
+        "views": "Aufrufen",
+        "sessions": "Sitzungen",
+        "requests": "Anfragen",
+        "views_with_value": "Aufrufen mit Wert",
+        "rows": "passenden Zeilen"
+      },
+      "unit": {
+        "percent": "In Prozent",
+        "milliseconds": "In Millisekunden",
+        "count": "Anzahl",
+        "score": "Score; 0,1 ist gut",
+        "bytes": "In Byte",
+        "none": "Keine Einheit"
+      },
+      "not_for": {
+        "page_sessions": "Eine Sitzung ist nicht auf eine einzelne Seite beschränkt.",
+        "page_issues": "Ein Problem tritt auf mehreren Seiten auf.",
+        "version_issues": "Ein Problem tritt in mehreren Versionen auf.",
+        "page_query": "Geben Sie die Seite in der Abfrage an.",
+        "version_query": "Geben Sie die Version in der Abfrage an."
+      },
+      "unavailable": {
+        "time_budget": "Die Vorschau hat zu lange gedauert. Wählen Sie einen kürzeren Zeitraum.",
+        "busy": "Es laufen zu viele Abfragen. Versuchen Sie es gleich noch einmal.",
+        "timestamp_masked": "Die Zeitstempel in diesem Stream sind maskiert. Daher kann keine Vorschau angezeigt werden."
+      },
+      "metrics": {
+        "session_count": "Sitzungen",
+        "view_count": "Seitenaufrufe",
+        "error_count": "Fehler",
+        "error_rate": "Fehlerrate (Seitenaufrufe mit Fehler)",
+        "crash_free_sessions": "Absturzfreie Sitzungen",
+        "frustration_rate": "Sitzungen mit Frustrationssignalen",
+        "failed_request_rate": "Fehlgeschlagene Anfragen",
+        "lcp_p75": "LCP (p75)",
+        "inp_p75": "INP (p75)",
+        "cls_p75": "CLS (p75)",
+        "ttfb_p75": "Zeit bis zum ersten Byte (p75)",
+        "new_issues": "Neue Probleme",
+        "regressed_issues": "Erneut aufgetretene Probleme",
+        "issue_impact": "Vom schwerwiegendsten Problem betroffene Sitzungen",
+        "custom_vital": "Benutzerdefinierte Dauer (Vital)",
+        "custom_timing": "Benutzerdefiniertes Timing",
+        "query": "Explorer-Abfrage"
+      },
+      "custom": {
+        "name_vital": "Name des Vitals",
+        "name_timing": "Name des Timings",
+        "placeholder": "Wählen Sie einen Namen aus oder geben Sie ihn ein",
+        "statistic": "Statistik",
+        "statistics": {
+          "p50": "P50",
+          "p75": "P75",
+          "p90": "P90",
+          "p95": "P95",
+          "p99": "P99",
+          "avg": "Durchschnitt",
+          "count": "Anzahl"
+        }
+      },
+      "query": {
+        "type": "Zeilentyp",
+        "statement": "Abfrage",
+        "statement_hint": "Verwenden Sie die Syntax des Code-Modus im RUM Explorer. Ohne Eingabe werden alle Zeilen des Typs zurückgegeben.",
+        "ignored": "Übersprungen, da vom Typ nicht unterstützt: {{parts}}",
+        "measure": "Messgröße",
+        "field": "Feld",
+        "field_placeholder": "Feld auswählen",
+        "open_explorer": "Im Explorer öffnen",
+        "functions": {
+          "count": "Zeilen",
+          "count_distinct": "Eindeutige Werte",
+          "sum": "Summe",
+          "avg": "Durchschnitt",
+          "min": "Minimum",
+          "max": "Maximum",
+          "p50": "p50",
+          "p75": "p75",
+          "p90": "p90",
+          "p95": "p95",
+          "p99": "p99"
+        }
+      }
+    },
+    "kind": {
+      "label": "Auslöseart",
+      "options": {
+        "scheduled": "Schwellenwert",
+        "forecast": "Prognose",
+        "outlier": "Ausreißer",
+        "composite": "Kombinierte Regel",
+        "heartbeat": "Heartbeat"
+      },
+      "hints": {
+        "scheduled": "Löst aus, wenn das Abfrageergebnis den Schwellenwert über- oder unterschreitet.",
+        "forecast": "Schreibt den Trend fort und löst aus, wenn der Schwellenwert voraussichtlich innerhalb der Vorwarnzeit über- oder unterschritten wird.",
+        "outlier": "Gruppiert die Abfrageergebnisse nach Spalten, vergleicht die Gruppen und eröffnet für jede auffällige Gruppe einen Incident.",
+        "composite": "Verknüpft Regeln mit UND, ODER und NICHT. Eine Regel gilt als erfüllt, solange für sie ein Incident offen ist.",
+        "heartbeat": "Erwartet Statusmeldungen von einem geplanten Job oder Backup-Skript. Löst aus, wenn eine Meldung nach Ablauf der Toleranzzeit noch fehlt oder einen Fehler meldet."
+      }
+    },
+    "composite": {
+      "expression": "Ausdruck",
+      "expression_hint": "Verweisen Sie mit Buchstaben auf die folgenden Regeln und verknüpfen Sie sie mit && (UND), || (ODER), ! (NICHT) und Klammern.",
+      "rules": "Regeln",
+      "rule_named": "Regel {{letter}}",
+      "pick_rule": "Regel auswählen",
+      "missing_rule": "Regel existiert nicht mehr",
+      "add_rule": "Regel {{letter}} hinzufügen",
+      "remove_rule": "Regel {{letter}} entfernen",
+      "merge_children": "Incidents dieser Regeln dem Incident der kombinierten Regel unterordnen",
+      "merge_children_hint": "Sobald die kombinierte Regel einen Incident eröffnet, werden ihm die offenen Incidents der verknüpften Regeln untergeordnet und lösen keine eigenen Benachrichtigungen mehr aus.",
+      "problems": {
+        "empty": "Geben Sie einen Ausdruck ein, z. B. A && B.",
+        "characters": "Verwenden Sie nur einzelne Buchstaben, &&, ||, ! und Klammern.",
+        "letters": "Wählen Sie eine Regel für {{letters}} im Ausdruck aus.",
+        "unused": "{{letters}} kommt im Ausdruck nicht vor."
+      }
+    },
+    "forecast": {
+      "line": "Prognosewert",
+      "lead": "Prognosehorizont",
+      "lookback": "Rückblickzeitraum",
+      "model": "Modell",
+      "models": {
+        "linear": "Linearer Trend",
+        "daily": "Tagesmuster",
+        "weekly": "Wochenmuster"
+      },
+      "hours_one": "{{count}} Stunde",
+      "hours_other": "{{count}} Stunden",
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tage",
+      "hint": "Bei jeder Auswertung wird der aktuelle Wert zur Zeitreihe hinzugefügt. Eine neue Regel übernimmt zunächst einige historische Werte. Bei zu wenigen Datenpunkten erfolgt keine Bewertung."
+    },
+    "outlier": {
+      "tolerance": "Toleranz",
+      "tolerance_hint": "Schwellenwert für Ausreißer in Einheiten der skalierten Abweichung. Je kleiner der Wert, desto empfindlicher die Erkennung (Standard: 3).",
+      "direction": "Richtung",
+      "directions": {
+        "both": "Höher oder niedriger",
+        "above": "Nur höher",
+        "below": "Nur niedriger"
+      },
+      "needs_split": "Eine Ausreißerregel gruppiert nach Spalten und vergleicht mindestens 3 Gruppen, für die ein Wert vorliegt."
+    },
+    "heartbeat": {
+      "period": "Check-in-Intervall",
+      "grace": "Toleranzzeit",
+      "address_after_save": "Die Check-in-Adresse wird nach dem Speichern einmalig angezeigt.",
+      "last_checkin": "Letzter Check-in: {{value}}",
+      "never": "Noch kein Check-in",
+      "status": {
+        "ok": "OK",
+        "fail": "Fehler gemeldet"
+      },
+      "due": "Nächster Check-in fällig bis {{value}}",
+      "reset": "Check-in-Adresse zurücksetzen",
+      "dialog_title": "Check-in-Adresse",
+      "dialog_description": "Lassen Sie den Job bei jedem Lauf diese Adresse per GET oder POST aufrufen. Hängen Sie bei einem Fehler ?status=fail an, um sofort einen Alarm auszulösen.",
+      "shown_once": "Die Adresse wird nur jetzt angezeigt. Beim Zurücksetzen wird die alte Adresse sofort ungültig.",
+      "no_external_url": "Für diese Instanz ist keine externe Adresse konfiguriert. Daher wird die aktuell von Ihnen verwendete Adresse angezeigt. Der Job muss sie erreichen können.",
+      "example": "Beispiel",
+      "copy": "Adresse kopieren"
+    },
+    "delay": {
+      "auto": "Automatisch",
+      "none": "Keine Verzögerung",
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h"
+    },
+    "urgency_by_policy": "Gemäß Eskalationsrichtlinie",
+    "home_cluster": {
+      "each": "Jeder Cluster für sich",
+      "local": "{{name}} (dieser Cluster)"
+    }
+  },
+  "drawer": {
+    "title_loading": "Vorfall",
+    "error_title": "Vorfall konnte nicht geladen werden",
+    "actions": {
+      "ack": "Bestätigen",
+      "ack_unavailable": "Nur offene Vorfälle können bestätigt werden.",
+      "ack_success": "Vorfall bestätigt",
+      "silence": "Stummschalten",
+      "silence_unavailable": "Nur aktive Vorfälle können stummgeschaltet werden.",
+      "resolve": "Beheben",
+      "resolve_unavailable": "Dieser Vorfall ist nicht mehr aktiv.",
+      "resolve_success": "Vorfall behoben",
+      "pending": "Für diesen Vorfall läuft bereits eine andere Aktualisierung."
+    },
+    "incident_sections": {
+      "timeline": "Zeitverlauf",
+      "investigation": "Untersuchen",
+      "rca": "KI-Ursachenanalyse",
+      "signals": "Signalübergreifende Verweise",
+      "metadata": "Metadaten",
+      "triggering_query": "Auslösende Abfrage",
+      "assignees": "Zuständige",
+      "blast_radius": "Auswirkungsbereich",
+      "rum_sessions": "Beispielsitzungen",
+      "similar": "Ähnliche Vorfälle",
+      "changes": "Letzte Änderungen",
+      "remediation": "Behebungsmaßnahmen",
+      "tickets": "Tickets",
+      "major": "Schwerwiegender Vorfall",
+      "postmortem": "Postmortem",
+      "guide": "Untersuchungsleitfaden"
+    },
+    "guide": {
+      "queries": "Abfragen",
+      "dashboards": "Dashboards"
+    },
+    "investigation": {
+      "open_trigger": "Auslösende Abfrage öffnen",
+      "open_trigger_description": "Führen Sie dieselbe Abfrage in Explore erneut aus.",
+      "related_logs": "Zugehörige Logs",
+      "related_logs_description": "Prüfen Sie die Logs aus dem betroffenen Kontext.",
+      "related_metrics": "Zugehörige Metriken",
+      "related_metrics_description": "Vergleichen Sie den Zustand der Services im selben Zeitraum.",
+      "open_rum": "In RUM öffnen",
+      "open_rum_description": "Sehen Sie sich dieselbe Kennzahl auf der zugehörigen Seite für den Zeitraum des Vorfalls an."
+    },
+    "rca": {
+      "generate": "Erstellen",
+      "regenerate": "Erneut erstellen",
+      "generating": "Wird erstellt…",
+      "generated": "Ursachenanalyse erstellt",
+      "empty": "Noch keine Analyse. Erstellen Sie eine oder warten Sie auf die automatische Analyse im Hintergrund.",
+      "budget_exhausted": "Das heutige Token-Budget Ihrer Organisation für Mole Agent ist aufgebraucht. Daher wurde keine Analyse erstellt. Versuchen Sie es erneut, sobald das Budget zurückgesetzt oder erhöht wurde."
+    },
+    "signals": {
+      "services": "Services",
+      "traces": "Trace-IDs",
+      "hosts": "Hosts"
+    },
+    "labels": {
+      "title": "Labels"
+    },
+    "annotations": {
+      "title": "Annotationen"
+    },
+    "timeline": {
+      "created": "Ausgelöst",
+      "acknowledged": "Bestätigt",
+      "resolved": "Behoben",
+      "acknowledged_by": "Bestätigt von {{name}}",
+      "resolved_by": "Behoben von {{name}}",
+      "after": "nach {{duration}}"
+    },
+    "triggering_query": {
+      "sample_count": "{{count}} Beispielzeilen",
+      "sample_count_one": "1 Beispielzeile",
+      "show_samples": "Beispielwerte anzeigen"
+    },
+    "assignees_none": "Noch niemand zugewiesen.",
+    "routing": {
+      "team": "Team",
+      "reason": "Grund",
+      "no_team": "Kein Team"
+    },
+    "rum": {
+      "why": {
+        "lcp_p75": "Sitzungen zu Ansichten mit den höchsten LCP-Werten",
+        "inp_p75": "Sitzungen zu Ansichten mit den höchsten INP-Werten",
+        "cls_p75": "Sitzungen zu Ansichten mit den größten Layoutverschiebungen",
+        "ttfb_p75": "Sitzungen zu Ansichten mit der längsten Wartezeit bis zum ersten Byte",
+        "error_rate": "Sitzungen mit den neuesten Fehlern",
+        "error_count": "Sitzungen mit den neuesten Fehlern",
+        "new_issues": "Sitzungen mit den neuesten Fehlern zu diesen Problemen",
+        "regressed_issues": "Sitzungen mit den neuesten Fehlern zu diesen Problemen",
+        "issue_impact": "Sitzungen mit den neuesten Fehlern zum schwerwiegendsten Problem",
+        "crash_free_sessions": "Sitzungen mit Absturz",
+        "frustration_rate": "Sitzungen mit Anzeichen von Frustration",
+        "failed_request_rate": "Sitzungen mit einer fehlgeschlagenen Anfrage"
+      },
+      "cause": {
+        "lcp": "LCP {{value}}",
+        "inp": "INP {{value}}",
+        "cls": "CLS {{value}}",
+        "ttfb": "Erstes Byte {{value}}",
+        "request": "{{request}} → {{status}}"
+      },
+      "replay": "Wiedergabe",
+      "replay_at": "Wiedergabe bei {{time}}",
+      "session": "Sitzung",
+      "anonymous": "Anonym {{id}}",
+      "element": "Element {{element}}",
+      "crashes_one": "{{count}} Absturz",
+      "crashes_other": "{{count}} Abstürze",
+      "signs_one": "{{count}} Anzeichen für Frustration",
+      "signs_other": "{{count}} Anzeichen für Frustration",
+      "no_answer": "keine Antwort",
+      "sessions_failed": "Die Sitzungen konnten nicht gelesen werden. Angezeigt werden die beim Vorfall gespeicherten Zeilen."
+    },
+    "blast": {
+      "off_map": "{{service}} ist in diesem Zeitraum nicht auf der Service-Karte verzeichnet.",
+      "upstream": "Rufen diesen Service auf: Hier kann sich die Störung auswirken",
+      "downstream": "Von diesem Service aufgerufen: Hier kann die Störung ihren Ursprung haben",
+      "no_upstream": "Kein Service ruft diesen Service auf.",
+      "no_downstream": "Dieser Service ruft keine anderen Services auf.",
+      "open_map": "Auf der Service-Karte öffnen",
+      "direct": "direkt",
+      "hops_one": "{{count}} Hop entfernt",
+      "hops_other": "{{count}} Hops entfernt",
+      "calls_one": "{{formatted}} Aufruf, {{rate}} fehlgeschlagen",
+      "calls_other": "{{formatted}} Aufrufe, {{rate}} fehlgeschlagen",
+      "health": {
+        "critical": "Kritisch",
+        "warning": "Warnung",
+        "healthy": "Fehlerfrei",
+        "no_traffic": "Kein Traffic"
+      }
+    }
+  },
+  "insights": {
+    "error_title": "Auswertung nicht möglich",
+    "empty_title": "Noch keine Vorfälle",
+    "empty_description": "Sobald Vorfälle ausgelöst und behoben wurden, zeigt diese Ansicht Informationen zur Behebung, zum zeitlichen Verlauf, zum Schweregrad und zu den wichtigsten Quellen.",
+    "window": {
+      "label": "Auswertungszeitraum",
+      "last_24h": "Letzte 24 Stunden",
+      "last_7d": "Letzte 7 Tage",
+      "last_30d": "Letzte 30 Tage"
+    },
+    "summary": {
+      "active_headline": "Bei {{active}} von {{total}} Vorfällen besteht noch Handlungsbedarf",
+      "recovered_headline": "Alle {{total}} Vorfälle sind behoben",
+      "active_description": "Priorisieren Sie Vorfälle, die noch offen oder bereits bestätigt sind.",
+      "recovered_description": "Im ausgewählten Zeitraum sind keine Vorfälle mehr aktiv. Alle wurden behoben.",
+      "mttr": "Durchschnittliche Behebungszeit",
+      "mttr_description": "Über alle behobenen Vorfälle hinweg",
+      "noise": "Schnelle Behebungen",
+      "noise_description": "{{rate}} innerhalb von 60 Sekunden behoben",
+      "label": "Vorfälle im Zeitraum",
+      "recovered": "Behoben",
+      "recovered_of": "{{closed}} von {{total}}"
+    },
+    "hourly": {
+      "title": "Zeitverlauf der Vorfälle",
+      "description": "Für die letzten 24 Stunden nach Stunde gruppiert, für längere Zeiträume nach Kalendertag. Maßgeblich ist die Zeitzone Ihres Browsers ({{timezone}}).",
+      "series_name": "Vorfälle",
+      "peak_summary": "Höchstwert: {{count}}, Zeitpunkt: {{period}} ({{timezone}})",
+      "chart_label": "Zeitverlauf der Vorfälle. {{summary}}"
+    },
+    "severity_breakdown": {
+      "title": "Verteilung nach Schweregrad",
+      "description": "Höchster Schweregrad, der beim Auslösen des jeweiligen Vorfalls erfasst wurde."
+    },
+    "services": {
+      "title": "Am stärksten betroffene Services",
+      "description": "Services, denen die meisten dieser Vorfälle zugeordnet wurden.",
+      "empty_title": "Keine Service-Zuordnung",
+      "empty_description": "Diese Vorfälle enthalten keine Service-Informationen. Fügen Sie den Alarmregeln ein Service-Label hinzu, damit hier die am stärksten betroffenen Services angezeigt werden."
+    },
+    "rules": {
+      "title": "Am häufigsten ausgelöste Regeln",
+      "description": "Sortiert nach der Anzahl der im ausgewählten Zeitraum erstellten Vorfälle.",
+      "empty_title": "Keine Regelzuordnung",
+      "empty_description": "Diesen Vorfällen lässt sich keine auslösende Regel zuordnen.",
+      "unknown_rule": "Gelöschte oder nicht verfügbare Regel",
+      "manual_secondary": "Manuell eröffnete Vorfälle"
+    },
+    "rankings": {
+      "count_and_share_one": "{{count}} Vorfall · {{percent}}",
+      "count_and_share_other": "{{count}} Vorfälle · {{percent}}"
+    },
+    "duration": {
+      "seconds": "{{count}}s",
+      "minutes": "{{count}}m",
+      "minutes_seconds": "{{minutes}}m {{seconds}}s",
+      "hours": "{{count}}h",
+      "hours_minutes": "{{hours}}h {{minutes}}m"
+    },
+    "response": {
+      "title": "Reaktion",
+      "description": "Zeiten bis zur Übernahme und Behebung von Vorfällen sowie das Ausmaß der Eskalationen im Vergleich zum vorherigen Zeitraum.",
+      "mtta": "Mittlere Zeit bis zur Bestätigung",
+      "percentiles": "P50 {{p50}} · P90 {{p90}}",
+      "none_responded": "In diesem Zeitraum wurde kein Vorfall übernommen",
+      "mttr": "Mediane Behebungszeit",
+      "p90": "P90 {{p90}}",
+      "escalation_rate": "Eskalationsrate",
+      "responded": "Von einer Person übernommen",
+      "responded_detail": "{{responded}} von {{incidents}} Vorfällen übernommen; die übrigen haben sich von selbst erledigt oder sind noch offen",
+      "faster": "{{change}} schneller als zuvor",
+      "slower": "{{change}} langsamer als zuvor",
+      "lower": "{{change}} niedriger als zuvor",
+      "higher": "{{change}} höher als zuvor",
+      "same": "Ungefähr wie zuvor",
+      "no_previous": "Keine früheren Vergleichsdaten",
+      "steps_title": "Bestätigungen je Eskalationsstufe",
+      "steps_description": "Anteil der Vorfälle, die auf der jeweiligen Stufe bestätigt wurden, an allen Vorfällen, die diese Stufe erreicht haben.",
+      "step": "Stufe {{n}}",
+      "step_rate": "{{acknowledged}} von {{reached}} · {{percent}}",
+      "steps_empty": "In diesem Zeitraum wurden keine Eskalationen erfasst.",
+      "via_title": "Übernahmekanal",
+      "via_description": "Kanal der ersten Bestätigung oder Behebung.",
+      "via": {
+        "web": "Web",
+        "api": "API",
+        "im": "Chat-Karte",
+        "sms": "SMS-Antwort",
+        "phone": "Tastendruck am Telefon",
+        "agent": "Mole Agent"
+      },
+      "via_empty": "In diesem Zeitraum hat niemand einen Vorfall übernommen.",
+      "breakdown_title": "Nach Team, Service und Person",
+      "breakdown_description": "Es zählt die Person, die den Vorfall zuerst übernommen hat. Betrifft ein Vorfall mehrere Services, zählt er einmal pro Service. Vorfälle ohne Priorität fehlen in der Aufschlüsselung nach Priorität.",
+      "breakdown_label": "Aufschlüsseln nach",
+      "dimensions": {
+        "teams": "Teams",
+        "services": "Services",
+        "people": "Personen",
+        "priorities": "Priorität"
+      },
+      "columns": {
+        "teams": "Team",
+        "services": "Service",
+        "people": "Mitglied",
+        "incidents": "Vorfälle",
+        "mtta": "Ø Zeit bis zur Bestätigung",
+        "mttr": "Ø Zeit bis zur Wiederherstellung",
+        "escalation": "Eskalationsrate",
+        "priorities": "Priorität"
+      },
+      "breakdown_empty": "Keine Daten zum Aufschlüsseln."
+    },
+    "load": {
+      "title": "Auslastung im Bereitschaftsdienst",
+      "description": "Wie lange jedes Mitglied Bereitschaftsdienst hatte und wie oft es alarmiert wurde. Als Nacht gilt die Zeit von {{start}}:00 bis {{end}}:00 Uhr in der Zeitzone des jeweiligen Bereitschaftsplans.",
+      "loading": "Wird gezählt…",
+      "error": "Die Belastung im Bereitschaftsdienst konnte nicht ermittelt werden.",
+      "empty": "In diesem Zeitraum hatte niemand Bereitschaftsdienst und es wurde niemand alarmiert.",
+      "columns": {
+        "person": "Mitglied",
+        "oncall": "Bereitschaftsdauer",
+        "pages": "Alarmierungen",
+        "night": "Nachts",
+        "weekend": "Am Wochenende",
+        "nights": "Nächte mit Alarmierung",
+        "mtta": "Zuerst bestätigt",
+        "timezone": "Zeitzone"
+      },
+      "mtta_of": "{{count}} · Ø {{mtta}}"
+    }
+  },
+  "anomaly": {
+    "new_title": "Neue Anomalieregel",
+    "edit_title": "Anomalieregel bearbeiten",
+    "subtitle": "Erkennt Ausreißer anhand einer tageszeitabhängigen Basislinie (MAD).",
+    "detection_description": "In jedem Intervall wird der erste numerische Wert der Abfrage mit der Basislinie verglichen.",
+    "detector_description": "Die mediane absolute Abweichung liefert eine robuste Basislinie aus jüngeren Messwerten zur gleichen Tageszeit.",
+    "sections": {
+      "identity": "Allgemein",
+      "detection": "Erkennungsabfrage",
+      "detector": "Detektor"
+    },
+    "fields": {
+      "name": "Regelname",
+      "severity": "Schweregrad",
+      "service": "Service",
+      "stream_name": "Stream",
+      "stream_type": "Stream-Typ",
+      "language": "Abfragesprache",
+      "window": "Auswertungsfenster",
+      "query": "Abfrage",
+      "algorithm": "Algorithmus",
+      "lookback_days": "Rückblick (Tage)",
+      "k": "Empfindlichkeit (k·σ)",
+      "alpha": "Glättung (α)",
+      "for_periods": "Auslösen nach (Intervalle)",
+      "weekly_seasonality": "Wöchentliche Saisonalität",
+      "source": "Datenquelle"
+    },
+    "hints": {
+      "name": "Wird bei Incidents angezeigt, die diese Regel öffnet.",
+      "service": "Optionales Label, um Signale einander zuzuordnen.",
+      "stream_name": "Tabelle, auf die sich die Abfrage bezieht.",
+      "window": "Dauer jedes Auswertungsfensters.",
+      "query": "Geben Sie einen einzelnen numerischen Wert zurück (z. B. avg / p95 / count).",
+      "algorithm": "MAD (robuster Median) oder EWMA (folgt jüngsten Verschiebungen).",
+      "lookback_days": "Anzahl der Tage, aus denen historische Werte zur gleichen Tageszeit als Referenz dienen (1-30).",
+      "k": "Höher = weniger empfindlich. Löst aus, wenn |value - baseline| > k·σ.",
+      "alpha": "Nur EWMA: Ein höherer Wert gewichtet neuere Messwerte stärker (0-1).",
+      "for_periods": "Anzahl aufeinanderfolgender anomaler Intervalle, bevor ein Vorfall eröffnet wird.",
+      "weekly_seasonality": "Vergleicht nur historische Werte vom selben Wochentag. Das reduziert Fehlalarme durch Unterschiede zwischen Werktagen und Wochenenden. Erfordert einen Rückblick von mindestens 7 Tagen (28 oder mehr empfohlen).",
+      "source": "Überwachen Sie das Ergebnis einer Abfrage oder eine APM-Kennzahl eines Dienstes"
+    },
+    "placeholders": {
+      "name": "checkout_latency_anomaly",
+      "service": "checkout",
+      "stream_name": "app_metrics"
+    },
+    "actions": {
+      "create": "Regel erstellen",
+      "save": "Änderungen speichern",
+      "saving": "Wird gespeichert…"
+    },
+    "errors": {
+      "name_required": "Geben Sie einen Regelnamen ein.",
+      "stream_required": "Geben Sie einen Stream an."
+    },
+    "toast_saved": "Anomalieregel „{{name}}“ gespeichert",
+    "weekly": {
+      "off": "Aus (täglich)",
+      "on": "Ein (gleicher Wochentag)"
+    },
+    "source": {
+      "query": "Abfrage",
+      "apm": "APM-Kennzahl",
+      "rum": "RUM-Kennzahl"
+    }
+  },
+  "severity": {
+    "info": "Info",
+    "warning": "Warnung",
+    "error": "Fehler",
+    "critical": "Kritisch"
+  },
+  "conditions": {
+    "no_data": "Keine Daten"
+  },
+  "sources": {
+    "synthetic": "Synthetisch",
+    "manual": "Manuell eröffnet"
+  },
+  "alert_sources": {
+    "new_source": "Neue Alarmquelle",
+    "empty_title": "Noch keine Alarmquellen",
+    "empty_description": "Empfangen Sie Alarme von Alertmanager, Grafana, Datadog, PagerDuty, Zabbix, Cloud-Monitoring-Diensten oder eigenen Systemen sowie per E-Mail. Eröffnen Sie daraus Vorfälle, eskalieren Sie diese und benachrichtigen Sie die zuständigen Personen.",
+    "kinds": {
+      "api": "API",
+      "alertmanager": "Alertmanager",
+      "grafana": "Grafana",
+      "datadog": "Datadog",
+      "pagerduty": "PagerDuty",
+      "aliyun_cms": "Alibaba Cloud CloudMonitor",
+      "tencent_monitor": "Tencent Cloud Observability Platform",
+      "aws_cloudwatch": "Amazon CloudWatch",
+      "zabbix": "Zabbix",
+      "email": "E-Mail"
+    },
+    "kind_hints": {
+      "api": "Incidents über die MoleSignal-API aus Skripten, CI und eigenen Systemen auslösen, bestätigen und lösen.",
+      "alertmanager": "Ein Empfänger vom Typ webhook_configs. Jede Benachrichtigungsgruppe eröffnet einen Incident.",
+      "grafana": "Ein Webhook-Kontaktpunkt. Jede Benachrichtigungsgruppe eröffnet einen Incident.",
+      "datadog": "Die Webhooks-Integration, die in Monitoren als @webhook angegeben wird. Verwendet die in der Dokumentation angegebene Payload.",
+      "pagerduty": "Ein V3-Webhook-Abonnement. Verfolgt, wann PagerDuty-Incidents ausgelöst, bestätigt und gelöst werden.",
+      "aliyun_cms": "Callbacks für Schwellenwertalarme und Push-Benachrichtigungen aus Ereignisabonnements. Geben Sie das Token in der Adresse an.",
+      "tencent_monitor": "API-Callbacks einer Benachrichtigungsvorlage für Metrik- und Ereignisalarme. Geben Sie das Token in der Adresse an.",
+      "aws_cloudwatch": "Alarme gehen an ein SNS-Thema, das diese Adresse als Abonnenten hat. MoleSignal prüft die SNS-Signaturen und bestätigt das Abonnement für Sie.",
+      "zabbix": "Importieren Sie einen Webhook-Medientyp. Pro Problem wird ein Incident eröffnet, dessen Status bei Bestätigung oder Behebung aktualisiert wird.",
+      "email": "Liest ein IMAP-Postfach und benötigt keine öffentliche Adresse. Nimmt auch unverarbeitete E-Mails aus Ihrem bestehenden E-Mail-System entgegen."
+    },
+    "columns": {
+      "name": "Name",
+      "kind": "Typ",
+      "policy": "Eskalationsrichtlinie",
+      "last_intake": "Letzter Empfang",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "never_received": "Noch nichts empfangen",
+    "status": {
+      "on": "Aktiviert",
+      "off": "Deaktiviert"
+    },
+    "policy_default": "Nach Routing-Regeln (Standard)",
+    "policy_none": "Keine Eskalation, nur Benachrichtigungsrichtlinien",
+    "delete_title": "Alarmquelle löschen",
+    "delete_description": "Das Token von {{name}} wird sofort ungültig. Offene Incidents dieser Quelle werden als gelöst markiert.",
+    "delete_named": "{{name}} löschen",
+    "drawer_title": "Neue Alarmquelle",
+    "edit_title": "Alarmquelle bearbeiten",
+    "drawer_subtitle": "Alarme vom externen System eröffnen Incidents gemäß diesen Einstellungen.",
+    "create": "Erstellen",
+    "save": "Speichern",
+    "toast_created": "Alarmquelle erstellt",
+    "toast_updated": "Alarmquelle aktualisiert",
+    "toast_deleted": "Alarmquelle gelöscht",
+    "sections": {
+      "email": "E-Mail-Empfang",
+      "kind": "Typ",
+      "identity": "Identität",
+      "incidents": "Incidents",
+      "labels": "Zusätzliche Labels"
+    },
+    "fields": {
+      "name": "Name",
+      "name_placeholder": "Prometheus (Produktion)",
+      "enabled": "An",
+      "policy": "Eskalationsrichtlinie",
+      "severity": "Standard-Schweregrad",
+      "severity_hint": "Wird verwendet, wenn ein Alert keinen eigenen Schweregrad hat.",
+      "cluster": "Empfangscluster",
+      "cluster_hint": "Incidents werden nur auf diesem Cluster eröffnet. Geht ein Alert bei einem anderen Cluster ein, leitet dieser ihn an den Empfangscluster weiter.",
+      "cluster_local": "{{name}} (dieser Cluster)",
+      "labels_hint": "Diese Labels werden jedem Incident hinzugefügt, den diese Quelle eröffnet. Bei gleichem Schlüssel hat das Label des Alerts Vorrang.",
+      "add_label": "Label hinzufügen",
+      "remove_label": "Label entfernen",
+      "label_key": "Label-Schlüssel",
+      "label_value": "Label-Wert"
+    },
+    "errors": {
+      "name_required": "Geben Sie einen Namen ein."
+    },
+    "token": {
+      "title": "Token für {{name}}",
+      "shown_once": "Das Token wird nur einmal angezeigt. Nach dem Schließen können Sie es nicht erneut einsehen. Falls Sie es verlieren, rotieren Sie es.",
+      "copy": "Token kopieren",
+      "close": "Fertig",
+      "rotate": "Token rotieren",
+      "rotate_title": "Token rotieren",
+      "rotate_description": "Das alte Token wird sofort ungültig. Absender, die es noch verwenden, benötigen das neue Token.",
+      "rotated": "Token rotiert"
+    },
+    "detail": {
+      "loading": "Alert-Quelle",
+      "intake": "Empfang",
+      "intake_email": "Oder senden Sie die unverarbeitete E-Mail per POST",
+      "setup_docs": "Einrichtungsanleitung",
+      "address": "Empfangsadresse",
+      "copy_address": "Empfangsadresse kopieren",
+      "token": "Token",
+      "token_hint": "Hier wird nur das Präfix angezeigt. Das vollständige Token sehen Sie nur einmal: beim Erstellen der Quelle oder beim Rotieren des Tokens.",
+      "setup": "Einrichtung",
+      "setup_hint": "Ersetzen Sie <TOKEN> durch das Token dieser Quelle.",
+      "copy_setup": "Einrichtung kopieren",
+      "not_found_title": "Alert-Quelle nicht gefunden",
+      "not_found_description": "Möglicherweise wurde sie gelöscht oder gehört zu einer anderen Organisation.",
+      "requests": "Zuletzt empfangen",
+      "requests_description": "Pro Quelle werden die letzten 500 Anfragen bis zu 7 Tage lang gespeichert.",
+      "home_elsewhere": "Incidents dieser Quelle werden auf {{cluster}} eröffnet. Dort werden auch ihre letzten Anfragen protokolliert.",
+      "meta": {
+        "policy": "Eskalationsrichtlinie",
+        "severity": "Standard-Schweregrad",
+        "labels": "Zusätzliche Labels",
+        "cluster": "Empfangscluster"
+      }
+    },
+    "email": {
+      "description": "So wird aus einer E-Mail ein Alert: Statuswörter, Schweregrade, Zeitangaben und Prozentwerte im Betreff fließen nicht in den Deduplizierungsschlüssel ein. So werden Störungs- und Entwarnungsmails desselben Alerts einem einzigen Incident zugeordnet.",
+      "senders": "E-Mails annehmen von",
+      "senders_hint": "Trennen Sie die Einträge durch Kommas: E-Mail-Adressen oder @example.com für eine ganze Domain. * erlaubt alle Absender. Bei einem Postfach ist diese Angabe Pflicht, da sonst jeder, der die Adresse kennt, Incidents eröffnen könnte.",
+      "resolve": "Betreffzeilen für Entwarnungen",
+      "resolve_hint": "Ein regulärer Ausdruck. Lassen Sie das Feld leer, um den Standard zu verwenden: resolved, recovered, recovery, cleared, 恢复, 已解决 und OK am Anfang des Betreffs.",
+      "dedup": "Deduplizierungsschlüssel aus dem Betreff",
+      "dedup_hint": "Ein regulärer Ausdruck. Verwendet wird die erste Erfassungsgruppe. Ist das Feld leer oder gibt es keinen Treffer, wird der bereinigte Betreff verwendet.",
+      "ignore": "Zu ignorierende Betreffzeilen",
+      "ignore_hint": "Ein regulärer Ausdruck. E-Mails mit passendem Betreff werden übersprungen. Ist das Feld leer, wird keine E-Mail übersprungen."
+    },
+    "mailbox": {
+      "title": "Postfach abrufen",
+      "description": "Nur Lesezugriff: Keine E-Mail wird als gelesen markiert oder gelöscht. Der Abruf beginnt mit der ersten Verbindung. Bereits vorhandene E-Mails werden nicht berücksichtigt.",
+      "elsewhere": "Das Postfach wird vom Empfangscluster dieser Quelle ({{cluster}}) abgerufen. Richten Sie es dort ein: Das Passwort bleibt in diesem Cluster.",
+      "host": "IMAP-Server",
+      "port": "Port",
+      "security": "Verschlüsselung",
+      "security_tls": "TLS",
+      "security_starttls": "STARTTLS",
+      "security_none": "Keine",
+      "plaintext_warning": "Ohne Verschlüsselung wird das Passwort im Klartext übertragen. Verwenden Sie diese Einstellung nur in einem vertrauenswürdigen Netzwerk.",
+      "auth_password": "Passwort",
+      "auth_password_hint": "Das Postfachpasswort oder ein App-Passwort des Anbieters.",
+      "auth_oauth2": "OAuth 2.0",
+      "auth_oauth2_hint": "Ein Token über Client Credentials: Microsoft 365 akzeptiert keine Passwörter mehr.",
+      "username": "Benutzername",
+      "password": "Passwort",
+      "client_secret": "Client-Secret",
+      "secret_kept": "Leer lassen, um den Wert beizubehalten",
+      "token_url": "Token-URL",
+      "client_id": "Client-ID",
+      "scope": "Scope",
+      "folder": "Ordner",
+      "poll_secs": "Abrufintervall (Sekunden)",
+      "poll_hint": "15 bis 3600. Manche Mailserver begrenzen die Häufigkeit von Anmeldungen.",
+      "save": "Postfach speichern",
+      "test": "Verbindung testen",
+      "remove": "Postfachabruf beenden",
+      "saved": "Postfach gespeichert. Der Abruf beginnt mit dem nächsten Durchlauf.",
+      "removed": "Dieses Postfach wird nicht mehr abgerufen",
+      "test_ok_one": "Verbunden; dieser Ordner enthält {{count}} E-Mail",
+      "test_ok_other": "Verbunden; dieser Ordner enthält {{count}} E-Mails",
+      "test_failed": "Verbindung fehlgeschlagen: {{error}}",
+      "last_error": "Letzter Abruf fehlgeschlagen: {{error}}",
+      "last_success": "Abgerufen: {{time}}",
+      "not_read_yet": "Noch nicht abgerufen; der erste Abruf erfolgt im nächsten Durchlauf."
+    },
+    "standing": {
+      "label": "Status der Quelle",
+      "off": "Deaktiviert",
+      "waiting": "Wartet auf die erste Anfrage",
+      "quiet": "Keine Anfragen in den letzten 7 Tagen",
+      "refused": "Letzte Anfrage abgelehnt",
+      "receiving": "Empfängt Anfragen",
+      "off_detail": "Anfragen werden abgelehnt, solange die Quelle deaktiviert ist.",
+      "waiting_detail": "Richten Sie den Absender wie unten beschrieben ein. Der Status wird aktualisiert, sobald die erste Anfrage eingeht.",
+      "last_received": "Letzte Anfrage: {{when}}",
+      "refused_detail": "{{when}}: {{reason}}",
+      "requests": "Anfragen der letzten 24 Stunden",
+      "refused_count_one": "{{count}} abgelehnt",
+      "refused_count_other": "{{count}} abgelehnt",
+      "none_refused": "Keine abgelehnt",
+      "no_requests": "Noch keine",
+      "alerts": "Alerts",
+      "alert_outcomes": "{{opened}} geöffnet · {{resolved}} behoben",
+      "open_incidents": "Offene Incidents",
+      "oldest_open": "Ältester offener Incident, geöffnet: {{when}}",
+      "none_open": "Keine offen"
+    },
+    "steps": {
+      "address": "Empfangsadresse kopieren",
+      "address_description": "Alle Alert-Quellen verwenden dieselbe Adresse. Das Token ordnet den Alert seiner Quelle zu.",
+      "token": "Token hinzufügen",
+      "token_header": "Der Absender setzt den Authorization-Header auf Bearer, gefolgt von einem Leerzeichen und dem Token.",
+      "token_query": "Dieser Absender kann keine Header setzen. Fügen Sie das Token daher als Abfrageparameter token zur Adresse hinzu.",
+      "configure": "Absender einrichten"
+    },
+    "setup_guide": {
+      "api": "Senden Sie Alerts mit der unten gezeigten Anfrage. Auslösung, Bestätigung und Wiederherstellung werden demselben Incident zugeordnet, wenn sie denselben dedupKey verwenden.",
+      "alertmanager": "Fügen Sie den unten gezeigten Empfänger zu alertmanager.yml hinzu und leiten Sie Alerts an ihn weiter. Lassen Sie send_resolved auf true.",
+      "grafana": "Fügen Sie unter Alerting → Contact points wie unten gezeigt einen Webhook-Kontaktpunkt hinzu und verwenden Sie ihn in einer Benachrichtigungsrichtlinie.",
+      "datadog": "Erstellen Sie unter Integrations → Webhooks wie unten gezeigt einen Webhook und geben Sie @webhook-<name> in der Nachricht eines Monitors an.",
+      "pagerduty": "Erstellen Sie unter Integrations → Generic Webhooks (v3) wie unten gezeigt einen Webhook.",
+      "aliyun_cms": "Geben Sie die Empfangsadresse als Alarm-Callback einer Alarmregel oder als Webhook-Adresse eines Push-Kanals für ein Systemereignisabonnement ein.",
+      "tencent_monitor": "Geben Sie unter Alarm Management die Empfangsadresse als API-Callback einer Benachrichtigungsvorlage ein und verknüpfen Sie die Vorlage mit einer Alarmrichtlinie.",
+      "aws_cloudwatch": "Leiten Sie die Statusänderungen des Alarms an ein SNS-Thema weiter und fügen Sie dem Thema ein HTTPS-Abonnement mit der Empfangsadresse hinzu (siehe AWS CLI-Befehl unten). Das Abonnement wird automatisch bestätigt. Lassen Sie Raw message delivery deaktiviert. Senden Sie auch den Status OK an das Thema, damit Incidents automatisch als behoben markiert werden.",
+      "zabbix": "Speichern Sie dies als YAML und importieren Sie die Datei unter Alarme → Medientypen. Weisen Sie einem Benutzer dieses Medium zu (im Feld „Senden an“ ist ein beliebiger Wert möglich). Fügen Sie dann eine Trigger-Aktion hinzu, deren Operationen, Wiederherstellungsoperationen und Aktualisierungsoperationen an diesen Benutzer gerichtet sind.",
+      "email": "Wenn ein Postfach nicht ausgelesen werden kann, kann ein bereits eingesetztes Mailsystem (Postfix, SES, Mailgun) die unformatierte E-Mail wie hier gezeigt per POST senden. Sie wird dann auf dieselbe Weise verarbeitet."
+    },
+    "setup_docs_anchor": {
+      "api": "api",
+      "alertmanager": "alertmanager",
+      "grafana": "grafana",
+      "datadog": "datadog",
+      "pagerduty": "pagerduty",
+      "aliyun_cms": "alibaba-cloud-cloudmonitor",
+      "tencent_monitor": "tencent-cloud-observability-platform",
+      "aws_cloudwatch": "amazon-cloudwatch",
+      "zabbix": "zabbix",
+      "email": "email"
+    },
+    "requests": {
+      "columns": {
+        "time": "Zeit",
+        "result": "Ergebnis",
+        "alerts": "Alarme",
+        "message": "Hinweis"
+      },
+      "status": {
+        "accepted": "Verarbeitet",
+        "rejected": "Abgelehnt",
+        "forwarded": "Weitergeleitet"
+      },
+      "via": "Weitergeleitet von {{cluster}}",
+      "alert_count_one": "{{count}} Alarm",
+      "alert_count_other": "{{count}} Alarme",
+      "outcomes": {
+        "opened": "Eröffnet",
+        "updated": "Aktualisiert",
+        "unchanged": "Unverändert",
+        "acknowledged": "Bestätigt",
+        "resolved": "Behoben",
+        "ignored": "Ignoriert"
+      },
+      "actions": {
+        "trigger": "Auslösen",
+        "acknowledge": "Bestätigen",
+        "resolve": "Als behoben markieren"
+      },
+      "body": "Anfang des Anfrageinhalts",
+      "open_incident": "Vorfall öffnen",
+      "no_alerts": "Die Anfrage enthielt keinen Alarm."
+    },
+    "incident": {
+      "title": "Externer Alarm",
+      "source": "Quelle",
+      "deleted": "Quelle gelöscht",
+      "dedup_key": "Deduplizierungsschlüssel",
+      "last_intake": "Zuletzt empfangen",
+      "members_one": "{{count}} Alarm in der Gruppe",
+      "members_other": "{{count}} Alarme in der Gruppe",
+      "member_firing": "Ausgelöst",
+      "member_resolved": "Behoben",
+      "since": "seit {{time}}",
+      "open_sender": "Im Quellsystem öffnen"
+    }
+  },
+  "routing": {
+    "new_rule": "Neue Regel",
+    "rules_title": "Routing-Regeln",
+    "rules_description": "Die Regeln werden von oben nach unten geprüft. Die erste passende Regel entscheidet. Wenn keine Regel greift, werden nacheinander das für den Service zuständige Team, das Team-Label und die Standardrichtlinie herangezogen.",
+    "rules_empty": "Noch keine Routing-Regeln vorhanden.",
+    "every_incident": "Jeder Vorfall",
+    "min_severity": "{{severity}} oder schwerwiegender",
+    "only_origins": "Nur {{origins}}",
+    "list_separator": ", ",
+    "origins": {
+      "rule": "Alarmregeln",
+      "external": "Externe Alarme",
+      "synthetic": "Synthetische Prüfungen",
+      "manual": "Manuell erstellte Vorfälle"
+    },
+    "reorder": "„{{name}}“ verschieben",
+    "reorder_hint": "Ziehen Sie den Eintrag oder verschieben Sie ihn mit ↑ und ↓",
+    "target_policy": "Richtlinie",
+    "target_team": "Team",
+    "target_missing": "Ziel gelöscht",
+    "target_missing_hint": "Die Zielrichtlinie oder das Zielteam wurde gelöscht. Daher wird diese Regel übersprungen.",
+    "enable": "„{{name}}“ aktivieren",
+    "delete_named": "„{{name}}“ löschen",
+    "delete_title": "Routing-Regel löschen",
+    "delete_description": "Vorfälle, auf die „{{name}}“ zutraf, werden anhand der nachfolgenden Regeln weitergeleitet.",
+    "toast_created": "Regel erstellt",
+    "toast_updated": "Regel gespeichert",
+    "toast_deleted": "Regel gelöscht",
+    "toast_team_policy": "Bereitschaftsrichtlinie gespeichert",
+    "teams_title": "Bereitschaftsrichtlinien der Teams",
+    "teams_description": "Vorfälle, die an ein Team weitergeleitet werden, werden nach dessen Bereitschaftsrichtlinie eskaliert. Hat das Team keine eigene Richtlinie, gilt die Standardrichtlinie.",
+    "teams_empty": "Noch keine Teams vorhanden.",
+    "teams_create": "Team unter „Identität und Zugriff“ erstellen",
+    "columns": {
+      "team": "Team",
+      "services": "Zugeordnete Services",
+      "policy": "Bereitschaftsrichtlinie",
+      "policy_of": "Bereitschaftsrichtlinie für {{team}}"
+    },
+    "members_one": "{{count}} Mitglied",
+    "members_other": "{{count}} Mitglieder",
+    "services_one": "{{count}} Service",
+    "services_other": "{{count}} Services",
+    "services_rest": ", …",
+    "services_none": "Keine Services im Servicekatalog",
+    "no_policy": "Keine, Standardrichtlinie",
+    "default_policy": "Standardrichtlinie",
+    "no_team": "Kein Team",
+    "try_title": "Routing testen",
+    "try_description": "Geben Sie Labels ein, um zu sehen, welches Team und welche Eskalationsrichtlinie einem solchen Vorfall zugewiesen würden.",
+    "try_labels": "Labels",
+    "try_labels_hint": "Ein Label pro Zeile im Format key=value.",
+    "try_origin": "Ursprung",
+    "try_severity": "Schweregrad",
+    "try_run": "Testen",
+    "try_idle": "Hier sehen Sie das zugewiesene Team, die Eskalationsrichtlinie und das Ergebnis jedes Schritts.",
+    "outcome_team": "Team",
+    "outcome_policy": "Eskalationsrichtlinie",
+    "outcome_reason": "Grund",
+    "steps": {
+      "rule": "Routingregeln",
+      "rule_matched": "„{{name}}“ trifft zu",
+      "rule_none": "Keine passende Regel",
+      "rule_empty": "Keine aktiven Regeln",
+      "service": "Zuständiges Team für den Service",
+      "service_none": "Kein Service in den Labels",
+      "service_owned": "{{team}} ist für {{service}} zuständig",
+      "service_unowned": "Für {{service}} ist kein Team zuständig",
+      "label": "Team-Label",
+      "label_team": "Verweist auf {{team}}",
+      "label_none": "Kein Label team oder team_id verweist auf ein Team",
+      "default": "Standardrichtlinie",
+      "default_used": "Standardrichtlinie angewendet",
+      "default_for_team": "{{team}} hat keine Bereitschaftsrichtlinie. Daher wird die Standardrichtlinie angewendet.",
+      "default_unused": "Nicht erforderlich"
+    },
+    "reasons": {
+      "rule": "Regel „{{name}}“ trifft zu",
+      "service_owner": "Zuständiges Team für den Service {{service}}",
+      "team_label": "Team-Label des Vorfalls",
+      "default": "Keine Übereinstimmung; Standardrichtlinie",
+      "source": "Von der Quelle ausgewählte Richtlinie",
+      "manual": "Beim Eröffnen des Vorfalls ausgewählt"
+    },
+    "drawer": {
+      "new_title": "Neue Routingregel",
+      "edit_title": "Routingregel bearbeiten",
+      "subtitle": "Ein Vorfall, der alle Bedingungen dieser Regel erfüllt, wird an das festgelegte Ziel weitergeleitet.",
+      "create": "Erstellen",
+      "save": "Speichern",
+      "identity": "Allgemein",
+      "name": "Name",
+      "name_placeholder": "z. B. Zahlungen in der Produktionsumgebung",
+      "enabled": "Aktiviert",
+      "conditions": "Bedingungen",
+      "conditions_hint": "Die Bedingungen werden anhand der Labels des Vorfalls geprüft. Alle müssen erfüllt sein. Eine Regel ohne Bedingungen gilt für alle Vorfälle.",
+      "add_condition": "Bedingung hinzufügen",
+      "remove_condition": "Bedingung entfernen",
+      "key": "Label",
+      "operator": "Vergleich",
+      "operators": {
+        "equals": "ist gleich",
+        "not_equals": "ist ungleich",
+        "in": "ist einer der Werte",
+        "matches": "entspricht dem regulären Ausdruck"
+      },
+      "value": "Wert",
+      "value_in_placeholder": "Werte durch Kommas trennen",
+      "scope": "Geltungsbereich",
+      "min_severity": "Mindestschweregrad",
+      "any_severity": "Beliebig",
+      "origins": "Quellen",
+      "origins_hint": "Wenn Sie keine Quelle auswählen, werden Vorfälle aus allen Quellen geprüft.",
+      "target": "Senden an",
+      "target_team": "Team",
+      "target_team_hint": "Eskaliert gemäß der Bereitschaftsrichtlinie des Teams",
+      "target_policy": "Eskalationsrichtlinie",
+      "target_policy_hint": "Verwendet diese Richtlinie. Das Team wird weiterhin anhand der Servicezuständigkeit oder des Labels bestimmt.",
+      "target_placeholder": "Auswählen",
+      "priorities": "Priorität",
+      "priorities_hint": "Wenn Sie keine Priorität auswählen, wird sie ignoriert. Sobald Sie mindestens eine auswählen, greift die Regel nicht für Vorfälle ohne Priorität.",
+      "time_hint": "Maßgeblich ist der Zeitpunkt, zu dem der Vorfall geöffnet wird."
+    },
+    "only_priorities": "Priorität {{priorities}}",
+    "time_inside": "nur {{ranges}} ({{timezone}})",
+    "time_outside": "außerhalb von {{ranges}} ({{timezone}})",
+    "try_priority": "Priorität",
+    "try_at": "Eröffnungszeitpunkt",
+    "try_at_now": "Jetzt"
+  },
+  "matchers": {
+    "title": "Label-Matcher",
+    "add": "Matcher hinzufügen",
+    "remove": "Matcher entfernen",
+    "label_placeholder": "Label (z. B. service)",
+    "label_aria": "Label des Matchers",
+    "value_placeholder": "Wert",
+    "value_aria": "Wert des Matchers",
+    "hint": "Alle Matcher müssen zutreffen (UND). =~ und !~ verwenden reguläre Ausdrücke."
+  },
+  "escalations": {
+    "new_policy": "Neue Richtlinie",
+    "empty_title": "Keine Eskalationsrichtlinien",
+    "empty_description": "Leiten Sie unbestätigte Vorfälle an Personen im Bereitschaftsdienst, Bereitschaftspläne und Teams weiter.",
+    "columns": {
+      "name": "Name",
+      "steps": "Wer wird wann benachrichtigt?",
+      "actions": "Aktionen"
+    },
+    "delete_title": "Eskalationsrichtlinie löschen",
+    "edit_title": "Eskalationsrichtlinie bearbeiten",
+    "drawer_title": "Neue Eskalationsrichtlinie",
+    "drawer_subtitle": "Die Eskalationsschritte werden nacheinander ausgeführt, bis der Vorfall bestätigt wird.",
+    "save": "Richtlinie speichern",
+    "create": "Richtlinie erstellen",
+    "toast_updated": "Richtlinie aktualisiert",
+    "toast_created": "Richtlinie erstellt",
+    "errors": {
+      "name_required": "Ein Name ist erforderlich.",
+      "target_required": "Fügen Sie mindestens ein Ziel hinzu.",
+      "support_hours": "Für die Supportzeiten ist mindestens ein Zeitfenster mit Angabe der Tage und gültigen Uhrzeiten erforderlich."
+    },
+    "sections": {
+      "identity": "Allgemein",
+      "steps": "Eskalationsschritte",
+      "steps_description": "Jeder Schritt löst pro Ziel ein Notify-Ereignis aus und wartet auf eine Bestätigung, bevor der nächste Schritt beginnt."
+    },
+    "fields": {
+      "name": "Name der Richtlinie",
+      "repeat": "Gesamte Richtlinie bis zur Bestätigung wiederholen",
+      "max_loops": "Max. Wiederholungen",
+      "ack_retrigger": "Bestätigt, aber nicht behoben",
+      "min_severity": "Gilt ab Schweregrad",
+      "ack_timeout": "Wartezeit auf Bestätigung",
+      "targets": "Ziele",
+      "notify_routing": "Die Auswahl der Konnektoren und das Fallback-Routing werden unter Einstellungen → Notify → Richtlinien konfiguriert."
+    },
+    "hints": {
+      "max_loops": "Anzahl der Wiederholungen, bevor die Eskalation endet.",
+      "ack_retrigger": "Bleibt ein bestätigter Vorfall so lange ungelöst, gilt er wieder als unbestätigt und die zugewiesenen Personen werden erneut benachrichtigt. Bestätigt ihn niemand, wird die Eskalation fortgesetzt."
+    },
+    "ack_retrigger": {
+      "off": "Nicht erneut benachrichtigen",
+      "minutes": "{{count}} min",
+      "hours_one": "{{count}} Stunde",
+      "hours_other": "{{count}} Stunden"
+    },
+    "add_step": "Schritt hinzufügen",
+    "remove_step": "Schritt entfernen",
+    "step_n": "Schritt {{n}}",
+    "add_target": "Ziel hinzufügen",
+    "remove_target": "Ziel entfernen",
+    "any_severity": "Alle Schweregrade",
+    "pick_ref": "— auswählen —",
+    "missing_target": "Nicht mehr vorhanden",
+    "target_kinds": {
+      "user": "Benutzer",
+      "schedule": "Bereitschaftsplan",
+      "team": "Team"
+    },
+    "no_target": "Noch niemand",
+    "from_severity": "ab {{severity}}",
+    "repeats_one": "wird {{count}}-mal wiederholt",
+    "repeats_other": "wird {{count}}-mal wiederholt",
+    "unreachable_one": "{{count}} Ziel ist nicht erreichbar",
+    "unreachable_other": "{{count}} Ziele sind nicht erreichbar",
+    "urgency": {
+      "title": "Dringlichkeit",
+      "description": "Legt fest, welche Dringlichkeit ein Vorfall erhält, wenn noch keine festgelegt wurde. Die Dringlichkeitsstufen der Organisation bestimmen, ob weiter eskaliert wird, wie Ruhezeiten berücksichtigt werden und welche persönlichen Schritte gelten.",
+      "modes": {
+        "by_severity": "Nach Schweregrad",
+        "support_hours": "Nach Supportzeiten",
+        "always": "Immer dieselbe Stufe"
+      },
+      "mode_hints": {
+        "by_severity": "Für jeden Schweregrad gilt die von der Organisation zugewiesene Stufe. Standardmäßig gilt „Hoch“ für „Kritisch“ und „Fehler“ und „Niedrig“ für „Warnung“ und „Info“.",
+        "support_hours": "Eine Stufe innerhalb der Supportzeiten, eine andere außerhalb.",
+        "always": "Für jeden Vorfall gilt die unten ausgewählte Stufe."
+      },
+      "raise_at_start": "Zu Beginn der Supportzeiten nicht bestätigte Vorfälle mit niedrigerer Dringlichkeit auf die für diese Zeit geltende Stufe anheben und ab dem ersten Schritt erneut alarmieren",
+      "escalate_low": "Auch Vorfälle mit einer Dringlichkeitsstufe, bei der die Eskalation sonst nach dem ersten Schritt endet, weiter eskalieren",
+      "chain": {
+        "support_hours": "Dringlichkeit nach Supportzeiten",
+        "always": "Immer {{urgency}}"
+      },
+      "always_level": "Dringlichkeit",
+      "inside": "Innerhalb der Supportzeiten",
+      "outside": "Außerhalb der Supportzeiten"
+    }
+  },
+  "schedules": {
+    "title": "Bereitschaftspläne",
+    "subtitle": "Verwalten Sie den Bereitschaftswechsel und vorübergehende Vertretungen für die Alarmeskalation.",
+    "new_schedule": "Neuer Bereitschaftsplan",
+    "empty_title": "Keine Bereitschaftspläne",
+    "empty_description": "Wechseln Sie die Rufbereitschaft im Team täglich, wöchentlich oder in einem eigenen Rhythmus.",
+    "columns": {
+      "name": "Name",
+      "timezone": "Zeitzone",
+      "rotations": "Rotationen",
+      "members": "Personen",
+      "current_on_call": "Aktuell in Bereitschaft",
+      "rotation": "Rotation",
+      "next_switch": "Nächste Übergabe",
+      "coverage": "Abdeckung",
+      "recent_change": "Letzte Änderung",
+      "status": "Status"
+    },
+    "delete_title": "Bereitschaftsplan löschen",
+    "edit_title": "Bereitschaftsplan bearbeiten",
+    "drawer_title": "Neuer Bereitschaftsplan",
+    "drawer_subtitle": "Konfigurieren Sie den Bereitschaftsplan und prüfen Sie die nächsten sieben Tage, bevor Sie ihn erstellen.",
+    "save": "Bereitschaftsplan speichern",
+    "save_draft": "Entwurf speichern",
+    "create": "Bereitschaftsplan erstellen",
+    "toast_updated": "Bereitschaftsplan aktualisiert",
+    "toast_created": "Bereitschaftsplan erstellt",
+    "toast_draft_saved": "Entwurf des Bereitschaftsplans gespeichert",
+    "toast_paused": "Bereitschaftsplan pausiert",
+    "toast_resumed": "Bereitschaftsplan fortgesetzt",
+    "toast_copied": "Kopie des Bereitschaftsplans erstellt und pausiert",
+    "copy_name": "{{name}} (Kopie)",
+    "errors": {
+      "name_required": "Ein Name ist erforderlich.",
+      "members_required": "Fügen Sie der Rotation mindestens ein Mitglied hinzu.",
+      "override_user": "Wählen Sie eine Person aus.",
+      "override_reason": "Geben Sie einen Grund für die Vertretung ein.",
+      "override_window": "Das Ende muss nach dem Beginn liegen.",
+      "override_conflict": "Dieser Zeitraum überschneidet sich mit einer bestehenden Vertretung."
+    },
+    "sections": {
+      "identity": "Grundinformationen",
+      "rotations": "Rotationsregeln",
+      "rotations_description": "In jeder Rotation wechseln sich die Mitglieder ab. Vertretungen verwalten Sie auf der Detailseite des Bereitschaftsplans.",
+      "overrides": "Vertretungen"
+    },
+    "fields": {
+      "name": "Name des Bereitschaftsplans",
+      "description": "Beschreibung",
+      "timezone": "Zeitzone",
+      "team": "Team",
+      "cadence": "Rotationsrhythmus",
+      "period_hours": "Zeitraum (Stunden)",
+      "start_at": "Startdatum und -uhrzeit",
+      "ends": "Endet zu einem festgelegten Zeitpunkt",
+      "end_at": "Enddatum und -uhrzeit",
+      "handoff_time": "Übergabezeit",
+      "members": "Mitglieder (wechseln in dieser Reihenfolge)",
+      "restrict_window": "Auf bestimmte Tage oder Uhrzeiten beschränken",
+      "swap_needs_approval": "Diensttausche müssen genehmigt werden"
+    },
+    "hints": {
+      "timezone": "z. B. UTC, America/New_York, Asia/Shanghai",
+      "swap_needs_approval": "Sobald die angefragte Person dem Diensttausch zustimmt, muss ihn eine Person mit Verwaltungsrechten für diesen Bereitschaftsplan genehmigen. Erst dann wird der Tausch wirksam."
+    },
+    "add_rotation": "Rotation hinzufügen",
+    "remove_rotation": "Rotation entfernen",
+    "rotation_name_placeholder": "Beispiel: Hauptbereitschaft",
+    "rotation_kinds": {
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "workdays": "An Arbeitstagen",
+      "custom": "Benutzerdefinierter Zeitraum"
+    },
+    "no_users": "Keine Benutzer gefunden.",
+    "unknown_user": "Unbekanntes Mitglied",
+    "on_call_now": "Jetzt in Bereitschaft",
+    "nobody_on_call": "Niemand in Bereitschaft",
+    "currently_on_call": "Derzeit in Bereitschaft",
+    "detail_loading": "Bereitschaftsplan",
+    "detail_error": "Bereitschaftsplan konnte nicht geladen werden",
+    "no_rotations": "Noch keine Rotationen vorhanden.",
+    "rotation_untitled": "Rotation {{n}}",
+    "no_members": "Keine Mitglieder",
+    "overrides_hint": "Übertragen Sie den Bereitschaftsdienst für einen festgelegten Zeitraum an eine bestimmte Person.",
+    "override_added": "Vertretung hinzugefügt",
+    "override_updated": "Vertretung aktualisiert",
+    "override_deleted": "Vertretung gelöscht",
+    "override_ended": "Vertretung beendet",
+    "override_delete_title": "Vorübergehende Vertretung löschen?",
+    "override_fields": {
+      "user": "Vertretungsperson",
+      "reason": "Grund",
+      "start": "Startzeit",
+      "end": "Endzeit"
+    },
+    "pick_user": "Person auswählen",
+    "add_override": "Vertretung hinzufügen",
+    "every_n_hours": "Alle {{n}} h",
+    "update_override": "Vertretung aktualisieren",
+    "cancel_edit": "Bearbeitung abbrechen",
+    "end_override": "Vertretung beenden",
+    "override_person": "Vertretung",
+    "override_badge": "Vorübergehend",
+    "override_summary": "{{user}} übernimmt die Vertretung von {{start}} bis {{end}}.",
+    "no_overrides": "Keine aktive oder geplante vorübergehende Vertretung",
+    "view_history": "Verlauf anzeigen",
+    "hide_history": "Verlauf ausblenden",
+    "no_switch": "Keine geplante Übergabe",
+    "people_count": "{{count}} Personen",
+    "people_rotation": "{{count}} Personen im Wechsel",
+    "rotation_count": "{{count}} Rotationen",
+    "total_count": "{{count}} insgesamt",
+    "system_actor": "System",
+    "description_fallback": "Weiterleitung an den Bereitschaftsdienst bei Alarmeskalationen",
+    "team_prefix": "Team: {{team}}",
+    "team_unassigned": "Kein Team",
+    "warnings": {
+      "other_schedule": "Diese Person hat zu Beginn der Vertretung bereits laut einem anderen Plan Bereitschaftsdienst.",
+      "immediate": "Der Beginn liegt in der Vergangenheit. Die Vertretung gilt ab sofort."
+    },
+    "placeholders": {
+      "name": "Zum Beispiel: Primärer Bereitschaftsdienst für die Produktionsumgebung",
+      "description": "Beschreiben Sie die Dienste, die Umgebung und den Geltungsbereich der Eskalation.",
+      "override_reason": "Zum Beispiel: Urlaub, Incident Response, Schichttausch"
+    },
+    "summary": {
+      "schedules": "Bereitschaftspläne",
+      "schedule_count": "{{count}} Bereitschaftspläne",
+      "team_count": "Für {{count}} Teams",
+      "on_call": "Jetzt im Bereitschaftsdienst",
+      "active_count": "{{count}} aktive Bereitschaftspläne",
+      "people_on_call": "{{count}} Personen derzeit im Bereitschaftsdienst",
+      "this_week": "Diese Woche",
+      "rotation_count": "{{count}} Übergaben",
+      "next_switch": "Nächste Übergabe: {{value}}",
+      "no_switch": "Keine Übergaben diese Woche",
+      "overrides": "Vorübergehende Vertretung",
+      "override_count": "{{count}} Bereitschaftspläne mit Vertretung",
+      "override_people": "{{count}} Personen in Vertretung"
+    },
+    "filters": {
+      "search": "Nach Bereitschaftsplan, Team oder Verantwortlichen suchen…",
+      "team": "Team",
+      "timezone": "Zeitzone",
+      "status": "Status",
+      "all": "Alle",
+      "mine": "Nur meine Bereitschaftspläne",
+      "refresh": "Aktualisieren",
+      "reset": "Filter zurücksetzen",
+      "list_settings": "Listeneinstellungen",
+      "no_results": "Keine Bereitschaftspläne entsprechen diesen Filtern"
+    },
+    "roles": {
+      "primary": "Primär",
+      "secondary": "Sekundär"
+    },
+    "status": {
+      "active": "Aktiv",
+      "switching": "Übergabe steht bevor",
+      "not_started": "Noch nicht begonnen",
+      "paused": "Pausiert",
+      "gap": "Besetzungslücke"
+    },
+    "actions": {
+      "open_menu": "Aktionen für {{name}} öffnen",
+      "view": "Details anzeigen",
+      "edit": "Bereitschaftsplan bearbeiten",
+      "add_override": "Vorübergehende Vertretung hinzufügen",
+      "pause": "Bereitschaftsplan pausieren",
+      "resume": "Bereitschaftsplan fortsetzen",
+      "copy": "Bereitschaftsplan kopieren",
+      "export_calendar": "Kalender exportieren",
+      "delete": "Bereitschaftsplan löschen",
+      "more": "Weitere Aktionen",
+      "subscribe_calendar": "Kalender abonnieren"
+    },
+    "pagination": {
+      "label": "Seitennavigation für Bereitschaftspläne",
+      "page": "{{page}} / {{count}}",
+      "page_size": "Zeilen pro Seite",
+      "first": "Erste Seite der Bereitschaftspläne",
+      "previous": "Vorherige Seite",
+      "next": "Nächste Seite",
+      "last": "Letzte Seite der Bereitschaftspläne"
+    },
+    "preview": {
+      "title": "Nächste 7 Tage",
+      "description": "Prüfen Sie vor dem Erstellen die Rotationsreihenfolge, den Übergabezeitpunkt und die Besetzung.",
+      "empty": "Wählen Sie Personen für die Rotation aus, um die Vorschau anzuzeigen",
+      "member_count": "Eingeteilte Personen",
+      "timezone": "Zeitzone des Bereitschaftsplans",
+      "then": "Danach",
+      "unreadable": "Korrigieren Sie die Zeiträume, um die Vorschau anzuzeigen."
+    },
+    "detail": {
+      "current": "Aktuell in Bereitschaft",
+      "started_at": "Beginn: {{value}}",
+      "no_active_shift": "Derzeit ist keine Schicht aktiv",
+      "next_rotation": "Nächste Übergabe",
+      "rotation_people": "Teilnehmende der Rotation",
+      "rotation_rule": "Rotation: {{value}}",
+      "overrides": "Vorübergehende Vertretung",
+      "active_override_count": "{{count}} aktiv",
+      "coverage_window": "Zeitraum: {{start}} – {{end}}",
+      "no_override": "Keine vorübergehende Vertretung aktiv",
+      "rotation_rule_title": "Rotationsregel",
+      "view_rule": "Details anzeigen",
+      "rotation_name": "Name der Rotation",
+      "rotation_members": "Teilnehmende der Rotation",
+      "handoff_time": "Übergabezeit",
+      "handoff_value": "{{cadence}} um {{time}} ({{timezone}})",
+      "rotation_ends": "Endet"
+    },
+    "timeline": {
+      "title": "Nächste 7 Tage",
+      "current": "Aktuell in Rufbereitschaft",
+      "upcoming": "Als Nächstes",
+      "view_calendar": "Kalender anzeigen",
+      "empty": "Dieser Bereitschaftsplan enthält keine Schichten zur Anzeige"
+    },
+    "activity": {
+      "title": "Änderungsverlauf",
+      "view_all": "Alle anzeigen",
+      "collapse": "Einklappen",
+      "empty": "Keine Änderungen aufgezeichnet",
+      "columns": {
+        "time": "Zeitpunkt",
+        "actor": "Ausgeführt von",
+        "type": "Typ",
+        "content": "Änderung"
+      },
+      "types": {
+        "create": "Erstellt",
+        "edit": "Bearbeitet",
+        "override": "Vertretung",
+        "pause": "Pausiert",
+        "resume": "Fortgesetzt",
+        "delete": "Gelöscht",
+        "swap": "Schichttausch"
+      },
+      "descriptions": {
+        "create": "Bereitschaftsplan {{name}} erstellt",
+        "edit": "Bereitschaftsplan {{name}} aktualisiert",
+        "override": "Vorübergehende Vertretung für {{user}} geändert. Grund: {{reason}}",
+        "pause": "Bereitschaftsplan {{name}} pausiert",
+        "resume": "Bereitschaftsplan {{name}} fortgesetzt",
+        "delete": "Bereitschaftsplan {{name}} gelöscht",
+        "swap": "{{requester}} hat {{target}} gebeten, eine Schicht zu übernehmen: {{status}}"
+      }
+    },
+    "load": {
+      "title": "Auslastung pro Mitglied (letzte 30 Tage)"
+    },
+    "swaps": {
+      "title": "Schichttausch",
+      "request": "Schichttausch anfragen",
+      "request_title": "Schichttausch anfragen",
+      "request_description": "Wählen Sie einen Zeitraum, in dem nur Sie Rufbereitschaft haben, und das Mitglied, das ihn übernimmt. Der Tausch wird wirksam, sobald das Mitglied zusagt.",
+      "request_description_approval": "Wählen Sie einen Zeitraum, in dem nur Sie Rufbereitschaft haben, und das Mitglied, das ihn übernimmt. Nach der Zusage muss eine Person, die den Dienstplan verwaltet, den Tausch genehmigen.",
+      "not_on_call": "Sie haben in diesem Dienstplan in den nächsten 30 Tagen keine Schicht",
+      "fields": {
+        "shift": "Meine Schicht",
+        "start": "Beginn",
+        "end": "Ende",
+        "target": "Übernahme durch",
+        "note": "Notiz"
+      },
+      "pick_shift": "Wählen Sie eine Schicht oder geben Sie unten die Zeiten ein",
+      "pick_target": "Mitglied auswählen",
+      "placeholders": {
+        "note": "Zum Beispiel: am Freitag auf Reisen"
+      },
+      "submit": "Anfrage senden",
+      "sent": "Tauschanfrage gesendet",
+      "errors": {
+        "window": "Das Ende muss nach dem Beginn liegen",
+        "target": "Wählen Sie aus, wer die Schicht übernimmt"
+      },
+      "empty": "Noch keine Tauschanfragen.",
+      "show_settled": "Abgeschlossene anzeigen",
+      "hide_settled": "Nur offene",
+      "asks": "{{requester}} bittet {{target}} um Übernahme",
+      "decided_by": "von {{name}}",
+      "status": {
+        "pending": "Antwort ausstehend",
+        "awaiting_approval": "Genehmigung ausstehend",
+        "accepted": "Wirksam",
+        "declined": "Abgelehnt",
+        "rejected": "Nicht genehmigt",
+        "cancelled": "Zurückgezogen",
+        "expired": "Abgelaufen"
+      },
+      "answer": {
+        "accept": "Annehmen",
+        "decline": "Ablehnen",
+        "cancel": "Zurückziehen",
+        "approve": "Genehmigen",
+        "reject": "Genehmigung verweigern"
+      },
+      "done": {
+        "accept": "Angenommen – die Dienstplanänderung ist wirksam",
+        "accept_waiting": "Angenommen – Genehmigung ausstehend",
+        "decline": "Schichttausch abgelehnt",
+        "cancel": "Tauschanfrage zurückgezogen",
+        "approve": "Genehmigt. Die Ausnahme ist aktiv.",
+        "reject": "Tauschanfrage abgelehnt"
+      },
+      "mine_title": "Meine Schichttausche",
+      "mine_description": "Hier sehen Sie Ihre gesendeten und erhaltenen Tauschanfragen. Genehmigen können Sie Anfragen auf der Seite des Dienstplans.",
+      "mine_button": "Schichttausch",
+      "mine_waiting": "{{count}} warten auf Ihre Antwort",
+      "mine_empty": "Sie haben keine Tauschanfragen gesendet oder erhalten.",
+      "open_schedule": "Dienstplan öffnen"
+    },
+    "calendar": {
+      "title_schedule": "{{name}} abonnieren",
+      "title_mine": "Meine Schichten abonnieren",
+      "description_schedule": "Fügen Sie alle Schichten dieses Dienstplans zu einer Kalender-App hinzu (Google Calendar, Outlook, Apple Calendar…). Kalender-Apps aktualisieren das Abo etwa einmal pro Stunde. Es umfasst die letzten 30 und die nächsten 90 Tage, einschließlich Ausnahmen und Schichttauschen.",
+      "description_mine": "Fügen Sie Ihre Schichten aus allen Dienstplänen zu einer Kalender-App hinzu (Google Calendar, Outlook, Apple Calendar…). Kalender-Apps aktualisieren das Abo etwa einmal pro Stunde. Es umfasst die letzten 30 und die nächsten 90 Tage, einschließlich Ausnahmen und Schichttauschen.",
+      "create": "Adresse erstellen",
+      "reset": "Adresse zurücksetzen",
+      "revoke": "Abo beenden",
+      "address": "Abo-Adresse",
+      "copy": "Adresse kopieren",
+      "open_app": "In Kalender-App öffnen",
+      "shown_once": "Die Adresse wird nur dieses eine Mal angezeigt. Alle, die sie kennen, können diese Schichten sehen. Beenden Sie das Abo, wenn Sie es nicht mehr benötigen.",
+      "no_external_url": "Für diese Instanz ist keine externe Adresse konfiguriert. Daher verwenden wir die Adresse, über die Sie gerade zugreifen. Ihre Kalender-App muss diese Adresse erreichen können.",
+      "subscribed": "Abonniert (erstellt: {{created}})",
+      "last_used": "Letzter Kalenderabruf: {{value}}",
+      "never_used": "Noch von keinem Kalender abgerufen",
+      "reset_hint": "Beim Zurücksetzen wird die alte Adresse sofort ungültig. Ersetzen Sie sie in Ihrer Kalender-App.",
+      "revoked": "Abo beendet",
+      "mine_button": "Meine Schichten abonnieren",
+      "loading": "Abos werden geladen…"
+    },
+    "unreachable": {
+      "next": "{{name}} übernimmt als Nächstes und kann keine Alarme empfangen: Es gibt weder einen funktionierenden Benachrichtigungsweg noch eine Gruppenroute.",
+      "members_one": "{{count}} Mitglied kann keine Alarme empfangen: {{names}}.",
+      "members_other": "{{count}} Mitglieder können keine Alarme empfangen: {{names}}.",
+      "fix": "Benachrichtigungswege einrichten"
+    },
+    "coverage": {
+      "title": "Abdeckung in den nächsten 14 Tagen",
+      "gaps_one": "{{count}} Lücke in den nächsten {{days}} Tagen: Für {{hours}} Stunden ist niemand in Bereitschaft.",
+      "gaps_other": "{{count}} Lücken in den nächsten {{days}} Tagen: Für insgesamt {{hours}} Stunden ist niemand in Bereitschaft.",
+      "no_gaps": "In den nächsten {{days}} Tagen ist durchgehend jemand in Bereitschaft.",
+      "nobody": "Niemand in Bereitschaft",
+      "hours": "{{hours}} h",
+      "legend": {
+        "rotation": "Rotation",
+        "override": "Ausnahme",
+        "gap": "Niemand in Rufbereitschaft"
+      }
+    }
+  },
+  "inhibitions": {
+    "new_rule": "Neue Unterdrückungsregel",
+    "empty_title": "Keine Unterdrückungsregeln",
+    "empty_description": "Solange ein schwerwiegenderer oder vorgelagerter Vorfall aktiv ist, werden Benachrichtigungen zu weniger schwerwiegenden Vorfällen zurückgehalten. So steht der entscheidende Vorfall im Fokus.",
+    "held": "Unterdrückt",
+    "any_incident": "Beliebiger Vorfall",
+    "only_worse": "Nur weniger schwerwiegende Vorfälle",
+    "at_least": "Mindestens {{severity}}",
+    "at_most": "Höchstens {{severity}}",
+    "columns": {
+      "name": "Name",
+      "source": "Solange diese Vorfälle aktiv sind",
+      "target": "Diese Vorfälle unterdrücken",
+      "equal": "Gemeinsame Labels",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "standing": {
+      "holding_one": "{{count}} Vorfall wird unterdrückt",
+      "holding_other": "{{count}} Vorfälle werden unterdrückt",
+      "on": "Keine Vorfälle werden unterdrückt",
+      "off": "Aus"
+    },
+    "drawer_title": "Neue Unterdrückungsregel",
+    "edit_title": "Unterdrückungsregel bearbeiten",
+    "drawer_subtitle": "Solange ein Quellvorfall aktiv ist, werden Zielvorfälle weiterhin geöffnet und auf den Seiten angezeigt. Ihre Benachrichtigungen werden zurückgehalten, und sie werden nicht eskaliert. Sobald der Quellvorfall behoben ist, werden Benachrichtigungen für noch offene Zielvorfälle gesendet.",
+    "create": "Regel erstellen",
+    "save": "Speichern",
+    "toast_created": "Unterdrückungsregel erstellt",
+    "toast_updated": "Unterdrückungsregel gespeichert",
+    "delete_named": "Unterdrückungsregel {{name}} löschen",
+    "delete_title": "Diese Unterdrückungsregel löschen?",
+    "delete_effect_label": "Nach dem Löschen",
+    "delete_effect_one": "Die Benachrichtigung zum {{count}} unterdrückten Vorfall wird sofort gesendet",
+    "delete_effect_other": "Die Benachrichtigungen zu den {{count}} unterdrückten Vorfällen werden sofort gesendet",
+    "sections": {
+      "identity": "Grundlagen",
+      "source": "Quelle: Welche Vorfälle andere unterdrücken",
+      "source_hint": "Ein stummgeschalteter Vorfall zählt nicht: Da niemand darüber benachrichtigt wird, würde beim Unterdrücken anderer Vorfälle jede Benachrichtigung ausbleiben. Ein bestätigter Vorfall zählt: Jemand kümmert sich bereits darum.",
+      "target": "Ziel: Welche Vorfälle unterdrückt werden",
+      "target_hint": "Wenn Sie nichts angeben, gilt die Regel für alle Vorfälle. Manuell eröffnete Vorfälle werden nie unterdrückt.",
+      "relation": "Beziehung zwischen Quelle und Ziel",
+      "timing": "Zeitsteuerung",
+      "comment": "Kommentar",
+      "preview": "Vorfälle, die jetzt unterdrückt würden",
+      "preview_hint": "Wendet diese Regel auf die derzeit aktiven Vorfälle an, auch wenn sie noch nicht gespeichert ist."
+    },
+    "fields": {
+      "name": "Name",
+      "name_placeholder": "Im selben Service unterdrückt der schwerwiegendere Vorfall die Benachrichtigungen für den weniger schwerwiegenden",
+      "enabled": "Aktiviert",
+      "min_severity": "Mindestschweregrad",
+      "max_severity": "Höchstschweregrad",
+      "any_severity": "Beliebig",
+      "equal": "Diese Labels müssen übereinstimmen",
+      "equal_hint": "Trennen Sie die Labels durch Kommas. Jedes Label muss bei Quelle und Ziel vorhanden sein und denselben Wert haben. Lassen Sie das Feld leer, um Labels zu ignorieren, und geben Sie stattdessen die Quelle an.",
+      "more_severe_only": "Die Quelle muss einen höheren Schweregrad haben als das Ziel",
+      "wait_secs": "Wartezeit für das Ziel (Sekunden)",
+      "wait_hint": "Symptome werden oft vor ihrer Ursache gemeldet. Warten Sie so lange, ob ein Quellvorfall gemeldet wird. Mindestens 15, höchstens 600 Sekunden.",
+      "linger_secs": "Unterdrückung nach Behebung (Sekunden)",
+      "linger_hint": "Ist die Ursache behoben, verschwinden meist auch die Symptome kurz darauf. Dafür muss niemand alarmiert werden. Höchstens 3600 Sekunden.",
+      "comment": "Kommentar"
+    },
+    "preview": {
+      "run": "Vorschau ausführen",
+      "none": "Derzeit würden keine Benachrichtigungen unterdrückt.",
+      "held_by": "unterdrückt durch"
+    },
+    "note": {
+      "held_by": "Benachrichtigungen werden unterdrückt wegen",
+      "rule": "(Regel {{rule}}).",
+      "ending": "Der Quellvorfall ist behoben. Die Benachrichtigungen werden um {{time}} freigegeben.",
+      "waiting": "Ein schwerwiegenderer Vorfall könnte die Benachrichtigungen für diesen Vorfall unterdrücken. Sie werden bis {{time}} zurückgehalten.",
+      "lift": "Wie gewohnt benachrichtigen",
+      "lifted": "Unterdrückung aufgehoben. Zurückgehaltene Benachrichtigungen werden jetzt gesendet."
+    },
+    "errors": {
+      "name": "Geben Sie einen Namen für die Regel ein.",
+      "no_scope": "Geben Sie die Quelle oder die gemeinsamen Labels an. Sonst würde jeder Vorfall die Benachrichtigungen für alle anderen unterdrücken.",
+      "wait": "Die Wartezeit für das Ziel darf höchstens 600 Sekunden betragen.",
+      "linger": "Nach Behebung des Quellvorfalls darf die Unterdrückung höchstens 3600 Sekunden andauern."
+    }
+  },
+  "silences": {
+    "new_silence": "Neue Stummschaltungsregel",
+    "empty_title": "Keine Stummschaltungsregeln",
+    "empty_description": "Unterdrücken Sie Benachrichtigungen für passende Vorfälle bei Wartungsarbeiten oder bekannten Störmeldungen.",
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "window": "Zeitfenster",
+      "matchers": "Filterkriterien",
+      "actions": "Aktionen"
+    },
+    "delete_title": "Stummschaltung löschen",
+    "edit_title": "Stummschaltung bearbeiten",
+    "drawer_title": "Neue Stummschaltung",
+    "drawer_subtitle": "Vorfälle werden weiterhin erfasst. Nur der Versand von Benachrichtigungen wird pausiert.",
+    "save": "Stummschaltung speichern",
+    "create": "Stummschaltung erstellen",
+    "toast_updated": "Stummschaltung aktualisiert",
+    "toast_created": "Stummschaltung erstellt",
+    "errors": {
+      "name_required": "Ein Name ist erforderlich.",
+      "matcher_required": "Fügen Sie mindestens eine Filterbedingung hinzu.",
+      "window_range": "Das Ende muss nach dem Beginn liegen.",
+      "window_ranges": "Prüfen Sie die Zeiträume: Jeder benötigt einen Tag und Uhrzeiten im Format HH:MM.",
+      "monthly": "Geben Sie den Beginn im Format HH:MM und eine Dauer zwischen 1 und 10080 Minuten an.",
+      "calendar": "Wählen Sie einen Feiertagskalender aus."
+    },
+    "sections": {
+      "identity": "Allgemein",
+      "matchers": "Filterbedingungen",
+      "window": "Zeitfenster",
+      "comment": "Kommentar"
+    },
+    "fields": {
+      "name": "Name",
+      "enabled": "Aktiviert",
+      "window_type": "Art des Zeitfensters",
+      "start": "Beginn",
+      "end": "Ende",
+      "timezone": "Zeitzone",
+      "comment": "Grund",
+      "month_day_kind": "Nach",
+      "month_date": "Tag des Monats",
+      "ordinal": "Welcher",
+      "weekday": "Wochentag",
+      "start_time": "Beginn (HH:MM)",
+      "duration_minutes": "Dauer (Minuten)",
+      "calendar": "Feiertagskalender"
+    },
+    "window_kinds": {
+      "fixed": "Fester Zeitraum",
+      "weekly": "Jede Woche",
+      "monthly": "Jeden Monat",
+      "holidays": "Feiertage"
+    },
+    "comment_placeholder": "Warum ist die Stummschaltung nötig?",
+    "standing": {
+      "active": "Derzeit stummgeschaltet",
+      "upcoming": "Noch nicht begonnen",
+      "waiting": "Außerhalb des Zeitfensters",
+      "ended": "Beendet",
+      "off": "Aus"
+    },
+    "matches_everything": "Alle Störfälle",
+    "delete_named": "{{name}} löschen",
+    "month_day_kinds": {
+      "date": "Datum",
+      "weekday": "Wochentag"
+    },
+    "hints": {
+      "month_date": "Gibt es diesen Tag in einem Monat nicht, gilt der letzte Tag des Monats.",
+      "duration_minutes": "Bis zu 7 Tage (10.080 Minuten)."
+    },
+    "ordinals": {
+      "1": "Erster",
+      "2": "Zweiter",
+      "3": "Dritter",
+      "4": "Vierter",
+      "5": "Fünfter",
+      "last": "Letzter"
+    },
+    "month_day": {
+      "date": "Tag {{day}} jedes Monats",
+      "weekday": "{{ordinal}} {{weekday}} jedes Monats"
+    },
+    "summary": {
+      "monthly": "{{day}} um {{start}} für {{duration}} ({{timezone}})",
+      "holidays": "Feiertage, {{timezone}}",
+      "calendar_exclude": "außer an Feiertagen",
+      "calendar_only": "nur an Feiertagen"
+    },
+    "duration": {
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "hours_minutes": "{{hours}} h {{minutes}} min"
+    },
+    "next_start": "Nächster Beginn: {{time}}",
+    "next_end": "Ende: {{time}}",
+    "no_calendars": "Fügen Sie zuerst unter Einstellungen → Alerting → Feiertagskalender einen Feiertagskalender hinzu.",
+    "delete_effect_label": "Auswirkung",
+    "delete_active_effect": "Die Stummschaltung ist aktiv. Wenn Sie sie löschen, werden Benachrichtigungen sofort wieder gesendet.",
+    "bulk_delete_title_one": "{{count}} Stummschaltung löschen?",
+    "bulk_delete_title_other": "{{count}} Stummschaltungen löschen?"
+  },
+  "incident_actions": {
+    "more": "Weitere Aktionen",
+    "reassign": "Neu zuweisen",
+    "add_responders": "Einsatzkräfte hinzufügen",
+    "escalate": "Jetzt eskalieren",
+    "snooze": "Zurückstellen",
+    "snooze_hours_one": "{{count}} Stunde",
+    "snooze_hours_other": "{{count}} Stunden",
+    "snooze_custom": "Benutzerdefiniert…",
+    "snooze_cancel": "Zurückstellung aufheben",
+    "severity": "Schweregrad",
+    "merge": "Zusammenführen",
+    "toasts": {
+      "snoozed": "Zurückgestellt",
+      "snooze_cancelled": "Benachrichtigungspause aufgehoben",
+      "severity_changed": "Schweregrad geändert",
+      "responders_added": "Einsatzkräfte hinzugefügt",
+      "reassigned": "Neu zugewiesen",
+      "escalated": "Eskaliert",
+      "merged_one": "{{count}} Vorfall zusammengeführt",
+      "merged_other": "{{count}} Vorfälle zusammengeführt",
+      "bulk_done_one": "Für {{count}} Vorfall abgeschlossen",
+      "bulk_done_other": "Für {{count}} Vorfälle abgeschlossen",
+      "bulk_failed": "Aktion bei {{count}} von {{total}} Vorfällen fehlgeschlagen: {{reason}}",
+      "priority_changed": "Priorität geändert",
+      "urgency_changed": "Dringlichkeit geändert",
+      "urgency_raised": "Dringlichkeit auf „Hoch“ gesetzt; Stufe 1 wird erneut benachrichtigt"
+    },
+    "people_search": "Nach Name oder E-Mail-Adresse suchen",
+    "reassign_title": "Neu zuweisen",
+    "reassign_description": "Bei der Zuweisung an Personen wird der Vorfall auf „Nicht bestätigt“ zurückgesetzt und die Personen werden benachrichtigt. Bei der Zuweisung an ein Team oder eine Eskalationsrichtlinie beginnt die Eskalation wieder beim ersten Schritt.",
+    "add_responders_title": "Einsatzkräfte hinzufügen",
+    "add_responders_description": "Die ausgewählten Personen werden dem Vorfall zusätzlich zugewiesen und benachrichtigt. Der Status bleibt unverändert.",
+    "reassign_to": "Neu zuweisen an",
+    "kinds": {
+      "users": "Personen",
+      "team": "Team",
+      "policy": "Eskalationsrichtlinie"
+    },
+    "people": "Personen (maximal {{max}})",
+    "team_hint": "Die Eskalation beginnt wieder beim ersten Schritt der Bereitschaftsrichtlinie des Teams. Hat das Team keine eigene Richtlinie, gilt die Standardrichtlinie.",
+    "policy_hint": "Die Eskalation beginnt wieder beim ersten Schritt dieser Richtlinie. Das Team bleibt unverändert.",
+    "choose": "Auswählen…",
+    "note_optional": "Notiz (optional)",
+    "note_placeholder": "Für die Personen, die übernehmen. Die Notiz erscheint im Verlauf.",
+    "cancel": "Abbrechen",
+    "escalate_title": "Jetzt eskalieren",
+    "escalate_description": "Wählen Sie den Schritt aus, dessen Empfänger jetzt benachrichtigt werden sollen. Ein bestätigter Vorfall wird auf „Nicht bestätigt“ zurückgesetzt.",
+    "loading": "Wird geladen…",
+    "no_policy": "Für diesen Vorfall ist keine Eskalationsrichtlinie hinterlegt.",
+    "step_n": "Schritt {{n}}",
+    "current_step": "aktuell",
+    "schedule_target": "Bereitschaft laut Dienstplan",
+    "escalate_submit": "Eskalieren",
+    "snooze_title": "Benachrichtigungen pausieren",
+    "snooze_description": "Während der Pause werden keine Benachrichtigungen gesendet. Danach wird der Vorfall auf „Nicht bestätigt“ zurückgesetzt und die zugewiesenen Personen werden erneut benachrichtigt. Ein noch nicht bestätigter Vorfall wird vor der Pause bestätigt.",
+    "snooze_for": "Pausieren für",
+    "snooze_unit": "Einheit",
+    "units": {
+      "minutes": "Minuten",
+      "hours": "Stunden"
+    },
+    "merge_title": "Vorfälle zusammenführen",
+    "merge_description": "Zusammengeführte Vorfälle lösen keine eigenen Benachrichtigungen oder Eskalationen mehr aus und werden mit dem Hauptvorfall behoben. Das Zusammenführen kann nicht rückgängig gemacht werden.",
+    "merge_target": "Zielvorfall",
+    "merge_sources": "Mit diesem Vorfall zusammenführen",
+    "merge_nothing": "Kein anderer Vorfall ist aktiv.",
+    "merge_submit_one": "{{count}} Vorfall zusammenführen",
+    "merge_submit_other": "{{count}} Vorfälle zusammenführen",
+    "bulk_label": "Sammelaktionen",
+    "select_all": "Alle auswählen",
+    "select": "{{name}} auswählen",
+    "snoozed_until": "Pausiert bis {{time}}",
+    "priority": "Priorität",
+    "urgency": "Dringlichkeit",
+    "adjust": "Anpassen"
+  },
+  "incident_timeline": {
+    "notice": {
+      "triggered": "Benachrichtigt",
+      "escalated": "Über Eskalation benachrichtigt",
+      "acknowledged": "Bestätigung gesendet an",
+      "resolved": "Entwarnung gesendet an"
+    },
+    "recipient": "{{who}} ({{through}})",
+    "recipient_failed": "{{who}} (nicht zugestellt)",
+    "policy_skipped": "Eine Richtlinie hat keine Benachrichtigung gesendet: {{reason}}",
+    "pipeline_processed": "Von Pipeline {{pipeline}} verarbeitet:",
+    "pipeline_more_one": "und {{count}} weitere Änderung",
+    "pipeline_more_other": "und {{count}} weitere Änderungen",
+    "pipeline_fields": {
+      "summary": "Titel",
+      "severity": "Schweregrad",
+      "priority": "Priorität",
+      "urgency": "Dringlichkeit",
+      "labels": "Labels",
+      "annotations": "Annotationen",
+      "affected_services": "Dienste"
+    },
+    "someone": "jemand",
+    "system": "System",
+    "via": {
+      "api": " (über die API)",
+      "im": " (im Chat)",
+      "sms": " (per SMS-Antwort)",
+      "phone": " (per Tastendruck am Telefon)",
+      "agent": " (über Mole Agent)"
+    },
+    "acknowledged": "{{actor}} hat bestätigt{{via}}",
+    "resolved": "{{actor}} hat den Vorfall behoben{{via}}",
+    "escalated": "Auf Stufe {{n}} eskaliert",
+    "escalated_manual": "{{actor}} hat auf Stufe {{n}} eskaliert",
+    "reassigned": "{{actor}} hat den Vorfall {{target}} neu zugewiesen",
+    "responders_added": "{{actor}} hat {{people}} hinzugefügt",
+    "snoozed": "{{actor}} hat den Vorfall bis {{until}} pausiert",
+    "snooze_cancelled": "{{actor}} hat die Pause aufgehoben",
+    "retriggered_snooze": "Pause beendet: Vorfall wieder unbestätigt, Benachrichtigung erneut gesendet",
+    "retriggered_ack_timeout": "Bestätigt, aber zu lange nicht behoben: Vorfall wieder unbestätigt, Benachrichtigung erneut gesendet",
+    "severity_changed": "{{actor}} hat den Schweregrad von {{from}} auf {{to}} geändert",
+    "merged": "{{actor}} hat den Vorfall zusammengeführt mit",
+    "merged_target": "einem anderen Vorfall",
+    "merged_in_one": "{{actor}} hat {{count}} Vorfall mit diesem Vorfall zusammengeführt",
+    "merged_in_other": "{{actor}} hat {{count}} Vorfälle mit diesem Vorfall zusammengeführt",
+    "merged_recovered": "Zusammengeführter Vorfall „{{summary}}“: Normalzustand wiederhergestellt",
+    "noted": "{{actor}} hat eine Notiz hinzugefügt",
+    "recovered": "Normalzustand wiederhergestellt",
+    "merged_list": "Mit diesem Vorfall zusammengeführt ({{count}})",
+    "note_placeholder": "Notieren Sie, was Sie festgestellt und unternommen haben",
+    "note_label": "Notiz",
+    "note_too_long": "Höchstens {{max}} Zeichen",
+    "add_note": "Notiz hinzufügen",
+    "handling": {
+      "snoozed": "Von {{actor}} bis {{until}} pausiert",
+      "merged": "Zusammengeführt mit",
+      "severity_set": "{{actor}} hat den Schweregrad festgelegt. Die Regel ändert ihn nicht mehr.",
+      "inhibition_lifted": "{{actor}} hat die Unterdrückung aufgehoben. Benachrichtigungen werden wieder wie gewohnt gesendet."
+    },
+    "remediation_requested": "{{actor}} hat die Behebungsmaßnahme „{{action}}“ gestartet. Die Genehmigung steht noch aus.",
+    "remediation_executed": "Behebungsmaßnahme „{{action}}“ ausgeführt (genehmigt von {{actor}})",
+    "remediation_failed": "Behebungsmaßnahme „{{action}}“ fehlgeschlagen (genehmigt von {{actor}})",
+    "remediation_verified": "Behebungsmaßnahme „{{action}}“ hat die Prüfung bestanden",
+    "remediation_unverified": "Behebungsmaßnahme „{{action}}“ hat die Prüfung nicht bestanden",
+    "ticket_created": "{{actor}} hat ein Ticket in {{system}} erstellt",
+    "ticket_updated": "Ticket {{key}} hat jetzt den Status „{{status}}“",
+    "declared_major": "{{actor}} hat den Vorfall als schwerwiegend eingestuft",
+    "declared_major_auto": "Gemäß der Regel der Organisation als schwerwiegender Vorfall eingestuft",
+    "role_assigned": "{{actor}} hat {{person}} die Rolle „{{role}}“ zugewiesen",
+    "role_cleared": "{{actor}} hat die Zuweisung der Rolle „{{role}}“ aufgehoben",
+    "war_room_created": "War Room eröffnet",
+    "join": "Beitreten",
+    "task_added": "{{actor}} hat die Aufgabe „{{title}}“ hinzugefügt",
+    "task_done": "{{actor}} hat die Aufgabe „{{title}}“ abgeschlossen",
+    "status_update": "{{actor}} hat ein Update veröffentlicht",
+    "step_unreachable": "Auf Eskalationsstufe {{n}} konnte niemand den Alarm empfangen. Er wurde an die nächste Stufe weitergeleitet",
+    "inhibited": "Durch Regel {{rule}} unterdrückt. Grund für das Zurückhalten der Benachrichtigungen:",
+    "inhibition_source_recovered": "Der auslösende Alarm wurde behoben. Die Unterdrückung endete und die zurückgehaltenen Benachrichtigungen wurden versendet",
+    "inhibition_rule_changed": "Die Unterdrückungsregel wurde geändert oder entfernt. Die zurückgehaltenen Benachrichtigungen wurden versendet",
+    "inhibition_lifted": "{{actor}} hat die Unterdrückung aufgehoben. Die zurückgehaltenen Benachrichtigungen wurden versendet",
+    "priority_changed": "{{actor}} hat die Priorität von {{from}} auf {{to}} geändert",
+    "no_priority": "keine",
+    "urgency_changed": "{{actor}} hat die Dringlichkeit von {{from}} auf {{to}} geändert",
+    "urgency_raised_support_hours": "Beginn der Supportzeiten: Die Dringlichkeit wurde auf {{to}} erhöht und Eskalationsstufe 1 erneut benachrichtigt",
+    "phases": {
+      "fired": "Ausgelöst",
+      "acknowledged": "Bestätigt nach",
+      "resolved": "Behoben nach",
+      "not_yet": "Noch nicht"
+    },
+    "filter_label": "Ereignistypen",
+    "filter": {
+      "all": "Alle",
+      "alert": "Alarm",
+      "notice": "Benachrichtigungen",
+      "people": "Personen",
+      "notes": "Notizen"
+    }
+  },
+  "related": {
+    "loading": "Wird geladen…",
+    "similar_none": "Kein ähnlicher Vorfall in den letzten 90 Tagen.",
+    "lasted": "dauerte {{duration}}",
+    "resolved_by": "behoben von {{name}}",
+    "notes_one": "{{count}} Notiz",
+    "notes_other": "{{count}} Notizen",
+    "reasons": {
+      "fingerprint": "derselbe Alarm",
+      "rule": "dieselbe Regel",
+      "services": "dieselben Services",
+      "labels": "ähnliche Labels",
+      "title": "ähnlicher Titel",
+      "team": "dasselbe Team"
+    },
+    "changes_none": "Für diese Services wurde von 30 Minuten vor bis 10 Minuten nach der Auslösung nichts gemeldet. Die Regel wurde am Vortag nicht bearbeitet.",
+    "at_trigger": "Bei Auslösung",
+    "before_trigger": "{{duration}} davor",
+    "after_trigger": "{{duration}} danach",
+    "kinds": {
+      "deployment": "Deployment",
+      "configuration": "Konfiguration",
+      "feature_flag": "Feature-Flag",
+      "rule": "Regel bearbeitet"
+    },
+    "downstream": "nachgelagert",
+    "status": {
+      "failed": "fehlgeschlagen",
+      "rolled_back": "zurückgesetzt"
+    },
+    "open_link": "Pipeline öffnen"
+  },
+  "remediation": {
+    "new_action": "Neue Behebungsmaßnahme",
+    "actions_title": "Behebungsmaßnahmen",
+    "empty": "Noch keine Behebungsmaßnahmen vorhanden. Sobald sie eingerichtet sind, können Sie sie bei einem Vorfall mit einem Klick anstoßen. Sie werden nach der Freigabe ausgeführt.",
+    "all_incidents": "Alle Vorfälle",
+    "disabled": "Deaktiviert",
+    "delete_named": "{{name}} löschen",
+    "delete_title": "Behebungsmaßnahme löschen?",
+    "saved": "„{{name}}“ gespeichert",
+    "risks": {
+      "l2": "L2 · Freigabe durch eine Person",
+      "l3": "L3 · Freigabe durch zwei Personen"
+    },
+    "kinds": {
+      "http": "HTTP-Anfrage",
+      "http_hint": "Ruft Jenkins, GitHub Actions, Argo, Rundeck oder ein ähnliches System auf.",
+      "kubernetes": "Kubernetes",
+      "kubernetes_hint": "Startet einen Workload auf einem registrierten Cluster neu, skaliert ihn oder setzt ein Deployment auf die vorherige Revision zurück."
+    },
+    "operations": {
+      "restart": "Neu starten",
+      "scale": "Skalieren",
+      "rollback": "Auf vorherige Revision zurücksetzen"
+    },
+    "parameter_kinds": {
+      "text": "Text",
+      "number": "Zahl",
+      "select": "Auswahl"
+    },
+    "verify_by": {
+      "incident_resolved": "Der Vorfall ist behoben",
+      "rule_healthy": "Die Regel ist wieder im Normalzustand"
+    },
+    "drawer": {
+      "new_title": "Neue Behebungsmaßnahme",
+      "edit_title": "Behebungsmaßnahme bearbeiten",
+      "subtitle": "Wenn Sie die Maßnahme bei einem Vorfall anstoßen, ist immer eine Freigabe erforderlich. Nach der Freigabe wird sie ausgeführt und in der Zeitleiste protokolliert.",
+      "save": "Speichern",
+      "identity": "Grundlagen",
+      "name": "Name",
+      "description": "Beschreibung",
+      "target": "Ausführung",
+      "method": "Methode",
+      "url": "Adresse",
+      "headers": "Header",
+      "headers_hint": "Werte werden verschlüsselt gespeichert und nicht erneut angezeigt. Lassen Sie ein Feld leer, um den Wert beizubehalten.",
+      "add_header": "Header hinzufügen",
+      "remove_header": "Header entfernen",
+      "header_name": "Headername",
+      "header_value": "Headerwert",
+      "secret_kept": "Gesetzt; zum Beibehalten leer lassen",
+      "body": "Anfragetext",
+      "body_hint": "JSON. Verwenden Sie {{incident.id}}, {{incident.summary}}, {{incident.service}}, {{incident.url}} und {{params.name}}. In Anführungszeichen ist ein Wert eine Zeichenfolge, ohne Anführungszeichen kann er für eine Zahl stehen.",
+      "signing_secret": "Signaturschlüssel",
+      "signing_secret_hint": "Ist ein Signaturschlüssel gesetzt, werden Anfragen wie Webhooks signiert und enthalten die Header X-MoleSignal-Timestamp und X-MoleSignal-Sign.",
+      "cluster": "Cluster",
+      "pick_cluster": "Cluster auswählen",
+      "operation": "Vorgang",
+      "workload_kind": "Workload-Typ",
+      "namespace": "Namespace",
+      "workload_name": "Workload-Name",
+      "replicas": "Replikate",
+      "parameters": "Beim Start abgefragte Parameter",
+      "parameters_hint": "Vorlagen greifen über {{params.name}} darauf zu.",
+      "add_parameter": "Parameter hinzufügen",
+      "remove_parameter": "Parameter entfernen",
+      "parameter_key": "Name",
+      "parameter_label": "Bezeichnung",
+      "parameter_kind": "Typ",
+      "parameter_options": "Auswahloptionen (durch Kommas getrennt)",
+      "parameter_default": "Standardwert",
+      "parameter_required": "Erforderlich",
+      "scope": "Geltungsbereich und Genehmigung",
+      "services": "Services",
+      "services_hint": "Durch Kommas getrennt. Wenn das Feld leer ist, gilt die Aktion für alle Vorfälle.",
+      "risk": "Risiko",
+      "verify_after": "Prüfen nach",
+      "verify_after_hint": "Minuten nach der Ausführung; bei 0 erfolgt keine Prüfung.",
+      "verify_by": "Erfolgreich, wenn",
+      "enabled": "Aktiviert"
+    },
+    "clusters": {
+      "title": "Kubernetes-Cluster",
+      "add": "Cluster hinzufügen",
+      "empty": "Noch keine Cluster vorhanden. Für Kubernetes-Aktionen muss zuerst ein Cluster registriert werden.",
+      "test": "Verbindung testen",
+      "reached": "Kubernetes {{version}} erreicht",
+      "saved": "Cluster gespeichert",
+      "edit_title": "Cluster bearbeiten",
+      "description": "Die Verbindung zum API-Server erfolgt über ein ServiceAccount-Token. Das Token wird verschlüsselt gespeichert und nicht erneut angezeigt. Erforderlich sind die Berechtigungen get und patch für Workloads sowie list für ReplicaSets, um Rollbacks durchzuführen.",
+      "name": "Name",
+      "api_server": "Adresse des API-Servers",
+      "ca": "CA-Zertifikat",
+      "ca_hint": "PEM-Format. Bleibt das Feld leer, werden die Stammzertifikate des Systems verwendet.",
+      "token": "ServiceAccount-Token"
+    },
+    "run": {
+      "none": "Für diesen Vorfall ist keine Behebungsmaßnahme verfügbar.",
+      "set_up": "Maßnahme einrichten",
+      "start": "Ausführen",
+      "closed": "Der Vorfall ist behoben",
+      "by": "gestartet von {{name}}",
+      "approve": "Freigeben",
+      "reject": "Ablehnen",
+      "approved": "Freigegeben",
+      "rejected": "Abgelehnt",
+      "requested_one": "Zur Freigabe eingereicht: {{count}} freigabeberechtigte Person erforderlich",
+      "requested_other": "Zur Freigabe eingereicht: {{count}} freigabeberechtigte Personen erforderlich",
+      "ran_preapproved": "Dank Vorabfreigabe sofort ausgeführt",
+      "preapproved": "Vorab freigegeben",
+      "title": "„{{name}}“ ausführen",
+      "needs_one": "Eine freigabeberechtigte Person muss zustimmen. Danach wird die Maßnahme sofort ausgeführt.",
+      "needs_two": "Zwei freigabeberechtigte Personen müssen zustimmen. Danach wird die Maßnahme sofort ausgeführt.",
+      "reason": "Begründung",
+      "reason_placeholder": "Beispiel: Checkout hat keine freien Verbindungen mehr, zuerst neu starten",
+      "submit": "Zur Freigabe einreichen",
+      "status": {
+        "awaiting_approval": "Freigabe ausstehend",
+        "running": "Wird ausgeführt",
+        "succeeded": "Ausgeführt",
+        "failed": "Fehlgeschlagen",
+        "declined": "Nicht ausgeführt",
+        "verifying": "Prüfung ausstehend",
+        "verified": "Prüfung bestanden",
+        "verification_failed": "Prüfung nicht bestanden"
+      }
+    },
+    "preapproval": {
+      "title": "Vorabfreigabe",
+      "switch_label": "Vorab freigegebene Maßnahmen sofort ausführen",
+      "switch_hint": "Standardmäßig deaktiviert. Eine Maßnahme wird nur bei Vorfällen sofort ausgeführt, die von ihrer Vorabfreigabe abgedeckt sind. Dabei gelten die Höchstzahl der Ausführungen pro Zeitfenster und die je nach Risiko erforderliche Mindestzahl freigabeberechtigter Personen.",
+      "switched_on": "Vorabfreigabe aktiviert",
+      "switched_off": "Vorabfreigabe deaktiviert",
+      "states": {
+        "none": "Nicht vorab genehmigt",
+        "off": "Vorab genehmigt · für die Organisation deaktiviert",
+        "expired": "Vorabgenehmigung abgelaufen",
+        "awaiting_approver": "Vorab genehmigt · Bestätigung durch zweite Person ausstehend",
+        "used_up": "Vorab genehmigt · Ausführungslimit erreicht ({{used}}/{{max}})",
+        "active": "Vorab genehmigt · {{used}}/{{max}} Ausführungen im Zeitfenster"
+      },
+      "set": "Vorab genehmigen",
+      "edit": "Vorabgenehmigung bearbeiten",
+      "confirm": "Vorabgenehmigung bestätigen",
+      "confirmed": "Vorabgenehmigung bestätigt",
+      "clear": "Vorabgenehmigung entfernen",
+      "cleared": "Vorabgenehmigung entfernt",
+      "save": "Vorabgenehmigung speichern",
+      "saved": "Vorabgenehmigung gespeichert",
+      "dialog_title": "„{{name}}“ vorab genehmigen",
+      "dialog_l2": "Bei Vorfällen in diesen Services wird die Aktion sofort ausgeführt, ohne auf eine Genehmigung zu warten. Das Speichern gilt als die einzige für eine L2-Aktion erforderliche Genehmigung.",
+      "dialog_l3": "Bei Vorfällen in diesen Services wird die Aktion sofort ausgeführt, ohne auf eine Genehmigung zu warten. Das Speichern gilt als eine der zwei für eine L3-Aktion erforderlichen Genehmigungen. Die Vorabgenehmigung wird erst wirksam, wenn eine zweite Person sie bestätigt.",
+      "services": "Services",
+      "services_hint": "Geben Sie die Services, für die die Aktion gilt, durch Kommas getrennt ein.",
+      "services_hint_any": "Durch Kommas getrennt.",
+      "max_runs": "Max. Ausführungen",
+      "window": "Innerhalb von",
+      "windows": {
+        "900": "15 Minuten",
+        "3600": "1 Stunde",
+        "21600": "6 Stunden",
+        "86400": "1 Tag",
+        "604800": "7 Tage"
+      },
+      "expires": "Läuft ab",
+      "expiries": {
+        "1": "In 1 Tag",
+        "7": "In 7 Tagen",
+        "30": "In 30 Tagen",
+        "90": "In 90 Tagen",
+        "never": "Nie"
+      },
+      "channels": "Nach Ausführung benachrichtigen",
+      "channels_hint": "Nach jeder vorab genehmigten Ausführung wird eine Benachrichtigung gesendet, unabhängig davon, ob die Ausführung erfolgreich war.",
+      "channels_denied": "Zum Auswählen von Kanälen benötigen Sie Leseberechtigung für Benachrichtigungskonnektoren.",
+      "channels_none": "Noch unterstützt kein Benachrichtigungskonnektor Gruppen oder Adressen als Empfänger.",
+      "add_channel": "Kanal hinzufügen",
+      "remove_channel": "Kanal entfernen",
+      "channel_connector": "Konnektor für Kanal {{number}}",
+      "channel_kind": "Typ von Kanal {{number}}",
+      "channel_target": "Gruppe oder Adresse für Kanal {{number}}"
+    }
+  },
+  "tickets": {
+    "new_connector": "Neuer Ticket-Konnektor",
+    "empty": "Noch keine Ticket-Konnektoren vorhanden. Sobald Jira, ServiceNow oder Meegle verbunden ist, können Tickets direkt aus einem Incident heraus oder per Regel erstellt werden.",
+    "auto_on": "Automatische Tickets",
+    "auto_off": "Manuelle Tickets",
+    "test": "Verbindung testen",
+    "reached": "Verbunden",
+    "reached_as": "Verbunden als {{name}}",
+    "delete_named": "{{name}} löschen",
+    "delete_title": "Ticket-Konnektor löschen?",
+    "saved": "„{{name}}“ gespeichert",
+    "webhook_address": "Jira-Webhook-Adresse (fügen Sie sie in den Jira-Systemeinstellungen unter „Webhooks“ zusammen mit dem Webhook-Secret des Konnektors hinzu)",
+    "copy_webhook": "Adresse kopieren",
+    "copy_address": "Adresse kopieren",
+    "address_copied": "Kopiert",
+    "sites": {
+      "feishu": "Feishu",
+      "lark": "Lark"
+    },
+    "systems": {
+      "jira": "Jira",
+      "meegle": "Meegle",
+      "servicenow": "ServiceNow"
+    },
+    "drawer": {
+      "new_title": "Neuer Ticket-Konnektor",
+      "edit_title": "Ticket-Konnektor bearbeiten",
+      "subtitle": "Zugangsdaten werden verschlüsselt gespeichert und nicht erneut angezeigt. Lassen Sie ein Feld leer, um den gespeicherten Wert beizubehalten.",
+      "save": "Speichern",
+      "identity": "Allgemein",
+      "name": "Name",
+      "meegle_hint": "Meegle heißt in China Feishu Project.",
+      "jira": "Jira",
+      "site_url": "Website-Adresse",
+      "cloud": "Jira Cloud",
+      "data_center": "Jira Data Center / Server",
+      "email": "E-Mail-Adresse des Kontos",
+      "api_token": "API-Token",
+      "pat": "Persönliches Zugriffstoken",
+      "project_key": "Projektschlüssel",
+      "issue_type": "Vorgangstyp",
+      "priorities": "Ticket-Priorität nach Incident-Priorität",
+      "priorities_hint": "Geben Sie die Namen der Jira-Prioritäten ein. Zuerst zählt die Incident-Priorität. Fehlt sie oder ist dafür nichts eingetragen, zählt der Schweregrad. Ist auch dafür nichts eingetragen, wird keine Ticket-Priorität gesetzt.",
+      "labels": "Labels",
+      "resolve_transition": "Statusübergang beim Beheben",
+      "resolve_transition_hint": "Name oder ID des Statusübergangs. Wenn leer, wird der erste Übergang zu einem Erledigt-Status verwendet.",
+      "webhook_secret": "Webhook-Secret",
+      "webhook_secret_hint": "Jira-Webhooks werden nur mit einem Secret akzeptiert (X-Hub-Signature wird geprüft). Ohne Secret werden die Status alle 5 Minuten synchronisiert.",
+      "meegle": "Meegle",
+      "platform": "Plattform",
+      "base_url": "Website-Adresse",
+      "plugin_id": "Plugin-ID",
+      "plugin_secret": "Plugin-Secret",
+      "user_key": "Handeln im Namen von (user_key)",
+      "user_key_hint": "Tickets und Kommentare werden im Namen dieser Person erstellt.",
+      "project_key_meegle": "Bereich (project_key)",
+      "work_item_type": "Arbeitselementtyp (work_item_type_key)",
+      "priority_field": "Schlüssel des Prioritätsfelds",
+      "priorities_hint_meegle": "Werte der Prioritätsoptionen. Zuerst wird der Wert für die Priorität des Incidents gesucht. Ist keine Priorität gesetzt oder fehlt der zugehörige Wert, wird der Schweregrad verwendet. Ein leerer Wert setzt keine Priorität.",
+      "resolve_transition_id": "Statusübergangs-ID beim Beheben",
+      "resolve_transition_id_hint": "Für statusbasierte Workflows.",
+      "resolve_node_id": "Beim Beheben abzuschließender Knoten",
+      "resolve_node_id_hint": "Für knotenbasierte Workflows.",
+      "done_states": "Status, die als erledigt gelten",
+      "done_states_hint": "Statusschlüssel, durch Kommas getrennt.",
+      "follow": "Dem Incident folgen",
+      "comments": {
+        "acknowledged": "Kommentieren, wenn der Incident bestätigt wird",
+        "resolved": "Kommentieren, wenn der Incident behoben wird",
+        "notes": "Incident-Notizen als Kommentare übernehmen"
+      },
+      "transition_on_resolve": "Ticket auf „Erledigt“ setzen, wenn der Incident behoben wird",
+      "resolve_when_done": "Incident als behoben markieren, wenn das Ticket erledigt ist",
+      "on_major": "Ticket erstellen, wenn ein schwerwiegender Incident ausgerufen wird",
+      "auto": "Automatische Tickets",
+      "auto_hint": "Für neue Incidents, die den Kriterien entsprechen, wird automatisch ein Ticket erstellt.",
+      "auto_enabled": "Tickets automatisch erstellen",
+      "auto_severity": "Mindestschweregrad",
+      "auto_services": "Services",
+      "auto_services_hint": "Durch Kommas getrennt. Wenn leer, gelten alle Services.",
+      "servicenow": "ServiceNow",
+      "instance_url": "Instanzadresse",
+      "table": "Tabelle",
+      "table_hint": "Standard: incident. Die Tabelle muss task erweitern.",
+      "auth_basic": "Benutzername und Passwort",
+      "auth_oauth": "OAuth-Client-Anmeldedaten",
+      "auth_oauth_hint": "Die Instanz muss den OAuth-Grant „Client Credentials“ zulassen.",
+      "auth_api_key": "API-Schlüssel",
+      "auth_api_key_hint": "Ab dem Release Washington DC.",
+      "username": "Benutzername",
+      "password": "Passwort",
+      "client_id": "Client-ID",
+      "client_secret": "Client-Secret",
+      "api_key": "API-Schlüssel",
+      "assignment_group": "Zuweisungsgruppe",
+      "caller_id": "Anrufer",
+      "sys_id_hint": "Geben Sie eine sys_id ein oder lassen Sie das Feld leer.",
+      "category": "Kategorie",
+      "priorities_hint_servicenow": "Geben Sie Auswirkung/Dringlichkeit ein (z. B. 2/1). ServiceNow ermittelt daraus die Priorität. Eine einzelne Zahl gilt für beide Werte. Zuerst wird die Zuordnung für die oben angegebene Incident-Priorität gesucht, danach für den unten angegebenen Schweregrad.",
+      "resolve_state": "Statuswert beim Lösen",
+      "resolve_state_hint": "Wert des Felds state; standardmäßig 6 (Gelöst).",
+      "close_code": "Lösungscode",
+      "close_code_hint": "Die verfügbaren Werte für close_code hängen von der Instanz ab. Bleibt das Feld leer, wird kein Wert geschrieben.",
+      "done_states_hint_servicenow": "Kommagetrennte Werte des Felds state; standardmäßig 6, 7 und 8 (Gelöst, Geschlossen, Abgebrochen)."
+    },
+    "incident": {
+      "none": "Noch keine Tickets.",
+      "created": "{{key}} erstellt",
+      "synced": "synchronisiert {{value}}",
+      "connector": "Ticket-Konnektor",
+      "create": "Ticket erstellen",
+      "create_in": "In {{name}} erstellen"
+    }
+  },
+  "major": {
+    "hint": "Stufen Sie den Incident als schwerwiegend ein, wenn die Auswirkungen weitreichend sind und mehrere Personen daran arbeiten. So koordinieren Sie die Arbeit mit klaren Rollen, einem War Room, einem Meeting, einer Checkliste und einem zentralen Feed für Updates.",
+    "declare": "Als schwerwiegenden Incident einstufen",
+    "declared": "Als schwerwiegender Incident eingestuft",
+    "declared_by": "Von {{name}} als schwerwiegender Incident eingestuft",
+    "declared_by_rule": "Durch eine Organisationsregel als schwerwiegender Incident eingestuft",
+    "roles": {
+      "commander": "Incident-Leitung",
+      "communications": "Kommunikationsleitung",
+      "scribe": "Protokollführung"
+    },
+    "unassigned": "Nicht zugewiesen",
+    "war_room": "War Room beitreten ({{platform}})",
+    "war_room_made": "War Room erstellt ({{platform}})",
+    "platforms": {
+      "lark_app": "Feishu",
+      "slack_app": "Slack",
+      "dingtalk_app": "DingTalk",
+      "wecom_app": "WeCom"
+    },
+    "meeting": "Am Meeting teilnehmen",
+    "tasks": "Aufgaben",
+    "no_tasks": "Noch keine Aufgaben.",
+    "remove_task": "Aufgabe „{{title}}“ löschen",
+    "task_placeholder": "Aufgabe hinzufügen",
+    "add_task": "Hinzufügen",
+    "post_update": "Update veröffentlichen",
+    "update_hint": "Das Update geht an den War Room, die Stakeholder und alle Personen, die dem Incident direkt oder über eine Rolle zugewiesen sind.",
+    "update": {
+      "impact": "Auswirkungen",
+      "current": "Aktueller Stand",
+      "next": "Nächste Schritte"
+    },
+    "send_update": "Senden",
+    "update_sent": "Update gesendet",
+    "settings": {
+      "open": "Einstellungen für Major Incidents",
+      "title": "Einstellungen für Major Incidents",
+      "subtitle": "Legen Sie fest, wie nach der Einstufung als Major Incident der War Room, das Meeting und die Aufgaben eingerichtet werden, wer Updates erhält und welche Incidents von Anfang an als Major Incidents gelten.",
+      "saved": "Einstellungen für Major Incidents gespeichert",
+      "war_room": "War Room und Meeting",
+      "war_room_hint": "Ein Benachrichtigungs-Connector mit Gruppenchat-Funktion (Feishu App, Slack App, DingTalk, WeCom) erstellt den Chat und fügt Stakeholder sowie alle direkt oder über eine Rolle zugewiesenen Personen über ihre jeweils verknüpften Konten hinzu.",
+      "connector": "Connector für War Rooms",
+      "no_war_room": "Kein War Room",
+      "meeting": "Meeting",
+      "meetings": {
+        "none": "Kein Meeting",
+        "feishu_vc": "Feishu-Meeting buchen",
+        "fixed_url": "Fester Meeting-Link",
+        "tencent_meeting": "Meeting über Tencent Meeting buchen",
+        "zoom": "Zoom-Meeting starten",
+        "google_meet": "Meeting in Google Meet erstellen"
+      },
+      "meeting_url": "Meeting-Link",
+      "checklist": "Checkliste",
+      "checklist_hint": "Diese Aufgaben werden bei der Einstufung als Major Incident hinzugefügt. Geben Sie eine Aufgabe pro Zeile ein.",
+      "stakeholders": "Stakeholder",
+      "stakeholders_hint": "Personen, die nicht am Incident mitarbeiten, aber über den Verlauf informiert bleiben müssen, etwa Führungskräfte oder Mitarbeitende aus Customer Success oder PR. Sie erhalten Updates zusätzlich zu den direkt oder über eine Rolle zugewiesenen Personen und werden zum War Room hinzugefügt.",
+      "auto": "Automatische Einstufung",
+      "auto_hint": "Neue Incidents, die die Kriterien erfüllen, gelten von Anfang an als Major Incidents.",
+      "auto_enabled": "Automatisch als Major Incident einstufen",
+      "room_notes": {
+        "dingtalk_app": "In DingTalk muss der Bot der App zur Gruppe hinzugefügt werden, bevor dort Updates veröffentlicht werden können. Gruppennamen dürfen höchstens 20 Zeichen lang sein.",
+        "wecom_app": "Die WeCom-App muss für die oberste Abteilung sichtbar sein. Eine Gruppe hat mindestens zwei Mitglieder und keinen Beitrittslink. Mitglieder finden die Gruppe in WeCom."
+      },
+      "meeting_connector": "Feishu App für Meetings",
+      "same_as_war_room": "Connector des War Rooms",
+      "meeting_hints": {
+        "feishu_vc": "Die Feishu App bucht ein sechsstündiges Feishu-Meeting mit der Incident-Leitung als Organisator. Die App benötigt die Berechtigung, Videomeetings zu reservieren.",
+        "tencent_meeting": "Erstellen Sie in der Unternehmenskonsole von Tencent Meeting eine eigene App, um AppId, SdkId, SecretId und SecretKey zu erhalten. Für das unten angegebene Mitglied wird ein sechsstündiges Meeting gebucht.",
+        "zoom": "Erstellen Sie im Zoom App Marketplace eine Server-to-Server-OAuth-App mit der Berechtigung zum Erstellen von Meetings (meeting:write:meeting:admin). Ein Sofortmeeting wird mit dem unten angegebenen Benutzer als Host gestartet.",
+        "google_meet": "Ein Dienstkonto erstellt Meetings im Namen des Organisators. Erteilen Sie dem Dienstkonto in der Google Workspace-Admin-Konsole die domainweite Delegierung für https://www.googleapis.com/auth/meetings.space.created."
+      },
+      "secret_kept": "Hinterlegt. Zum Beibehalten leer lassen",
+      "tencent": {
+        "sdk_id_hint": "Nur wenn die App eine SdkId hat",
+        "userid": "Ersteller (userid)",
+        "userid_hint": "Das Unternehmensmitglied, dem das Meeting zugeordnet ist"
+      },
+      "zoom": {
+        "host": "Host",
+        "host_hint": "E-Mail-Adresse oder Benutzer-ID eines Benutzers im Zoom-Konto"
+      },
+      "google": {
+        "organizer": "E-Mail-Adresse des Organisators",
+        "organizer_hint": "Meetings werden im Namen dieser Person erstellt",
+        "credentials": "Dienstkontoschlüssel (JSON)"
+      },
+      "auto_priority": "Priorität",
+      "auto_priority_hint": "Wenn Sie eine Priorität festlegen, werden Vorfälle ohne Priorität nie automatisch ausgerufen.",
+      "any_priority": "Beliebige Priorität",
+      "at_least_priority": "{{priority}} oder höher"
+    }
+  },
+  "postmortems": {
+    "empty": "Noch keine Postmortems. Wählen Sie bei einem Vorfall „Postmortem schreiben“.",
+    "loading": "Postmortem wird gelesen…",
+    "none": "Noch kein Postmortem.",
+    "start": "Postmortem schreiben",
+    "open": "Postmortem öffnen",
+    "summary_line_one": "{{status}} · {{count}} offene Maßnahme",
+    "summary_line_other": "{{status}} · {{count}} offene Maßnahmen",
+    "saved": "Postmortem gespeichert",
+    "drawer_title": "Postmortem",
+    "title": "Titel",
+    "status_label": "Status",
+    "status": {
+      "draft": "Entwurf",
+      "in_review": "In Prüfung",
+      "published": "Veröffentlicht"
+    },
+    "body": "Text (Markdown)",
+    "draft_with_agent": "Entwurf mit Mole Agent erstellen",
+    "agent_prompt": "Verfassen Sie anhand der Zeitleiste, der Notizen, der Ursachenanalyse und der auslösenden Abfrage ein internes Postmortem zu diesem Vorfall. Nehmen Sie eine Zusammenfassung, die Auswirkungen, die Zeitleiste, die Ursache, was gut und was schlecht lief, sowie Maßnahmen auf. Speichern Sie den Text als Postmortem-Entwurf für diesen Vorfall.",
+    "copy_summary": "Zusammenfassung kopieren",
+    "summary_copied": "Zusammenfassung kopiert. Fügen Sie sie in das öffentliche Postmortem auf der Statusseite ein",
+    "actions_title": "Maßnahmen",
+    "action_placeholder": "Maßnahme hinzufügen",
+    "add_action": "Hinzufügen",
+    "remove_action": "Maßnahme „{{title}}“ löschen",
+    "make_ticket": "Ticket erstellen",
+    "ticket_created": "{{key}} erstellt",
+    "open_actions_one": "{{count}} offene Maßnahme",
+    "open_actions_other": "{{count}} offene Maßnahmen",
+    "overdue_one": "{{count}} überfällig",
+    "overdue_other": "{{count}} überfällig",
+    "template": {
+      "summary": "Zusammenfassung",
+      "impact": "Auswirkungen",
+      "duration": "Dauer: {{value}}",
+      "minutes_one": "{{count}} Minute",
+      "minutes_other": "{{count}} Minuten",
+      "ongoing": "dauert noch an",
+      "services": "Betroffene Services: {{value}}",
+      "severity": "Schweregrad: {{value}}",
+      "timeline": "Zeitverlauf",
+      "triggered": "Ausgelöst",
+      "resolved": "Behoben",
+      "root_cause": "Ursache",
+      "went_well": "Was gut lief",
+      "went_badly": "Was schlecht lief",
+      "actions": "Maßnahmen",
+      "kinds": {
+        "acknowledged": "Bestätigt",
+        "resolved": "Behoben",
+        "escalated": "Eskaliert",
+        "reassigned": "Neu zugewiesen",
+        "responders_added": "Einsatzkräfte hinzugefügt",
+        "snoozed": "Zurückgestellt",
+        "severity_changed": "Schweregrad geändert",
+        "merged_in": "Incidents zusammengeführt",
+        "note": "Notiz",
+        "remediation_executed": "Behebungsmaßnahme ausgeführt",
+        "ticket_created": "Ticket erstellt",
+        "declared_major": "Als schwerwiegender Incident eingestuft",
+        "role_assigned": "Rolle zugewiesen",
+        "war_room_created": "War Room eröffnet",
+        "task_done": "Aufgabe erledigt",
+        "status_update": "Statusupdate",
+        "step_unreachable": "Niemand erreichbar, eskaliert",
+        "priority_changed": "Priorität geändert",
+        "urgency_changed": "Dringlichkeit geändert"
+      }
+    }
+  },
+  "urgency": {
+    "high": "hoch",
+    "low": "niedrig"
+  },
+  "importance": {
+    "no_priority": "Keine Priorität",
+    "without_priority": "Keine",
+    "all_priorities": "Alle Prioritäten",
+    "filter_label": "Nach Priorität filtern",
+    "low_urgency": "Niedrige Dringlichkeit",
+    "urgency": {
+      "high": "Hohe Dringlichkeit",
+      "low": "Niedrige Dringlichkeit"
+    },
+    "behaviour": {
+      "escalates": "Eskaliert gemäß Richtlinie",
+      "first_step": "Nur die erste Stufe",
+      "quiet_switch": "Ruhezeiten richten sich nach der persönlichen Einstellung",
+      "quiet_block": "nie während der Ruhezeiten",
+      "steps_high": "Stufen für hohe Dringlichkeit",
+      "steps_low": "Stufen für niedrige Dringlichkeit"
+    }
+  },
+  "create_incident": {
+    "open": "Neuer Incident",
+    "title": "Neuer Incident",
+    "subtitle": "Für Vorfälle, die keine Regel erkannt hat, etwa Kundenmeldungen oder Beobachtungen. Wie bei jedem anderen Incident werden die Zuständigen alarmiert und der Incident bei Bedarf eskaliert.",
+    "submit": "Incident erstellen",
+    "created": "Incident erstellt",
+    "sections": {
+      "what": "Was ist passiert?",
+      "who": "Wer übernimmt?"
+    },
+    "fields": {
+      "title": "Titel",
+      "description": "Beschreibung",
+      "severity": "Schweregrad",
+      "priority": "Priorität",
+      "urgency": "Dringlichkeit",
+      "services": "Betroffene Services",
+      "labels": "Labels",
+      "team": "Team",
+      "policy": "Eskalationsrichtlinie",
+      "people": "Personen"
+    },
+    "hints": {
+      "description": "Markdown wird unterstützt.",
+      "services": "Geben Sie die Namen aus dem Servicekatalog durch Kommas getrennt ein.",
+      "labels": "Ein Eintrag im Format key=value pro Zeile. Routingregeln und Stummschaltungen gleichen diese Labels ab.",
+      "people_one": "Bis zu {{count}} Person. Nur diese Person wird benachrichtigt; es gilt keine Eskalationsrichtlinie.",
+      "people_other": "Bis zu {{count}} Personen. Nur diese Personen werden benachrichtigt; es gilt keine Eskalationsrichtlinie."
+    },
+    "placeholders": {
+      "title": "Zum Beispiel: Kunden in der Region Nord können die Zahlungsseite nicht öffnen",
+      "choose": "Auswählen…"
+    },
+    "assign": {
+      "auto": "Automatisch zuweisen",
+      "team": "Ein Team",
+      "policy": "Eine Eskalationsrichtlinie",
+      "users": "Ausgewählte Personen"
+    },
+    "assign_hints": {
+      "auto": "Wie bei einem durch eine Regel eröffneten Incident: anhand der Routingregeln, des für den Service zuständigen Teams oder des Team-Labels.",
+      "team": "Es gilt die Bereitschaftsrichtlinie des Teams oder, falls keine festgelegt ist, die Standardrichtlinie.",
+      "policy": "Die Benachrichtigung beginnt auf der ersten Eskalationsstufe der Richtlinie.",
+      "users": "Diese Personen werden direkt und ohne Eskalation benachrichtigt."
+    },
+    "declare_major": "Als schwerwiegenden Incident einstufen"
+  },
+  "discovery": {
+    "load_error": "Erkannte Auffälligkeiten konnten nicht geladen werden",
+    "tabs_label": "Auffälligkeiten",
+    "tabs": {
+      "open": "Offen",
+      "ended": "Beendet"
+    },
+    "filter_kind": "Nach Typ filtern",
+    "all_kinds": "Alle Typen",
+    "kinds": {
+      "apm_anomaly": "Plötzliche Serviceabweichung",
+      "apm_regression": "Verschlechterung in neuer Version",
+      "rum_new_issue": "Neuer Frontend-Fehler",
+      "rum_regressed_issue": "Erneuter Frontend-Fehler",
+      "log_error_surge": "Häufung von Fehlerlogs",
+      "log_new_error": "Neuer Fehler im Log",
+      "metric_saturation": "Kapazitätsgrenze fast erreicht",
+      "metric_shift": "Sprunghafter Anstieg der CPU-Auslastung",
+      "metric_restarts": "Container-Neustarts"
+    },
+    "metrics": {
+      "error_rate": "Fehlerrate",
+      "p95": "P95-Latenz",
+      "throughput": "Traffic",
+      "requests": "Anfragen"
+    },
+    "summary": {
+      "apm_anomaly": "{{metric}} für {{service}}: {{value}} (zuvor {{baseline}})",
+      "apm_regression": "{{service}} {{version}} schneidet schlechter ab als die vorherige Version",
+      "rum_new_issue": "Neuer Fehler in {{application}}: {{message}}",
+      "rum_regressed_issue": "Ein bereits behobener Fehler tritt in {{application}} erneut auf: {{message}}",
+      "log_error_surge": "Fehlerlogs von {{service}} in {{stream}}: {{value}} in 15 Minuten (üblicherweise {{baseline}})",
+      "log_new_error": "Neuer Fehler in {{service}}: {{template}}",
+      "metric_saturation": "Auslastung von {{subject}}: {{value}}",
+      "metric_shift": "CPU-Auslastung von {{subject}}: {{value}} (vor einer Stunde: {{baseline}})",
+      "metric_restarts": "{{subject}} wurde in 15 Minuten {{value}}-mal neu gestartet"
+    },
+    "empty": {
+      "open": {
+        "title": "Derzeit keine Auffälligkeiten",
+        "description": "Alle 5 Minuten werden APM-Services auf plötzliche Abweichungen und Verschlechterungen in neuen Versionen geprüft. Frontends werden auf neue und erneut auftretende Fehler geprüft."
+      },
+      "ended": {
+        "title": "Zuletzt keine beendeten Auffälligkeiten",
+        "description": "Wird eine Auffälligkeit bei drei aufeinanderfolgenden Prüfungen nicht mehr erkannt, gilt sie als beendet und bleibt 30 Tage lang gespeichert."
+      }
+    },
+    "columns": {
+      "finding": "Auffälligkeit",
+      "started": "Beginn",
+      "last_seen": "Zuletzt erkannt",
+      "ended": "Ende"
+    },
+    "new_rule": "Neue Erkennungsregel",
+    "rule_for_kind": "Bei ähnlichen Befunden alarmieren",
+    "downstream": "nachgelagert",
+    "version_after": "{{version}} (nach {{previous}})",
+    "sections": {
+      "what": "Was erkannt wurde",
+      "changes": "Änderungen im Umfeld"
+    },
+    "fields": {
+      "kind": "Typ",
+      "now": "Jetzt",
+      "before": "Vorher",
+      "last_week": "Letzte Woche",
+      "version": "Version",
+      "location": "Ort",
+      "started": "Beginn",
+      "last_seen": "Zuletzt erkannt",
+      "ended": "Ende"
+    },
+    "rule": {
+      "new_title": "Neue Erkennungsregel",
+      "edit_title": "Erkennungsregel bearbeiten",
+      "subtitle": "Für jeden passenden Befund wird ein eigener Vorfall mit demselben Schweregrad eröffnet. Sobald der Befund nicht mehr vorliegt, wird der Vorfall als behoben markiert.",
+      "create": "Regel erstellen",
+      "save": "Regel speichern",
+      "created": "Regel erstellt",
+      "updated": "Regel gespeichert",
+      "name_from": "Erkennung: {{subject}}",
+      "source": "Erkennung",
+      "condition": "Ein Vorfall pro Befund",
+      "urgency_low_default": "Niedrig (Standard)",
+      "sections": {
+        "which": "Welche Befunde zählen",
+        "who": "Wer benachrichtigt wird"
+      },
+      "fields": {
+        "name": "Name",
+        "kinds": "Typen",
+        "subjects": "Services oder Anwendungen",
+        "environments": "Umgebungen",
+        "min_severity": "Mindestschweregrad",
+        "policy": "Eskalationsrichtlinie",
+        "urgency": "Dringlichkeit"
+      },
+      "hints": {
+        "kinds": "Ohne Auswahl gelten alle Typen.",
+        "subjects": "Namen von APM-Services oder IDs von RUM-Anwendungen, durch Kommas getrennt. Wenn Sie das Feld leer lassen, gelten alle.",
+        "environments": "Durch Kommas trennen. Wenn das Feld leer bleibt, gelten alle Umgebungen.",
+        "urgency": "Da die Erkennung auf Indizien beruht, haben die zugehörigen Incidents standardmäßig eine niedrige Dringlichkeit: Benachrichtigungen nur auf der ersten Eskalationsstufe und nie während der Ruhezeiten."
+      }
+    },
+    "open": {
+      "apm": "In APM öffnen",
+      "rum": "In RUM öffnen",
+      "logs": "Logs öffnen",
+      "metrics": "In der Metrikansicht öffnen"
+    },
+    "investigate": "Von Mole Agent untersuchen lassen",
+    "investigate_prompt": "Untersuchen Sie diesen Befund der automatischen Erkennung: {{summary}}. Ermitteln Sie die Ursache anhand der Logs, Metriken, Traces und Änderungen rund um den Zeitpunkt des ersten Auftretens und empfehlen Sie die nächsten Schritte."
+  },
+  "rule_transfer": {
+    "menu": "Importieren/Exportieren",
+    "export_all": "Alle Regeln exportieren",
+    "export_one": "{{count}} ausgewählte Regel exportieren",
+    "export_other": "{{count}} ausgewählte Regeln exportieren",
+    "exported_one": "{{count}} Regel exportiert",
+    "exported_other": "{{count}} Regeln exportiert",
+    "import": "Regeln importieren…",
+    "import_title": "Regeln importieren",
+    "import_subtitle": "Fügen Sie ein aus MoleSignal exportiertes Regelpaket oder eine Datei mit Prometheus-Alarmregeln ein oder wählen Sie die entsprechende Datei aus. PrometheusRule wird ebenfalls unterstützt. Prüfen Sie zuerst in der Vorschau, was mit jeder Regel passiert, und importieren Sie dann alle auf einmal.",
+    "content": "Inhalt",
+    "content_hint": "JSON oder YAML. Regeln werden anhand ihres Namens zugeordnet: Bei einem neuen Namen wird die Regel erstellt, bei einem vorhandenen Namen wird sie aktualisiert.",
+    "choose_file": "Datei auswählen",
+    "create_only": "Nur neue Regeln erstellen; Regeln mit vorhandenem Namen unverändert lassen",
+    "try": "Vorschau",
+    "apply_one": "{{count}} Regel importieren",
+    "apply_other": "{{count}} Regeln importieren",
+    "cancel": "Abbrechen",
+    "imported_one": "{{count}} Regel importiert",
+    "imported_other": "{{count}} Regeln importiert",
+    "result": "Importvorschau",
+    "has_errors": "Korrigieren Sie die fehlerhaften Regeln und importieren Sie sie dann",
+    "changes": "Änderungen: {{fields}}",
+    "formats": {
+      "molesignal": "MoleSignal-Regelpaket",
+      "prometheus": "Prometheus-Alarmregeln",
+      "pagerduty": "PagerDuty-Bereitschaftspläne",
+      "opsgenie": "Opsgenie-Bereitschaftspläne"
+    },
+    "actions": {
+      "create": "Erstellen",
+      "update": "Aktualisieren",
+      "unchanged": "Unverändert",
+      "skip": "Überspringen",
+      "error": "Fehler"
+    }
+  },
+  "transfer": {
+    "unknown_members": "Diesen E-Mail-Adressen ist in diesem Arbeitsbereich kein Mitglied zugeordnet:",
+    "findings": {
+      "schedules_only": "Es werden nur Bereitschaftspläne übernommen. Eskalationsrichtlinien, Routingregeln und Ausnahmen werden nicht übernommen.",
+      "shift_based_not_listed": "Die Datei führt die schichtbasierten Bereitschaftspläne von PagerDuty nicht auf. Da die V2-API sie nicht zurückgibt, fehlen sie hier möglicherweise. Das Migrationsskript listet sie auf.",
+      "shift_based_not_fetched": "Die Datei enthält nur den Namen dieses schichtbasierten Bereitschaftsplans, aber keine Inhalte. Daher wird er nicht übernommen. Führen Sie das Migrationsskript erneut aus oder rufen Sie den Plan mit GET /v3/schedules/{id} ab.",
+      "schedule_unreadable": "Der Bereitschaftsplan kann nicht gelesen werden: {{detail}}",
+      "timezone_unknown": "„{{timezone}}“ ist kein IANA-Zeitzonenname.",
+      "layers_missing": "Die Datei enthält keine Ebenen für diesen Bereitschaftsplan. Rufen Sie ihn mit GET /schedules/{id} ab.",
+      "rotations_missing": "Die Datei enthält keine Rotationen für diesen Bereitschaftsplan. Rufen Sie ihn mit GET /v2/schedules/{id} ab.",
+      "events_missing": "Die Datei enthält weder Rotationen noch Ereignisse für diesen Bereitschaftsplan. Rufen Sie ihn mit GET /v3/schedules/{id} ab.",
+      "time_invalid": "{{rotation}}: „{{value}}“ ist keine gültige Uhrzeit.",
+      "user_without_email": "{{rotation}}: Die Datei enthält keine E-Mail-Adresse für {{user}}.",
+      "participant_team": "{{rotation}}: Für eine Schicht ist das Team {{name}} eingeteilt. Hier können Rotationen nur Personen enthalten.",
+      "participant_escalation": "{{rotation}}: Einer Schicht ist die Eskalation {{name}} zugewiesen. Hier können Rotationen nur Personen enthalten.",
+      "participant_none": "{{rotation}}: Eine Schicht ist unbesetzt. Hier sind unbesetzte Schichten in einer Rotation nicht zulässig.",
+      "participant_unknown": "{{rotation}}: Ein Teilnehmer hat den unbekannten Typ {{value}}.",
+      "rotations_overlap": "{{rotation}} und {{other}} überschneiden sich erstmals ab {{at}}. Im Quellsystem hätten beide Personen gleichzeitig Bereitschaft. Hier ist pro Bereitschaftsplan nur eine Person gleichzeitig möglich. Verteilen Sie die Rotationen auf separate Bereitschaftspläne.",
+      "every_member_on_call": "{{rotation}}: Alle Mitglieder haben gleichzeitig Bereitschaft. Hier ist pro Bereitschaftsplan nur eine Person gleichzeitig möglich. Verteilen Sie die Mitglieder auf separate Bereitschaftspläne.",
+      "recurrence_unsupported": "{{rotation}}: Das Wiederholungsmuster {{value}} lässt sich nicht als Rotation abbilden.",
+      "shifts_per_member_unsupported": "{{rotation}}: Jedes Mitglied übernimmt {{value}} Schichten in Folge, bei {{per_week}} Schichten pro Woche. Daher finden die Übergaben nicht in festen Intervallen statt, wie es hier für Rotationen erforderlich ist.",
+      "event_timezones_differ": "{{rotation}} verwendet {{timezone}}, {{other}} verwendet {{other_timezone}}. Hier gilt pro Bereitschaftsplan nur eine Zeitzone. Verteilen Sie die Rotationen auf separate Bereitschaftspläne.",
+      "timezone_from_events": "Der Bereitschaftsplan verwendet {{schedule_timezone}}, seine Ereignisse verwenden {{timezone}}. Hier wird für den Plan {{timezone}} verwendet, damit sich die Übergabezeiten nicht ändern.",
+      "custom_shifts_one": "{{count}} benutzerdefinierte Schicht ab jetzt: {{at}} bis {{until}}, {{user}}. Eine einmalige Schicht lässt sich hier nicht als Rotation abbilden. Importieren Sie den Plan nach Ende der Schicht oder entfernen Sie die Schicht aus final_schedule in der Datei und fügen Sie nach dem Import eine Ausnahme hinzu.",
+      "custom_shifts_other": "{{count}} benutzerdefinierte Schichten ab jetzt. Die erste: {{at}} bis {{until}}, {{user}}. Einmalige Schichten lassen sich hier nicht als Rotation abbilden. Importieren Sie den Plan nach Ende dieser Schichten oder entfernen Sie sie aus final_schedule in der Datei und fügen Sie nach dem Import Ausnahmen hinzu.",
+      "rendered_several_on_call": "Von {{at}} bis {{until}} haben {{first}} und {{second}} im Quellsystem gleichzeitig Bereitschaft. Hier ist pro Bereitschaftsplan nur eine Person gleichzeitig möglich.",
+      "rotation_type_unsupported": "{{rotation}}: Der Rotationstyp {{value}} ist unbekannt.",
+      "rotation_length_invalid": "{{rotation}}: Die Rotationsdauer {{value}} kann nicht verwendet werden.",
+      "restriction_unsupported": "{{rotation}}: Die zeitliche Einschränkung {{value}} lässt sich nicht durch wöchentliche Zeitfenster abbilden.",
+      "rendered_in_other_zone": "{{rotation}}: Die Antwort wurde in einer anderen Zeitzone ({{value}}) berechnet. Daher lassen sich die zeitlichen Einschränkungen nicht in der Zeitzone des Bereitschaftsplans auswerten. Rufen Sie den Plan mit GET /schedules/{id} ohne time_zone ab.",
+      "starts_before_handoff": "{{rotation}}: Die Ebene beginnt vor ihrer Rotation. Wer bis dahin Bereitschaft hat, ist unbekannt.",
+      "rendered_mismatch": "Abweichung vom Quellsystem von {{at}} bis {{until}}: Dort hat {{expected}} Bereitschaft, nach dem Import wäre es {{actual}}.",
+      "rendered_mismatch_more_one": "Und {{count}} weiterer Zeitraum.",
+      "rendered_mismatch_more_other": "Und {{count}} weitere Zeiträume.",
+      "rotation_ended": "{{rotation}} endete um {{at}} und wird nicht übernommen. Die Rotation bestimmt nicht mehr, wer Bereitschaft hat.",
+      "too_many_rotations": "Ein Bereitschaftsplan enthält mehr als {{limit}} Rotationen.",
+      "schedule_paused": "Im Quellsystem deaktiviert: Der Bereitschaftsplan wird pausiert übernommen und wurde nicht verglichen.",
+      "rotation_empty": "{{rotation}} wird nicht übernommen: Die Rotation enthält keine Personen oder kommt nie zur Anwendung.",
+      "team_not_carried": "Das Team {{name}} wird nicht übernommen: Hier gibt es kein Team mit diesem Namen oder dem Bereitschaftsplan ist bereits ein Team zugewiesen. Wer Bereitschaft hat, ändert sich dadurch nicht.",
+      "rendered_matched": "Mit dem Quellsystem für den Zeitraum von {{from}} bis {{to}} verglichen: Dieselben Personen haben Bereitschaft.",
+      "rendered_missing": "Nicht verglichen: Die Datei enthält keinen vom Quellsystem berechneten Bereitschaftsplan. Prüfen Sie nach dem Import, wer Bereitschaft hat.",
+      "rendered_stale": "Nicht verglichen: Der vom Quellsystem berechnete Bereitschaftsplan liegt vollständig in der Vergangenheit. Rufen Sie ihn erneut ab.",
+      "clock_change_not_compared": "Der Vergleich reicht nicht bis zur nächsten Zeitumstellung in {{timezone}}. Übergaben nach dieser Umstellung wurden nicht verglichen.",
+      "overrides_left_out_one": "{{count}} Dienstplan-Ausnahme im verglichenen Zeitraum wird nicht importiert.",
+      "overrides_left_out_other": "{{count}} Dienstplan-Ausnahmen im verglichenen Zeitraum werden nicht importiert."
+    },
+    "policies": {
+      "menu": "Import/Export",
+      "export_all": "Alle Eskalationsrichtlinien exportieren",
+      "export_one": "{{count}} Eskalationsrichtlinie exportieren",
+      "export_other": "{{count}} Eskalationsrichtlinien exportieren",
+      "import": "Eskalationsrichtlinien importieren…",
+      "import_title": "Eskalationsrichtlinien importieren",
+      "import_subtitle": "Ein Paket im Format `molesignal.escalation-policies/v1`. Der Abgleich erfolgt nach Namen: Einträge mit neuen Namen werden angelegt, vorhandene aktualisiert. Testen Sie den Import zuerst.",
+      "exported_one": "{{count}} Eskalationsrichtlinie exportiert",
+      "exported_other": "{{count}} Eskalationsrichtlinien exportiert",
+      "imported_one": "{{count}} Eskalationsrichtlinie importiert",
+      "imported_other": "{{count}} Eskalationsrichtlinien importiert",
+      "content_hint": "JSON oder YAML. Benutzer werden anhand ihrer E-Mail-Adresse zugeordnet, Dienstpläne, Teams und Feiertagskalender anhand ihres Namens."
+    },
+    "schedules": {
+      "menu": "Import/Export",
+      "export_all": "Alle Dienstpläne exportieren",
+      "export_one": "{{count}} Dienstplan exportieren",
+      "export_other": "{{count}} Dienstpläne exportieren",
+      "import": "Dienstpläne importieren…",
+      "import_title": "Dienstpläne importieren",
+      "import_subtitle": "Ein Paket im Format `molesignal.schedules/v1` oder Dienstpläne im API-Format von Opsgenie oder PagerDuty. Der Abgleich erfolgt nach Namen: Einträge mit neuen Namen werden angelegt, vorhandene aktualisiert. Testen Sie den Import zuerst.",
+      "exported_one": "{{count}} Dienstplan exportiert",
+      "exported_other": "{{count}} Dienstpläne exportiert",
+      "imported_one": "{{count}} Dienstplan importiert",
+      "imported_other": "{{count}} Dienstpläne importiert",
+      "content_hint": "JSON oder YAML. Mitglieder werden anhand ihrer E-Mail-Adresse zugeordnet, Teams und Feiertagskalender anhand ihres Namens. Dienstplan-Ausnahmen und Diensttauschvorgänge sind nicht in der Datei enthalten und bleiben bei einer Aktualisierung erhalten.",
+      "has_errors": "Korrigieren Sie die fehlerhaften Dienstpläne und importieren Sie sie anschließend.",
+      "migration_title": "Umstieg von Opsgenie oder PagerDuty",
+      "migration_intro": "Führen Sie dieses Skript in einer Umgebung mit curl und jq aus und wählen Sie anschließend die erzeugte Datei aus. Der API-Schlüssel bleibt in dieser Umgebung: MoleSignal speichert ihn nicht und greift nicht auf das andere Tool zu.",
+      "migration_key": "Setzen Sie zuerst {{name}}. Ein Schlüssel mit Leserechten genügt.",
+      "migration_copy": "Skript kopieren",
+      "migration_docs": "Was wird übernommen und was nicht?"
+    },
+    "routing": {
+      "menu": "Import/Export",
+      "export_all": "Alle Routingregeln exportieren",
+      "export_one": "{{count}} Routingregel exportieren",
+      "export_other": "{{count}} Routingregeln exportieren",
+      "import": "Routingregeln importieren…",
+      "import_title": "Routingregeln importieren",
+      "import_subtitle": "Ein Paket im Format `molesignal.routing-rules/v1`. Der Abgleich erfolgt nach Namen: Einträge mit neuen Namen werden angelegt, vorhandene aktualisiert. Testen Sie den Import zuerst.",
+      "exported_one": "{{count}} Routingregel exportiert",
+      "exported_other": "{{count}} Routingregeln exportiert",
+      "imported_one": "{{count}} Routingregel importiert",
+      "imported_other": "{{count}} Routingregeln importiert",
+      "content_hint": "JSON oder YAML. Eskalationsrichtlinien, Teams und Feiertagskalender werden anhand ihrer Namen referenziert. Die Regeln aus der Datei stehen in der dort festgelegten Reihenfolge an erster Stelle. Die übrigen Regeln folgen in ihrer bisherigen Reihenfolge."
+    }
+  }
+}

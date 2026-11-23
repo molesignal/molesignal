@@ -1,0 +1,24 @@
+{
+  "states": {
+    "loading": {
+      "title": "Carregando",
+      "description": "Buscando os dados mais recentes."
+    },
+    "empty": {
+      "title": "Ainda não há dados",
+      "description": "Crie o primeiro item ou ajuste os filtros atuais."
+    },
+    "error": {
+      "title": "Falha na solicitação",
+      "description": "O backend retornou um erro."
+    },
+    "backend-pending": {
+      "title": "Aguardando o backend",
+      "description": "Esta interface está pronta, mas o endpoint correspondente ainda não está disponível."
+    },
+    "permission-denied": {
+      "title": "Permissão necessária",
+      "description": "Seu perfil atual não permite acessar este fluxo de trabalho."
+    }
+  }
+}
