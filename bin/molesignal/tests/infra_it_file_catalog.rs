@@ -11,7 +11,7 @@
 
 mod common;
 
-use std::time::Duration;
+use std::{collections::BTreeSet, time::Duration};
 
 use domain::{
     iam::{Organization, OrganizationRepository},
@@ -306,6 +306,27 @@ async fn gc_queue_len(h: &Harness) -> i64 {
         .fetch_one(&h.pool)
         .await
         .expect("count gc queue")
+}
+
+/// The object keys queued for GC.
+async fn gc_queue_keys(h: &Harness) -> BTreeSet<String> {
+    sqlx::query_scalar::<String>("SELECT object_key FROM object_gc_queue WHERE org_id = $1")
+        .bind(h.scope.organization_id.as_str())
+        .fetch_all(&h.pool)
+        .await
+        .expect("list gc queue")
+        .into_iter()
+        .collect()
+}
+
+/// A manifest and the Bloom filters and minute counts written beside it: retiring it queues all
+/// three, as the collector treats one that was never written as already deleted.
+fn manifest_objects(manifest_key: &str) -> [String; 3] {
+    [
+        manifest_key.to_owned(),
+        format!("{manifest_key}.bloom"),
+        format!("{manifest_key}.minute_counts"),
+    ]
 }
 
 #[tokio::test]
@@ -797,6 +818,8 @@ async fn manifest_generation_switches_atomically_and_can_retire_partition() {
         .expect("publish first manifest generation");
     assert_eq!(sealed_version, 2);
 
+    let manifest_key = pointer.object.key.as_str().to_owned();
+
     let snapshot = h
         .catalog
         .snapshot(
@@ -822,7 +845,7 @@ async fn manifest_generation_switches_atomically_and_can_retire_partition() {
                 expected_generation: Some(1),
                 new_manifest: None,
                 seal_segment_ids: Vec::new(),
-                tombstone_segment_ids: vec![segment.id],
+                tombstone_segment_ids: vec![segment.id.clone()],
                 replace_artifacts: Vec::new(),
                 gc_not_before_micros: TimestampMicros::now().0 + HOUR_MICROS,
             },
@@ -844,7 +867,14 @@ async fn manifest_generation_switches_atomically_and_can_retire_partition() {
         .expect("snapshot retired partition");
     assert!(snapshot.datasets[0].segments.is_empty());
     assert!(snapshot.datasets[0].manifests.is_empty());
-    assert_eq!(gc_queue_len(&h).await, 2, "manifest and primary queued");
+
+    let mut queued: BTreeSet<_> = manifest_objects(&manifest_key).into();
+    queued.insert(segment.primary.object.key.as_str().to_owned());
+    assert_eq!(
+        gc_queue_keys(&h).await,
+        queued,
+        "the manifest with its side objects and the primary are queued"
+    );
 }
 
 #[tokio::test]
@@ -946,8 +976,8 @@ async fn cross_dataset_transform_retires_sealed_base_and_publishes_output_atomic
             PublishDatasetTransform {
                 input_dataset_id: h.dataset_id.clone(),
                 input_partition: input.partition,
-                input_manifest: Some(pointer),
-                input_segment_ids: vec![input.id],
+                input_manifest: Some(pointer.clone()),
+                input_segment_ids: vec![input.id.clone()],
                 output_dataset_id: output_dataset.id.clone(),
                 output_segments: vec![output],
                 gc_not_before_micros: TimestampMicros::now().0 + HOUR_MICROS,
@@ -976,7 +1006,14 @@ async fn cross_dataset_transform_retires_sealed_base_and_publishes_output_atomic
     let output_snapshot = snapshot.dataset(&output_dataset.id).unwrap();
     assert_eq!(output_snapshot.segments.len(), 1);
     assert_eq!(output_snapshot.segments[0].id, output_id);
-    assert_eq!(gc_queue_len(&h).await, 2, "raw primary and manifest queued");
+
+    let mut queued: BTreeSet<_> = manifest_objects(pointer.object.key.as_str()).into();
+    queued.insert(input.primary.object.key.as_str().to_owned());
+    assert_eq!(
+        gc_queue_keys(&h).await,
+        queued,
+        "the raw primary and the manifest with its side objects are queued"
+    );
 }
 
 #[tokio::test]
