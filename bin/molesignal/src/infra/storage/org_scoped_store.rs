@@ -36,6 +36,35 @@ pub fn scoped_to_org(inner: Arc<dyn ObjectStore>, organization_id: &Id) -> Arc<d
     Arc::new(OrgScopedReadStore::new(inner, organization_id))
 }
 
+/// `key` 是否落在 `organization_id` 的 Catalog 前缀之内，与视图放行的读取一致。
+///
+/// 只用对象元数据就能回答的路径（Catalog 行数、分钟计数）不经过视图读取，要先用它确认候选
+/// 属于本组织。解析不了的 key 不算本组织的。
+pub fn owned_by_org(organization_id: &Id, key: &str) -> bool {
+    let Ok(location) = Path::parse(key) else {
+        return false;
+    };
+
+    org_prefixes(organization_id)
+        .iter()
+        .any(|prefix| location.prefix_matches(prefix))
+}
+
+/// 组织的 Catalog 前缀。`Path` 会丢掉空路径段：空 ID 的前缀会退化成整个 `artifacts/v1/`，带
+/// 分隔符的 ID 又对应不到唯一的组织目录。两种情况都不授权任何前缀。
+fn org_prefixes(organization_id: &Id) -> Vec<Path> {
+    let id = organization_id.as_str();
+
+    if id.is_empty() || id.contains('/') {
+        return Vec::new();
+    }
+
+    StorageLayout::catalog_scan_prefixes_for(organization_id)
+        .into_iter()
+        .map(|prefix| Path::from(prefix.trim_end_matches('/')))
+        .collect()
+}
+
 /// 只读、限定在单个组织前缀内的对象存储视图。
 pub struct OrgScopedReadStore {
     inner: Arc<dyn ObjectStore>,
@@ -45,23 +74,10 @@ pub struct OrgScopedReadStore {
 
 impl OrgScopedReadStore {
     pub fn new(inner: Arc<dyn ObjectStore>, organization_id: &Id) -> Self {
-        let id = organization_id.as_str();
-
-        // `Path` 会丢掉空路径段：空 ID 的前缀会退化成整个 `artifacts/v1/`，带分隔符的 ID
-        // 又对应不到唯一的组织目录。两种情况都不授权任何前缀。
-        let prefixes = if id.is_empty() || id.contains('/') {
-            Vec::new()
-        } else {
-            StorageLayout::catalog_scan_prefixes_for(organization_id)
-                .into_iter()
-                .map(|prefix| Path::from(prefix.trim_end_matches('/')))
-                .collect()
-        };
-
         Self {
             inner,
-            organization: id.to_owned(),
-            prefixes,
+            organization: organization_id.as_str().to_owned(),
+            prefixes: org_prefixes(organization_id),
         }
     }
 
@@ -260,6 +276,27 @@ mod tests {
 
     fn is_denied(error: &object_store::Error) -> bool {
         matches!(error, object_store::Error::PermissionDenied { .. })
+    }
+
+    #[test]
+    fn keys_are_owned_only_inside_the_organization_prefix() {
+        let org = Id::from_string("org-a");
+
+        assert!(owned_by_org(&org, OWN_DATA));
+        assert!(owned_by_org(&org, OWN_MANIFEST));
+
+        for key in [
+            OTHER_DATA,
+            OTHER_MANIFEST,
+            SIBLING_DATA,
+            UNRELATED,
+            "",
+            "a/../b",
+        ] {
+            assert!(!owned_by_org(&org, key), "{key}");
+        }
+
+        assert!(!owned_by_org(&Id::from_string(""), OWN_DATA));
     }
 
     #[tokio::test(flavor = "current_thread")]

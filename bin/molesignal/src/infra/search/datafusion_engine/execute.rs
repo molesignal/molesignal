@@ -248,6 +248,7 @@ pub(super) async fn run(
             .await?
         };
 
+        loaded.ensure_owned_by(&req.org_id)?;
         let mut files = loaded.files;
         let tantivy_indexes = loaded.tantivy_indexes;
         let buffered_batches = loaded.buffered_batches;

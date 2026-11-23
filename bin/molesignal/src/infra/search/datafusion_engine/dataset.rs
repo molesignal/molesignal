@@ -11,11 +11,11 @@ use domain::{
     stream::{StreamDefinition, StreamType},
 };
 use futures::future::try_join_all;
-use kernel::{Result, ids::Id, time::TimeRange};
+use kernel::{Error, Result, ids::Id, time::TimeRange};
 
 use crate::infra::{
     query::catalog_source::{CatalogQuerySource, StreamStorageSnapshot},
-    storage::minute_counts::MinuteCountsKeys,
+    storage::{minute_counts::MinuteCountsKeys, org_scoped_store::owned_by_org},
 };
 
 pub(super) struct LoadedDataset {
@@ -40,6 +40,41 @@ pub(super) struct DatasetLoadSelection<'a> {
 }
 
 impl LoadedDataset {
+    /// 拒绝不在本组织前缀里的候选：行数、分钟计数与索引都按 Catalog 给的 key 直接使用，不经过
+    /// 组织限定的读取视图，混进来的别组织文件会被算进结果。错误不带被拒绝的 key。
+    pub(super) fn ensure_owned_by(&self, organization_id: &Id) -> Result<()> {
+        let sidecars = self
+            .tantivy_indexes
+            .values()
+            .chain(self.bloom_keys.values())
+            .chain(self.filter_keys.values())
+            .chain(
+                self.minute_count_keys
+                    .values()
+                    .flat_map(|keys| std::iter::once(&keys.own).chain(keys.sealed.as_ref())),
+            );
+
+        let foreign = self
+            .files
+            .iter()
+            .map(|file| &file.object_key)
+            .chain(sidecars)
+            .any(|key| !owned_by_org(organization_id, key));
+
+        if foreign {
+            tracing::warn!(
+                organization = %organization_id,
+                "query candidate outside the organization's storage prefix was refused"
+            );
+
+            return Err(Error::forbidden(
+                "a query candidate is outside the organization's storage prefix",
+            ));
+        }
+
+        Ok(())
+    }
+
     pub(super) fn from_catalog_snapshot(snapshot: StreamStorageSnapshot) -> Self {
         let mut files = snapshot.files();
 
