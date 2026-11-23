@@ -379,8 +379,8 @@ mod tests {
         for (key, codes) in codes_by_key {
             assert_eq!(
                 codes,
-                ["en-us", "zh-cn"],
-                "{key} must be seeded once in English and once in Chinese"
+                domain::i18n_language::LANGUAGE_CODES,
+                "{key} must be seeded once in every language, in this order"
             );
         }
     }

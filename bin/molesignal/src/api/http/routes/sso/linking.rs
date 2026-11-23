@@ -22,7 +22,7 @@ use axum::{
     routing::post,
 };
 use domain::{
-    i18n_language::LanguagePack,
+    i18n_language::{LanguagePack, language_or_fallback},
     iam::{SsoProvider, SsoProviderKind, User},
 };
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
@@ -434,13 +434,9 @@ pub(super) fn mask_email(email: &str) -> String {
     }
 }
 
-/// 发起页面的语言：`zh` 开头用中文，其余用英文。
+/// The language of the page that started the linking, else English.
 fn email_language(locale: Option<&str>) -> &'static str {
-    if locale.is_some_and(|locale| locale.to_ascii_lowercase().starts_with("zh")) {
-        "zh-cn"
-    } else {
-        "en-us"
-    }
+    language_or_fallback(locale)
 }
 
 /// 验证码邮件的主题与正文。文案来自 `i18n_language` 表，这里只填入验证码、有效期和来源。

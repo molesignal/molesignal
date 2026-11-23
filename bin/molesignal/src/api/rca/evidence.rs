@@ -64,7 +64,7 @@ pub(super) fn build_evidence(incident: &Incident, brief: &str, locale: RcaOutput
     }
 
     s.push('\n');
-    s.push_str(locale.evidence_instruction());
+    s.push_str(&locale.evidence_instruction());
     s
 }
 

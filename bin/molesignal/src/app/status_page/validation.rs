@@ -3,8 +3,11 @@
 
 use std::collections::HashSet;
 
-use domain::status_page::{
-    IncidentImpact, PublicIncidentStatus, StatusPageIncidentKind, StatusPagePublicationState,
+use domain::{
+    i18n_language::{LANGUAGE_CODES, UNSUPPORTED_LANGUAGE, is_language_code},
+    status_page::{
+        IncidentImpact, PublicIncidentStatus, StatusPageIncidentKind, StatusPagePublicationState,
+    },
 };
 use kernel::{Error, Result};
 use url::Url;
@@ -19,7 +22,6 @@ const MAX_TITLE_LEN: usize = 200;
 const MAX_MESSAGE_LEN: usize = 4_000;
 /// A reminder goes out at most a week before the planned start.
 const MAX_REMINDER_MINUTES: i32 = 7 * 24 * 60;
-const SUPPORTED_LANGUAGES: [&str; 2] = ["en-us", "zh-cn"];
 
 pub(super) fn normalize_page_input(mut input: StatusPageInput) -> Result<StatusPageInput> {
     input.name = input.name.trim().to_string();
@@ -45,8 +47,8 @@ pub(super) fn normalize_page_input(mut input: StatusPageInput) -> Result<StatusP
 
     input.language = input.language.trim().to_ascii_lowercase();
 
-    if !SUPPORTED_LANGUAGES.contains(&input.language.as_str()) {
-        return Err(Error::invalid("language must be en-us or zh-cn"));
+    if !is_language_code(&input.language) {
+        return Err(Error::invalid(UNSUPPORTED_LANGUAGE));
     }
 
     input.languages = normalize_languages(input.languages, &input.language)?;
@@ -73,14 +75,14 @@ fn normalize_languages(languages: Vec<String>, default_language: &str) -> Result
         return Ok(vec![default_language.to_string()]);
     }
 
-    let mut normalized = Vec::with_capacity(languages.len().min(SUPPORTED_LANGUAGES.len()));
+    let mut normalized = Vec::with_capacity(languages.len().min(LANGUAGE_CODES.len()));
     let mut seen = HashSet::new();
 
     for language in languages {
         let language = language.trim().to_ascii_lowercase();
 
-        if !SUPPORTED_LANGUAGES.contains(&language.as_str()) {
-            return Err(Error::invalid("languages may only contain en-us or zh-cn"));
+        if !is_language_code(&language) {
+            return Err(Error::invalid(UNSUPPORTED_LANGUAGE));
         }
 
         if seen.insert(language.clone()) {

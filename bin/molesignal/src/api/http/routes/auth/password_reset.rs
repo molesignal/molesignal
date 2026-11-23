@@ -7,7 +7,10 @@ use std::net::IpAddr;
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
 use base64::Engine as _;
-use domain::{i18n_language::LanguagePack, iam::UserStatus};
+use domain::{
+    i18n_language::{LanguagePack, language_or_fallback},
+    iam::UserStatus,
+};
 use kernel::{Error, Result, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -259,13 +262,9 @@ pub(super) fn link_token_digest(token: &str) -> String {
     hex::encode(Sha256::digest(token.as_bytes()))
 }
 
-/// 请求里的 locale 归一为语言表里的语言代码：`zh` 开头用中文，其余用英文。
+/// The language code in the language table that the request's locale asks for, else English.
 pub(super) fn link_language(locale: Option<&str>) -> &'static str {
-    if locale.is_some_and(|locale| locale.to_ascii_lowercase().starts_with("zh")) {
-        "zh-cn"
-    } else {
-        "en-us"
-    }
+    language_or_fallback(locale)
 }
 
 /// 重置邮件的主题与正文。文案来自 `i18n_language` 表，这里只填入链接和有效期。

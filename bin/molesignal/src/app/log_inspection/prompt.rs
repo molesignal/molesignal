@@ -36,13 +36,9 @@ in the report what could not be confirmed.";
 /// 展示。
 const REPORT_SHAPE: &str = r#"Your final message is the report and nothing else: one JSON object, without a Markdown fence, in this shape: {"level":"normal|attention|abnormal","summary":"the verdict and why, in one or two sentences","anomaly_points":[{"metric":"what stands out","observed":"what was seen","expected":"what is usual, when known","description":"when it began and what it involves"}],"evidence":[{"label":"a fact a reader can check","kind":"logs","stream":"the stream","time_range":{"start_time":0,"end_time":0}}],"likely_causes":["a cause the evidence points to"],"limitations":["what could not be confirmed"],"suggested_next_steps":["what to do, most urgent first"],"confidence":"high|medium|low"}. The times of "time_range" are microseconds since the Unix epoch, as in the timeRange of the tools. "level" is your verdict on the period: "abnormal" when something is wrong and somebody should act; "attention" when something deserves a look but nothing is failing; "normal" when the logs show nothing unusual. Every finding needs a query result behind it; when there is no data, say so instead of guessing. Keep empty sections as empty arrays. Never mention tool names, parameter names, or the steps you took."#;
 
-/// 报告用哪种语言写。只认产品支持的语言代码。
+/// The language the report is written in. Only the product's language codes are known.
 pub fn language_name(code: &str) -> Option<&'static str> {
-    match code {
-        "en-us" => Some("English"),
-        "zh-cn" => Some("Simplified Chinese"),
-        _ => None,
-    }
+    domain::i18n_language::language_name(code)
 }
 
 pub struct InspectionPrompt {

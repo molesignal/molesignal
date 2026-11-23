@@ -14,7 +14,10 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
-use domain::iam::{IamContext, permission};
+use domain::{
+    i18n_language::{UNSUPPORTED_LANGUAGE, is_language_code},
+    iam::{IamContext, permission},
+};
 use kernel::{Error, Result, ids::Id};
 use object_store::{ObjectStoreExt, PutPayload, path::Path as ObjPath};
 use postgres::repositories::user_preferences::UserPreferences;
@@ -208,8 +211,8 @@ fn normalize_and_validate(preferences: &mut UserPreferences) -> Result<()> {
         ));
     }
 
-    if !matches!(preferences.language.as_str(), "en-us" | "zh-cn") {
-        return Err(Error::invalid("language must be en-us or zh-cn"));
+    if !is_language_code(&preferences.language) {
+        return Err(Error::invalid(UNSUPPORTED_LANGUAGE));
     }
 
     if !matches!(preferences.time_format.as_str(), "iso_24h" | "local_12h") {

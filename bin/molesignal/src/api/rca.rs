@@ -9,7 +9,7 @@
 //!
 //! provider key 解密即用即弃，绝不落库/日志；provider/model/token/prompt_hash 一并写
 
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use agent::{
     chat::{
@@ -19,9 +19,12 @@ use agent::{
     scoring::{ScoreTarget, ScoringRepository, TargetSource},
     usage::UsageOrigin,
 };
-use domain::alerting::{
-    incident::{Incident, IncidentRca},
-    repositories::IncidentRcaRepository,
+use domain::{
+    alerting::{
+        incident::{Incident, IncidentRca},
+        repositories::IncidentRcaRepository,
+    },
+    i18n_language::{language_name, match_language},
 };
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use postgres::repositories::agent::{
@@ -56,14 +59,17 @@ const BRIEF_WAIT: std::time::Duration = std::time::Duration::from_secs(8);
 pub enum RcaOutputLocale {
     EnUs,
     ZhCn,
+    /// Another of [`LANGUAGE_CODES`](domain::i18n_language::LANGUAGE_CODES), told to the model
+    /// by its English name.
+    Other(&'static str),
 }
 
 impl RcaOutputLocale {
     pub fn from_language_tag(value: &str) -> Self {
-        if value.trim().to_ascii_lowercase().starts_with("zh") {
-            Self::ZhCn
-        } else {
-            Self::EnUs
+        match match_language(value) {
+            Some("zh-cn") => Self::ZhCn,
+            Some("en-us") | None => Self::EnUs,
+            Some(code) => Self::Other(code),
         }
     }
 
@@ -71,43 +77,52 @@ impl RcaOutputLocale {
         match self {
             Self::EnUs => "en-us",
             Self::ZhCn => "zh-cn",
+            Self::Other(code) => code,
         }
     }
 
     fn output_language(self) -> &'static str {
-        match self {
-            Self::EnUs => "English",
-            Self::ZhCn => "Simplified Chinese",
-        }
+        language_name(self.language_tag()).unwrap_or("English")
     }
 
-    fn system_instruction(self) -> &'static str {
+    fn system_instruction(self) -> Cow<'static, str> {
         match self {
-            Self::EnUs => {
+            Self::EnUs => Cow::Borrowed(
                 "Output requirements:\n\
                  - Write all reader-facing headings, explanations, causes, and next steps in English.\n\
                  - Preserve technical identifiers, queries, field names, and URLs exactly when needed.\n\
-                 - Return valid CommonMark Markdown. Do not wrap the whole response in a code fence."
-            }
-            Self::ZhCn => {
+                 - Return valid CommonMark Markdown. Do not wrap the whole response in a code fence.",
+            ),
+            Self::ZhCn => Cow::Borrowed(
                 "输出要求：\n\
                  - 所有面向用户的标题、说明、原因与后续步骤必须使用简体中文。\n\
                  - 必要的技术标识、查询语句、字段名与 URL 保持原样。\n\
-                 - 返回有效的 CommonMark Markdown，不要用代码围栏包裹整篇回答。"
-            }
+                 - 返回有效的 CommonMark Markdown，不要用代码围栏包裹整篇回答。",
+            ),
+            Self::Other(_) => Cow::Owned(format!(
+                "Output requirements:\n\
+                 - Write all reader-facing headings, explanations, causes, and next steps in {}.\n\
+                 - Preserve technical identifiers, queries, field names, and URLs exactly when needed.\n\
+                 - Return valid CommonMark Markdown. Do not wrap the whole response in a code fence.",
+                self.output_language()
+            )),
         }
     }
 
-    fn evidence_instruction(self) -> &'static str {
+    fn evidence_instruction(self) -> Cow<'static, str> {
+        const ENGLISH: &str = "Based only on the evidence above, give a concise root-cause analysis: the \
+                               most likely cause, the supporting evidence, and the first concrete next \
+                               step to confirm or remediate. If the evidence is insufficient, say so \
+                               explicitly.";
+
         match self {
-            Self::EnUs => {
-                "Based only on the evidence above, give a concise root-cause analysis: the most \
-                 likely cause, the supporting evidence, and the first concrete next step to confirm \
-                 or remediate. If the evidence is insufficient, say so explicitly."
-            }
-            Self::ZhCn => {
+            Self::EnUs => Cow::Borrowed(ENGLISH),
+            Self::ZhCn => Cow::Borrowed(
                 "仅依据以上证据给出简洁的根因分析，包括：最可能的原因、支持证据，以及用于确认或修复的\
-                 第一个具体步骤。若证据不足，必须明确说明。"
+                 第一个具体步骤。若证据不足，必须明确说明。",
+            ),
+            Self::Other(_) => {
+                Cow::Owned(format!("{ENGLISH} Write it in {}.", self.output_language()))
             }
         }
     }
@@ -499,6 +514,16 @@ mod tests {
             RcaOutputLocale::ZhCn
                 .system_instruction()
                 .contains("CommonMark")
+        );
+        let japanese = RcaOutputLocale::from_language_tag("ja");
+
+        assert_eq!(japanese, RcaOutputLocale::Other("ja-jp"));
+        assert_eq!(japanese.language_tag(), "ja-jp");
+        assert!(japanese.system_instruction().contains("in Japanese."));
+        assert!(
+            japanese
+                .evidence_instruction()
+                .ends_with("Write it in Japanese.")
         );
     }
 }

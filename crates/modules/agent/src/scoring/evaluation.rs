@@ -9,6 +9,7 @@
 //! findings, and answer; for incident RCA, the incident facts and RCA. Material is truncated by
 //! length. The model gives a score from 1 to 5, converted to 0 to 1.
 
+use domain::i18n_language::{language_name, match_language};
 use kernel::{Error, Result};
 use serde_json::Value;
 
@@ -118,11 +119,9 @@ pub fn findings_text(steps: &[TranscriptStep]) -> String {
 /// The name of the language for reasons, inserted into `{{output_language}}` in the evaluation
 /// Prompt.
 pub fn output_language(language: &str) -> &'static str {
-    if language.trim().to_ascii_lowercase().starts_with("zh") {
-        "Simplified Chinese"
-    } else {
-        "English"
-    }
+    match_language(language)
+        .and_then(language_name)
+        .unwrap_or("English")
 }
 
 /// The score given by the evaluator.

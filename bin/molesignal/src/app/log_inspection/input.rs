@@ -6,7 +6,10 @@
 //! 数据流、模型配置、通知连接器存不存在要去问别处，在 [`super::service`] 里核对。
 
 use chrono_tz::Tz;
-use domain::log_inspection::{InspectionNotifyRoute, InspectionSchedule, NotifyWhen};
+use domain::{
+    i18n_language::UNSUPPORTED_LANGUAGE,
+    log_inspection::{InspectionNotifyRoute, InspectionSchedule, NotifyWhen},
+};
 use kernel::{Error, Result, ids::Id};
 
 use super::{InspectionLimits, prompt, schedule};
@@ -97,7 +100,7 @@ pub(super) fn validate(input: InspectionInput, limits: &InspectionLimits) -> Res
     let language = input.language.trim().to_ascii_lowercase();
 
     if prompt::language_name(&language).is_none() {
-        return Err(Error::invalid("language must be en-us or zh-cn"));
+        return Err(Error::invalid(UNSUPPORTED_LANGUAGE));
     }
 
     Ok(ValidInput {

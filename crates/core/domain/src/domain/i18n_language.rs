@@ -16,6 +16,79 @@ use kernel::{Error, Result};
 /// The language a key is read from when the requested language lacks it.
 pub const FALLBACK_LANGUAGE_CODE: &str = "en-us";
 
+/// The languages the product is written in: the interface, what the server
+/// sends, and what its models are told to write. The web interface lists the
+/// same codes in `web/src/i18n/locales.ts`.
+pub const LANGUAGE_CODES: [&str; 9] = [
+    "en-us", "zh-cn", "zh-tw", "ja-jp", "ko-kr", "de", "es", "fr", "pt-br",
+];
+
+/// The refusal for a language code the product is not written in.
+pub const UNSUPPORTED_LANGUAGE: &str =
+    "language must be one of en-us, zh-cn, zh-tw, ja-jp, ko-kr, de, es, fr, pt-br";
+
+/// Whether `code` is one of [`LANGUAGE_CODES`], exactly as stored.
+pub fn is_language_code(code: &str) -> bool {
+    LANGUAGE_CODES.contains(&code)
+}
+
+/// The language code a language tag asks for: `zh-Hant-HK` is `zh-tw`, `pt-PT`
+/// is `pt-br`, `ja` is `ja-jp`. An `Accept-Language` value is read in its
+/// order. None when the product is written in none of the languages named.
+pub fn match_language(tags: &str) -> Option<&'static str> {
+    tags.split(',')
+        .filter_map(|tag| tag.split(';').next())
+        .find_map(match_tag)
+}
+
+fn match_tag(tag: &str) -> Option<&'static str> {
+    let tag = tag.trim().to_ascii_lowercase().replace('_', "-");
+
+    if let Some(code) = LANGUAGE_CODES.iter().find(|code| **code == tag) {
+        return Some(code);
+    }
+
+    let mut parts = tag.split('-');
+    let language = parts.next()?;
+
+    match language {
+        "zh" => {
+            let traditional = parts.any(|part| matches!(part, "hant" | "tw" | "hk" | "mo"));
+            Some(if traditional { "zh-tw" } else { "zh-cn" })
+        }
+        "en" => Some("en-us"),
+        "ja" => Some("ja-jp"),
+        "ko" => Some("ko-kr"),
+        "de" => Some("de"),
+        "es" => Some("es"),
+        "fr" => Some("fr"),
+        "pt" => Some("pt-br"),
+        _ => None,
+    }
+}
+
+/// The language code for a language tag, or [`FALLBACK_LANGUAGE_CODE`].
+pub fn language_or_fallback(tags: Option<&str>) -> &'static str {
+    tags.and_then(match_language)
+        .unwrap_or(FALLBACK_LANGUAGE_CODE)
+}
+
+/// The English name of a language, as a model is told to write in it.
+pub fn language_name(code: &str) -> Option<&'static str> {
+    match code {
+        "en-us" => Some("English"),
+        "zh-cn" => Some("Simplified Chinese"),
+        "zh-tw" => Some("Traditional Chinese as used in Taiwan"),
+        "ja-jp" => Some("Japanese"),
+        "ko-kr" => Some("Korean"),
+        "de" => Some("German"),
+        "es" => Some("Spanish"),
+        "fr" => Some("French"),
+        "pt-br" => Some("Brazilian Portuguese"),
+        _ => None,
+    }
+}
+
 /// The entries of one language under one key prefix.
 #[derive(Debug, Clone, Default)]
 pub struct LanguagePack {
@@ -136,6 +209,31 @@ mod tests {
             pack.render("odd", &[("page", "Acme")]).unwrap(),
             "{missing} Acme { {page"
         );
+    }
+
+    #[test]
+    fn language_tags_resolve_to_the_languages_the_product_is_written_in() {
+        assert_eq!(match_language("zh-CN"), Some("zh-cn"));
+        assert_eq!(match_language("zh-Hant-HK"), Some("zh-tw"));
+        assert_eq!(match_language("zh_TW"), Some("zh-tw"));
+        assert_eq!(match_language("ja"), Some("ja-jp"));
+        assert_eq!(match_language("pt-PT"), Some("pt-br"));
+        assert_eq!(match_language("fr-CA"), Some("fr"));
+        assert_eq!(match_language("nl-NL,de;q=0.8,en;q=0.5"), Some("de"));
+        assert_eq!(match_language("nl"), None);
+        assert_eq!(language_or_fallback(Some("ru")), "en-us");
+        assert_eq!(language_or_fallback(None), "en-us");
+    }
+
+    #[test]
+    fn every_language_has_a_name() {
+        for code in LANGUAGE_CODES {
+            assert!(is_language_code(code));
+            assert!(language_name(code).is_some(), "{code}");
+            assert_eq!(match_language(code), Some(code));
+        }
+
+        assert!(!is_language_code("fr-fr"));
     }
 
     #[test]

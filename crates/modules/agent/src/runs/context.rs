@@ -9,6 +9,8 @@
 //! conversation so far. The summary is stored on the session and replaces the compacted messages
 //! when subsequently passed to the model.
 
+use domain::i18n_language::{language_name, match_language};
+
 /// The number of recent turns kept intact during automatic compaction.
 pub const COMPACTION_KEEP_TURNS: usize = 2;
 
@@ -70,15 +72,16 @@ pub fn summary_text(summary: &str) -> String {
 /// Tells the model which language to answer in; this is set from the initiator's UI language when
 /// the session is created.
 pub fn language_instruction(language: &str) -> Option<String> {
-    let name = match language.trim().to_ascii_lowercase().as_str() {
-        "" => return None,
-        "zh-cn" | "zh" | "zh-hans" => "Simplified Chinese",
-        "en-us" | "en" => "English",
-        other => {
-            return Some(format!(
-                "Write every answer in the language with the code `{other}`."
-            ));
-        }
+    let code = language.trim().to_ascii_lowercase();
+
+    if code.is_empty() {
+        return None;
+    }
+
+    let Some(name) = match_language(&code).and_then(language_name) else {
+        return Some(format!(
+            "Write every answer in the language with the code `{code}`."
+        ));
     };
 
     Some(format!(
@@ -127,7 +130,8 @@ mod tests {
                 .contains("Simplified Chinese")
         );
         assert!(language_instruction("en-us").unwrap().contains("English"));
-        assert!(language_instruction("ja-jp").unwrap().contains("`ja-jp`"));
+        assert!(language_instruction("ja-jp").unwrap().contains("Japanese"));
+        assert!(language_instruction("nl").unwrap().contains("`nl`"));
         assert!(language_instruction(" ").is_none());
         assert!(summary_text("x").ends_with("\n\nx"));
     }
