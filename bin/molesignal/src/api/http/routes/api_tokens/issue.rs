@@ -80,6 +80,32 @@ pub(crate) async fn issue_scope(
     }
 }
 
+/// The scope of a service account token issued without one: what the account's role grants and
+/// its issuer holds, fixed now. Following the account instead would let the token outgrow its
+/// issuer as soon as the account's role gains a permission. On every request the token is still
+/// narrowed to what the account holds then.
+pub(crate) fn service_account_scope(
+    issuer: &IamContext,
+    role_permissions: &[String],
+) -> Result<ApiTokenScope> {
+    let mut permissions = role_permissions
+        .iter()
+        .filter(|permission| issuer.has_permission(permission))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    permissions.sort();
+    permissions.dedup();
+
+    if permissions.is_empty() {
+        return Err(Error::forbidden(
+            "the issuer holds none of the service account's permissions",
+        ));
+    }
+
+    Ok(ApiTokenScope::Permissions { permissions })
+}
+
 /// Refuses to hand out a permission the issuer does not hold.
 pub(crate) fn require_held(issuer: &IamContext, permissions: &[String]) -> Result<()> {
     match permissions
@@ -189,6 +215,21 @@ mod tests {
         assert!(matches!(
             require_held(&issuer, &["streams.query".into(), "logs.write".into()]),
             Err(Error::Forbidden(message)) if message.contains("logs.write")
+        ));
+    }
+
+    #[test]
+    fn a_service_account_token_is_capped_by_its_issuer() {
+        let issuer = issuer(&["streams.query", "streams.read"]);
+        let role = ["streams.read".to_string(), "logs.write".to_string()];
+
+        assert!(matches!(
+            service_account_scope(&issuer, &role),
+            Ok(ApiTokenScope::Permissions { permissions }) if permissions == ["streams.read"]
+        ));
+        assert!(matches!(
+            service_account_scope(&issuer, &["logs.write".to_string()]),
+            Err(Error::Forbidden(_))
         ));
     }
 

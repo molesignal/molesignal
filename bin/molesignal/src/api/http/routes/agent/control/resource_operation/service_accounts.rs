@@ -2,11 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 use agent::model::ApprovalRequest;
-use domain::iam::{
-    IamContext,
-    api_token::{ApiTokenKind, ApiTokenScope},
-    service_account::ServiceAccount,
-};
+use domain::iam::{IamContext, api_token::ApiTokenKind, service_account::ServiceAccount};
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use postgres::repositories::iam::roles::IamRole;
 use serde::Deserialize;
@@ -16,7 +12,7 @@ use super::super::OperationOutcome;
 use crate::api::{
     AppState,
     http::routes::{
-        api_tokens::{TokenSpec, new_token},
+        api_tokens::{TokenSpec, new_token, service_account_scope},
         iam::grant_limit,
     },
 };
@@ -80,7 +76,7 @@ async fn create(
             org_id: ctx.org_id.clone(),
             user_id: approval.requested_by.clone(),
             name: format!("{name} initial API token"),
-            scope: ApiTokenScope::Principal,
+            scope: service_account_scope(ctx, &role.effective_permissions)?,
             token_kind: ApiTokenKind::ServiceAccount,
             service_account_id: Some(account_id.clone()),
             expires_at: Some(TimestampMicros(

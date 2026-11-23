@@ -81,7 +81,25 @@ async fn creating_service_account_atomically_returns_one_time_bound_api_token() 
         .find(|token| token.service_account_id.as_ref() == Some(&account.id))
         .expect("initial bound API token persisted");
     assert_eq!(token.token_kind, ApiTokenKind::ServiceAccount);
-    assert_eq!(token.scope, ApiTokenScope::Principal);
+
+    // The initial token is fixed to what the role grants now, so a later role change cannot
+    // widen it past what its issuer held.
+    let role = server
+        .state
+        .iam
+        .roles
+        .get(&server.root_org_id, &role_id)
+        .await
+        .expect("viewer role");
+    let mut granted = role.effective_permissions.clone();
+    granted.sort();
+    granted.dedup();
+    assert_eq!(
+        token.scope,
+        ApiTokenScope::Permissions {
+            permissions: granted
+        }
+    );
 
     server
         .client

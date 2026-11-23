@@ -26,7 +26,7 @@ use serde::Deserialize;
 use super::{
     IssuedTokenResp, ManagedTokenResp, RequestedScope, TokenResp, TokenSpec, expires_at,
     issue::require_held, issue_scope, new_token, require_organization_scope, secret_response,
-    validate_name,
+    service_account_scope, validate_name,
 };
 use crate::api::{AppState, http::middleware::Permission};
 
@@ -82,7 +82,15 @@ async fn create(
         ));
     }
 
-    let scope = issue_scope(&state, &ctx, req.scope).await?;
+    // Without a scope the token takes what the account's role grants, capped by the issuer.
+    let scope = match issue_scope(&state, &ctx, req.scope).await? {
+        ApiTokenScope::Principal => {
+            let role = state.iam.roles.get(&ctx.org_id, &account.role_id).await?;
+            service_account_scope(&ctx, &role.effective_permissions)?
+        }
+        scope => scope,
+    };
+
     let now = TimestampMicros::now();
 
     let (row, token) = new_token(

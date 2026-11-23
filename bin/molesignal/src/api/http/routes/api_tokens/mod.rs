@@ -30,7 +30,8 @@ mod organization;
 mod personal;
 
 pub(crate) use issue::{
-    RequestedScope, TokenSpec, expires_at, issue_scope, new_token, validate_name,
+    RequestedScope, TokenSpec, expires_at, issue_scope, new_token, service_account_scope,
+    validate_name,
 };
 
 pub fn routes() -> Router<AppState> {

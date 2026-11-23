@@ -216,7 +216,7 @@
       },
       "principal_hint": {
         "me": "Whatever you may do, it may do, as your access changes.",
-        "service_account": "Whatever the service account may do, it may do, as its role changes."
+        "service_account": "What the account's role grants now and you hold too, fixed when issued. A permission the role gains later does not reach it."
       },
       "principal_label": {
         "me": "Same as its owner",

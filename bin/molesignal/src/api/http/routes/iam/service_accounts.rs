@@ -10,18 +10,19 @@ use axum::{
     routing::{get, post},
 };
 use domain::iam::{
-    IamAssignedRole, IamContext,
-    api_token::{ApiTokenKind, ApiTokenScope},
-    service_account::ServiceAccount,
+    IamAssignedRole, IamContext, api_token::ApiTokenKind, service_account::ServiceAccount,
 };
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use postgres::repositories::iam::roles::IamRole;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{
     AppState,
     http::{
         middleware::Permission,
-        routes::api_tokens::{IssuedTokenResp, TokenSpec, new_token, secret_response},
+        routes::api_tokens::{
+            IssuedTokenResp, TokenSpec, new_token, secret_response, service_account_scope,
+        },
     },
 };
 
@@ -173,7 +174,7 @@ async fn create(
     let name = validate_name(&request.name)?;
     let description = validate_description(&request.description)?;
     let role_id = Id(request.role_id);
-    validate_role(&state, &context, &role_id).await?;
+    let role = validate_role(&state, &context, &role_id).await?;
     let now = TimestampMicros::now();
     let account_id = Id::new();
 
@@ -183,7 +184,7 @@ async fn create(
             org_id: context.org_id.clone(),
             user_id: context.principal_id().clone(),
             name: format!("{name} initial API token"),
-            scope: ApiTokenScope::Principal,
+            scope: service_account_scope(&context, &role.effective_permissions)?,
             token_kind: ApiTokenKind::ServiceAccount,
             service_account_id: Some(account_id.clone()),
             expires_at: Some(TimestampMicros(
@@ -305,7 +306,7 @@ async fn delete(
     Ok(Json(serde_json::json!({"deleted": true})))
 }
 
-async fn validate_role(state: &AppState, context: &IamContext, role_id: &Id) -> Result<()> {
+async fn validate_role(state: &AppState, context: &IamContext, role_id: &Id) -> Result<IamRole> {
     let role = state.iam.roles.get(&context.org_id, role_id).await?;
 
     if role.role_type != "organization" || role.scope != "organization" {
@@ -316,7 +317,7 @@ async fn validate_role(state: &AppState, context: &IamContext, role_id: &Id) -> 
 
     super::grant_limit::require_held(context, &role.effective_permissions)?;
 
-    Ok(())
+    Ok(role)
 }
 
 pub(super) fn validate_name(value: &str) -> Result<String> {

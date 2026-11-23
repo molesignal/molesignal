@@ -23,7 +23,7 @@ export interface CreateServiceAccountPayload {
 
 export interface ProvisionedServiceAccount {
   serviceAccount: ServiceAccount;
-  /** The account's first token, which may do whatever the account may. */
+  /** The account's first token, fixed to the permissions its role held at creation. */
   apiToken: IssuedApiToken;
 }
 
