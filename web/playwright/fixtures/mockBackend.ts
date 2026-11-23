@@ -1065,7 +1065,7 @@ export function registerRoutes(app: Express): void {
   });
   // Retention, with what a shorter one would delete: figures per day of data, so the days cut
   // decide the amount. A day or two stays small; 30 days to 7 is past what asks for the days typed.
-  const retention = { stream: 30, synthetic: 30, audit: 90 };
+  const retention = { stream: 30, synthetic: 30, catalogHistory: 7, audit: 90 };
   const DAY_MICROS = 86_400_000_000;
   const RETENTION_STREAMS = [
     { orgId: 'acme-prod', orgName: 'Acme Production', id: 's-app', name: 'app-logs', streamType: 'logs', rows: 40_000, storedBytes: 60 * 1024 ** 2 },
@@ -1110,6 +1110,13 @@ export function registerRoutes(app: Express): void {
   app.put('/api/v1/settings/synthetic_retention', (req, res) => {
     retention.synthetic = Number(req.body.retentionDays);
     res.json({ retentionDays: retention.synthetic });
+  });
+  app.get('/api/v1/settings/catalog_history_retention', (_req, res) =>
+    res.json({ retentionDays: retention.catalogHistory }),
+  );
+  app.put('/api/v1/settings/catalog_history_retention', (req, res) => {
+    retention.catalogHistory = Number(req.body.retentionDays);
+    res.json({ retentionDays: retention.catalogHistory });
   });
   app.get('/api/v1/settings/audit_retention', (_req, res) =>
     res.json({ retentionDays: retention.audit }),

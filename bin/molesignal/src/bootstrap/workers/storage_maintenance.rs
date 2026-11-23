@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 存储维护循环：索引重建、延迟对象删除、目录对账与分区 manifest 维护。
+//! 存储维护循环：索引重建、延迟对象删除、目录对账、目录历史清理与分区 manifest 维护。
 //!
 //! 多个 compactor 节点之间的分工（见 [`WorkOwnership`]）：
-//! - 索引重建与目录对账按组织归属，分区 manifest 按数据流归属，各由 owner 节点执行；
+//! - 索引重建、目录对账与目录历史清理按组织归属，分区 manifest 按数据流归属，各由 owner 节点执行；
 //! - 延迟对象删除靠 GC 队列的租约认领去重，每个节点都执行。
 
 use std::{
@@ -24,8 +24,9 @@ use tokio::task::JoinHandle;
 use crate::{
     app::cluster::WorkOwnership,
     infra::storage::{
-        index_rebuild::IndexRebuildWorker, manifest::PartitionManifestManager,
-        object_gc::ObjectGcWorker, reconciler::StorageReconciler,
+        catalog_cleanup::CatalogCleanupWorker, index_rebuild::IndexRebuildWorker,
+        manifest::PartitionManifestManager, object_gc::ObjectGcWorker,
+        reconciler::StorageReconciler,
     },
 };
 
@@ -34,6 +35,7 @@ pub fn spawn(
     indexes: Arc<IndexRebuildWorker>,
     gc: Arc<ObjectGcWorker>,
     reconciler: Arc<StorageReconciler>,
+    cleanup: Arc<CatalogCleanupWorker>,
     manifests: Arc<PartitionManifestManager>,
     organizations: Arc<dyn OrganizationRepository>,
     streams: Arc<dyn StreamRepository>,
@@ -52,6 +54,13 @@ pub fn spawn(
         spawn_reconciler_loop(
             reconciler,
             organizations.clone(),
+            ownership.clone(),
+            drain.clone(),
+        ),
+        spawn_cleanup_loop(
+            cleanup,
+            organizations.clone(),
+            instance_settings.clone(),
             ownership.clone(),
             drain.clone(),
         ),
@@ -155,6 +164,56 @@ fn spawn_reconciler_loop(
             .await;
 
             record_health("storage_reconciler", &result);
+        }
+    })
+}
+
+/// How often the catalog's rows of finished work are cleaned up.
+const CLEANUP_INTERVAL: Duration = Duration::from_secs(600);
+
+fn spawn_cleanup_loop(
+    worker: Arc<CatalogCleanupWorker>,
+    organizations: Arc<dyn OrganizationRepository>,
+    instance_settings: Arc<dyn InstanceSettingsRepository>,
+    ownership: Arc<WorkOwnership>,
+    drain: Arc<DrainController>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(CLEANUP_INTERVAL);
+        ticker.tick().await;
+
+        loop {
+            ticker.tick().await;
+
+            if drain.is_draining() {
+                break;
+            }
+
+            // The window is read every round; an unreadable setting skips the round rather than
+            // guessing one, and 0 keeps the history for good.
+            let before = match instance_settings.get().await {
+                Ok(settings) => {
+                    settings.catalog_history_cutoff(kernel::time::TimestampMicros::now())
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "instance settings unreadable; catalog cleanup skipped");
+                    continue;
+                }
+            };
+
+            let Some(before) = before else {
+                continue;
+            };
+
+            let result = for_each_scope(
+                "catalog_cleanup",
+                organizations.as_ref(),
+                Some(ownership.as_ref()),
+                |scope| worker.run_scope(scope, before.0),
+            )
+            .await;
+
+            record_health("catalog_cleanup", &result);
         }
     })
 }

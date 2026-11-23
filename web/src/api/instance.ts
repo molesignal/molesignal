@@ -237,6 +237,30 @@ export async function updateSyntheticRetentionSettings(
   return data;
 }
 
+/** Days the storage catalog keeps the rows of finished work; 0 keeps them for good. */
+export interface CatalogHistoryRetentionSettings {
+  retentionDays: number;
+}
+
+/** Reads how long the storage catalog keeps finished rows (`sys.settings.retention.*`). */
+export async function getCatalogHistoryRetentionSettings(): Promise<CatalogHistoryRetentionSettings> {
+  const { data } = await http.get<CatalogHistoryRetentionSettings>(
+    '/settings/catalog_history_retention',
+  );
+  return data;
+}
+
+/** Updates how long the storage catalog keeps finished rows (`sys.settings.retention.*`). */
+export async function updateCatalogHistoryRetentionSettings(
+  settings: CatalogHistoryRetentionSettings,
+): Promise<CatalogHistoryRetentionSettings> {
+  const { data } = await http.put<CatalogHistoryRetentionSettings>(
+    '/settings/catalog_history_retention',
+    settings,
+  );
+  return data;
+}
+
 /** Prometheus 写入的活跃 series 上限：一个组织的，与组织里一个指标的（不超过组织的）。 */
 export interface SeriesLimitSettings {
   maxActiveSeriesPerOrg: number;

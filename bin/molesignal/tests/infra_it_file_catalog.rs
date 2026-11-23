@@ -1020,6 +1020,171 @@ async fn reconciler_catalog_invariants_detect_checkpoint_drift() {
     }));
 }
 
+#[tokio::test]
+async fn finished_work_is_cleaned_up_after_the_history_window() {
+    if skip_unless_enabled() {
+        eprintln!("skipped (set MS_RUN_IT=1 to enable)");
+        return;
+    }
+    let h = harness().await;
+    open_stream(&h, "node-a", 1).await;
+
+    let commit_of = |provenance: &FlushProvenance, segment: DataSegment| CommitFlush {
+        dataset_id: h.dataset_id.clone(),
+        publisher_epoch: provenance.writer_epoch,
+        provenance: provenance.clone(),
+        segments: vec![segment],
+    };
+
+    let mut early = provenance("node-a", 1, 1, 5);
+    early.collected_bytes = Some(100);
+    let early_segment = segment(&h, &early, 1, false);
+    let early_commit = commit_of(&early, early_segment.clone());
+    h.catalog
+        .commit_flush(&h.scope, early_commit.clone())
+        .await
+        .expect("commit early");
+
+    let mut late = provenance("node-a", 1, 6, 9);
+    late.collected_bytes = Some(50);
+    let late_segment = segment(&h, &late, 2, false);
+    h.catalog
+        .commit_flush(&h.scope, commit_of(&late, late_segment.clone()))
+        .await
+        .expect("commit late");
+
+    // Retention drops the early segment and GC deletes its object.
+    h.catalog
+        .tombstone_segments(
+            &h.scope,
+            TombstoneSegments {
+                dataset_id: h.dataset_id.clone(),
+                segment_ids: vec![early_segment.id.clone()],
+                gc_not_before_micros: 0,
+            },
+        )
+        .await
+        .expect("tombstone");
+
+    let claimed = h
+        .catalog
+        .claim_gc_entries(&h.scope, TimestampMicros::now().0, 0, 100)
+        .await
+        .expect("claim gc");
+    assert_eq!(claimed.len(), 1);
+    h.catalog
+        .complete_gc_entry(&h.scope, &claimed[0].object_key)
+        .await
+        .expect("complete gc");
+
+    // Inside the window nothing goes.
+    let inside = h
+        .catalog
+        .clean_finished(&h.scope, TimestampMicros::now().0 - HOUR_MICROS, 1_000)
+        .await
+        .expect("clean inside the window");
+    assert_eq!(inside.total(), 0, "{inside:?}");
+
+    // Past it: the deleted file, its segment and GC row, and the flush record a later one of the
+    // same open stream covers. The newest record and the checkpoint stay with the open stream.
+    let past = TimestampMicros::now().0 + HOUR_MICROS;
+    let cleaned = h
+        .catalog
+        .clean_finished(&h.scope, past, 1_000)
+        .await
+        .expect("clean past the window");
+    assert_eq!(
+        cleaned,
+        domain::storage::CatalogCleanup {
+            artifacts: 1,
+            segments: 1,
+            manifests: 0,
+            gc_entries: 1,
+            flush_commits: 1,
+            checkpoints: 0,
+        }
+    );
+    assert_eq!(gc_queue_len(&h).await, 0);
+
+    let live = snapshot_segments(&h).await;
+    assert_eq!(live.len(), 1);
+    assert_eq!(live[0].id, late_segment.id);
+
+    let usage = h
+        .catalog
+        .intake_usage(&h.scope)
+        .await
+        .expect("intake usage");
+    assert_eq!(
+        usage[0].collected_bytes,
+        Some(150),
+        "folded bytes still count"
+    );
+    assert!(usage[0].complete);
+
+    // A retry of the cleaned-up flush is still recognised as published, by the checkpoint.
+    let retry = h
+        .catalog
+        .commit_flush(&h.scope, early_commit)
+        .await
+        .expect("retry early");
+    assert!(retry.already_committed);
+    assert_eq!(snapshot_segments(&h).await.len(), 1, "no duplicate segment");
+
+    let issues = h
+        .catalog
+        .catalog_invariant_issues(&h.scope, TimestampMicros::now().0)
+        .await
+        .expect("invariants with the stream open");
+    assert!(
+        !issues
+            .iter()
+            .any(|issue| issue.invariant == CatalogInvariant::WalCheckpointFlushMismatch),
+        "{issues:?}"
+    );
+
+    // Once the stream closes, its last record and its checkpoint go together.
+    assert!(
+        PgWalWriterRegistry::new(h.pool.clone())
+            .close_stream(
+                &h.scope.organization_id,
+                &h.dataset_id,
+                WriterEpoch(1),
+                WriterEpoch(1),
+            )
+            .await
+            .expect("close stream")
+    );
+
+    let closed = h
+        .catalog
+        .clean_finished(&h.scope, past, 1_000)
+        .await
+        .expect("clean after the stream closed");
+    assert_eq!(closed.flush_commits, 1);
+    assert_eq!(closed.checkpoints, 1);
+
+    let usage = h
+        .catalog
+        .intake_usage(&h.scope)
+        .await
+        .expect("intake usage after closing");
+    assert_eq!(usage[0].collected_bytes, Some(150));
+    assert!(usage[0].complete);
+
+    let issues = h
+        .catalog
+        .catalog_invariant_issues(&h.scope, TimestampMicros::now().0)
+        .await
+        .expect("invariants after closing");
+    assert!(
+        !issues
+            .iter()
+            .any(|issue| issue.invariant == CatalogInvariant::WalCheckpointFlushMismatch),
+        "{issues:?}"
+    );
+}
+
 /// What a dataset takeover round asks for: every orphaned stream but trace candidate logs.
 fn datasets() -> OrphanedStreams {
     OrphanedStreams::Except(molesignal::app::trace::durable::candidate_log_type())

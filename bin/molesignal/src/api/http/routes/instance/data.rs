@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 数据的平台设置：数据流没有设置保留天数时保留多久、拨测结果保留多久、Prometheus 写入的活跃
+//! 数据的平台设置：数据流没有设置保留天数时保留多久、拨测结果保留多久、存储目录的历史行保留多久、Prometheus 写入的活跃
 //! series 上限，以及 APM 的基数上限。都在平台组织的设置页修改（`sys.settings.retention.*`、`sys.settings.limits.*`），改动
 //! 记入平台审计。调短默认保留期之前可以先看清理预览（[`retention_preview`]）。
 
@@ -9,8 +9,8 @@ use axum::{Extension, Json, Router, extract::State, routing::get};
 use domain::{
     apm::ApmLimits,
     iam::{
-        IamContext, MAX_ACTIVE_SERIES_LIMIT, MAX_STREAM_RETENTION_DAYS,
-        MAX_SYNTHETIC_RESULT_RETENTION_DAYS, permission,
+        IamContext, MAX_ACTIVE_SERIES_LIMIT, MAX_CATALOG_HISTORY_RETENTION_DAYS,
+        MAX_STREAM_RETENTION_DAYS, MAX_SYNTHETIC_RESULT_RETENTION_DAYS, permission,
     },
 };
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
@@ -38,6 +38,10 @@ pub(super) fn routes() -> Router<AppState> {
             get(get_synthetic_retention).put(put_synthetic_retention),
         )
         .route(
+            "/settings/catalog_history_retention",
+            get(get_catalog_history_retention).put(put_catalog_history_retention),
+        )
+        .route(
             "/settings/series_limits",
             get(get_series_limits).put(put_series_limits),
         )
@@ -63,6 +67,15 @@ pub struct StreamRetentionSettings {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyntheticRetentionSettings {
+    pub retention_days: u32,
+}
+
+/// Days the storage catalog keeps the rows of finished work (deleted files, their retired segments
+/// and manifests, flush records of closed WAL streams); 0 keeps them for good. The compactor's
+/// catalog cleanup reads it every round.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogHistoryRetentionSettings {
     pub retention_days: u32,
 }
 
@@ -176,6 +189,55 @@ async fn put_synthetic_retention(
 
     Ok(Json(SyntheticRetentionSettings {
         retention_days: updated.synthetic_result_retention_days,
+    }))
+}
+
+#[permission("sys.settings.retention.read")]
+async fn get_catalog_history_retention(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<IamContext>,
+) -> Result<Json<CatalogHistoryRetentionSettings>> {
+    let settings = state.iam.instance_settings.get().await?;
+
+    Ok(Json(CatalogHistoryRetentionSettings {
+        retention_days: settings.catalog_history_retention_days,
+    }))
+}
+
+#[permission("sys.settings.retention.manage")]
+async fn put_catalog_history_retention(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<IamContext>,
+    Json(request): Json<CatalogHistoryRetentionSettings>,
+) -> Result<Json<CatalogHistoryRetentionSettings>> {
+    if request.retention_days > MAX_CATALOG_HISTORY_RETENTION_DAYS {
+        return Err(Error::invalid(format!(
+            "retention_days must be between 0 and {MAX_CATALOG_HISTORY_RETENTION_DAYS}"
+        )));
+    }
+
+    // Read-modify-write keeps the other instance settings.
+    let mut settings = state.iam.instance_settings.get().await?;
+    let previous = settings.catalog_history_retention_days;
+    settings.catalog_history_retention_days = request.retention_days;
+    settings.updated_at = TimestampMicros::now();
+    let updated = state.iam.instance_settings.update(settings).await?;
+
+    if updated.catalog_history_retention_days != previous {
+        audit(
+            &state,
+            &ctx,
+            "catalog_history_retention.update",
+            json!({
+                "retentionDays": updated.catalog_history_retention_days,
+                "previousRetentionDays": previous,
+            }),
+        )
+        .await;
+    }
+
+    Ok(Json(CatalogHistoryRetentionSettings {
+        retention_days: updated.catalog_history_retention_days,
     }))
 }
 

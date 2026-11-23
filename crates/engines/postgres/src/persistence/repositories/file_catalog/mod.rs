@@ -5,12 +5,13 @@
 //!
 //! 表结构：`physical_datasets` → `catalog_segments` → `catalog_artifacts`，辅以
 //! `storage_flush_commits`（flush 幂等）、`wal_checkpoints`（恢复与 Buffer
-//! 去重）、`object_gc_queue`（延迟删除）。所有查询显式携带 `org_id`，
+//! 去重）、`object_gc_queue`（延迟删除）。Rows of finished work go after a history window
+//! ([`cleanup`]).所有查询显式携带 `org_id`，
 //! 子表通过 `(org_id, ...)` 复合外键关联，杜绝跨租户串行。
 
 use async_trait::async_trait;
 use domain::storage::{
-    ArtifactId, CatalogInvariantIssue, CatalogObject, CatalogSnapshot, CommitFlush,
+    ArtifactId, CatalogCleanup, CatalogInvariantIssue, CatalogObject, CatalogSnapshot, CommitFlush,
     DatasetSelection, DatasetTransformResult, FileCatalog, FlushCommitResult, GcQueueEntry,
     IndexRebuildTask, ObjectKey, OrganizationScope, PhysicalDataset, PhysicalDatasetId,
     PhysicalDatasetSpec, PublishDatasetTransform, PublishPartitionManifest, ReplaceSegments,
@@ -22,6 +23,7 @@ use sqlx::PgPool;
 use super::sqlx_err;
 
 mod artifact;
+mod cleanup;
 mod datasets;
 mod flush;
 mod gc;
@@ -224,6 +226,15 @@ impl FileCatalog for PgFileCatalog {
         not_before_micros: i64,
     ) -> Result<()> {
         maintenance::enqueue_orphan(&self.pool, scope, object_key, not_before_micros).await
+    }
+
+    async fn clean_finished(
+        &self,
+        scope: &OrganizationScope,
+        before_micros: i64,
+        limit: u32,
+    ) -> Result<CatalogCleanup> {
+        cleanup::clean_finished(&self.pool, scope, before_micros, limit).await
     }
 
     async fn catalog_invariant_issues(

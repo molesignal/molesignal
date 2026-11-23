@@ -86,6 +86,9 @@ CREATE TABLE IF NOT EXISTS instance_settings (
     default_retention_days            INTEGER  NOT NULL DEFAULT 30,
     -- 拨测结果保留天数：每天清理更早的结果、它们的附件与已结束的任务；0 = 永久保留。
     synthetic_result_retention_days   INTEGER  NOT NULL DEFAULT 30,
+    -- Days the storage catalog keeps the rows of finished work (files GC deleted, their retired
+    -- segments and manifests, flush records of closed WAL streams); 0 = keep for good.
+    catalog_history_retention_days    INTEGER  NOT NULL DEFAULT 7,
     -- Prometheus 写入的活跃 series 上限：每个组织、组织里每个指标。
     max_active_series_per_org         INTEGER  NOT NULL DEFAULT 200000,
     max_active_series_per_metric      INTEGER  NOT NULL DEFAULT 100000,
@@ -133,6 +136,8 @@ CREATE TABLE IF NOT EXISTS instance_settings (
         CHECK (default_retention_days BETWEEN 1 AND 3650),
     CONSTRAINT instance_settings_synthetic_result_retention_days
         CHECK (synthetic_result_retention_days BETWEEN 0 AND 3650),
+    CONSTRAINT instance_settings_catalog_history_retention_days
+        CHECK (catalog_history_retention_days BETWEEN 0 AND 3650),
     CONSTRAINT instance_settings_active_series_limits
         CHECK (max_active_series_per_metric BETWEEN 1 AND 100000000
                AND max_active_series_per_org BETWEEN max_active_series_per_metric AND 100000000),
@@ -643,6 +648,10 @@ CREATE TABLE IF NOT EXISTS physical_datasets (
     index_policy         JSONB       NOT NULL DEFAULT '{}'::JSONB,
     catalog_version      BIGINT      NOT NULL DEFAULT 0,
     state                VARCHAR(16) NOT NULL DEFAULT 'active',
+    -- Collected bytes of flush records already cleaned up, and whether every one of them knew
+    -- its bytes: the stream's lifetime intake is these plus its remaining flush records.
+    folded_collected_bytes    BIGINT  NOT NULL DEFAULT 0 CHECK (folded_collected_bytes >= 0),
+    folded_collected_complete BOOLEAN NOT NULL DEFAULT TRUE,
     created_at           TIMESTAMPTZ NOT NULL,
     updated_at           TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (org_id, id),
@@ -686,6 +695,8 @@ CREATE INDEX IF NOT EXISTS idx_catalog_segments_time
     WHERE state = 'active';
 CREATE INDEX IF NOT EXISTS idx_catalog_segments_flush
     ON catalog_segments(org_id, dataset_id, flush_id);
+CREATE INDEX IF NOT EXISTS idx_catalog_segments_retired
+    ON catalog_segments(org_id, id) WHERE state IN ('replaced', 'tombstoned');
 
 -- Segment 下的物理文件（Parquet 主数据、索引、统计、字典）。
 -- 格式判定只看 artifact_type + format_version，不看对象 key 后缀。
@@ -721,6 +732,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_catalog_artifacts_object_key
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_catalog_artifacts_live_slot
     ON catalog_artifacts(org_id, segment_id, role, artifact_type)
     WHERE state IN ('pending', 'ready');
+CREATE INDEX IF NOT EXISTS idx_catalog_artifacts_tombstoned
+    ON catalog_artifacts(org_id, object_key) WHERE state = 'tombstoned';
 CREATE INDEX IF NOT EXISTS idx_catalog_artifacts_rebuild_scan
     ON catalog_artifacts(org_id, state)
     WHERE state IN ('pending', 'failed');
@@ -838,6 +851,8 @@ CREATE TABLE IF NOT EXISTS object_gc_queue (
 );
 CREATE INDEX IF NOT EXISTS idx_object_gc_queue_due
     ON object_gc_queue(state, not_before);
+CREATE INDEX IF NOT EXISTS idx_object_gc_queue_deleted
+    ON object_gc_queue(org_id, updated_at) WHERE state = 'deleted';
 CREATE INDEX IF NOT EXISTS idx_catalog_artifacts_rebuild
     ON catalog_artifacts(org_id, state, updated_at)
     WHERE role = 'index' AND state IN ('pending', 'failed');

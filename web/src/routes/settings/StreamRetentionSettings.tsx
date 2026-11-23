@@ -21,7 +21,10 @@ import { StreamImpact, useStreamImpactFacts } from './retention/StreamImpact';
 import { useRetentionPreview } from './retention/useRetentionPreview';
 import { useSettingsSaveStatus } from './SettingsSaveStatus';
 
-/** Same bounds as the backend (`MAX_STREAM_RETENTION_DAYS`, `MAX_SYNTHETIC_RESULT_RETENTION_DAYS`). */
+/**
+ * Same bounds as the backend (`MAX_STREAM_RETENTION_DAYS`, `MAX_SYNTHETIC_RESULT_RETENTION_DAYS`,
+ * `MAX_CATALOG_HISTORY_RETENTION_DAYS`).
+ */
 export const MAX_STREAM_RETENTION_DAYS = 3650;
 
 /** The days typed in the field, or `null` when they are not a whole number from `min` to `max`. */
@@ -47,7 +50,7 @@ interface Retention {
   preview?: (days: number, signal?: AbortSignal) => Promise<instanceApi.StreamRetentionPreview>;
   /** 0 keeps for good where it is allowed. */
   min: number;
-  texts: 'stream_retention' | 'synthetic_retention';
+  texts: 'stream_retention' | 'synthetic_retention' | 'catalog_history_retention';
 }
 
 const STREAMS: Retention = {
@@ -69,11 +72,20 @@ const SYNTHETIC_RESULTS: Retention = {
   texts: 'synthetic_retention',
 };
 
+const CATALOG_HISTORY: Retention = {
+  queryKey: ['settings', 'catalog_history_retention'],
+  draftKey: 'catalog_history_retention',
+  load: () => instanceApi.getCatalogHistoryRetentionSettings(),
+  store: (days) => instanceApi.updateCatalogHistoryRetentionSettings({ retentionDays: days }),
+  min: 0,
+  texts: 'catalog_history_retention',
+};
+
 /**
  * How long data is kept, in every organization: a stream that has no retention
- * of its own, and the runs of synthetic checks. These are platform settings, so
- * the page is served in the platform organization only; the compactor reads
- * them on every round.
+ * of its own, the runs of synthetic checks, and the storage catalog's rows of
+ * finished work. These are platform settings, so the page is served in the
+ * platform organization only; the compactor reads them on every round.
  */
 export function StreamRetentionSettings() {
   const { t } = useTranslation('settings-admin');
@@ -88,6 +100,7 @@ export function StreamRetentionSettings() {
         <SettingsGroupStack>
           <RetentionSection retention={STREAMS} />
           <RetentionSection retention={SYNTHETIC_RESULTS} />
+          <RetentionSection retention={CATALOG_HISTORY} />
         </SettingsGroupStack>
       </SectionBody>
     </>

@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   preview: vi.fn(),
   getSynthetic: vi.fn(),
   updateSynthetic: vi.fn(),
+  getHistory: vi.fn(),
+  updateHistory: vi.fn(),
   access: null as { status: string; scope: string; permissions: Set<string> } | null,
 }));
 
@@ -26,6 +28,8 @@ vi.mock('@/api/instance', () => ({
   previewStreamRetention: mocks.preview,
   getSyntheticRetentionSettings: mocks.getSynthetic,
   updateSyntheticRetentionSettings: mocks.updateSynthetic,
+  getCatalogHistoryRetentionSettings: mocks.getHistory,
+  updateCatalogHistoryRetentionSettings: mocks.updateHistory,
 }));
 vi.mock('@/api/me', async (original) => {
   const actual = await original<typeof meApi>();
@@ -54,6 +58,7 @@ const field = () => screen.getByRole('spinbutton', { name: 'Days to keep' });
 const section = (input: HTMLElement) => input.closest('[data-settings-section]') as HTMLElement;
 const saveButton = () => within(section(field())).getByRole('button', { name: 'Save changes' });
 const runsField = () => screen.getByRole('spinbutton', { name: 'Days to keep runs' });
+const historyField = () => screen.getByRole('spinbutton', { name: 'Days to keep history' });
 const dialog = () => screen.findByRole('dialog');
 const shortenButton = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Shorten retention' });
 
@@ -102,6 +107,8 @@ beforeEach(async () => {
   mocks.preview.mockResolvedValue(estimate());
   mocks.getSynthetic.mockResolvedValue({ retentionDays: 30 });
   mocks.updateSynthetic.mockImplementation(async (settings: { retention_days: number }) => settings);
+  mocks.getHistory.mockResolvedValue({ retentionDays: 7 });
+  mocks.updateHistory.mockImplementation(async (settings: { retentionDays: number }) => settings);
 });
 
 afterEach(() => {
@@ -293,5 +300,17 @@ describe('stream retention', () => {
 
     await waitFor(() => expect(mocks.updateSynthetic).toHaveBeenCalledWith({ retentionDays: 0 }));
     expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('saves the storage catalog history on its own, 0 keeping it for good', async () => {
+    renderPage();
+    await waitFor(() => expect(historyField()).toHaveProperty('value', '7'));
+
+    fireEvent.change(historyField(), { target: { value: '0' } });
+    fireEvent.click(within(section(historyField())).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(mocks.updateHistory).toHaveBeenCalledWith({ retentionDays: 0 }));
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.updateSynthetic).not.toHaveBeenCalled();
   });
 });

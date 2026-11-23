@@ -90,6 +90,7 @@ VALUES
     ('molesignal-intake-storage', 49, 'segment_rows_written_total', 'counter', 'stream_type,stage', 'ops/s'),
     ('molesignal-intake-storage', 50, 'segment_bytes_written_total', 'counter', 'stream_type,stage', 'bytes/s'),
     ('molesignal-intake-storage', 51, 'segment_encode_seconds', 'histogram', 'step', 'seconds'),
+    ('molesignal-intake-storage', 52, 'storage_catalog_history_removed_total', 'counter', '', 'ops/s'),
     ('molesignal-tracing-apm', 1, 'molesignal_trace_decisions_total', 'counter', 'decision,reason', 'ops/s'),
     ('molesignal-tracing-apm', 2, 'molesignal_trace_export_batches_total', 'counter', 'sink,result', 'ops/s'),
     ('molesignal-tracing-apm', 3, 'molesignal_trace_latency_seconds', 'histogram', 'stage,sink', 'seconds'),

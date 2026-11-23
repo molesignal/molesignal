@@ -12,9 +12,24 @@ pub(super) async fn read(
     scope: &OrganizationScope,
 ) -> Result<Vec<DatasetIntakeUsage>> {
     let rows = sqlx::query(
-        "SELECT dataset_id, SUM(collected_bytes)::BIGINT AS collected_bytes,
-                BOOL_AND(collected_bytes IS NOT NULL) AS complete
-         FROM storage_flush_commits WHERE org_id = $1 GROUP BY dataset_id",
+        // Bytes of cleaned-up flush records are folded into the dataset row; the total stays
+        // unknown only while no record, kept or folded, knew its bytes.
+        "SELECT dataset.id AS dataset_id,
+                CASE WHEN SUM(flush.collected_bytes) IS NULL
+                          AND dataset.folded_collected_bytes = 0 THEN NULL
+                     ELSE (dataset.folded_collected_bytes
+                           + COALESCE(SUM(flush.collected_bytes), 0))::BIGINT
+                END AS collected_bytes,
+                dataset.folded_collected_complete
+                  AND COALESCE(BOOL_AND(flush.collected_bytes IS NOT NULL)
+                                   FILTER (WHERE flush.flush_id IS NOT NULL), TRUE) AS complete
+           FROM physical_datasets dataset
+           LEFT JOIN storage_flush_commits flush
+             ON flush.org_id = dataset.org_id AND flush.dataset_id = dataset.id
+          WHERE dataset.org_id = $1
+          GROUP BY dataset.id, dataset.folded_collected_bytes, dataset.folded_collected_complete
+         HAVING COUNT(flush.flush_id) > 0 OR dataset.folded_collected_bytes > 0
+             OR NOT dataset.folded_collected_complete",
     )
     .bind(scope.organization_id.as_str())
     .fetch_all(pool)

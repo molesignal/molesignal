@@ -126,6 +126,7 @@ impl InstanceSettingsRepository for InstanceLimits {
             audit_retention_days: 365,
             default_retention_days: 30,
             synthetic_result_retention_days: 30,
+            catalog_history_retention_days: 7,
             max_active_series_per_org: 200_000,
             max_active_series_per_metric: 100_000,
             apm_limits: Default::default(),

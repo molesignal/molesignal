@@ -335,6 +335,11 @@ pub struct InstanceSettings {
     /// 拨测结果保留天数：更早的结果、它们的附件与已结束的任务每天清理一次；0 = 永久保留。
     #[serde(default = "default_synthetic_result_retention_days")]
     pub synthetic_result_retention_days: u32,
+    /// How many days the storage catalog keeps the rows of finished work: files already deleted
+    /// by GC, the segments and manifests they belonged to, and flush records of closed WAL
+    /// streams. 0 keeps them for good.
+    #[serde(default = "default_catalog_history_retention_days")]
+    pub catalog_history_retention_days: u32,
     /// Prometheus 写入：一个组织同时保持活跃的 series 数上限。
     #[serde(default = "default_max_active_series_per_org")]
     pub max_active_series_per_org: u32,
@@ -426,6 +431,15 @@ fn default_synthetic_result_retention_days() -> u32 {
     DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS
 }
 
+/// Default days the storage catalog keeps the rows of finished work.
+pub const DEFAULT_CATALOG_HISTORY_RETENTION_DAYS: u32 = 7;
+/// The most days it keeps them (matches the `instance_settings` CHECK constraint).
+pub const MAX_CATALOG_HISTORY_RETENTION_DAYS: u32 = 3650;
+
+fn default_catalog_history_retention_days() -> u32 {
+    DEFAULT_CATALOG_HISTORY_RETENTION_DAYS
+}
+
 /// Prometheus 写入的活跃 series 上限的默认值：每个组织、每个指标。
 pub const DEFAULT_MAX_ACTIVE_SERIES_PER_ORG: u32 = 200_000;
 pub const DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC: u32 = 100_000;
@@ -480,6 +494,11 @@ impl InstanceSettings {
         now: TimestampMicros,
     ) -> Option<TimestampMicros> {
         retention_cutoff(self.synthetic_result_retention_days, now)
+    }
+
+    /// The moment before which the storage catalog's finished rows can go; `None` keeps them.
+    pub fn catalog_history_cutoff(&self, now: TimestampMicros) -> Option<TimestampMicros> {
+        retention_cutoff(self.catalog_history_retention_days, now)
     }
 
     /// 接入用量的保留起点：早于它的小时记录可以删除。
@@ -639,6 +658,7 @@ mod tests {
             audit_retention_days,
             default_retention_days: super::DEFAULT_STREAM_RETENTION_DAYS,
             synthetic_result_retention_days: super::DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS,
+            catalog_history_retention_days: super::DEFAULT_CATALOG_HISTORY_RETENTION_DAYS,
             max_active_series_per_org: super::DEFAULT_MAX_ACTIVE_SERIES_PER_ORG,
             max_active_series_per_metric: super::DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC,
             apm_limits: crate::domain::apm::ApmLimits::default(),

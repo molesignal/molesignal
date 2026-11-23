@@ -60,6 +60,7 @@ use crate::{
         query::catalog_source::CatalogQuerySource,
         rum::{issues::IssueTracker, session_state::SessionMerger},
         storage::{
+            catalog_cleanup::CatalogCleanupWorker,
             compactor::Compactor,
             index_rebuild::IndexRebuildWorker,
             manifest::{PartitionManifestManager, PartitionManifestReader},
@@ -434,6 +435,7 @@ impl StorageRuntime {
                     core.store.clone(),
                     settings.storage.reconciler.clone(),
                 )),
+                Arc::new(CatalogCleanupWorker::new(file_catalog.clone())),
                 Arc::new(PartitionManifestManager::new(
                     file_catalog,
                     manifest_reader.clone(),

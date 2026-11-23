@@ -1259,7 +1259,7 @@
   },
   "stream_retention": {
     "title": "Data retention",
-    "subtitle": "Streams without a retention of their own keep the default; the runs of synthetic checks keep their own number of days.",
+    "subtitle": "Streams without a retention of their own keep the default; the runs of synthetic checks and the storage catalog's history keep their own number of days.",
     "section_title": "Default retention",
     "days": "Days to keep",
     "days_hint": "Each stream can set its own retention in its settings. Data older than the retention is deleted in the next cleanup and cannot be recovered.",
@@ -1305,6 +1305,13 @@
     "days": "Days to keep runs",
     "days_hint": "Older runs, their artifacts and finished tasks are deleted once a day; 0 keeps them for good. The _synthetic_results stream that availability reads follows its own stream retention.",
     "saved": "Synthetic result retention saved",
+    "invalid": "Enter a whole number from 0 to {{max}}."
+  },
+  "catalog_history_retention": {
+    "section_title": "Storage catalog history",
+    "days": "Days to keep history",
+    "days_hint": "Records of finished work in the file catalog (files already deleted, the old segments and partition manifests they belonged to, flush records of closed write streams) are cleaned up after this many days; the data itself is not touched. 0 keeps them for good. A stream's lifetime intake stays the same after cleanup.",
+    "saved": "Storage catalog history retention saved",
     "invalid": "Enter a whole number from 0 to {{max}}."
   },
   "series_limits": {

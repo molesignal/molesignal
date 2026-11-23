@@ -258,6 +258,34 @@ pub struct CatalogInvariantIssue {
     pub occurrences: u64,
 }
 
+/// Rows of finished work removed by one [`FileCatalog::clean_finished`] round.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CatalogCleanup {
+    /// Tombstoned artifacts whose objects GC deleted.
+    pub artifacts: u64,
+    /// Replaced or tombstoned segments with no artifact left.
+    pub segments: u64,
+    /// Retired manifests whose objects GC deleted.
+    pub manifests: u64,
+    /// GC rows of deleted objects no catalog row names any more.
+    pub gc_entries: u64,
+    /// Flush records folded into their dataset's collected bytes.
+    pub flush_commits: u64,
+    /// WAL checkpoints of closed streams with no flush record left.
+    pub checkpoints: u64,
+}
+
+impl CatalogCleanup {
+    pub fn total(&self) -> u64 {
+        self.artifacts
+            + self.segments
+            + self.manifests
+            + self.gc_entries
+            + self.flush_commits
+            + self.checkpoints
+    }
+}
+
 /// 持久化文件元数据的唯一入口。实现位于 PostgreSQL engine。
 #[async_trait]
 pub trait FileCatalog: Send + Sync {
@@ -428,6 +456,20 @@ pub trait FileCatalog: Send + Sync {
         _not_before_micros: i64,
     ) -> Result<()> {
         Ok(())
+    }
+
+    /// Removes up to `limit` rows per table of work that finished before `before_micros`, in an
+    /// order that keeps every safety check whole: artifacts and manifests once GC has deleted
+    /// their objects, then segments left without artifacts, then GC rows no catalog row names,
+    /// then flush records (their bytes folded into the dataset) and the checkpoints of closed WAL
+    /// streams.
+    async fn clean_finished(
+        &self,
+        _scope: &OrganizationScope,
+        _before_micros: i64,
+        _limit: u32,
+    ) -> Result<CatalogCleanup> {
+        Ok(CatalogCleanup::default())
     }
 
     /// Bounded aggregate invariant checks used by StorageReconciler.

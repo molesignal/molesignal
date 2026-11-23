@@ -11,6 +11,7 @@
 
 pub mod arrow_schema;
 pub(crate) mod background;
+pub mod catalog_cleanup;
 pub mod compactor;
 pub mod downsample;
 pub mod filters;

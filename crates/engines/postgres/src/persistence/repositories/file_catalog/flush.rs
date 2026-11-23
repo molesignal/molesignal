@@ -82,6 +82,31 @@ pub(super) async fn commit_flush(
         ));
     }
 
+    // A range the checkpoint already covers was published, even once its flush record has been
+    // cleaned up: a writer publishes its ranges in order, so a retry never depends on old records.
+    let checkpoint: Option<i64> = sqlx::query_scalar(
+        "SELECT committed_sequence FROM wal_checkpoints \
+          WHERE org_id = $1 AND dataset_id = $2 AND writer_node_id = $3 AND writer_epoch = $4",
+    )
+    .bind(scope.organization_id.as_str())
+    .bind(command.dataset_id.as_str())
+    .bind(provenance.writer_node_id.as_str())
+    .bind(to_i64(provenance.writer_epoch.0, "writer_epoch")?)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(sqlx_err)?;
+
+    if checkpoint
+        .is_some_and(|committed| committed >= 0 && provenance.sequence.end.0 <= committed as u64)
+    {
+        tx.commit().await.map_err(sqlx_err)?;
+
+        return Ok(FlushCommitResult {
+            catalog_version: current,
+            already_committed: true,
+        });
+    }
+
     let inserted = sqlx::query(
         "INSERT INTO storage_flush_commits (org_id, dataset_id, flush_id, writer_node_id, \
          writer_epoch, sequence_start, sequence_end, committed_at, collected_bytes)

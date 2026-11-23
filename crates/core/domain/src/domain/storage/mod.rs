@@ -24,11 +24,11 @@ mod wal_writers;
 
 pub use artifact::{Artifact, ArtifactRole, ArtifactState, StoredObject};
 pub use catalog::{
-    ArtifactUpdate, CatalogInvariant, CatalogInvariantIssue, CatalogSnapshot, CommitFlush,
-    DatasetSelection, DatasetSnapshot, DatasetTransformResult, FileCatalog, FlushCommitResult,
-    GcQueueEntry, GcReason, IndexRebuildTask, OrganizationScope, PublishDatasetTransform,
-    ReplaceSegments, TombstoneSegments, UpdateArtifact, WalCheckpointView, is_stale_writer_epoch,
-    stale_writer_epoch,
+    ArtifactUpdate, CatalogCleanup, CatalogInvariant, CatalogInvariantIssue, CatalogSnapshot,
+    CommitFlush, DatasetSelection, DatasetSnapshot, DatasetTransformResult, FileCatalog,
+    FlushCommitResult, GcQueueEntry, GcReason, IndexRebuildTask, OrganizationScope,
+    PublishDatasetTransform, ReplaceSegments, TombstoneSegments, UpdateArtifact, WalCheckpointView,
+    is_stale_writer_epoch, stale_writer_epoch,
 };
 pub use dataset::{
     DatasetState, IndexPolicy, PartitionGranularity, PartitionPolicy, PhysicalDataset,

@@ -10,11 +10,11 @@ use domain::{
     apm::ApmLimits,
     iam::{
         ClientIpMode, ClientIpResolverSettings, DEFAULT_ALERT_EVALUATION_DELAY_SECS,
-        DEFAULT_AUDIT_RETENTION_DAYS, DEFAULT_INTAKE_USAGE_MAX_SERVICES_PER_ORG,
-        DEFAULT_INTAKE_USAGE_RETENTION_DAYS, DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC,
-        DEFAULT_MAX_ACTIVE_SERIES_PER_ORG, DEFAULT_STREAM_RETENTION_DAYS,
-        DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS, InstanceSettings, InstanceSettingsRepository,
-        SigninLimits,
+        DEFAULT_AUDIT_RETENTION_DAYS, DEFAULT_CATALOG_HISTORY_RETENTION_DAYS,
+        DEFAULT_INTAKE_USAGE_MAX_SERVICES_PER_ORG, DEFAULT_INTAKE_USAGE_RETENTION_DAYS,
+        DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC, DEFAULT_MAX_ACTIVE_SERIES_PER_ORG,
+        DEFAULT_STREAM_RETENTION_DAYS, DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS, InstanceSettings,
+        InstanceSettingsRepository, SigninLimits,
     },
 };
 use kernel::{Result, time::TimestampMicros};
@@ -50,7 +50,7 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
                     intake_usage_retention_days, intake_usage_max_services_per_org,
                     signin_limit_account_source_failures, signin_limit_source_failures,
                     signin_limit_account_failures, signin_limit_account_interval_secs,
-                    signin_limit_lock_minutes, updated_at
+                    signin_limit_lock_minutes, catalog_history_retention_days, updated_at
              FROM instance_settings WHERE id = 1",
         )
         .fetch_optional(&self.pool)
@@ -104,6 +104,11 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
                 // CHECK 约束保证 0..=3650。
                 synthetic_result_retention_days: r
                     .try_get::<i32, _>("synthetic_result_retention_days")
+                    .map_err(sqlx_err)?
+                    .max(0) as u32,
+                // CHECK constraint keeps it in 0..=3650.
+                catalog_history_retention_days: r
+                    .try_get::<i32, _>("catalog_history_retention_days")
                     .map_err(sqlx_err)?
                     .max(0) as u32,
                 intake_usage_retention_days: positive(&r, "intake_usage_retention_days")?,
@@ -176,6 +181,7 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
                 audit_retention_days: DEFAULT_AUDIT_RETENTION_DAYS,
                 default_retention_days: DEFAULT_STREAM_RETENTION_DAYS,
                 synthetic_result_retention_days: DEFAULT_SYNTHETIC_RESULT_RETENTION_DAYS,
+                catalog_history_retention_days: DEFAULT_CATALOG_HISTORY_RETENTION_DAYS,
                 max_active_series_per_org: DEFAULT_MAX_ACTIVE_SERIES_PER_ORG,
                 max_active_series_per_metric: DEFAULT_MAX_ACTIVE_SERIES_PER_METRIC,
                 apm_limits: ApmLimits::default(),
@@ -205,10 +211,11 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
                  alert_evaluation_delay_secs, intake_usage_retention_days,
                  intake_usage_max_services_per_org, signin_limit_account_source_failures,
                  signin_limit_source_failures, signin_limit_account_failures,
-                 signin_limit_account_interval_secs, signin_limit_lock_minutes)
+                 signin_limit_account_interval_secs, signin_limit_lock_minutes,
+                 catalog_history_retention_days)
              VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
                      $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-                     $31, $32, $33, $34, $35)
+                     $31, $32, $33, $34, $35, $36)
              ON CONFLICT (id) DO UPDATE
              SET signup_enabled = EXCLUDED.signup_enabled,
                  signup_require_approval = EXCLUDED.signup_require_approval,
@@ -244,7 +251,8 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
                  signin_limit_source_failures = EXCLUDED.signin_limit_source_failures,
                  signin_limit_account_failures = EXCLUDED.signin_limit_account_failures,
                  signin_limit_account_interval_secs = EXCLUDED.signin_limit_account_interval_secs,
-                 signin_limit_lock_minutes = EXCLUDED.signin_limit_lock_minutes",
+                 signin_limit_lock_minutes = EXCLUDED.signin_limit_lock_minutes,
+                 catalog_history_retention_days = EXCLUDED.catalog_history_retention_days",
         )
         .bind(s.signup_enabled)
         .bind(s.signup_require_approval)
@@ -281,6 +289,7 @@ impl InstanceSettingsRepository for PgInstanceSettingsRepository {
         .bind(i32::try_from(s.signin_limits.account_failures).unwrap_or(i32::MAX))
         .bind(i32::try_from(s.signin_limits.account_interval_secs).unwrap_or(i32::MAX))
         .bind(i32::try_from(s.signin_limits.lock_minutes).unwrap_or(i32::MAX))
+        .bind(i32::try_from(s.catalog_history_retention_days).unwrap_or(i32::MAX))
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
