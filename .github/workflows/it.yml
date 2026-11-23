@@ -27,7 +27,7 @@ env:
 
 jobs:
   it:
-    name: it
+    name: Integration Tests
     runs-on: ubuntu-26.04
     timeout-minutes: 25
     services:

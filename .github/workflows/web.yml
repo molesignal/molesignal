@@ -16,6 +16,7 @@ on:
 
 jobs:
   ci:
+    name: Web Quality
     runs-on: ubuntu-26.04
     # The type check of the whole web tree grows past Node's default heap of about 2 GB; the
     # runner has room for more.

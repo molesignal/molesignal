@@ -22,7 +22,7 @@ env:
 jobs:
   # Tags identify a single product release, built from main.
   release-version:
-    name: validate release version
+    name: Validate Release Version
     runs-on: ubuntu-26.04
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -43,7 +43,7 @@ jobs:
 
   # 1. 前端只构建一次，后续质量门禁和两个原生架构编译复用同一份确定性产物。
   web-assets:
-    name: embedded web assets
+    name: Embedded Web Assets
     needs: release-version
     runs-on: ubuntu-26.04
     steps:
@@ -90,7 +90,7 @@ jobs:
 
   # 2. 质量门禁：和 ci.yml 同一套 fmt + clippy + 单测，release 路径上再跑一遍兜底。
   quality-gate:
-    name: quality gate
+    name: Quality Gate
     needs: [release-version, web-assets]
     runs-on: ubuntu-26.04
     timeout-minutes: 60
@@ -142,7 +142,7 @@ jobs:
 
   # 3. 多平台原生编译：每个 target 在对应架构 runner 上原生 build，避免 cross-compile。
   build:
-    name: build (${{ matrix.target }})
+    name: Build (${{ matrix.target }})
     needs: [release-version, web-assets, quality-gate, geoip-db]
     runs-on: ${{ matrix.os }}
     # 构建在 rust:1.96-bullseye 容器（Debian 11, glibc 2.31）内进行，产物 glibc
@@ -328,7 +328,7 @@ jobs:
 
   # 4. Docker 多平台镜像：把 step 3 的原生 release 二进制分别封装进两个镜像。
   docker:
-    name: docker images
+    name: Docker Images
     needs: [release-version, build]
     runs-on: ubuntu-26.04
     timeout-minutes: 90
@@ -436,7 +436,7 @@ jobs:
 
   # 5. GitHub Release：cliff 生成 changelog + 上传所有 target 的 tar.gz。
   release:
-    name: github release
+    name: GitHub Release
     needs: [release-version, build, docker]
     runs-on: ubuntu-26.04
     permissions:
