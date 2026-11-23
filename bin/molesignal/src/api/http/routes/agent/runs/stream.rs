@@ -7,8 +7,14 @@
 //! 每 15 秒发一行注释保持连接并查一次 Run。读到结束事件就关。Run 早已结束、事件已被清理时，
 //! 按 Run 上记下的结果补一个结束事件。每个事件带 `id:`，断开后用 `Last-Event-ID` 或
 //! `?after=` 接着读。
+//!
+//! 连接打开期间每 5 秒重新解析一次调用方的权限并复查会话可见性：被移出团队、失去 `agent.use`、
+//! 令牌被吊销后，原连接不再收到后续事件。
 
-use std::{convert::Infallible, time::Duration};
+use std::{
+    convert::Infallible,
+    time::{Duration, Instant},
+};
 
 use agent::runs::{Run, RunEvent, RunEventKind};
 use axum::{
@@ -33,6 +39,8 @@ use crate::api::AppState;
 const PAGE: i64 = 500;
 /// 没有新事件时多久发一行注释、查一次 Run。
 const KEEPALIVE: Duration = Duration::from_secs(15);
+/// 打开的连接多久复查一次调用方还能不能看这个 Run。
+const REAUTHORIZE: Duration = Duration::from_secs(5);
 
 type Frame = std::result::Result<Bytes, Infallible>;
 
@@ -60,7 +68,7 @@ pub(super) async fn events(
     let after = resume.or(query.after).unwrap_or(0).max(0);
     let (tx, rx) = tokio::sync::mpsc::channel::<Frame>(64);
 
-    signals::trace_context::spawn_with_current_trace_context(relay(state, run, after, tx));
+    signals::trace_context::spawn_with_current_trace_context(relay(state, ctx, run, after, tx));
 
     let frames = Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx));
     let body = segmented_result_stream(frames, "agent.http.sse", "sse");
@@ -94,11 +102,30 @@ async fn send(tx: &Sender<Frame>, events: &[RunEvent]) -> bool {
     true
 }
 
-async fn relay(state: AppState, run: Run, mut seq: i64, tx: Sender<Frame>) {
+/// 调用方此刻还能不能看这个 Run：权限按当前的角色与令牌重新解析，再查一遍会话可见性。
+async fn still_readable(state: &AppState, ctx: &mut IamContext, run: &Run) -> bool {
+    if state.iam.access.enrich_context(ctx).await.is_err() || !ctx.has_permission("agent.use") {
+        return false;
+    }
+
+    readable_run(state, ctx, &run.id.0).await.is_ok()
+}
+
+async fn relay(state: AppState, mut ctx: IamContext, run: Run, mut seq: i64, tx: Sender<Frame>) {
     let runs = &state.agent.runs;
     let mut signals = runs.signals();
+    let mut authorized_at = Instant::now();
 
     loop {
+        if authorized_at.elapsed() >= REAUTHORIZE {
+            if !still_readable(&state, &mut ctx, &run).await {
+                tracing::debug!(run_id = %run.id.0, "agent run stream closed: access withdrawn");
+                return;
+            }
+
+            authorized_at = Instant::now();
+        }
+
         let events = match runs.events_after(&run.id, seq, PAGE).await {
             Ok(events) => events,
             Err(error) => {
