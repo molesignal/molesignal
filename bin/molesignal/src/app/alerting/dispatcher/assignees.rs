@@ -119,7 +119,7 @@ mod tests {
         async fn list(&self, _org_id: &Id) -> Result<Vec<Schedule>> {
             Ok(self.0.values().cloned().collect())
         }
-        async fn delete(&self, _id: &Id) -> Result<()> {
+        async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
             Ok(())
         }
     }

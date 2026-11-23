@@ -139,7 +139,8 @@ pub trait SemanticGroupRepository: Send + Sync {
     async fn update(&self, group: SemanticGroup) -> Result<SemanticGroup>;
     async fn get(&self, id: &Id) -> Result<SemanticGroup>;
     async fn list(&self, org_id: &Id) -> Result<Vec<SemanticGroup>>;
-    async fn delete(&self, id: &Id) -> Result<()>;
+    /// 只删 `org_id` 里的这一条：别的组织有同一个 ID 时不动它。
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
     /// evaluator 分组时取该 org 所有 enabled 的 group，**按定义顺序（created_at 升序）**
     /// 返回；多条都命中时调用方取第一条，故 precedence = 创建顺序（不是名字）。
     async fn list_enabled(&self, org_id: &Id) -> Result<Vec<SemanticGroup>>;

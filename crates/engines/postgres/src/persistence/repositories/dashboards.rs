@@ -76,11 +76,11 @@ impl DashboardRepository for PgDashboardRepository {
     }
 
     async fn update(&self, d: Dashboard) -> Result<Dashboard> {
-        sqlx::query(
+        let updated = sqlx::query(
             "UPDATE dashboards SET
                folder_id = $2, uid = $3, title = $4, tags = $5, model = $6,
                version = $7, updated_at = $8, updated_by = $9
-             WHERE id = $1",
+             WHERE id = $1 AND org_id = $10",
         )
         .bind(&d.id.0)
         .bind(d.folder_id.as_ref().map(|i| &i.0))
@@ -91,9 +91,14 @@ impl DashboardRepository for PgDashboardRepository {
         .bind(d.version as i32)
         .bind(d.updated_at)
         .bind(&d.updated_by.0)
+        .bind(&d.org_id.0)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
+        if updated.rows_affected() == 0 {
+            return Err(Error::not_found("dashboard"));
+        }
 
         Ok(d)
     }
@@ -169,9 +174,10 @@ impl DashboardRepository for PgDashboardRepository {
         rows.into_iter().map(row_to_dashboard).collect()
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        sqlx::query("DELETE FROM dashboards WHERE id = $1")
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        sqlx::query("DELETE FROM dashboards WHERE id = $1 AND org_id = $2")
             .bind(&id.0)
+            .bind(&org_id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

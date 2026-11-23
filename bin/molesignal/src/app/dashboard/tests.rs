@@ -92,12 +92,16 @@ impl DashboardRepository for MemoryDashboards {
             .collect())
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        self.values
-            .lock()
-            .remove(id)
-            .map(|_| ())
-            .ok_or_else(|| Error::not_found("dashboard"))
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        let mut values = self.values.lock();
+
+        match values.get(id) {
+            Some(dashboard) if &dashboard.org_id == org_id => {
+                values.remove(id);
+                Ok(())
+            }
+            _ => Err(Error::not_found("dashboard")),
+        }
     }
 }
 
@@ -142,6 +146,35 @@ fn service() -> (DashboardService, Arc<MemoryDashboards>) {
 
 fn valid_model() -> Value {
     serde_json::from_str(VALID_MODEL).unwrap()
+}
+
+#[tokio::test]
+async fn another_organization_cannot_overwrite_or_delete_a_dashboard_with_the_same_id() {
+    let (service, repository) = service();
+    let owner = Id::new();
+    let created = service
+        .create(owner.clone(), None, Id::new(), valid_model())
+        .await
+        .unwrap();
+
+    let mut foreign = created.clone();
+    foreign.org_id = Id::new();
+    foreign.title = "taken over".into();
+
+    assert!(matches!(
+        service.upsert(foreign.clone()).await,
+        Err(Error::Forbidden(_))
+    ));
+    assert!(service.delete(&foreign.org_id, &created.id).await.is_err());
+
+    let stored = repository.get(&created.id).await.unwrap();
+    assert_eq!(stored.org_id, owner);
+    assert_eq!(stored.title, created.title);
+
+    let mut own = created.clone();
+    own.title = "renamed".into();
+    service.upsert(own).await.unwrap();
+    assert_eq!(repository.get(&created.id).await.unwrap().title, "renamed");
 }
 
 #[tokio::test]

@@ -273,7 +273,7 @@ impl EscalationPolicyRepository for Policies {
             .collect())
     }
 
-    async fn delete(&self, _: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _: &Id) -> Result<()> {
         Ok(())
     }
 }
@@ -307,7 +307,7 @@ impl AlertRuleRepository for NoRules {
         Ok(Vec::new())
     }
 
-    async fn delete(&self, _: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _: &Id) -> Result<()> {
         Ok(())
     }
 

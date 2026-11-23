@@ -231,17 +231,21 @@ impl DashboardService {
     }
 
     /// 按 id 存在与否决定 create / update（幂等覆盖）。跨集群事件 apply 用：
-    /// 远端来的 Created/Updated 一律落地，本地无此 id 则插入、有则覆盖。
+    /// 远端来的 Created/Updated 一律落地，本地无此 id 则插入、有则覆盖。这个 id 已属于另一个
+    /// 组织时拒绝，不覆盖那个组织的仪表盘。
     pub async fn upsert(&self, d: Dashboard) -> Result<Dashboard> {
         match self.dashboards.get(&d.id).await {
+            Ok(existing) if existing.org_id != d.org_id => Err(Error::forbidden(
+                "the dashboard belongs to another organization",
+            )),
             Ok(_) => self.dashboards.update(d).await,
             Err(Error::NotFound(_)) => self.dashboards.create(d).await,
             Err(e) => Err(e),
         }
     }
 
-    pub async fn delete(&self, id: &Id) -> Result<()> {
-        self.dashboards.delete(id).await
+    pub async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        self.dashboards.delete(org_id, id).await
     }
 }
 

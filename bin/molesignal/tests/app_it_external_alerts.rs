@@ -222,7 +222,7 @@ impl AlertSourceRepository for Sources {
             .collect())
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, id: &Id) -> Result<()> {
         self.0.lock().unwrap().retain(|source| &source.id != id);
         Ok(())
     }
@@ -363,7 +363,7 @@ impl EscalationPolicyRepository for Policies {
             .collect())
     }
 
-    async fn delete(&self, _id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
         Ok(())
     }
 }
@@ -422,7 +422,7 @@ impl ScheduleRepository for NoSchedules {
         Ok(Vec::new())
     }
 
-    async fn delete(&self, _id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
         Ok(())
     }
 }
@@ -447,7 +447,7 @@ impl AlertRuleRepository for NoRules {
         Ok(Vec::new())
     }
 
-    async fn delete(&self, _id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
         Ok(())
     }
 

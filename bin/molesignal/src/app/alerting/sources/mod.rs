@@ -293,13 +293,16 @@ impl AlertSources {
             }
         }
 
-        self.sources.delete(id).await?;
+        self.sources.delete(org_id, id).await?;
         Ok(source)
     }
 
     /// 联邦里别的集群建了或改了这个来源：照写到本集群（本集群的 `last_intake_at` 不动）。
     pub async fn apply_replica(&self, source: AlertSource) -> Result<()> {
         match self.sources.get(&source.id).await {
+            Ok(existing) if existing.org_id != source.org_id => Err(Error::forbidden(
+                "the alert source belongs to another organization",
+            )),
             Ok(_) => self.sources.update(source).await.map(drop),
             Err(Error::NotFound(_)) => self.sources.create(source).await.map(drop),
             Err(error) => Err(error),
@@ -337,7 +340,7 @@ impl AlertSources {
             }
         }
 
-        self.sources.delete(id).await
+        self.sources.delete(org_id, id).await
     }
 
     /// 一个来源最近收到的请求，新的在前。

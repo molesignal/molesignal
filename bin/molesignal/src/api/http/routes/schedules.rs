@@ -290,7 +290,11 @@ async fn delete(
     Path(id): Path<String>,
 ) -> Result<&'static str> {
     let rid = existing.id.clone();
-    state.alerting.service.delete_schedule(&rid).await?;
+    state
+        .alerting
+        .service
+        .delete_schedule(&ctx.org_id, &rid)
+        .await?;
 
     emit_cud(
         &state,

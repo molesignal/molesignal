@@ -86,7 +86,7 @@ impl AlertRuleRepository for InMemRules {
     async fn list(&self, _org: &Id) -> Result<Vec<AlertRule>> {
         Ok(self.inner.lock().unwrap().clone())
     }
-    async fn delete(&self, _id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
         Ok(())
     }
     async fn list_enabled(&self) -> Result<Vec<AlertRule>> {
@@ -714,7 +714,7 @@ impl SemanticGroupRepository for StaticSemanticGroups {
     async fn list(&self, _: &Id) -> Result<Vec<SemanticGroup>> {
         Ok(self.groups.clone())
     }
-    async fn delete(&self, _: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _: &Id) -> Result<()> {
         Ok(())
     }
 }
@@ -853,7 +853,7 @@ impl EscalationPolicyRepository for InMemPolicies {
             .cloned()
             .collect())
     }
-    async fn delete(&self, _id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
         Ok(())
     }
 }
@@ -873,7 +873,7 @@ impl ScheduleRepository for NoSchedules {
     async fn list(&self, _org_id: &Id) -> Result<Vec<Schedule>> {
         Ok(Vec::new())
     }
-    async fn delete(&self, _id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
         Ok(())
     }
 }

@@ -118,7 +118,17 @@ async fn semantic_group_crud_roundtrip_and_org_isolation() {
     assert!(other.is_empty());
 
     // 5. delete。
-    repo.delete(&Id::from_string("g2")).await.expect("delete");
+    // 另一个组织删同一个 ID 不动 orgA 的 group。
+    repo.delete(&Id::from_string("orgB"), &Id::from_string("g2"))
+        .await
+        .expect("foreign delete is a no-op");
+    repo.get(&Id::from_string("g2"))
+        .await
+        .expect("orgA group survives a foreign delete");
+
+    repo.delete(&Id::from_string("orgA"), &Id::from_string("g2"))
+        .await
+        .expect("delete");
     assert!(repo.get(&Id::from_string("g2")).await.is_err());
 }
 

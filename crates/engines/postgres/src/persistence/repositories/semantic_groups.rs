@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use domain::alerting::semantic_group::{LabelMatcher, SemanticGroup, SemanticGroupRepository};
-use kernel::{Result, ids::Id, time::TimestampMicros};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
@@ -67,10 +67,10 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
     }
 
     async fn update(&self, g: SemanticGroup) -> Result<SemanticGroup> {
-        sqlx::query(
+        let updated = sqlx::query(
             "UPDATE semantic_groups SET
                name = $2, enabled = $3, matchers = $4, group_by = $5, updated_at = $6
-             WHERE id = $1",
+             WHERE id = $1 AND org_id = $7",
         )
         .bind(&g.id.0)
         .bind(&g.name)
@@ -78,9 +78,14 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         .bind(Json(&g.matchers))
         .bind(Json(&g.group_by))
         .bind(g.updated_at)
+        .bind(&g.org_id.0)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
+        if updated.rows_affected() == 0 {
+            return Err(Error::not_found("semantic group"));
+        }
 
         Ok(g)
     }
@@ -109,9 +114,10 @@ impl SemanticGroupRepository for PgSemanticGroupRepository {
         rows.into_iter().map(row_to).collect()
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        sqlx::query("DELETE FROM semantic_groups WHERE id = $1")
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        sqlx::query("DELETE FROM semantic_groups WHERE id = $1 AND org_id = $2")
             .bind(&id.0)
+            .bind(&org_id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

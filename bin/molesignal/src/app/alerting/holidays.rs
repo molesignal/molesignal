@@ -134,7 +134,7 @@ impl HolidayCalendars {
             )));
         }
 
-        self.repository.delete(id).await?;
+        self.repository.delete(org_id, id).await?;
         holiday::forget(id);
         Ok(calendar)
     }

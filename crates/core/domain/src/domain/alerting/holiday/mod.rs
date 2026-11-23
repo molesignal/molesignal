@@ -136,7 +136,8 @@ pub trait HolidayCalendarRepository: Send + Sync {
     async fn list(&self, org_id: &Id) -> Result<Vec<HolidayCalendar>>;
     /// 全部组织的日历：给进程里的缓存用。
     async fn list_all(&self) -> Result<Vec<HolidayCalendar>>;
-    async fn delete(&self, id: &Id) -> Result<()>;
+    /// 只删 `org_id` 里的这一条：别的组织有同一个 ID 时不动它。
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
     /// 这个组织里哪些地方引用了这份日历。
     async fn references(&self, org_id: &Id, id: &Id) -> Result<Vec<CalendarReference>>;
 }

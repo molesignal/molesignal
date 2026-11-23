@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use domain::alerting::inhibit::{InhibitRule, InhibitRuleRepository, InhibitSource, InhibitTarget};
-use kernel::{Result, ids::Id, time::TimestampMicros};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
@@ -86,12 +86,12 @@ impl InhibitRuleRepository for PgInhibitRuleRepository {
     }
 
     async fn update(&self, rule: InhibitRule) -> Result<InhibitRule> {
-        sqlx::query(
+        let updated = sqlx::query(
             "UPDATE inhibit_rules SET
                name = $2, enabled = $3, source = $4, target = $5, equal_labels = $6,
                more_severe_only = $7, wait_secs = $8, linger_secs = $9, comment = $10,
                updated_at = $11
-             WHERE id = $1",
+             WHERE id = $1 AND org_id = $12",
         )
         .bind(&rule.id.0)
         .bind(&rule.name)
@@ -104,9 +104,14 @@ impl InhibitRuleRepository for PgInhibitRuleRepository {
         .bind(i32::try_from(rule.linger_secs).unwrap_or(i32::MAX))
         .bind(&rule.comment)
         .bind(rule.updated_at)
+        .bind(&rule.org_id.0)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
+        if updated.rows_affected() == 0 {
+            return Err(Error::not_found("inhibit rule"));
+        }
 
         Ok(rule)
     }
@@ -133,9 +138,10 @@ impl InhibitRuleRepository for PgInhibitRuleRepository {
         rows.into_iter().map(row_to).collect()
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        sqlx::query("DELETE FROM inhibit_rules WHERE id = $1")
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        sqlx::query("DELETE FROM inhibit_rules WHERE id = $1 AND org_id = $2")
             .bind(&id.0)
+            .bind(&org_id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

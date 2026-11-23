@@ -160,13 +160,13 @@ async fn insert_rule<'e, E: sqlx::PgExecutor<'e>>(executor: E, r: &AlertRule) ->
 
 /// 写回一条规则的定义。
 async fn update_rule<'e, E: sqlx::PgExecutor<'e>>(executor: E, r: &AlertRule) -> Result<()> {
-    sqlx::query(
+    let updated = sqlx::query(
         "UPDATE alert_rules SET
            name = $2, description = $3, enabled = $4, kind = $5, query = $6,
            trigger = $7, anomaly_params_json = $8, escalation_policy_id = $9,
            labels = $10, annotations = $11, updated_at = $12,
            thresholds = $13, severity = $14, guide = $15
-         WHERE id = $1",
+         WHERE id = $1 AND org_id = $16",
     )
     .bind(&r.id.0)
     .bind(&r.name)
@@ -183,9 +183,14 @@ async fn update_rule<'e, E: sqlx::PgExecutor<'e>>(executor: E, r: &AlertRule) ->
     .bind(Json(&r.thresholds))
     .bind(r.severity.map(|s| s.as_str()))
     .bind(Json(&r.guide))
+    .bind(&r.org_id.0)
     .execute(executor)
     .await
     .map_err(sqlx_err)?;
+
+    if updated.rows_affected() == 0 {
+        return Err(Error::not_found("alert rule"));
+    }
 
     Ok(())
 }
@@ -236,9 +241,10 @@ impl AlertRuleRepository for PgAlertRuleRepository {
         Ok(collect_valid_rules(rows, "list"))
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        sqlx::query("DELETE FROM alert_rules WHERE id = $1")
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        sqlx::query("DELETE FROM alert_rules WHERE id = $1 AND org_id = $2")
             .bind(&id.0)
+            .bind(&org_id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

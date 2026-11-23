@@ -8,7 +8,7 @@ use domain::alerting::{
     mute::{MuteRule, MuteRuleRepository, MuteWindow},
     semantic_group::LabelMatcher,
 };
-use kernel::{Result, ids::Id, time::TimestampMicros};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
@@ -78,11 +78,11 @@ impl MuteRuleRepository for PgMuteRuleRepository {
     }
 
     async fn update(&self, r: MuteRule) -> Result<MuteRule> {
-        sqlx::query(
+        let updated = sqlx::query(
             "UPDATE mute_rules SET
                name = $2, enabled = $3, matchers = $4, time_window = $5,
                comment = $6, updated_at = $7
-             WHERE id = $1",
+             WHERE id = $1 AND org_id = $8",
         )
         .bind(&r.id.0)
         .bind(&r.name)
@@ -91,9 +91,14 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         .bind(Json(&r.window))
         .bind(&r.comment)
         .bind(r.updated_at)
+        .bind(&r.org_id.0)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
+        if updated.rows_affected() == 0 {
+            return Err(Error::not_found("mute rule"));
+        }
 
         Ok(r)
     }
@@ -120,9 +125,10 @@ impl MuteRuleRepository for PgMuteRuleRepository {
         rows.into_iter().map(row_to).collect()
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        sqlx::query("DELETE FROM mute_rules WHERE id = $1")
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        sqlx::query("DELETE FROM mute_rules WHERE id = $1 AND org_id = $2")
             .bind(&id.0)
+            .bind(&org_id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

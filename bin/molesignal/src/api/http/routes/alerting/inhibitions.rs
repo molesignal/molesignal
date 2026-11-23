@@ -294,7 +294,7 @@ async fn remove(
         .alerting
         .inhibitions
         .rules()
-        .delete(&existing.id)
+        .delete(&ctx.org_id, &existing.id)
         .await?;
 
     emit_cud(

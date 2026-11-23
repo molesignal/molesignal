@@ -19,7 +19,8 @@ pub trait DashboardRepository: Send + Sync {
     async fn get(&self, id: &Id) -> Result<Dashboard>;
     async fn get_by_uid(&self, org_id: &Id, uid: &str) -> Result<Dashboard>;
     async fn list(&self, org_id: &Id, folder_id: Option<&Id>) -> Result<Vec<Dashboard>>;
-    async fn delete(&self, id: &Id) -> Result<()>;
+    /// 只删 `org_id` 里的这一条：别的组织有同一个 ID 时不动它。
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
 }
 
 #[async_trait]

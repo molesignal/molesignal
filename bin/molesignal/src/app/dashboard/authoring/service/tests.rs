@@ -143,7 +143,7 @@ impl DashboardRepository for MemoryDashboards {
         Ok(Vec::new())
     }
 
-    async fn delete(&self, _id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, _id: &Id) -> Result<()> {
         Ok(())
     }
 }

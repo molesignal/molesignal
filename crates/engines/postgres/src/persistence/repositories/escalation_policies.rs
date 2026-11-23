@@ -7,7 +7,7 @@ use domain::alerting::{
     repositories::EscalationPolicyRepository,
     urgency::UrgencyRule,
 };
-use kernel::{Result, ids::Id};
+use kernel::{Error, Result, ids::Id};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
@@ -70,11 +70,11 @@ impl EscalationPolicyRepository for PgEscalationPolicyRepository {
     }
 
     async fn update(&self, p: EscalationPolicy) -> Result<EscalationPolicy> {
-        sqlx::query(
+        let updated = sqlx::query(
             r#"UPDATE escalation_policies SET
                  name = $2, steps = $3, "repeat" = $4, max_loops = $5, ack_retrigger_secs = $6,
                  urgency_rule = $7, escalate_low_urgency = $8
-               WHERE id = $1"#,
+               WHERE id = $1 AND org_id = $9"#,
         )
         .bind(&p.id.0)
         .bind(&p.name)
@@ -84,9 +84,14 @@ impl EscalationPolicyRepository for PgEscalationPolicyRepository {
         .bind(p.ack_retrigger_secs.map(|secs| secs as i32))
         .bind(Json(&p.urgency_rule))
         .bind(p.escalate_low_urgency)
+        .bind(&p.org_id.0)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
+        if updated.rows_affected() == 0 {
+            return Err(Error::not_found("escalation policy"));
+        }
 
         Ok(p)
     }
@@ -115,9 +120,10 @@ impl EscalationPolicyRepository for PgEscalationPolicyRepository {
         rows.into_iter().map(row_to_policy).collect()
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        sqlx::query("DELETE FROM escalation_policies WHERE id = $1")
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        sqlx::query("DELETE FROM escalation_policies WHERE id = $1 AND org_id = $2")
             .bind(&id.0)
+            .bind(&org_id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

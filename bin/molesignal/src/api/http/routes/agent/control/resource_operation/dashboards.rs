@@ -132,7 +132,7 @@ async fn delete(
 ) -> Result<OperationOutcome> {
     let _: Empty = parse(&approval.parameters)?;
     let dashboard = load_authorized(state, ctx, &approval.target, "dashboards.delete").await?;
-    state.dashboard.delete(&dashboard.id).await?;
+    state.dashboard.delete(&ctx.org_id, &dashboard.id).await?;
 
     emit_cud(
         state,

@@ -74,7 +74,7 @@ impl DashboardRepository for Dashboards {
             .collect())
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, id: &Id) -> Result<()> {
         self.values.lock().remove(id);
         Ok(())
     }

@@ -294,7 +294,7 @@ async fn remove(
         return Err(Error::forbidden("mute rule belongs to another org"));
     }
 
-    state.alerting.mute_rules.delete(&rid).await?;
+    state.alerting.mute_rules.delete(&ctx.org_id, &rid).await?;
 
     emit_cud(
         &state,

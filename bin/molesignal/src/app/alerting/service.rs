@@ -161,8 +161,8 @@ impl AlertingService {
         Ok(())
     }
 
-    pub async fn delete_rule(&self, id: &Id) -> Result<()> {
-        self.rules.delete(id).await?;
+    pub async fn delete_rule(&self, org_id: &Id, id: &Id) -> Result<()> {
+        self.rules.delete(org_id, id).await?;
         self.rules_changed();
         Ok(())
     }
@@ -184,8 +184,8 @@ impl AlertingService {
         self.schedules.update(s).await
     }
 
-    pub async fn delete_schedule(&self, id: &Id) -> Result<()> {
-        self.schedules.delete(id).await
+    pub async fn delete_schedule(&self, org_id: &Id, id: &Id) -> Result<()> {
+        self.schedules.delete(org_id, id).await
     }
 
     pub async fn who_is_on_call(
@@ -214,8 +214,8 @@ impl AlertingService {
         self.escalations.update(p).await
     }
 
-    pub async fn delete_policy(&self, id: &Id) -> Result<()> {
-        self.escalations.delete(id).await
+    pub async fn delete_policy(&self, org_id: &Id, id: &Id) -> Result<()> {
+        self.escalations.delete(org_id, id).await
     }
 
     // ---- Incident lifecycle ----

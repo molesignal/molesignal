@@ -1157,7 +1157,7 @@ impl MuteRuleRepository for MemoryStore {
             .collect())
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
+    async fn delete(&self, _org_id: &Id, id: &Id) -> Result<()> {
         self.mute_rules
             .lock()
             .unwrap()

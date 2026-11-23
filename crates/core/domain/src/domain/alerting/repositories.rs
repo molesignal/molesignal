@@ -117,7 +117,8 @@ pub trait AlertRuleRepository: Send + Sync {
 
     async fn get(&self, id: &Id) -> Result<AlertRule>;
     async fn list(&self, org_id: &Id) -> Result<Vec<AlertRule>>;
-    async fn delete(&self, id: &Id) -> Result<()>;
+    /// 只删 `org_id` 里的这一条：别的组织有同一个 ID 时不动它。
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
     /// 给 alert 调度用：拉取所有启用的规则
     async fn list_enabled(&self) -> Result<Vec<AlertRule>>;
     /// 记录一次完成的评估，只写 `last_eval_at` 与 `last_state`。规则已被删除时静默忽略。
@@ -171,7 +172,8 @@ pub trait ScheduleRepository: Send + Sync {
     async fn update(&self, schedule: Schedule) -> Result<Schedule>;
     async fn get(&self, id: &Id) -> Result<Schedule>;
     async fn list(&self, org_id: &Id) -> Result<Vec<Schedule>>;
-    async fn delete(&self, id: &Id) -> Result<()>;
+    /// 只删 `org_id` 里的这一条：别的组织有同一个 ID 时不动它。
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
 }
 
 #[async_trait]
@@ -180,5 +182,6 @@ pub trait EscalationPolicyRepository: Send + Sync {
     async fn update(&self, policy: EscalationPolicy) -> Result<EscalationPolicy>;
     async fn get(&self, id: &Id) -> Result<EscalationPolicy>;
     async fn list(&self, org_id: &Id) -> Result<Vec<EscalationPolicy>>;
-    async fn delete(&self, id: &Id) -> Result<()>;
+    /// 只删 `org_id` 里的这一条：别的组织有同一个 ID 时不动它。
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
 }

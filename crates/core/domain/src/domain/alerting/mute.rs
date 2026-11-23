@@ -128,7 +128,8 @@ pub trait MuteRuleRepository: Send + Sync {
     async fn update(&self, rule: MuteRule) -> Result<MuteRule>;
     async fn get(&self, id: &Id) -> Result<MuteRule>;
     async fn list(&self, org_id: &Id) -> Result<Vec<MuteRule>>;
-    async fn delete(&self, id: &Id) -> Result<()>;
+    /// 只删 `org_id` 里的这一条：别的组织有同一个 ID 时不动它。
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
     /// dispatcher 与通知引擎用：取该 org 所有 enabled 规则。
     async fn list_enabled(&self, org_id: &Id) -> Result<Vec<MuteRule>>;
 }

@@ -204,7 +204,11 @@ async fn delete_one(
         return Err(Error::forbidden("semantic group belongs to another org"));
     }
 
-    state.alerting.semantic_groups.delete(&existing.id).await?;
+    state
+        .alerting
+        .semantic_groups
+        .delete(&ctx.org_id, &existing.id)
+        .await?;
 
     emit_cud(
         &state,

@@ -234,7 +234,7 @@ mod tests {
             Ok(self.rules.clone())
         }
 
-        async fn delete(&self, _: &Id) -> Result<()> {
+        async fn delete(&self, _org_id: &Id, _: &Id) -> Result<()> {
             Ok(())
         }
 
@@ -268,7 +268,7 @@ mod tests {
             Ok(self.0.clone())
         }
 
-        async fn delete(&self, _: &Id) -> Result<()> {
+        async fn delete(&self, _org_id: &Id, _: &Id) -> Result<()> {
             Ok(())
         }
 

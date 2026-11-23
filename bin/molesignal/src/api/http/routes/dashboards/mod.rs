@@ -182,7 +182,7 @@ async fn delete(
     Path(id): Path<String>,
 ) -> Result<&'static str> {
     let rid = dashboard.id.clone();
-    state.dashboard.delete(&rid).await?;
+    state.dashboard.delete(&ctx.org_id, &rid).await?;
 
     emit_cud(
         &state,

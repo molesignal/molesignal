@@ -111,12 +111,12 @@ impl AlertSourceRepository for PgAlertSourceRepository {
     }
 
     async fn update(&self, source: AlertSource) -> Result<AlertSource> {
-        sqlx::query(
+        let updated = sqlx::query(
             "UPDATE alert_sources SET
                name = $2, kind = $3, enabled = $4, escalation_policy_id = $5, severity = $6,
                labels = $7, token_prefix = $8, token_hash = $9, home_cluster = $10,
                updated_at = $11, email = $12
-             WHERE id = $1",
+             WHERE id = $1 AND org_id = $13",
         )
         .bind(&source.id.0)
         .bind(&source.name)
@@ -130,9 +130,14 @@ impl AlertSourceRepository for PgAlertSourceRepository {
         .bind(&source.home_cluster)
         .bind(source.updated_at)
         .bind(Json(&source.email))
+        .bind(&source.org_id.0)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
+        if updated.rows_affected() == 0 {
+            return Err(Error::not_found("alert source"));
+        }
 
         Ok(source)
     }
@@ -159,9 +164,10 @@ impl AlertSourceRepository for PgAlertSourceRepository {
         rows.into_iter().map(row_to).collect()
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        sqlx::query("DELETE FROM alert_sources WHERE id = $1")
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        sqlx::query("DELETE FROM alert_sources WHERE id = $1 AND org_id = $2")
             .bind(&id.0)
+            .bind(&org_id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

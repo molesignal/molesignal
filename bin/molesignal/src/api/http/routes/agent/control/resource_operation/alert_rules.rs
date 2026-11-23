@@ -169,7 +169,11 @@ async fn delete(
 ) -> Result<OperationOutcome> {
     require_no_parameters(approval)?;
     let rule = load_authorized(state, ctx, &approval.target).await?;
-    state.alerting.service.delete_rule(&rule.id).await?;
+    state
+        .alerting
+        .service
+        .delete_rule(&ctx.org_id, &rule.id)
+        .await?;
 
     emit_cud(
         state,

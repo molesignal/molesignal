@@ -357,15 +357,18 @@ pub async fn apply_event(
     Ok(true)
 }
 
-/// id-scoped 资源（有 `get(&Id)`/`create`/`update`/`delete(&Id)` + 字段 `id`/`org_id`）的
-/// apply：Deleted → delete；Created/Updated → 反序列化 + org/id 改写为本地权威值 + upsert
-/// （get 探在否决定 create / update，repo 层不依赖 update 的 NotFound 语义）。
+/// id-scoped 资源（有 `get(&Id)`/`create`/`update`/`delete(&org, &Id)` + 字段 `id`/`org_id`）的
+/// apply：Deleted → 只删本地组织里的这一条；Created/Updated → 反序列化 + org/id 改写为本地
+/// 权威值 + upsert（get 探在否决定 create / update）。
+///
+/// 资源 ID 全局唯一，属于另一个本地组织时拒收，不改也不删那个组织的配置。repo 的 update 与
+/// delete 自己也带组织条件，探完之后才冒出来的冲突同样落不了地。
 macro_rules! apply_id_scoped {
     ($repo:expr, $ty:ty, $action:expr, $local_org:expr, $res_id:expr, $data:expr) => {{
         let repo = $repo;
         match $action {
             CudAction::Deleted => {
-                repo.delete(&Id($res_id.to_string())).await?;
+                repo.delete($local_org, &Id($res_id.to_string())).await?;
             }
             CudAction::Created | CudAction::Updated => {
                 let mut r: $ty = serde_json::from_value($data.clone())
@@ -373,6 +376,9 @@ macro_rules! apply_id_scoped {
                 r.org_id = $local_org.clone();
                 r.id = Id($res_id.to_string());
                 match repo.get(&r.id).await {
+                    Ok(existing) if existing.org_id != *$local_org => {
+                        return Err(foreign_resource());
+                    }
                     Ok(_) => {
                         repo.update(r).await?;
                     }
@@ -385,6 +391,11 @@ macro_rules! apply_id_scoped {
         }
         Ok(())
     }};
+}
+
+/// 事件里的资源 ID 已被另一个本地组织占用。
+fn foreign_resource() -> Error {
+    Error::forbidden("federation: the resource belongs to another organization")
 }
 
 /// 按资源类型把 CloudEvent.data 落到本地 repo（org 已改写为本地）。
@@ -565,7 +576,10 @@ async fn apply_dashboard(
 ) -> Result<()> {
     match action {
         CudAction::Deleted => {
-            state.dashboard.delete(&Id(resource_id.to_string())).await?;
+            state
+                .dashboard
+                .delete(local_org, &Id(resource_id.to_string()))
+                .await?;
         }
         CudAction::Created | CudAction::Updated => {
             let mut d: Dashboard = serde_json::from_value(data.clone())

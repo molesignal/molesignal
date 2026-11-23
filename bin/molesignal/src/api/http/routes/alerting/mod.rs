@@ -424,7 +424,11 @@ async fn delete_rule(
     Path(id): Path<String>,
 ) -> Result<&'static str> {
     let rid = rule.id.clone();
-    state.alerting.service.delete_rule(&rid).await?;
+    state
+        .alerting
+        .service
+        .delete_rule(&ctx.org_id, &rid)
+        .await?;
 
     emit_cud(
         &state,
@@ -949,7 +953,11 @@ async fn delete_escalation(
     Path(id): Path<String>,
 ) -> Result<&'static str> {
     let rid = policy.id.clone();
-    state.alerting.service.delete_policy(&rid).await?;
+    state
+        .alerting
+        .service
+        .delete_policy(&ctx.org_id, &rid)
+        .await?;
 
     emit_cud(
         &state,

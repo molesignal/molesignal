@@ -6,7 +6,7 @@ use domain::alerting::{
     repositories::ScheduleRepository,
     schedule::{Rotation, Schedule, ScheduleOverride},
 };
-use kernel::{Result, ids::Id, time::TimestampMicros};
+use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use sqlx::{PgPool, Row, types::Json};
 
 use super::sqlx_err;
@@ -92,12 +92,12 @@ impl ScheduleRepository for PgScheduleRepository {
     }
 
     async fn update(&self, s: Schedule) -> Result<Schedule> {
-        sqlx::query(
+        let updated = sqlx::query(
             "UPDATE schedules SET
                name = $2, description = $3, team_id = $4, timezone = $5,
                enabled = $6, rotations = $7, overrides = $8, updated_by = $9,
                updated_at = $10, swap_needs_approval = $11
-             WHERE id = $1",
+             WHERE id = $1 AND org_id = $12",
         )
         .bind(&s.id.0)
         .bind(&s.name)
@@ -110,9 +110,14 @@ impl ScheduleRepository for PgScheduleRepository {
         .bind(s.updated_by.as_ref().map(|id| &id.0))
         .bind(s.updated_at)
         .bind(s.swap_needs_approval)
+        .bind(&s.org_id.0)
         .execute(&self.pool)
         .await
         .map_err(sqlx_err)?;
+
+        if updated.rows_affected() == 0 {
+            return Err(Error::not_found("schedule"));
+        }
 
         Ok(s)
     }
@@ -137,9 +142,10 @@ impl ScheduleRepository for PgScheduleRepository {
         rows.into_iter().map(row_to_schedule).collect()
     }
 
-    async fn delete(&self, id: &Id) -> Result<()> {
-        sqlx::query("DELETE FROM schedules WHERE id = $1")
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()> {
+        sqlx::query("DELETE FROM schedules WHERE id = $1 AND org_id = $2")
             .bind(&id.0)
+            .bind(&org_id.0)
             .execute(&self.pool)
             .await
             .map_err(sqlx_err)?;

@@ -229,7 +229,8 @@ pub trait AlertSourceRepository: Send + Sync {
     async fn update(&self, source: AlertSource) -> Result<AlertSource>;
     async fn get(&self, id: &Id) -> Result<AlertSource>;
     async fn list(&self, org_id: &Id) -> Result<Vec<AlertSource>>;
-    async fn delete(&self, id: &Id) -> Result<()>;
+    /// 只删 `org_id` 里的这一条：别的组织有同一个 ID 时不动它。
+    async fn delete(&self, org_id: &Id, id: &Id) -> Result<()>;
     /// 按 Token 中间的 16 位找来源。
     async fn find_by_token_prefix(&self, prefix: &str) -> Result<Option<AlertSource>>;
     /// 记下本集群最近一次收到它的请求；只会往后走。
