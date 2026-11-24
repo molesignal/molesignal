@@ -10,9 +10,9 @@ name: Translate
 
 on:
   # Starts on the hand-written English and Simplified Chinese text: the interface JSON, the
-  # translation configs, and the en-us and zh-cn rows of i18n_language in the baseline migration.
-  # The migration changes for other reasons too, so the job `changes` below looks at the rows
-  # themselves. After changing only the scripts, start it by hand.
+  # translation configs and scripts, and the en-us and zh-cn rows of i18n_language in the baseline
+  # migration. The migration changes for other reasons too, so the job `changes` below looks at
+  # the rows themselves.
   push:
     branches: [main]
     paths:
@@ -20,6 +20,7 @@ on:
       - 'web/src/i18n/zh-cn/**.json'
       - 'web/i18n.config.json'
       - 'web/i18n.zh-tw.config.json'
+      - 'web/scripts/i18n/**'
       - 'crates/engines/postgres/src/migrations/20260101000001_initial.sql'
   workflow_dispatch:
 
@@ -52,7 +53,7 @@ jobs:
             exit 0
           fi
 
-          files=$(git diff --name-only "$BEFORE" "$AFTER" -- web/src/i18n/en-us web/src/i18n/zh-cn web/i18n.config.json web/i18n.zh-tw.config.json)
+          files=$(git diff --name-only "$BEFORE" "$AFTER" -- web/src/i18n/en-us web/src/i18n/zh-cn web/i18n.config.json web/i18n.zh-tw.config.json web/scripts/i18n)
           rows=$(git diff --unified=0 "$BEFORE" "$AFTER" -- crates/engines/postgres/src/migrations/20260101000001_initial.sql \
             | grep -E "^[+-] {4}\('[a-z0-9_.]+', '(en-us|zh-cn)', " || true)
 
