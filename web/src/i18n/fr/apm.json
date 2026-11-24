@@ -323,7 +323,8 @@
       "last_deploy": "Dernier déploiement",
       "tags": "Tags",
       "last_seen": "Dernière observation",
-      "favorite": "Favori"
+      "favorite": "Favori",
+      "correlation": "Corrélation"
     },
     "favorite": "Ajouter {{name}} aux favoris",
     "unfavorite": "Retirer {{name}} des favoris",
@@ -733,7 +734,9 @@
       "returned": "Retour à la version précédente",
       "first_seen": "Première apparition",
       "configuration": "Configuration",
-      "feature_flag": "Indicateur de fonctionnalité"
+      "feature_flag": "Indicateur de fonctionnalité",
+      "scaling": "Mise à l’échelle",
+      "infrastructure": "Infrastructure"
     },
     "from": "à partir de {{version}}",
     "pull_request": "PR",
@@ -1206,7 +1209,48 @@
       "environments": "{{names}} ne diffèrent que par la casse.",
       "map_to": "Traiter tous les noms comme {{name}}",
       "generated": "{{name}} semble correspondre à {{base}} avec un suffixe généré.",
-      "add_rule": "Ajouter une règle de nommage"
+      "add_rule": "Ajouter une règle de nommage",
+      "correlation": {
+        "untraced_one": "{{formatted}} service écrit des journaux sans identifiants de trace au cours de la dernière heure : {{names}}.",
+        "untraced_other": "{{formatted}} services écrivent des journaux sans identifiants de trace au cours de la dernière heure : {{names}}.",
+        "untraced_many": "{{formatted}} services écrivent des journaux sans identifiants de trace au cours de la dernière heure : {{names}}.",
+        "partly_traced_one": "{{formatted}} service ne relie qu'une partie de ses journaux aux traces conservées : {{names}}.",
+        "partly_traced_other": "{{formatted}} services ne relient qu'une partie de leurs journaux aux traces conservées : {{names}}.",
+        "partly_traced_many": "{{formatted}} services ne relient qu'une partie de leurs journaux aux traces conservées : {{names}}.",
+        "unplaced_one": "{{formatted}} service n'indique pas où il s'exécute (hôte, pod, nœud ou conteneur) : {{names}}.",
+        "unplaced_other": "{{formatted}} services n'indiquent pas où ils s'exécutent (hôte, pod, nœud ou conteneur) : {{names}}.",
+        "unplaced_many": "{{formatted}} services n'indiquent pas où ils s'exécutent (hôte, pod, nœud ou conteneur) : {{names}}.",
+        "unmatched_one": "Des journaux ou des métriques citent {{formatted}} service que l'APM ne connaît pas : {{names}}.",
+        "unmatched_other": "Des journaux ou des métriques citent {{formatted}} services que l'APM ne connaît pas : {{names}}.",
+        "unmatched_many": "Des journaux ou des métriques citent {{formatted}} services que l'APM ne connaît pas : {{names}}.",
+        "no_changes_one": "{{formatted}} service n'a signalé aucun changement au cours de la dernière semaine : {{names}}.",
+        "no_changes_other": "{{formatted}} services n'ont signalé aucun changement au cours de la dernière semaine : {{names}}.",
+        "no_changes_many": "{{formatted}} services n'ont signalé aucun changement au cours de la dernière semaine : {{names}}.",
+        "names_more_one": "{{names}} et {{count}} de plus",
+        "names_more_other": "{{names}} et {{count}} de plus",
+        "names_more_many": "{{names}} et {{count}} de plus",
+        "to_naming": "Règles de nommage",
+        "report_changes": "Signaler les changements"
+      }
+    },
+    "business": {
+      "title": "Contexte métier",
+      "hint": "Des clés comme un locataire ou une offre, et le champ qui les porte pour chaque signal : la page de service répartit les requêtes selon ces clés, et les incidents indiquent les valeurs concernées",
+      "empty": "Aucune clé métier pour le moment",
+      "add": "Ajouter une clé",
+      "key": "Clé",
+      "label": "Libellé",
+      "label_placeholder": "Locataire",
+      "span": "Attribut de span",
+      "log": "Champ de journal",
+      "rum": "Champ RUM",
+      "important": "Valeurs importantes",
+      "important_placeholder": "Valeurs les plus importantes, séparées par des virgules",
+      "issue": {
+        "key": "Une clé commence par une lettre minuscule et ne contient que des lettres minuscules, des chiffres et _.",
+        "twice": "Chaque clé ne peut être déclarée qu'une fois.",
+        "nowhere": "Indiquez le champ d'au moins un signal pour chaque clé."
+      }
     }
   },
   "instances": {
@@ -1252,12 +1296,14 @@
       "slow_dependency": "Goulot d’étranglement",
       "repeated_call": "N+1",
       "slow_query": "Requête SQL lente",
-      "hot_endpoint": "Point de terminaison coûteux"
+      "hot_endpoint": "Point de terminaison coûteux",
+      "log_errors": "Journaux d'erreur"
     },
     "metric": {
       "error_rate": "Taux d’erreur",
       "p95": "P95",
-      "throughput": "Débit"
+      "throughput": "Débit",
+      "log_errors": "Lignes de journal d'erreur"
     },
     "sentence": {
       "anomaly_up": "{{metric}} : hausse à {{value}} (contre {{before}})",
@@ -1266,13 +1312,16 @@
       "slow_dependency": "{{target}} représente {{share}} du temps de traitement des requêtes",
       "repeated_call": "{{operation}} est appelée {{each}} fois par requête ({{calls}} appels) : un seul appel pourrait remplacer la boucle",
       "slow_query": "{{operation}} : P95 de {{p95}} sur {{calls}} appels",
-      "hot_endpoint": "{{endpoint}} représente {{share}} du temps de traitement du service (P95 : {{p95}})"
+      "hot_endpoint": "{{endpoint}} représente {{share}} du temps de traitement du service (P95 : {{p95}})",
+      "log_errors": "les lignes de journal d'erreur ont atteint {{value}} ({{before}})"
     },
     "change": {
       "deployment": "Déploiement de",
       "configuration": "Modification de la configuration de",
       "feature_flag": "Indicateur de fonctionnalité de",
-      "observed": ", première apparition dans les spans"
+      "observed": ", première apparition dans les spans",
+      "scaling": "Mise à l'échelle de",
+      "infrastructure": "Modification d’infrastructure de"
     },
     "baseline": {
       "previous": "Par rapport à la période précédente :",
@@ -1291,5 +1340,53 @@
       "error": "Analysez l’erreur {{error}} de {{service}} dans {{environment}} (empreinte {{fingerprint}}) : depuis quand elle se produit, combien de requêtes elle fait échouer et quelle en est la cause probable.",
       "finding": "Analysez ce constat concernant {{service}} dans {{environment}} de {{from}} à {{to}} : {{finding}}"
     }
+  },
+  "correlation": {
+    "and": ", ",
+    "aspect": {
+      "traceIds": "ID de trace dans les journaux",
+      "resource": "Attributs de ressource",
+      "metrics": "Métriques",
+      "changes": "Changements"
+    },
+    "grade": {
+      "good": "bon",
+      "partial": "partiel",
+      "missing": "manquant",
+      "unknown": "inconnu"
+    },
+    "attribute": {
+      "environment": "environnement",
+      "version": "version",
+      "instance": "instance",
+      "placement": "hôte ou pod"
+    },
+    "detail": {
+      "unknown": "Lecture impossible.",
+      "no_logs": "Aucune ligne de journal au cours de la dernière heure.",
+      "traced": "{{share}} des {{lines}} lignes portent un ID de trace.",
+      "matched": "{{matched}} des {{sampled}} traces échantillonnées ont été trouvées.",
+      "resource_complete": "Environnement, version, instance et hôte ou pod renseignés.",
+      "resource_missing": "Non renseignés : {{attributes}}.",
+      "metrics_reported": "Des métriques portent son nom.",
+      "metrics_missing": "Aucune métrique ne porte son nom au cours de la dernière heure.",
+      "metrics_unknown": "Lecture impossible.",
+      "changes_one": "{{formatted}} modification au cours de la semaine passée.",
+      "changes_other": "{{formatted}} modifications au cours de la semaine passée.",
+      "changes_many": "{{formatted}} modifications au cours de la semaine passée."
+    }
+  },
+  "business": {
+    "title": "Requêtes par clé métier",
+    "key": "Clé métier",
+    "any_field": "Répartir par n’importe quel champ",
+    "requests": "Requêtes",
+    "errors": "Taux d’erreur",
+    "no_value": "(aucune valeur)",
+    "important": "Important",
+    "loading": "Répartition…",
+    "failed": "La répartition n’a pas pu être chargée",
+    "unavailable": "Vous ne pouvez pas lire cette clé pour le moment",
+    "empty": "Aucune requête ne contenait cette clé sur la période affichée"
   }
 }

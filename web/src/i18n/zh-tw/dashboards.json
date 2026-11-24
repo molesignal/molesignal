@@ -590,7 +590,9 @@
       "10s": "10 秒",
       "30s": "30 秒",
       "1m": "1 分鐘",
-      "5m": "5 分鐘"
+      "5m": "5 分鐘",
+      "services": "服務",
+      "services_whose_changes_are_marked_comma_separated_every_service_when_empty": "要標記變更的服務，以逗號分隔；留空表示所有服務"
     }
   },
   "editor": {

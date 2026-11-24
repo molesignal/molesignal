@@ -564,6 +564,28 @@
     "bulk_failed_other": "{{total}} 項中有 {{count}} 項失敗：{{reason}}",
     "clear_filters": "清除篩選"
   },
+  "changes": {
+    "kind": {
+      "deployment": "部署",
+      "configuration": "設定變更",
+      "feature_flag": "功能旗標",
+      "scaling": "擴縮容",
+      "infrastructure": "基礎設施變更",
+      "annotation": "註解",
+      "version": "新版本",
+      "rule": "規則修改"
+    },
+    "status": {
+      "succeeded": "成功",
+      "failed": "失敗",
+      "rolled_back": "已回滾"
+    },
+    "rail_one": "這段時間有 {{count}} 次變更",
+    "rail_other": "這段時間有 {{count}} 次變更",
+    "open": "開啟",
+    "pull_request": "合併請求",
+    "ci_run": "CI 執行"
+  },
   "baseline": {
     "aria": "基準：{{value}}",
     "title": "選擇基準",

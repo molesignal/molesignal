@@ -286,6 +286,27 @@
       "unread_one": "{{count}} evento no tiene mensaje y no pertenece a ningún patrón.",
       "unread_other": "{{count}} eventos no tienen mensaje y no pertenecen a ningún patrón.",
       "unread_many": "{{count}} eventos no tienen mensaje y no pertenecen a ningún patrón.",
+      "change_column": "Cambio",
+      "change": {
+        "new": "Nuevo",
+        "surging": "×{{ratio}}",
+        "dropping": "Menos",
+        "steady": "—"
+      },
+      "estimated": "Aproximadamente {{count}} en todo el intervalo",
+      "example_only": "No está entre los eventos leídos",
+      "basis_counted_one": "Contabilizado sobre el evento {{formatted}} del intervalo",
+      "basis_counted_other": "Contabilizado sobre los {{formatted}} eventos del intervalo",
+      "basis_counted_many": "Contabilizado sobre los {{formatted}} eventos del intervalo",
+      "basis_sampled": "patrones leídos de {{read}} muestreados en el intervalo",
+      "counting": "Contando todo el intervalo…",
+      "count_failed": "No se pudo contar todo el intervalo.",
+      "baseline_label": "Comparar con",
+      "baseline": {
+        "previous": "Comparado con el periodo anterior",
+        "week_before": "Comparado con la semana anterior",
+        "none": "Sin comparar"
+      },
       "kind": {
         "number": "Un número",
         "id": "Un identificador",

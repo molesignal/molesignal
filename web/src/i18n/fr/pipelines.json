@@ -330,7 +330,8 @@
       "counting_realtime_only": "L’étape « {{name}} » compte les événements à mesure qu’ils arrivent : elle ne peut s’exécuter que dans un pipeline en temps réel.",
       "counting_not_here_metric": "L’étape « {{name}} » génère des métriques à partir de logs, d’événements RUM et de spans, mais ce pipeline transforme un autre type de données.",
       "counting_not_here_limit": "L’étape « {{name}} » limite le passage des logs et des événements RUM qu’une étape peut écarter. Dans ce pipeline, elle créerait des lacunes dans les données.",
-      "counting_name_duplicate": "Deux étapes portent le nom « {{name}} ». Une étape de comptage doit avoir un nom unique, car ses compteurs sont enregistrés sous ce nom."
+      "counting_name_duplicate": "Deux étapes portent le nom « {{name}} ». Une étape de comptage doit avoir un nom unique, car ses compteurs sont enregistrés sous ce nom.",
+      "counting_not_here_change": "L’étape « {{name}} » lit des objets Kubernetes qui arrivent sous forme de logs ; ce pipeline modifie un autre type de données."
     }
   },
   "drawer": {
@@ -484,7 +485,8 @@
       "query_enrich": "Ajouter les résultats d’une requête",
       "generate_metric": "Générer une métrique",
       "quota": "Quota",
-      "throttle": "Limiter le débit"
+      "throttle": "Limiter le débit",
+      "to_change": "Enregistrer les changements"
     }
   },
   "editor": {
@@ -1196,7 +1198,8 @@
       "past_route": "envoyé à {{stream}}",
       "quota_limit": "{{limit}} {{unit}} par jour",
       "throttle_limit": "{{limit}} par tranche de {{window}} s",
-      "limit": "L’événement est comptabilisé dans « {{bucket}} » ({{limit}}) ; au-delà de la limite, il est {{past}}."
+      "limit": "L’événement est comptabilisé dans « {{bucket}} » ({{limit}}) ; au-delà de la limite, il est {{past}}.",
+      "change": "Interprété comme un changement lorsque son objet a changé depuis sa dernière observation : une nouvelle image, de nouveaux réplicas, une nouvelle spec ou de nouvelles données."
     },
     "usage": {
       "title": "Limites du jour",
@@ -1209,7 +1212,12 @@
       "mib": "{{value}} MiB",
       "whole": "Étape entière",
       "others": "Autres groupes"
-    }
+    },
+    "change_environment": "Environnement",
+    "change_environment_hint": "L’environnement de chaque changement. Laissez vide pour le récupérer depuis le champ.",
+    "change_environment_field": "Champ d’environnement",
+    "change_environment_field_hint": "Le champ d’événement qui désigne l’environnement, comme le cluster.",
+    "summary_change": "Changements de {{environment}}"
   },
   "schedule_every": "Intervalle : {{interval}}"
 }

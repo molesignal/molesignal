@@ -91,7 +91,8 @@
     "expand_group": "Expandir {{group}}",
     "open_navigation": "Abrir o menu de alertas",
     "collapse_navigation": "Recolher o menu de alertas",
-    "expand_navigation": "Expandir o menu de alertas"
+    "expand_navigation": "Expandir o menu de alertas",
+    "changes": "Mudanças"
   },
   "history": {
     "error_title": "Não foi possível carregar o histórico de alertas",
@@ -804,7 +805,8 @@
       "tickets": "Chamados",
       "major": "Incidente grave",
       "postmortem": "Post-mortem",
-      "guide": "Guia de investigação"
+      "guide": "Guia de investigação",
+      "business_impact": "Impacto no negócio"
     },
     "guide": {
       "queries": "Consultas",
@@ -826,7 +828,48 @@
       "generating": "Gerando…",
       "generated": "Análise de causa raiz gerada",
       "empty": "Ainda não há análise — gere uma ou aguarde o processamento em segundo plano.",
-      "budget_exhausted": "O limite diário de tokens do Mole Agent para a organização foi atingido, por isso a análise não foi gerada. Tente novamente quando o limite for renovado ou aumentado."
+      "budget_exhausted": "O limite diário de tokens do Mole Agent para a organização foi atingido, por isso a análise não foi gerada. Tente novamente quando o limite for renovado ou aumentado.",
+      "evidence": {
+        "title": "Evidências",
+        "separator": ", ",
+        "withheld": "Números ocultos: você não pode ler estes dados",
+        "open": "Abrir {{label}}",
+        "kind": {
+          "insight": "Insight de APM",
+          "new_error_group": "Novo grupo de erros",
+          "sample_trace": "Trace de exemplo",
+          "error_logs": "Logs de erro",
+          "new_log_pattern": "Novo padrão de log de erro",
+          "change": "Mudança",
+          "similar_incident": "Incidente semelhante",
+          "investigation": "Investigação",
+          "business_impact": "Impacto no negócio",
+          "attribute_skew": "Onde as requisições com falha diferem"
+        },
+        "insight": {
+          "anomaly": "deslocado",
+          "regression": "regrediu",
+          "slow_dependency": "dependência lenta",
+          "repeated_call": "chamada repetida",
+          "slow_query": "consulta lenta",
+          "hot_endpoint": "endpoint mais requisitado",
+          "log_errors": "logs de erro aumentaram"
+        },
+        "figures": {
+          "now": "agora {{value}}",
+          "previous": "antes {{value}}",
+          "last_week": "{{value}} há uma semana",
+          "occurrences_one": "{{formatted}} ocorrência",
+          "occurrences_other": "{{formatted}} ocorrências",
+          "occurrences_many": "{{formatted}} ocorrências",
+          "error_logs": "{{now}} agora, {{lastWeek}} uma semana atrás",
+          "lines_one": "{{formatted}} linha",
+          "lines_other": "{{formatted}} linhas",
+          "lines_many": "{{formatted}} linhas",
+          "business": "{{errors}} de {{requests}} requisições falharam",
+          "skew": "{{failed}} das requisições com falha, {{others}} das demais"
+        }
+      }
     },
     "signals": {
       "services": "Serviços",
@@ -914,6 +957,11 @@
         "healthy": "Saudável",
         "no_traffic": "Sem tráfego"
       }
+    },
+    "business": {
+      "important": "Importante",
+      "failed": "{{errors}} de {{requests}} falharam · {{rate}}",
+      "more": "Mais valores tiveram requisições"
     }
   },
   "insights": {
@@ -3208,5 +3256,29 @@
       "imported_many": "{{count}} regras de roteamento importadas",
       "content_hint": "JSON ou YAML. Políticas de escalonamento, equipes e calendários de feriados são identificados pelo nome. As regras do arquivo vêm primeiro, na ordem em que aparecem nele. As demais vêm depois, mantendo a ordem original."
     }
+  },
+  "changes": {
+    "error_title": "Não foi possível carregar as alterações",
+    "empty_title": "Nenhuma alteração neste intervalo",
+    "empty_description": "Implantações e outras alterações reportadas pelos seus pipelines, anotações, novas versões e edições de regras aparecem aqui.",
+    "search_label": "Pesquisar alterações",
+    "search_placeholder": "Serviço, versão, título, autor ou commit",
+    "kind_label": "Tipo",
+    "all_kinds": "Todos os tipos",
+    "span_label": "Intervalo",
+    "span": {
+      "24h": "Últimas 24 horas",
+      "7d": "Últimos 7 dias",
+      "30d": "Últimos 30 dias"
+    },
+    "columns": {
+      "at": "Quando",
+      "kind": "Tipo",
+      "subject": "Alteração",
+      "status": "Resultado",
+      "by": "Por",
+      "open": "Abrir"
+    },
+    "open": "Abrir {{change}}"
   }
 }

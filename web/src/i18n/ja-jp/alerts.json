@@ -91,7 +91,8 @@
     "expand_group": "{{group}}を展開",
     "open_navigation": "アラートナビゲーションを開く",
     "collapse_navigation": "アラートナビゲーションを折りたたむ",
-    "expand_navigation": "アラートナビゲーションを展開"
+    "expand_navigation": "アラートナビゲーションを展開",
+    "changes": "変更"
   },
   "history": {
     "error_title": "アラート履歴を読み込めません",
@@ -792,7 +793,8 @@
       "tickets": "チケット",
       "major": "重大インシデント",
       "postmortem": "ポストモーテム",
-      "guide": "調査ガイド"
+      "guide": "調査ガイド",
+      "business_impact": "ビジネスへの影響"
     },
     "guide": {
       "queries": "クエリ",
@@ -814,7 +816,46 @@
       "generating": "生成中…",
       "generated": "根本原因分析を生成しました",
       "empty": "まだ分析結果はありません。分析を生成するか、バックグラウンドでの分析が完了するまでお待ちください。",
-      "budget_exhausted": "組織のMole Agentの本日分のトークン上限に達したため、分析を生成できませんでした。使用量がリセットされるか、上限が引き上げられてから再試行してください。"
+      "budget_exhausted": "組織のMole Agentの本日分のトークン上限に達したため、分析を生成できませんでした。使用量がリセットされるか、上限が引き上げられてから再試行してください。",
+      "evidence": {
+        "title": "エビデンス",
+        "separator": "、",
+        "withheld": "数値は非表示です。このデータを閲覧する権限がありません",
+        "open": "{{label}}を開く",
+        "kind": {
+          "insight": "APM インサイト",
+          "new_error_group": "新しいエラーグループ",
+          "sample_trace": "サンプルトレース",
+          "error_logs": "エラーログ",
+          "new_log_pattern": "新しいエラーログパターン",
+          "change": "変更",
+          "similar_incident": "類似インシデント",
+          "investigation": "調査",
+          "business_impact": "ビジネスへの影響",
+          "attribute_skew": "失敗したリクエストの差異"
+        },
+        "insight": {
+          "anomaly": "変動",
+          "regression": "悪化",
+          "slow_dependency": "遅い依存関係",
+          "repeated_call": "繰り返し呼び出し",
+          "slow_query": "スロークエリ",
+          "hot_endpoint": "ホットエンドポイント",
+          "log_errors": "エラーログが増加"
+        },
+        "figures": {
+          "now": "現在 {{value}}",
+          "previous": "{{value}}より前",
+          "last_week": "1週間前 {{value}}",
+          "occurrences_one": "{{formatted}}回",
+          "occurrences_other": "{{formatted}}回",
+          "error_logs": "現在 {{now}}、1週間前 {{lastWeek}}",
+          "lines_one": "{{formatted}}行",
+          "lines_other": "{{formatted}}行",
+          "business": "{{requests}}件のリクエスト中{{errors}}件が失敗",
+          "skew": "失敗したリクエストでは{{failed}}、その他では{{others}}"
+        }
+      }
     },
     "signals": {
       "services": "サービス",
@@ -898,6 +939,11 @@
         "healthy": "正常",
         "no_traffic": "トラフィックなし"
       }
+    },
+    "business": {
+      "important": "重要",
+      "failed": "{{requests}}件中{{errors}}件が失敗 · {{rate}}",
+      "more": "リクエストのあった値がほかにもあります"
     }
   },
   "insights": {
@@ -3146,5 +3192,29 @@
       "imported_other": "{{count}} 件のルーティングルールをインポートしました",
       "content_hint": "JSON または YAML 形式です。エスカレーションポリシー、チーム、休日カレンダーは名前で指定します。ファイル内のルールが記載順に先頭に並び、それ以外のルールは元の順序のまま後に続きます。"
     }
+  },
+  "changes": {
+    "error_title": "変更を読み込めません",
+    "empty_title": "この範囲には変更がありません",
+    "empty_description": "パイプラインから報告されたデプロイやその他の変更、アノテーション、新しいバージョン、ルールの編集がここに表示されます。",
+    "search_label": "変更を検索",
+    "search_placeholder": "サービス、バージョン、タイトル、作成者、コミット",
+    "kind_label": "種類",
+    "all_kinds": "すべての種類",
+    "span_label": "期間",
+    "span": {
+      "24h": "過去24時間",
+      "7d": "過去7日間",
+      "30d": "過去30日間"
+    },
+    "columns": {
+      "at": "日時",
+      "kind": "種類",
+      "subject": "変更",
+      "status": "結果",
+      "by": "実行者",
+      "open": "開く"
+    },
+    "open": "{{change}}を開く"
   }
 }

@@ -278,6 +278,26 @@
       "read_failed": "無法繼續讀取更早的日誌。",
       "unread_one": "{{count}} 筆事件沒有訊息內容，未歸入任何模式。",
       "unread_other": "{{count}} 筆事件沒有訊息內容，未歸入任何模式。",
+      "change_column": "變化",
+      "change": {
+        "new": "新出現",
+        "surging": "×{{ratio}}",
+        "dropping": "減少",
+        "steady": "—"
+      },
+      "estimated": "整個時間範圍內約 {{count}} 筆",
+      "example_only": "已讀取的事件中沒有",
+      "basis_counted_one": "依時間範圍內全部 {{formatted}} 筆事件統計",
+      "basis_counted_other": "依時間範圍內全部 {{formatted}} 筆事件統計",
+      "basis_sampled": "模式取自均勻分佈的 {{read}} 筆取樣",
+      "counting": "正在統計整個時間範圍…",
+      "count_failed": "無法統計整個時間範圍。",
+      "baseline_label": "比較對象",
+      "baseline": {
+        "previous": "與上一時段比較",
+        "week_before": "與一週前比較",
+        "none": "不比較"
+      },
       "kind": {
         "number": "數字",
         "id": "識別碼",

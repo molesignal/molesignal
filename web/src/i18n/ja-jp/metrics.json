@@ -1,5 +1,11 @@
 {
   "explore": {
+    "baseline": {
+      "compare": "比較",
+      "stop": "比較を停止",
+      "failed": "ベースラインを読み取れませんでした",
+      "series": "{{name}}（ベースライン）"
+    },
     "title": "メトリクス",
     "subtitle": "エクスプローラー",
     "toolbar": {

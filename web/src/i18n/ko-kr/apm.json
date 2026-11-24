@@ -309,7 +309,8 @@
       "last_deploy": "마지막 배포",
       "tags": "태그",
       "last_seen": "마지막 감지",
-      "favorite": "즐겨찾기"
+      "favorite": "즐겨찾기",
+      "correlation": "상관관계"
     },
     "favorite": "{{name}} 즐겨찾기에 추가",
     "unfavorite": "{{name}} 즐겨찾기에서 제거",
@@ -709,7 +710,9 @@
       "returned": "이전 버전으로 복귀",
       "first_seen": "최초 감지",
       "configuration": "구성",
-      "feature_flag": "기능 플래그"
+      "feature_flag": "기능 플래그",
+      "scaling": "스케일링",
+      "infrastructure": "인프라"
     },
     "from": "{{version}}에서",
     "pull_request": "PR",
@@ -1177,7 +1180,42 @@
       "environments": "{{names}}의 차이는 대소문자뿐입니다.",
       "map_to": "모두 {{name}}(으)로 인식",
       "generated": "{{name}}은(는) {{base}}에 자동 생성된 접미사가 붙은 이름으로 보입니다.",
-      "add_rule": "이름 지정 규칙 추가"
+      "add_rule": "이름 지정 규칙 추가",
+      "correlation": {
+        "untraced_one": "지난 1시간 동안 {{formatted}}개 서비스가 트레이스 ID 없이 로그를 기록했습니다: {{names}}.",
+        "untraced_other": "지난 1시간 동안 {{formatted}}개 서비스가 트레이스 ID 없이 로그를 기록했습니다: {{names}}.",
+        "partly_traced_one": "{{formatted}}개 서비스가 보관된 트레이스에 로그의 일부만 연결합니다: {{names}}.",
+        "partly_traced_other": "{{formatted}}개 서비스가 보관된 트레이스에 로그의 일부만 연결합니다: {{names}}.",
+        "unplaced_one": "{{formatted}}개 서비스가 실행 위치(호스트, 파드, 노드 또는 컨테이너)를 표시하지 않습니다: {{names}}.",
+        "unplaced_other": "{{formatted}}개 서비스가 실행 위치(호스트, 파드, 노드 또는 컨테이너)를 표시하지 않습니다: {{names}}.",
+        "unmatched_one": "로그나 메트릭에서 APM이 인식하지 못하는 서비스를 {{formatted}}개 언급합니다: {{names}}.",
+        "unmatched_other": "로그나 메트릭에서 APM이 인식하지 못하는 서비스를 {{formatted}}개 언급합니다: {{names}}.",
+        "no_changes_one": "{{formatted}}개 서비스에서 지난주에 변경 사항이 없었습니다: {{names}}.",
+        "no_changes_other": "{{formatted}}개 서비스에서 지난주에 변경 사항이 없었습니다: {{names}}.",
+        "names_more_one": "{{names}} 외 {{count}}개",
+        "names_more_other": "{{names}} 외 {{count}}개",
+        "to_naming": "명명 규칙",
+        "report_changes": "변경 사항 보고"
+      }
+    },
+    "business": {
+      "title": "비즈니스 컨텍스트",
+      "hint": "테넌트나 플랜과 같은 키 및 각 신호가 그 키를 담는 필드입니다. 서비스 페이지는 이 키를 기준으로 요청을 나누고, 인시던트는 영향을 받은 값을 보여 줍니다.",
+      "empty": "아직 비즈니스 키가 없습니다",
+      "add": "키 추가",
+      "key": "키",
+      "label": "레이블",
+      "label_placeholder": "테넌트",
+      "span": "스팬 속성",
+      "log": "로그 필드",
+      "rum": "RUM 필드",
+      "important": "중요 값",
+      "important_placeholder": "가장 중요한 값(쉼표로 구분)",
+      "issue": {
+        "key": "키는 소문자로 시작하고 소문자, 숫자, _만 포함할 수 있습니다.",
+        "twice": "각 키는 한 번만 선언할 수 있습니다.",
+        "nowhere": "각 키에 대해 하나 이상의 신호 필드를 지정하세요."
+      }
     }
   },
   "instances": {
@@ -1223,12 +1261,14 @@
       "slow_dependency": "병목",
       "repeated_call": "N+1",
       "slow_query": "느린 SQL",
-      "hot_endpoint": "부하 집중 엔드포인트"
+      "hot_endpoint": "부하 집중 엔드포인트",
+      "log_errors": "오류 로그"
     },
     "metric": {
       "error_rate": "오류율",
       "p95": "P95",
-      "throughput": "처리량"
+      "throughput": "처리량",
+      "log_errors": "오류 로그 라인"
     },
     "sentence": {
       "anomaly_up": "{{metric}} 지표가 {{value}}까지 상승했습니다(이전: {{before}}).",
@@ -1237,13 +1277,16 @@
       "slow_dependency": "요청 처리 시간의 {{share}}가 {{target}}에 소요됩니다.",
       "repeated_call": "요청당 {{operation}} 작업을 {{each}}회 호출합니다(총 {{calls}}회). 이 반복 호출은 한 번의 호출로 대체할 수 있습니다.",
       "slow_query": "{{operation}}: {{calls}}회 호출의 P95 {{p95}}",
-      "hot_endpoint": "{{endpoint}} 엔드포인트가 서비스 처리 시간의 {{share}}를 차지합니다(P95 {{p95}})."
+      "hot_endpoint": "{{endpoint}} 엔드포인트가 서비스 처리 시간의 {{share}}를 차지합니다(P95 {{p95}}).",
+      "log_errors": "오류 로그 라인이 {{value}}까지 증가했습니다({{before}})."
     },
     "change": {
       "deployment": "배포:",
       "configuration": "구성 변경:",
       "feature_flag": "기능 플래그:",
-      "observed": ", 스팬에서 처음 관측됨"
+      "observed": ", 스팬에서 처음 관측됨",
+      "scaling": "스케일링",
+      "infrastructure": "인프라 변경"
     },
     "baseline": {
       "previous": "직전 구간 대비:",
@@ -1262,5 +1305,52 @@
       "error": "{{environment}} 환경의 {{service}} 서비스에서 발생한 {{error}} 오류(핑거프린트: {{fingerprint}})를 조사해 주십시오. 오류가 언제부터 발생했는지, 이로 인해 실패한 요청 수와 추정 원인을 확인해 주십시오.",
       "finding": "{{environment}} 환경의 {{service}} 서비스에서 {{from}}부터 {{to}}까지의 구간에 대한 다음 분석 결과를 조사해 주십시오: {{finding}}"
     }
+  },
+  "correlation": {
+    "and": ", ",
+    "aspect": {
+      "traceIds": "로그의 트레이스 ID",
+      "resource": "리소스 속성",
+      "metrics": "메트릭",
+      "changes": "변경 사항"
+    },
+    "grade": {
+      "good": "양호",
+      "partial": "부분",
+      "missing": "누락",
+      "unknown": "알 수 없음"
+    },
+    "attribute": {
+      "environment": "환경",
+      "version": "버전",
+      "instance": "인스턴스",
+      "placement": "호스트 또는 파드"
+    },
+    "detail": {
+      "unknown": "읽을 수 없습니다.",
+      "no_logs": "지난 1시간 동안 로그 라인이 없습니다.",
+      "traced": "{{lines}}개 라인 중 {{share}}에 트레이스 ID가 있습니다.",
+      "matched": "샘플링된 트레이스 {{sampled}}개 중 {{matched}}개를 찾았습니다.",
+      "resource_complete": "환경, 버전, 인스턴스 및 호스트 또는 파드가 보고되었습니다.",
+      "resource_missing": "보고되지 않음: {{attributes}}.",
+      "metrics_reported": "메트릭이 해당 이름을 포함합니다.",
+      "metrics_missing": "지난 1시간 동안 해당 이름을 가진 메트릭이 없습니다.",
+      "metrics_unknown": "읽을 수 없습니다.",
+      "changes_one": "지난주에 변경 사항 {{formatted}}건이 있었습니다.",
+      "changes_other": "지난주에 변경 사항 {{formatted}}건이 있었습니다."
+    }
+  },
+  "business": {
+    "title": "비즈니스 키별 요청",
+    "key": "비즈니스 키",
+    "any_field": "임의 필드로 분할",
+    "requests": "요청",
+    "errors": "오류율",
+    "no_value": "(값 없음)",
+    "important": "중요",
+    "loading": "분할 중…",
+    "failed": "분할을 불러오지 못했습니다",
+    "unavailable": "현재 이 키를 읽을 수 없습니다",
+    "empty": "표시된 기간 동안 이 키가 포함된 요청이 없습니다"
   }
 }

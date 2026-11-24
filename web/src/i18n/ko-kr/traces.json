@@ -311,6 +311,25 @@
           "timestamp_masked": "현재 권한에서는 시간 값이 마스킹되어 시간축에 데이터를 표시할 수 없습니다.",
           "field_protected": "현재 권한에서는 이 필드가 마스킹되어 이 필드를 기준으로 요청을 그룹화할 수 없습니다."
         }
+      },
+      "compare": {
+        "title": "비교",
+        "choice_label": "다른 요청과 비교할 요청",
+        "choice": {
+          "none": "요청 선택…",
+          "failed": "실패한 요청",
+          "p95": "p95보다 느림 ({{duration}})",
+          "p99": "p99보다 느림 ({{duration}})"
+        },
+        "sample": "선택한 요청 {{chosen}}개와 다른 요청 {{others}}개를 읽었습니다",
+        "sample_sampled": "선택한 요청 {{chosen}}개와 다른 요청 {{others}}개로 구성된 샘플",
+        "score": "{{score}} 차이",
+        "shares": "선택한 요청 중 {{chosen}} · 다른 요청 중 {{others}}",
+        "break_down": "이 필드로 요청 세분화",
+        "loading": "비교 중…",
+        "failed": "비교를 불러오지 못했습니다",
+        "none_chosen": "선택한 유형에 해당하는 요청이 없습니다",
+        "alike": "선택한 요청은 다른 요청과 값을 공유하며, 이를 구분하는 필드가 없습니다"
       }
     },
     "spans": {

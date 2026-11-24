@@ -1,0 +1,60 @@
+{
+  "title": "Infraestructura",
+  "subtitle": "Sobre qué se ejecutan tus servicios: clústeres, nodos, hosts, pods y contenedores, leído de los campos de recursos de los spans, métricas y logs.",
+  "kind": {
+    "all": "Todos los tipos",
+    "cluster": "Clúster",
+    "node": "Nodo",
+    "host": "Host",
+    "pod": "Pod",
+    "container": "Contenedor"
+  },
+  "list": {
+    "search_label": "Buscar infraestructura",
+    "search_placeholder": "Buscar por nombre o clave",
+    "kind_label": "Tipo",
+    "error_title": "No se puede cargar la infraestructura",
+    "retry": "Reintentar",
+    "empty_title": "Aún no se vio nada",
+    "empty_description": "Las entidades aparecen en menos de cinco minutos cuando los spans, las métricas o los registros incluyen campos de recurso como k8s.pod.name, k8s.node.name o host.name.",
+    "no_match_title": "Nada coincide",
+    "no_match_description": "Prueba con otro nombre o tipo.",
+    "columns": {
+      "name": "Nombre",
+      "kind": "Tipo",
+      "where": "Dónde",
+      "services": "Servicios",
+      "last_seen": "Visto por última vez"
+    },
+    "open": "Abrir {{name}}"
+  },
+  "status": {
+    "current": "En ejecución ahora",
+    "stale": "Visto por última vez {{when}}"
+  },
+  "detail": {
+    "error_title": "No se puede cargar esta entidad",
+    "not_found_title": "No visto",
+    "not_found_description": "No se vio nada de este tipo y clave durante la última semana.",
+    "key": "Clave",
+    "kind": "Tipo",
+    "first_seen": "Visto por primera vez",
+    "last_seen": "Visto por última vez",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "parents": "Se ejecuta en",
+    "parents_empty": "No forma parte de nada visto.",
+    "children": "Se ejecuta aquí",
+    "children_empty": "No se vio nada ejecutándose aquí.",
+    "services": "Servicios",
+    "services_description": "En él, y en lo que se ejecuta en él",
+    "services_empty": "No se vio ningún servicio en él. Los servicios aparecen cuando sus spans nombran este lugar.",
+    "attributes": "Atributos del recurso",
+    "changes": "Cambios en sus servicios",
+    "changes_description": "Últimas 24 horas",
+    "changes_empty": "Sin cambios en las últimas 24 horas.",
+    "logs": "Registros",
+    "metrics": "Métricas",
+    "open_page": "Abrir página"
+  }
+}

@@ -564,6 +564,28 @@
     "bulk_failed_other": "{{total}} 行のうち {{count}} 行の更新に失敗しました：{{reason}}",
     "clear_filters": "フィルターをクリア"
   },
+  "changes": {
+    "kind": {
+      "deployment": "デプロイ",
+      "configuration": "設定",
+      "feature_flag": "フィーチャーフラグ",
+      "scaling": "スケーリング",
+      "infrastructure": "インフラ",
+      "annotation": "アノテーション",
+      "version": "新バージョン",
+      "rule": "ルール編集"
+    },
+    "status": {
+      "succeeded": "成功",
+      "failed": "失敗",
+      "rolled_back": "ロールバック済み"
+    },
+    "rail_one": "この範囲の変更 {{count}} 件",
+    "rail_other": "この範囲の変更 {{count}} 件",
+    "open": "開く",
+    "pull_request": "プルリクエスト",
+    "ci_run": "CI 実行"
+  },
   "baseline": {
     "aria": "ベースライン: {{value}}",
     "title": "ベースラインの選択",

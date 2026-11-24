@@ -311,6 +311,25 @@
           "timestamp_masked": "Die Zeitstempel sind für Sie maskiert. Daher ist keine Darstellung auf einer Zeitachse möglich.",
           "field_protected": "Dieses Feld ist für Sie maskiert. Daher lassen sich die Anfragen nicht danach aufschlüsseln."
         }
+      },
+      "compare": {
+        "title": "Vergleichen",
+        "choice_label": "Requests zum Vergleich mit den anderen",
+        "choice": {
+          "none": "Requests auswählen…",
+          "failed": "Fehlgeschlagene Requests",
+          "p95": "Langsamer als p95 ({{duration}})",
+          "p99": "Langsamer als p99 ({{duration}})"
+        },
+        "sample": "{{chosen}} ausgewählt und {{others}} weitere Requests gelesen",
+        "sample_sampled": "Eine Stichprobe aus {{chosen}} ausgewählten und {{others}} weiteren Requests",
+        "score": "{{score}} Unterschied",
+        "shares": "{{chosen}} der ausgewählten · {{others}} der anderen",
+        "break_down": "Schlüsseln Sie die Requests nach diesem Feld auf",
+        "loading": "Vergleich läuft…",
+        "failed": "Der Vergleich konnte nicht geladen werden",
+        "none_chosen": "Keiner der Requests entspricht der gewählten Art",
+        "alike": "Die ausgewählten Requests teilen ihre Werte mit den anderen: Kein Feld unterscheidet sie"
       }
     },
     "spans": {

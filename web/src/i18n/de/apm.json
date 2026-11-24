@@ -309,7 +309,8 @@
       "last_deploy": "Letztes Deployment",
       "tags": "Tags",
       "last_seen": "Zuletzt gesehen",
-      "favorite": "Favorit"
+      "favorite": "Favorit",
+      "correlation": "Korrelation"
     },
     "favorite": "{{name}} zu Favoriten hinzufügen",
     "unfavorite": "{{name}} aus Favoriten entfernen",
@@ -709,7 +710,9 @@
       "returned": "Zur vorherigen Version gewechselt",
       "first_seen": "Erstmals erkannt",
       "configuration": "Konfiguration",
-      "feature_flag": "Feature-Flag"
+      "feature_flag": "Feature-Flag",
+      "scaling": "Skalierung",
+      "infrastructure": "Infrastruktur"
     },
     "from": "ab {{version}}",
     "pull_request": "PR",
@@ -1177,7 +1180,42 @@
       "environments": "{{names}} unterscheiden sich nur in der Groß- und Kleinschreibung.",
       "map_to": "Alle als {{name}} behandeln",
       "generated": "{{name}} sieht aus wie {{base}} mit einem generierten Suffix.",
-      "add_rule": "Benennungsregel hinzufügen"
+      "add_rule": "Benennungsregel hinzufügen",
+      "correlation": {
+        "untraced_one": "{{formatted}} Service schreibt in der letzten Stunde Logs ohne Trace-IDs: {{names}}.",
+        "untraced_other": "{{formatted}} Services schreiben in der letzten Stunde Logs ohne Trace-IDs: {{names}}.",
+        "partly_traced_one": "{{formatted}} Service verknüpft nur einen Teil seiner Logs mit aufbewahrten Traces: {{names}}.",
+        "partly_traced_other": "{{formatted}} Services verknüpfen nur einen Teil ihrer Logs mit aufbewahrten Traces: {{names}}.",
+        "unplaced_one": "{{formatted}} Service gibt nicht an, wo er läuft (Host, Pod, Node oder Container): {{names}}.",
+        "unplaced_other": "{{formatted}} Services geben nicht an, wo sie laufen (Host, Pod, Node oder Container): {{names}}.",
+        "unmatched_one": "Logs oder Metriken nennen {{formatted}} Service, den APM nicht kennt: {{names}}.",
+        "unmatched_other": "Logs oder Metriken nennen {{formatted}} Services, die APM nicht kennt: {{names}}.",
+        "no_changes_one": "{{formatted}} Service meldete in der vergangenen Woche keine Änderung: {{names}}.",
+        "no_changes_other": "{{formatted}} Services meldeten in der vergangenen Woche keine Änderung: {{names}}.",
+        "names_more_one": "{{names}} und {{count}} weiterer Eintrag",
+        "names_more_other": "{{names}} und {{count}} weitere Einträge",
+        "to_naming": "Namensregeln",
+        "report_changes": "Änderungen melden"
+      }
+    },
+    "business": {
+      "title": "Business-Kontext",
+      "hint": "Schlüssel wie Mandant oder Tarif und das Feld, in dem jedes Signal sie führt: Die Service-Seite teilt Anfragen danach auf, und Incidents nennen die betroffenen Werte",
+      "empty": "Noch keine Business-Schlüssel",
+      "add": "Schlüssel hinzufügen",
+      "key": "Schlüssel",
+      "label": "Bezeichnung",
+      "label_placeholder": "Mandant",
+      "span": "Span-Attribut",
+      "log": "Log-Feld",
+      "rum": "RUM-Feld",
+      "important": "Wichtige Werte",
+      "important_placeholder": "Wichtigste Werte, durch Kommas getrennt",
+      "issue": {
+        "key": "Ein Schlüssel beginnt mit einem Kleinbuchstaben und enthält nur Kleinbuchstaben, Ziffern und _.",
+        "twice": "Jeder Schlüssel kann nur einmal deklariert werden.",
+        "nowhere": "Geben Sie für jeden Schlüssel das Feld mindestens eines Signals an."
+      }
     }
   },
   "instances": {
@@ -1223,12 +1261,14 @@
       "slow_dependency": "Engpass",
       "repeated_call": "N+1",
       "slow_query": "Langsame SQL-Abfrage",
-      "hot_endpoint": "Zeitintensiver Endpunkt"
+      "hot_endpoint": "Zeitintensiver Endpunkt",
+      "log_errors": "Fehler-Logs"
     },
     "metric": {
       "error_rate": "Fehlerrate",
       "p95": "P95",
-      "throughput": "Durchsatz"
+      "throughput": "Durchsatz",
+      "log_errors": "Fehler-Logzeilen"
     },
     "sentence": {
       "anomaly_up": "{{metric}} stieg auf {{value}} ({{before}})",
@@ -1237,13 +1277,16 @@
       "slow_dependency": "Auf {{target}} entfallen {{share}} der Bearbeitungszeit der Anfragen",
       "repeated_call": "ruft {{operation}} pro Anfrage {{each}}-mal auf ({{calls}} Aufrufe): Ein einzelner Aufruf könnte die Schleife ersetzen",
       "slow_query": "{{operation}}: P95 {{p95}} bei {{calls}} Aufrufen",
-      "hot_endpoint": "Auf {{endpoint}} entfallen {{share}} der Bearbeitungszeit des Dienstes (P95 {{p95}})"
+      "hot_endpoint": "Auf {{endpoint}} entfallen {{share}} der Bearbeitungszeit des Dienstes (P95 {{p95}})",
+      "log_errors": "Fehler-Logzeilen sind auf {{value}} gestiegen ({{before}})"
     },
     "change": {
       "deployment": "Deployment von",
       "configuration": "Konfigurationsänderung bei",
       "feature_flag": "Feature-Flag von",
-      "observed": ", erstmals in Spans erkannt"
+      "observed": ", erstmals in Spans erkannt",
+      "scaling": "Skalierung von",
+      "infrastructure": "Infrastrukturänderung von"
     },
     "baseline": {
       "previous": "Im Vergleich zum vorherigen Zeitraum:",
@@ -1262,5 +1305,52 @@
       "error": "Untersuchen Sie den Fehler {{error}} bei {{service}} in {{environment}} (Fingerprint {{fingerprint}}): Seit wann tritt er auf, wie viele Anfragen schlagen dadurch fehl und was ist die wahrscheinliche Ursache?",
       "finding": "Untersuchen Sie diese Feststellung zu {{service}} in {{environment}} im Zeitraum von {{from}} bis {{to}}: {{finding}}"
     }
+  },
+  "correlation": {
+    "and": ", ",
+    "aspect": {
+      "traceIds": "Trace-IDs in Logs",
+      "resource": "Ressourcenattribute",
+      "metrics": "Metriken",
+      "changes": "Änderungen"
+    },
+    "grade": {
+      "good": "gut",
+      "partial": "teilweise",
+      "missing": "fehlt",
+      "unknown": "unbekannt"
+    },
+    "attribute": {
+      "environment": "Umgebung",
+      "version": "Version",
+      "instance": "Instanz",
+      "placement": "Host oder Pod"
+    },
+    "detail": {
+      "unknown": "Konnte nicht gelesen werden.",
+      "no_logs": "Keine Logzeilen in der letzten Stunde.",
+      "traced": "{{share}} von {{lines}} Zeilen enthalten eine Trace-ID.",
+      "matched": "{{matched}} von {{sampled}} gesampelten Traces wurden gefunden.",
+      "resource_complete": "Umgebung, Version, Instanz und Host oder Pod gemeldet.",
+      "resource_missing": "Nicht gemeldet: {{attributes}}.",
+      "metrics_reported": "Metriken tragen diesen Namen.",
+      "metrics_missing": "Keine Metrik trägt in der letzten Stunde diesen Namen.",
+      "metrics_unknown": "Konnte nicht gelesen werden.",
+      "changes_one": "{{formatted}} Änderung in der vergangenen Woche.",
+      "changes_other": "{{formatted}} Änderungen in der vergangenen Woche."
+    }
+  },
+  "business": {
+    "title": "Anfragen nach Business-Schlüssel",
+    "key": "Business-Schlüssel",
+    "any_field": "Nach beliebigem Feld aufteilen",
+    "requests": "Anfragen",
+    "errors": "Fehlerrate",
+    "no_value": "(kein Wert)",
+    "important": "Wichtig",
+    "loading": "Aufteilung läuft…",
+    "failed": "Die Aufteilung konnte nicht geladen werden",
+    "unavailable": "Dieser Schlüssel kann für Sie derzeit nicht gelesen werden",
+    "empty": "Keine Anfrage enthielt diesen Schlüssel im betrachteten Zeitraum"
   }
 }

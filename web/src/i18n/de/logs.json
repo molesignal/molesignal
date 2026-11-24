@@ -278,6 +278,26 @@
       "read_failed": "Ältere Logs konnten nicht geladen werden.",
       "unread_one": "{{count}} Ereignis enthält keine Meldung und ist keinem Muster zugeordnet.",
       "unread_other": "{{count}} Ereignisse enthalten keine Meldung und sind keinem Muster zugeordnet.",
+      "change_column": "Änderung",
+      "change": {
+        "new": "Neu",
+        "surging": "×{{ratio}}",
+        "dropping": "Weniger",
+        "steady": "—"
+      },
+      "estimated": "Etwa {{count}} über den gesamten Zeitraum",
+      "example_only": "Nicht unter den gelesenen Ereignissen",
+      "basis_counted_one": "Über insgesamt {{formatted}} Ereignis im Zeitraum gezählt",
+      "basis_counted_other": "Über alle {{formatted}} Ereignisse im Zeitraum gezählt",
+      "basis_sampled": "Muster aus {{read}} über den Zeitraum gesampelten Ereignissen gelesen",
+      "counting": "Gesamter Zeitraum wird gezählt…",
+      "count_failed": "Der gesamte Zeitraum konnte nicht gezählt werden.",
+      "baseline_label": "Vergleichen mit",
+      "baseline": {
+        "previous": "Verglichen mit dem vorherigen Zeitraum",
+        "week_before": "Verglichen mit der Woche davor",
+        "none": "Nicht verglichen"
+      },
       "kind": {
         "number": "Eine Zahl",
         "id": "Eine Kennung",

@@ -323,7 +323,8 @@
       "last_deploy": "Último despliegue",
       "tags": "Etiquetas",
       "last_seen": "Última detección",
-      "favorite": "Favorito"
+      "favorite": "Favorito",
+      "correlation": "Correlación"
     },
     "favorite": "Agregar {{name}} a favoritos",
     "unfavorite": "Quitar {{name}} de favoritos",
@@ -733,7 +734,9 @@
       "returned": "Volvió a la versión anterior",
       "first_seen": "Primera detección",
       "configuration": "Configuración",
-      "feature_flag": "Indicador de funcionalidad"
+      "feature_flag": "Indicador de funcionalidad",
+      "scaling": "Escalado",
+      "infrastructure": "Infraestructura"
     },
     "from": "desde {{version}}",
     "pull_request": "PR",
@@ -1206,7 +1209,48 @@
       "environments": "{{names}} solo se diferencian por el uso de mayúsculas y minúsculas.",
       "map_to": "Interpretar todos como {{name}}",
       "generated": "{{name}} parece ser {{base}} con un sufijo generado.",
-      "add_rule": "Agregar una regla de nomenclatura"
+      "add_rule": "Agregar una regla de nomenclatura",
+      "correlation": {
+        "untraced_one": "{{formatted}} servicio escribe registros sin ids de traza en la última hora: {{names}}.",
+        "untraced_other": "{{formatted}} servicios escriben registros sin ids de traza en la última hora: {{names}}.",
+        "untraced_many": "{{formatted}} de servicios escriben registros sin ids de traza en la última hora: {{names}}.",
+        "partly_traced_one": "{{formatted}} servicio vincula solo parte de sus registros con las trazas conservadas: {{names}}.",
+        "partly_traced_other": "{{formatted}} servicios vinculan solo parte de sus registros con las trazas conservadas: {{names}}.",
+        "partly_traced_many": "{{formatted}} de servicios vinculan solo parte de sus registros con las trazas conservadas: {{names}}.",
+        "unplaced_one": "{{formatted}} servicio no indica dónde se ejecuta (host, pod, nodo o contenedor): {{names}}.",
+        "unplaced_other": "{{formatted}} servicios no indican dónde se ejecutan (host, pod, nodo o contenedor): {{names}}.",
+        "unplaced_many": "{{formatted}} de servicios no indican dónde se ejecutan (host, pod, nodo o contenedor): {{names}}.",
+        "unmatched_one": "Los registros o las métricas mencionan {{formatted}} servicio que APM no conoce: {{names}}.",
+        "unmatched_other": "Los registros o las métricas mencionan {{formatted}} servicios que APM no conoce: {{names}}.",
+        "unmatched_many": "Los registros o las métricas mencionan {{formatted}} de servicios que APM no conoce: {{names}}.",
+        "no_changes_one": "{{formatted}} servicio no informó cambios en la última semana: {{names}}.",
+        "no_changes_other": "{{formatted}} servicios no informaron cambios en la última semana: {{names}}.",
+        "no_changes_many": "{{formatted}} de servicios no informaron cambios en la última semana: {{names}}.",
+        "names_more_one": "{{names}} y {{count}} más",
+        "names_more_other": "{{names}} y {{count}} más",
+        "names_more_many": "{{names}} y {{count}} más",
+        "to_naming": "Reglas de nombres",
+        "report_changes": "Informar cambios"
+      }
+    },
+    "business": {
+      "title": "Contexto de negocio",
+      "hint": "Claves como un inquilino o un plan y el campo en el que cada señal las incluye: la página del servicio divide las solicitudes por ellas y los incidentes indican qué valores afectaron",
+      "empty": "Aún no hay claves de negocio",
+      "add": "Agregar una clave",
+      "key": "Clave",
+      "label": "Etiqueta",
+      "label_placeholder": "Inquilino",
+      "span": "Atributo de span",
+      "log": "Campo de registro",
+      "rum": "Campo de RUM",
+      "important": "Valores importantes",
+      "important_placeholder": "Valores más importantes, separados por comas",
+      "issue": {
+        "key": "Una clave empieza con una letra minúscula y solo contiene letras minúsculas, dígitos y _.",
+        "twice": "Cada clave solo se puede declarar una vez.",
+        "nowhere": "Indica el campo de al menos una señal para cada clave."
+      }
     }
   },
   "instances": {
@@ -1252,12 +1296,14 @@
       "slow_dependency": "Cuello de botella",
       "repeated_call": "N+1",
       "slow_query": "SQL lento",
-      "hot_endpoint": "Endpoint con alta carga"
+      "hot_endpoint": "Endpoint con alta carga",
+      "log_errors": "Registros de errores"
     },
     "metric": {
       "error_rate": "Tasa de errores",
       "p95": "P95",
-      "throughput": "Tasa de solicitudes"
+      "throughput": "Tasa de solicitudes",
+      "log_errors": "Líneas de registro de errores"
     },
     "sentence": {
       "anomaly_up": "{{metric}} subió a {{value}} ({{before}})",
@@ -1266,13 +1312,16 @@
       "slow_dependency": "{{target}} consume el {{share}} del tiempo de las solicitudes",
       "repeated_call": "llama a {{operation}} {{each}} veces por solicitud ({{calls}} llamadas): una sola llamada podría sustituir el bucle",
       "slow_query": "{{operation}}: P95 de {{p95}} en {{calls}} llamadas",
-      "hot_endpoint": "{{endpoint}} consume el {{share}} del tiempo del servicio (P95 de {{p95}})"
+      "hot_endpoint": "{{endpoint}} consume el {{share}} del tiempo del servicio (P95 de {{p95}})",
+      "log_errors": "las líneas de registro de errores aumentaron a {{value}} ({{before}})"
     },
     "change": {
       "deployment": "Despliegue de",
       "configuration": "Cambio de configuración de",
       "feature_flag": "Indicador de funcionalidad de",
-      "observed": ", detectado por primera vez en spans"
+      "observed": ", detectado por primera vez en spans",
+      "scaling": "Escalado de",
+      "infrastructure": "Cambio de infraestructura de"
     },
     "baseline": {
       "previous": "En comparación con el período anterior:",
@@ -1291,5 +1340,53 @@
       "error": "Investiga el error {{error}} de {{service}} en {{environment}} (huella digital {{fingerprint}}): desde cuándo ocurre, cuántas solicitudes fallan por este error y cuál es su causa probable.",
       "finding": "Investiga este hallazgo sobre {{service}} en {{environment}} desde {{from}} hasta {{to}}: {{finding}}"
     }
+  },
+  "correlation": {
+    "and": ", ",
+    "aspect": {
+      "traceIds": "IDs de traza en los logs",
+      "resource": "Atributos de recursos",
+      "metrics": "Métricas",
+      "changes": "Cambios"
+    },
+    "grade": {
+      "good": "buena",
+      "partial": "parcial",
+      "missing": "ausente",
+      "unknown": "desconocida"
+    },
+    "attribute": {
+      "environment": "entorno",
+      "version": "versión",
+      "instance": "instancia",
+      "placement": "host o pod"
+    },
+    "detail": {
+      "unknown": "No se pudo leer.",
+      "no_logs": "No hay líneas de log en la última hora.",
+      "traced": "{{share}} de {{lines}} líneas incluyen un ID de traza.",
+      "matched": "Se encontraron {{matched}} de {{sampled}} trazas muestreadas.",
+      "resource_complete": "Entorno, versión, instancia y host o pod informados.",
+      "resource_missing": "Sin informar: {{attributes}}.",
+      "metrics_reported": "Las métricas incluyen su nombre.",
+      "metrics_missing": "Ninguna métrica incluye su nombre en la última hora.",
+      "metrics_unknown": "No se pudo leer.",
+      "changes_one": "{{formatted}} cambio en la última semana.",
+      "changes_other": "{{formatted}} cambios en la última semana.",
+      "changes_many": "{{formatted}} cambios en la última semana."
+    }
+  },
+  "business": {
+    "title": "Solicitudes por clave de negocio",
+    "key": "Clave de negocio",
+    "any_field": "Desglosar por cualquier campo",
+    "requests": "Solicitudes",
+    "errors": "Tasa de errores",
+    "no_value": "(sin valor)",
+    "important": "Importante",
+    "loading": "Desglosando…",
+    "failed": "No se pudo cargar el desglose",
+    "unavailable": "Esta clave no se puede leer en este momento",
+    "empty": "Ninguna solicitud incluyó esta clave en el periodo visible"
   }
 }

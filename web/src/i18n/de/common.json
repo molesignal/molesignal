@@ -564,6 +564,28 @@
     "bulk_failed_other": "{{count}} von {{total}} fehlgeschlagen: {{reason}}",
     "clear_filters": "Filter zurücksetzen"
   },
+  "changes": {
+    "kind": {
+      "deployment": "Deployment",
+      "configuration": "Konfiguration",
+      "feature_flag": "Feature-Flag",
+      "scaling": "Skalierung",
+      "infrastructure": "Infrastruktur",
+      "annotation": "Annotation",
+      "version": "Neue Version",
+      "rule": "Regel bearbeitet"
+    },
+    "status": {
+      "succeeded": "erfolgreich",
+      "failed": "fehlgeschlagen",
+      "rolled_back": "zurückgerollt"
+    },
+    "rail_one": "{{count}} Änderung in diesem Zeitraum",
+    "rail_other": "{{count}} Änderungen in diesem Zeitraum",
+    "open": "Offen",
+    "pull_request": "Pull Request",
+    "ci_run": "CI-Lauf"
+  },
   "baseline": {
     "aria": "Referenzzeitraum: {{value}}",
     "title": "Referenzzeitraum auswählen",

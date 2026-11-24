@@ -11,8 +11,16 @@
         "description": "以下の YAML を fluent-bit-daemonset.yaml として保存し、適用します。"
       },
       "3": {
-        "title": "ログの受信確認",
-        "description": "1 分ほど待ってから「ログ」を開き、app-logs ストリームを選択します。kubernetes.* フィールドが表示されます。"
+        "title": "ワークロードと ConfigMap を監視（任意）",
+        "description": "k8sobjects レシーバーを備えた OpenTelemetry Collector を、これらのオブジェクトを list および watch できるサービスアカウントで実行します。各オブジェクトは k8s_objects ストリームのログ行として取り込まれます。"
+      },
+      "4": {
+        "title": "変更として読み取る",
+        "description": "k8s_objects 上のリアルタイムパイプラインで「変更を記録」ステップを使用すると、新しいイメージはデプロイ、新しいレプリカはスケーリング、新しい ConfigMap データは設定変更に変換されます。これらは Changes ページとチャートに表示されます。"
+      },
+      "5": {
+        "title": "ログが届いていることを確認",
+        "description": "1 分後、ログを開いて app-logs ストリームを選択します。kubernetes.* フィールドが表示されているはずです。"
       }
     }
   },
@@ -497,6 +505,42 @@
       }
     }
   },
+  "volcengine-cloudmonitor": {
+    "name": "Volcengine CloudMonitor リモート書き込み",
+    "description": "Volcengine CloudMonitor のエクスポーターを実行し、クラウドプロダクトのメトリクスを読み取って MoleSignal にリモート書き込みします。",
+    "steps": {
+      "1": {
+        "title": "CloudMonitor エクスポーターをデプロイ",
+        "description": "エクスポートはパブリックベータ版です。従量課金を有効化し、アカウントマネージャーに申請してください。バージョン 1.4.0 以降のエクスポーターを、CloudMonitorReadOnlyAccess を持つユーザーの AccessKey を指定して、Kubernetes、Docker、またはホスト上にデプロイします。サポート対象のプロダクトのメトリクスを GetMetricData で読み取ります。"
+      },
+      "2": {
+        "title": "エクスポーターのリモート書き込みに MoleSignal を追加",
+        "description": "エクスポーターの設定の RemoteWrites セクションに、これらのフィールドを持つエントリを追加します。ユーザー名は任意で、パスワードは取り込みトークンです。stream クエリパラメーターでメトリクスストリームを指定します。サンプルは対象時刻より数分遅れて到着しますが、MoleSignal はこれを受け入れます。"
+      },
+      "3": {
+        "title": "MoleSignal でメトリクスを確認",
+        "description": "メトリクス名は metricName_subNamespace_namespace の形式で、例として AggregatedMemUtil_aggregated_server_VCM_Redis があります。リソースの詳細は volc_resource_info として送信されます。最初の書き込みが到着したら、volcengine metrics ストリームでこのクエリを実行してください。"
+      }
+    }
+  },
+  "volcengine-prometheus": {
+    "name": "Volcengine Prometheus エクスポート",
+    "description": "Volcengine Managed Service for Prometheus のワークスペースをリモート書き込みで MoleSignal にエクスポートします。",
+    "steps": {
+      "1": {
+        "title": "ワークスペースでエクスポートできる内容を確認",
+        "description": "エクスポートタスクはパブリックベータ版です。一般ワークスペースのみが対象で、その課金対象のメトリクスのみがエクスポートされます。データ保持期間が 15 日以下のワークスペースでは、カスタムメトリクスのみがエクスポートされます。"
+      },
+      "2": {
+        "title": "エクスポート タスクを作成",
+        "description": "VMP コンソールでリージョンを選択し、[エクスポート タスク] を開いて、ターゲットとしてセルフマネージド Prometheus を指定して作成します。パブリックまたはプライベート ネットワーク経由で以下のアドレスを入力し、取り込みトークンを使用した Bearer トークン認証を選択して、少なくとも 1 つのフィルター ルールを追加します。stream クエリ パラメーターはメトリクス ストリームを指定します。ストリーム名のカスタム HTTP ヘッダーでも同様に指定できます。"
+      },
+      "3": {
+        "title": "MoleSignal でメトリクスを確認",
+        "description": "最初のエクスポートが到着したら、volcengine_prometheus メトリクス ストリームに対する次のクエリで、系列数が最も多いメトリクスが一覧表示されます。タスクの詳細ページには、その書き込みリクエストとレイテンシが表示されます。"
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Kafka Connect のシンクコネクターまたは kafka-exporter 経由でプッシュします。",
@@ -643,6 +687,58 @@
       "1": {
         "title": "WebSocket リレーの使用",
         "description": "サブスクリプションデータを MoleSignal に転送するリレーノードをデプロイします。"
+      }
+    }
+  },
+  "launchdarkly": {
+    "name": "LaunchDarkly",
+    "description": "LaunchDarkly の Webhook からフラグの変更内容を変更リストに報告します。",
+    "steps": {
+      "1": {
+        "title": "Webhook アドレスをコピー",
+        "description": "LaunchDarkly で、Integrations → Webhooks → Add integration を開き、この URL を貼り付けます。service= をフラグが属するサービスに設定します。環境は各エントリから読み取られます。トークンには apm.deploy が必要で、LaunchDarkly はカスタムヘッダーを送信しないため、トークンはアドレスに含めます。専用のトークンを割り当ててください。"
+      },
+      "2": {
+        "title": "重要なフラグのみに制限（任意）",
+        "description": "Webhook が本番などの 1 つの環境の変更のみを送信するようにポリシーを追加します。"
+      }
+    }
+  },
+  "unleash": {
+    "name": "Unleash",
+    "description": "Unleash の Webhook アドオンからフィーチャートグルの変更内容を変更リストに報告します。",
+    "steps": {
+      "1": {
+        "title": "Webhook 統合を追加",
+        "description": "Unleash で Integrations → Webhook を開きます。この URL とヘッダーを使用し、Unleash が独自のイベントを送信するようにボディテンプレートを空のままにして、送信するイベントを選択します。トークンには apm.deploy が必要です。"
+      }
+    }
+  },
+  "nacos": {
+    "name": "Nacos",
+    "description": "Nacos から設定の変更内容を変更リストに報告します。",
+    "steps": {
+      "1": {
+        "title": "アドレスをコピー",
+        "description": "Nacos 自体は Webhook を送信しないため、設定変更プラグイン、または Nacos クライアントの小さなリスナーをこのアドレスに向けてください。トークンには apm.deploy が必要で、Authorization ヘッダーに含めることもできます。"
+      },
+      "2": {
+        "title": "各変更を送信",
+        "description": "データ ID、グループ、名前空間、変更者を送信します。ボディは Nacos のドキュメントに記載されたフィールドに基づいて作成されており、実際のサーバーでは検証されていません。"
+      }
+    }
+  },
+  "apollo": {
+    "name": "Apollo",
+    "description": "Apollo から設定リリースを変更リストに報告します。",
+    "steps": {
+      "1": {
+        "title": "アドレスをコピー",
+        "description": "Apollo のリリース Webhook、またはリリースメッセージのリスナーをこのアドレスに向けてください。アプリ ID はサービスとして読み取られるため、service= は不要です。トークンには apm.deploy が必要です。"
+      },
+      "2": {
+        "title": "各リリースを送信",
+        "description": "アプリ ID、クラスター、名前空間、リリースタイトル、オペレーターを送信します。ボディは Apollo のドキュメントに記載されたフィールドに基づいて作成されており、実際のサーバーでは検証されていません。"
       }
     }
   }

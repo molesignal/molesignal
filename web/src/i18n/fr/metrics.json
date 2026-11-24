@@ -1,5 +1,11 @@
 {
   "explore": {
+    "baseline": {
+      "compare": "Comparer",
+      "stop": "Arrêter la comparaison",
+      "failed": "La référence n'a pas pu être lue",
+      "series": "{{name}} (référence)"
+    },
     "title": "Métriques",
     "subtitle": "explorateur",
     "toolbar": {

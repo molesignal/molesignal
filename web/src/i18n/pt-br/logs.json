@@ -286,6 +286,27 @@
       "unread_one": "{{count}} evento não tem mensagem e não faz parte de nenhum padrão.",
       "unread_other": "{{count}} eventos não têm mensagem e não fazem parte de nenhum padrão.",
       "unread_many": "{{count}} eventos não têm mensagem e não fazem parte de nenhum padrão.",
+      "change_column": "Variação",
+      "change": {
+        "new": "Novo",
+        "surging": "×{{ratio}}",
+        "dropping": "Menos",
+        "steady": "—"
+      },
+      "estimated": "Cerca de {{count}} no intervalo inteiro",
+      "example_only": "Não está entre os eventos lidos",
+      "basis_counted_one": "Contado em todo o {{formatted}} evento no intervalo",
+      "basis_counted_other": "Contado em todos os {{formatted}} eventos no intervalo",
+      "basis_counted_many": "Contado em todos os {{formatted}} eventos no intervalo",
+      "basis_sampled": "padrões lidos de {{read}} amostrados ao longo do intervalo",
+      "counting": "Contando o intervalo inteiro…",
+      "count_failed": "Não foi possível contar o intervalo inteiro.",
+      "baseline_label": "Comparar com",
+      "baseline": {
+        "previous": "Comparado com o período anterior",
+        "week_before": "Comparado com uma semana atrás",
+        "none": "Sem comparação"
+      },
       "kind": {
         "number": "Um número",
         "id": "Um identificador",

@@ -91,7 +91,8 @@
     "expand_group": "展開{{group}}",
     "open_navigation": "開啟告警導覽",
     "collapse_navigation": "收合告警導覽",
-    "expand_navigation": "展開告警導覽"
+    "expand_navigation": "展開告警導覽",
+    "changes": "變更"
   },
   "history": {
     "error_title": "無法載入告警歷史紀錄",
@@ -792,7 +793,8 @@
       "tickets": "工單",
       "major": "重大事件",
       "postmortem": "事後檢討",
-      "guide": "疑難排解線索"
+      "guide": "疑難排解線索",
+      "business_impact": "業務影響"
     },
     "guide": {
       "queries": "疑難排解查詢",
@@ -814,7 +816,46 @@
       "generating": "產生中…",
       "generated": "根因分析已產生",
       "empty": "目前沒有分析結果，可手動產生，或等候背景自動分析。",
-      "budget_exhausted": "組織今天的 Mole Agent token 預算已用完，未產生根因分析。請在預算重設或調高後再試。"
+      "budget_exhausted": "組織今天的 Mole Agent token 預算已用完，未產生根因分析。請在預算重設或調高後再試。",
+      "evidence": {
+        "title": "證據",
+        "separator": "，",
+        "withheld": "數字已隱藏：你沒有這類資料的讀取權限",
+        "open": "開啟 {{label}}",
+        "kind": {
+          "insight": "APM 洞察",
+          "new_error_group": "新錯誤群組",
+          "sample_trace": "樣本 Trace",
+          "error_logs": "錯誤日誌",
+          "new_log_pattern": "新出現的錯誤日誌模式",
+          "change": "變更",
+          "similar_incident": "相似事件",
+          "investigation": "調查發現",
+          "business_impact": "業務影響",
+          "attribute_skew": "失敗請求的差異欄位"
+        },
+        "insight": {
+          "anomaly": "突變",
+          "regression": "版本回歸",
+          "slow_dependency": "慢依賴",
+          "repeated_call": "重複呼叫",
+          "slow_query": "慢查詢",
+          "hot_endpoint": "熱點端點",
+          "log_errors": "錯誤日誌上升"
+        },
+        "figures": {
+          "now": "目前 {{value}}",
+          "previous": "前一期 {{value}}",
+          "last_week": "上週同期 {{value}}",
+          "occurrences_one": "{{formatted}} 次",
+          "occurrences_other": "{{formatted}} 次",
+          "error_logs": "目前 {{now}}，上週同期 {{lastWeek}}",
+          "lines_one": "{{formatted}} 行",
+          "lines_other": "{{formatted}} 行",
+          "business": "{{requests}} 個請求中 {{errors}} 個失敗",
+          "skew": "失敗請求中佔 {{failed}}，其他請求中佔 {{others}}"
+        }
+      }
     },
     "signals": {
       "services": "服務",
@@ -898,6 +939,11 @@
         "healthy": "健康",
         "no_traffic": "無流量"
       }
+    },
+    "business": {
+      "important": "重點",
+      "failed": "{{requests}} 個中有 {{errors}} 個失敗 · {{rate}}",
+      "more": "還有更多取值有請求"
     }
   },
   "insights": {
@@ -3146,5 +3192,29 @@
       "imported_other": "已匯入 {{count}} 條路由規則",
       "content_hint": "JSON 或 YAML。升級策略、團隊和假日行事曆皆依名稱參照。檔案中的規則依檔案內的順序排在最前面，其餘規則維持原有順序排在後面。"
     }
+  },
+  "changes": {
+    "error_title": "無法載入變更",
+    "empty_title": "這段期間沒有變更",
+    "empty_description": "Pipeline 回報的發布與其他變更、註解、新版本及規則修改會顯示在這裡。",
+    "search_label": "搜尋變更",
+    "search_placeholder": "服務、版本、標題、作者或提交",
+    "kind_label": "類型",
+    "all_kinds": "全部類型",
+    "span_label": "時間範圍",
+    "span": {
+      "24h": "最近 24 小時",
+      "7d": "最近 7 天",
+      "30d": "最近 30 天"
+    },
+    "columns": {
+      "at": "時間",
+      "kind": "類型",
+      "subject": "變更",
+      "status": "結果",
+      "by": "發起人",
+      "open": "開啟"
+    },
+    "open": "開啟 {{change}}"
   }
 }

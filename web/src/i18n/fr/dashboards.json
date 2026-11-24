@@ -591,7 +591,9 @@
       "10s": "10s",
       "30s": "30s",
       "1m": "1m",
-      "5m": "5m"
+      "5m": "5m",
+      "services": "Services",
+      "services_whose_changes_are_marked_comma_separated_every_service_when_empty": "Services dont les changements sont signalés, séparés par des virgules ; tous les services lorsque ce champ est vide"
     }
   },
   "editor": {

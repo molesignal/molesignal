@@ -11,8 +11,16 @@
         "description": "Salve o YAML abaixo como fluent-bit-daemonset.yaml e aplique o arquivo."
       },
       "3": {
+        "title": "Observe workloads e ConfigMaps (opcional)",
+        "description": "Execute um OpenTelemetry Collector com o receiver k8sobjects, com uma conta de serviço que possa listar e observar esses objetos. Cada objeto chega como uma linha de log do stream k8s_objects."
+      },
+      "4": {
+        "title": "Leia-os como alterações",
+        "description": "Um pipeline em tempo real sobre k8s_objects com uma etapa Record changes transforma uma nova imagem em um deployment, novas réplicas em um scaling e novos dados de ConfigMap em uma alteração de configuração. Eles aparecem na página Changes e nos gráficos."
+      },
+      "5": {
         "title": "Verifique se os logs estão chegando",
-        "description": "Após um minuto, abra Logs e selecione o fluxo app-logs. Os campos kubernetes.* devem aparecer."
+        "description": "Após um minuto, abra Logs e escolha o stream app-logs; os campos kubernetes.* devem estar lá."
       }
     }
   },
@@ -497,6 +505,42 @@
       }
     }
   },
+  "volcengine-cloudmonitor": {
+    "name": "Remote write do Volcengine CloudMonitor",
+    "description": "Execute o exporter do Volcengine CloudMonitor para ler métricas de produtos de nuvem e gravá-las por remote write no MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "Implante o exporter do CloudMonitor",
+        "description": "A exportação está em beta público: ative o pagamento conforme o uso e solicite ao seu gerente de conta. Implante o exporter, versão 1.4.0 ou posterior, em Kubernetes, Docker ou um host, com a AccessKey de um usuário que tenha CloudMonitorReadOnlyAccess. Ele lê as métricas dos produtos compatíveis com GetMetricData."
+      },
+      "2": {
+        "title": "Adicione o MoleSignal aos remote writes do exporter",
+        "description": "Adicione uma entrada com estes campos à seção RemoteWrites da configuração do exporter; o nome de usuário pode ser qualquer coisa, a senha é o token de intake. O parâmetro de consulta stream nomeia o stream de métricas. As amostras chegam alguns minutos após seu horário, o que o MoleSignal aceita."
+      },
+      "3": {
+        "title": "Verifique as métricas no MoleSignal",
+        "description": "As métricas são nomeadas metricName_subNamespace_namespace, como AggregatedMemUtil_aggregated_server_VCM_Redis, e os detalhes de recurso vêm como volc_resource_info. Execute esta consulta no stream de métricas volcengine assim que a primeira gravação chegar."
+      }
+    }
+  },
+  "volcengine-prometheus": {
+    "name": "Exportação do Volcengine Prometheus",
+    "description": "Exporte um workspace do Volcengine Managed Service for Prometheus para o MoleSignal por remote write.",
+    "steps": {
+      "1": {
+        "title": "Verifique o que o workspace pode exportar",
+        "description": "A tarefa de exportação está em beta público. Ela exporta apenas workspaces gerais e somente suas métricas faturadas; um workspace que mantém dados por 15 dias ou menos exporta apenas métricas personalizadas."
+      },
+      "2": {
+        "title": "Criar uma tarefa de exportação",
+        "description": "No console do VMP, selecione a região, abra Tarefas de exportação e crie uma com Prometheus autogerenciado como destino. Insira o endereço abaixo via acesso de rede público ou privado, escolha a autenticação com token Bearer usando o token de ingestão e adicione pelo menos uma regra de filtro. O parâmetro de consulta stream define o nome do fluxo de métricas; um cabeçalho HTTP personalizado stream-name faz o mesmo."
+      },
+      "3": {
+        "title": "Verifique as métricas no MoleSignal",
+        "description": "Quando a primeira exportação chegar, esta consulta no fluxo de métricas volcengine_prometheus lista as métricas com mais séries. A página de detalhes da tarefa mostra suas requisições de gravação e a latência."
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Envie dados por um conector de destino do Kafka Connect ou pelo kafka-exporter.",
@@ -643,6 +687,58 @@
       "1": {
         "title": "Use um retransmissor WebSocket",
         "description": "Implante um nó retransmissor que encaminhe os dados das assinaturas ao MoleSignal."
+      }
+    }
+  },
+  "launchdarkly": {
+    "name": "LaunchDarkly",
+    "description": "Registre alterações de flags na lista de alterações a partir de um webhook do LaunchDarkly.",
+    "steps": {
+      "1": {
+        "title": "Copie o endereço do webhook",
+        "description": "No LaunchDarkly, abra Integrations → Webhooks → Add integration e cole esta URL. Defina service= como o serviço ao qual as flags pertencem; o ambiente é lido de cada entrada. O token precisa de apm.deploy e vai no endereço, já que o LaunchDarkly não envia cabeçalho personalizado: dê a ele um token próprio."
+      },
+      "2": {
+        "title": "Limite-o às flags que importam (opcional)",
+        "description": "Adicione uma política para que o webhook envie apenas as alterações de um ambiente, como produção."
+      }
+    }
+  },
+  "unleash": {
+    "name": "Unleash",
+    "description": "Registre alterações de feature toggle na lista de alterações a partir do add-on de webhook do Unleash.",
+    "steps": {
+      "1": {
+        "title": "Adicione a integração de webhook",
+        "description": "No Unleash, abra Integrations → Webhook. Use esta URL e este cabeçalho, deixe o modelo do corpo vazio para que o Unleash envie seu próprio evento e escolha os eventos a enviar. O token precisa de apm.deploy."
+      }
+    }
+  },
+  "nacos": {
+    "name": "Nacos",
+    "description": "Registre alterações de configuração na lista de alterações a partir do Nacos.",
+    "steps": {
+      "1": {
+        "title": "Copie o endereço",
+        "description": "O Nacos não envia webhook próprio: aponte um plugin de alteração de configuração, ou um pequeno listener do cliente Nacos, para este endereço. O token precisa de apm.deploy e também pode ir em um cabeçalho Authorization."
+      },
+      "2": {
+        "title": "Envie cada alteração",
+        "description": "Envie o data ID, o grupo, o namespace e quem alterou. O corpo foi escrito com base nos campos documentados do Nacos e não foi verificado em um servidor real."
+      }
+    }
+  },
+  "apollo": {
+    "name": "Apollo",
+    "description": "Registre as versões de configuração na lista de alterações a partir do Apollo.",
+    "steps": {
+      "1": {
+        "title": "Copie o endereço",
+        "description": "Aponte o webhook de release do Apollo, ou um listener de mensagens de release, para este endereço. O ID do app é lido como o serviço, então não é preciso service=. O token precisa de apm.deploy."
+      },
+      "2": {
+        "title": "Envie cada release",
+        "description": "Envie o ID do app, o cluster, o namespace, o título do release e o operador. O corpo foi escrito com base nos campos documentados do Apollo e não foi verificado em um servidor real."
       }
     }
   }

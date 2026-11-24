@@ -311,6 +311,25 @@
           "timestamp_masked": "你無法查看時間欄位，因此無法依時間展開。",
           "field_protected": "你無法查看這個欄位，因此無法用它拆分請求。"
         }
+      },
+      "compare": {
+        "title": "對比",
+        "choice_label": "與其他請求對比的請求",
+        "choice": {
+          "none": "選擇請求…",
+          "failed": "失敗的請求",
+          "p95": "慢於 p95（{{duration}}）",
+          "p99": "慢於 p99（{{duration}}）"
+        },
+        "sample": "讀取了 {{chosen}} 個選取請求與 {{others}} 個其他請求",
+        "sample_sampled": "取樣 {{chosen}} 個選取請求與 {{others}} 個其他請求",
+        "score": "差異 {{score}}",
+        "shares": "選取 {{chosen}} · 其他 {{others}}",
+        "break_down": "依這個欄位拆分請求",
+        "loading": "正在對比…",
+        "failed": "對比結果載入失敗",
+        "none_chosen": "沒有符合所選條件的請求",
+        "alike": "選取的請求和其他請求取值相近，沒有哪個欄位能把它們區分開"
       }
     },
     "spans": {

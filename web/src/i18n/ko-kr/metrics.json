@@ -1,5 +1,11 @@
 {
   "explore": {
+    "baseline": {
+      "compare": "비교",
+      "stop": "비교 중지",
+      "failed": "기준선을 읽을 수 없습니다",
+      "series": "{{name}} (기준선)"
+    },
     "title": "메트릭",
     "subtitle": "탐색기",
     "toolbar": {

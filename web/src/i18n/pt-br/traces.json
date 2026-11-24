@@ -322,6 +322,25 @@
           "timestamp_masked": "Os registros de data e hora estão mascarados para você, por isso não é possível exibir os dados ao longo do tempo.",
           "field_protected": "Este campo está mascarado para você, por isso não é possível segmentar as requisições por ele."
         }
+      },
+      "compare": {
+        "title": "Comparar",
+        "choice_label": "Requisições para comparar com as demais",
+        "choice": {
+          "none": "Escolha requisições…",
+          "failed": "Requisições com falha",
+          "p95": "Mais lentas que o p95 ({{duration}})",
+          "p99": "Mais lentas que o p99 ({{duration}})"
+        },
+        "sample": "{{chosen}} escolhidas e {{others}} outras requisições lidas",
+        "sample_sampled": "Uma amostra de {{chosen}} escolhidas e {{others}} outras requisições",
+        "score": "{{score}} de diferença",
+        "shares": "{{chosen}} das escolhidas · {{others}} das demais",
+        "break_down": "Divida as requisições por este campo",
+        "loading": "Comparando…",
+        "failed": "Não foi possível carregar a comparação",
+        "none_chosen": "Nenhuma das requisições é do tipo escolhido",
+        "alike": "As requisições escolhidas compartilham seus valores com as demais: nenhum campo as distingue"
       }
     },
     "spans": {

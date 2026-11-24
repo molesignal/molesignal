@@ -327,7 +327,8 @@
       "counting_realtime_only": "步驟「{{name}}」會在收到事件時計數，只能用於即時管線。",
       "counting_not_here_metric": "步驟「{{name}}」會從日誌、RUM 事件和 Span 產生指標，但這條管線處理的是其他資料。",
       "counting_not_here_limit": "步驟「{{name}}」只會攔截日誌與允許捨棄的 RUM 事件，放在這裡會造成資料缺漏。",
-      "counting_name_duplicate": "有兩個步驟都叫做「{{name}}」。計數步驟會依名稱儲存計數，因此名稱不得重複。"
+      "counting_name_duplicate": "有兩個步驟都叫做「{{name}}」。計數步驟會依名稱儲存計數，因此名稱不得重複。",
+      "counting_not_here_change": "步驟「{{name}}」讀取以日誌形式接入的 Kubernetes 物件；這條流水線處理的是其他類型的資料。"
     }
   },
   "drawer": {
@@ -480,7 +481,8 @@
       "query_enrich": "透過查詢補充資料",
       "generate_metric": "產生指標",
       "quota": "配額",
-      "throttle": "速率限制"
+      "throttle": "速率限制",
+      "to_change": "記錄變更"
     }
   },
   "editor": {
@@ -1191,7 +1193,8 @@
       "past_route": "轉送至 {{stream}}",
       "quota_limit": "每天 {{limit}} {{unit}}",
       "throttle_limit": "每 {{window}} 秒 {{limit}} 筆",
-      "limit": "計入 {{bucket}}（{{limit}}），超出上限後{{past}}。"
+      "limit": "計入 {{bucket}}（{{limit}}），超出上限後{{past}}。",
+      "change": "物件與上次看到時相比有變化時即記為變更：新映像、新副本數、新的 spec 或資料。"
     },
     "usage": {
       "title": "今日配額與限流",
@@ -1204,7 +1207,12 @@
       "mib": "{{value}} MiB",
       "whole": "整個步驟",
       "others": "其餘的桶"
-    }
+    },
+    "change_environment": "環境",
+    "change_environment_hint": "所有變更所屬的環境。留空則從下方的欄位讀取。",
+    "change_environment_field": "環境欄位",
+    "change_environment_field_hint": "事件中標明環境的欄位，例如叢集名稱。",
+    "summary_change": "{{environment}} 的變更"
   },
   "schedule_every": "每 {{interval}}"
 }

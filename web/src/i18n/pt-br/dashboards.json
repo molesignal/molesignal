@@ -591,7 +591,9 @@
       "10s": "10s",
       "30s": "30s",
       "1m": "1m",
-      "5m": "5m"
+      "5m": "5m",
+      "services": "Serviços",
+      "services_whose_changes_are_marked_comma_separated_every_service_when_empty": "Serviços cujas alterações são marcadas, separados por vírgula; todos os serviços quando vazio"
     }
   },
   "editor": {

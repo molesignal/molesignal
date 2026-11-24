@@ -11,8 +11,16 @@
         "description": "아래 YAML을 fluent-bit-daemonset.yaml로 저장한 후 적용합니다."
       },
       "3": {
+        "title": "워크로드와 ConfigMap 감시(선택 사항)",
+        "description": "k8sobjects 수신기가 구성된 OpenTelemetry Collector를 실행하세요. 서비스 계정에는 이러한 객체를 나열하고 감시할 수 있는 권한이 있어야 합니다. 각 객체는 k8s_objects 스트림의 로그 라인으로 들어옵니다."
+      },
+      "4": {
+        "title": "변경 사항으로 읽기",
+        "description": "k8s_objects에서 '변경 사항 기록' 단계가 있는 실시간 파이프라인은 새 이미지를 배포로, 새 레플리카를 스케일링으로, 새 ConfigMap 데이터를 구성 변경으로 바꿉니다. 해당 항목은 변경 사항 페이지와 차트에 표시됩니다."
+      },
+      "5": {
         "title": "로그 수신 확인",
-        "description": "1분 후 로그를 열고 app-logs 스트림을 선택해 kubernetes.* 필드가 표시되는지 확인합니다."
+        "description": "1분 후 로그를 열고 app-logs 스트림을 선택하세요. kubernetes.* 필드가 표시되어야 합니다."
       }
     }
   },
@@ -497,6 +505,42 @@
       }
     }
   },
+  "volcengine-cloudmonitor": {
+    "name": "Volcengine CloudMonitor 원격 쓰기",
+    "description": "Volcengine CloudMonitor의 익스포터를 실행하여 클라우드 제품 메트릭을 읽고 MoleSignal로 원격 쓰기합니다.",
+    "steps": {
+      "1": {
+        "title": "CloudMonitor 익스포터 배포",
+        "description": "내보내기 기능은 공개 베타 상태입니다. 종량제를 활성화하고 계정 관리자에게 요청하세요. CloudMonitorReadOnlyAccess 권한이 있는 사용자의 AccessKey를 사용하여 Kubernetes, Docker 또는 호스트에 익스포터 버전 1.4.0 이상을 배포하세요. 지원하는 제품의 메트릭은 GetMetricData로 읽습니다."
+      },
+      "2": {
+        "title": "익스포터의 원격 쓰기에 MoleSignal 추가",
+        "description": "익스포터 구성의 RemoteWrites 섹션에 이 필드들로 항목을 추가하세요. 사용자 이름은 아무 값이나 가능하며, 비밀번호는 수집 토큰입니다. stream 쿼리 매개변수는 메트릭 스트림의 이름을 지정합니다. 샘플은 기록 시각보다 몇 분 늦게 도착하며, MoleSignal은 이를 허용합니다."
+      },
+      "3": {
+        "title": "MoleSignal에서 메트릭 확인",
+        "description": "메트릭 이름은 metricName_subNamespace_namespace 형식이며(예: AggregatedMemUtil_aggregated_server_VCM_Redis), 리소스 세부 정보는 volc_resource_info로 제공됩니다. 첫 번째 쓰기가 도착하면 volcengine 메트릭 스트림에서 이 쿼리를 실행하세요."
+      }
+    }
+  },
+  "volcengine-prometheus": {
+    "name": "Volcengine Prometheus 내보내기",
+    "description": "Volcengine Managed Service for Prometheus 워크스페이스를 원격 쓰기로 MoleSignal에 내보냅니다.",
+    "steps": {
+      "1": {
+        "title": "워크스페이스에서 내보낼 수 있는 항목 확인",
+        "description": "내보내기 작업은 공개 베타 상태입니다. 일반 워크스페이스만 내보내며, 해당 워크스페이스의 청구 대상 메트릭만 내보냅니다. 데이터 보존 기간이 15일 이하인 워크스페이스는 사용자 지정 메트릭만 내보냅니다."
+      },
+      "2": {
+        "title": "내보내기 작업 생성",
+        "description": "VMP 콘솔에서 리전을 선택하고 Export tasks를 열어 대상으로 Self-managed Prometheus를 지정한 작업을 생성합니다. 아래 주소를 공용 또는 사설 네트워크 액세스로 입력하고, 수집 토큰으로 Bearer token 인증을 선택한 다음, 필터 규칙을 하나 이상 추가합니다. stream 쿼리 매개변수는 메트릭 스트림을 지정하며, 스트림 이름 사용자 지정 HTTP 헤더도 동일한 역할을 합니다."
+      },
+      "3": {
+        "title": "MoleSignal에서 메트릭 확인",
+        "description": "첫 번째 내보내기가 도착하면 volcengine_prometheus 메트릭 스트림에 대한 이 쿼리가 시리즈 수가 가장 많은 메트릭을 나열합니다. 작업 세부 정보 페이지에는 쓰기 요청과 지연 시간이 표시됩니다."
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Kafka Connect 싱크 커넥터 또는 kafka-exporter를 통해 전송합니다.",
@@ -643,6 +687,58 @@
       "1": {
         "title": "WebSocket 릴레이 사용",
         "description": "구독 데이터를 MoleSignal로 전달하는 릴레이 노드를 배포합니다."
+      }
+    }
+  },
+  "launchdarkly": {
+    "name": "LaunchDarkly",
+    "description": "LaunchDarkly 웹훅에서 플래그 변경 사항을 변경 목록에 보고합니다.",
+    "steps": {
+      "1": {
+        "title": "웹훅 주소 복사",
+        "description": "LaunchDarkly에서 통합 → 웹훅 → 통합 추가를 열고 이 URL을 붙여넣으세요. service=를 플래그가 속한 서비스로 설정하세요. 환경은 각 항목에서 읽습니다. 토큰에는 apm.deploy 권한이 필요하며, LaunchDarkly는 사용자 지정 헤더를 보내지 않으므로 토큰은 주소에 포함되어 전달됩니다. 따라서 이 주소에는 전용 토큰을 사용하세요."
+      },
+      "2": {
+        "title": "중요한 플래그로 제한(선택 사항)",
+        "description": "한 환경(예: 프로덕션)의 변경 사항만 웹훅에서 보내도록 정책을 추가하세요."
+      }
+    }
+  },
+  "unleash": {
+    "name": "Unleash",
+    "description": "Unleash 웹훅 애드온에서 기능 토글 변경 사항을 변경 목록에 보고합니다.",
+    "steps": {
+      "1": {
+        "title": "웹훅 통합 추가",
+        "description": "Unleash에서 통합 → 웹훅을 여세요. 이 URL과 헤더를 사용하고, Unleash가 자체 이벤트를 보내도록 본문 템플릿을 비워 두고, 보낼 이벤트를 선택하세요. 토큰에는 apm.deploy 권한이 필요합니다."
+      }
+    }
+  },
+  "nacos": {
+    "name": "Nacos",
+    "description": "Nacos의 구성 변경 사항을 변경 목록에 보고합니다.",
+    "steps": {
+      "1": {
+        "title": "주소 복사",
+        "description": "Nacos는 자체 웹훅을 보내지 않습니다. 구성 변경 플러그인 또는 Nacos 클라이언트의 소규모 리스너가 이 주소를 가리키도록 하세요. 토큰에는 apm.deploy 권한이 필요하며 Authorization 헤더에 넣을 수도 있습니다."
+      },
+      "2": {
+        "title": "각 변경 사항 게시",
+        "description": "데이터 ID, 그룹, 네임스페이스, 변경한 사용자를 보내세요. 본문은 Nacos의 문서화된 필드에 맞춰 작성되었으며 실제 서버에서는 검증되지 않았습니다."
+      }
+    }
+  },
+  "apollo": {
+    "name": "Apollo",
+    "description": "Apollo의 구성 릴리스를 변경 목록에 보고합니다.",
+    "steps": {
+      "1": {
+        "title": "주소 복사",
+        "description": "Apollo의 릴리스 웹훅 또는 릴리스 메시지 리스너가 이 주소를 가리키도록 하세요. 앱 ID가 서비스로 해석되므로 service=는 필요하지 않습니다. 토큰에는 apm.deploy 권한이 필요합니다."
+      },
+      "2": {
+        "title": "각 릴리스 게시",
+        "description": "앱 ID, 클러스터, 네임스페이스, 릴리스 제목, 운영자를 보내세요. 본문은 Apollo의 문서화된 필드에 맞춰 작성되었으며 실제 서버에서는 검증되지 않았습니다."
       }
     }
   }

@@ -91,7 +91,8 @@
     "expand_group": "{{group}} 펼치기",
     "open_navigation": "알림 메뉴 열기",
     "collapse_navigation": "알림 메뉴 접기",
-    "expand_navigation": "알림 메뉴 펼치기"
+    "expand_navigation": "알림 메뉴 펼치기",
+    "changes": "변경 사항"
   },
   "history": {
     "error_title": "알림 기록을 불러올 수 없습니다",
@@ -792,7 +793,8 @@
       "tickets": "티켓",
       "major": "주요 인시던트",
       "postmortem": "사후 분석",
-      "guide": "조사 가이드"
+      "guide": "조사 가이드",
+      "business_impact": "비즈니스 영향"
     },
     "guide": {
       "queries": "쿼리",
@@ -814,7 +816,46 @@
       "generating": "생성 중…",
       "generated": "근본 원인 분석이 생성되었습니다.",
       "empty": "아직 분석이 없습니다. 분석을 생성하거나 백그라운드 분석이 완료될 때까지 기다려 주세요.",
-      "budget_exhausted": "조직의 오늘 Mole Agent 토큰 예산을 모두 사용하여 분석을 생성하지 못했습니다. 예산이 초기화되거나 늘어나면 다시 시도해 주세요."
+      "budget_exhausted": "조직의 오늘 Mole Agent 토큰 예산을 모두 사용하여 분석을 생성하지 못했습니다. 예산이 초기화되거나 늘어나면 다시 시도해 주세요.",
+      "evidence": {
+        "title": "증거",
+        "separator": ", ",
+        "withheld": "수치 숨김: 이 데이터를 읽을 수 없습니다",
+        "open": "{{label}} 열기",
+        "kind": {
+          "insight": "APM 인사이트",
+          "new_error_group": "새 오류 그룹",
+          "sample_trace": "샘플 트레이스",
+          "error_logs": "오류 로그",
+          "new_log_pattern": "새 오류 로그 패턴",
+          "change": "변경",
+          "similar_incident": "유사 인시던트",
+          "investigation": "조사",
+          "business_impact": "비즈니스 영향",
+          "attribute_skew": "실패한 요청이 다른 지점"
+        },
+        "insight": {
+          "anomaly": "이동함",
+          "regression": "회귀 발생",
+          "slow_dependency": "느린 종속성",
+          "repeated_call": "반복 호출",
+          "slow_query": "느린 쿼리",
+          "hot_endpoint": "핫 엔드포인트",
+          "log_errors": "오류 로그 증가"
+        },
+        "figures": {
+          "now": "현재 {{value}}",
+          "previous": "이전 {{value}}",
+          "last_week": "일주일 전 {{value}}",
+          "occurrences_one": "{{formatted}}회 발생",
+          "occurrences_other": "{{formatted}}회 발생",
+          "error_logs": "현재 {{now}}, 일주일 전 {{lastWeek}}",
+          "lines_one": "{{formatted}}줄",
+          "lines_other": "{{formatted}}줄",
+          "business": "요청 {{requests}}건 중 {{errors}}건 실패",
+          "skew": "실패한 요청 중 {{failed}}, 나머지 중 {{others}}"
+        }
+      }
     },
     "signals": {
       "services": "서비스",
@@ -898,6 +939,11 @@
         "healthy": "정상",
         "no_traffic": "트래픽 없음"
       }
+    },
+    "business": {
+      "important": "중요",
+      "failed": "{{requests}}건 중 {{errors}}건 실패 · {{rate}}",
+      "more": "요청이 있었던 값이 더 있습니다"
     }
   },
   "insights": {
@@ -3146,5 +3192,29 @@
       "imported_other": "라우팅 규칙 {{count}}개를 가져왔습니다",
       "content_hint": "JSON 또는 YAML 형식입니다. 에스컬레이션 정책, 팀, 휴일 캘린더는 이름으로 지정합니다. 파일에 있는 규칙은 파일에 나온 순서대로 앞에 배치되고, 나머지 규칙은 기존 순서를 유지한 채 그 뒤에 배치됩니다."
     }
+  },
+  "changes": {
+    "error_title": "변경 사항을 불러올 수 없습니다",
+    "empty_title": "이 범위에 변경 사항이 없습니다",
+    "empty_description": "파이프라인에서 보고하는 배포 및 기타 변경 사항, 주석, 새 버전, 규칙 편집 내역이 여기에 표시됩니다.",
+    "search_label": "변경 사항 검색",
+    "search_placeholder": "서비스, 버전, 제목, 작성자 또는 커밋",
+    "kind_label": "종류",
+    "all_kinds": "모든 종류",
+    "span_label": "범위",
+    "span": {
+      "24h": "최근 24시간",
+      "7d": "최근 7일",
+      "30d": "최근 30일"
+    },
+    "columns": {
+      "at": "시각",
+      "kind": "종류",
+      "subject": "변경",
+      "status": "결과",
+      "by": "작성자",
+      "open": "열기"
+    },
+    "open": "{{change}} 열기"
   }
 }

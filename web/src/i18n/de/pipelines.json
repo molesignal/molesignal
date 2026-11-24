@@ -327,7 +327,8 @@
       "counting_realtime_only": "Schritt \"{{name}}\" zählt Ereignisse bei ihrem Eingang und kann daher nur in einer Echtzeit-Pipeline ausgeführt werden.",
       "counting_not_here_metric": "Schritt \"{{name}}\" erzeugt Metriken aus Logs, RUM-Ereignissen und Spans. Diese Pipeline verarbeitet einen anderen Datentyp.",
       "counting_not_here_limit": "Schritt \"{{name}}\" hält Logs und RUM-Ereignisse zurück, die verworfen werden dürfen. In dieser Pipeline würde das zu Datenlücken führen.",
-      "counting_name_duplicate": "Zwei Schritte heißen \"{{name}}\". Ein Schritt, der Ereignisse zählt, braucht einen eindeutigen Namen, unter dem seine Zählerstände gespeichert werden."
+      "counting_name_duplicate": "Zwei Schritte heißen \"{{name}}\". Ein Schritt, der Ereignisse zählt, braucht einen eindeutigen Namen, unter dem seine Zählerstände gespeichert werden.",
+      "counting_not_here_change": "Schritt „{{name}}“ liest Kubernetes-Objekte, die als Logs eingehen; diese Pipeline verändert eine andere Art von Daten."
     }
   },
   "drawer": {
@@ -480,7 +481,8 @@
       "query_enrich": "Abfrageergebnisse hinzufügen",
       "generate_metric": "Metrik erzeugen",
       "quota": "Kontingent",
-      "throttle": "Rate begrenzen"
+      "throttle": "Rate begrenzen",
+      "to_change": "Änderungen aufzeichnen"
     }
   },
   "editor": {
@@ -1191,7 +1193,8 @@
       "past_route": "an {{stream}} gesendet",
       "quota_limit": "{{limit}} {{unit}} pro Tag",
       "throttle_limit": "{{limit}} pro {{window}} s",
-      "limit": "Wird in „{{bucket}}“ gezählt ({{limit}}). Bei Überschreitung des Limits wird das Ereignis {{past}}."
+      "limit": "Wird in „{{bucket}}“ gezählt ({{limit}}). Bei Überschreitung des Limits wird das Ereignis {{past}}.",
+      "change": "Als Änderung werten, wenn sich das Objekt seit der letzten Sichtung geändert hat: ein neues Image, neue Replikate, eine neue Spec oder neue Daten."
     },
     "usage": {
       "title": "Heutige Limits",
@@ -1204,7 +1207,12 @@
       "mib": "{{value}} MiB",
       "whole": "Gesamter Schritt",
       "others": "Weitere Buckets"
-    }
+    },
+    "change_environment": "Umgebung",
+    "change_environment_hint": "Die Umgebung jeder Änderung. Leer lassen, um sie aus dem Feld zu übernehmen.",
+    "change_environment_field": "Umgebungsfeld",
+    "change_environment_field_hint": "Das Ereignisfeld, das die Umgebung angibt, z. B. den Cluster.",
+    "summary_change": "Änderungen in {{environment}}"
   },
   "schedule_every": "Alle {{interval}}"
 }

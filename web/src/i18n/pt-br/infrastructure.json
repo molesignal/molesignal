@@ -1,0 +1,60 @@
+{
+  "title": "Infraestrutura",
+  "subtitle": "O que seus serviços executam: clusters, nós, hosts, pods e contêineres, lidos dos campos de recurso de spans, métricas e logs.",
+  "kind": {
+    "all": "Todos os tipos",
+    "cluster": "Cluster",
+    "node": "Nó",
+    "host": "Host",
+    "pod": "Pod",
+    "container": "Contêiner"
+  },
+  "list": {
+    "search_label": "Pesquisar infraestrutura",
+    "search_placeholder": "Pesquisar por nome ou chave",
+    "kind_label": "Tipo",
+    "error_title": "Não é possível carregar a infraestrutura",
+    "retry": "Tentar novamente",
+    "empty_title": "Nada visto ainda",
+    "empty_description": "As entidades aparecem em até cinco minutos quando spans, métricas ou logs contêm campos de recurso como k8s.pod.name, k8s.node.name ou host.name.",
+    "no_match_title": "Nada corresponde",
+    "no_match_description": "Tente outro nome ou tipo.",
+    "columns": {
+      "name": "Nome",
+      "kind": "Tipo",
+      "where": "Onde",
+      "services": "Serviços",
+      "last_seen": "Visto por último"
+    },
+    "open": "Abrir {{name}}"
+  },
+  "status": {
+    "current": "Em execução agora",
+    "stale": "Visto pela última vez {{when}}"
+  },
+  "detail": {
+    "error_title": "Não é possível carregar esta entidade",
+    "not_found_title": "Não visto",
+    "not_found_description": "Nada deste tipo e chave foi visto na última semana.",
+    "key": "Chave",
+    "kind": "Tipo",
+    "first_seen": "Visto pela primeira vez",
+    "last_seen": "Visto por último",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "parents": "Executa em",
+    "parents_empty": "Não faz parte de nada visto.",
+    "children": "Executa aqui",
+    "children_empty": "Nada visto em execução nele.",
+    "services": "Serviços",
+    "services_description": "Nele e no que é executado nele",
+    "services_empty": "Nenhum serviço visto nele. Os serviços aparecem quando seus spans nomeiam este local.",
+    "attributes": "Atributos de recurso",
+    "changes": "Alterações nos serviços dele",
+    "changes_description": "Últimas 24 horas",
+    "changes_empty": "Nenhuma alteração nas últimas 24 horas.",
+    "logs": "Logs",
+    "metrics": "Métricas",
+    "open_page": "Abrir página"
+  }
+}

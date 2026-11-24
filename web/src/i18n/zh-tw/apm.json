@@ -309,7 +309,8 @@
       "last_deploy": "最近部署",
       "tags": "標籤",
       "last_seen": "上次活躍",
-      "favorite": "收藏"
+      "favorite": "收藏",
+      "correlation": "關聯度"
     },
     "favorite": "收藏 {{name}}",
     "unfavorite": "取消收藏 {{name}}",
@@ -709,7 +710,9 @@
       "returned": "退回",
       "first_seen": "首次出現",
       "configuration": "設定變更",
-      "feature_flag": "功能開關"
+      "feature_flag": "功能開關",
+      "scaling": "擴縮容",
+      "infrastructure": "基礎設施變更"
     },
     "from": "自 {{version}}",
     "pull_request": "PR",
@@ -1177,7 +1180,42 @@
       "environments": "{{names}} 僅有大小寫不同。",
       "map_to": "一律視為 {{name}}",
       "generated": "{{name}} 看起來是 {{base}} 加上自動產生的後綴。",
-      "add_rule": "新增命名規則"
+      "add_rule": "新增命名規則",
+      "correlation": {
+        "untraced_one": "{{formatted}} 個服務最近一小時的日誌不帶 TraceID：{{names}}。",
+        "untraced_other": "{{formatted}} 個服務最近一小時的日誌不帶 TraceID：{{names}}。",
+        "partly_traced_one": "{{formatted}} 個服務只有部分日誌能對上留存的 Trace：{{names}}。",
+        "partly_traced_other": "{{formatted}} 個服務只有部分日誌能對上留存的 Trace：{{names}}。",
+        "unplaced_one": "{{formatted}} 個服務沒有上報執行位置（主機、Pod、Node 或容器）：{{names}}。",
+        "unplaced_other": "{{formatted}} 個服務沒有上報執行位置（主機、Pod、Node 或容器）：{{names}}。",
+        "unmatched_one": "日誌或指標裡有 {{formatted}} 個 APM 不認識的服務名稱：{{names}}。",
+        "unmatched_other": "日誌或指標裡有 {{formatted}} 個 APM 不認識的服務名稱：{{names}}。",
+        "no_changes_one": "{{formatted}} 個服務過去一週沒有上報變更：{{names}}。",
+        "no_changes_other": "{{formatted}} 個服務過去一週沒有上報變更：{{names}}。",
+        "names_more_one": "{{names}} 等，另有 {{count}} 個",
+        "names_more_other": "{{names}} 等，另有 {{count}} 個",
+        "to_naming": "命名規則",
+        "report_changes": "接入變更"
+      }
+    },
+    "business": {
+      "title": "業務上下文",
+      "hint": "租戶、方案這類業務鍵，以及各訊號中承載它的欄位：服務頁會依它拆分請求，事件會列出受影響的取值",
+      "empty": "尚無業務鍵",
+      "add": "新增業務鍵",
+      "key": "鍵",
+      "label": "顯示名稱",
+      "label_placeholder": "租戶",
+      "span": "Span 屬性",
+      "log": "日誌欄位",
+      "rum": "RUM 欄位",
+      "important": "重點取值",
+      "important_placeholder": "最重要的取值，以逗號分隔",
+      "issue": {
+        "key": "鍵須以小寫字母開頭，只能包含小寫字母、數字和 _。",
+        "twice": "每個鍵只能宣告一次。",
+        "nowhere": "每個鍵至少要指定一個訊號中的欄位。"
+      }
     }
   },
   "instances": {
@@ -1223,12 +1261,14 @@
       "slow_dependency": "瓶頸",
       "repeated_call": "N+1",
       "slow_query": "緩慢的 SQL",
-      "hot_endpoint": "熱點端點"
+      "hot_endpoint": "熱點端點",
+      "log_errors": "錯誤日誌"
     },
     "metric": {
       "error_rate": "錯誤率",
       "p95": "P95",
-      "throughput": "吞吐量"
+      "throughput": "吞吐量",
+      "log_errors": "錯誤日誌行數"
     },
     "sentence": {
       "anomaly_up": "{{metric}}升到 {{value}}（{{before}}）",
@@ -1237,13 +1277,16 @@
       "slow_dependency": "請求有 {{share}} 的時間花在 {{target}} 上",
       "repeated_call": "每個請求平均呼叫 {{operation}} {{each}} 次（共 {{calls}} 次），疑似有 N+1 問題，可合併為一次呼叫",
       "slow_query": "{{operation}}：P95 {{p95}}，共 {{calls}} 次",
-      "hot_endpoint": "{{endpoint}} 佔服務總耗時的 {{share}}（P95 {{p95}}）"
+      "hot_endpoint": "{{endpoint}} 佔服務總耗時的 {{share}}（P95 {{p95}}）",
+      "log_errors": "錯誤日誌升至 {{value}}（{{before}}）"
     },
     "change": {
       "deployment": "發布",
       "configuration": "設定變更",
       "feature_flag": "功能開關",
-      "observed": "（從 Span 觀測到）"
+      "observed": "（從 Span 觀測到）",
+      "scaling": "擴縮容",
+      "infrastructure": "基礎設施變更"
     },
     "baseline": {
       "previous": "與上一時段相比：",
@@ -1262,5 +1305,52 @@
       "error": "調查 {{service}}（{{environment}}）的錯誤 {{error}}（指紋 {{fingerprint}}）：何時開始、影響多少個請求，以及最可能的原因。",
       "finding": "調查 {{service}}（{{environment}}）在 {{from}} 至 {{to}} 的這項發現：{{finding}}"
     }
+  },
+  "correlation": {
+    "and": "、",
+    "aspect": {
+      "traceIds": "日誌 TraceID",
+      "resource": "資源屬性",
+      "metrics": "指標",
+      "changes": "變更"
+    },
+    "grade": {
+      "good": "良好",
+      "partial": "部分",
+      "missing": "缺失",
+      "unknown": "未知"
+    },
+    "attribute": {
+      "environment": "環境",
+      "version": "版本",
+      "instance": "執行個體",
+      "placement": "主機或 Pod"
+    },
+    "detail": {
+      "unknown": "讀取失敗。",
+      "no_logs": "最近一小時沒有日誌。",
+      "traced": "{{lines}} 行中有 {{share}} 帶 TraceID。",
+      "matched": "抽樣的 {{sampled}} 筆 Trace 中找到 {{matched}} 筆。",
+      "resource_complete": "環境、版本、執行個體和主機或 Pod 都已回報。",
+      "resource_missing": "未回報：{{attributes}}。",
+      "metrics_reported": "指標帶有它的服務名稱。",
+      "metrics_missing": "最近一小時沒有指標帶它的服務名稱。",
+      "metrics_unknown": "讀取失敗。",
+      "changes_one": "過去一週回報了 {{formatted}} 次變更。",
+      "changes_other": "過去一週回報了 {{formatted}} 次變更。"
+    }
+  },
+  "business": {
+    "title": "依業務鍵拆分請求",
+    "key": "業務鍵",
+    "any_field": "依任意欄位拆分",
+    "requests": "請求數",
+    "errors": "錯誤率",
+    "no_value": "（無值）",
+    "important": "重點",
+    "loading": "正在拆分…",
+    "failed": "拆分結果載入失敗",
+    "unavailable": "暫時無法讀取這個業務鍵",
+    "empty": "目前時間範圍內沒有請求帶這個業務鍵"
   }
 }

@@ -1,0 +1,60 @@
+{
+  "title": "Infrastruktur",
+  "subtitle": "Worauf Ihre Dienste laufen: Cluster, Knoten, Hosts, Pods und Container, gelesen aus den Ressourcenfeldern von Spans, Metriken und Logs.",
+  "kind": {
+    "all": "Alle Arten",
+    "cluster": "Cluster",
+    "node": "Node",
+    "host": "Host",
+    "pod": "Pod",
+    "container": "Container"
+  },
+  "list": {
+    "search_label": "Infrastruktur durchsuchen",
+    "search_placeholder": "Nach Name oder Schlüssel suchen",
+    "kind_label": "Art",
+    "error_title": "Infrastruktur kann nicht geladen werden",
+    "retry": "Erneut versuchen",
+    "empty_title": "Noch nichts gesehen",
+    "empty_description": "Entitäten erscheinen innerhalb von fünf Minuten, sobald Spans, Metriken oder Logs Ressourcenfelder wie k8s.pod.name, k8s.node.name oder host.name enthalten.",
+    "no_match_title": "Keine Treffer",
+    "no_match_description": "Versuchen Sie einen anderen Namen oder eine andere Art.",
+    "columns": {
+      "name": "Name",
+      "kind": "Art",
+      "where": "Wo",
+      "services": "Dienste",
+      "last_seen": "Zuletzt gesehen"
+    },
+    "open": "{{name}} öffnen"
+  },
+  "status": {
+    "current": "Wird gerade ausgeführt",
+    "stale": "Zuletzt gesehen {{when}}"
+  },
+  "detail": {
+    "error_title": "Diese Entität kann nicht geladen werden",
+    "not_found_title": "Nicht gesehen",
+    "not_found_description": "In der letzten Woche wurde nichts dieser Art und mit diesem Schlüssel gesehen.",
+    "key": "Schlüssel",
+    "kind": "Art",
+    "first_seen": "Zuerst gesehen",
+    "last_seen": "Zuletzt gesehen",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "parents": "Läuft auf",
+    "parents_empty": "Gehört zu nichts, was gesehen wurde.",
+    "children": "Läuft hier",
+    "children_empty": "Es wurde nichts gefunden, das darauf läuft.",
+    "services": "Dienste",
+    "services_description": "Auf ihm und auf dem, was darauf läuft",
+    "services_empty": "Auf ihm wurde kein Dienst gesehen. Dienste erscheinen, sobald ihre Spans diesen Ort nennen.",
+    "attributes": "Ressourcenattribute",
+    "changes": "Änderungen an den Diensten",
+    "changes_description": "Letzte 24 Stunden",
+    "changes_empty": "Keine Änderungen in den letzten 24 Stunden.",
+    "logs": "Logs",
+    "metrics": "Metriken",
+    "open_page": "Seite öffnen"
+  }
+}

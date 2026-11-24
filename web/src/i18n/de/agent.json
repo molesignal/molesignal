@@ -2247,6 +2247,10 @@
       "title": "Trace-DAG abrufen",
       "description": "Rufen Sie für einen Trace einen kompakten DAG der Abhängigkeiten zwischen Diensten und Spans ab, ohne die vollständigen Span-Nutzdaten."
     },
+    "compare_attribute_distributions": {
+      "title": "Langsame oder fehlgeschlagene Anfragen vergleichen",
+      "description": "Ordnet die Felder danach, wie stark sich ihre Werte bei langsamen oder fehlgeschlagenen Anfragen von denen der übrigen Anfragen unterscheiden – ermittelt aus einer Stichprobe."
+    },
     "list_trace_sessions": {
       "title": "Trace-Sitzungen auflisten",
       "description": "Listen Sie eine begrenzte Anzahl von LLM-/KI-Trace-Sitzungen auf, sofern der Trace-Stream Sitzungsfelder enthält."
@@ -2491,6 +2495,10 @@
       "title": "Auswirkungsbereich eines Service abrufen",
       "description": "Anhand der Service-Map anzeigen, welche Services den ausgewählten Service aufrufen und welche er selbst aufruft. Services mit beeinträchtigtem Zustand zuerst anzeigen."
     },
+    "get_correlation_quality": {
+      "title": "Korrelationsqualität abrufen",
+      "description": "Gibt zurück, wie gut jeder Service mit seinen Logs, Metriken, Traces und Änderungen verknüpft ist, und nennt die Servicenamen in Logs und Metriken, die APM nicht kennt."
+    },
     "correlate_signals": {
       "title": "Signale korrelieren",
       "description": "Eine begrenzte Auswahl an Verknüpfungen zwischen Vorfällen, Traces, Logs, RUM und Profilen für einen Service oder Trace ausgeben."
@@ -2498,6 +2506,14 @@
     "get_service_topology": {
       "title": "Service-Topologie abrufen",
       "description": "Einen begrenzten Abhängigkeitsgraphen der Services für einen Zeitraum ausgeben."
+    },
+    "list_entities": {
+      "title": "Infrastruktur auflisten",
+      "description": "Listet die Cluster, Nodes, Hosts, Pods und Container der letzten Woche auf, jeweils mit der Anzahl der darauf laufenden Services."
+    },
+    "get_entity": {
+      "title": "Infrastruktur-Entität abrufen",
+      "description": "Gibt einen Cluster, Node, Host, Pod oder Container zurück – mit dem, worauf er läuft, dem, was darauf läuft, und den Services darauf."
     },
     "list_rum_sessions": {
       "title": "RUM-Sitzungen auflisten",

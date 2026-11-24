@@ -590,7 +590,9 @@
       "10s": "10s",
       "30s": "30s",
       "1m": "1m",
-      "5m": "5m"
+      "5m": "5m",
+      "services": "서비스",
+      "services_whose_changes_are_marked_comma_separated_every_service_when_empty": "변경 사항이 표시된 서비스(쉼표로 구분), 비어 있으면 모든 서비스"
     }
   },
   "editor": {

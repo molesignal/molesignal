@@ -564,6 +564,28 @@
     "bulk_failed_other": "{{total}}개 중 {{count}}개 실패: {{reason}}",
     "clear_filters": "필터 해제"
   },
+  "changes": {
+    "kind": {
+      "deployment": "배포",
+      "configuration": "구성",
+      "feature_flag": "기능 플래그",
+      "scaling": "스케일링",
+      "infrastructure": "인프라",
+      "annotation": "주석",
+      "version": "새 버전",
+      "rule": "규칙 편집됨"
+    },
+    "status": {
+      "succeeded": "성공",
+      "failed": "실패",
+      "rolled_back": "롤백됨"
+    },
+    "rail_one": "이 범위의 변경 사항 {{count}}개",
+    "rail_other": "이 범위의 변경 사항 {{count}}개",
+    "open": "열림",
+    "pull_request": "풀 리퀘스트",
+    "ci_run": "CI 실행"
+  },
   "baseline": {
     "aria": "기준: {{value}}",
     "title": "기준 기간 선택",

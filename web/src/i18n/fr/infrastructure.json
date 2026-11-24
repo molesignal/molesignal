@@ -1,0 +1,60 @@
+{
+  "title": "Infrastructure",
+  "subtitle": "Ce sur quoi vos services s'exécutent : clusters, nœuds, hôtes, pods et conteneurs, lus à partir des champs de ressources des spans, métriques et logs.",
+  "kind": {
+    "all": "Tous les types",
+    "cluster": "Cluster",
+    "node": "Nœud",
+    "host": "Hôte",
+    "pod": "Pod",
+    "container": "Conteneur"
+  },
+  "list": {
+    "search_label": "Rechercher une infrastructure",
+    "search_placeholder": "Rechercher par nom ou clé",
+    "kind_label": "Type",
+    "error_title": "Impossible de charger l'infrastructure",
+    "retry": "Réessayer",
+    "empty_title": "Rien d'observé pour l'instant",
+    "empty_description": "Les entités apparaissent en moins de cinq minutes dès que des spans, métriques ou journaux contiennent des champs de ressource tels que k8s.pod.name, k8s.node.name ou host.name.",
+    "no_match_title": "Aucun résultat",
+    "no_match_description": "Essayez un autre nom ou type.",
+    "columns": {
+      "name": "Nom",
+      "kind": "Type",
+      "where": "Emplacement",
+      "services": "Services",
+      "last_seen": "Dernière observation"
+    },
+    "open": "Ouvrir {{name}}"
+  },
+  "status": {
+    "current": "En cours d'exécution",
+    "stale": "Vu pour la dernière fois {{when}}"
+  },
+  "detail": {
+    "error_title": "Impossible de charger cette entité",
+    "not_found_title": "Non observé",
+    "not_found_description": "Aucun élément de ce type et de cette clé n'a été observé au cours de la semaine écoulée.",
+    "key": "Clé",
+    "kind": "Type",
+    "first_seen": "Première observation",
+    "last_seen": "Dernière observation",
+    "copy": "Copier",
+    "copied": "Copié",
+    "parents": "S'exécute sur",
+    "parents_empty": "Ne fait partie d'aucun élément observé.",
+    "children": "S'exécute ici",
+    "children_empty": "Aucune exécution observée dessus.",
+    "services": "Services",
+    "services_description": "Sur cette entité et sur ce qui s'y exécute",
+    "services_empty": "Aucun service observé dessus. Les services apparaissent dès que leurs spans désignent cet emplacement.",
+    "attributes": "Attributs de ressource",
+    "changes": "Modifications de ses services",
+    "changes_description": "Dernières 24 heures",
+    "changes_empty": "Aucun changement au cours des dernières 24 heures.",
+    "logs": "Journaux",
+    "metrics": "Métriques",
+    "open_page": "Ouvrir la page"
+  }
+}

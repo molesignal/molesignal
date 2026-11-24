@@ -2280,6 +2280,10 @@
       "title": "Obtener DAG de la traza",
       "description": "Devuelve un DAG compacto de las dependencias entre servicios y spans de una traza, sin incluir todos los datos de los spans."
     },
+    "compare_attribute_distributions": {
+      "title": "Comparar solicitudes lentas o fallidas",
+      "description": "Clasifica los campos cuyos valores de las solicitudes lentas o fallidas difieren del resto, a partir de una muestra de cada grupo."
+    },
     "list_trace_sessions": {
       "title": "Listar sesiones de trazas",
       "description": "Lista un número limitado de sesiones de trazas de LLM o IA si el flujo de trazas incluye campos de sesión."
@@ -2524,6 +2528,10 @@
       "title": "Consultar el alcance del impacto de un servicio",
       "description": "Consulta en el mapa de servicios quién llama al servicio y a qué servicios llama, con los que presentan problemas primero."
     },
+    "get_correlation_quality": {
+      "title": "Obtener la calidad de la correlación",
+      "description": "Devuelve qué tan bien se vincula cada servicio con sus logs, métricas, trazas y cambios, y los nombres de servicios en los logs y las métricas que APM no conoce."
+    },
     "correlate_signals": {
       "title": "Correlacionar señales",
       "description": "Obtén un conjunto limitado de vínculos entre incidentes, trazas, registros, datos de RUM y perfiles para un servicio o una traza."
@@ -2531,6 +2539,14 @@
     "get_service_topology": {
       "title": "Consultar la topología de servicios",
       "description": "Obtén un grafo acotado de dependencias entre servicios para un intervalo de tiempo."
+    },
+    "list_entities": {
+      "title": "Enumerar la infraestructura",
+      "description": "Enumera los clústeres, nodos, hosts, pods y contenedores detectados durante la última semana, con cuántos servicios se ejecutan en cada uno."
+    },
+    "get_entity": {
+      "title": "Obtener una entidad de infraestructura",
+      "description": "Devuelve un clúster, nodo, host, pod o contenedor con aquello sobre lo que se ejecuta, lo que se ejecuta en él y los servicios que aloja."
     },
     "list_rum_sessions": {
       "title": "Enumerar sesiones de RUM",

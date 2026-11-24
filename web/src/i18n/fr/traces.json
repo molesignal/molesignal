@@ -322,6 +322,25 @@
           "timestamp_masked": "Les horodatages vous sont masqués. Les données ne peuvent donc pas être affichées sur un axe temporel.",
           "field_protected": "Ce champ vous est masqué. Les requêtes ne peuvent donc pas être ventilées selon ce champ."
         }
+      },
+      "compare": {
+        "title": "Comparer",
+        "choice_label": "Requêtes à comparer aux autres",
+        "choice": {
+          "none": "Choisir des requêtes…",
+          "failed": "Requêtes en échec",
+          "p95": "Plus lentes que le p95 ({{duration}})",
+          "p99": "Plus lentes que le p99 ({{duration}})"
+        },
+        "sample": "{{chosen}} sélectionnées et {{others}} autres requêtes lues",
+        "sample_sampled": "Un échantillon de {{chosen}} requêtes sélectionnées et {{others}} autres requêtes",
+        "score": "{{score}} d’écart",
+        "shares": "{{chosen}} des requêtes sélectionnées · {{others}} des autres requêtes",
+        "break_down": "Ventilez les requêtes selon ce champ",
+        "loading": "Comparaison en cours…",
+        "failed": "Impossible de charger la comparaison",
+        "none_chosen": "Aucune des requêtes n’est du type sélectionné",
+        "alike": "Les requêtes sélectionnées partagent leurs valeurs avec les autres : aucun champ ne les distingue"
       }
     },
     "spans": {

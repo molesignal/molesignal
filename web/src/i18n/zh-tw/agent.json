@@ -2247,6 +2247,10 @@
       "title": "取得追蹤 DAG",
       "description": "傳回單筆追蹤中服務與 Span 相依關係的精簡 DAG，不傳回完整的 Span 承載資料。"
     },
+    "compare_attribute_distributions": {
+      "title": "比較慢速請求或失敗請求",
+      "description": "在兩組請求的取樣上比較各欄位的取值分布，依差異大小列出慢速請求或失敗請求與其他請求差別最大的欄位。"
+    },
     "list_trace_sessions": {
       "title": "列出 Trace Session",
       "description": "當 Trace 串流包含 Session 欄位時，列出數量有限的 LLM/AI Trace Session。"
@@ -2491,6 +2495,10 @@
       "title": "取得服務影響範圍",
       "description": "依服務地圖傳回呼叫此服務的其他服務及此服務呼叫的對象，並將狀態異常的項目排在前面。"
     },
+    "get_correlation_quality": {
+      "title": "取得關聯品質",
+      "description": "傳回每個服務與日誌、指標、Trace 和變更的關聯情況，以及日誌和指標裡 APM 不認識的服務名稱。"
+    },
     "correlate_signals": {
       "title": "跨訊號關聯",
       "description": "依服務或 Trace，在指定範圍內關聯事件、追蹤、日誌、RUM 與 Profile。"
@@ -2498,6 +2506,14 @@
     "get_service_topology": {
       "title": "取得服務拓撲",
       "description": "傳回指定時間範圍內的服務相依關係圖，並限制其規模。"
+    },
+    "list_entities": {
+      "title": "查詢基礎設施",
+      "description": "列出最近一週看到的叢集、節點、主機、Pod 和容器，以及每個上面執行的服務數。"
+    },
+    "get_entity": {
+      "title": "取得基礎設施實體",
+      "description": "傳回一個叢集、節點、主機、Pod 或容器：它執行在哪裡、哪些執行在它上面，以及它上面的服務。"
     },
     "list_rum_sessions": {
       "title": "查詢 RUM 工作階段",

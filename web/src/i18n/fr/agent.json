@@ -2280,6 +2280,10 @@
       "title": "Récupérer le DAG d’une trace",
       "description": "Récupérez un DAG compact des dépendances entre services et spans d’une trace, sans les données complètes des spans."
     },
+    "compare_attribute_distributions": {
+      "title": "Comparer les requêtes lentes ou en échec",
+      "description": "Classez les champs dont les valeurs distinguent les requêtes lentes ou en échec des autres requêtes, à partir d’un échantillon de chacune."
+    },
     "list_trace_sessions": {
       "title": "Lister les sessions de traces",
       "description": "Listez un nombre limité de sessions de traces LLM/IA si le flux de traces contient des champs de session."
@@ -2524,6 +2528,10 @@
       "title": "Obtenir le périmètre d’impact d’un service",
       "description": "Indiquer, d’après la carte des services, quels services appellent le service et lesquels il appelle, en plaçant les services en mauvais état en premier."
     },
+    "get_correlation_quality": {
+      "title": "Obtenir la qualité de corrélation",
+      "description": "Renvoie le degré de corrélation de chaque service avec ses logs, métriques, traces et changements, ainsi que les noms de services dans les logs et les métriques qu’APM ne connaît pas."
+    },
     "correlate_signals": {
       "title": "Corréler les signaux",
       "description": "Renvoyer un ensemble limité de liens entre les incidents, les traces, les logs, les données RUM et les profils pour un service ou une trace."
@@ -2531,6 +2539,14 @@
     "get_service_topology": {
       "title": "Obtenir la topologie des services",
       "description": "Renvoyer un graphe de dépendances de taille limitée pour une période donnée."
+    },
+    "list_entities": {
+      "title": "Lister l’infrastructure",
+      "description": "Liste les clusters, nœuds, hôtes, pods et conteneurs observés au cours de la dernière semaine, avec le nombre de services qui s’exécutent sur chacun."
+    },
+    "get_entity": {
+      "title": "Obtenir une entité d’infrastructure",
+      "description": "Renvoie un cluster, un nœud, un hôte, un pod ou un conteneur avec ce sur quoi il s’exécute, ce qui s’exécute dessus et les services qu’il héberge."
     },
     "list_rum_sessions": {
       "title": "Lister les sessions RUM",

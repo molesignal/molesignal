@@ -91,7 +91,8 @@
     "expand_group": "Expandir {{group}}",
     "open_navigation": "Abrir el menú de alertas",
     "collapse_navigation": "Contraer el menú de alertas",
-    "expand_navigation": "Expandir el menú de alertas"
+    "expand_navigation": "Expandir el menú de alertas",
+    "changes": "Cambios"
   },
   "history": {
     "error_title": "No se pudo cargar el historial de alertas",
@@ -804,7 +805,8 @@
       "tickets": "Tickets",
       "major": "Incidente grave",
       "postmortem": "Análisis posterior al incidente",
-      "guide": "Guía de investigación"
+      "guide": "Guía de investigación",
+      "business_impact": "Impacto en el negocio"
     },
     "guide": {
       "queries": "Consultas",
@@ -826,7 +828,48 @@
       "generating": "Generando…",
       "generated": "Se generó el análisis de causa raíz",
       "empty": "Aún no hay un análisis. Genera uno o espera a que se ejecute el análisis en segundo plano.",
-      "budget_exhausted": "Se agotó el presupuesto diario de tokens de Mole Agent para la organización, así que no se generó el análisis. Vuelve a intentarlo cuando el presupuesto se restablezca o aumente."
+      "budget_exhausted": "Se agotó el presupuesto diario de tokens de Mole Agent para la organización, así que no se generó el análisis. Vuelve a intentarlo cuando el presupuesto se restablezca o aumente.",
+      "evidence": {
+        "title": "Evidencia",
+        "separator": ", ",
+        "withheld": "Cifras ocultas: no puedes leer estos datos",
+        "open": "Abrir {{label}}",
+        "kind": {
+          "insight": "Análisis de APM",
+          "new_error_group": "Nuevo grupo de errores",
+          "sample_trace": "Traza de ejemplo",
+          "error_logs": "Registros de errores",
+          "new_log_pattern": "Nuevo patrón en registros de errores",
+          "change": "Cambio",
+          "similar_incident": "Incidente similar",
+          "investigation": "Investigación",
+          "business_impact": "Impacto en el negocio",
+          "attribute_skew": "Dónde difieren las solicitudes fallidas"
+        },
+        "insight": {
+          "anomaly": "se movió",
+          "regression": "empeoró",
+          "slow_dependency": "dependencia lenta",
+          "repeated_call": "llamada repetida",
+          "slow_query": "consulta lenta",
+          "hot_endpoint": "endpoint con más tráfico",
+          "log_errors": "aumentaron los logs de error"
+        },
+        "figures": {
+          "now": "ahora {{value}}",
+          "previous": "antes de {{value}}",
+          "last_week": "hace una semana {{value}}",
+          "occurrences_one": "{{formatted}} ocurrencia",
+          "occurrences_other": "{{formatted}} ocurrencias",
+          "occurrences_many": "{{formatted}} de ocurrencias",
+          "error_logs": "{{now}} ahora, {{lastWeek}} hace una semana",
+          "lines_one": "{{formatted}} línea",
+          "lines_other": "{{formatted}} líneas",
+          "lines_many": "{{formatted}} de líneas",
+          "business": "{{errors}} de {{requests}} solicitudes fallaron",
+          "skew": "{{failed}} de las solicitudes fallidas, {{others}} de las demás"
+        }
+      }
     },
     "signals": {
       "services": "Servicios",
@@ -914,6 +957,11 @@
         "healthy": "Operativo",
         "no_traffic": "Sin tráfico"
       }
+    },
+    "business": {
+      "important": "Importante",
+      "failed": "{{errors}} de {{requests}} fallaron · {{rate}}",
+      "more": "Más valores tenían solicitudes"
     }
   },
   "insights": {
@@ -3208,5 +3256,29 @@
       "imported_many": "Se importaron {{count}} reglas de enrutamiento",
       "content_hint": "JSON o YAML. Las políticas de escalamiento, los equipos y los calendarios de días festivos se identifican por su nombre. Las reglas del archivo van primero, en el orden en que aparecen. Las demás van después y conservan su orden."
     }
+  },
+  "changes": {
+    "error_title": "No se pueden cargar los cambios",
+    "empty_title": "No hay cambios en este intervalo",
+    "empty_description": "Aquí aparecen los despliegues y otros cambios que informan tus pipelines, las anotaciones, las nuevas versiones y las ediciones de reglas.",
+    "search_label": "Buscar cambios",
+    "search_placeholder": "Servicio, versión, título, autor o commit",
+    "kind_label": "Tipo",
+    "all_kinds": "Todos los tipos",
+    "span_label": "Intervalo",
+    "span": {
+      "24h": "Últimas 24 horas",
+      "7d": "Últimos 7 días",
+      "30d": "Últimos 30 días"
+    },
+    "columns": {
+      "at": "Cuándo",
+      "kind": "Tipo",
+      "subject": "Cambio",
+      "status": "Resultado",
+      "by": "Por",
+      "open": "Abrir"
+    },
+    "open": "Abrir {{change}}"
   }
 }

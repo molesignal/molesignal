@@ -330,7 +330,8 @@
       "counting_realtime_only": "A etapa \"{{name}}\" conta os eventos à medida que chegam e só é executada em um pipeline em tempo real.",
       "counting_not_here_metric": "A etapa \"{{name}}\" gera métricas a partir de logs, eventos de RUM e spans, mas este pipeline transforma outro tipo de dado.",
       "counting_not_here_limit": "A etapa \"{{name}}\" retém logs e eventos de RUM que podem ser descartados por uma etapa. Neste pipeline, isso deixaria lacunas nos dados.",
-      "counting_name_duplicate": "Duas etapas têm o nome \"{{name}}\". Uma etapa de contagem precisa de um nome exclusivo, pois as contagens são armazenadas com esse nome."
+      "counting_name_duplicate": "Duas etapas têm o nome \"{{name}}\". Uma etapa de contagem precisa de um nome exclusivo, pois as contagens são armazenadas com esse nome.",
+      "counting_not_here_change": "A etapa \"{{name}}\" lê objetos do Kubernetes que chegam como logs; este pipeline altera outro tipo de dados."
     }
   },
   "drawer": {
@@ -484,7 +485,8 @@
       "query_enrich": "Adicionar resultados da consulta",
       "generate_metric": "Gerar métrica",
       "quota": "Cota",
-      "throttle": "Limitar taxa"
+      "throttle": "Limitar taxa",
+      "to_change": "Registrar alterações"
     }
   },
   "editor": {
@@ -1196,7 +1198,8 @@
       "past_route": "enviado para {{stream}}",
       "quota_limit": "{{limit}} {{unit}} por dia",
       "throttle_limit": "{{limit}} a cada {{window}} s",
-      "limit": "É contabilizado em {{bucket}} ({{limit}}); acima do limite, é {{past}}."
+      "limit": "É contabilizado em {{bucket}} ({{limit}}); acima do limite, é {{past}}.",
+      "change": "É considerado uma alteração quando o objeto mudou desde a última vez em que foi visto: uma nova imagem, novas réplicas, um novo spec ou novos dados."
     },
     "usage": {
       "title": "Limites de hoje",
@@ -1209,7 +1212,12 @@
       "mib": "{{value}} MiB",
       "whole": "Etapa inteira",
       "others": "Outros buckets"
-    }
+    },
+    "change_environment": "Ambiente",
+    "change_environment_hint": "O ambiente de cada alteração. Deixe vazio para obtê-lo do campo.",
+    "change_environment_field": "Campo de ambiente",
+    "change_environment_field_hint": "O campo do evento que informa o ambiente, como o cluster.",
+    "summary_change": "Alterações de {{environment}}"
   },
   "schedule_every": "A cada {{interval}}"
 }

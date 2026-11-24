@@ -11,8 +11,16 @@
         "description": "Enregistrez le YAML ci-dessous dans fluent-bit-daemonset.yaml, puis appliquez-le."
       },
       "3": {
-        "title": "Vérifiez que les logs arrivent",
-        "description": "Au bout d’une minute, ouvrez la section Logs et sélectionnez le flux app-logs. Les champs kubernetes.* devraient y figurer."
+        "title": "Surveiller les charges de travail et les ConfigMaps (facultatif)",
+        "description": "Exécutez un OpenTelemetry Collector avec le récepteur k8sobjects, avec un compte de service autorisé à lister et à surveiller ces objets. Chaque objet arrive sous forme de ligne de journal du flux k8s_objects."
+      },
+      "4": {
+        "title": "Les interpréter comme des changements",
+        "description": "Un pipeline en temps réel sur k8s_objects avec une étape d’enregistrement des changements transforme une nouvelle image en déploiement, de nouveaux replicas en mise à l’échelle, et de nouvelles données ConfigMap en changement de configuration. Ils apparaissent sur la page des changements et sur les graphiques."
+      },
+      "5": {
+        "title": "Vérifier que les journaux arrivent",
+        "description": "Après une minute, ouvrez Journaux et choisissez le flux app-logs ; les champs kubernetes.* devraient y être."
       }
     }
   },
@@ -497,6 +505,42 @@
       }
     }
   },
+  "volcengine-cloudmonitor": {
+    "name": "Remote write de Volcengine CloudMonitor",
+    "description": "Exécutez l’exportateur de Volcengine CloudMonitor pour lire les métriques des produits cloud et les écrire à distance dans MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "Déployer l’exportateur CloudMonitor",
+        "description": "L’export est en bêta publique : activez la facturation à l’usage et demandez-la à votre chargé de compte. Déployez l’exportateur, version 1.4.0 ou ultérieure, sur Kubernetes, Docker ou un hôte, avec l’AccessKey d’un utilisateur disposant de CloudMonitorReadOnlyAccess. Il lit les métriques des produits qu’il prend en charge avec GetMetricData."
+      },
+      "2": {
+        "title": "Ajouter MoleSignal aux écritures distantes de l’exportateur",
+        "description": "Ajoutez une entrée avec ces champs à la section RemoteWrites de la configuration de l’exportateur ; le nom d’utilisateur peut être quelconque, le mot de passe est le jeton d’ingestion. Le paramètre de requête stream nomme le flux de métriques. Les échantillons arrivent quelques minutes après leur horodatage, ce que MoleSignal accepte."
+      },
+      "3": {
+        "title": "Vérifier les métriques dans MoleSignal",
+        "description": "Les métriques sont nommées metricName_subNamespace_namespace, comme AggregatedMemUtil_aggregated_server_VCM_Redis, et les détails des ressources arrivent sous la forme volc_resource_info. Exécutez cette requête sur le flux de métriques volcengine une fois la première écriture arrivée."
+      }
+    }
+  },
+  "volcengine-prometheus": {
+    "name": "Export Volcengine Prometheus",
+    "description": "Exportez un espace de travail Volcengine Managed Service for Prometheus vers MoleSignal par écriture à distance.",
+    "steps": {
+      "1": {
+        "title": "Vérifier ce que l’espace de travail peut exporter",
+        "description": "La tâche d’export est en bêta publique. Elle n’exporte que les espaces de travail généraux, et uniquement leurs métriques facturées ; un espace de travail qui conserve les données pendant 15 jours ou moins n’exporte que les métriques personnalisées."
+      },
+      "2": {
+        "title": "Créer une tâche d'export",
+        "description": "Dans la console VMP, choisissez la région, ouvrez Tâches d'export et créez-en une avec Self-managed Prometheus comme cible. Saisissez l'adresse ci-dessous via un accès réseau public ou privé, choisissez l'authentification par Bearer token avec le jeton d'ingestion, et ajoutez au moins une règle de filtre. Le paramètre de requête stream désigne le flux de métriques ; un en-tête HTTP personnalisé portant le nom du flux fait de même."
+      },
+      "3": {
+        "title": "Vérifier les métriques dans MoleSignal",
+        "description": "Une fois le premier export arrivé, cette requête sur le flux de métriques volcengine_prometheus liste les métriques comptant le plus de séries. La page de détails de la tâche affiche ses requêtes d'écriture et sa latence."
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Envoyez les données via un connecteur de destination Kafka Connect ou kafka-exporter.",
@@ -643,6 +687,58 @@
       "1": {
         "title": "Utilisez un relais WebSocket",
         "description": "Déployez un nœud relais qui transmet les données d’abonnement à MoleSignal."
+      }
+    }
+  },
+  "launchdarkly": {
+    "name": "LaunchDarkly",
+    "description": "Remontez les changements de flags dans la liste des changements depuis un webhook LaunchDarkly.",
+    "steps": {
+      "1": {
+        "title": "Copier l’adresse du webhook",
+        "description": "Dans LaunchDarkly, ouvrez Intégrations → Webhooks → Ajouter une intégration et collez cette URL. Définissez service= sur le service auquel les flags appartiennent ; l’environnement est lu dans chaque entrée. Le jeton doit disposer de la permission apm.deploy et est transporté dans l’adresse, car LaunchDarkly n’envoie pas d’en-tête personnalisé : donnez-lui son propre jeton."
+      },
+      "2": {
+        "title": "Limiter aux flags importants (facultatif)",
+        "description": "Ajoutez une règle pour que le webhook n’envoie que les changements d’un seul environnement, par exemple la production."
+      }
+    }
+  },
+  "unleash": {
+    "name": "Unleash",
+    "description": "Remontez les changements de feature toggles dans la liste des changements depuis l’add-on webhook d’Unleash.",
+    "steps": {
+      "1": {
+        "title": "Ajouter l’intégration webhook",
+        "description": "Dans Unleash, ouvrez Intégrations → Webhook. Utilisez cette URL et cet en-tête, laissez le modèle de corps vide pour qu’Unleash envoie son propre événement, et choisissez les événements à envoyer. Le jeton doit disposer de la permission apm.deploy."
+      }
+    }
+  },
+  "nacos": {
+    "name": "Nacos",
+    "description": "Remontez les changements de configuration dans la liste des changements depuis Nacos.",
+    "steps": {
+      "1": {
+        "title": "Copier l’adresse",
+        "description": "Nacos n’envoie pas de webhook propre : faites pointer un plugin de modification de configuration, ou un petit écouteur du client Nacos, vers cette adresse. Le jeton doit disposer de la permission apm.deploy et peut aussi être placé dans un en-tête Authorization."
+      },
+      "2": {
+        "title": "Envoyer chaque changement",
+        "description": "Envoyez l’ID de données, le groupe, l’espace de noms et l’auteur de la modification. Le corps a été écrit d’après les champs documentés de Nacos et n’a pas été vérifié sur un serveur réel."
+      }
+    }
+  },
+  "apollo": {
+    "name": "Apollo",
+    "description": "Remontez les versions de configuration dans la liste des changements depuis Apollo.",
+    "steps": {
+      "1": {
+        "title": "Copier l’adresse",
+        "description": "Faites pointer le webhook de publication d’Apollo, ou un écouteur des messages de publication, vers cette adresse. L’ID d’application est lu comme le service, donc aucun service= n’est nécessaire. Le jeton doit disposer de la permission apm.deploy."
+      },
+      "2": {
+        "title": "Envoyer chaque publication",
+        "description": "Envoyez l’ID de l’application, le cluster, l’espace de noms, le titre de la publication et l’opérateur. Le corps a été écrit d’après les champs documentés d’Apollo et n’a pas été vérifié sur un serveur réel."
       }
     }
   }

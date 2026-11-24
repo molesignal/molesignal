@@ -11,8 +11,16 @@
         "description": "將下方的 YAML 儲存為 fluent-bit-daemonset.yaml，然後執行 apply。"
       },
       "3": {
-        "title": "確認已收到日誌",
-        "description": "一分鐘後回到 Logs 頁面，將資料流選為 app-logs，應該就能看到 kubernetes.* 欄位。"
+        "title": "監聽工作負載與 ConfigMap（選用）",
+        "description": "執行帶有 k8sobjects receiver 的 OpenTelemetry Collector，所用的 ServiceAccount 需要能 list 和 watch 這些物件。每個物件會以一行日誌寫入 k8s_objects 資料流。"
+      },
+      "4": {
+        "title": "將它們記錄為變更",
+        "description": "在 k8s_objects 上建立一條即時管線，加入一個「記錄變更」步驟：新映像記為發布，新副本數記為擴縮容，ConfigMap 資料變化記為設定變更。它們會出現在變更頁和圖表上。"
+      },
+      "5": {
+        "title": "驗證日誌已進入",
+        "description": "一分鐘後回到 Logs 頁面，stream 選 app-logs 應該就能看到 kubernetes.* 欄位。"
       }
     }
   },
@@ -497,6 +505,42 @@
       }
     }
   },
+  "volcengine-cloudmonitor": {
+    "name": "火山引擎雲監控 Remote Write",
+    "description": "部署火山引擎雲監控的 Exporter 讀取雲產品指標，經由 Remote Write 寫入 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "部署雲監控 Exporter",
+        "description": "這項匯出功能處於公測：請先開通按用量計費，再向客戶經理申請。使用具有 CloudMonitorReadOnlyAccess 權限之使用者的 AccessKey，在 Kubernetes、Docker 或主機上部署 1.4.0 以上版本的 Exporter。它會透過 GetMetricData 讀取支援產品的指標。"
+      },
+      "2": {
+        "title": "將 MoleSignal 加入 Exporter 的 Remote Write",
+        "description": "在 Exporter 設定的 RemoteWrites 中新增一項，填入下方欄位：使用者名稱可以隨意填寫，密碼是接入 Token。位址中的 stream 參數指定要寫入的指標資料流。樣本送達時間會比其時間戳晚幾分鐘，MoleSignal 可以接收。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中確認指標",
+        "description": "指標命名為 metricName_subNamespace_namespace，例如 AggregatedMemUtil_aggregated_server_VCM_Redis，資源資訊會以 volc_resource_info 輸出。首批資料到達後，在 volcengine 指標資料流上執行這筆查詢。"
+      }
+    }
+  },
+  "volcengine-prometheus": {
+    "name": "火山引擎 Prometheus 匯出",
+    "description": "將火山引擎代管 Prometheus（VMP）工作區的資料，經由 Remote Write 匯出到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "確認工作區能匯出什麼",
+        "description": "匯出任務處於公測，只能匯出一般工作區的付費指標；資料保留 15 天以下的工作區只能匯出自訂指標。"
+      },
+      "2": {
+        "title": "建立匯出任務",
+        "description": "在 VMP 控制台選擇區域，開啟匯出任務並建立，匯出目標選「自建 Prometheus」。依公網或私網存取填入下方位址，驗證方式選 Bearer token，填入接入 Token，並至少新增一筆資料篩選規則。位址裡的 stream 參數指定寫入的指標資料流，也可以改用名為 stream-name 的自訂 HTTP Header。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中確認指標",
+        "description": "首批資料到達後，在 volcengine_prometheus 指標資料流上執行這筆查詢，列出序列最多的指標。任務詳情頁面可以查看寫入請求數和寫入延遲。"
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "透過 Kafka Connect Sink Connector 或 kafka-exporter 推送。",
@@ -643,6 +687,58 @@
       "1": {
         "title": "使用 WebSocket 中繼",
         "description": "部署中繼節點，將訂閱資料轉送至 MoleSignal。"
+      }
+    }
+  },
+  "launchdarkly": {
+    "name": "LaunchDarkly",
+    "description": "透過 LaunchDarkly 的 Webhook 將功能旗標變更上報到變更清單。",
+    "steps": {
+      "1": {
+        "title": "複製 Webhook 位址",
+        "description": "在 LaunchDarkly 中開啟 Integrations → Webhooks → Add integration，貼上這個位址。將 service= 改成旗標所屬的服務；環境會從每筆記錄中讀取。Token 需要 apm.deploy 權限，因為 LaunchDarkly 無法設定自訂請求標頭，只能放在位址裡，建議為它單獨建立一個 Token。"
+      },
+      "2": {
+        "title": "只傳送需要的旗標（選用）",
+        "description": "新增一條 policy，讓 Webhook 只傳送某個環境（例如 production）的變更。"
+      }
+    }
+  },
+  "unleash": {
+    "name": "Unleash",
+    "description": "透過 Unleash 的 Webhook 外掛將功能旗標變更上報到變更清單。",
+    "steps": {
+      "1": {
+        "title": "新增 Webhook 整合",
+        "description": "在 Unleash 中開啟 Integrations → Webhook，填入這個位址和請求標頭，請求內容範本留空，讓 Unleash 傳送它自己的事件，再勾選要傳送的事件。Token 需要 apm.deploy 權限。"
+      }
+    }
+  },
+  "nacos": {
+    "name": "Nacos",
+    "description": "將 Nacos 的設定變更上報到變更清單。",
+    "steps": {
+      "1": {
+        "title": "複製位址",
+        "description": "Nacos 本身不會發送 Webhook：請使用設定變更外掛，或根據 Nacos 用戶端撰寫一個小型監聽程式，將變更傳送到這個位址。Token 需要 apm.deploy 權限，也可以放在 Authorization 請求標頭中。"
+      },
+      "2": {
+        "title": "每次變更傳送一次",
+        "description": "傳送 Data ID、群組、命名空間和修改人。請求內容依 Nacos 文件中的欄位撰寫，尚未在真實服務上驗證。"
+      }
+    }
+  },
+  "apollo": {
+    "name": "Apollo",
+    "description": "將 Apollo 的設定發布上報到變更清單。",
+    "steps": {
+      "1": {
+        "title": "複製位址",
+        "description": "將 Apollo 的發布 Webhook，或監聽發布訊息的程式指向這個位址。App ID 會作為服務名稱，不需要填 service=。Token 需要 apm.deploy 權限。"
+      },
+      "2": {
+        "title": "每次發布傳送一次",
+        "description": "傳送 App ID、叢集、命名空間、發布標題和操作人。請求內容依 Apollo 文件中的欄位撰寫，尚未在真實服務上驗證。"
       }
     }
   }

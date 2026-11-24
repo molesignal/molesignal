@@ -91,7 +91,8 @@
     "expand_group": "{{group}} ausklappen",
     "open_navigation": "Alarmnavigation öffnen",
     "collapse_navigation": "Alarmnavigation einklappen",
-    "expand_navigation": "Alarmnavigation ausklappen"
+    "expand_navigation": "Alarmnavigation ausklappen",
+    "changes": "Änderungen"
   },
   "history": {
     "error_title": "Alarmverlauf konnte nicht geladen werden",
@@ -792,7 +793,8 @@
       "tickets": "Tickets",
       "major": "Schwerwiegender Vorfall",
       "postmortem": "Postmortem",
-      "guide": "Untersuchungsleitfaden"
+      "guide": "Untersuchungsleitfaden",
+      "business_impact": "Geschäftliche Auswirkungen"
     },
     "guide": {
       "queries": "Abfragen",
@@ -814,7 +816,46 @@
       "generating": "Wird erstellt…",
       "generated": "Ursachenanalyse erstellt",
       "empty": "Noch keine Analyse. Erstellen Sie eine oder warten Sie auf die automatische Analyse im Hintergrund.",
-      "budget_exhausted": "Das heutige Token-Budget Ihrer Organisation für Mole Agent ist aufgebraucht. Daher wurde keine Analyse erstellt. Versuchen Sie es erneut, sobald das Budget zurückgesetzt oder erhöht wurde."
+      "budget_exhausted": "Das heutige Token-Budget Ihrer Organisation für Mole Agent ist aufgebraucht. Daher wurde keine Analyse erstellt. Versuchen Sie es erneut, sobald das Budget zurückgesetzt oder erhöht wurde.",
+      "evidence": {
+        "title": "Belege",
+        "separator": ", ",
+        "withheld": "Werte ausgeblendet: Sie können diese Daten nicht lesen",
+        "open": "{{label}} öffnen",
+        "kind": {
+          "insight": "APM-Insight",
+          "new_error_group": "Neue Fehlergruppe",
+          "sample_trace": "Beispiel-Trace",
+          "error_logs": "Fehlerprotokolle",
+          "new_log_pattern": "Neues Fehlerprotokollmuster",
+          "change": "Änderung",
+          "similar_incident": "Ähnlicher Vorfall",
+          "investigation": "Untersuchung",
+          "business_impact": "Geschäftliche Auswirkung",
+          "attribute_skew": "Wo sich fehlgeschlagene Anfragen unterscheiden"
+        },
+        "insight": {
+          "anomaly": "verschoben",
+          "regression": "verschlechtert",
+          "slow_dependency": "langsame Abhängigkeit",
+          "repeated_call": "wiederholter Aufruf",
+          "slow_query": "langsame Abfrage",
+          "hot_endpoint": "Hot Endpoint",
+          "log_errors": "Fehler-Logs gestiegen"
+        },
+        "figures": {
+          "now": "jetzt {{value}}",
+          "previous": "vor {{value}}",
+          "last_week": "vor einer Woche {{value}}",
+          "occurrences_one": "{{formatted}} Vorkommen",
+          "occurrences_other": "{{formatted}} Vorkommen",
+          "error_logs": "{{now}} jetzt, {{lastWeek}} vor einer Woche",
+          "lines_one": "{{formatted}} Zeile",
+          "lines_other": "{{formatted}} Zeilen",
+          "business": "{{errors}} von {{requests}} Anfragen fehlgeschlagen",
+          "skew": "{{failed}} der fehlgeschlagenen Anfragen, {{others}} der anderen"
+        }
+      }
     },
     "signals": {
       "services": "Services",
@@ -898,6 +939,11 @@
         "healthy": "Fehlerfrei",
         "no_traffic": "Kein Traffic"
       }
+    },
+    "business": {
+      "important": "Wichtig",
+      "failed": "{{errors}} von {{requests}} fehlgeschlagen · {{rate}}",
+      "more": "Weitere Werte hatten Anfragen"
     }
   },
   "insights": {
@@ -3146,5 +3192,29 @@
       "imported_other": "{{count}} Routingregeln importiert",
       "content_hint": "JSON oder YAML. Eskalationsrichtlinien, Teams und Feiertagskalender werden anhand ihrer Namen referenziert. Die Regeln aus der Datei stehen in der dort festgelegten Reihenfolge an erster Stelle. Die übrigen Regeln folgen in ihrer bisherigen Reihenfolge."
     }
+  },
+  "changes": {
+    "error_title": "Änderungen können nicht geladen werden",
+    "empty_title": "Keine Änderungen in diesem Zeitraum",
+    "empty_description": "Hier erscheinen Deployments und andere Änderungen, die Ihre Pipelines melden, sowie Anmerkungen, neue Versionen und Regeländerungen.",
+    "search_label": "Änderungen suchen",
+    "search_placeholder": "Service, Version, Titel, Autor oder Commit",
+    "kind_label": "Art",
+    "all_kinds": "Alle Arten",
+    "span_label": "Zeitraum",
+    "span": {
+      "24h": "Letzte 24 Stunden",
+      "7d": "Letzte 7 Tage",
+      "30d": "Letzte 30 Tage"
+    },
+    "columns": {
+      "at": "Wann",
+      "kind": "Art",
+      "subject": "Änderung",
+      "status": "Ergebnis",
+      "by": "Von",
+      "open": "Offen"
+    },
+    "open": "{{change}} öffnen"
   }
 }

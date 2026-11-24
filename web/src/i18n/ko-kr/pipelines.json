@@ -327,7 +327,8 @@
       "counting_realtime_only": "\"{{name}}\" 단계는 이벤트가 들어올 때마다 개수를 집계하므로 실시간 파이프라인에서만 실행할 수 있습니다.",
       "counting_not_here_metric": "\"{{name}}\" 단계는 로그, RUM 이벤트 및 스팬에서 메트릭을 생성하지만, 이 파이프라인은 다른 유형의 데이터를 처리합니다.",
       "counting_not_here_limit": "\"{{name}}\" 단계는 로그와 삭제가 허용된 RUM 이벤트의 통과를 제한합니다. 이 파이프라인에서 사용하면 데이터가 누락됩니다.",
-      "counting_name_duplicate": "\"{{name}}\"이라는 이름을 사용하는 단계가 두 개 있습니다. 개수를 집계하는 단계는 집계값을 단계 이름으로 저장하므로 고유한 이름이 필요합니다."
+      "counting_name_duplicate": "\"{{name}}\"이라는 이름을 사용하는 단계가 두 개 있습니다. 개수를 집계하는 단계는 집계값을 단계 이름으로 저장하므로 고유한 이름이 필요합니다.",
+      "counting_not_here_change": "\"{{name}}\" 단계는 로그로 들어오는 Kubernetes 객체를 읽습니다. 이 파이프라인은 다른 종류의 데이터를 변경합니다."
     }
   },
   "drawer": {
@@ -480,7 +481,8 @@
       "query_enrich": "쿼리 결과 추가",
       "generate_metric": "메트릭 생성",
       "quota": "할당량",
-      "throttle": "처리 속도 제한"
+      "throttle": "처리 속도 제한",
+      "to_change": "변경 기록"
     }
   },
   "editor": {
@@ -1191,7 +1193,8 @@
       "past_route": "{{stream}}(으)로 전송",
       "quota_limit": "하루 {{limit}} {{unit}}",
       "throttle_limit": "{{window}} s당 {{limit}}",
-      "limit": "{{bucket}}에 집계합니다(한도: {{limit}}). 한도 초과 시 처리: {{past}}"
+      "limit": "{{bucket}}에 집계합니다(한도: {{limit}}). 한도 초과 시 처리: {{past}}",
+      "change": "마지막으로 확인된 이후 객체가 변경된 경우 변경으로 간주합니다. 새 이미지, 새 레플리카, 새 스펙 또는 데이터."
     },
     "usage": {
       "title": "오늘의 한도 사용량",
@@ -1204,7 +1207,12 @@
       "mib": "{{value}} MiB",
       "whole": "단계 전체",
       "others": "기타 버킷"
-    }
+    },
+    "change_environment": "환경",
+    "change_environment_hint": "모든 변경의 환경입니다. 비워 두면 필드에서 가져옵니다.",
+    "change_environment_field": "환경 필드",
+    "change_environment_field_hint": "환경 이름을 지정하는 이벤트 필드입니다(예: 클러스터).",
+    "summary_change": "{{environment}}의 변경"
   },
   "schedule_every": "{{interval}}마다"
 }

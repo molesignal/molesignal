@@ -327,7 +327,8 @@
       "counting_realtime_only": "ステップ「{{name}}」はイベントの到着時に件数を集計するため、リアルタイムパイプラインでのみ実行できます。",
       "counting_not_here_metric": "ステップ「{{name}}」はログ、RUM イベント、スパンからメトリクスを生成しますが、このパイプラインは別の種類のデータを処理します。",
       "counting_not_here_limit": "ステップ「{{name}}」はログや除外可能な RUM イベントの通過を制限しますが、このパイプラインで使用するとデータに欠落が生じます。",
-      "counting_name_duplicate": "「{{name}}」という名前のステップが 2 つあります。件数はステップ名ごとに保持されるため、件数を集計するステップには一意の名前が必要です。"
+      "counting_name_duplicate": "「{{name}}」という名前のステップが 2 つあります。件数はステップ名ごとに保持されるため、件数を集計するステップには一意の名前が必要です。",
+      "counting_not_here_change": "ステップ「{{name}}」はログとして取り込まれる Kubernetes オブジェクトを読み取りますが、このパイプラインは別の種類のデータを変更します。"
     }
   },
   "drawer": {
@@ -480,7 +481,8 @@
       "query_enrich": "クエリ結果を追加",
       "generate_metric": "メトリクスを生成",
       "quota": "クォータ",
-      "throttle": "スロットリング"
+      "throttle": "スロットリング",
+      "to_change": "変更を記録"
     }
   },
   "editor": {
@@ -1191,7 +1193,8 @@
       "past_route": "{{stream}} に送信",
       "quota_limit": "1日あたり {{limit}} {{unit}}",
       "throttle_limit": "{{window}} s あたり {{limit}}",
-      "limit": "{{bucket}}（{{limit}}）でカウントします。上限超過時の処理は「{{past}}」です。"
+      "limit": "{{bucket}}（{{limit}}）でカウントします。上限超過時の処理は「{{past}}」です。",
+      "change": "最後に確認されたときからオブジェクトが変化した場合（新しいイメージ、新しいレプリカ、新しい spec、またはデータ）に、変更として読み取ります。"
     },
     "usage": {
       "title": "本日の制限状況",
@@ -1204,7 +1207,12 @@
       "mib": "{{value}} MiB",
       "whole": "ステップ全体",
       "others": "その他のバケット"
-    }
+    },
+    "change_environment": "環境",
+    "change_environment_hint": "すべての変更の環境です。空欄の場合はフィールドから取得します。",
+    "change_environment_field": "環境フィールド",
+    "change_environment_field_hint": "環境名を示すイベントフィールドです（クラスターなど）。",
+    "summary_change": "{{environment}} の変更"
   },
   "schedule_every": "{{interval}} ごと"
 }

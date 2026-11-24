@@ -1,0 +1,60 @@
+{
+  "title": "インフラストラクチャ",
+  "subtitle": "サービスが稼働する基盤（クラスタ、ノード、ホスト、Pod、コンテナ）を、スパン、メトリクス、ログのリソースフィールドから読み取ります。",
+  "kind": {
+    "all": "すべての種類",
+    "cluster": "クラスター",
+    "node": "ノード",
+    "host": "ホスト",
+    "pod": "Pod",
+    "container": "コンテナ"
+  },
+  "list": {
+    "search_label": "インフラストラクチャを検索",
+    "search_placeholder": "名前またはキーで検索",
+    "kind_label": "種類",
+    "error_title": "インフラストラクチャを読み込めません",
+    "retry": "再試行",
+    "empty_title": "まだ何も検出されていません",
+    "empty_description": "スパン、メトリクス、またはログに k8s.pod.name、k8s.node.name、host.name などのリソースフィールドが含まれると、エンティティは5分以内に表示されます。",
+    "no_match_title": "一致するものがありません",
+    "no_match_description": "別の名前または種類を試してください。",
+    "columns": {
+      "name": "名前",
+      "kind": "種類",
+      "where": "場所",
+      "services": "サービス",
+      "last_seen": "最終検出"
+    },
+    "open": "{{name}}を開く"
+  },
+  "status": {
+    "current": "現在実行中",
+    "stale": "最終確認: {{when}}"
+  },
+  "detail": {
+    "error_title": "このエンティティを読み込めません",
+    "not_found_title": "未検出",
+    "not_found_description": "過去1週間に、この種類とキーを持つものは検出されませんでした。",
+    "key": "キー",
+    "kind": "種類",
+    "first_seen": "初回検出",
+    "last_seen": "最終検出",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "parents": "稼働先",
+    "parents_empty": "何かの一部として検出されていません。",
+    "children": "ここで稼働中",
+    "children_empty": "この上で稼働しているものは検出されていません。",
+    "services": "サービス",
+    "services_description": "この上と、そこで稼働しているもの上のサービス",
+    "services_empty": "この上でサービスは検出されていません。スパンがこの場所を名前として示すと、サービスが表示されます。",
+    "attributes": "リソース属性",
+    "changes": "サービスの変更",
+    "changes_description": "過去24時間",
+    "changes_empty": "過去24時間に変更はありません。",
+    "logs": "ログ",
+    "metrics": "メトリクス",
+    "open_page": "ページを開く"
+  }
+}

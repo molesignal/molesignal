@@ -309,7 +309,8 @@
       "last_deploy": "最終デプロイ",
       "tags": "タグ",
       "last_seen": "最終検出",
-      "favorite": "お気に入り"
+      "favorite": "お気に入り",
+      "correlation": "相関"
     },
     "favorite": "{{name}}をお気に入りに追加",
     "unfavorite": "{{name}}をお気に入りから削除",
@@ -709,7 +710,9 @@
       "returned": "以前のバージョンに復帰",
       "first_seen": "初回検出",
       "configuration": "設定",
-      "feature_flag": "機能フラグ"
+      "feature_flag": "機能フラグ",
+      "scaling": "スケーリング",
+      "infrastructure": "インフラストラクチャ"
     },
     "from": "{{version}}から",
     "pull_request": "PR",
@@ -1177,7 +1180,42 @@
       "environments": "{{names}} は大文字と小文字の違いしかありません。",
       "map_to": "すべて {{name}} として扱う",
       "generated": "{{name}} は {{base}} に自動生成されたサフィックスを付けた名前のようです。",
-      "add_rule": "命名ルールを追加"
+      "add_rule": "命名ルールを追加",
+      "correlation": {
+        "untraced_one": "過去1時間にトレース ID なしでログを書き込んでいるサービスが {{formatted}} 件あります：{{names}}。",
+        "untraced_other": "過去1時間にトレース ID なしでログを書き込んでいるサービスが {{formatted}} 件あります：{{names}}。",
+        "partly_traced_one": "ログの一部のみを保持されたトレースに関連付けているサービスが {{formatted}} 件あります：{{names}}。",
+        "partly_traced_other": "ログの一部のみを保持されたトレースに関連付けているサービスが {{formatted}} 件あります：{{names}}。",
+        "unplaced_one": "実行場所（ホスト、ポッド、ノード、コンテナ）が示されていないサービスが {{formatted}} 件あります：{{names}}。",
+        "unplaced_other": "実行場所（ホスト、ポッド、ノード、コンテナ）が示されていないサービスが {{formatted}} 件あります：{{names}}。",
+        "unmatched_one": "ログやメトリクスに、APM が認識していないサービスが {{formatted}} 件あります：{{names}}。",
+        "unmatched_other": "ログやメトリクスに、APM が認識していないサービスが {{formatted}} 件あります：{{names}}。",
+        "no_changes_one": "過去1週間に変更が報告されなかったサービスが {{formatted}} 件あります：{{names}}。",
+        "no_changes_other": "過去1週間に変更が報告されなかったサービスが {{formatted}} 件あります：{{names}}。",
+        "names_more_one": "{{names}} 他 {{count}} 件",
+        "names_more_other": "{{names}} 他 {{count}} 件",
+        "to_naming": "命名規則",
+        "report_changes": "変更を報告"
+      }
+    },
+    "business": {
+      "title": "ビジネスコンテキスト",
+      "hint": "テナントやプランなどのキーと、各シグナルがその値を格納するフィールドです。サービスページではこのキーでリクエストを分割し、インシデントでは該当した値を表示します",
+      "empty": "ビジネスキーはまだありません",
+      "add": "キーを追加",
+      "key": "キー",
+      "label": "ラベル",
+      "label_placeholder": "テナント",
+      "span": "スパン属性",
+      "log": "ログフィールド",
+      "rum": "RUM フィールド",
+      "important": "重要な値",
+      "important_placeholder": "最も重要な値（カンマ区切り）",
+      "issue": {
+        "key": "キーは小文字で始まり、小文字、数字、_ のみ使用できます。",
+        "twice": "各キーは1回だけ宣言できます。",
+        "nowhere": "各キーについて、少なくとも1つのシグナルのフィールドを指定してください。"
+      }
     }
   },
   "instances": {
@@ -1223,12 +1261,14 @@
       "slow_dependency": "ボトルネック",
       "repeated_call": "N+1",
       "slow_query": "低速なSQL",
-      "hot_endpoint": "処理負荷の高いエンドポイント"
+      "hot_endpoint": "処理負荷の高いエンドポイント",
+      "log_errors": "エラーログ"
     },
     "metric": {
       "error_rate": "エラー率",
       "p95": "P95",
-      "throughput": "スループット"
+      "throughput": "スループット",
+      "log_errors": "エラーログ行数"
     },
     "sentence": {
       "anomaly_up": "{{metric}}が{{value}}に上昇しました（変更前：{{before}}）。",
@@ -1237,13 +1277,16 @@
       "slow_dependency": "{{target}}がリクエスト処理時間の{{share}}を占めています。",
       "repeated_call": "リクエストごとに{{operation}}を{{each}}回呼び出しています（合計{{calls}}回）。このループは1回の呼び出しに置き換えられます。",
       "slow_query": "{{operation}}：P95は{{p95}}（呼び出し{{calls}}回）",
-      "hot_endpoint": "{{endpoint}}がサービス全体の処理時間の{{share}}を占めています（P95：{{p95}}）。"
+      "hot_endpoint": "{{endpoint}}がサービス全体の処理時間の{{share}}を占めています（P95：{{p95}}）。",
+      "log_errors": "エラーログ行数が {{value}} に増加しました（{{before}}）"
     },
     "change": {
       "deployment": "デプロイ：",
       "configuration": "設定変更：",
       "feature_flag": "機能フラグ：",
-      "observed": "（スパンで初めて確認）"
+      "observed": "（スパンで初めて確認）",
+      "scaling": "スケーリング：",
+      "infrastructure": "インフラストラクチャの変更："
     },
     "baseline": {
       "previous": "直前の同じ長さの期間との比較：",
@@ -1262,5 +1305,52 @@
       "error": "{{environment}}環境の{{service}}で発生しているエラー{{error}}（フィンガープリント：{{fingerprint}}）について、いつから発生しているか、このエラーで失敗したリクエストの件数、考えられる原因を調査してください。",
       "finding": "{{environment}}環境の{{service}}について、{{from}}から{{to}}までの次の検出事項を調査してください：{{finding}}"
     }
+  },
+  "correlation": {
+    "and": "、 ",
+    "aspect": {
+      "traceIds": "ログ内のトレース ID",
+      "resource": "リソース属性",
+      "metrics": "メトリクス",
+      "changes": "変更"
+    },
+    "grade": {
+      "good": "良好",
+      "partial": "一部",
+      "missing": "欠落",
+      "unknown": "不明"
+    },
+    "attribute": {
+      "environment": "環境",
+      "version": "バージョン",
+      "instance": "インスタンス",
+      "placement": "ホストまたは Pod"
+    },
+    "detail": {
+      "unknown": "読み取れませんでした。",
+      "no_logs": "過去 1 時間にログ行はありません。",
+      "traced": "{{lines}} 行のうち {{share}} 行にトレース ID が含まれています。",
+      "matched": "サンプリングされた {{sampled}} 件のトレースのうち {{matched}} 件が見つかりました。",
+      "resource_complete": "環境、バージョン、インスタンス、ホストまたは Pod が報告されています。",
+      "resource_missing": "未報告：{{attributes}}。",
+      "metrics_reported": "この名前を持つメトリクスがあります。",
+      "metrics_missing": "過去 1 時間にこの名前を持つメトリクスはありません。",
+      "metrics_unknown": "読み取れませんでした。",
+      "changes_one": "過去 1 週間で {{formatted}} 件の変更がありました。",
+      "changes_other": "過去 1 週間で {{formatted}} 件の変更がありました。"
+    }
+  },
+  "business": {
+    "title": "ビジネスキー別のリクエスト",
+    "key": "ビジネスキー",
+    "any_field": "任意のフィールドで分割",
+    "requests": "リクエスト",
+    "errors": "エラー率",
+    "no_value": "（値なし）",
+    "important": "重要",
+    "loading": "分割中…",
+    "failed": "分割を読み込めませんでした",
+    "unavailable": "このキーは現在読み取れません",
+    "empty": "表示期間内にこのキーを持つリクエストはありませんでした"
   }
 }

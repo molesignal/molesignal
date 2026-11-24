@@ -323,7 +323,8 @@
       "last_deploy": "Última implantação",
       "tags": "Tags",
       "last_seen": "Última detecção",
-      "favorite": "Favorito"
+      "favorite": "Favorito",
+      "correlation": "Correlação"
     },
     "favorite": "Adicionar {{name}} aos favoritos",
     "unfavorite": "Remover {{name}} dos favoritos",
@@ -733,7 +734,9 @@
       "returned": "Retornou",
       "first_seen": "Primeira detecção",
       "configuration": "Configuração",
-      "feature_flag": "Feature flag"
+      "feature_flag": "Feature flag",
+      "scaling": "Escalonamento",
+      "infrastructure": "Infraestrutura"
     },
     "from": "de {{version}}",
     "pull_request": "PR",
@@ -1206,7 +1209,48 @@
       "environments": "{{names}} diferem apenas no uso de maiúsculas e minúsculas.",
       "map_to": "Interpretar todos como {{name}}",
       "generated": "{{name}} parece ser {{base}} com um sufixo gerado automaticamente.",
-      "add_rule": "Adicionar regra de nomenclatura"
+      "add_rule": "Adicionar regra de nomenclatura",
+      "correlation": {
+        "untraced_one": "{{formatted}} serviço grava logs sem trace IDs na última hora: {{names}}.",
+        "untraced_other": "{{formatted}} serviços gravam logs sem trace IDs na última hora: {{names}}.",
+        "untraced_many": "{{formatted}} serviços gravam logs sem trace IDs na última hora: {{names}}.",
+        "partly_traced_one": "{{formatted}} serviço vincula apenas parte dos seus logs a traces mantidos: {{names}}.",
+        "partly_traced_other": "{{formatted}} serviços vinculam apenas parte dos seus logs a traces mantidos: {{names}}.",
+        "partly_traced_many": "{{formatted}} serviços vinculam apenas parte dos seus logs a traces mantidos: {{names}}.",
+        "unplaced_one": "{{formatted}} serviço não informa onde é executado (host, pod, node ou contêiner): {{names}}.",
+        "unplaced_other": "{{formatted}} serviços não informam onde são executados (host, pod, node ou contêiner): {{names}}.",
+        "unplaced_many": "{{formatted}} serviços não informam onde são executados (host, pod, node ou contêiner): {{names}}.",
+        "unmatched_one": "Logs ou métricas citam {{formatted}} serviço que o APM não conhece: {{names}}.",
+        "unmatched_other": "Logs ou métricas citam {{formatted}} serviços que o APM não conhece: {{names}}.",
+        "unmatched_many": "Logs ou métricas citam {{formatted}} serviços que o APM não conhece: {{names}}.",
+        "no_changes_one": "{{formatted}} serviço não relatou nenhuma mudança na última semana: {{names}}.",
+        "no_changes_other": "{{formatted}} serviços não relataram nenhuma mudança na última semana: {{names}}.",
+        "no_changes_many": "{{formatted}} serviços não relataram nenhuma mudança na última semana: {{names}}.",
+        "names_more_one": "{{names}} e mais {{count}}",
+        "names_more_other": "{{names}} e mais {{count}}",
+        "names_more_many": "{{names}} e mais {{count}}",
+        "to_naming": "Regras de nomenclatura",
+        "report_changes": "Relatar mudanças"
+      }
+    },
+    "business": {
+      "title": "Contexto de negócio",
+      "hint": "Chaves como tenant ou plano e o campo em que cada sinal as carrega: a página de serviço divide as requisições por elas, e os incidentes informam quais valores foram atingidos",
+      "empty": "Nenhuma chave de negócio ainda",
+      "add": "Adicionar uma chave",
+      "key": "Chave",
+      "label": "Rótulo",
+      "label_placeholder": "Tenant",
+      "span": "Atributo de span",
+      "log": "Campo de log",
+      "rum": "Campo de RUM",
+      "important": "Valores importantes",
+      "important_placeholder": "Valores mais importantes, separados por vírgulas",
+      "issue": {
+        "key": "Uma chave começa com uma letra minúscula e contém apenas letras minúsculas, dígitos e _.",
+        "twice": "Cada chave pode ser declarada apenas uma vez.",
+        "nowhere": "Informe o campo de pelo menos um sinal para cada chave."
+      }
     }
   },
   "instances": {
@@ -1252,12 +1296,14 @@
       "slow_dependency": "Gargalo",
       "repeated_call": "N+1",
       "slow_query": "Consulta SQL lenta",
-      "hot_endpoint": "Endpoint com alto consumo de tempo"
+      "hot_endpoint": "Endpoint com alto consumo de tempo",
+      "log_errors": "Logs de erro"
     },
     "metric": {
       "error_rate": "Taxa de erros",
       "p95": "P95",
-      "throughput": "Taxa de requisições"
+      "throughput": "Taxa de requisições",
+      "log_errors": "Linhas de log de erro"
     },
     "sentence": {
       "anomaly_up": "{{metric}} subiu para {{value}} (antes: {{before}})",
@@ -1266,13 +1312,16 @@
       "slow_dependency": "{{target}} consome {{share}} do tempo das requisições",
       "repeated_call": "chama {{operation}} {{each}} vezes por requisição ({{calls}} chamadas): uma única chamada poderia substituir esse loop",
       "slow_query": "{{operation}}: P95 de {{p95}} em {{calls}} chamadas",
-      "hot_endpoint": "{{endpoint}} consome {{share}} do tempo do serviço (P95 de {{p95}})"
+      "hot_endpoint": "{{endpoint}} consome {{share}} do tempo do serviço (P95 de {{p95}})",
+      "log_errors": "linhas de log de erro subiram para {{value}} ({{before}})"
     },
     "change": {
       "deployment": "Implantação de",
       "configuration": "Alteração na configuração de",
       "feature_flag": "Flag de recurso de",
-      "observed": ", com primeiro registro nos spans"
+      "observed": ", com primeiro registro nos spans",
+      "scaling": "Escalonamento de",
+      "infrastructure": "Alteração de infraestrutura de"
     },
     "baseline": {
       "previous": "Em comparação com o período anterior:",
@@ -1291,5 +1340,53 @@
       "error": "Investigue o erro {{error}} de {{service}} no ambiente {{environment}} (impressão digital: {{fingerprint}}): desde quando ocorre, quantas requisições falharam por causa dele e qual é a causa provável.",
       "finding": "Investigue esta constatação sobre {{service}} no ambiente {{environment}} de {{from}} a {{to}}: {{finding}}"
     }
+  },
+  "correlation": {
+    "and": ", ",
+    "aspect": {
+      "traceIds": "IDs de trace nos logs",
+      "resource": "Atributos de recurso",
+      "metrics": "Métricas",
+      "changes": "Alterações"
+    },
+    "grade": {
+      "good": "boa",
+      "partial": "parcial",
+      "missing": "ausente",
+      "unknown": "desconhecida"
+    },
+    "attribute": {
+      "environment": "ambiente",
+      "version": "versão",
+      "instance": "instância",
+      "placement": "host ou pod"
+    },
+    "detail": {
+      "unknown": "Não foi possível ler.",
+      "no_logs": "Nenhuma linha de log na última hora.",
+      "traced": "{{share}} de {{lines}} linhas têm um ID de trace.",
+      "matched": "{{matched}} de {{sampled}} traces amostrados foram encontrados.",
+      "resource_complete": "Ambiente, versão, instância e host ou pod informados.",
+      "resource_missing": "Não informados: {{attributes}}.",
+      "metrics_reported": "As métricas têm esse nome.",
+      "metrics_missing": "Nenhuma métrica tem esse nome na última hora.",
+      "metrics_unknown": "Não foi possível ler.",
+      "changes_one": "{{formatted}} alteração na última semana.",
+      "changes_other": "{{formatted}} alterações na última semana.",
+      "changes_many": "{{formatted}} de alterações na última semana."
+    }
+  },
+  "business": {
+    "title": "Requisições por chave de negócio",
+    "key": "Chave de negócio",
+    "any_field": "Dividir por qualquer campo",
+    "requests": "Requisições",
+    "errors": "Taxa de erro",
+    "no_value": "(sem valor)",
+    "important": "Importante",
+    "loading": "Dividindo…",
+    "failed": "Não foi possível carregar a divisão",
+    "unavailable": "Não é possível ler esta chave para você agora",
+    "empty": "Nenhuma requisição incluiu esta chave no período exibido"
   }
 }

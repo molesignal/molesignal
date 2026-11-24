@@ -286,6 +286,27 @@
       "unread_one": "{{count}} événement ne contient aucun message et ne correspond à aucun motif.",
       "unread_other": "{{count}} événements ne contiennent aucun message et ne correspondent à aucun motif.",
       "unread_many": "{{count}} événements ne contiennent aucun message et ne correspondent à aucun motif.",
+      "change_column": "Variation",
+      "change": {
+        "new": "Nouveau",
+        "surging": "×{{ratio}}",
+        "dropping": "Moins",
+        "steady": "—"
+      },
+      "estimated": "Environ {{count}} sur toute la période",
+      "example_only": "Absent des événements lus",
+      "basis_counted_one": "Comptabilisé sur l’ensemble du {{formatted}} événement de la période",
+      "basis_counted_other": "Comptabilisé sur l’ensemble des {{formatted}} événements de la période",
+      "basis_counted_many": "Comptabilisé sur l’ensemble des {{formatted}} événements de la période",
+      "basis_sampled": "Motifs lus à partir de {{read}} échantillonnés sur la période",
+      "counting": "Comptage de toute la période…",
+      "count_failed": "Impossible de compter toute la période.",
+      "baseline_label": "Comparer avec",
+      "baseline": {
+        "previous": "Comparé à la période précédente",
+        "week_before": "Comparé à une semaine auparavant",
+        "none": "Non comparé"
+      },
       "kind": {
         "number": "Un nombre",
         "id": "Un identifiant",

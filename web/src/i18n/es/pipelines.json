@@ -330,7 +330,8 @@
       "counting_realtime_only": "El paso \"{{name}}\" cuenta los eventos a medida que llegan, por lo que solo se ejecuta en pipelines en tiempo real.",
       "counting_not_here_metric": "El paso \"{{name}}\" genera métricas a partir de logs, eventos de RUM y spans. Este pipeline transforma otro tipo de datos.",
       "counting_not_here_limit": "El paso \"{{name}}\" limita los logs y los eventos de RUM que se pueden descartar. Si se ejecutara aquí, dejaría huecos en los datos.",
-      "counting_name_duplicate": "Hay dos pasos con el nombre \"{{name}}\". Un paso de conteo necesita un nombre único, ya que sus conteos se guardan con ese nombre."
+      "counting_name_duplicate": "Hay dos pasos con el nombre \"{{name}}\". Un paso de conteo necesita un nombre único, ya que sus conteos se guardan con ese nombre.",
+      "counting_not_here_change": "El paso \"{{name}}\" lee objetos de Kubernetes que llegan como logs; este pipeline procesa otro tipo de datos."
     }
   },
   "drawer": {
@@ -484,7 +485,8 @@
       "query_enrich": "Agregar resultados de la consulta",
       "generate_metric": "Generar métrica",
       "quota": "Cuota",
-      "throttle": "Limitar la frecuencia"
+      "throttle": "Limitar la frecuencia",
+      "to_change": "Registrar cambios"
     }
   },
   "editor": {
@@ -1196,7 +1198,8 @@
       "past_route": "enviado a {{stream}}",
       "quota_limit": "{{limit}} {{unit}} al día",
       "throttle_limit": "{{limit}} cada {{window}} s",
-      "limit": "El evento se contabiliza en {{bucket}} ({{limit}}). Si se supera el límite, el evento es {{past}}."
+      "limit": "El evento se contabiliza en {{bucket}} ({{limit}}). Si se supera el límite, el evento es {{past}}.",
+      "change": "Se interpreta como un cambio cuando su objeto se modificó desde la última vez que se vio: una nueva imagen, nuevas réplicas, una nueva especificación o datos."
     },
     "usage": {
       "title": "Límites de hoy",
@@ -1209,7 +1212,12 @@
       "mib": "{{value}} MiB",
       "whole": "Paso completo",
       "others": "Otros grupos"
-    }
+    },
+    "change_environment": "Entorno",
+    "change_environment_hint": "El entorno de cada cambio. Déjalo vacío para tomarlo del campo.",
+    "change_environment_field": "Campo de entorno",
+    "change_environment_field_hint": "El campo del evento que indica el entorno, como el clúster.",
+    "summary_change": "Cambios de {{environment}}"
   },
   "schedule_every": "Cada {{interval}}"
 }

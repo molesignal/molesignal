@@ -573,6 +573,29 @@
     "bulk_failed_many": "Fallaron {{count}} de {{total}}: {{reason}}",
     "clear_filters": "Borrar filtros"
   },
+  "changes": {
+    "kind": {
+      "deployment": "Despliegue",
+      "configuration": "Configuración",
+      "feature_flag": "Indicador de funcionalidad",
+      "scaling": "Escalado",
+      "infrastructure": "Infraestructura",
+      "annotation": "Anotación",
+      "version": "Nueva versión",
+      "rule": "Regla editada"
+    },
+    "status": {
+      "succeeded": "correcto",
+      "failed": "fallido",
+      "rolled_back": "revertido"
+    },
+    "rail_one": "{{count}} cambio en este intervalo",
+    "rail_other": "{{count}} cambios en este intervalo",
+    "rail_many": "{{count}} de cambios en este intervalo",
+    "open": "Abrir",
+    "pull_request": "Pull request",
+    "ci_run": "Ejecución de CI"
+  },
   "baseline": {
     "aria": "Referencia: {{value}}",
     "title": "Elige el período de referencia",

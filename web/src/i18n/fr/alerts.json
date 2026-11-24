@@ -91,7 +91,8 @@
     "expand_group": "Développer {{group}}",
     "open_navigation": "Ouvrir le menu de navigation des alertes",
     "collapse_navigation": "Replier le menu de navigation des alertes",
-    "expand_navigation": "Développer le menu de navigation des alertes"
+    "expand_navigation": "Développer le menu de navigation des alertes",
+    "changes": "Changements"
   },
   "history": {
     "error_title": "Impossible de charger l’historique des alertes",
@@ -804,7 +805,8 @@
       "tickets": "Tickets",
       "major": "Incident majeur",
       "postmortem": "Analyse post-incident",
-      "guide": "Guide d’investigation"
+      "guide": "Guide d’investigation",
+      "business_impact": "Impact métier"
     },
     "guide": {
       "queries": "Requêtes",
@@ -826,7 +828,48 @@
       "generating": "Génération en cours…",
       "generated": "Analyse des causes racines générée",
       "empty": "Aucune analyse pour l’instant. Générez-en une ou attendez le traitement en arrière-plan.",
-      "budget_exhausted": "Votre organisation a épuisé son budget quotidien de tokens pour Mole Agent. Aucune analyse n’a été générée. Réessayez après la réinitialisation ou l’augmentation du budget."
+      "budget_exhausted": "Votre organisation a épuisé son budget quotidien de tokens pour Mole Agent. Aucune analyse n’a été générée. Réessayez après la réinitialisation ou l’augmentation du budget.",
+      "evidence": {
+        "title": "Preuves",
+        "separator": ", ",
+        "withheld": "Chiffres masqués : vous ne pouvez pas lire ces données",
+        "open": "Ouvrir {{label}}",
+        "kind": {
+          "insight": "Analyse APM",
+          "new_error_group": "Nouveau groupe d’erreurs",
+          "sample_trace": "Trace d’exemple",
+          "error_logs": "Journaux d’erreurs",
+          "new_log_pattern": "Nouveau motif de journal d’erreurs",
+          "change": "Changement",
+          "similar_incident": "Incident similaire",
+          "investigation": "Investigation",
+          "business_impact": "Impact métier",
+          "attribute_skew": "Différences entre les requêtes échouées"
+        },
+        "insight": {
+          "anomaly": "a bougé",
+          "regression": "a régressé",
+          "slow_dependency": "dépendance lente",
+          "repeated_call": "appel répété",
+          "slow_query": "requête lente",
+          "hot_endpoint": "point de terminaison très sollicité",
+          "log_errors": "les logs d'erreur ont augmenté"
+        },
+        "figures": {
+          "now": "maintenant {{value}}",
+          "previous": "avant {{value}}",
+          "last_week": "{{value}} il y a une semaine",
+          "occurrences_one": "{{formatted}} occurrence",
+          "occurrences_other": "{{formatted}} occurrences",
+          "occurrences_many": "{{formatted}} occurrences",
+          "error_logs": "{{now}} maintenant, {{lastWeek}} il y a une semaine",
+          "lines_one": "{{formatted}} ligne",
+          "lines_other": "{{formatted}} lignes",
+          "lines_many": "{{formatted}} lignes",
+          "business": "{{errors}} requêtes sur {{requests}} ont échoué",
+          "skew": "{{failed}} des requêtes en échec, {{others}} des autres requêtes"
+        }
+      }
     },
     "signals": {
       "services": "Services",
@@ -914,6 +957,11 @@
         "healthy": "Sain",
         "no_traffic": "Inactif"
       }
+    },
+    "business": {
+      "important": "Important",
+      "failed": "{{errors}} sur {{requests}} en échec · {{rate}}",
+      "more": "D'autres valeurs ont reçu des requêtes"
     }
   },
   "insights": {
@@ -3208,5 +3256,29 @@
       "imported_many": "{{count}} règles de routage importées",
       "content_hint": "JSON ou YAML. Les politiques d’escalade, les équipes et les calendriers de jours fériés sont référencés par leur nom. Les règles du fichier sont placées en premier, dans l’ordre du fichier. Les autres suivent en conservant leur ordre."
     }
+  },
+  "changes": {
+    "error_title": "Impossible de charger les changements",
+    "empty_title": "Aucun changement sur cette période",
+    "empty_description": "Les déploiements et autres changements signalés par vos pipelines, les annotations, les nouvelles versions et les modifications de règles apparaissent ici.",
+    "search_label": "Rechercher des changements",
+    "search_placeholder": "Service, version, titre, auteur ou commit",
+    "kind_label": "Type",
+    "all_kinds": "Tous les types",
+    "span_label": "Période",
+    "span": {
+      "24h": "Dernières 24 heures",
+      "7d": "7 derniers jours",
+      "30d": "30 derniers jours"
+    },
+    "columns": {
+      "at": "Quand",
+      "kind": "Type",
+      "subject": "Changement",
+      "status": "Résultat",
+      "by": "Par",
+      "open": "Ouvrir"
+    },
+    "open": "Ouvrir {{change}}"
   }
 }

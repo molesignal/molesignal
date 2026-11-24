@@ -278,6 +278,26 @@
       "read_failed": "これより前のログを読み込めませんでした。",
       "unread_one": "{{count}}件のイベントにはメッセージがなく、どのパターンにも属していません。",
       "unread_other": "{{count}}件のイベントにはメッセージがなく、どのパターンにも属していません。",
+      "change_column": "変化",
+      "change": {
+        "new": "新規",
+        "surging": "×{{ratio}}",
+        "dropping": "減少",
+        "steady": "—"
+      },
+      "estimated": "範囲全体で約{{count}}件",
+      "example_only": "読み取ったイベントには含まれません",
+      "basis_counted_one": "範囲内の全{{formatted}}件のイベントを集計",
+      "basis_counted_other": "範囲内の全{{formatted}}件のイベントを集計",
+      "basis_sampled": "範囲全体からサンプリングした{{read}}件からパターンを読み取っています",
+      "counting": "範囲全体を集計しています…",
+      "count_failed": "範囲全体を集計できませんでした。",
+      "baseline_label": "比較対象",
+      "baseline": {
+        "previous": "直前の期間と比較",
+        "week_before": "1週間前と比較",
+        "none": "比較なし"
+      },
       "kind": {
         "number": "数値",
         "id": "識別子",

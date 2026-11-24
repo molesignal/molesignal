@@ -1,0 +1,60 @@
+{
+  "title": "基礎設施",
+  "subtitle": "服務執行在哪裡：叢集、節點、主機、Pod 和容器，從 Span、指標和日誌的資源欄位讀出。",
+  "kind": {
+    "all": "全部類型",
+    "cluster": "叢集",
+    "node": "節點",
+    "host": "主機",
+    "pod": "Pod",
+    "container": "容器"
+  },
+  "list": {
+    "search_label": "搜尋基礎設施",
+    "search_placeholder": "依名稱或鍵搜尋",
+    "kind_label": "類型",
+    "error_title": "無法載入基礎設施",
+    "retry": "重試",
+    "empty_title": "還沒有看到任何實體",
+    "empty_description": "Span、指標或日誌帶上 k8s.pod.name、k8s.node.name、host.name 等資源欄位後，五分鐘內會出現在這裡。",
+    "no_match_title": "沒有符合的項目",
+    "no_match_description": "換個名稱或類型試試。",
+    "columns": {
+      "name": "名稱",
+      "kind": "類型",
+      "where": "位置",
+      "services": "服務",
+      "last_seen": "最後出現"
+    },
+    "open": "開啟 {{name}}"
+  },
+  "status": {
+    "current": "正在執行",
+    "stale": "最後出現於 {{when}}"
+  },
+  "detail": {
+    "error_title": "無法載入此實體",
+    "not_found_title": "沒有看到",
+    "not_found_description": "最近一週沒有看到這個類型和鍵的實體。",
+    "key": "鍵",
+    "kind": "類型",
+    "first_seen": "首次出現",
+    "last_seen": "最後出現",
+    "copy": "複製",
+    "copied": "已複製",
+    "parents": "執行於",
+    "parents_empty": "不屬於任何已看到的實體。",
+    "children": "在其上執行",
+    "children_empty": "沒有看到在其上執行的實體。",
+    "services": "服務",
+    "services_description": "在它上面，以及在執行於其上的實體上",
+    "services_empty": "沒有看到其上的服務。服務的 Span 寫明這個位置後才會出現。",
+    "attributes": "資源屬性",
+    "changes": "其服務的變更",
+    "changes_description": "最近 24 小時",
+    "changes_empty": "最近 24 小時沒有變更。",
+    "logs": "日誌",
+    "metrics": "指標",
+    "open_page": "開啟頁面"
+  }
+}

@@ -1,5 +1,11 @@
 {
   "explore": {
+    "baseline": {
+      "compare": "對比",
+      "stop": "停止對比",
+      "failed": "無法讀取對比時段",
+      "series": "{{name}}（對比時段）"
+    },
     "title": "指標",
     "subtitle": "查詢器",
     "toolbar": {

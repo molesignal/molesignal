@@ -2280,6 +2280,10 @@
       "title": "Obter DAG do trace",
       "description": "Retorna um DAG compacto das dependências entre serviços e spans de um trace, sem incluir os dados completos dos spans."
     },
+    "compare_attribute_distributions": {
+      "title": "Comparar requisições lentas ou com falha",
+      "description": "Classifique os campos cujos valores em requisições lentas ou com falha se diferenciam das demais requisições, com base em uma amostra de cada."
+    },
     "list_trace_sessions": {
       "title": "Listar sessões de traces",
       "description": "Liste sessões de traces de LLM/IA, com limite de resultados, quando houver campos de sessão no fluxo de traces."
@@ -2524,6 +2528,10 @@
       "title": "Consultar alcance do impacto de um serviço",
       "description": "Mostra, no mapa de serviços, quais serviços chamam o serviço consultado e quais ele chama, exibindo primeiro os que apresentam problemas."
     },
+    "get_correlation_quality": {
+      "title": "Obter qualidade da correlação",
+      "description": "Retorna o quão bem cada serviço se correlaciona com seus logs, métricas, rastreamentos e alterações, além dos nomes de serviços em logs e métricas que o APM não conhece."
+    },
     "correlate_signals": {
       "title": "Correlacionar sinais",
       "description": "Retorna um conjunto limitado de vínculos entre incidentes, rastreamentos, logs, RUM e perfis para um serviço ou rastreamento."
@@ -2531,6 +2539,14 @@
     "get_service_topology": {
       "title": "Consultar topologia de serviços",
       "description": "Retorna um grafo de dependências entre serviços, com escopo limitado, para um intervalo de tempo."
+    },
+    "list_entities": {
+      "title": "Listar infraestrutura",
+      "description": "Lista os clusters, nós, hosts, pods e contêineres vistos na última semana, com o número de serviços executados em cada um."
+    },
+    "get_entity": {
+      "title": "Obter uma entidade de infraestrutura",
+      "description": "Retorna um cluster, nó, host, pod ou contêiner, incluindo onde ele é executado, o que é executado nele e os serviços nele."
     },
     "list_rum_sessions": {
       "title": "Listar sessões de RUM",

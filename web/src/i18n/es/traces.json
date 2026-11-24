@@ -322,6 +322,25 @@
           "timestamp_masked": "Las marcas de tiempo están ocultas para ti, así que no se pueden mostrar datos a lo largo del tiempo.",
           "field_protected": "Este campo está oculto para ti, así que no se puede usar para desglosar las solicitudes."
         }
+      },
+      "compare": {
+        "title": "Comparar",
+        "choice_label": "Solicitudes para comparar con las demás",
+        "choice": {
+          "none": "Elige solicitudes…",
+          "failed": "Solicitudes fallidas",
+          "p95": "Más lentas que p95 ({{duration}})",
+          "p99": "Más lentas que p99 ({{duration}})"
+        },
+        "sample": "{{chosen}} elegidas y {{others}} otras solicitudes leídas",
+        "sample_sampled": "Una muestra de {{chosen}} elegidas y {{others}} otras solicitudes",
+        "score": "{{score}} de diferencia",
+        "shares": "{{chosen}} de las elegidas · {{others}} de las demás",
+        "break_down": "Desglosa las solicitudes por este campo",
+        "loading": "Comparando…",
+        "failed": "No se pudo cargar la comparación",
+        "none_chosen": "Ninguna de las solicitudes es del tipo elegido",
+        "alike": "Las solicitudes elegidas comparten sus valores con las demás: ningún campo las distingue"
       }
     },
     "spans": {
