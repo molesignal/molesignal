@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! annotations CRUD + tag filter + cross-org isolation。
+//! Annotations kept as changes: create, list among the changes of a range, delete; and an
+//! unknown id answering 404.
 
 mod common;
 
 use serde_json::Value;
 
 #[tokio::test]
-async fn annotations_crud_and_tag_filter() {
+async fn annotations_are_listed_among_the_changes() {
     if common::skip_unless_enabled() {
         return;
     }
@@ -17,14 +18,13 @@ async fn annotations_crud_and_tag_filter() {
 
     let create = s
         .client
-        .post(format!("{}/api/v1/annotations", s.base_url))
+        .post(format!("{}/api/v1/changes", s.base_url))
         .header(hk, &hv)
         .json(&serde_json::json!({
             "title": "deploy v1.2.3",
-            "ts": 1_700_000_000_000_000_i64,
+            "timeStart": 1_700_000_000_000_000_i64,
+            "timeEnd": 1_700_000_060_000_000_i64,
             "tags": ["deploy", "release"],
-            "stream": null,
-            "dashboardId": null,
         }))
         .send()
         .await
@@ -39,16 +39,27 @@ async fn annotations_crud_and_tag_filter() {
 
     let list = s
         .client
-        .get(format!("{}/api/v1/annotations?tag=deploy", s.base_url))
+        .get(format!(
+            "{}/api/v1/changes?kinds=annotation&from=1699999990000000&to=1700000100000000",
+            s.base_url
+        ))
         .header(hk, &hv)
         .send()
         .await
         .unwrap();
     assert!(list.status().is_success());
 
+    let listed: Value = list.json().await.unwrap();
+    assert!(
+        listed
+            .as_array()
+            .is_some_and(|entries| entries.iter().any(|entry| entry["id"] == id)),
+        "{listed}"
+    );
+
     let del = s
         .client
-        .delete(format!("{}/api/v1/annotations/{id}", s.base_url))
+        .delete(format!("{}/api/v1/changes/{id}", s.base_url))
         .header(hk, &hv)
         .send()
         .await
@@ -67,7 +78,7 @@ async fn cross_org_fetch_returns_404_no_enumeration() {
     let resp = s
         .client
         .get(format!(
-            "{}/api/v1/annotations/00000000-0000-0000-0000-000000000000",
+            "{}/api/v1/changes/00000000-0000-0000-0000-000000000000",
             s.base_url
         ))
         .header(hk, &hv)

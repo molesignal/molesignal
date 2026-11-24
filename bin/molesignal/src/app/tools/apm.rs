@@ -14,7 +14,7 @@ use super::{
     ToolRuntime,
     common::{TimeRangeArg, parse_args, time_range},
 };
-use crate::app::apm::ApmQueryRequest;
+use crate::app::apm::{ApmQueryRequest, correlation::CorrelationReader};
 
 mod catalog;
 
@@ -229,6 +229,17 @@ pub(super) async fn execute(
                     )
                     .await?,
             )
+        }
+        BuiltinToolKind::GetCorrelationQuality => {
+            let reader = CorrelationReader {
+                query: &runtime.observability.query,
+                streams: runtime.observability.streams.as_ref(),
+                apm: &runtime.observability.apm,
+                catalog: runtime.observability.service_catalog.as_ref(),
+            };
+
+            // The platform's own log stream stays with the platform's pages.
+            serde_json::to_value(reader.report(&auth.org_id, request, false).await?)
         }
         _ => unreachable!("APM handler received unrelated tool"),
     }

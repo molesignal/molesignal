@@ -12,7 +12,7 @@ const WEEK_MICROS: i64 = 7 * 24 * 60 * 60 * 1_000_000;
 /// What a window is compared with.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub(super) enum Baseline {
+pub enum Baseline {
     /// The stretch of the same length just before the window.
     #[default]
     Previous,
@@ -24,7 +24,7 @@ pub(super) enum Baseline {
 }
 
 impl Baseline {
-    pub(super) fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Previous => "previous",
             Self::WeekBefore => "week_before",
@@ -34,7 +34,7 @@ impl Baseline {
 
     /// The stretch to compare `window` with, both ends inside it as they are in a window; `None`
     /// when there is no comparison.
-    pub(super) fn range(self, window: TimeRange) -> Option<TimeRange> {
+    pub fn range(self, window: TimeRange) -> Option<TimeRange> {
         let start = window.start.0;
         let end = window.end.0;
 

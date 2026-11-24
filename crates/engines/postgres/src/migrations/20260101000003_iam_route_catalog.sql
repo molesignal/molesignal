@@ -166,6 +166,8 @@ INSERT INTO iam_route_seed VALUES
     ('profiles', '/profiles', 'any', 'any', 'observe', 70, TRUE, ARRAY['profiles.read', 'sys.telemetry.read']::TEXT[]),
     ('profiles.compare', '/profiles/compare', 'any', 'any', NULL, NULL, TRUE, ARRAY['profiles.read', 'sys.telemetry.read']::TEXT[]),
     ('profile.detail', '/profiles/:id', 'any', 'any', NULL, NULL, TRUE, ARRAY['profiles.read', 'sys.telemetry.read']::TEXT[]),
+    ('infrastructure', '/infrastructure', 'any', 'any', 'observe', 75, TRUE, ARRAY['apm.services.read', 'metrics.read', 'logs.read', 'sys.telemetry.read']::TEXT[]),
+    ('infrastructure.entity', '/infrastructure/:kind', 'any', 'any', NULL, NULL, TRUE, ARRAY['apm.services.read', 'metrics.read', 'logs.read', 'sys.telemetry.read']::TEXT[]),
 
     -- APM routes.
     ('apm', '/apm', 'any', 'any', 'observe', 50, TRUE, ARRAY['apm.services.read', 'apm.errors.read', 'apm.slos.read', 'apm.settings.read', 'sys.telemetry.read']::TEXT[]),
@@ -238,6 +240,7 @@ INSERT INTO iam_route_seed VALUES
     ('import.semantic.groups', '/alerts/import-semantic-groups', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.semantic_groups.manage']::TEXT[]),
     ('alert.insights', '/alerts/insights', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.incidents.read']::TEXT[]),
     ('alert.history', '/alerts/history', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.incidents.read']::TEXT[]),
+    ('alert.changes', '/alerts/changes', 'organization', 'any', NULL, NULL, TRUE, ARRAY['apm.deployments.read', 'apm.services.read', 'dashboards.annotations.read', 'alerts.rules.read', 'sys.telemetry.read']::TEXT[]),
     ('alert.discovery', '/alerts/discovery', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.discovery.read']::TEXT[]),
     ('alert.sources', '/alerts/sources', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.sources.read']::TEXT[]),
     ('alert.silences', '/alerts/silences', 'organization', 'all', NULL, NULL, TRUE, ARRAY['alerts.mutes.read']::TEXT[]),

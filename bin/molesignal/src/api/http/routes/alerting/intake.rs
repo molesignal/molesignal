@@ -53,7 +53,7 @@ async fn intake(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let presented = bearer(&headers).or_else(|| query_token(query.as_deref()));
+    let presented = presented_token(&headers, query.as_deref());
     let sources = &state.alerting.sources;
 
     let source = match sources.authenticate(presented.as_deref()).await {
@@ -124,6 +124,12 @@ async fn check_smn(body: &[u8]) -> Result<()> {
 }
 
 /// `Authorization: Bearer <token>`。
+/// The token a webhook presents: `Authorization: Bearer`, else `?token=` for one that sets no
+/// header.
+pub(crate) fn presented_token(headers: &HeaderMap, query: Option<&str>) -> Option<String> {
+    bearer(headers).or_else(|| query_token(query))
+}
+
 fn bearer(headers: &HeaderMap) -> Option<String> {
     headers
         .get(AUTHORIZATION)

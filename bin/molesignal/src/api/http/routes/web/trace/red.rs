@@ -33,6 +33,7 @@ use kernel::{
 };
 use serde::{Deserialize, Serialize};
 
+pub(super) use self::compare::compare;
 use self::{
     reading::{Bucket, Figures, Group, LatencyBar},
     statements::{Grouping, Source},
@@ -47,9 +48,11 @@ use crate::{
         AppState,
         http::routes::web::histogram::{BucketPlan, within_budget},
     },
+    app::query::statement::Named,
     infra::query::scan_limit::is_over_scan_limit,
 };
 
+mod compare;
 mod reading;
 pub(super) mod statements;
 #[cfg(test)]
@@ -101,6 +104,12 @@ pub(super) struct TraceRedQuery {
     scope: RedScope,
     /// The field a breakdown groups the requests by.
     by: Option<String>,
+    /// A comparison's chosen requests: those that took at least this many nanoseconds,
+    min_duration: Option<i64>,
+    /// less than this many,
+    max_duration: Option<i64>,
+    /// and failed.
+    errors: Option<bool>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -249,21 +258,17 @@ pub(super) async fn breakdown(
     };
 
     // The summaries' own fields are not on a Span: every request would be without a value.
-    let declared = definition
-        .schema
-        .fields
-        .iter()
-        .filter(|candidate| !candidate.name.starts_with("molesignal.trace."))
-        .find(|candidate| candidate.name == field)
+    let named = Named::resolve(&definition.schema, &field)
+        .filter(|named| !named.field().name.starts_with("molesignal.trace."))
         .ok_or_else(|| Error::invalid(format!("unknown trace field: {field}")))?;
 
     // An encrypted field is stored as ciphertext: its groups would be of that.
-    if declared.encrypted {
+    if named.field().encrypted {
         response.unavailable = Some(RedUnavailable::FieldProtected);
         return Ok(Json(response));
     }
 
-    let grouping = Grouping::new(declared)
+    let grouping = Grouping::new(&named)
         .ok_or_else(|| Error::invalid(format!("trace field `{field}` cannot group requests")))?;
 
     let source = query.source(&definition)?;

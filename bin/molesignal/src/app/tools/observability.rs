@@ -12,7 +12,6 @@ use tool_runtime::{ToolResult, catalog::BuiltinToolKind};
 
 use super::{ToolRuntime, common::*};
 
-mod baseline;
 mod log_patterns;
 mod metadata;
 mod metric_trend;

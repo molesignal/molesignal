@@ -4,9 +4,11 @@
 //! `incident_rca` 表 Pg 实装：AI 根因分析持久化（每 incident 一条，upsert）。
 
 use async_trait::async_trait;
-use domain::alerting::{incident::IncidentRca, repositories::IncidentRcaRepository};
+use domain::alerting::{
+    incident::IncidentRca, rca_evidence::RcaEvidence, repositories::IncidentRcaRepository,
+};
 use kernel::{Result, ids::Id, time::TimestampMicros};
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Row, types::Json};
 
 use super::super::sqlx_err;
 
@@ -21,7 +23,7 @@ impl PgIncidentRcaRepository {
 }
 
 const COLS: &str = "incident_id, org_id, summary, provider, model, prompt_builtin_key, \
-    prompt_hash, prompt_tokens, completion_tokens, finish_reason, \
+    prompt_hash, prompt_tokens, completion_tokens, finish_reason, evidence, \
     created_at, updated_at";
 
 fn row_to(r: sqlx::postgres::PgRow) -> IncidentRca {
@@ -36,6 +38,10 @@ fn row_to(r: sqlx::postgres::PgRow) -> IncidentRca {
         prompt_tokens: r.try_get::<i32, _>("prompt_tokens").unwrap_or_default(),
         completion_tokens: r.try_get::<i32, _>("completion_tokens").unwrap_or_default(),
         finish_reason: r.try_get("finish_reason").ok(),
+        evidence: r
+            .try_get::<Json<Vec<RcaEvidence>>, _>("evidence")
+            .map(|evidence| evidence.0)
+            .unwrap_or_default(),
         created_at: r
             .try_get::<TimestampMicros, _>("created_at")
             .unwrap_or_default(),
@@ -63,9 +69,9 @@ impl IncidentRcaRepository for PgIncidentRcaRepository {
         sqlx::query(
             "INSERT INTO incident_rca
                 (incident_id, org_id, summary, provider, model, prompt_builtin_key,
-                 prompt_hash, prompt_tokens, completion_tokens, finish_reason,
+                 prompt_hash, prompt_tokens, completion_tokens, finish_reason, evidence,
                  created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
              ON CONFLICT (incident_id) DO UPDATE SET
                 summary = EXCLUDED.summary,
                 provider = EXCLUDED.provider,
@@ -75,6 +81,7 @@ impl IncidentRcaRepository for PgIncidentRcaRepository {
                 prompt_tokens = EXCLUDED.prompt_tokens,
                 completion_tokens = EXCLUDED.completion_tokens,
                 finish_reason = EXCLUDED.finish_reason,
+                evidence = EXCLUDED.evidence,
                 updated_at = EXCLUDED.updated_at",
         )
         .bind(&rca.incident_id.0)
@@ -87,6 +94,7 @@ impl IncidentRcaRepository for PgIncidentRcaRepository {
         .bind(rca.prompt_tokens)
         .bind(rca.completion_tokens)
         .bind(&rca.finish_reason)
+        .bind(Json(&rca.evidence))
         .bind(rca.created_at)
         .bind(rca.updated_at)
         .execute(&self.pool)

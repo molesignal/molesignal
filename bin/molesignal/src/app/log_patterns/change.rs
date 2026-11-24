@@ -14,7 +14,7 @@ const MIN_MOVE: f64 = 5.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub(super) enum Change {
+pub enum Change {
     New,
     Surging,
     Dropping,
@@ -23,7 +23,7 @@ pub(super) enum Change {
 
 impl Change {
     /// Where the change puts a pattern in the list: new and surging first.
-    pub(super) fn rank(self) -> u8 {
+    pub fn rank(self) -> u8 {
         match self {
             Self::New => 0,
             Self::Surging => 1,

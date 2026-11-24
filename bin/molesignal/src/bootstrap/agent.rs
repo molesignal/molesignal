@@ -109,6 +109,7 @@ impl AgentRuntime {
         model_providers: Arc<dyn ModelProviderRepository>,
         usage: Arc<AgentUsage>,
         briefing: crate::app::alerting::related::IncidentBriefing,
+        evidence: crate::app::alerting::related::EvidenceReader,
     ) -> Self {
         let chats: Arc<dyn ChatRepository> = Arc::new(PgChatRepository::new(core.pool.clone()));
         let agent: Arc<dyn AgentRepository> = Arc::new(PgAgentRepository::new(core.pool.clone()));
@@ -209,7 +210,8 @@ impl AgentRuntime {
                 crate::api::rca::RcaGenConfig::default(),
             )
             .with_scoring(scoring.clone())
-            .with_briefing(briefing),
+            .with_briefing(briefing)
+            .with_evidence(evidence),
         );
 
         let automations: Arc<dyn AutomationRepository> =

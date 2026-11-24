@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use domain::apm::ChangeKind;
 use serde_json::json;
 
 use super::*;
@@ -122,60 +123,5 @@ fn a_rule_edited_the_day_before_is_a_change_too() {
             .changes
             .is_empty(),
         "never edited"
-    );
-}
-
-#[test]
-fn changes_in_a_range_keep_the_named_services_and_kinds() {
-    let reported = [
-        change("checkout", ChangeKind::Deployment, 590),
-        change("payments", ChangeKind::FeatureFlag, 585),
-        change("search", ChangeKind::Configuration, 595),
-        // Outside the range.
-        change("checkout", ChangeKind::Configuration, 400),
-    ];
-
-    let from = TimestampMicros(500 * MINUTE);
-    let to = TimestampMicros(600 * MINUTE);
-
-    let all = select_reported(&reported, from, to, &[], &[], 10);
-    assert_eq!(
-        all.iter()
-            .map(|change| change.service.as_deref())
-            .collect::<Vec<_>>(),
-        [Some("payments"), Some("checkout"), Some("search")],
-        "in time order"
-    );
-    assert!(all.iter().all(|change| !change.downstream));
-
-    let named = select_reported(&reported, from, to, &["default/checkout".into()], &[], 10);
-    assert_eq!(named.len(), 1);
-    assert_eq!(named[0].kind, "deployment");
-
-    let flags = select_reported(&reported, from, to, &[], &[ChangeKind::FeatureFlag], 10);
-    assert_eq!(flags.len(), 1);
-    assert_eq!(flags[0].service.as_deref(), Some("payments"));
-}
-
-#[test]
-fn a_range_with_more_changes_than_asked_keeps_the_latest() {
-    let reported = [
-        change("checkout", ChangeKind::Deployment, 590),
-        change("checkout", ChangeKind::Deployment, 591),
-        change("checkout", ChangeKind::Deployment, 592),
-    ];
-
-    let latest = select_reported(
-        &reported,
-        TimestampMicros(0),
-        TimestampMicros(600 * MINUTE),
-        &[],
-        &[],
-        2,
-    );
-
-    assert_eq!(
-        latest.iter().map(|change| change.at).collect::<Vec<_>>(),
-        [TimestampMicros(591 * MINUTE), TimestampMicros(592 * MINUTE)]
     );
 }

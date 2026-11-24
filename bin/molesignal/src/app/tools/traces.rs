@@ -22,6 +22,7 @@ const TRACE_LOOKBACK_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
 const DEFAULT_MAX_SPANS: usize = 2_000;
 const HARD_MAX_SPANS: usize = 5_000;
 
+mod compare;
 mod sessions;
 
 pub(super) async fn execute(
@@ -34,6 +35,9 @@ pub(super) async fn execute(
         BuiltinToolKind::ListTraces => list_traces(runtime, auth, arguments).await,
         BuiltinToolKind::GetTrace => get_trace(runtime, auth, arguments).await,
         BuiltinToolKind::GetTraceDag => get_trace_dag(runtime, auth, arguments).await,
+        BuiltinToolKind::CompareAttributeDistributions => {
+            compare::compare_attribute_distributions(runtime, auth, arguments).await
+        }
         BuiltinToolKind::ListTraceSessions
         | BuiltinToolKind::GetTraceSession
         | BuiltinToolKind::ListTraceUsers => {

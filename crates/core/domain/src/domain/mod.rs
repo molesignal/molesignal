@@ -18,9 +18,11 @@
 
 pub mod alerting;
 pub mod apm;
+pub mod business_context;
 
 pub mod cluster;
 pub mod dashboard;
+pub mod entity;
 pub mod federation;
 pub mod function;
 pub mod i18n_language;

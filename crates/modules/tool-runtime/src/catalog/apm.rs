@@ -135,6 +135,16 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
                 vec!["APM", "Service map"],
             )
         }
+        BuiltinToolKind::GetCorrelationQuality => {
+            let mut fields = common;
+            fields["service"] = json!({"type": "string", "description": "One service; every service in view when left out."});
+
+            (
+                "Return how well each service ties to the rest of its data, graded good, partial, missing or unknown four ways: whether its log lines carry trace ids and a sample of them is found among the traces; whether its spans report environment, version, instance and where it runs (host, pod, node or container); whether metrics carry its name; whether it reported changes over the last week. Also the service names in logs and metrics that no APM service answers to. Call it before trusting a missing correlation: a link not found may be data that cannot be linked.",
+                object_schema(fields),
+                vec!["APM", "Correlation"],
+            )
+        }
         _ => unreachable!("APM catalog received unrelated kind"),
     };
 

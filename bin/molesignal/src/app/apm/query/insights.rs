@@ -3,7 +3,8 @@
 
 //! What APM finds worth a look in the range without being asked: services
 //! whose errors, latency or traffic moved against the stretch before and the
-//! same stretch a week before, versions that did worse than the ones before
+//! same stretch a week before, services whose error-level log lines rose,
+//! versions that did worse than the ones before
 //! them, and where time could be won back; each move with the changes near
 //! when it began. Read for the services in view, or for one of them.
 
@@ -32,11 +33,13 @@ use super::{
 
 mod changes;
 mod detect;
+mod log_errors;
 mod model;
 mod suggest;
 #[cfg(test)]
 mod tests;
 
+pub use log_errors::LogSources;
 pub use model::*;
 
 const WEEK_MICROS: i64 = 7 * 86_400_000_000;
@@ -73,6 +76,7 @@ impl ApmQueryService {
             versions,
             thresholds,
             reported,
+            log_lines,
         ) = tokio::try_join!(
             self.repository.query_buckets(&service_query),
             self.repository.query_buckets(&transaction_query),
@@ -82,6 +86,7 @@ impl ApmQueryService {
             self.repository.list_versions(&catalog_query),
             self.apdex_thresholds(&context.org_id),
             self.changes_around(&context),
+            self.error_log_lines(&context),
         )?;
 
         let schema = &self.config.histogram;
@@ -139,6 +144,7 @@ impl ApmQueryService {
         let no_callees = HashSet::new();
 
         let mut insights = detect::anomalies(&figures, &lines);
+        insights.extend(log_errors::insights(log_lines, &red_now, context.range));
         let judged = self
             .judged_versions(&now, versions.clone(), &service_buckets, &thresholds)
             .await?;

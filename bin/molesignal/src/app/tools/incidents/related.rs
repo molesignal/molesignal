@@ -4,7 +4,7 @@
 //! `get_similar_incidents` and `list_changes`: what happened before that looks like an incident,
 //! and what changed around it or in a stretch of time.
 
-use domain::{alerting::incident::Incident, apm::ChangeKind, iam::IamContext};
+use domain::{alerting::incident::Incident, iam::IamContext};
 use kernel::{Error, Result, ids::Id};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -17,7 +17,10 @@ use super::{
     },
     ensure_tenant,
 };
-use crate::app::alerting::related::{IncidentChange, SimilarIncident, downstream_of};
+use crate::app::{
+    alerting::related::{IncidentChange, SimilarIncident, downstream_of},
+    changes::{ChangeFeed, ChangeFeedKind, ChangeFeedQuery},
+};
 
 /// How many similar incidents a call lists, unless it asks for fewer or more.
 const DEFAULT_SIMILAR: usize = 5;
@@ -117,7 +120,7 @@ async fn incident_changes(
     auth: &IamContext,
     incident_id: &str,
     services: &[String],
-    kinds: &[ChangeKind],
+    kinds: &[ChangeFeedKind],
     limit: usize,
 ) -> Result<ToolResult> {
     if !auth.has_permission("alerts.incidents.read") {
@@ -150,37 +153,56 @@ async fn incident_changes(
     })))
 }
 
-/// The changes the organization reported in a stretch of time; they are read as deployments are.
+/// Every change of a stretch of time the caller may read, as `GET /changes` lists them: reported
+/// changes, annotations, versions APM first saw and alert rule edits, each kind asking its own
+/// permission. A `namespace/service` name counts by its service.
 async fn range_changes(
     runtime: &ToolRuntime,
     auth: &IamContext,
     range: Option<TimeRangeArg>,
     services: &[String],
-    kinds: &[ChangeKind],
+    kinds: &[ChangeFeedKind],
     limit: usize,
 ) -> Result<ToolResult> {
-    if !auth.has_permission("apm.deployments.read") && !auth.has_permission("sys.telemetry.read") {
-        return Err(Error::forbidden(
-            "listing changes without an incident needs apm.deployments.read",
-        ));
-    }
-
     let range = range.ok_or_else(|| {
         Error::invalid("give incidentId, or a timeRange to list the changes of a stretch of time")
     })?;
 
     let range = time_range(range)?;
 
-    let changes = runtime
-        .alerting
-        .related
-        .changes_between(
-            &auth.org_id,
-            (range.start, range.end),
-            services,
-            kinds,
-            limit,
-        )
+    let feed = ChangeFeed {
+        catalog: runtime.observability.service_catalog.clone(),
+        annotations: runtime.content.annotations.clone(),
+        apm: runtime.observability.apm.clone(),
+        rules: runtime.alerting.service.rules.clone(),
+    };
+
+    let query = ChangeFeedQuery {
+        range,
+        services: services
+            .iter()
+            .map(|service| {
+                service
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(service)
+                    .trim()
+                    .to_owned()
+            })
+            .filter(|service| !service.is_empty())
+            .collect(),
+        namespace: None,
+        environment: None,
+        kinds: kinds.to_vec(),
+        dashboard_id: None,
+        stream: None,
+        limit,
+    };
+
+    let changes = feed
+        .read(&auth.org_id, &query, |permission| {
+            auth.has_permission(permission)
+        })
         .await?;
 
     Ok(ToolResult::json(json!({
@@ -201,13 +223,14 @@ async fn incident(runtime: &ToolRuntime, auth: &IamContext, id: &str) -> Result<
     Ok(incident)
 }
 
-fn parse_kinds(kinds: &[String]) -> Result<Vec<ChangeKind>> {
+fn parse_kinds(kinds: &[String]) -> Result<Vec<ChangeFeedKind>> {
     kinds
         .iter()
         .map(|kind| {
-            ChangeKind::parse(kind.trim()).ok_or_else(|| {
+            ChangeFeedKind::parse(kind.trim()).ok_or_else(|| {
                 Error::invalid(format!(
-                    "unknown change kind `{kind}`: use deployment, configuration or feature_flag"
+                    "unknown change kind `{kind}`: use deployment, configuration, feature_flag, \
+                     scaling, infrastructure, annotation, version or rule"
                 ))
             })
         })
@@ -219,7 +242,7 @@ fn parse_kinds(kinds: &[String]) -> Result<Vec<ChangeKind>> {
 fn keep(
     changes: Vec<IncidentChange>,
     services: &[String],
-    kinds: &[ChangeKind],
+    kinds: &[ChangeFeedKind],
     limit: usize,
 ) -> Vec<IncidentChange> {
     let named = |service: &str| {

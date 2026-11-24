@@ -28,6 +28,9 @@ pub enum InsightKind {
     SlowQuery,
     /// The endpoint where most of the service's time goes.
     HotEndpoint,
+    /// The service's error-level log lines rose against the stretch before and the same
+    /// stretch a week before.
+    LogErrors,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -49,7 +52,8 @@ pub struct Insight {
     pub transaction: Option<TransactionIdentity>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dependency: Option<DependencyIdentity>,
-    /// What moved or got worse: `error_rate`, `p95` or `throughput`.
+    /// What moved or got worse: `error_rate`, `p95`, `throughput` or `log_errors` (error lines a
+    /// minute).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metric: Option<&'static str>,
     /// The figure now: the error rate, the P95 in microseconds, the

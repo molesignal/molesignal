@@ -291,6 +291,10 @@ pub struct TelemetryState {
     /// What people keep about services: definitions and error states.
     pub apm_catalog: Arc<dyn domain::apm::ApmCatalogRepository>,
     pub apm_runtime: Option<Arc<crate::app::apm::ApmRuntime>>,
+    /// What services run on: clusters, nodes, hosts, pods, containers.
+    pub entities: crate::app::entities::EntitySources,
+    /// Business keys (tenant, plan, …) and the field each signal carries them in.
+    pub business_context: Arc<dyn domain::business_context::BusinessContextRepository>,
     pub trace_policies: Arc<dyn TracePolicyRepository>,
     pub trace_debug_tokens: Arc<dyn TraceDebugTokenRepository>,
     pub tail_sampler: Arc<TailSampler>,

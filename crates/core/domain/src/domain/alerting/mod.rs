@@ -36,6 +36,7 @@ pub mod mute;
 pub mod outlier;
 pub mod postmortem;
 pub mod priority;
+pub mod rca_evidence;
 pub mod realtime_snapshot;
 pub mod remediation;
 pub mod remediation_template;

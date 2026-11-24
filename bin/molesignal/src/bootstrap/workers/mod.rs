@@ -17,6 +17,7 @@ pub mod agent_traces;
 pub mod audit_retention;
 pub mod audit_stream;
 pub mod cluster;
+pub mod entities;
 pub mod intake_usage;
 pub mod jwt_secrets;
 pub mod log_inspection;

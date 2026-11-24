@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
+use std::sync::LazyLock;
+
 use domain::stream::{FieldDef, FieldType, StreamIndexType};
-use serde_json::json;
+use kernel::time::TimestampMicros;
+use serde_json::{Value, json};
 
 use super::{
-    summary::{EXAMPLE_CHARS, cut},
+    report::{EXAMPLE_CHARS, cut},
+    stretch::{LogRow, Stretch, sample_parts},
     *,
 };
+
+static ORG: LazyLock<Id> = LazyLock::new(|| Id::from_string("org"));
 
 fn row(at: i64, message: &str, level: &str) -> LogRow {
     LogRow {
@@ -28,14 +34,23 @@ fn stretch(start: i64, rows: Vec<LogRow>, total: u64) -> Stretch {
     }
 }
 
-fn shape(baseline: Baseline) -> Shape<'static> {
-    Shape {
+fn query(baseline: Baseline) -> PatternQuery<'static> {
+    PatternQuery {
+        org_id: &ORG,
         stream: "app_logs",
-        field: "message",
-        level_field: Some("level"),
+        message: "message",
+        level: Some("level"),
+        filter: String::new(),
+        window: TimeRange::new(TimestampMicros(0), TimestampMicros(1)),
         baseline,
         limit: 30,
+        tokens: false,
     }
+}
+
+/// The report as it is sent.
+fn report(query: &PatternQuery<'_>, current: &Stretch, baseline: Option<&Stretch>) -> Value {
+    serde_json::to_value(super::report::report(query, current, baseline)).expect("a report")
 }
 
 fn schema(names: &[&str]) -> Schema {
@@ -110,7 +125,7 @@ fn a_new_pattern_comes_before_the_steady_ones_with_its_counts_and_example() {
 
     let current = stretch(base, window, 15);
     let baseline = stretch(base - 3_600_000_001, earlier, 8);
-    let report = report(&shape(Baseline::Previous), &current, Some(&baseline));
+    let report = report(&query(Baseline::Previous), &current, Some(&baseline));
 
     assert_eq!(report["logs"], 15);
     assert_eq!(report["unread"], 1);
@@ -151,7 +166,7 @@ fn a_pattern_the_window_no_longer_has_is_listed_last_as_dropping() {
         .collect::<Vec<_>>();
 
     let report = report(
-        &shape(Baseline::Previous),
+        &query(Baseline::Previous),
         &stretch(base, window, 3),
         Some(&stretch(base - 3_600_000_001, earlier, 15)),
     );
@@ -173,7 +188,7 @@ fn a_sampled_window_says_so_and_scales_its_counts() {
         .map(|index| row(base + index, "heartbeat ok", ""))
         .collect::<Vec<_>>();
 
-    let report = report(&shape(Baseline::Skip), &stretch(base, window, 1_000), None);
+    let report = report(&query(Baseline::Skip), &stretch(base, window, 1_000), None);
 
     assert_eq!(report["sampled"], true);
     assert!(report.get("baseline").is_none());
@@ -195,4 +210,44 @@ fn an_example_is_the_first_line_cut_to_a_readable_length() {
 
     assert_eq!(cut_text.chars().count(), EXAMPLE_CHARS + 1);
     assert!(cut_text.ends_with('…'));
+}
+
+#[test]
+fn a_page_is_given_the_words_of_each_pattern_and_the_agent_is_not() {
+    let base = 10_000_000_000;
+    let rows = (0..3)
+        .map(|index| row(base + index, &format!("took {index}ms"), "INFO"))
+        .collect::<Vec<_>>();
+
+    let mut asked = query(Baseline::Skip);
+    asked.tokens = true;
+
+    let page = report(&asked, &stretch(base, rows, 3), None);
+    let tokens = &page["patterns"][0]["tokens"];
+
+    assert_eq!(tokens[0]["text"], "took");
+    assert_eq!(tokens[1]["wild"], "number");
+    assert_eq!(tokens[1]["unit"], "ms");
+
+    let rows = (0..3)
+        .map(|index| row(base + index, &format!("took {index}ms"), "INFO"))
+        .collect::<Vec<_>>();
+    let agent = report(&query(Baseline::Skip), &stretch(base, rows, 3), None);
+
+    assert!(agent["patterns"][0].get("tokens").is_none());
+}
+
+#[test]
+fn the_message_field_is_the_one_asked_for_or_the_first_the_stream_has() {
+    let fields = schema(&["_timestamp", "msg", "body"]);
+
+    assert_eq!(message_field(&fields, "app", None).unwrap(), "body");
+    assert_eq!(message_field(&fields, "app", Some(" msg ")).unwrap(), "msg");
+    assert!(message_field(&fields, "app", Some("nope")).is_err());
+    assert!(message_field(&schema(&["_timestamp"]), "app", None).is_err());
+    assert_eq!(
+        level_field(&schema(&["level", "message"]), "message").as_deref(),
+        Some("level")
+    );
+    assert_eq!(level_field(&schema(&["level"]), "level"), None);
 }

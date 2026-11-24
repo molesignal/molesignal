@@ -30,7 +30,10 @@ use self::{
 };
 use crate::{
     api::AppState,
-    app::{trace::summary::carries_summaries, web::trace::view::rows_to_spans},
+    app::{
+        trace::{reading::choose_traces_stream, summary::carries_summaries},
+        web::trace::view::rows_to_spans,
+    },
     infra::query::escape_sql_ident,
 };
 
@@ -61,6 +64,7 @@ pub fn routes() -> Router<AppState> {
         .route("/traces/field-stats", post(field_stats::field_stats))
         .route("/traces/red", get(red::red))
         .route("/traces/red/breakdown", get(red::breakdown))
+        .route("/traces/red/compare", get(red::compare))
         .route("/traces/time-spent", get(time_spent::time_spent))
         .route(
             "/traces/messaging-latency",
@@ -93,48 +97,6 @@ pub(crate) async fn resolve_traces_stream_definition(
         .collect();
 
     choose_traces_stream(traces)
-}
-
-/// The web trace endpoints query the standard OTEL column contract. Prefer a
-/// stream that actually carries that contract instead of relying on repository
-/// row order: an older or sample traces stream may use `span.name`, or omit
-/// explicit start/end columns, and would make every trace query fail to plan.
-/// Among those, prefer a stream with summaries: the trace list reads nothing
-/// else, so a stream written only through native intake must not hide one.
-fn choose_traces_stream(mut traces: Vec<StreamDefinition>) -> Option<StreamDefinition> {
-    traces.sort_by(|left, right| {
-        trace_stream_rank(right)
-            .cmp(&trace_stream_rank(left))
-            .then_with(|| left.name.cmp(&right.name))
-    });
-
-    traces.into_iter().next()
-}
-
-fn trace_stream_rank(stream: &StreamDefinition) -> (bool, bool, bool) {
-    const REQUIRED_FIELDS: [&str; 7] = [
-        "trace_id",
-        "span_id",
-        "service.name",
-        "name",
-        "start_time_unix_nano",
-        "end_time_unix_nano",
-        "status_code",
-    ];
-
-    let canonical = REQUIRED_FIELDS.iter().all(|required| {
-        stream
-            .schema
-            .fields
-            .iter()
-            .any(|field| field.name == *required)
-    });
-
-    (
-        canonical,
-        carries_summaries(&stream.schema),
-        stream.name == "default",
-    )
 }
 
 #[permission(any("traces.read", "sys.telemetry.read"))]

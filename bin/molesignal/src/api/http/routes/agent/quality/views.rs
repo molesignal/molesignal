@@ -230,7 +230,7 @@ async fn answer(
 
         let answer = match &facts.kind {
             Kind::Answer { content, .. } => content.clone(),
-            Kind::Rca { summary } => summary.clone(),
+            Kind::Rca { summary, .. } => summary.clone(),
         };
 
         json!({ "question": facts.question, "answer": answer, "tools": tools })

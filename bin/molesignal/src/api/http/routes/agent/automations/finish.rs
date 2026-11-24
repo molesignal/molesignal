@@ -23,7 +23,10 @@ use serde_json::json;
 use crate::{
     api::{
         AppState,
-        http::routes::agent::{budget, investigate::answer_as_rca},
+        http::routes::agent::{
+            budget,
+            investigate::{answer_as_rca, answer_evidence},
+        },
     },
     app::{
         automations::outcome::{
@@ -261,6 +264,7 @@ async fn write_rca(
                 prompt_tokens: 0,
                 completion_tokens: 0,
                 finish_reason: Some("automation".into()),
+                evidence: answer_evidence(content),
                 created_at: now,
                 updated_at: now,
             })

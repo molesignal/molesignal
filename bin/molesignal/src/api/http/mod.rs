@@ -55,6 +55,8 @@ pub(crate) fn build_router_with_limits(
         .merge(routes::agent::automations::public_routes().with_state(state.clone()))
         // /api/v1/intake/alerts：外部告警的接入地址，用告警来源自己的 Token 鉴权。
         .merge(routes::alerting::intake_routes().with_state(state.clone()))
+        // /api/v1/intake/changes：Webhook 上报的变更，handler 用请求头或 `?token=` 里的 API Token 鉴权。
+        .merge(routes::changes::intake_routes().with_state(state.clone()))
         // /api/v1/intake/heartbeats/<token>：心跳规则的打卡地址，地址里的 Token 自鉴权。
         .merge(routes::alerting::heartbeat_routes().with_state(state.clone()))
         // /api/v1/public/tickets/jira/<connector>：Jira 的 Webhook，验连接器 Webhook 密钥签的 X-Hub-Signature。

@@ -285,6 +285,13 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         &storage_runtime,
         &iam_runtime,
     )?;
+    // Business keys (tenant, plan, …) the organization reads its telemetry by.
+    let business_context: Arc<dyn domain::business_context::BusinessContextRepository> = Arc::new(
+        postgres::repositories::business_context::PgBusinessContextRepository::new(
+            core.pool.clone(),
+        ),
+    );
+
     let agent_runtime = AgentRuntime::build(
         &core,
         &iam_runtime,
@@ -295,6 +302,12 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             alerting_runtime.related.clone(),
             tracing_runtime.apm_query.clone(),
             tracing_runtime.service_graph.clone(),
+        ),
+        crate::app::alerting::related::EvidenceReader::new(
+            tracing_runtime.apm_query.clone(),
+            query_runtime.query.clone(),
+            core.streams.clone(),
+            business_context.clone(),
         ),
     );
 
@@ -610,6 +623,25 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         .spawn()
     });
 
+    // What services run on, swept by the primary alert node.
+    let entity_sources = crate::app::entities::EntitySources {
+        repository: Arc::new(postgres::repositories::entities::PgEntityRepository::new(
+            core.pool.clone(),
+        )),
+        apm: apm_query.clone(),
+        query: query.clone(),
+        streams: stream_repository.clone(),
+    };
+
+    let _entity_sweeper = core.roles.run_alert.then(|| {
+        crate::bootstrap::workers::entities::EntitySweeper::new(
+            core.orgs.clone() as Arc<dyn domain::iam::OrganizationRepository>,
+            entity_sources.clone(),
+            core.alert_ownership.clone(),
+        )
+        .spawn()
+    });
+
     let tools = Arc::new(ToolRuntime::new(ToolRuntimeDependencies {
         observability: ObservabilityToolDependencies {
             query: query.clone(),
@@ -627,6 +659,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             rum_comments: rum_comments.clone(),
             rum_summaries: rum_summaries.clone(),
             service_catalog: apm_catalog.clone(),
+            entities: entity_sources.clone(),
         },
         alerting: AlertingToolDependencies {
             service: alerting.clone(),
@@ -843,6 +876,8 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
             apm_query,
             apm_catalog,
             apm_runtime,
+            entities: entity_sources,
+            business_context,
             trace_policies,
             trace_debug_tokens,
             tail_sampler,

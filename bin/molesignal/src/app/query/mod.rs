@@ -31,7 +31,9 @@ use serde::Serialize;
 
 use crate::app::search::AdmissionController;
 
+pub mod baseline;
 pub mod jobs;
+pub mod statement;
 
 #[derive(Clone)]
 pub struct ActiveQuery {

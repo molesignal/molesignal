@@ -87,6 +87,8 @@ pub struct ObservabilityToolDependencies {
     pub rum_summaries: Arc<dyn RumSessionSummaryRepository>,
     /// What the organization says of its services: owners, aliases, where their data is.
     pub service_catalog: Arc<dyn domain::apm::ApmCatalogRepository>,
+    /// What services run on.
+    pub entities: crate::app::entities::EntitySources,
 }
 
 #[derive(Clone)]

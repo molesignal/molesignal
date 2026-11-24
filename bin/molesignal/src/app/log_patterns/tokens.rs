@@ -5,13 +5,14 @@
 //! own.
 //!
 //! The same reading as the Patterns view of Logs (`web/src/routes/logs/patterns/model.ts`), so
-//! one message forms the same pattern on the page and in the tool. A word that is a number, an
+//! one message forms the same pattern in the browser and here. A word that is a number, an
 //! identifier, an address or a moment, or that has a digit in it, is a place that changes; the
 //! words left are the pattern.
 
 use std::sync::LazyLock;
 
 use regex::Regex;
+use serde::Serialize;
 
 /// A message is read to its first line break, and no further than this many words.
 const MAX_WORDS: usize = 48;
@@ -55,8 +56,9 @@ static NUMBER: LazyLock<Regex> = LazyLock::new(|| {
 static DATA_START: LazyLock<Regex> = LazyLock::new(|| pattern(r#"^(?:\{["'}]|\[[{"0-9\]])"#));
 
 /// What a place that changes from log to log holds, where it can be told.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(super) enum Wild {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Wild {
     Number,
     Id,
     Ip,
@@ -82,16 +84,16 @@ impl Wild {
 
 /// A word of a pattern: said by every log of it, or a place where each says something of its
 /// own.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct Token {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Token {
     /// Punctuation the word carries before and after it, the same in every log.
-    pub(super) lead: String,
-    pub(super) trail: String,
+    pub lead: String,
+    pub trail: String,
     /// The word itself; for a place that changes, a sample of what stands there.
-    pub(super) text: String,
-    pub(super) wild: Option<Wild>,
+    pub text: String,
+    pub wild: Option<Wild>,
     /// What follows a number without a space: the unit it is counted in.
-    pub(super) unit: String,
+    pub unit: String,
 }
 
 impl Token {

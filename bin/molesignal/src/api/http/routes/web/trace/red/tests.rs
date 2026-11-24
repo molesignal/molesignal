@@ -27,6 +27,7 @@ use super::{
 };
 use crate::{
     api::http::routes::web::{histogram::BucketPlan, trace::filter},
+    app::query::statement::Named,
     infra::query::{arrow_json::batches_to_json, scan_limit::ensure_within_scan_limit},
 };
 
@@ -230,7 +231,7 @@ fn grouping(field: &str) -> Grouping {
         .find(|candidate| candidate.name == field)
         .expect("field");
 
-    Grouping::new(declared).expect("grouping")
+    Grouping::new(&Named::Field(declared)).expect("grouping")
 }
 
 fn result(columns: &[&str], rows: Vec<Vec<Value>>) -> QueryResult {
@@ -617,9 +618,27 @@ fn a_moment_or_a_document_does_not_group_requests() {
         encrypted: false,
     };
 
-    assert!(Grouping::new(&field(FieldType::Timestamp)).is_none());
-    assert!(Grouping::new(&field(FieldType::Json)).is_none());
-    assert!(Grouping::new(&field(FieldType::Bool)).is_some());
+    assert!(Grouping::new(&Named::Field(&field(FieldType::Timestamp))).is_none());
+    assert!(Grouping::new(&Named::Field(&field(FieldType::Json))).is_none());
+    assert!(Grouping::new(&Named::Field(&field(FieldType::Bool))).is_some());
+}
+
+#[test]
+fn a_key_of_a_json_field_groups_requests_by_what_it_holds() {
+    let definition = definition();
+    let named = Named::resolve(&definition.schema, "attributes.tenant").expect("member");
+    let grouping = Grouping::new(&named).expect("grouping");
+
+    let statement = statements::groups(&source(RedScope::Entry, "[]", None), &grouping, 5);
+
+    assert!(
+        statement.contains("NULLIF(json_text(\"attributes\", 'tenant'), '') AS __red_value"),
+        "{statement}"
+    );
+    assert!(
+        statement.contains("COUNT(\"attributes\") AS __red_present"),
+        "{statement}"
+    );
 }
 
 #[test]

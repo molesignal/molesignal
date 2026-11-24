@@ -108,6 +108,8 @@ const WHITELIST_EXACT_PATHS: &[&str] = &[
     "/api/v1/services/collector/health/1.0",
     // 外部告警的接入地址：handler 用告警来源自己的 Token 鉴权（请求头或 `?token=`）。
     "/api/v1/intake/alerts",
+    // Webhook 上报的变更：handler 用请求头或 `?token=` 里的 API Token 鉴权，要求 apm.deploy。
+    "/api/v1/intake/changes",
     "/api/v1/mcp",
     "/api/v1/oauth/token",
     "/api/v1/oauth/register",

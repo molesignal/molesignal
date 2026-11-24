@@ -25,12 +25,16 @@ fn change(kind: &'static str, service: Option<&str>, at: i64) -> IncidentChange 
 }
 
 #[test]
-fn change_kinds_are_the_three_the_catalog_names() {
+fn change_kinds_are_those_the_catalog_names() {
     assert_eq!(
-        parse_kinds(&["deployment".into(), " feature_flag ".into()]).unwrap(),
-        vec![ChangeKind::Deployment, ChangeKind::FeatureFlag]
+        parse_kinds(&["deployment".into(), " feature_flag ".into(), "rule".into()]).unwrap(),
+        vec![
+            ChangeFeedKind::Deployment,
+            ChangeFeedKind::FeatureFlag,
+            ChangeFeedKind::Rule
+        ]
     );
-    assert!(parse_kinds(&["rule".into()]).is_err());
+    assert!(parse_kinds(&["deploy".into()]).is_err());
     assert!(parse_kinds(&[]).unwrap().is_empty());
 }
 
@@ -63,7 +67,7 @@ fn an_incidents_changes_keep_the_named_services_kinds_and_its_rule() {
     let kept = keep(
         changes.clone(),
         &["checkout".into()],
-        &[ChangeKind::Deployment],
+        &[ChangeFeedKind::Deployment],
         10,
     );
 

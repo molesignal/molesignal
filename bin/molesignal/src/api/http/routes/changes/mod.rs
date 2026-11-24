@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Annotation HTTP routes（spec annotations）。
+//! Changes: `GET /changes` lists every change of a stretch of time a reader may read (reported
+//! changes, annotations, versions APM first saw, alert rule edits); the other routes keep the
+//! annotations people put on a time range. Pipelines report their changes through
+//! `POST /apm/deployments`, webhooks that cannot be shaped like it through
+//! `POST /api/v1/intake/changes` ([`intake`]).
 
 use axum::{
     Extension, Json, Router,
@@ -9,17 +13,33 @@ use axum::{
     routing::get,
 };
 use domain::iam::{IamContext, permission};
-use kernel::{Error, Result, ids::Id, time::TimestampMicros};
-use postgres::repositories::annotations::{Annotation, AnnotationFilter};
+use kernel::{
+    Error, Result,
+    ids::Id,
+    time::{TimeRange, TimestampMicros},
+};
+use postgres::repositories::annotations::Annotation;
 use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 
-use crate::api::AppState;
+use crate::{
+    api::AppState,
+    app::changes::{ChangeEntry, ChangeFeed, ChangeFeedKind, ChangeFeedQuery, MOST_CHANGES},
+};
+
+mod intake;
+
+pub use intake::{CHANGE_INTAKE_PATH, public_routes as intake_routes};
+
+/// How far back a list reaches when it names no start.
+const DEFAULT_SPAN_MICROS: i64 = 86_400_000_000;
+/// The most services a list may name.
+const MOST_SERVICES: usize = 50;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/annotations", get(list).post(create))
+        .route("/changes", get(list).post(create))
         .route(
-            "/annotations/{id}",
+            "/changes/{id}",
             get(get_one).put(update).patch(update).delete(delete),
         )
 }
@@ -31,12 +51,43 @@ pub struct ListParams {
     pub from: Option<i64>,
     #[serde(default)]
     pub to: Option<i64>,
+    /// Comma-separated service names.
+    #[serde(default)]
+    pub services: Option<String>,
+    #[serde(default)]
+    pub namespace: Option<String>,
+    #[serde(default)]
+    pub environment: Option<String>,
+    /// Comma-separated kinds; every kind the reader may read when left out.
+    #[serde(default)]
+    pub kinds: Option<String>,
     #[serde(default)]
     pub dashboard_id: Option<String>,
     #[serde(default)]
     pub stream: Option<String>,
     #[serde(default)]
-    pub tag: Option<String>,
+    pub limit: Option<usize>,
+}
+
+/// The parts of a comma-separated value, trimmed, the empty ones left out.
+fn listed(value: Option<&str>) -> Vec<String> {
+    value
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Where changes are read from.
+pub(crate) fn change_feed(state: &AppState) -> ChangeFeed {
+    ChangeFeed {
+        catalog: state.telemetry.apm_catalog.clone(),
+        annotations: state.storage.annotations.clone(),
+        apm: state.telemetry.apm_query.clone(),
+        rules: state.alerting.service.rules.clone(),
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,29 +168,60 @@ fn to_resp(a: Annotation) -> Resp {
     }
 }
 
-#[permission("dashboards.annotations.read")]
+/// Every change of the range the caller may read, the latest first. Each kind asks its own
+/// permission; one the caller lacks is left out rather than refused.
+#[permission(any(
+    "apm.deployments.read",
+    "apm.services.read",
+    "dashboards.annotations.read",
+    "alerts.rules.read",
+    "sys.telemetry.read"
+))]
 async fn list(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
     Query(p): Query<ListParams>,
-) -> Result<Json<Vec<Resp>>> {
-    let f = AnnotationFilter {
-        dashboard_id: p.dashboard_id.as_deref(),
-        stream_name: p.stream.as_deref(),
-        tag: p.tag.as_deref(),
-        from_micros: p.from,
-        to_micros: p.to,
+) -> Result<Json<Vec<ChangeEntry>>> {
+    let to = p.to.unwrap_or_else(|| TimestampMicros::now().0);
+    let from = p.from.unwrap_or(to - DEFAULT_SPAN_MICROS);
+
+    if from > to {
+        return Err(Error::invalid("from is after to"));
+    }
+
+    let services = listed(p.services.as_deref());
+
+    if services.len() > MOST_SERVICES {
+        return Err(Error::invalid(format!(
+            "name at most {MOST_SERVICES} services"
+        )));
+    }
+
+    let kinds = listed(p.kinds.as_deref())
+        .iter()
+        .map(|kind| {
+            ChangeFeedKind::parse(kind)
+                .ok_or_else(|| Error::invalid(format!("unknown change kind `{kind}`")))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let query = ChangeFeedQuery {
+        range: TimeRange::new(TimestampMicros(from), TimestampMicros(to)),
+        services,
+        namespace: p.namespace.filter(|value| !value.trim().is_empty()),
+        environment: p.environment.filter(|value| !value.trim().is_empty()),
+        kinds,
+        dashboard_id: p.dashboard_id,
+        stream: p.stream,
+        limit: p.limit.unwrap_or(MOST_CHANGES).clamp(1, MOST_CHANGES),
     };
 
     Ok(Json(
-        state
-            .storage
-            .annotations
-            .list(&ctx.org_id, f)
-            .await?
-            .into_iter()
-            .map(to_resp)
-            .collect(),
+        change_feed(&state)
+            .read(&ctx.org_id, &query, |permission| {
+                ctx.has_permission(permission)
+            })
+            .await?,
     ))
 }
 

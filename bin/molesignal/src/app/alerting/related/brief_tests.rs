@@ -79,6 +79,7 @@ fn every_part_is_told_in_order() {
             Some("The pool ran out."),
         )],
         changes: Some(changes(vec![deployment("checkout", -5, false)])),
+        ..IncidentBrief::default()
     };
 
     let text = brief.render();

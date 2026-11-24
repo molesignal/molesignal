@@ -902,24 +902,6 @@ CREATE TABLE IF NOT EXISTS saved_views (
 CREATE INDEX IF NOT EXISTS idx_saved_views_org_owner
     ON saved_views(org_id, owner_user_id);
 
-CREATE TABLE IF NOT EXISTS annotations (
-    id                  VARCHAR(64)  PRIMARY KEY,
-    org_id              VARCHAR(64)  NOT NULL,
-    title               TEXT         NOT NULL,
-    description         TEXT,
-    tags                JSONB        NOT NULL DEFAULT '[]',
-    time_start          TIMESTAMPTZ  NOT NULL,
-    time_end            TIMESTAMPTZ  NOT NULL,
-    dashboard_id        VARCHAR(64),
-    stream_name         VARCHAR(255),
-    created_by          VARCHAR(64)  NOT NULL,
-    created_at          TIMESTAMPTZ  NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_annotation_org_time
-    ON annotations(org_id, time_start DESC);
-CREATE INDEX IF NOT EXISTS idx_annotation_dashboard
-    ON annotations(dashboard_id);
-
 CREATE TABLE IF NOT EXISTS debug_artifacts (
     id                 VARCHAR(64)  PRIMARY KEY,
     org_id             VARCHAR(64)  NOT NULL,
@@ -2325,6 +2307,7 @@ CREATE TABLE IF NOT EXISTS incident_rca (
     prompt_tokens      INTEGER     NOT NULL DEFAULT 0,
     completion_tokens  INTEGER     NOT NULL DEFAULT 0,
     finish_reason      VARCHAR(32),
+    evidence           JSONB       NOT NULL DEFAULT '[]'::jsonb,
     created_at         TIMESTAMPTZ NOT NULL,
     updated_at         TIMESTAMPTZ NOT NULL
 );
@@ -6120,32 +6103,81 @@ CREATE TABLE IF NOT EXISTS apm_error_rules (
 CREATE INDEX IF NOT EXISTS idx_apm_error_rules_org
     ON apm_error_rules (org_id, position);
 
--- Deployments, configuration changes and feature flags as the pipelines and tools that made them
--- report them (POST /apm/deployments, apm.deploy).
-CREATE TABLE IF NOT EXISTS apm_deployment_events (
+-- What services run on: clusters, nodes, hosts, pods and containers as the resource attributes of
+-- their telemetry name them, kept by kind and a key within the organization, and what runs on or is
+-- part of what. A link's end is an entity or a service (`namespace/name/environment`). Both are
+-- seen again by the entity sweep and forgotten a week after they were last seen.
+CREATE TABLE IF NOT EXISTS entities (
+    org_id         VARCHAR(64)  NOT NULL,
+    kind           VARCHAR(16)  NOT NULL,
+    key            VARCHAR(512) NOT NULL,
+    name           VARCHAR(255) NOT NULL,
+    attributes     JSONB        NOT NULL DEFAULT '{}'::jsonb,
+    first_seen_at  TIMESTAMPTZ  NOT NULL,
+    last_seen_at   TIMESTAMPTZ  NOT NULL,
+    PRIMARY KEY (org_id, kind, key),
+    CHECK (kind IN ('cluster', 'node', 'host', 'pod', 'container')),
+    CHECK (key <> '' AND last_seen_at >= first_seen_at),
+    CHECK (jsonb_typeof(attributes) = 'object')
+);
+CREATE INDEX IF NOT EXISTS idx_entities_seen
+    ON entities (org_id, kind, last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_entities_forget
+    ON entities (last_seen_at);
+
+CREATE TABLE IF NOT EXISTS entity_links (
+    org_id         VARCHAR(64)  NOT NULL,
+    from_kind      VARCHAR(16)  NOT NULL,
+    from_key       VARCHAR(512) NOT NULL,
+    relation       VARCHAR(16)  NOT NULL,
+    to_kind        VARCHAR(16)  NOT NULL,
+    to_key         VARCHAR(512) NOT NULL,
+    last_seen_at   TIMESTAMPTZ  NOT NULL,
+    PRIMARY KEY (org_id, from_kind, from_key, relation, to_kind, to_key),
+    CHECK (relation IN ('runs_on', 'part_of'))
+);
+CREATE INDEX IF NOT EXISTS idx_entity_links_to
+    ON entity_links (org_id, to_kind, to_key);
+CREATE INDEX IF NOT EXISTS idx_entity_links_forget
+    ON entity_links (last_seen_at);
+
+-- Changes in one place, told apart by kind: deployments, configuration changes, feature flags,
+-- scaling and infrastructure changes as the pipelines and tools that made them report them
+-- (POST /apm/deployments, apm.deploy), and annotations people put on a time range (a dashboard's
+-- or a log stream's, or none). Every read names the kinds it wants.
+CREATE TABLE IF NOT EXISTS changes (
     id                  VARCHAR(64)  PRIMARY KEY,
     org_id              VARCHAR(64)  NOT NULL,
-    kind                VARCHAR(24)  NOT NULL DEFAULT 'deployment',
+    kind                VARCHAR(24)  NOT NULL,
     service_namespace   VARCHAR(128) NOT NULL DEFAULT '',
-    service_name        VARCHAR(255) NOT NULL,
+    service_name        VARCHAR(255) NOT NULL DEFAULT '',
     environment         VARCHAR(128) NOT NULL DEFAULT '',
-    version             VARCHAR(192) NOT NULL,
-    status              VARCHAR(16)  NOT NULL,
+    version             VARCHAR(192) NOT NULL DEFAULT '',
+    status              VARCHAR(16),
+    title               TEXT,
+    description         TEXT,
+    tags                JSONB        NOT NULL DEFAULT '[]',
     commit_sha          VARCHAR(64),
     repository_url      VARCHAR(512),
     pull_request_url    VARCHAR(512),
     author              VARCHAR(128),
     ci_url              VARCHAR(512),
-    description         TEXT,
-    deployed_at         TIMESTAMPTZ  NOT NULL,
+    dashboard_id        VARCHAR(64),
+    stream_name         VARCHAR(255),
+    started_at          TIMESTAMPTZ  NOT NULL,
+    ended_at            TIMESTAMPTZ,
     created_by          VARCHAR(64)  NOT NULL,
     created_at          TIMESTAMPTZ  NOT NULL,
-    CHECK (kind IN ('deployment', 'configuration', 'feature_flag')),
-    CHECK (status IN ('succeeded', 'failed', 'rolled_back')),
-    CHECK (btrim(service_name) <> '' AND (kind <> 'deployment' OR btrim(version) <> ''))
+    CHECK (kind IN ('deployment', 'configuration', 'feature_flag', 'scaling', 'infrastructure', 'annotation')),
+    CHECK (kind = 'annotation' OR (btrim(service_name) <> '' AND status IN ('succeeded', 'failed', 'rolled_back'))),
+    CHECK (kind <> 'deployment' OR btrim(version) <> ''),
+    CHECK (kind <> 'annotation' OR btrim(coalesce(title, '')) <> ''),
+    CHECK (ended_at IS NULL OR ended_at >= started_at)
 );
-CREATE INDEX IF NOT EXISTS idx_apm_deployment_events_service
-    ON apm_deployment_events (org_id, service_name, environment, deployed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_changes_org_time
+    ON changes (org_id, kind, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_changes_service
+    ON changes (org_id, service_name, environment, started_at DESC);
 
 -- ============================================================
 -- Status page publication schema

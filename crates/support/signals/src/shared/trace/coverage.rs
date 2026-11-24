@@ -96,6 +96,10 @@ pub const WORKER_COVERAGE: &[WorkerCoverage] = &[
         policy: WorkerTracePolicy::TransportBoundary,
     },
     WorkerCoverage {
+        source: "src/bootstrap/workers/entities.rs",
+        policy: WorkerTracePolicy::RootPerRun,
+    },
+    WorkerCoverage {
         source: "src/bootstrap/workers/intake_usage.rs",
         policy: WorkerTracePolicy::RootPerRun,
     },

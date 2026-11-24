@@ -9,7 +9,9 @@
 //! - `tool_success`: `{failed, total}`. Absent for answers without tool calls.
 //! - `evidence`: `{cited, backed}`, the number of pieces of evidence cited in the answer and
 //!   whether successful tool calls support it. Present only when the answer has the required shape
-//!   and tools are called.
+//!   and tools are called. For incident RCA, `{cited, given, unknown}`: the labels the summary
+//!   cites, the evidence it was given, and the labels cited that it was not given; absent when it
+//!   was given none and cites none.
 //! - `query_validity`: `{invalid, total, firstInvalid}`, SQL and PromQL in tool calls. Absent when
 //!   there are no queries.
 //! - `answer_format`: `{structured}`. Absent for query-only turns and incident RCA.
@@ -144,6 +146,7 @@ pub fn score_answer(facts: &AnswerFacts<'_>, syntax: &dyn QuerySyntax) -> Vec<Di
 /// Rule-based scoring for an incident RCA: whether it is written and people's feedback.
 pub fn score_rca(
     summary: &str,
+    evidence: &[String],
     feedback_given: Option<(FeedbackRating, &[FeedbackReason])>,
 ) -> Vec<DimensionScore> {
     let status = if summary.trim().is_empty() {
@@ -153,8 +156,63 @@ pub fn score_rca(
     };
 
     let mut dimensions = vec![completion(status, false, summary)];
+    dimensions.extend(rca_citations(summary, evidence));
     dimensions.extend(feedback(feedback_given));
     dimensions
+}
+
+/// Whether an analysis cites the evidence it was given, and only that. Given evidence, citing a
+/// label it was not given scores 0 and citing none 0.25. Given none, citing anything is made up
+/// and scores 0; citing nothing is not judged.
+fn rca_citations(summary: &str, evidence: &[String]) -> Option<DimensionScore> {
+    let cited = cited_labels(summary);
+    let unknown = cited
+        .iter()
+        .filter(|label| !evidence.contains(label))
+        .count();
+
+    if evidence.is_empty() && cited.is_empty() {
+        return None;
+    }
+
+    let score = if unknown > 0 {
+        0.0
+    } else if cited.is_empty() {
+        0.25
+    } else {
+        1.0
+    };
+
+    Some(DimensionScore {
+        dimension: RuleDimension::Evidence,
+        score,
+        detail: json!({ "cited": cited.len(), "given": evidence.len(), "unknown": unknown }),
+    })
+}
+
+/// The evidence labels a text cites, such as `[E2]`, each once in the order first cited.
+pub fn cited_labels(text: &str) -> Vec<String> {
+    let mut labels = Vec::new();
+
+    for (index, _) in text.match_indices("[E") {
+        let rest = &text[index + 2..];
+        let digits = rest
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect::<String>();
+
+        if digits.is_empty() || !rest[digits.len()..].starts_with(']') {
+            continue;
+        }
+
+        let label = format!("E{digits}");
+
+        if !labels.contains(&label) {
+            labels.push(label);
+        }
+    }
+
+    labels
 }
 
 /// The average of the available dimensions.
@@ -413,13 +471,54 @@ mod tests {
             Some(0.0)
         );
 
-        assert_eq!(mean(&score_rca("", None)), 0.0);
+        assert_eq!(mean(&score_rca("", &[], None)), 0.0);
         assert_eq!(
             mean(&score_rca(
                 "The pool ran out.",
+                &[],
                 Some((FeedbackRating::Up, &[]))
             )),
             1.0
+        );
+    }
+
+    #[test]
+    fn an_rca_given_evidence_cites_it_and_nothing_else() {
+        let given = ["E1".to_owned(), "E2".to_owned()];
+        let citing =
+            |summary: &str| dimension(&score_rca(summary, &given, None), RuleDimension::Evidence);
+
+        assert_eq!(
+            citing("The pool ran out [E2], after the deploy [E1]."),
+            Some(1.0)
+        );
+        assert_eq!(citing("The pool ran out."), Some(0.25));
+        assert_eq!(citing("The pool ran out [E7]."), Some(0.0));
+    }
+
+    #[test]
+    fn an_rca_given_no_evidence_makes_none_up() {
+        assert_eq!(
+            dimension(
+                &score_rca("The cache failed [E1].", &[], None),
+                RuleDimension::Evidence
+            ),
+            Some(0.0)
+        );
+        assert_eq!(
+            dimension(
+                &score_rca("The evidence is not enough to tell.", &[], None),
+                RuleDimension::Evidence
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn labels_are_read_once_each_and_only_whole() {
+        assert_eq!(
+            cited_labels("[E2] then [E10], [E2] again, [E] and [Ex1] [E3"),
+            vec!["E2", "E10"]
         );
     }
 

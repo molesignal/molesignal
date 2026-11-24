@@ -6,6 +6,7 @@
 mod aggregator;
 mod cardinality;
 mod catalog_facts;
+pub mod correlation;
 mod error_rules;
 mod extractor;
 mod instance;

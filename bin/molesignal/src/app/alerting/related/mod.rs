@@ -6,6 +6,7 @@
 mod brief;
 mod changes;
 mod downstream;
+mod evidence;
 mod similar;
 
 use std::{collections::HashMap, sync::Arc};
@@ -13,7 +14,6 @@ use std::{collections::HashMap, sync::Arc};
 pub use brief::{IncidentBrief, IncidentBriefing};
 pub use changes::{
     AFTER, BEFORE, IncidentChange, IncidentChanges, incident_services, select_changes,
-    select_reported,
 };
 use domain::{
     alerting::{
@@ -21,9 +21,10 @@ use domain::{
         repositories::{AlertRuleRepository, IncidentRcaRepository, IncidentRepository},
         timeline::{IncidentTimelineRepository, TimelineKind},
     },
-    apm::{ApmCatalogRepository, ChangeKind, DeploymentQuery},
+    apm::{ApmCatalogRepository, DeploymentQuery},
 };
 pub use downstream::downstream_of;
+pub use evidence::{EvidenceReader, brief_evidence, incident_window, labelled, render_evidence};
 use kernel::{Result, ids::Id, time::TimestampMicros};
 pub use similar::{MOST_SIMILAR, SimilarIncident, first_sentence, score, trigram_similarity};
 
@@ -166,33 +167,5 @@ impl RelatedIncidents {
             downstream,
             rule.as_ref(),
         ))
-    }
-
-    /// The changes the organization reported from `from` until `to`, in time order and the latest
-    /// `limit` of them, of `services` and `kinds` when any are named.
-    pub async fn changes_between(
-        &self,
-        org_id: &Id,
-        (from, to): (TimestampMicros, TimestampMicros),
-        services: &[String],
-        kinds: &[ChangeKind],
-        limit: usize,
-    ) -> Result<Vec<IncidentChange>> {
-        let reported = self
-            .catalog
-            .list_deployments(
-                org_id,
-                &DeploymentQuery {
-                    namespace: None,
-                    service: None,
-                    environment: None,
-                    from: Some(from),
-                    to: Some(to),
-                    limit: MOST_CHANGES_READ,
-                },
-            )
-            .await?;
-
-        Ok(select_reported(&reported, from, to, services, kinds, limit))
     }
 }

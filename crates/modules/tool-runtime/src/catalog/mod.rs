@@ -18,6 +18,7 @@ mod apm;
 mod content;
 mod dashboard;
 mod data_management;
+mod entities;
 mod incidents;
 mod inspections;
 mod kind;
@@ -74,7 +75,8 @@ impl BuiltinToolKind {
             | Self::GetTraceDag
             | Self::ListTraceSessions
             | Self::GetTraceSession
-            | Self::ListTraceUsers => traces::spec(self),
+            | Self::ListTraceUsers
+            | Self::CompareAttributeDistributions => traces::spec(self),
             Self::ListIncidents
             | Self::GetIncident
             | Self::GetIncidentRca
@@ -147,7 +149,9 @@ impl BuiltinToolKind {
             | Self::CompareApmVersions
             | Self::GetApmHealth
             | Self::GetApmInsights
-            | Self::GetApmBlastRadius => apm::spec(self),
+            | Self::GetApmBlastRadius
+            | Self::GetCorrelationQuality => apm::spec(self),
+            Self::ListEntities | Self::GetEntity => entities::spec(self),
             Self::ListRumSessions
             | Self::GetRumSession
             | Self::ListRumActions

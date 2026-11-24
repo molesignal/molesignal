@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Deployments as pipelines report them, and the APM settings of each
-//! organization (the `apm` section of `org_settings`): what people and their
-//! pipelines keep, never rebuilt from spans.
+//! Deployments and the other changes pipelines report, kept in `changes` beside
+//! annotations (every statement here leaves annotations out), and the APM
+//! settings of each organization (the `apm` section of `org_settings`): what
+//! people and their pipelines keep, never rebuilt from spans.
 
 use domain::apm::{
     ApmOrgSettings, ChangeKind, DEPLOYMENTS_LISTED_MAX, DeploymentEvent, DeploymentQuery,
-    DeploymentStatus,
+    DeploymentStatus, ServiceChangeCount,
 };
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use postgres::{
@@ -22,10 +23,10 @@ pub(super) async fn save_deployment(
     event: &DeploymentEvent,
 ) -> Result<()> {
     sqlx::query(
-        "INSERT INTO apm_deployment_events (
+        "INSERT INTO changes (
              id, org_id, service_namespace, service_name, environment, version, status,
              commit_sha, repository_url, pull_request_url, author, ci_url, description,
-             deployed_at, created_by, created_at, kind
+             started_at, created_by, created_at, kind
          )
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
     )
@@ -62,15 +63,15 @@ pub(super) async fn list_deployments(
     let rows = sqlx::query(
         "SELECT id, kind, service_namespace, service_name, environment, version, status,
                 commit_sha, repository_url, pull_request_url, author, ci_url, description,
-                deployed_at, created_by, created_at
-         FROM apm_deployment_events
-         WHERE org_id = $1
+                started_at, created_by, created_at
+         FROM changes
+         WHERE org_id = $1 AND kind <> 'annotation'
            AND ($2::TEXT IS NULL OR service_namespace IN ($2, ''))
            AND ($3::TEXT IS NULL OR service_name = $3)
            AND ($4::TEXT IS NULL OR environment IN ($4, ''))
-           AND ($5::TIMESTAMPTZ IS NULL OR deployed_at >= $5)
-           AND ($6::TIMESTAMPTZ IS NULL OR deployed_at <= $6)
-         ORDER BY deployed_at DESC, id
+           AND ($5::TIMESTAMPTZ IS NULL OR started_at >= $5)
+           AND ($6::TIMESTAMPTZ IS NULL OR started_at <= $6)
+         ORDER BY started_at DESC, id
          LIMIT $7",
     )
     .bind(org_id.as_str())
@@ -85,6 +86,37 @@ pub(super) async fn list_deployments(
     .map_err(sqlx_err)?;
 
     rows.iter().map(deployment_from_row).collect()
+}
+
+pub(super) async fn change_counts(
+    pool: &PgPool,
+    org_id: &Id,
+    since: TimestampMicros,
+) -> Result<Vec<ServiceChangeCount>> {
+    let rows = sqlx::query(
+        "SELECT service_name, count(*) AS changes, max(started_at) AS last_at
+         FROM changes
+         WHERE org_id = $1 AND kind <> 'annotation' AND started_at >= $2
+         GROUP BY service_name
+         ORDER BY service_name",
+    )
+    .bind(org_id.as_str())
+    .bind(since)
+    .fetch_all(pool)
+    .await
+    .map_err(sqlx_err)?;
+
+    rows.iter()
+        .map(|row| {
+            let count: i64 = row.try_get("changes").map_err(sqlx_err)?;
+
+            Ok(ServiceChangeCount {
+                service: row.try_get("service_name").map_err(sqlx_err)?,
+                count: u64::try_from(count).unwrap_or_default(),
+                last_at: row.try_get("last_at").map_err(sqlx_err)?,
+            })
+        })
+        .collect()
 }
 
 fn deployment_from_row(row: &PgRow) -> Result<DeploymentEvent> {
@@ -110,7 +142,7 @@ fn deployment_from_row(row: &PgRow) -> Result<DeploymentEvent> {
         ci_url: optional("ci_url")?,
         description: optional("description")?,
         deployed_at: row
-            .try_get::<TimestampMicros, _>("deployed_at")
+            .try_get::<TimestampMicros, _>("started_at")
             .map_err(sqlx_err)?,
         created_by: Id::from_string(text("created_by")?),
         created_at: row

@@ -21,7 +21,7 @@ use domain::{
 use kernel::{Result, ids::Id, time::TimestampMicros};
 use serde_json::{Map, Value};
 
-use super::{Arrival, Passage, functions};
+use super::{Arrival, Passage, Tally, functions};
 use crate::app::intake::IntakeService;
 
 /// span 行上不是属性的列。步骤新添的字段不在其中时算作 span 的属性。
@@ -98,7 +98,7 @@ impl IntakeService {
         let now = TimestampMicros::now();
         let functions = functions(&pipeline, org, now);
         let mut processed = ProcessedSpans::default();
-        let mut counted = Vec::new();
+        let mut tally = Tally::default();
 
         for (index, mut span) in spans.into_iter().enumerate() {
             let before = std::mem::take(&mut span.fields);
@@ -118,7 +118,7 @@ impl IntakeService {
                     Some(Guard::Spans),
                     value,
                     arrival,
-                    &mut counted,
+                    &mut tally,
                 )
                 .await
                 .0
@@ -139,7 +139,8 @@ impl IntakeService {
         }
 
         // The spans are written after this, by a sink that does not send them through again.
-        engine.steps.metrics.record(counted);
+        // A pipeline on spans has no change step (`validate_config`): nothing noted to keep.
+        engine.steps.metrics.record(tally.counted);
         Ok(processed)
     }
 

@@ -66,6 +66,23 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             })),
             vec!["Traces", "AI", "Users"],
         ),
+        BuiltinToolKind::CompareAttributeDistributions => (
+            "Compare the slow or failed requests in a time range with the other requests of the same service (or of every service), field by field, and rank the fields by how differently their values are shared: a score from 0 (the same mix) to 1 (no value in common), with the values whose shares differ most. Say which requests to compare with errors, minDurationMs and maxDurationMs (all that are given must hold). Read from a sample of up to 1,000 Spans of each set; ids and moments are left out. Call it to find what slow or failing requests have in common, such as a region, a version, a tenant or a route.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "timeRange": time_range_schema(),
+                    "service": {"type": "string", "description": "Only this service's requests; every service's when left out."},
+                    "operation": {"type": "string", "description": "Only Spans of this name."},
+                    "errors": {"type": "boolean", "default": false, "description": "Compare the failed requests."},
+                    "minDurationMs": {"type": "number", "minimum": 0, "description": "Compare the requests that took at least this long."},
+                    "maxDurationMs": {"type": "number", "minimum": 0, "description": "Compare the requests that took less than this long."},
+                    "allSpans": {"type": "boolean", "default": false, "description": "Read every Span, not only those where a service took a request in."},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 10}
+                }, "additionalProperties": false
+            }),
+            vec!["Traces", "Investigation"],
+        ),
         _ => unreachable!("trace catalog received non-trace kind"),
     };
 

@@ -22,6 +22,7 @@ use domain::{
     function::{Function, FunctionExecutor, FunctionLanguage, FunctionOutcome},
     intake::{IntakeBatch, IntakeError, IntakeResult, RawEvent, usage::event_bytes},
     pipeline::{
+        change::NotedChange,
         limit::OverAction,
         processing::{ProcessingKind, ProcessingStep},
         protected::{Guard, changed_protected, protected_of},
@@ -33,6 +34,7 @@ use serde_json::Value;
 
 use super::{IntakeOrigin, IntakeService};
 
+pub mod changes;
 pub mod generated;
 pub mod limits;
 pub mod spans;
@@ -58,6 +60,13 @@ struct Arrival {
     now: TimestampMicros,
 }
 
+/// What the steps that keep count made of a batch's events, added once the batch is written.
+#[derive(Default)]
+pub(super) struct Tally<'p> {
+    pub counted: Vec<Counted<'p>>,
+    pub noted: Vec<NotedChange>,
+}
+
 /// Where one event's way through a pipeline's steps ended.
 enum Passage {
     /// The event as the steps left it.
@@ -72,8 +81,8 @@ impl RealtimeEngine {
     /// One event through the pipeline's steps, and the stream a routing step sent it to, if one did.
     /// `guard` says what of the event the steps may not change, and whether they may drop it.
     ///
-    /// What a metric step counts of the event goes into `counted`, for the caller to add once the
-    /// event is written.
+    /// What a metric step counts of the event and the change a change step reads of it go into
+    /// `tally`, for the caller to add once the event is written.
     async fn pass<'p>(
         &self,
         pipeline: &'p RealtimePipeline,
@@ -81,7 +90,7 @@ impl RealtimeEngine {
         guard: Option<Guard>,
         value: Value,
         arrival: Arrival,
-        counted: &mut Vec<Counted<'p>>,
+        tally: &mut Tally<'p>,
     ) -> (Passage, Option<String>) {
         let kept = guard.and_then(|guard| {
             value
@@ -100,7 +109,13 @@ impl RealtimeEngine {
                     continue;
                 }
                 ProcessingKind::GenerateMetric => {
-                    counted.extend(count(pipeline, step, &value, arrival));
+                    tally.counted.extend(count(pipeline, step, &value, arrival));
+                    continue;
+                }
+                ProcessingKind::ToChange => {
+                    tally
+                        .noted
+                        .extend(self.steps.changes.note(pipeline, step, &value, arrival.at));
                     continue;
                 }
                 ProcessingKind::Quota | ProcessingKind::Throttle => {
@@ -292,7 +307,7 @@ impl IntakeService {
         let mut errors = Vec::new();
         let guard = Guard::of(pipeline.signal, &stream);
         let now = TimestampMicros::now();
-        let mut counted = Vec::new();
+        let mut tally = Tally::default();
 
         for (index, mut event) in events.into_iter().enumerate() {
             let size = event_bytes(&event)?;
@@ -306,7 +321,7 @@ impl IntakeService {
             };
 
             let (passage, routed) = engine
-                .pass(&pipeline, &functions, guard, value, arrival, &mut counted)
+                .pass(&pipeline, &functions, guard, value, arrival, &mut tally)
                 .await;
             let destination = routed.unwrap_or_else(|| pipeline.target.clone());
 
@@ -395,7 +410,8 @@ impl IntakeService {
         }
 
         // Every output is written: what the batch's events add to metrics counts now.
-        engine.steps.metrics.record(counted);
+        engine.steps.metrics.record(tally.counted);
+        engine.steps.changes.keep(&pipeline, tally.noted).await;
 
         let rejected = errors
             .iter()

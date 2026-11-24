@@ -21,6 +21,10 @@ use crate::{
             latency::PREFERRED,
         },
     },
+    app::{
+        query::statement::Named,
+        trace::reading::{duration_expression, entry_clause, failed_expression},
+    },
     infra::query::escape_sql_ident,
 };
 
@@ -67,22 +71,11 @@ impl Source {
         let schema = &definition.schema;
         let table = quoted(&definition.name);
 
-        let failed = declared(schema, "status_code").map(|_| {
-            "CASE WHEN UPPER(CAST(\"status_code\" AS VARCHAR)) = 'ERROR' THEN 1 ELSE 0 END"
-                .to_string()
-        });
-
-        let duration = if declared(schema, "duration_ns").is_some() {
-            quoted("duration_ns")
-        } else {
-            "(\"end_time_unix_nano\" - \"start_time_unix_nano\")".to_string()
-        };
-
         let mut source = Self {
             table,
             clauses: Vec::new(),
-            failed,
-            duration,
+            failed: failed_expression(schema),
+            duration: duration_expression(schema),
         };
 
         if scope == RedScope::Entry
@@ -176,6 +169,11 @@ impl Source {
         }
     }
 
+    /// The conditions every Span has to meet.
+    pub(in super::super) fn conditions(&self) -> &[String] {
+        &self.clauses
+    }
+
     /// How long a Span took, in whole nanoseconds, as SQL.
     pub(in super::super) fn duration(&self) -> &str {
         &self.duration
@@ -239,8 +237,20 @@ pub(super) struct Grouping {
 
 impl Grouping {
     /// `None` for a field whose values do not group requests: a moment or a
-    /// JSON document is all but different for every Span.
-    pub(super) fn new(field: &FieldDef) -> Option<Self> {
+    /// JSON document is all but different for every Span. A key of a JSON
+    /// field groups them by what the key holds, its presence counted on the
+    /// JSON field.
+    pub(super) fn new(named: &Named<'_>) -> Option<Self> {
+        let field = match named {
+            Named::Field(field) => field,
+            Named::Member { parent, .. } => {
+                return Some(Self {
+                    name: quoted(&parent.name),
+                    text: named.text(),
+                });
+            }
+        };
+
         let name = quoted(&field.name);
 
         let text = match field.data_type {
@@ -373,53 +383,6 @@ pub(super) fn group_series(
         columns.join(", "),
         source.reading(Some(listed_only.as_str())),
     )
-}
-
-/// Where a service took a request in: a Span of the server or consumer kind,
-/// or the root of a trace that is not itself a call out. A client or producer
-/// Span without a parent is a call made outside any request, not one taken in.
-/// `None` for a stream that tells neither kind nor parent: every Span is then
-/// counted.
-fn entry_clause(schema: &Schema) -> Option<String> {
-    let taking = kind_in(schema, [2, 5], ["SERVER", "CONSUMER"]);
-    let making = kind_in(schema, [3, 4], ["CLIENT", "PRODUCER"]);
-
-    let root = declared(schema, "parent_span_id")
-        .is_some()
-        .then(|| "(\"parent_span_id\" IS NULL OR \"parent_span_id\" = '')".to_string());
-
-    match (taking, making, root) {
-        (Some(taking), Some(making), Some(root)) => Some(format!(
-            "({taking} OR ({root} AND (\"kind\" IS NULL OR NOT {making})))"
-        )),
-        (Some(taking), _, None) => Some(taking),
-        (None, _, Some(root)) => Some(root),
-        _ => None,
-    }
-}
-
-/// Whether a Span is of one of two kinds, as the stream keeps kinds: the
-/// numbers OTLP gives them, or text, which may hold those numbers or the
-/// kinds' names. `None` for a stream that keeps no kind.
-fn kind_in(schema: &Schema, numbers: [i64; 2], names: [&str; 2]) -> Option<String> {
-    match declared(schema, "kind").map(|field| field.data_type) {
-        Some(FieldType::Int64) => Some(format!("\"kind\" IN ({}, {})", numbers[0], numbers[1])),
-        Some(FieldType::Utf8) => {
-            let listed = numbers
-                .iter()
-                .map(i64::to_string)
-                .chain(
-                    names
-                        .iter()
-                        .flat_map(|name| [name.to_string(), format!("SPAN_KIND_{name}")]),
-                )
-                .map(|text| literal(&text))
-                .collect::<Vec<_>>();
-
-            Some(format!("UPPER(\"kind\") IN ({})", listed.join(", ")))
-        }
-        _ => None,
-    }
 }
 
 /// Free text, looked for in the fields the trace list looks for it in.

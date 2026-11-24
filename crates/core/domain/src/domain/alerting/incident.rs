@@ -109,8 +109,20 @@ pub struct IncidentRca {
     pub prompt_tokens: i32,
     pub completion_tokens: i32,
     pub finish_reason: Option<String>,
+    /// What the analysis rests on, each piece labelled as the summary cites it.
+    #[serde(default)]
+    pub evidence: Vec<super::rca_evidence::RcaEvidence>,
     pub created_at: TimestampMicros,
     pub updated_at: TimestampMicros,
+}
+
+impl IncidentRca {
+    /// The analysis as `holds` lets a reader see it: figures read from telemetry the reader may
+    /// not read are left out.
+    pub fn for_reader(mut self, holds: impl Fn(&str) -> bool) -> Self {
+        super::rca_evidence::withhold_figures(&mut self.evidence, holds);
+        self
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

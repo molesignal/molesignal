@@ -31,6 +31,7 @@ pub mod durable;
 pub mod export;
 mod owner;
 mod processing;
+pub mod reading;
 mod self_intake;
 mod sink_worker;
 pub(crate) mod summary;

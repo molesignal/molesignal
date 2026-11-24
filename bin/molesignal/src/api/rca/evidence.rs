@@ -2,15 +2,65 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! What the root-cause generator gives the model: the prompt's variables, and the evidence — the
-//! incident's own facts, its brief (rule guide, service catalog, similar incidents, nearby
-//! changes), then the instruction. Only what the organization keeps about the incident goes in;
-//! the generator reads no telemetry.
+//! incident's own facts, the background its brief gives (rule guide, service catalog), the
+//! labelled evidence (telemetry around the incident, nearby changes, similar incidents), then the
+//! instruction to cite it.
 
-use domain::alerting::incident::Incident;
+use std::time::Duration;
+
+use domain::alerting::{incident::Incident, rca_evidence::RcaEvidence};
 use kernel::time::TimestampMicros;
 use serde_json::{Map, Value};
 
 use super::RcaOutputLocale;
+use crate::app::alerting::related::{
+    EvidenceReader, IncidentBrief, IncidentBriefing, brief_evidence, labelled, render_evidence,
+};
+
+/// How long an incident's brief may take to read before the analysis goes on without it.
+const BRIEF_WAIT: Duration = Duration::from_secs(8);
+
+/// What the model is told besides the incident's own facts, and the evidence it may cite.
+pub(super) struct Told {
+    pub text: String,
+    pub evidence: Vec<RcaEvidence>,
+}
+
+/// The background and the labelled evidence of `incident`, best effort: a brief that takes too
+/// long is left out rather than holding up the sweep, and each kind of telemetry has its own
+/// time.
+pub(super) async fn told(
+    briefing: Option<&IncidentBriefing>,
+    reader: Option<&EvidenceReader>,
+    incident: &Incident,
+    now: TimestampMicros,
+) -> Told {
+    let brief = match briefing {
+        Some(briefing) => match tokio::time::timeout(BRIEF_WAIT, briefing.brief(incident)).await {
+            Ok(brief) => brief,
+            Err(_) => {
+                tracing::warn!(incident = %incident.id.0, "an incident's brief took too long to read");
+                IncidentBrief::default()
+            }
+        },
+        None => IncidentBrief::default(),
+    };
+
+    let telemetry = match reader {
+        Some(reader) => reader.read(incident, &brief.downstream, now).await,
+        None => Vec::new(),
+    };
+
+    let evidence = labelled(telemetry, brief_evidence(&brief, incident.created_at));
+
+    let text = [brief.render_background(), render_evidence(&evidence)]
+        .into_iter()
+        .filter(|part| !part.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    Told { text, evidence }
+}
 
 /// 证据文本里样本行上限（incident 已裁到 20，这里再压一层控制 prompt 体积）。
 const MAX_EVIDENCE_SAMPLES: usize = 10;
@@ -52,8 +102,8 @@ fn streams_str(incident: &Incident) -> String {
     }
 }
 
-/// The evidence the model is given (the user message): the incident's facts, its brief when there
-/// is one, then the instruction.
+/// The evidence the model is given (the user message): the incident's facts, what else it is
+/// told when there is anything, then the instruction.
 pub(super) fn build_evidence(incident: &Incident, brief: &str, locale: RcaOutputLocale) -> String {
     let mut s = incident_facts(incident);
 

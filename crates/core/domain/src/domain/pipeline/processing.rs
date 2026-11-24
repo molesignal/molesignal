@@ -3,14 +3,16 @@
 
 //! Ordered built-in and VRL processing steps. Routing metadata never enters event fields.
 //!
-//! Three kinds keep count across events and so run only as events arrive, in a realtime pipeline:
-//! `generate_metric` ([`super::metric`]), `quota` and `throttle` ([`super::limit`]). They apply to
-//! the events their `conditions` pick and change no field.
+//! Four kinds keep count across events and so run only as events arrive, in a realtime pipeline:
+//! `generate_metric` ([`super::metric`]), `quota` and `throttle` ([`super::limit`]), and
+//! `to_change` ([`super::change`]), which keeps what each Kubernetes object last looked like. They
+//! apply to the events their `conditions` pick and change no field.
 use kernel::{Error, Result};
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::{
+    change::ChangeSpec,
     condition::{Condition, FieldCondition},
     limit::{OverAction, QuotaSpec, ThrottleSpec},
     metric::MetricSpec,
@@ -29,12 +31,16 @@ pub enum ProcessingKind {
     GenerateMetric,
     Quota,
     Throttle,
+    ToChange,
 }
 
 impl ProcessingKind {
     /// Whether the step keeps count across events: it runs only in a realtime pipeline.
     pub fn keeps_count(self) -> bool {
-        matches!(self, Self::GenerateMetric | Self::Quota | Self::Throttle)
+        matches!(
+            self,
+            Self::GenerateMetric | Self::Quota | Self::Throttle | Self::ToChange
+        )
     }
 }
 
@@ -62,6 +68,9 @@ pub struct ProcessingStep {
     pub quota: Option<QuotaSpec>,
     #[serde(default)]
     pub throttle: Option<ThrottleSpec>,
+    /// Where a `to_change` step takes the environment of what it notes; none said, none taken.
+    #[serde(default)]
+    pub change: Option<ChangeSpec>,
     /// `conditions`, compiled by [`parse_processing_steps`].
     #[serde(skip)]
     pub condition: Condition,
@@ -136,6 +145,7 @@ fn prepare_counting(step: &mut ProcessingStep) -> Result<()> {
             .as_mut()
             .ok_or_else(|| Error::invalid(format!("step `{name}` sets no quota")))
             .and_then(QuotaSpec::prepare),
+        ProcessingKind::ToChange => Ok(()),
         _ => step
             .throttle
             .as_ref()

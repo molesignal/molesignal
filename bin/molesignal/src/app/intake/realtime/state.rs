@@ -2,7 +2,8 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! What the steps that keep count hold between events on this node: the metrics being added up
-//! ([`GeneratedMetrics`]) and the counts of quotas and throttles ([`Limits`]). A worker writes them
+//! ([`GeneratedMetrics`]), the counts of quotas and throttles ([`Limits`]), and what each
+//! Kubernetes object last looked like to change steps ([`ChangeWatch`]). A worker writes them
 //! out every few seconds ([`StepState::tick`]); a node that stops writes the rest first
 //! ([`StepState::finish`]).
 use std::sync::Arc;
@@ -12,10 +13,11 @@ use kernel::{ids::Id, time::TimestampMicros};
 use tokio::sync::Mutex;
 
 use super::{
+    changes::ChangeWatch,
     generated::{GeneratedMetrics, MetricBatch},
     limits::Limits,
 };
-use crate::app::intake::IntakeService;
+use crate::app::{changes::ChangeRecorder, intake::IntakeService};
 
 /// A batch of samples whose write failed is tried this many times in all.
 const WRITE_ATTEMPTS: u32 = 3;
@@ -23,6 +25,7 @@ const WRITE_ATTEMPTS: u32 = 3;
 pub struct StepState {
     pub(super) metrics: GeneratedMetrics,
     pub(super) limits: Limits,
+    pub(super) changes: ChangeWatch,
     /// Samples whose write failed, with the attempts made; one write at a time.
     unwritten: Mutex<Vec<(MetricBatch, u32)>>,
 }
@@ -32,8 +35,15 @@ impl StepState {
         Self {
             metrics: GeneratedMetrics::new(),
             limits: Limits::new(ledger),
+            changes: ChangeWatch::new(None),
             unwritten: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Keeps the changes `to_change` steps note.
+    pub fn with_change_recorder(mut self, recorder: ChangeRecorder) -> Self {
+        self.changes = ChangeWatch::new(Some(recorder));
+        self
     }
 
     /// Where quotas and throttles keep their counts.

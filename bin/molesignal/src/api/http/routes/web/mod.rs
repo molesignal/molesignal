@@ -4,7 +4,7 @@
 //! `/api/v1/web/*` —— 前端 shell 专用的聚合 endpoints。
 //!
 //! 这一层不是新业务能力，是为了让前端在一次请求里拿到 ⌘K 召回结果 /
-//! 服务拓扑 / trace 树 / 跨信号关联 / 投资栈 blob。每个 handler 把现有
+//! 服务拓扑 / trace 树 / 投资栈 blob。每个 handler 把现有
 //! repository / service 拼起来即可，不引入新 domain trait。
 //!
 //! 权限：所有 endpoint 使用数据库目录中的 `streams.query`；系统上下文可由
@@ -14,7 +14,6 @@ use axum::Router;
 
 use crate::api::AppState;
 
-pub mod correlation;
 mod field_stats;
 mod histogram;
 pub mod investigation_blob;
@@ -33,6 +32,5 @@ fn inner() -> Router<AppState> {
         .merge(logs::routes())
         .merge(topology::routes())
         .merge(trace::routes())
-        .merge(correlation::routes())
         .merge(investigation_blob::routes())
 }

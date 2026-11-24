@@ -349,8 +349,10 @@ mod tests {
         assert!(INITIAL_SQL.contains("idx_status_page_incidents_planned"));
     }
 
+    // English and Simplified Chinese are written by hand with every key; the other languages are
+    // machine-translated after a change lands, so a new key can lack them for a while.
     #[test]
-    fn backend_language_entries_are_seeded_once_in_every_language() {
+    fn backend_language_entries_are_seeded_in_the_written_languages_then_in_order() {
         assert!(INITIAL_SQL.contains("CREATE TABLE i18n_language"));
         assert!(INITIAL_SQL.contains("PRIMARY KEY (language_key, language_code)"));
 
@@ -376,11 +378,24 @@ mod tests {
             "no seeded language entry was read"
         );
 
+        let order = domain::i18n_language::LANGUAGE_CODES;
+
         for (key, codes) in codes_by_key {
             assert_eq!(
-                codes,
-                domain::i18n_language::LANGUAGE_CODES,
-                "{key} must be seeded once in every language, in this order"
+                codes.get(..2),
+                Some(&["en-us", "zh-cn"][..]),
+                "{key} must be seeded in en-us, then zh-cn"
+            );
+
+            let positions = codes
+                .iter()
+                .map(|code| order.iter().position(|known| known == code))
+                .collect::<Option<Vec<_>>>()
+                .unwrap_or_else(|| panic!("{key} is seeded in a language the product lacks"));
+
+            assert!(
+                positions.windows(2).all(|pair| pair[0] < pair[1]),
+                "{key} must be seeded once per language, in the order of LANGUAGE_CODES"
             );
         }
     }

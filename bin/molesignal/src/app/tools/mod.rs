@@ -28,6 +28,7 @@ mod correlation;
 pub(crate) mod dashboard;
 mod data_management;
 pub mod dependencies;
+mod entities;
 mod incidents;
 mod inspections;
 mod mutations;
@@ -158,7 +159,10 @@ impl ToolRuntime {
             | BuiltinToolKind::GetTraceDag
             | BuiltinToolKind::ListTraceSessions
             | BuiltinToolKind::GetTraceSession
-            | BuiltinToolKind::ListTraceUsers => traces::execute(self, auth, kind, arguments).await,
+            | BuiltinToolKind::ListTraceUsers
+            | BuiltinToolKind::CompareAttributeDistributions => {
+                traces::execute(self, auth, kind, arguments).await
+            }
             BuiltinToolKind::ListIncidents
             | BuiltinToolKind::GetIncident
             | BuiltinToolKind::GetIncidentRca
@@ -210,9 +214,15 @@ impl ToolRuntime {
             | BuiltinToolKind::CompareApmVersions
             | BuiltinToolKind::GetApmHealth
             | BuiltinToolKind::GetApmInsights
-            | BuiltinToolKind::GetApmBlastRadius => apm::execute(self, auth, kind, arguments).await,
+            | BuiltinToolKind::GetApmBlastRadius
+            | BuiltinToolKind::GetCorrelationQuality => {
+                apm::execute(self, auth, kind, arguments).await
+            }
             BuiltinToolKind::CorrelateSignals | BuiltinToolKind::GetServiceTopology => {
                 correlation::execute(self, auth, kind, arguments).await
+            }
+            BuiltinToolKind::ListEntities | BuiltinToolKind::GetEntity => {
+                entities::execute(self, auth, kind, arguments).await
             }
             BuiltinToolKind::ListRumSessions
             | BuiltinToolKind::GetRumSession

@@ -57,6 +57,7 @@ use domain::{
     iam::{IamContext, permission, resource_permission},
 };
 pub use heartbeats::public_routes as heartbeat_routes;
+pub(crate) use intake::presented_token;
 pub use intake::{INTAKE_PATH, public_routes as intake_routes};
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
@@ -553,7 +554,8 @@ async fn get_incident_rca(
         .incident_rca
         .get(&incident.id)
         .await?
-        .ok_or_else(|| Error::not_found("no root-cause analysis for this incident yet"))?;
+        .ok_or_else(|| Error::not_found("no root-cause analysis for this incident yet"))?
+        .for_reader(|permission| ctx.has_permission(permission));
 
     Ok(Json(serde_json::to_value(rca).unwrap()))
 }
@@ -599,7 +601,8 @@ async fn generate_incident_rca(
             kernel::time::TimestampMicros::now(),
             locale,
         )
-        .await?;
+        .await?
+        .for_reader(|permission| ctx.has_permission(permission));
 
     Ok(Json(serde_json::to_value(rca).unwrap()).into_response())
 }

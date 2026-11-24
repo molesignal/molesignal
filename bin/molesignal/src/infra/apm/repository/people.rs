@@ -8,8 +8,8 @@
 use async_trait::async_trait;
 use domain::apm::{
     ApmCatalogRepository, ApmOrgSettings, DeploymentEvent, DeploymentQuery, ErrorIssue,
-    ErrorIssueStatus, ErrorRule, KeyTransactionMark, ServiceDefinition, ServiceLevelObjective,
-    ServiceLifecycle, ServiceTier,
+    ErrorIssueStatus, ErrorRule, KeyTransactionMark, ServiceChangeCount, ServiceDefinition,
+    ServiceLevelObjective, ServiceLifecycle, ServiceTier,
 };
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use postgres::sqlx_err;
@@ -276,6 +276,14 @@ impl ApmCatalogRepository for PgApmRepository {
         query: &DeploymentQuery,
     ) -> Result<Vec<DeploymentEvent>> {
         deployments::list_deployments(&self.pool, org_id, query).await
+    }
+
+    async fn change_counts(
+        &self,
+        org_id: &Id,
+        since: TimestampMicros,
+    ) -> Result<Vec<ServiceChangeCount>> {
+        deployments::change_counts(&self.pool, org_id, since).await
     }
 
     async fn get_settings(&self, org_id: &Id) -> Result<Option<ApmOrgSettings>> {

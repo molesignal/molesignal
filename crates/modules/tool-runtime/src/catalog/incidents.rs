@@ -59,18 +59,21 @@ pub(super) fn spec(kind: BuiltinToolKind) -> ToolSpec {
             vec!["Incidents", "Similar", "Investigation"],
         ),
         BuiltinToolKind::ListChanges => (
-            "List the changes reported around a time: deployments (version, status, commit, author), configuration changes and feature flags. Give incidentId for the services of one incident from shortly before it began until shortly after, or a time range and optionally services.",
+            "List the changes around a time. Give incidentId for the changes reported for the services of one incident from shortly before it began until shortly after (deployments with version, status, commit and author, configuration changes, feature flags, scaling, infrastructure), or a time range and optionally services for every change of that stretch you may read: those reported, annotations people put on a time range, versions APM first saw in spans, and alert rule edits.",
             "changes",
             object_schema(json!({
                 "incidentId": {"type": "string"},
                 "timeRange": time_range_schema(),
                 "services": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
-                "kinds": {"type": "array", "items": {"type": "string", "enum": ["deployment", "configuration", "feature_flag"]}, "maxItems": 3},
+                "kinds": {"type": "array", "items": {"type": "string", "enum": ["deployment", "configuration", "feature_flag", "scaling", "infrastructure", "annotation", "version", "rule"]}, "maxItems": 8},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
             })),
             vec![
                 "alerts.incidents.read",
                 "apm.deployments.read",
+                "apm.services.read",
+                "dashboards.annotations.read",
+                "alerts.rules.read",
                 "sys.telemetry.read",
             ],
             vec!["Changes", "Deployments", "Investigation"],

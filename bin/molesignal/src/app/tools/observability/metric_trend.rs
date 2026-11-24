@@ -35,8 +35,8 @@ use self::{
 use super::{
     super::{ToolRuntime, common::*},
     DEFAULT_METRIC_STEPS,
-    baseline::Baseline,
 };
+use crate::app::query::baseline::Baseline;
 
 /// The most points read of one range query.
 const POINT_LIMIT: usize = 20_000;

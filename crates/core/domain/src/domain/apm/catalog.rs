@@ -411,6 +411,14 @@ pub trait ApmCatalogRepository: Send + Sync {
         query: &super::DeploymentQuery,
     ) -> Result<Vec<super::DeploymentEvent>>;
 
+    /// How many changes each service of the organization reported since `since`, and when the
+    /// last one happened.
+    async fn change_counts(
+        &self,
+        org_id: &Id,
+        since: kernel::time::TimestampMicros,
+    ) -> Result<Vec<super::ServiceChangeCount>>;
+
     /// The organization's APM settings; `None` while it has set none.
     async fn get_settings(&self, org_id: &Id) -> Result<Option<super::ApmOrgSettings>>;
 

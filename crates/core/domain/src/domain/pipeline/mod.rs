@@ -7,6 +7,7 @@
 //! 步骤：生成指标（[`metric`]）、配额与限流（[`limit`]），它们挑事件的条件见 [`condition`]。
 
 pub mod alert;
+pub mod change;
 pub mod condition;
 pub mod limit;
 pub mod metric;

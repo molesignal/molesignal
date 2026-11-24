@@ -159,7 +159,11 @@ impl TracingRuntime {
                 apm_repository.clone() as Arc<dyn domain::apm::ApmQueryRepository>,
                 ApmQueryConfig::from_settings(&settings.apm),
             )
-            .with_catalog(apm_catalog.clone()),
+            .with_catalog(apm_catalog.clone())
+            .with_logs(crate::app::apm::LogSources {
+                query: query.query.clone(),
+                streams: core.streams.clone() as Arc<dyn StreamRepository>,
+            }),
         );
 
         let owns_trace_candidates = core.roles.run_intake || core.roles.run_querier;

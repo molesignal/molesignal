@@ -267,9 +267,13 @@ impl StorageRuntime {
             Arc::new(PgRumApplicationRepository::new(core.pool.clone())),
         ));
 
-        let pipeline_steps = Arc::new(StepState::new(Arc::new(PgLimitUsageLedger::new(
-            core.pool.clone(),
-        ))));
+        // What change steps note is kept as reported changes, named by the organization's rules.
+        let pipeline_steps = Arc::new(
+            StepState::new(Arc::new(PgLimitUsageLedger::new(core.pool.clone())))
+                .with_change_recorder(crate::app::changes::ChangeRecorder::new(Arc::new(
+                    crate::infra::apm::PgApmRepository::new(core.pool.clone()),
+                ))),
+        );
 
         let intake_service = IntakeService::new(worker.clone(), core.streams.clone())
             .with_system_org_id(core.system_org.id.clone())

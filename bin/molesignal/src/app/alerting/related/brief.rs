@@ -45,6 +45,8 @@ pub struct IncidentBrief {
     pub similar: Vec<SimilarIncident>,
     /// The changes reported around the time it began.
     pub changes: Option<IncidentChanges>,
+    /// The services its services call, as the service map had them when it began.
+    pub downstream: Vec<String>,
 }
 
 /// Where incident briefs are read from.
@@ -113,6 +115,7 @@ impl IncidentBriefing {
             catalog,
             similar,
             changes,
+            downstream,
         }
     }
 }
@@ -121,22 +124,7 @@ impl IncidentBrief {
     /// The brief as text for a model, its parts in order and the empty ones left out; empty when
     /// every part is.
     pub fn render(&self) -> String {
-        let mut parts = Vec::new();
-
-        if let Some(guide) = told(self.guide.as_deref()) {
-            parts.push(format!(
-                "Investigation guide of the alert rule:\n{}\nWhen the guide lists queries, run \
-                 them over the incident's time range before anything else.",
-                bounded(guide, GUIDE_CHARS)
-            ));
-        }
-
-        if let Some(catalog) = told(self.catalog.as_deref()) {
-            parts.push(format!(
-                "What the service catalog says of its services:\n{}",
-                bounded(catalog, CATALOG_CHARS)
-            ));
-        }
+        let mut parts = self.background();
 
         if !self.similar.is_empty() {
             let lines = self
@@ -158,6 +146,33 @@ impl IncidentBrief {
 
         parts.join("\n\n")
     }
+
+    /// The rule's guide and what the catalog says of the services, without the similar incidents
+    /// and the changes: for a reader that is told those as evidence.
+    pub fn render_background(&self) -> String {
+        self.background().join("\n\n")
+    }
+
+    fn background(&self) -> Vec<String> {
+        let mut parts = Vec::new();
+
+        if let Some(guide) = told(self.guide.as_deref()) {
+            parts.push(format!(
+                "Investigation guide of the alert rule:\n{}\nWhen the guide lists queries, run \
+                 them over the incident's time range before anything else.",
+                bounded(guide, GUIDE_CHARS)
+            ));
+        }
+
+        if let Some(catalog) = told(self.catalog.as_deref()) {
+            parts.push(format!(
+                "What the service catalog says of its services:\n{}",
+                bounded(catalog, CATALOG_CHARS)
+            ));
+        }
+
+        parts
+    }
 }
 
 fn told(text: Option<&str>) -> Option<&str> {
@@ -165,12 +180,16 @@ fn told(text: Option<&str>) -> Option<&str> {
 }
 
 fn similar_line(similar: &SimilarIncident) -> String {
-    let mut line = format!(
-        "- {} · {:?} · {}",
+    format!(
+        "- {} · {}",
         minute(similar.created_at),
-        similar.severity,
-        one_line(&similar.summary)
-    );
+        similar_text(similar)
+    )
+}
+
+/// A past incident in a line, without when it began.
+pub(super) fn similar_text(similar: &SimilarIncident) -> String {
+    let mut line = format!("{:?} · {}", similar.severity, one_line(&similar.summary));
 
     match similar.resolved_at {
         Some(resolved) => line.push_str(&format!(
@@ -224,19 +243,19 @@ fn changes_part(changes: &IncidentChanges) -> String {
 }
 
 fn change_line(change: &IncidentChange) -> String {
+    format!("- {} · {}", minute(change.at), change_text(change))
+}
+
+/// A change in a line, without when it happened.
+pub(super) fn change_text(change: &IncidentChange) -> String {
     if change.kind == "rule" {
         return format!(
-            "- {} · the alert rule \"{}\" was edited",
-            minute(change.at),
+            "the alert rule \"{}\" was edited",
             change.rule_name.as_deref().unwrap_or_default()
         );
     }
 
-    let mut line = format!(
-        "- {} · {}",
-        minute(change.at),
-        change.kind.replace('_', " ")
-    );
+    let mut line = change.kind.replace('_', " ");
 
     if let Some(service) = &change.service {
         line.push_str(&format!(" · {service}"));
@@ -270,7 +289,7 @@ fn change_line(change: &IncidentChange) -> String {
 }
 
 /// A time to the minute, in UTC.
-fn minute(at: TimestampMicros) -> String {
+pub(super) fn minute(at: TimestampMicros) -> String {
     chrono::DateTime::from_timestamp(at.0.div_euclid(1_000_000), 0)
         .map(|time| time.format("%Y-%m-%d %H:%M UTC").to_string())
         .unwrap_or_else(|| at.0.to_string())
@@ -299,15 +318,20 @@ fn bounded(text: &str, most: usize) -> String {
 }
 
 /// Text on one line, cut to a length a brief can carry.
-fn one_line(text: &str) -> String {
+pub(super) fn one_line(text: &str) -> String {
+    cut(text, DESCRIPTION_CHARS)
+}
+
+/// Text on one line, cut to `most` characters, saying so when it was.
+pub(super) fn cut(text: &str, most: usize) -> String {
     let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
 
-    if line.chars().count() <= DESCRIPTION_CHARS {
+    if line.chars().count() <= most {
         return line;
     }
 
-    let cut = line.chars().take(DESCRIPTION_CHARS).collect::<String>();
-    format!("{cut}…")
+    let kept = line.chars().take(most).collect::<String>();
+    format!("{kept}…")
 }
 
 #[cfg(test)]

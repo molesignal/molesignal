@@ -34,7 +34,7 @@ use serde::Serialize;
 use super::QueryParams;
 use crate::{
     api::{AppState, http::routes::profiles::profiles_stream},
-    app::apm::record_apm_query_latency,
+    app::apm::{correlation::LOG_SERVICE_FIELDS, record_apm_query_latency},
     infra::query::escape_sql_ident,
 };
 
@@ -47,8 +47,6 @@ const MAX_LOG_STREAMS: usize = 8;
 const MAX_RUM_TRACES: usize = 5;
 /// How long before and after a trace the browser request that started it may be stamped.
 const RESOURCE_GRACE_MICROS: i64 = 5 * 60 * 1_000_000;
-/// The field a log stream names its service in, the first the stream has.
-const SERVICE_FIELDS: [&str; 3] = ["service.name", "service_name", "service"];
 
 /// Looks kept by service, environment and the five minutes the range ends in.
 static COVERAGE: LazyLock<Cache<CoverageKey, ServiceCoverage>> = LazyLock::new(|| {
@@ -215,7 +213,7 @@ async fn logs_of(
         .filter(|stream| stream.stream_type == StreamType::LOGS)
         .filter(|stream| self_telemetry || stream.name != MOLESIGNAL_SYSTEM_STREAM)
         .filter_map(|stream| {
-            let field = SERVICE_FIELDS.into_iter().find(|wanted| {
+            let field = LOG_SERVICE_FIELDS.into_iter().find(|wanted| {
                 stream
                     .schema
                     .fields

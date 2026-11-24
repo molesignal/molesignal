@@ -3,7 +3,11 @@
 
 //! Structured log search with signed, bidirectional keyset pagination.
 
-use axum::{Extension, Json, Router, extract::State, routing::get};
+use axum::{
+    Extension, Json, Router,
+    extract::State,
+    routing::{get, post},
+};
 use domain::{
     iam::{IamContext, permission},
     intake::EVENT_ID_FIELD,
@@ -30,6 +34,7 @@ mod expression;
 mod field_stats;
 mod filter;
 mod histogram;
+mod patterns;
 
 const DEFAULT_WINDOW_MICROS: i64 = 24 * 60 * 60 * 1_000_000;
 const DEFAULT_PAGE_SIZE: usize = 20;
@@ -54,6 +59,7 @@ pub fn routes() -> Router<AppState> {
             "/logs/field-stats",
             get(address::field_stats).post(field_stats::field_stats),
         )
+        .route("/logs/patterns", post(patterns::patterns))
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -377,6 +383,19 @@ fn match_clauses(
         format!("{TIMESTAMP_MICROS} >= {from}"),
         format!("{TIMESTAMP_MICROS} < {to}"),
     ];
+
+    clauses.extend(filter_clauses(filters, free_text, condition, fields)?);
+    Ok(clauses)
+}
+
+/// The clauses a structured query selects by, besides its time range.
+fn filter_clauses(
+    filters: &[LogFilter],
+    free_text: &[String],
+    condition: Option<&LogCondition>,
+    fields: &[domain::stream::FieldDef],
+) -> Result<Vec<String>> {
+    let mut clauses = Vec::new();
 
     for filter in filters {
         clauses.push(filter::to_sql(filter, fields)?);

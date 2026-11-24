@@ -7,17 +7,19 @@ use crate::api::AppState;
 
 pub mod activity_audit;
 pub mod alerting;
-pub mod annotations;
 pub mod api_tokens;
 pub mod apm;
 pub mod audit;
 pub mod auth;
+pub mod business_context;
+pub mod changes;
 pub mod cipher_keys;
 pub mod clusters;
 pub mod connectors;
 pub mod dashboards;
 pub mod debug_artifacts;
 pub mod email_domains;
+pub mod entities;
 pub mod extend_tables;
 pub mod field_masking;
 pub mod files;
@@ -106,7 +108,9 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(connectors::routes())
         .merge(extend_tables::routes())
         .merge(scheduled_pipelines::routes())
-        .merge(annotations::routes())
+        .merge(changes::routes())
+        .merge(entities::routes())
+        .merge(business_context::routes())
         .merge(incident_groups::routes())
         .merge(semantic_groups::routes())
         .merge(search_jobs::routes())

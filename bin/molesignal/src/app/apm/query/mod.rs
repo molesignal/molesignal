@@ -22,6 +22,7 @@ mod errors;
 mod health;
 mod insights;
 mod instances;
+mod inventory;
 mod map;
 mod map_edge;
 mod model;
@@ -40,9 +41,10 @@ pub use context::*;
 pub use errors::ErrorIssueFilter;
 pub use insights::{
     BaselineFigures, ChangeSource, Insight, InsightKind, InsightSeverity, InsightsResponse,
-    NearbyChange,
+    LogSources, NearbyChange,
 };
 pub use instances::InstanceSummary;
+pub use inventory::ServiceInventory;
 pub use map::{
     GraphCall, MapChange, MapEdge, MapEdgeKind, MapNode, MapNodeKind, MapRed, MapResponse,
 };
@@ -82,6 +84,8 @@ pub struct ApmQueryService {
     /// group reads as open and every organization has the default settings.
     catalog: Option<Arc<dyn ApmCatalogRepository>>,
     settings: Arc<settings::OrgSettingsCache>,
+    /// Where error-level log lines are read for insights; without it insights read spans only.
+    logs: Option<insights::LogSources>,
 }
 
 impl ApmQueryService {
@@ -91,7 +95,14 @@ impl ApmQueryService {
             config,
             catalog: None,
             settings: Arc::default(),
+            logs: None,
         }
+    }
+
+    /// Reads error-level log lines from `logs` for insights.
+    pub fn with_logs(mut self, logs: insights::LogSources) -> Self {
+        self.logs = Some(logs);
+        self
     }
 
     /// Reads the state of each error group and the organization's settings

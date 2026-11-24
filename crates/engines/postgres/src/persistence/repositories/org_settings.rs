@@ -28,6 +28,8 @@ pub mod sections {
     pub const AGENT_SKILLS: &str = "agent.skills";
     /// APM：健康线、默认 Apdex T、命名规则、环境映射等。
     pub const APM: &str = "apm";
+    /// Business keys (tenant, plan, …) and the field each signal carries them in.
+    pub const BUSINESS_CONTEXT: &str = "business_context";
     /// 对外的 MCP Server。
     pub const INBOUND_MCP: &str = "inbound_mcp";
     /// 优先级与紧急度档位。

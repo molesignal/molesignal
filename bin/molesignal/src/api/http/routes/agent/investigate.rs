@@ -26,6 +26,7 @@ use domain::{
     alerting::{
         escalation::{EscalationPolicy, EscalationTarget},
         incident::{Incident, IncidentRca},
+        rca_evidence::{EvidenceKind, EvidenceLink, EvidenceSource, RcaEvidence, label_evidence},
     },
     iam::{IamContext, Team, permission},
 };
@@ -258,6 +259,32 @@ struct RcaReq {
     message_id: String,
 }
 
+/// What a structured answer cited, as the evidence of an RCA: labelled in order, each with the
+/// page it pointed at. An answer in another form cites nothing.
+pub(crate) fn answer_evidence(content: &str) -> Vec<RcaEvidence> {
+    let Some(answer) = StructuredAnswer::parse(content) else {
+        return Vec::new();
+    };
+
+    let evidence = answer
+        .evidence
+        .into_iter()
+        .map(|cited| {
+            let mut piece = RcaEvidence::new(EvidenceKind::Investigation, EvidenceSource::Incident);
+            piece.subject = Some(cited.label);
+
+            piece.link = cited.route.map(|route| EvidenceLink {
+                route: Some(route),
+                ..EvidenceLink::default()
+            });
+
+            piece
+        })
+        .collect();
+
+    label_evidence(evidence)
+}
+
 /// 回答写成事件的 RCA 时的正文：结构化的回答排成 Markdown，标题用 `language`（会话的回答语言，
 /// 空时用英文）；其余原样。
 pub(crate) async fn answer_as_rca(state: &AppState, language: &str, content: &str) -> String {
@@ -339,6 +366,7 @@ async fn write_rca(
             prompt_tokens: message.prompt_tokens.unwrap_or_default() as i32,
             completion_tokens: message.completion_tokens.unwrap_or_default() as i32,
             finish_reason: Some("chat".into()),
+            evidence: answer_evidence(&message.content),
             created_at: now,
             updated_at: now,
         })

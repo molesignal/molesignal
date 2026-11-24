@@ -215,7 +215,7 @@ pub fn validate_config(
 
 /// Where the steps that keep count can run. Metrics are made of logs, RUM events and spans. A quota
 /// or a throttle holds back logs and the RUM events a step may drop: holding back samples or spans
-/// would leave gaps in series and traces.
+/// would leave gaps in series and traces. Changes are read of logs.
 fn check_counting(
     steps: &[RealtimeStep],
     signal: StreamType,
@@ -230,6 +230,21 @@ fn check_counting(
                 return Err(Error::invalid(format!(
                     "step `{name}` makes metrics of logs, RUM events or spans, not of {}",
                     signal.external_name()
+                )));
+            }
+
+            continue;
+        }
+
+        // Kubernetes objects come in as logs; a RUM event is no object.
+        if step.kind == ProcessingKind::ToChange {
+            if signal != StreamType::LOGS || rum.is_some() {
+                return Err(Error::invalid(format!(
+                    "step `{name}` reads Kubernetes objects that come in as logs, not {}",
+                    rum.map_or_else(
+                        || signal.external_name().to_owned(),
+                        |_| "RUM events".to_owned()
+                    )
                 )));
             }
 
@@ -504,6 +519,20 @@ mod tests {
             validate_config(&config("logs", vec![overflow]), "rum_errors", "rum_errors").is_err(),
             "RUM events stay in their stream"
         );
+    }
+
+    #[test]
+    fn changes_are_read_of_logs_alone() {
+        let change = json!({
+            "transformName": "k8s changes",
+            "kind": "to_change",
+            "change": { "environmentField": "k8s.cluster.name" },
+        });
+        let config = |signal: &str| json!({ "mode": "realtime", "signalType": signal, "steps": [change.clone()] });
+
+        assert!(validate_config(&config("logs"), "k8s_objects", "k8s_objects").is_ok());
+        assert!(validate_config(&config("traces"), "app", "app").is_err());
+        assert!(validate_config(&config("logs"), "rum_errors", "rum_errors").is_err());
     }
 
     #[test]

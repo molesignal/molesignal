@@ -27,6 +27,7 @@ use crate::{
     },
 };
 
+mod correlation;
 mod coverage;
 mod cursor;
 mod deployments;
@@ -63,6 +64,7 @@ pub fn routes() -> Router<AppState> {
         .merge(deployments::routes())
         .merge(settings::routes())
         .merge(insights::routes())
+        .merge(correlation::routes())
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

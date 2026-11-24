@@ -298,7 +298,12 @@ async fn get_incident_rca(
     let incident_id = Id(args.incident_id);
     let incident = runtime.alerting.service.get_incident(&incident_id).await?;
     ensure_tenant(auth, &incident.org_id)?;
-    let rca = runtime.alerting.incident_rca.get(&incident_id).await?;
+    let rca = runtime
+        .alerting
+        .incident_rca
+        .get(&incident_id)
+        .await?
+        .map(|rca| rca.for_reader(|permission| auth.has_permission(permission)));
 
     Ok(ToolResult::json(json!({
         "incidentId": incident_id, "rca": rca,

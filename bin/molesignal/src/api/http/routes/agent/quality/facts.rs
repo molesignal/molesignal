@@ -54,6 +54,8 @@ pub(super) enum Kind {
     },
     Rca {
         summary: String,
+        /// The labels of the evidence it was given.
+        evidence: Vec<String>,
     },
 }
 
@@ -81,7 +83,7 @@ impl Facts {
                 },
                 &ParserSyntax,
             ),
-            Kind::Rca { summary } => rules::score_rca(summary, feedback),
+            Kind::Rca { summary, evidence } => rules::score_rca(summary, evidence, feedback),
         }
     }
 
@@ -327,6 +329,11 @@ async fn incident_rca(state: &AppState, org_id: &Id, incident_id: &str) -> Resul
         answer: rca.summary.clone(),
         kind: Kind::Rca {
             summary: rca.summary.clone(),
+            evidence: rca
+                .evidence
+                .iter()
+                .map(|piece| piece.label.clone())
+                .collect(),
         },
         feedback: feedback_of(state, org_id, FeedbackTarget::IncidentRca, &incident_id.0).await?,
     }))

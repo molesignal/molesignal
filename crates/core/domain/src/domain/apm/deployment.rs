@@ -4,7 +4,8 @@
 //! Changes as the pipelines and tools that made them report them: a version
 //! of a service going out to an environment, how it went, and where it came
 //! from (commit, repository, pull request, author, the CI run); or a change
-//! of the service's configuration or of a feature flag. The versions APM
+//! of the service's configuration, of a feature flag, of how many replicas
+//! run it, or of the infrastructure under it. The versions APM
 //! sees in spans are told apart from these; the deployments page puts the two
 //! side by side, and insights name the changes near a move.
 
@@ -14,9 +15,10 @@ use serde::{Deserialize, Serialize};
 use super::masked_repository_address;
 
 /// The most deployments a list answers.
-pub const DEPLOYMENTS_LISTED_MAX: usize = 200;
+pub const DEPLOYMENTS_LISTED_MAX: usize = 500;
 
-/// What changed: a version deployed, the configuration, or a feature flag.
+/// What changed: a version deployed, the configuration, a feature flag, how many replicas run
+/// the service, or the infrastructure under it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ChangeKind {
@@ -24,6 +26,8 @@ pub enum ChangeKind {
     Deployment,
     Configuration,
     FeatureFlag,
+    Scaling,
+    Infrastructure,
 }
 
 impl ChangeKind {
@@ -32,6 +36,8 @@ impl ChangeKind {
             Self::Deployment => "deployment",
             Self::Configuration => "configuration",
             Self::FeatureFlag => "feature_flag",
+            Self::Scaling => "scaling",
+            Self::Infrastructure => "infrastructure",
         }
     }
 
@@ -40,6 +46,8 @@ impl ChangeKind {
             "deployment" => Some(Self::Deployment),
             "configuration" => Some(Self::Configuration),
             "feature_flag" => Some(Self::FeatureFlag),
+            "scaling" => Some(Self::Scaling),
+            "infrastructure" => Some(Self::Infrastructure),
             _ => None,
         }
     }
@@ -198,6 +206,15 @@ pub struct DeploymentQuery {
     pub from: Option<TimestampMicros>,
     pub to: Option<TimestampMicros>,
     pub limit: usize,
+}
+
+/// The changes one service reported over a stretch: how many, and the last.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceChangeCount {
+    pub service: String,
+    pub count: u64,
+    pub last_at: TimestampMicros,
 }
 
 #[cfg(test)]
