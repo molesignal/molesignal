@@ -1542,9 +1542,39 @@ paths:
 
   /api/v1/_kinesis_firehose:
     post:
-      summary: AWS Kinesis Firehose push
+      summary: Amazon Data Firehose push (log records, CloudWatch Logs subscriptions, CloudWatch Metric Streams)
+      parameters:
+        - { in: header, name: X-Amz-Firehose-Access-Key, required: true, schema: { type: string } }
       responses:
         '200': { description: firehose-compatible ack }
+
+  /api/v1/_gcp_pubsub:
+    post:
+      summary: Google Cloud Pub/Sub push subscription (Cloud Logging entries)
+      parameters:
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        '204': { description: acknowledged }
+
+  /api/v1/_cloud_events:
+    post:
+      summary: Cloud event bus push (CloudEvents, Amazon EventBridge, Azure Event Grid)
+      parameters:
+        - { in: header, name: X-Connector-Token, required: false, schema: { type: string } }
+      responses:
+        '200': { description: accepted, or the Event Grid validation response }
+
+  /api/v1/services/collector/event:
+    post:
+      summary: Splunk HEC compatible event intake (Authorization Splunk <API Token>)
+      responses:
+        '200': { description: '{"text":"Success","code":0}' }
+
+  /api/v1/services/collector/raw:
+    post:
+      summary: Splunk HEC compatible raw intake, one log event per line
+      responses:
+        '200': { description: '{"text":"Success","code":0}' }
 
   /api/v1/_cloudflare:
     post:
@@ -2954,7 +2984,7 @@ paths:
 
   /api/v1/connectors:
     get: { summary: List connectors (secrets masked as "***"; secretKeys names the ones stored) }
-    post: { summary: Create (kind ∈ aws_cloudwatch_logs / aws_kinesis_firehose / cloudflare_logpush / heroku_drain / s3 / kafka / http; secrets sealed with MS_CIPHER_KEY) }
+    post: { summary: Create (kind ∈ aws_cloudwatch_logs / kafka_source / s3_source / gcp_pubsub_pull / aws_cloudwatch_metrics / azure_monitor_metrics / gcp_monitoring_metrics / aliyun_cms_metrics / tencent_monitor_metrics / huawei_ces_metrics / aws_kinesis_firehose / gcp_pubsub_push / cloud_events / cloudflare_logpush / heroku_drain / s3 / kafka / http; secrets sealed with MS_CIPHER_KEY) }
   /api/v1/connectors/test:
     post: { summary: 'Try a connector''s settings before saving them (pipelines.edit; with id, "***" stands for that connector''s stored secret); returns ok, code, detail, elapsedMs' }
   /api/v1/connectors/aws-external-id:
