@@ -62,4 +62,40 @@ Basic Auth password: ${TOKEN}`,
       },
     ],
   },
+  {
+    // Tencent Cloud Managed Service for Prometheus writes its data to another Prometheus.
+    id: 'tencent-prometheus',
+    category: 'networking',
+    signals: ['metrics'],
+    steps: [
+      {},
+      {
+        code: {
+          lang: 'text',
+          content: `Prometheus address: ${ENDPOINT}/api/v1/prometheus/api/v1/write?stream=tencent_prometheus
+Username: molesignal
+Password: ${TOKEN}`,
+        },
+      },
+      { code: { lang: 'text', content: 'topk(20, count by (__name__) ({__name__=~".+"}))' } },
+    ],
+  },
+  {
+    // Huawei Cloud AOM writes a Prometheus instance's data to another Prometheus through a VPC endpoint.
+    id: 'huawei-prometheus',
+    category: 'networking',
+    signals: ['metrics'],
+    steps: [
+      {},
+      {
+        code: {
+          lang: 'text',
+          content: `Remote write address: ${ENDPOINT}/api/v1/prometheus/api/v1/write?stream=huawei_prometheus
+Authentication: Token
+Token: ${TOKEN}`,
+        },
+      },
+      { code: { lang: 'text', content: 'topk(20, count by (__name__) ({__name__=~".+"}))' } },
+    ],
+  },
 ];

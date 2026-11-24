@@ -461,6 +461,42 @@
       }
     }
   },
+  "tencent-prometheus": {
+    "name": "Tencent Cloud Prometheus multi-write",
+    "description": "Write what Tencent Cloud Managed Service for Prometheus collects to MoleSignal by remote write.",
+    "steps": {
+      "1": {
+        "title": "Check what the instance collects",
+        "description": "Multi-write carries what the instance collects from container services and the integration center; metrics produced by pre-aggregation rules are not written. Whether metrics of the Cloud Monitor integration are written is not confirmed: check it on your instance."
+      },
+      "2": {
+        "title": "Add a multi-write target",
+        "description": "In the console, open the instance's data multi-write and add a target. Enter the address below and turn on security verification with this user name and password; the user name can be anything, the password is the intake token. The stream query parameter names the metrics stream. MoleSignal must be reachable from the instance's network."
+      },
+      "3": {
+        "title": "Check the metrics in MoleSignal",
+        "description": "Once the first write has arrived, this query on the tencent_prometheus metrics stream lists the metrics with the most series."
+      }
+    }
+  },
+  "huawei-prometheus": {
+    "name": "Huawei Cloud AOM Prometheus multi-write",
+    "description": "Write what a Huawei Cloud AOM Prometheus instance holds to MoleSignal by remote write, through a VPC endpoint.",
+    "steps": {
+      "1": {
+        "title": "Check that multi-write can reach MoleSignal",
+        "description": "Multi-write is open to general and CCE Prometheus instances in some regions, on request through a ticket. It writes only through a VPC endpoint service: MoleSignal must run in a Huawei Cloud VPC, behind an ECS or ELB that an endpoint service fronts, with your account allowed to connect to it."
+      },
+      "2": {
+        "title": "Add a multi-write target",
+        "description": "In the AOM console, open the instance's data multi-write, choose the VPC endpoint, and enter the address below. Choose Token authentication with the intake token; Basic authentication with any user name and the token as the password works too. The stream query parameter names the metrics stream."
+      },
+      "3": {
+        "title": "Check the metrics in MoleSignal",
+        "description": "Once the first write has arrived, this query on the huawei_prometheus metrics stream lists the metrics with the most series."
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Push through a Kafka Connect sink connector or kafka-exporter.",

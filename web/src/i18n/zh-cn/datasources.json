@@ -461,6 +461,42 @@
       }
     }
   },
+  "tencent-prometheus": {
+    "name": "腾讯云 Prometheus 数据多写",
+    "description": "把腾讯云 Prometheus 监控服务采集的数据，经 Remote Write 写到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "确认实例采集了什么",
+        "description": "数据多写覆盖实例从容器服务和集成中心采集的数据；预聚合规则算出的指标不会写出。云监控集成的指标能否多写尚未确认，请在自己的实例上核实。"
+      },
+      "2": {
+        "title": "添加多写目标",
+        "description": "在控制台打开实例的数据多写，添加目标：地址填下方地址，开启安全验证，填入下方的用户名和密码。用户名可以随意，密码是接入 Token。地址里的 stream 参数指定写入的指标数据流。实例所在的网络要能访问 MoleSignal。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中确认指标",
+        "description": "首批数据到达后，在 tencent_prometheus 指标数据流上运行这条查询，列出序列最多的指标。"
+      }
+    }
+  },
+  "huawei-prometheus": {
+    "name": "华为云 AOM Prometheus 数据多写",
+    "description": "把华为云 AOM Prometheus 实例的数据，经 VPC 终端节点以 Remote Write 写到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "确认多写能到达 MoleSignal",
+        "description": "数据多写只对部分区域的通用实例和 CCE 类实例开放，需要提工单开通。它只经 VPC 终端节点服务写出：MoleSignal 必须部署在华为云 VPC 内，前面是终端节点服务所接的 ECS 或 ELB，并且你的账号已加入该服务的白名单。"
+      },
+      "2": {
+        "title": "添加多写目标",
+        "description": "在 AOM 控制台打开实例的数据多写，选择 VPC 终端节点，填入下方地址。认证方式选 Token，填接入 Token；也可以选 Basic，用户名随意，密码填接入 Token。地址里的 stream 参数指定写入的指标数据流。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中确认指标",
+        "description": "首批数据到达后，在 huawei_prometheus 指标数据流上运行这条查询，列出序列最多的指标。"
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "通过 Kafka Connect Sink Connector 或 kafka-exporter 推送。",
