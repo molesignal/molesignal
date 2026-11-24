@@ -29,7 +29,7 @@
     "lint:dialog-width": "tsx scripts/check-dialog-width.ts",
     "lint:i18n-copy": "tsx scripts/check-migrated-copy.ts",
     "i18n:check": "tsx scripts/i18n/check.ts",
-    "i18n:translate": "tsx scripts/i18n/translate.ts",
+    "i18n:translate": "i18n-cli translate --config i18n.config.json --instructions scripts/i18n/instructions.md --adopt-existing && i18n-cli translate --config i18n.zh-tw.config.json --instructions scripts/i18n/instructions.md --adopt-existing",
     "i18n:translate-backend": "tsx scripts/i18n/backend.ts",
     "install:shadcn": "bash scripts/install-shadcn.sh"
   },

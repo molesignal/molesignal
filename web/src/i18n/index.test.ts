@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import i18n, { SUPPORTED_LOCALES } from './index';
+import { WRITTEN_LOCALES } from './locales';
 
 describe('i18n', () => {
   it('resolves bundled resources for lowercase regional locale ids', async () => {
@@ -69,7 +70,9 @@ function bundlesOf(locale: string): Record<string, Bundle> {
 }
 
 const EN = bundlesOf('en-us');
-const TARGETS = SUPPORTED_LOCALES.filter((locale) => locale !== 'en-us');
+// The machine-translated locales catch up in CI after a change lands (`pnpm i18n:check --strict`
+// there), so only the locales written by hand must have every key here.
+const TARGETS = WRITTEN_LOCALES.filter((locale) => locale !== 'en-us');
 
 // CLDR plural categories. i18next emits `key_one` / `key_other` (etc.) per the
 // locale's plural rules — English has `_one` + `_other`, Chinese only `_other`,

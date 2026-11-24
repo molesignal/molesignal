@@ -21,14 +21,20 @@ Code that formats by language goes through `locales.ts` (`intlLocale`,
 `docsLocale`, `isChinese`, `isMainlandChinese`), never `startsWith('zh')`:
 `zh-tw` is Chinese too, but not Simplified Chinese.
 
-`en-us` is the source of truth. Every other locale is expected to mirror its
-key set. Two scripts keep that true: `i18n:check` verifies it, `i18n:translate`
-fills the gaps.
+`en-us` is the source of truth, and `zh-cn` is written by hand beside it: a
+change that adds or edits copy changes both (`WRITTEN_LOCALES` in `locales.ts`).
+The other locales are machine-translated. When `en-us` or `zh-cn` changes on
+`main`, the Translate workflow (`.github/workflows/translate.yml`) translates
+what is new or whose source changed, for the interface and for the text the
+server writes, and commits the result to `main`. Until it has run, a new key
+shows its English text in those locales.
 
 ## `pnpm i18n:check`
 
-Validates every non-source locale against `en-us` and exits non-zero on any
-problem, so it can gate CI or a pre-commit hook. It reports:
+Validates the locales against `en-us` and exits non-zero on any problem. By
+default it checks the locales written by hand, as `pnpm lint` does; `--strict`
+checks every locale, as the Translate workflow does after translating. It
+reports:
 
 | Finding        | Meaning                                                       |
 | -------------- | ------------------------------------------------------------- |
@@ -39,8 +45,9 @@ problem, so it can gate CI or a pre-commit hook. It reports:
 | `extra-file`   | the target has a namespace file `en-us` doesn't               |
 
 ```bash
-pnpm i18n:check                      # all locales, all namespaces
-pnpm i18n:check --locale=zh-cn       # one locale
+pnpm i18n:check                      # the locales written by hand
+pnpm i18n:check --strict             # every locale
+pnpm i18n:check --locale=ja-jp       # one locale
 pnpm i18n:check --namespace=alerts   # one namespace
 pnpm i18n:check --json               # machine-readable output
 ```
@@ -49,73 +56,48 @@ It is dependency-free and makes no network calls — safe to run anywhere.
 
 ## `pnpm i18n:translate`
 
-Translates the keys a target locale is **missing**, taking `en-us` as the
-source. Existing translations are preserved, so it is safe to re-run as copy
-grows. Output is written back in the repo's canonical shape (2-space indent,
-trailing newline, source key order); orphan keys are kept, not deleted.
+Runs [i18n-cli](https://github.com/molesignal/i18n-cli) twice:
+`i18n.config.json` translates `en-us` into `ja-jp`, `ko-kr`, `de`, `es`, `fr`
+and `pt-br`, and `i18n.zh-tw.config.json` writes `zh-tw` from `zh-cn`.
+`scripts/i18n/instructions.md` holds the guidance the model gets, with the
+register of each language. CI runs it; to run it locally, install the CLI and
+set the key and model:
 
 ```bash
-pnpm i18n:translate                       # all target locales, missing keys only
-pnpm i18n:translate --locale=zh-cn        # one locale (a brand-new dir is created if needed)
-pnpm i18n:translate --namespace=alerts    # one namespace
-pnpm i18n:translate --all                 # re-translate every key, not just missing ones
-pnpm i18n:translate --concurrency=8       # requests in flight at once (default 6)
-pnpm i18n:translate --dry-run             # list what would be translated, call no API
+go install github.com/molesignal/i18n-cli/cmd/i18n-cli@v0.3.0
+export OPENAI_API_KEY=... OPENAI_MODEL=...
+pnpm i18n:translate
 ```
 
-`zh-tw` is translated from `zh-cn`, not from English, so run it after
-`zh-cn` is complete. Each namespace is written after every batch, and a key
-whose batch failed is left out rather than filled with English, so running
-the same command again picks up exactly what is missing.
+- **Incremental.** `.i18n-cli-state.json` records the source text each string
+  was translated from, so a string is translated again when its source changes,
+  and only then. `--adopt-existing` keeps a translation that has no record yet.
+- **Plural forms.** French, Spanish and Portuguese have a `many` plural form
+  ("1 million") that English lacks: with `"plurals": "i18next"` each locale gets
+  the CLDR forms of its language, translated from `key_other`.
+- **Placeholders and tags are checked.** A translation that changes a
+  `{{slot}}`, a printf directive or an HTML tag is rejected and asked for again.
+- Keys keep the source order, and a key the source drops is removed.
 
-French, Spanish and Portuguese have a `many` plural form ("1 million") that
-English lacks; the script writes `key_many` as a copy of `key_other`, and
-`i18n:check` accepts it.
+## `pnpm i18n:translate-backend`
 
-`--dry-run` is free — use it to preview scope before spending tokens.
-
-### Translation engine
-
-The engine is a pluggable LLM provider. Pick one with `--provider` or the
-`TRANSLATE_PROVIDER` env var (default: `claude`). Each reads its own API key
-from the environment; the provider SDK is imported lazily, so only the selected
-one needs to be installed/reachable.
-
-| Provider   | API key env var      | Default model     |
-| ---------- | -------------------- | ----------------- |
-| `claude`   | `ANTHROPIC_API_KEY`  | `claude-opus-5-5` |
-| `openai`   | `OPENAI_API_KEY`     | `gpt-4o`          |
-| `deepseek` | `DEEPSEEK_API_KEY`   | `deepseek-V4-Pro` |
-
-Override the model with `--model=...` or `TRANSLATE_MODEL`. Examples:
-
-```bash
-ANTHROPIC_API_KEY=sk-... pnpm i18n:translate --locale=zh-cn
-TRANSLATE_PROVIDER=deepseek DEEPSEEK_API_KEY=sk-... pnpm i18n:translate
-pnpm i18n:translate --provider=claude --model=claude-sonnet-5-5   # cheaper model
-```
-
-### Safeguards
-
-- **Placeholders are protected.** `{{name}}` interpolation slots must survive
-  translation unchanged. A translation that adds, drops, or renames a slot is
-  rejected and the key is left untranslated for a retry (and flagged to stderr).
-- **Incremental by default.** Only missing keys are sent to the model; the rest
-  of the file is untouched.
-- **Verify after.** The run ends by pointing you at `pnpm i18n:check`. Wire that
-  into CI so a missed key fails the build instead of shipping a raw key to users.
+Translates the `i18n_language` rows of the baseline migration, the text the
+server writes, from `en-us` (`zh-tw` from `zh-cn`). It adds the rows a language
+lacks and translates again the rows whose source changed, which
+`scripts/i18n/backend.state.json` records. It uses `TRANSLATE_PROVIDER`
+(`claude`, `openai` or `deepseek`) with that provider's API key and
+`TRANSLATE_MODEL`; `--dry-run` counts what it would translate.
 
 ## Adding a locale
 
 1. Register it in `SUPPORTED_LOCALES`, `LOCALE_LABELS`, `matchLocale` and the
    Intl tag and docs directory tables in `src/i18n/locales.ts`; add
    `bundles/<new>.ts` and its loader in `index.ts`; add a date-fns locale in
-   `shell/ui/calendar.tsx`; add its name and style to `LANGUAGES` in
-   `scripts/i18n/engine.ts`. The backend lists its languages too
-   (`crates/core/domain/src/domain/i18n_language.rs`; fill its rows with
-   `pnpm i18n:translate-backend`), and so does the docs site
+   `shell/ui/calendar.tsx`; add it to the targets of `i18n.config.json`, its
+   register to `scripts/i18n/instructions.md`, and its name and style to
+   `LANGUAGES` in `scripts/i18n/engine.ts`. The backend lists its languages too
+   (`crates/core/domain/src/domain/i18n_language.rs`), and so does the docs site
    (`../docs/scripts/i18n/languages.mjs`).
-2. Run `pnpm i18n:translate --locale=<new>` — the directory and all namespace
-   files are created from `en-us`.
-3. Run `pnpm i18n:check --locale=<new>` to confirm full coverage.
-4. Review the generated copy; machine translation is a first pass, not a final one.
+2. Push to `main`, or run the Translate workflow by hand: it creates the
+   directory and every namespace file from `en-us`.
+3. Review the generated copy; machine translation is a first pass, not a final one.

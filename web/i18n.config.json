@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "provider": {
+    "id": "openai-compatible",
+    "prompt": "These are web interface strings of MoleSignal, from {source} to {target}."
+  },
+  "locale": {
+    "source": "en-us",
+    "targets": ["ja-jp", "ko-kr", "de", "es", "fr", "pt-br"]
+  },
+  "buckets": {
+    "json": {
+      "include": ["src/i18n/[locale]/*.json"],
+      "plurals": "i18next"
+    }
+  },
+  "batchSize": 40
+}

@@ -9,3 +9,6 @@ dist
 test-results
 playwright-report
 blob-report
+
+# i18n-cli: the lock of a run in progress
+.i18n-cli.lock

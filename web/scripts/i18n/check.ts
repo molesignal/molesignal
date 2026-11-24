@@ -1,4 +1,4 @@
-import { SUPPORTED_LOCALES } from '../../src/i18n/locales';
+import { SUPPORTED_LOCALES, WRITTEN_LOCALES } from '../../src/i18n/locales';
 import {
   SOURCE_LOCALE,
   extractPlaceholders,
@@ -18,8 +18,10 @@ import {
  *   - missing-file source namespace has no file in the target locale
  *   - extra-file   target has a namespace file the source locale doesn't
  *
- * Exits non-zero on any finding, so it can gate CI. Filter with
- * `--locale=zh-cn` / `--namespace=alerts`; emit machine output with `--json`.
+ * Exits non-zero on any finding, so it can gate CI. By default it checks the locales written by
+ * hand (WRITTEN_LOCALES); `--strict` checks every locale, as the translation workflow does once it
+ * has translated. Filter with `--locale=zh-cn` / `--namespace=alerts`; emit machine output with
+ * `--json`.
  */
 
 type Kind = 'missing' | 'orphan' | 'placeholder' | 'missing-file' | 'extra-file';
@@ -38,6 +40,8 @@ function argValue(flag: string): string | undefined {
 }
 
 const asJson = process.argv.includes('--json');
+const strict = process.argv.includes('--strict');
+const written = new Set<string>(WRITTEN_LOCALES);
 const localeFilter = argValue('locale');
 const namespaceFilter = argValue('namespace');
 const keep = (namespace: string) => !namespaceFilter || namespace === namespaceFilter;
@@ -46,6 +50,7 @@ const sourceNamespaces = listNamespaces(SOURCE_LOCALE);
 // Every locale the interface offers, and any other directory found next to them.
 const targets = [...new Set<string>([...SUPPORTED_LOCALES, ...listLocales()])]
   .filter((locale) => locale !== SOURCE_LOCALE && (!localeFilter || locale === localeFilter))
+  .filter((locale) => strict || localeFilter !== undefined || written.has(locale))
   .sort();
 
 const findings: Finding[] = [];
@@ -129,5 +134,5 @@ const summary = (Object.entries(counts) as [Kind, number][])
   .map(([kind, count]) => `${count} ${kind}`)
   .join(', ');
 
-console.error(`\ncheck-i18n: ${findings.length} issue(s) — ${summary}. Run \`pnpm i18n:translate\` to fill missing keys.`);
+console.error(`\ncheck-i18n: ${findings.length} issue(s) — ${summary}. Run \`pnpm i18n:translate\` to fill missing keys in the machine-translated locales.`);
 process.exit(1);

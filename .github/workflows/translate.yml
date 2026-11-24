@@ -1,0 +1,88 @@
+name: Translate
+
+# English and Simplified Chinese are written by hand. When they change on main, this translates
+# the other languages of the web interface (i18n-cli, web/i18n*.config.json) and of the text the
+# server writes (web/scripts/i18n/backend.ts), and commits the result to main. Only what is new
+# or whose source changed is translated.
+#
+# Needs the secret OPENAI_API_KEY and the variable TRANSLATE_MODEL; the variable OPENAI_BASE_URL
+# points it at another OpenAI-compatible service.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/src/i18n/en-us/**'
+      - 'web/src/i18n/zh-cn/**'
+      - 'web/i18n.config.json'
+      - 'web/i18n.zh-tw.config.json'
+      - 'web/scripts/i18n/**'
+      - 'crates/engines/postgres/src/migrations/20260101000001_initial.sql'
+      - '.github/workflows/translate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: translate
+  cancel-in-progress: false
+
+jobs:
+  translate:
+    name: Translate
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: false
+      - run: pnpm -C web install --frozen-lockfile
+      - run: go install github.com/molesignal/i18n-cli/cmd/i18n-cli@v0.3.0
+
+      - name: Translate the web interface
+        working-directory: web
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.TRANSLATE_MODEL }}
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
+        run: pnpm i18n:translate
+
+      - name: Translate the text the server writes
+        # Runs even when the interface failed part way, so each part keeps what it finished.
+        if: ${{ !cancelled() }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
+          TRANSLATE_PROVIDER: openai
+          TRANSLATE_MODEL: ${{ vars.TRANSLATE_MODEL }}
+        run: pnpm -C web i18n:translate-backend
+
+      - name: Commit the translations
+        if: ${{ !cancelled() }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -- web crates/engines/postgres/src/migrations
+          if git diff --cached --quiet; then
+            echo 'Nothing to commit.'
+            exit 0
+          fi
+          git commit -m 'chore(i18n): update machine translations'
+          # Another push may have landed while this ran.
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Check every language is complete
+        run: pnpm -C web i18n:check --strict

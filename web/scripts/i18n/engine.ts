@@ -1,8 +1,9 @@
 import { SOURCE_LOCALE } from './shared';
 
 /**
- * The translation engine both translate scripts share: the model providers,
- * how each target language is described to the model, and a request pool.
+ * The translation engine of `backend.ts`, which fills the text the server writes: the model
+ * providers, how each target language is described to the model, and a request pool. The web
+ * interface is translated by i18n-cli instead (`i18n.config.json`).
  */
 
 export type ProviderId = 'claude' | 'openai' | 'deepseek';
@@ -80,34 +81,21 @@ export function languageName(locale: string): string {
   return LANGUAGES[locale]?.name ?? locale;
 }
 
-/** Interface copy keeps i18next's `{{name}}` slots; text the server writes keeps `{name}`. */
-export type TextKind = 'interface' | 'server';
-
-export function buildSystemPrompt(targetLocale: string, fromLocale: string, kind: TextKind): string {
+export function buildSystemPrompt(targetLocale: string, fromLocale: string): string {
   const style = LANGUAGES[targetLocale]?.style;
   const conversion =
     fromLocale === SOURCE_LOCALE
       ? []
       : [`- The input is already a reviewed translation; keep its meaning and wording choices, and adapt it to ${languageName(targetLocale)}.`];
   const what =
-    kind === 'interface'
-      ? 'UI strings'
-      : 'text the server writes: emails, chat-app and notification messages, and the names and descriptions of built-in items';
+    'text the server writes: emails, chat-app and notification messages, and the names and descriptions of built-in items';
   const where =
-    kind === 'interface'
-      ? '- The key path tells you where the string appears (a button, a column header, a toast); use it as context, never translate it.'
-      : '- The key path tells you where the text is sent (an email subject, a chat message, a built-in name); use it as context, never translate it.';
-  const placeholders =
-    kind === 'interface'
-      ? [
-          '- Preserve every {{placeholder}} token exactly as written — same name, same double braces. Never translate or rename them; reorder them only when the grammar needs it.',
-          '- Keep literal text inside single braces such as {field} unchanged.',
-        ]
-      : [
-          '- Preserve every {placeholder} token exactly as written — same name, same braces. Never translate or rename them; reorder them only when the grammar needs it.',
-          '- Keep line breaks (\\n), Markdown and chat-app markup (*bold*, <url|label>, links) as they are, translating only the words.',
-          '- Keep template expressions such as {{message.title}} and {{#if …}}…{{/if}} exactly as written.',
-        ];
+    '- The key path tells you where the text is sent (an email subject, a chat message, a built-in name); use it as context, never translate it.';
+  const placeholders = [
+    '- Preserve every {placeholder} token exactly as written — same name, same braces. Never translate or rename them; reorder them only when the grammar needs it.',
+    '- Keep line breaks (\\n), Markdown and chat-app markup (*bold*, <url|label>, links) as they are, translating only the words.',
+    '- Keep template expressions such as {{message.title}} and {{#if …}}…{{/if}} exactly as written.',
+  ];
 
   return [
     `You are a professional software-localization translator. Translate ${what} of MoleSignal, an open-source observability and incident-response product (logs, metrics, traces, RUM, alerting, on-call, status pages, an AI agent), from ${languageName(fromLocale)} to ${languageName(targetLocale)}.`,
@@ -170,7 +158,8 @@ async function makeProvider(id: ProviderId, model: string): Promise<LlmProvider>
   }
 
   const { default: OpenAI } = await import('openai');
-  const client = new OpenAI({ apiKey, ...(id === 'deepseek' ? { baseURL: DEEPSEEK_BASE_URL } : {}) });
+  const baseURL = id === 'deepseek' ? DEEPSEEK_BASE_URL : process.env.OPENAI_BASE_URL || undefined;
+  const client = new OpenAI({ apiKey, baseURL });
   return {
     id,
     model,
@@ -193,11 +182,12 @@ async function makeProvider(id: ProviderId, model: string): Promise<LlmProvider>
 
 /** The provider and model `--provider` / `--model` (or their env vars) choose. */
 export async function connectProvider(): Promise<LlmProvider> {
-  const raw = argValue('provider') ?? process.env.TRANSLATE_PROVIDER ?? 'claude';
+  // An unset GitHub Actions variable arrives as an empty string, which means the default here.
+  const raw = argValue('provider') || process.env.TRANSLATE_PROVIDER || 'claude';
   if (raw !== 'claude' && raw !== 'openai' && raw !== 'deepseek') {
     fail(`Unknown provider "${raw}". Use one of: claude, openai, deepseek.`);
   }
-  const model = argValue('model') ?? process.env.TRANSLATE_MODEL ?? DEFAULT_MODELS[raw];
+  const model = argValue('model') || process.env.TRANSLATE_MODEL || DEFAULT_MODELS[raw];
   return makeProvider(raw, model);
 }
 

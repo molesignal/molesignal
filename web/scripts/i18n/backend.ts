@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { SUPPORTED_LOCALES } from '../../src/i18n/locales';
@@ -19,10 +20,12 @@ import { SOURCE_LOCALE, setsEqual, WEB } from './shared';
  * writes itself (emails, chat-app and notification messages, built-in names),
  * seeded in the baseline migration with one row per key and language.
  *
- * Every key is seeded in en-us; this adds a row for each language in
- * SUPPORTED_LOCALES that the key lacks, right after the key's other rows and in
- * that order, translated from en-us (zh-tw from zh-cn). Existing rows are kept,
- * so it is safe to re-run.
+ * Every key is seeded in en-us and zh-cn, written by hand. This adds a row for
+ * each other language in SUPPORTED_LOCALES that the key lacks, right after the
+ * key's other rows and in that order, translated from en-us (zh-tw from zh-cn).
+ * `backend.state.json` records the source text each row was translated from, so
+ * a row whose source changed is translated again; a row with no record yet is
+ * kept and recorded. It is safe to re-run.
  *
  * Usage:
  *   pnpm i18n:translate-backend                  # every missing row
@@ -35,6 +38,9 @@ const MIGRATION = join(
   '..',
   'crates/engines/postgres/src/migrations/20260101000001_initial.sql',
 );
+
+const STATE = join(WEB, 'scripts/i18n/backend.state.json');
+const WRITTEN = new Set(['en-us', 'zh-cn']);
 
 const BATCH_SIZE = 20;
 const DEFAULT_CONCURRENCY = 6;
@@ -61,6 +67,23 @@ function encode(value: string): string {
   const quoted = value.replace(/'/g, "''");
   if (!/[\n\\]/.test(value)) return `'${quoted}'`;
   return `E'${quoted.replace(/\\/g, '\\\\').replace(/\n/g, '\\n')}'`;
+}
+
+function fingerprint(text: string): string {
+  return createHash('sha256').update(text).digest('hex').slice(0, 16);
+}
+
+/** `<key> <language>` → the fingerprint of the source text the row was translated from. */
+function readState(): Record<string, string> {
+  if (!existsSync(STATE)) return {};
+  const state = JSON.parse(readFileSync(STATE, 'utf8')) as { version: number; hashes: Record<string, string> };
+  if (state.version !== 1) fail('translate-backend: unsupported backend.state.json.');
+  return state.hashes;
+}
+
+function writeState(hashes: Record<string, string>): void {
+  const sorted = Object.fromEntries(Object.entries(hashes).sort(([a], [b]) => a.localeCompare(b)));
+  writeFileSync(STATE, `${JSON.stringify({ version: 1, hashes: sorted }, null, 2)}\n`, 'utf8');
 }
 
 function placeholders(text: string): Set<string> {
@@ -108,9 +131,9 @@ async function main(): Promise<void> {
   const localeArg = argValue('locale');
   const concurrency = concurrencyArg(DEFAULT_CONCURRENCY);
   const targets = SUPPORTED_LOCALES.filter(
-    (locale) => locale !== SOURCE_LOCALE && (!localeArg || locale === localeArg),
+    (locale) => !WRITTEN.has(locale) && (!localeArg || locale === localeArg),
   );
-  if (targets.length === 0) fail(`translate-backend: ${localeArg} is not a target language.`);
+  if (targets.length === 0) fail(`translate-backend: ${localeArg} is not a machine-translated language.`);
 
   const sql = readFileSync(MIGRATION, 'utf8');
   const { before, lines, after } = readSeed(sql);
@@ -123,19 +146,50 @@ async function main(): Promise<void> {
     values.set(line.row.key, byCode);
   }
 
+  const recorded = readState();
+  const hashes: Record<string, string> = {};
+  const sourceOf = (key: string, from: string) => values.get(key)?.get(from) ?? values.get(key)?.get(SOURCE_LOCALE);
+
   const missing = targets.map((locale) => {
     const from = TRANSLATED_FROM[locale] ?? SOURCE_LOCALE;
-    const keys = [...values.keys()].filter((key) => !values.get(key)?.has(locale));
-    return { locale, from, keys };
+    const keys: string[] = [];
+    let stale = 0;
+
+    for (const key of values.keys()) {
+      const source = sourceOf(key, from);
+      if (source === undefined) continue;
+      const id = `${key} ${locale}`;
+      const now = fingerprint(source);
+
+      if (!values.get(key)?.has(locale)) {
+        keys.push(key);
+      } else if (recorded[id] !== undefined && recorded[id] !== now) {
+        keys.push(key);
+        stale += 1;
+        // Kept until the new translation comes back, so a failed batch is retried.
+        hashes[id] = recorded[id];
+      } else {
+        hashes[id] = now;
+      }
+    }
+    return { locale, from, keys, stale };
   });
+  // Other languages' records stay when one language is translated.
+  for (const [id, hash] of Object.entries(recorded)) {
+    const [key, locale] = id.split(' ');
+    if (key && locale && !targets.includes(locale as never) && values.get(key)?.has(locale)) hashes[id] = hash;
+  }
   const total = missing.reduce((sum, { keys }) => sum + keys.length, 0);
 
   if (total === 0) {
-    console.log('translate-backend: every key is seeded in every language.');
+    if (!dryRun) writeState(hashes);
+    console.log('translate-backend: every row is translated from the current source text.');
     return;
   }
   if (dryRun) {
-    for (const { locale, from, keys } of missing) console.log(`${locale}: ${keys.length} row(s) from ${from}`);
+    for (const { locale, from, keys, stale } of missing) {
+      console.log(`${locale}: ${keys.length} row(s) from ${from}${stale ? `, ${stale} of them because the source changed` : ''}`);
+    }
     console.log(`\ntranslate-backend: ${total} row(s) would be translated (dry run).`);
     return;
   }
@@ -149,13 +203,13 @@ async function main(): Promise<void> {
     chunk(keys, BATCH_SIZE).map((batch) => async () => {
       const texts: Record<string, string> = {};
       for (const key of batch) {
-        const text = values.get(key)?.get(from) ?? values.get(key)?.get(SOURCE_LOCALE);
+        const text = sourceOf(key, from);
         if (text !== undefined) texts[key] = text;
       }
 
       let answer: Record<string, unknown>;
       try {
-        answer = await requestTranslations(provider, buildSystemPrompt(locale, from, 'server'), texts);
+        answer = await requestTranslations(provider, buildSystemPrompt(locale, from), texts);
       } catch (error) {
         console.error(`  ! ${locale}: batch failed (${(error as Error).message}); left out`);
         skipped += batch.length;
@@ -172,6 +226,7 @@ async function main(): Promise<void> {
         const byCode = translated.get(key) ?? new Map<string, string>();
         byCode.set(locale, value);
         translated.set(key, byCode);
+        hashes[`${key} ${locale}`] = fingerprint(text);
       }
     }),
   );
@@ -190,7 +245,8 @@ async function main(): Promise<void> {
     if (!('row' in line) || lastLineOf.get(line.row.key) !== index) return;
 
     const key = line.row.key;
-    const added = [...(translated.get(key) ?? new Map<string, string>())].map(([code, value]) => ({ key, code, value }));
+    const fresh = translated.get(key) ?? new Map<string, string>();
+    const added = [...fresh].filter(([code]) => !values.get(key)?.has(code)).map(([code, value]) => ({ key, code, value }));
     // The key's rows written so far: the run of its rows just before this point.
     let first = out.length;
     while (first > 0) {
@@ -206,9 +262,17 @@ async function main(): Promise<void> {
     out.push(...rows);
   });
 
+  // A row translated again replaces its old text where it stands.
+  for (const line of out) {
+    if (!('row' in line)) continue;
+    const value = translated.get(line.row.key)?.get(line.row.code);
+    if (value !== undefined) line.row.value = value;
+  }
+
   writeFileSync(MIGRATION, writeSeed(before, out, after), 'utf8');
+  writeState(hashes);
   console.log(
-    `\ntranslate-backend: added ${total - skipped} row(s)${skipped ? `, ${skipped} left out — run the same command again to retry them` : ''}.`,
+    `\ntranslate-backend: translated ${total - skipped} row(s)${skipped ? `, ${skipped} left out — run the same command again to retry them` : ''}.`,
   );
   if (skipped > 0) process.exit(1);
 }

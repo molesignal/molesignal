@@ -21,6 +21,13 @@ export const SUPPORTED_LOCALES = [
 
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
+/**
+ * The locales written by hand, with every key in the change that adds it. The others are
+ * machine-translated by CI after the change lands (`i18n.config.json`), so for a while they can
+ * lack a new key and show the English text for it.
+ */
+export const WRITTEN_LOCALES = ['en-us', 'zh-cn'] as const satisfies readonly Locale[];
+
 export const DEFAULT_LOCALE: Locale = 'en-us';
 
 /** Each language in its own words, as a language picker lists it. */
