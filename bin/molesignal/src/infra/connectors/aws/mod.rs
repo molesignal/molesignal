@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! Where an AWS connector's credentials come from, as its [`AwsAuth`] says.
+//! Amazon Web Services: CloudWatch Logs and CloudWatch metrics pulled ([`cloudwatch_logs`],
+//! [`cloudwatch_metrics`]), Amazon Data Firehose deliveries received ([`kinesis_firehose`]), and
+//! where an AWS connector's credentials come from, as its [`AwsAuth`] says.
 //!
 //! No AWS SDK (the repository's rule): the node's identity and web identity are read through
 //! `object_store`'s credential chain, STS AssumeRole is one signed request ([`sts`]), and
@@ -9,7 +11,10 @@
 //!
 //! [`AwsAuth`]: super::config::aws::AwsAuth
 
+pub mod cloudwatch_logs;
+pub mod cloudwatch_metrics;
 pub mod credentials;
+pub mod kinesis_firehose;
 pub mod sigv4;
 mod sts;
 
@@ -63,6 +68,11 @@ pub fn sts_endpoint(region: &str) -> String {
 /// The host of the CloudWatch Logs endpoint for `region`.
 pub fn logs_host(region: &str) -> String {
     format!("logs.{region}.{}", partition_domain(region))
+}
+
+/// The host of the CloudWatch (metrics) endpoint for `region`.
+pub fn monitoring_host(region: &str) -> String {
+    format!("monitoring.{region}.{}", partition_domain(region))
 }
 
 /// The host of the End User Messaging SMS and voice endpoint for `region`.

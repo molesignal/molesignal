@@ -23,6 +23,26 @@ const MODES: &[&str] = &[
 const SASL_FIELDS: &[&str] = &["saslUsername", "saslPassword"];
 const CLIENT_CERT_FIELDS: &[&str] = &["tlsClientCert", "tlsClientKey"];
 
+/// How a Kafka source reads its messages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageFormat {
+    /// A JSON object gives the fields; anything else is `message`.
+    Json,
+    /// An Azure Monitor export to an event hub, `{"records": [...]}`.
+    AzureRecords,
+}
+
+/// The `messageFormat` of a Kafka source.
+pub fn message_format(config: &Value) -> Result<MessageFormat> {
+    match text(config, "messageFormat") {
+        "" | "json" => Ok(MessageFormat::Json),
+        "azure_records" => Ok(MessageFormat::AzureRecords),
+        other => Err(Error::invalid(format!(
+            "`message_format` must be json or azure_records, not `{other}`"
+        ))),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sasl {
     /// The librdkafka name of the mechanism.
@@ -198,6 +218,16 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn a_source_reads_json_or_azure_exports() {
+        assert_eq!(message_format(&json!({})).unwrap(), MessageFormat::Json);
+        assert_eq!(
+            message_format(&json!({"messageFormat": "azure_records"})).unwrap(),
+            MessageFormat::AzureRecords
+        );
+        assert!(message_format(&json!({"messageFormat": "avro"})).is_err());
+    }
 
     const CA: &str = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----";
     const KEY: &str = "-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----";

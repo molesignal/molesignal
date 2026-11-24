@@ -3,12 +3,12 @@
 
 //! AWS CloudWatch Logs pull connector。
 //!
-//! 周期调 `FilterLogEvents`（AWS JSON 协议，SigV4 签名，不引 AWS SDK——见 [`super::aws::sigv4`]）
+//! 周期调 `FilterLogEvents`（AWS JSON 协议，SigV4 签名，不引 AWS SDK——见 [`super::sigv4`]）
 //! 拉取 `[last_run, now]` 窗口内的日志，按 `nextToken` 翻页，转 [`RawEvent`] 交由 ConnectorRunner
 //! 写入。
 //!
 //! 配置（`config_json`）：`region` / `log_group` / `target_stream`，凭据按 `auth`（访问密钥、
-//! 临时密钥、节点身份、扮演角色、Web Identity，见 [`super::config::aws`]）。缺区域或日志组 →
+//! 临时密钥、节点身份、扮演角色、Web Identity，见 [`crate::infra::connectors::config::aws`]）。缺区域或日志组 →
 //! no-op（返回 0 条）。
 
 use async_trait::async_trait;
@@ -18,12 +18,10 @@ use object_store::aws::AwsCredentialProvider;
 use serde_json::{Map, Value};
 
 use super::{
-    PullBatch, PullConnector, PullContext,
-    aws::{
-        self,
-        sigv4::{self, SigningKey},
-    },
+    self as aws,
+    sigv4::{self, SigningKey},
 };
+use crate::infra::connectors::{PullBatch, PullConnector, PullContext};
 
 /// 默认回溯窗口（首次运行、无 last_run 时）：5 分钟。
 const DEFAULT_LOOKBACK_MS: i64 = 5 * 60 * 1000;

@@ -1,0 +1,221 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 MoleSignal Authors
+#
+# Pushes CloudWatch Logs and CloudWatch metrics of one account and region to MoleSignal through
+# Amazon Data Firehose: a Firehose stream with an HTTP endpoint destination, a CloudWatch metric
+# stream in the OpenTelemetry 1.0 format, and a subscription of CloudWatch Logs (one log group,
+# every log group of the account, or none). Records Firehose cannot deliver are backed up to a
+# new S3 bucket.
+#
+# Create an "Amazon Data Firehose" connector under Pipelines → Connectors first: its token is the
+# PushToken parameter. MoleSignal must be reachable from AWS over HTTPS on port 443 with a
+# publicly trusted certificate.
+#
+#   aws cloudformation deploy --template-file cloudformation.yaml --stack-name molesignal \
+#     --capabilities CAPABILITY_IAM \
+#     --parameter-overrides MoleSignalUrl=https://molesignal.example.com PushToken=<token>
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Push CloudWatch Logs and metrics to MoleSignal through Amazon Data Firehose.
+
+Parameters:
+  MoleSignalUrl:
+    Type: String
+    Description: The address MoleSignal is reached at from AWS, without a trailing slash.
+    AllowedPattern: "^https://[^/]+(/.*[^/])?$"
+    ConstraintDescription: An https:// address without a trailing slash.
+  PushToken:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    Description: The token of the Amazon Data Firehose connector in MoleSignal.
+  StreamMetrics:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: Stream CloudWatch metrics through the Firehose stream.
+  MetricNamespace:
+    Type: String
+    Default: ""
+    Description: One namespace to stream, such as AWS/EC2. Empty streams every namespace; edit the metric stream's filters for several.
+  LogGroupName:
+    Type: String
+    Default: ""
+    Description: One log group to subscribe. Empty subscribes none on its own.
+  SubscribeAllLogGroups:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Subscribe every log group of the account with an account-level subscription policy.
+  BufferSizeMiB:
+    Type: Number
+    MinValue: 1
+    MaxValue: 64
+    Default: 4
+    Description: How much Firehose gathers before it delivers, in MiB.
+  BufferIntervalSeconds:
+    Type: Number
+    MinValue: 0
+    MaxValue: 900
+    Default: 60
+    Description: How long Firehose gathers before it delivers, in seconds.
+
+Conditions:
+  StreamMetrics: !Equals [!Ref StreamMetrics, "true"]
+  AllNamespaces: !Equals [!Ref MetricNamespace, ""]
+  OneLogGroup: !Not [!Equals [!Ref LogGroupName, ""]]
+  AllLogGroups: !Equals [!Ref SubscribeAllLogGroups, "true"]
+  SubscribeLogs: !Or [!Condition OneLogGroup, !Condition AllLogGroups]
+
+Resources:
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-failed-deliveries
+            Status: Enabled
+            ExpirationInDays: 30
+
+  FirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: firehose.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: { "sts:ExternalId": !Ref AWS::AccountId }
+      Policies:
+        - PolicyName: backup
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                Resource:
+                  - !GetAtt BackupBucket.Arn
+                  - !Sub "${BackupBucket.Arn}/*"
+
+  DeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamType: DirectPut
+      HttpEndpointDestinationConfiguration:
+        EndpointConfiguration:
+          Name: MoleSignal
+          Url: !Sub "${MoleSignalUrl}/api/v1/_kinesis_firehose"
+          AccessKey: !Ref PushToken
+        RequestConfiguration:
+          ContentEncoding: GZIP
+        BufferingHints:
+          SizeInMBs: !Ref BufferSizeMiB
+          IntervalInSeconds: !Ref BufferIntervalSeconds
+        RetryOptions:
+          DurationInSeconds: 3600
+        RoleARN: !GetAtt FirehoseRole.Arn
+        S3BackupMode: FailedDataOnly
+        S3Configuration:
+          BucketARN: !GetAtt BackupBucket.Arn
+          RoleARN: !GetAtt FirehoseRole.Arn
+          Prefix: failed/
+          ErrorOutputPrefix: errors/
+          CompressionFormat: GZIP
+
+  MetricStreamRole:
+    Type: AWS::IAM::Role
+    Condition: StreamMetrics
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: streams.metrics.cloudwatch.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: firehose
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [firehose:PutRecord, firehose:PutRecordBatch]
+                Resource: !GetAtt DeliveryStream.Arn
+
+  MetricStream:
+    Type: AWS::CloudWatch::MetricStream
+    Condition: StreamMetrics
+    Properties:
+      FirehoseArn: !GetAtt DeliveryStream.Arn
+      RoleArn: !GetAtt MetricStreamRole.Arn
+      OutputFormat: opentelemetry1.0
+      IncludeFilters: !If
+        - AllNamespaces
+        - !Ref AWS::NoValue
+        - - Namespace: !Ref MetricNamespace
+
+  LogsRole:
+    Type: AWS::IAM::Role
+    Condition: SubscribeLogs
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: logs.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringLike: { "aws:SourceArn": !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*" }
+      Policies:
+        - PolicyName: firehose
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [firehose:PutRecord, firehose:PutRecordBatch]
+                Resource: !GetAtt DeliveryStream.Arn
+
+  LogGroupSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Condition: OneLogGroup
+    Properties:
+      LogGroupName: !Ref LogGroupName
+      FilterName: molesignal
+      FilterPattern: ""
+      DestinationArn: !GetAtt DeliveryStream.Arn
+      RoleArn: !GetAtt LogsRole.Arn
+
+  AccountSubscription:
+    Type: AWS::Logs::AccountPolicy
+    Condition: AllLogGroups
+    Properties:
+      PolicyName: molesignal
+      PolicyType: SUBSCRIPTION_FILTER_POLICY
+      Scope: ALL
+      PolicyDocument: !Sub |
+        {"DestinationArn": "${DeliveryStream.Arn}", "RoleArn": "${LogsRole.Arn}", "FilterPattern": "", "Distribution": "Random"}
+
+Outputs:
+  DeliveryStreamArn:
+    Description: The Firehose stream; other subscription filters and metric streams can deliver to it.
+    Value: !GetAtt DeliveryStream.Arn
+  LogsRoleArn:
+    Condition: SubscribeLogs
+    Description: The role a CloudWatch Logs subscription filter delivers to the Firehose stream with.
+    Value: !GetAtt LogsRole.Arn
+  BackupBucketName:
+    Description: Where records Firehose could not deliver are kept for 30 days.
+    Value: !Ref BackupBucket

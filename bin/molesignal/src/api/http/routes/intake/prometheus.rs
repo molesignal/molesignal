@@ -7,7 +7,8 @@
 //! - `Content-Encoding: snappy` + `Content-Type: application/x-protobuf`
 //! - body: `prometheus.WriteRequest`（prompb v1 子集）
 //!
-//! 一个请求写进一个指标流：请求头 `stream-name` 指定，缺省 `default`。`__name__` 写进
+//! 一个请求写进一个指标流：请求头 `stream-name` 指定，设不了请求头的发送端（各云托管
+//! Prometheus 的 remote write 出口）用查询参数 `?stream=`，都没有时为 `default`。`__name__` 写进
 //! `metric_name`，其余 labels 落到 fields；与指标保留字段同名的 label 存为 `exported_<name>`。
 //! 完整请求先做结构限制 preflight，再切成有界 `IntakeBatch`，确保每个 WAL seq 不承载无界
 //! sample；`Sample` 的 timestamp 从 ms 转 μs，NaN/Inf 落 null 以兼容 Prometheus staleness
@@ -20,7 +21,7 @@ use ::prometheus::IntCounterVec;
 use axum::{
     Extension, Router,
     body::Bytes,
-    extract::State,
+    extract::{RawQuery, State},
     http::{HeaderMap, StatusCode},
     routing::post,
 };
@@ -108,6 +109,7 @@ struct PromWriteRequest {
 async fn remote_write(
     State(state): State<AppState>,
     Extension(ctx): Extension<IamContext>,
+    RawQuery(raw_query): RawQuery,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<StatusCode> {
@@ -131,7 +133,10 @@ async fn remote_write(
         .admit(&ctx.org_id, identities, Instant::now())
         .map_err(|reason| Error::resource_exhausted(reason.client_message()))?;
 
-    let stream = super::stream_name(&headers, super::DEFAULT_STREAM);
+    let stream = match query_stream(raw_query.as_deref()) {
+        Some(stream) if !headers.contains_key("stream-name") => stream,
+        _ => super::stream_name(&headers, super::DEFAULT_STREAM),
+    };
     let received_at = TimestampMicros::now();
     let max_samples = settings.max_samples_per_batch.max(1);
     let mut events = Vec::with_capacity(max_samples);
@@ -164,6 +169,16 @@ async fn remote_write(
     );
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// `?stream=` of the request URL.
+fn query_stream(raw_query: Option<&str>) -> Option<String> {
+    raw_query?
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("stream="))
+        .map(|value| percent_encoding::percent_decode_str(value).decode_utf8_lossy())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 async fn intake_chunk(
@@ -816,6 +831,20 @@ mod tests {
         assert_eq!(error, SeriesLimitReason::OrganizationActive);
         assert!(!error.client_message().contains("secret"));
         assert_eq!(registry.active_series(), 0, "整批拒绝不得部分 admission");
+    }
+
+    #[test]
+    fn the_stream_can_be_named_in_the_query() {
+        assert_eq!(
+            query_stream(Some("stream=aliyun")).as_deref(),
+            Some("aliyun")
+        );
+        assert_eq!(
+            query_stream(Some("a=1&stream=cloud%20metrics")).as_deref(),
+            Some("cloud metrics")
+        );
+        assert_eq!(query_stream(Some("stream=")), None);
+        assert_eq!(query_stream(None), None);
     }
 
     #[test]

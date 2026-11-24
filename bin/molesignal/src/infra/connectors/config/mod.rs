@@ -42,6 +42,8 @@ pub(super) const SECRET_KEYS: &[&str] = &[
     "basicPassword",
     "headerValue",
     "hmacSecret",
+    // A Google Cloud service account key, as the JSON file Google hands out.
+    "serviceAccountKey",
 ];
 
 /// A push token shorter than this is too easy to guess to stand in for a credential.
@@ -118,6 +120,7 @@ pub fn validate(kind: ConnectorKind, config: &Value) -> Result<()> {
         }
         ConnectorKind::KafkaSource => {
             kafka::KafkaSettings::parse(config)?;
+            kafka::message_format(config)?;
             start_from(config)?;
         }
         ConnectorKind::S3Source => {
@@ -126,7 +129,27 @@ pub fn validate(kind: ConnectorKind, config: &Value) -> Result<()> {
             aws::AwsAuth::parse(config)?;
             start_from(config)?;
         }
+        ConnectorKind::GcpPubsubPull => super::gcp::pubsub::pull::validate(config)?,
+        ConnectorKind::AwsCloudwatchMetrics => super::aws::cloudwatch_metrics::validate(config)?,
+        ConnectorKind::AzureMonitorMetrics => super::azure::monitor::validate(config)?,
+        ConnectorKind::GcpMonitoringMetrics => super::gcp::monitoring::validate(config)?,
+        ConnectorKind::AliyunCmsMetrics => super::aliyun::cms::validate(config)?,
+        ConnectorKind::TencentMonitorMetrics => super::tencent::monitor::validate(config)?,
+        ConnectorKind::HuaweiCesMetrics => super::huawei::ces::validate(config)?,
+        ConnectorKind::GcpPubsubPush => {
+            push_token(config)?;
+
+            if !text(config, "oidcAudience").is_empty()
+                && text(config, "oidcServiceAccount").is_empty()
+            {
+                return Err(Error::invalid(
+                    "`oidc_audience` is checked on the token of `oidc_service_account`: name the \
+                     service account too",
+                ));
+            }
+        }
         ConnectorKind::AwsKinesisFirehose
+        | ConnectorKind::CloudEvents
         | ConnectorKind::CloudflareLogpush
         | ConnectorKind::HerokuDrain => push_token(config)?,
     }
@@ -453,6 +476,8 @@ mod tests {
     fn a_push_token_is_long_enough_to_be_a_credential() {
         for kind in [
             ConnectorKind::AwsKinesisFirehose,
+            ConnectorKind::GcpPubsubPush,
+            ConnectorKind::CloudEvents,
             ConnectorKind::CloudflareLogpush,
             ConnectorKind::HerokuDrain,
         ] {
@@ -460,6 +485,31 @@ mod tests {
             assert!(validate(kind, &json!({ "pushToken": "0123456789abcdef" })).is_ok());
             assert!(validate(kind, &json!({ "pushToken": "short" })).is_err());
         }
+    }
+
+    #[test]
+    fn a_pubsub_audience_needs_the_service_account_whose_token_carries_it() {
+        let token = "0123456789abcdef";
+
+        assert!(validate(ConnectorKind::GcpPubsubPush, &json!({ "pushToken": token })).is_ok());
+        assert!(
+            validate(
+                ConnectorKind::GcpPubsubPush,
+                &json!({ "pushToken": token, "oidcAudience": "https://ms.example.com" })
+            )
+            .is_err()
+        );
+        assert!(
+            validate(
+                ConnectorKind::GcpPubsubPush,
+                &json!({
+                    "pushToken": token,
+                    "oidcServiceAccount": "push@acme.iam.gserviceaccount.com",
+                    "oidcAudience": "https://ms.example.com"
+                })
+            )
+            .is_ok()
+        );
     }
 
     #[test]

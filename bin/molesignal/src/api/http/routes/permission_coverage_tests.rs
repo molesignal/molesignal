@@ -70,6 +70,22 @@ const OPEN: &[(&str, &str)] = &[
     ),
     ("/_heroku", "a push connector authenticates by its token"),
     (
+        "/_gcp_pubsub",
+        "a push connector authenticates by its token",
+    ),
+    (
+        "/_cloud_events",
+        "a push connector authenticates by its token",
+    ),
+    (
+        "/services/collector/health",
+        "Splunk HEC's health check asks for no token",
+    ),
+    (
+        "/services/collector/health/1.0",
+        "Splunk HEC's health check asks for no token",
+    ),
+    (
         "/_kinesis_firehose",
         "a push connector authenticates by its token",
     ),

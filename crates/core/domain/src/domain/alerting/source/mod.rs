@@ -67,12 +67,19 @@ pub enum AlertSourceKind {
     AwsCloudwatch,
     /// Zabbix：Webhook 媒介类型发来的问题、恢复与更新。
     Zabbix,
+    /// Azure Monitor: action group webhooks in the common alert schema.
+    AzureMonitor,
+    /// Google Cloud Monitoring: a webhook notification channel, or the Pub/Sub channel through a
+    /// push subscription.
+    GcpMonitoring,
+    /// Huawei Cloud Eye (CES): alarms sent to an SMN topic, pushed by its HTTP(S) subscription.
+    HuaweiCes,
     /// 邮件：读一个 IMAP 邮箱，或由已有的邮件系统把原始邮件 POST 过来。
     Email,
 }
 
 impl AlertSourceKind {
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 13] = [
         Self::Api,
         Self::Alertmanager,
         Self::Grafana,
@@ -82,6 +89,9 @@ impl AlertSourceKind {
         Self::TencentMonitor,
         Self::AwsCloudwatch,
         Self::Zabbix,
+        Self::AzureMonitor,
+        Self::GcpMonitoring,
+        Self::HuaweiCes,
         Self::Email,
     ];
 
@@ -96,6 +106,9 @@ impl AlertSourceKind {
             Self::TencentMonitor => "tencent_monitor",
             Self::AwsCloudwatch => "aws_cloudwatch",
             Self::Zabbix => "zabbix",
+            Self::AzureMonitor => "azure_monitor",
+            Self::GcpMonitoring => "gcp_monitoring",
+            Self::HuaweiCes => "huawei_ces",
             Self::Email => "email",
         }
     }
@@ -278,6 +291,10 @@ mod tests {
         assert_eq!(
             AlertSourceKind::parse("zabbix"),
             Some(AlertSourceKind::Zabbix)
+        );
+        assert_eq!(
+            AlertSourceKind::parse("huawei_ces"),
+            Some(AlertSourceKind::HuaweiCes)
         );
         assert_eq!(AlertSourceKind::parse("nagios"), None);
         assert!(AlertSourceKind::Grafana.groups_alerts());

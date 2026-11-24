@@ -17,16 +17,16 @@ const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'.')
     .remove(b'~');
 
-pub(super) fn encode(value: &str) -> String {
+pub(crate) fn encode(value: &str) -> String {
     utf8_percent_encode(value, UNRESERVED).to_string()
 }
 
-pub(super) fn sha256_hex(data: &[u8]) -> String {
+pub(crate) fn sha256_hex(data: &[u8]) -> String {
     hex::encode(&Sha256::digest(data)[..])
 }
 
 /// 规范化查询串：名称与值分别编码，按名称升序，以 `&` 相连。发出去的查询串就是它。
-pub(super) fn canonical_query(params: &[(&str, String)]) -> String {
+pub(crate) fn canonical_query(params: &[(&str, String)]) -> String {
     let mut pairs = params
         .iter()
         .map(|(name, value)| (encode(name), encode(value)))
@@ -42,7 +42,7 @@ pub(super) fn canonical_query(params: &[(&str, String)]) -> String {
 }
 
 /// 一个请求要签的部分。`headers` 是要签进去的头（`host`、`x-acs-*`、`content-type`），小写名。
-pub(super) struct Request<'a> {
+pub(crate) struct Request<'a> {
     pub method: &'a str,
     pub query: &'a str,
     pub headers: &'a [(&'a str, &'a str)],
@@ -50,7 +50,7 @@ pub(super) struct Request<'a> {
 }
 
 /// `Authorization` 头的值。RPC 风格接口的路径固定是 `/`。
-pub(super) fn authorization(key_id: &str, key_secret: &str, request: &Request<'_>) -> String {
+pub(crate) fn authorization(key_id: &str, key_secret: &str, request: &Request<'_>) -> String {
     let mut headers = request.headers.to_vec();
     headers.sort_by(|a, b| a.0.cmp(b.0));
 

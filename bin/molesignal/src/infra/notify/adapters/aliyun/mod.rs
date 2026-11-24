@@ -7,7 +7,7 @@
 //!
 //! 能选的地域与各地域的接入地址向阿里云 OpenAPI 门户的公开元数据查（[`regions`]），不写死。
 
-mod sign;
+pub(crate) mod sign;
 mod sms;
 mod voice;
 

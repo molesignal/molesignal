@@ -70,7 +70,7 @@ fn stream_name(headers: &HeaderMap, default: &str) -> String {
         .to_string()
 }
 
-async fn intake_into(
+pub(super) async fn intake_into(
     state: &AppState,
     ctx: &IamContext,
     stream: String,

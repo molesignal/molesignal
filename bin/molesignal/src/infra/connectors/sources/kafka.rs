@@ -11,6 +11,8 @@
 //!   partition added later starts at its beginning. An offset the brokers have aged out resumes at
 //!   the oldest message they still hold.
 //! - A message whose value is a JSON object gives the event's fields; anything else is its `message`.
+//! - With `messageFormat: azure_records` each message is an Azure Monitor export, `{"records": [...]}`,
+//!   and each record becomes its own log event or metric samples (see [`crate::infra::connectors::azure::event_hub_records`]).
 
 use std::{
     collections::BTreeMap,
@@ -53,6 +55,8 @@ pub struct KafkaSource {
     settings: std::result::Result<KafkaSettings, String>,
     start_from: StartFrom,
     group: String,
+    /// Each message is an Azure Monitor export to unpack.
+    azure_records: bool,
 }
 
 impl KafkaSource {
@@ -61,6 +65,8 @@ impl KafkaSource {
             settings: KafkaSettings::parse(&connector.config_json).map_err(|e| e.to_string()),
             start_from: config::start_from(&connector.config_json).unwrap_or(StartFrom::Latest),
             group: format!("molesignal-{}", connector.id),
+            azure_records: config::kafka::message_format(&connector.config_json)
+                .is_ok_and(|format| format == config::kafka::MessageFormat::AzureRecords),
         }
     }
 }
@@ -75,9 +81,20 @@ impl PullConnector for KafkaSource {
         let position = ctx.position.clone();
 
         // The client blocks, and so may closing one whose brokers did not answer.
-        tokio::task::spawn_blocking(move || consume(&settings, start_from, &group, &position))
-            .await
-            .map_err(|e| Error::internal(format!("kafka consumer: {e}")))?
+        let mut batch =
+            tokio::task::spawn_blocking(move || consume(&settings, start_from, &group, &position))
+                .await
+                .map_err(|e| Error::internal(format!("kafka consumer: {e}")))??;
+
+        if self.azure_records {
+            let (logs, metrics) = crate::infra::connectors::azure::event_hub_records::unpack(
+                std::mem::take(&mut batch.events),
+            );
+            batch.events = logs;
+            batch.metrics = metrics;
+        }
+
+        Ok(batch)
     }
 }
 
@@ -237,6 +254,7 @@ fn consume(
         position: Some(position_of(topic, &offsets)),
         more,
         warning: None,
+        ..PullBatch::default()
     })
 }
 

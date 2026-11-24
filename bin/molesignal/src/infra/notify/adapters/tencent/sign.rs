@@ -10,7 +10,7 @@ const ALGORITHM: &str = "TC3-HMAC-SHA256";
 const SIGNED_HEADERS: &str = "content-type;host;x-tc-action";
 
 /// 要签的一次请求。
-pub(super) struct SignedCall<'a> {
+pub(crate) struct SignedCall<'a> {
     pub secret_id: &'a str,
     pub secret_key: &'a str,
     pub service: &'a str,
@@ -44,7 +44,7 @@ fn canonical_request(call: &SignedCall<'_>) -> String {
 }
 
 /// `Authorization` 的值。日期是 UTC 的，和时间戳一致。
-pub(super) fn authorization(call: &SignedCall<'_>) -> String {
+pub(crate) fn authorization(call: &SignedCall<'_>) -> String {
     let date = chrono::DateTime::from_timestamp(call.timestamp, 0)
         .unwrap_or_default()
         .format("%Y-%m-%d")

@@ -4,11 +4,13 @@
 //! 外部告警的接入地址：`POST /api/v1/intake/alerts`。
 //!
 //! 外部系统带来源的 Token 调用：`Authorization: Bearer mspat-<36>`；设不了请求头的（阿里云云
-//! 监控、腾讯云可观测平台、经 SNS 的 CloudWatch）把 Token 放在地址上 `?token=`。鉴权层放行这个路径，
+//! 监控、腾讯云可观测平台、经 SNS 的 CloudWatch、Azure Monitor、Google Cloud Monitoring、经 SMN 的华为云
+//! Cloud Eye）把 Token 放在地址上 `?token=`。鉴权层放行这个路径，
 //! 由这里按 Token 认出来源，Token 不对一律回 401。请求体按来源的类型读，最大 4 MiB。所有来源共用这一个
 //! 地址；联邦的每个集群都有这个地址，发到哪个集群都行。
 //!
-//! CloudWatch 的告警经 SNS 过来：收请求的节点先验 SNS 的签名，订阅确认也在这里做；转给接收集群的是验过的。
+//! CloudWatch 的告警经 SNS 过来，华为云 Cloud Eye 的告警经 SMN 过来：收请求的节点先验签名，订阅确认也在这里做；
+//! 转给接收集群的是验过的。
 
 use axum::{
     Json, Router,
@@ -26,7 +28,10 @@ use kernel::Result;
 use serde_json::Value;
 
 use crate::{
-    api::{AppState, http::routes::notify::callback_auth::sns_checked},
+    api::{
+        AppState,
+        http::routes::notify::callback_auth::{smn_checked, sns_checked},
+    },
     app::alerting::sources::IntakeReply,
 };
 
@@ -76,6 +81,13 @@ async fn intake(
         return answer(sources.refuse(&source, &error, &body).await);
     }
 
+    if source.enabled
+        && source.kind == AlertSourceKind::HuaweiCes
+        && let Err(error) = check_smn(&body).await
+    {
+        return answer(sources.refuse(&source, &error, &body).await);
+    }
+
     answer(sources.intake(&source, content_type, &body).await)
 }
 
@@ -96,6 +108,19 @@ async fn check_sns(body: &[u8]) -> Result<()> {
     }
 
     sns_checked(&notice).await.map(|_| ())
+}
+
+/// SMN 发来的要有对的签名，订阅确认验过后完成订阅。不是 SMN 消息的留给读内容的那一步去说。
+async fn check_smn(body: &[u8]) -> Result<()> {
+    let Ok(notice) = serde_json::from_slice::<Value>(body) else {
+        return Ok(());
+    };
+
+    if notice.get("type").is_none() {
+        return Ok(());
+    }
+
+    smn_checked(&notice).await.map(|_| ())
 }
 
 /// `Authorization: Bearer <token>`。
@@ -143,6 +168,30 @@ mod tests {
 
         assert!(matches!(
             check_sns(confirmation).await,
+            Err(Error::Unauthorized(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn an_smn_message_needs_its_signature_and_anything_else_is_left_to_the_format() {
+        assert!(check_smn(b"not json").await.is_ok());
+        assert!(check_smn(br#"{"alarm_id": "raw"}"#).await.is_ok());
+
+        // The certificate comes only from SMN: another address is never fetched.
+        let forged = br#"{"type": "Notification", "message": "{}", "signature_version": "v1",
+                          "signing_cert_url": "https://attacker.example.com/cert.pem"}"#;
+
+        assert!(matches!(
+            check_smn(forged).await,
+            Err(Error::Unauthorized(_))
+        ));
+
+        let confirmation = br#"{"type": "SubscriptionConfirmation",
+                                "subscribe_url": "https://attacker.example.com/confirm",
+                                "signing_cert_url": "https://attacker.example.com/cert.pem"}"#;
+
+        assert!(matches!(
+            check_smn(confirmation).await,
             Err(Error::Unauthorized(_))
         ));
     }

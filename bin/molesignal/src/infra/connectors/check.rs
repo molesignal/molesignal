@@ -100,7 +100,47 @@ async fn run(connector: &Connector) -> Result<()> {
                 .await
         }
         ConnectorKind::S3Source => sources::s3::check(connector).await,
+        ConnectorKind::GcpPubsubPull => {
+            super::gcp::pubsub::pull::GcpPubsubPull::new(connector)
+                .check()
+                .await
+        }
+        ConnectorKind::AwsCloudwatchMetrics => {
+            super::aws::cloudwatch_metrics::AwsCloudwatchMetrics::new(
+                connector,
+                CredentialSource::Fresh,
+            )
+            .check()
+            .await
+        }
+        ConnectorKind::AzureMonitorMetrics => {
+            super::azure::monitor::AzureMonitorMetrics::new(connector)
+                .check()
+                .await
+        }
+        ConnectorKind::GcpMonitoringMetrics => {
+            super::gcp::monitoring::GcpMonitoringMetrics::new(connector)
+                .check()
+                .await
+        }
+        ConnectorKind::AliyunCmsMetrics => {
+            super::aliyun::cms::AliyunCmsMetrics::new(connector)
+                .check()
+                .await
+        }
+        ConnectorKind::TencentMonitorMetrics => {
+            super::tencent::monitor::TencentMonitorMetrics::new(connector)
+                .check()
+                .await
+        }
+        ConnectorKind::HuaweiCesMetrics => {
+            super::huawei::ces::HuaweiCesMetrics::new(connector)
+                .check()
+                .await
+        }
         ConnectorKind::AwsKinesisFirehose
+        | ConnectorKind::GcpPubsubPush
+        | ConnectorKind::CloudEvents
         | ConnectorKind::CloudflareLogpush
         | ConnectorKind::HerokuDrain => Err(Error::invalid(
             "a push connector is sent to; there is nothing for it to connect to",

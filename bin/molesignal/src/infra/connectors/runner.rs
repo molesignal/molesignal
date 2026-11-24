@@ -33,12 +33,14 @@ use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 
 use super::{
-    ConnectorKind, PullBatch, PullConnector, PullContext,
-    aws::{CredentialSource, credential_provider},
-    cloudwatch_logs::CloudWatchLogsConnector,
+    ConnectorKind, PullBatch, PullConnector, PullContext, aliyun,
+    aws::{self, CredentialSource, cloudwatch_logs::CloudWatchLogsConnector, credential_provider},
+    azure, cloud_metrics,
     config::aws::AwsAuth,
+    gcp, huawei,
     repo::{Connector, ConnectorRepository},
     sources::{kafka::KafkaSource, s3::S3Source},
+    tencent,
 };
 use crate::app::intake::{
     IntakeService,
@@ -182,13 +184,26 @@ impl ConnectorRunner {
 
             let PullBatch {
                 events,
+                metrics,
                 position,
                 more,
                 warning,
+                receipt,
             } = batch;
 
             // 不推进位点 → 下个 tick 重试同一段，不丢数据。
-            if let Err(e) = self.write(c, events).await {
+            let written = match self
+                .write(c, StreamType::LOGS, &target_stream(c), events)
+                .await
+            {
+                Ok(()) => {
+                    self.write(c, StreamType::METRICS, &metrics_stream(c), metrics)
+                        .await
+                }
+                Err(e) => Err(e),
+            };
+
+            if let Err(e) = written {
                 tracing::warn!(error = %e, connector_id = %c.id.0, "connector intake failed");
                 self.save_failure(c, &mut state, &e.to_string()).await;
                 return;
@@ -208,15 +223,27 @@ impl ConnectorRunner {
                 return;
             }
 
+            // 确认失败只会让来源重新投递，事件可能重复，但不丢。
+            if let Some(receipt) = receipt
+                && let Err(e) = pull.acknowledge(receipt).await
+            {
+                tracing::warn!(error = %e, connector_id = %c.id.0, "connector acknowledgement failed");
+            }
+
             if !more || started.elapsed() >= PULL_BUDGET {
                 return;
             }
         }
     }
 
-    /// 把一批事件写进 connector 的目标流，分批写；有一批失败就是这次拉取失败。
-    async fn write(&self, c: &Connector, events: Vec<RawEvent>) -> Result<()> {
-        let stream = target_stream(c);
+    /// 把一批事件写进 `stream`，分批写；有一批失败就是这次拉取失败。
+    async fn write(
+        &self,
+        c: &Connector,
+        stream_type: StreamType,
+        stream: &str,
+        events: Vec<RawEvent>,
+    ) -> Result<()> {
         let mut events = events;
 
         while !events.is_empty() {
@@ -232,8 +259,8 @@ impl ConnectorRunner {
 
                 IntakeReceipt::of_events(
                     IntakeCredential::connector(&c.id),
-                    StreamType::LOGS,
-                    &stream,
+                    stream_type,
+                    stream,
                     bytes,
                     &chunk,
                 )
@@ -242,8 +269,8 @@ impl ConnectorRunner {
             let batch = IntakeBatch {
                 batch_id: Id::new(),
                 org_id: c.org_id.clone(),
-                stream: stream.clone(),
-                stream_type: StreamType::LOGS,
+                stream: stream.to_string(),
+                stream_type,
                 events: chunk,
                 received_at: TimestampMicros::now(),
             };
@@ -338,10 +365,9 @@ impl Note {
 
 /// 是否由 runner 周期拉取（push / egress 类不是）。
 fn is_pull(c: &Connector) -> bool {
-    matches!(
-        c.kind.parse::<ConnectorKind>(),
-        Ok(ConnectorKind::AwsCloudwatchLogs | ConnectorKind::KafkaSource | ConnectorKind::S3Source)
-    )
+    c.kind
+        .parse::<ConnectorKind>()
+        .is_ok_and(|kind| kind.is_pull())
 }
 
 fn cfg_str(c: &Connector, key: &str) -> String {
@@ -362,10 +388,40 @@ fn target_stream(c: &Connector) -> String {
     }
 }
 
+/// The metrics stream `c` writes to: `metricsStream`, else the default of its kind.
+fn metrics_stream(c: &Connector) -> String {
+    let named = cfg_str(c, "metricsStream");
+
+    if !named.trim().is_empty() {
+        return named.trim().to_string();
+    }
+
+    c.kind
+        .parse::<ConnectorKind>()
+        .map(cloud_metrics::default_metrics_stream)
+        .unwrap_or("default")
+        .to_string()
+}
+
 fn build_pull(c: &Connector) -> Box<dyn PullConnector> {
     match c.kind.parse::<ConnectorKind>() {
         Ok(ConnectorKind::KafkaSource) => Box::new(KafkaSource::new(c)),
         Ok(ConnectorKind::S3Source) => Box::new(S3Source::new(c)),
+        Ok(ConnectorKind::GcpPubsubPull) => Box::new(gcp::pubsub::pull::GcpPubsubPull::new(c)),
+        Ok(ConnectorKind::AwsCloudwatchMetrics) => Box::new(
+            aws::cloudwatch_metrics::AwsCloudwatchMetrics::new(c, CredentialSource::Kept),
+        ),
+        Ok(ConnectorKind::AzureMonitorMetrics) => {
+            Box::new(azure::monitor::AzureMonitorMetrics::new(c))
+        }
+        Ok(ConnectorKind::GcpMonitoringMetrics) => {
+            Box::new(gcp::monitoring::GcpMonitoringMetrics::new(c))
+        }
+        Ok(ConnectorKind::AliyunCmsMetrics) => Box::new(aliyun::cms::AliyunCmsMetrics::new(c)),
+        Ok(ConnectorKind::TencentMonitorMetrics) => {
+            Box::new(tencent::monitor::TencentMonitorMetrics::new(c))
+        }
+        Ok(ConnectorKind::HuaweiCesMetrics) => Box::new(huawei::ces::HuaweiCesMetrics::new(c)),
         _ => Box::new(cloudwatch(c, CredentialSource::Kept)),
     }
 }
@@ -618,12 +674,14 @@ mod tests {
                     position: Some(json!({ "offset": 1 })),
                     more: true,
                     warning: None,
+                    ..PullBatch::default()
                 }),
                 Ok(PullBatch {
                     events: vec![event()],
                     position: Some(json!({ "offset": 2 })),
                     more: false,
                     warning: Some("skipped a big object".into()),
+                    ..PullBatch::default()
                 }),
             ],
             sink.clone(),

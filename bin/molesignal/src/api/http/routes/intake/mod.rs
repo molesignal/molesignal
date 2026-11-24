@@ -27,6 +27,7 @@ mod compat;
 mod connectors;
 pub(crate) mod otlp;
 mod prometheus;
+mod splunk;
 
 /// 没有 `stream-name` 头时 OTLP 与 Prometheus remote_write 写入的流：与前端 explore /
 /// send-test-event 相同的 `default` 流，不存在时 intake 自动建流。
@@ -66,6 +67,7 @@ pub fn routes() -> Router<AppState> {
         .merge(prometheus::routes())
         .merge(connectors::routes())
         .merge(compat::routes())
+        .merge(splunk::routes())
 }
 
 #[permission("logs.write")]

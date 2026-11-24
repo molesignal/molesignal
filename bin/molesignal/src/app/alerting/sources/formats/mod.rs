@@ -4,7 +4,8 @@
 //! 各家告警格式：把一次请求的请求体读成 [`ExternalAlert`]。
 //!
 //! 去重键里带上发送方的账号、站点或实例：Alertmanager 与 Grafana 的地址、Datadog 的站点和组织、
-//! PagerDuty 的账号域名、阿里云和腾讯云的账号、CloudWatch 告警的 ARN。一个来源同时接好几个 region、
+//! PagerDuty 的账号域名、阿里云和腾讯云的账号、CloudWatch 告警的 ARN、Azure 告警 ID 里的订阅、
+//! Google Cloud 的项目、华为云的项目。一个来源同时接好几个 region、
 //! 账号或站点时不会撞。发送方的时间不管带不带时区、是秒还是毫秒，都换成 UTC 微秒。
 
 use std::collections::BTreeMap;
@@ -16,9 +17,12 @@ use serde_json::Value;
 mod alertmanager;
 mod aliyun;
 mod api;
+mod azure;
 mod cloudwatch;
 mod datadog;
 mod email;
+mod gcp;
+mod huawei;
 mod pagerduty;
 mod tencent;
 mod zabbix;
@@ -61,6 +65,9 @@ pub fn parse(source: &AlertSource, content_type: Option<&str>, body: &[u8]) -> R
         AlertSourceKind::TencentMonitor => tencent::parse(body)?,
         AlertSourceKind::AwsCloudwatch => cloudwatch::parse(body)?,
         AlertSourceKind::Zabbix => zabbix::parse(body)?,
+        AlertSourceKind::AzureMonitor => azure::parse(body)?,
+        AlertSourceKind::GcpMonitoring => gcp::parse(body)?,
+        AlertSourceKind::HuaweiCes => huawei::parse(body)?,
         AlertSourceKind::Email => email::parse(&source.email, body)?,
     };
 

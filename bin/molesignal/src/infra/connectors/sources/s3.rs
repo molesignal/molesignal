@@ -316,6 +316,7 @@ async fn read_new(
         position: Some(seen.to_value(bucket, prefix)),
         more: found > read,
         warning: (!skipped.is_empty()).then(|| format!("skipped {}", skipped.join("; "))),
+        ..PullBatch::default()
     })
 }
 

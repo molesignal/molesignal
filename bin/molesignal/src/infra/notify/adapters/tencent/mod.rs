@@ -10,7 +10,7 @@
 //!
 //! 能选的地域用连接器的凭证向腾讯云查（[`regions`]），不写死。
 
-mod sign;
+pub(crate) mod sign;
 mod sms;
 mod voice;
 

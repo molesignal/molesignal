@@ -27,6 +27,7 @@ mod webhook;
 mod wecom;
 mod wecom_bot;
 
+pub(crate) use aliyun::sign as aliyun_sign;
 pub use aliyun::{
     ALIYUN_SMS_CONNECTOR_TYPE, ALIYUN_VOICE_CONNECTOR_TYPE, AliyunSmsConnectorAdapter,
     AliyunVoiceConnectorAdapter,
@@ -89,6 +90,7 @@ pub use teams::{
     TeamsWebhookConnectorAdapter,
 };
 pub use telegram::{TELEGRAM_BOT_CONNECTOR_TYPE, TelegramBotConnectorAdapter};
+pub(crate) use tencent::sign as tencent_sign;
 pub use tencent::{
     TENCENT_SMS_CONNECTOR_TYPE, TENCENT_VOICE_CONNECTOR_TYPE, TencentSmsConnectorAdapter,
     TencentVoiceConnectorAdapter,

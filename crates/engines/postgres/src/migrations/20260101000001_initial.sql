@@ -2396,7 +2396,8 @@ CREATE TABLE IF NOT EXISTS alert_sources (
     email                   JSONB        NOT NULL DEFAULT '{}'::jsonb,
     CONSTRAINT chk_alert_sources_kind
         CHECK (kind IN ('api', 'alertmanager', 'grafana', 'datadog', 'pagerduty', 'aliyun_cms',
-                        'tencent_monitor', 'aws_cloudwatch', 'zabbix', 'email')),
+                        'tencent_monitor', 'aws_cloudwatch', 'zabbix', 'azure_monitor',
+                        'gcp_monitoring', 'huawei_ces', 'email')),
     CONSTRAINT chk_alert_sources_severity
         CHECK (severity IN ('critical', 'error', 'warning', 'info'))
 );

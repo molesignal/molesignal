@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 MoleSignal Authors
 
-//! 服务商回调的签名：Twilio 的 `X-Twilio-Signature`，AWS SNS 消息的签名。
+//! 服务商回调的签名：Twilio 的 `X-Twilio-Signature`，AWS SNS 消息的签名，华为云 SMN 消息的签名（见
+//! [`smn`]）。
 //!
 //! - Twilio：对请求地址加上按名字排好的表单参数（名字紧跟值，不加分隔）算 HMAC-SHA1，密钥是账号的
 //!   Auth Token，Base64 后与请求头比较。
@@ -22,6 +23,10 @@ use domain::notify::connector::NotifyConnector;
 use kernel::{Error, Result};
 use serde_json::Value;
 use url::Url;
+
+mod smn;
+
+pub(in crate::api::http::routes) use smn::smn_checked;
 
 /// 取证书、确认订阅最多等多久。
 const SNS_TIMEOUT: Duration = Duration::from_secs(5);
@@ -199,15 +204,15 @@ fn sns_url(value: &str) -> Result<Url> {
     Ok(url)
 }
 
-/// 证书里的 RSA 公钥。
+/// 证书里的 RSA 公钥（SNS 与 SMN 共用）。
 fn public_key_of(pem: &str) -> Result<Vec<u8>> {
     use x509_cert::{Certificate, der::Decode};
 
     let parsed = pem::parse(pem.trim().as_bytes())
-        .map_err(|_| Error::unauthorized("the SNS signing certificate is not PEM"))?;
+        .map_err(|_| Error::unauthorized("the signing certificate is not PEM"))?;
 
     let certificate = Certificate::from_der(parsed.contents())
-        .map_err(|_| Error::unauthorized("the SNS signing certificate cannot be read"))?;
+        .map_err(|_| Error::unauthorized("the signing certificate cannot be read"))?;
 
     certificate
         .tbs_certificate
@@ -215,7 +220,7 @@ fn public_key_of(pem: &str) -> Result<Vec<u8>> {
         .subject_public_key
         .as_bytes()
         .map(<[u8]>::to_vec)
-        .ok_or_else(|| Error::unauthorized("the SNS signing key cannot be read"))
+        .ok_or_else(|| Error::unauthorized("the signing key cannot be read"))
 }
 
 fn text<'a>(value: &'a Value, name: &str) -> &'a str {

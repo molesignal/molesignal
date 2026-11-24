@@ -5,8 +5,9 @@
 //!
 //! - 浏览器：登录会话的 access token 在 HttpOnly Cookie 里，见
 //!   [`crate::api::http::session_cookie`]。
-//! - 程序：`Authorization: Bearer <API token>`（`mspat-` 前缀）。登录会话的 token
-//!   不能放进 Authorization。
+//! - 程序：`Authorization: Bearer <API token>`（`mspat-` 前缀）。只会 Basic 认证的发送端
+//!   （各云托管 Prometheus 的 remote write 出口）把 API token 放进 Basic 的密码位，用户名
+//!   随意，与 Bearer 等价。登录会话的 token 不能放进 Authorization。
 //!
 //! 白名单（`/api/v1/auth/signin` / 刷新与退出登录 / 密码重置 / `/api/v1/auth/sso/*` /
 //! `/api/v1/healthz` /
@@ -20,6 +21,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use base64::Engine as _;
 use domain::iam::api_token::has_token_marker;
 use http::{HeaderMap, Method};
 use kernel::{Error, ids::Id, time::TimestampMicros};
@@ -94,11 +96,16 @@ const WHITELIST_PREFIXES: &[&str] = &[
     "/api/v1/synthetics/artifacts/", // Probe lease token 自鉴权的 Artifact 上传
     // Push 型 connector 接入：外部平台带不了 Bearer，由 handler 用 X-Connector-Token 自鉴权。
     "/api/v1/_kinesis_firehose",
+    "/api/v1/_gcp_pubsub",
+    "/api/v1/_cloud_events",
     "/api/v1/_cloudflare",
     "/api/v1/_heroku",
 ];
 
 const WHITELIST_EXACT_PATHS: &[&str] = &[
+    // Splunk HEC's health check, which asks for no token.
+    "/api/v1/services/collector/health",
+    "/api/v1/services/collector/health/1.0",
     // 外部告警的接入地址：handler 用告警来源自己的 Token 鉴权（请求头或 `?token=`）。
     "/api/v1/intake/alerts",
     "/api/v1/mcp",
@@ -131,7 +138,9 @@ pub async fn auth_layer(
 
     // Organization state is enforced by the inner `organization_status_layer`,
     // so a disabled tenant can still reach the narrowly-scoped recovery routes.
-    let (mut ctx, credential) = if let Some(token) = bearer_token(req.headers()) {
+    let (mut ctx, credential) = if let Some(token) = authorization_token(req.headers()) {
+        let token = token.as_str();
+
         if !has_token_marker(token) {
             return Err(Error::unauthorized(
                 "the Authorization header takes API tokens; a signed-in browser sends its session cookie",
@@ -256,11 +265,32 @@ pub async fn auth_layer(
     Ok(next.run(req).await)
 }
 
-fn bearer_token(headers: &HeaderMap) -> Option<&str> {
-    headers
+/// The token of the `Authorization` header: a `Bearer` token, or the password of `Basic`
+/// credentials when it is an API token. Other `Basic` credentials are left alone: a reverse proxy
+/// that asks for its own passes them on, and the session cookie still decides.
+fn authorization_token(headers: &HeaderMap) -> Option<String> {
+    let value = headers
         .get(http::header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
+        .and_then(|value| value.to_str().ok())?;
+
+    // `Splunk <token>` is how a Splunk HEC sender presents its token.
+    if let Some(token) = value
+        .strip_prefix("Bearer ")
+        .or_else(|| value.strip_prefix("Splunk "))
+    {
+        return Some(token.to_string());
+    }
+
+    let encoded = value.strip_prefix("Basic ")?;
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(encoded.trim())
+        .ok()?;
+    let credentials = String::from_utf8(decoded).ok()?;
+
+    credentials
+        .split_once(':')
+        .map(|(_, password)| password.to_string())
+        .filter(|password| has_token_marker(password))
 }
 
 fn is_safe_method(method: &Method) -> bool {
@@ -281,6 +311,51 @@ fn materialize_http2_authority(req: &mut Request) {
         && let Ok(value) = http::HeaderValue::from_str(&authority)
     {
         req.headers_mut().insert(http::header::HOST, value);
+    }
+}
+
+#[cfg(test)]
+mod basic_tests {
+    use base64::Engine as _;
+    use http::{HeaderMap, HeaderValue, header::AUTHORIZATION};
+
+    use super::authorization_token;
+
+    fn with(value: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(AUTHORIZATION, HeaderValue::from_str(value).unwrap());
+        headers
+    }
+
+    fn basic(user: &str, password: &str) -> String {
+        let pair = format!("{user}:{password}");
+        format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(pair)
+        )
+    }
+
+    #[test]
+    fn an_api_token_comes_as_bearer_or_as_the_basic_password() {
+        assert_eq!(
+            authorization_token(&with("Bearer mspat-abc")).as_deref(),
+            Some("mspat-abc")
+        );
+        assert_eq!(
+            authorization_token(&with(&basic("anyone", "mspat-abc"))).as_deref(),
+            Some("mspat-abc")
+        );
+        assert_eq!(
+            authorization_token(&with("Splunk mspat-abc")).as_deref(),
+            Some("mspat-abc")
+        );
+    }
+
+    #[test]
+    fn other_basic_credentials_are_left_to_the_session() {
+        assert_eq!(authorization_token(&with(&basic("admin", "hunter2"))), None);
+        assert_eq!(authorization_token(&with("Basic not-base64!")), None);
+        assert_eq!(authorization_token(&HeaderMap::new()), None);
     }
 }
 
