@@ -113,7 +113,8 @@ shell 和浏览器执行。
   `list_metric_label_values`、`list_metric_labels`、`list_metric_series`、
   `search_around`、`search_field_values`
 - Traces / AI Sessions：`list_traces`、`get_trace`、`get_trace_dag`、
-  `list_trace_sessions`、`get_trace_session`、`list_trace_users`
+  `compare_attribute_distributions`、`list_trace_sessions`、`get_trace_session`、
+  `list_trace_users`
 - Incidents / On-call：`list_incidents`、`get_incident`、
   `get_incident_rca`、`get_incident_insights`、`acknowledge_incident`、
   `resolve_incident`、`list_on_call_schedules`、
@@ -131,8 +132,9 @@ shell 和浏览器执行。
 - APM / Correlation：`apm_overview`、`list_apm_services`、`get_apm_service`、
   `list_apm_transactions`、`get_apm_transaction`、`list_apm_dependencies`、
   `list_apm_errors`、`get_apm_error`、`compare_apm_versions`、`get_apm_health`、
-  `get_apm_insights`、`get_apm_blast_radius`、
+  `get_apm_insights`、`get_apm_blast_radius`、`get_correlation_quality`、
   `correlate_signals`、`get_service_topology`
+- Infrastructure：`list_entities`、`get_entity`
 - RUM：`list_rum_sessions`、`get_rum_session`、`list_rum_actions`、
   `list_rum_errors`、`get_rum_related_traces`、`get_rum_vitals`、
   `list_rum_issues`、`get_rum_issue`、`get_rum_overview`、

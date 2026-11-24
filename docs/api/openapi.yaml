@@ -1808,6 +1808,9 @@ paths:
   /api/v1/alerts/incidents: { get: { summary: List incidents } }
   /api/v1/alerts/incidents/{id}/ack: { post: { summary: Ack } }
   /api/v1/alerts/incidents/{id}/resolve: { post: { summary: Resolve } }
+  /api/v1/alerts/incidents/{id}/business-impact:
+    get:
+      summary: For each business key the spans carry, the values whose requests to the incident's services failed most around its trigger (needs streams.query or sys.telemetry.read)
 
   /api/v1/notify/connector-types:
     get: { summary: List registered notify connector adapters and capabilities }
@@ -2591,6 +2594,12 @@ paths:
       description: Takes the stream, absolute time range, filters, and free text of the first list request, plus `field`, and reads that field in every row the list pages through. Answers how many rows match, how many have a value, how many different values there are (`distinctExact` says whether that was counted or estimated), the ten commonest values, and how the five commonest are spread over time (`trend`, absent when no value repeats or time is masked); for a number also its range, average, quartiles (estimated), standard deviations, skewness, excess kurtosis, and the values counted into bars of a round width; for a timestamp its earliest and latest. An empty string counts as no value. Runs as up to four tracked queries. Answers `unavailable` (`time_budget`, `busy`, or `field_protected` for a masked or encrypted field) when the field cannot be read. A JSON field is refused.
       responses: { '200': { description: "kind (number, time, text, bool), total, present, distinct, distinctExact, range (min, max as text), spread (avg, q1, median, q3, stddevSamp, stddevPop, skewness, kurtosis), bars (origin, width, counts), top (value, count), topSkipped, trend (originTime, bucketTime, series of value and counts), and unavailable when there is no analysis" } }
 
+  /api/v1/web/logs/patterns:
+    post:
+      summary: The log rows a structured search matches, grouped into message patterns and compared with a baseline
+      description: Takes the stream, absolute time range, filters, free text, condition tree or field query of the list request, plus optional `field` (the message field), `baseline` (`previous`, `week_before`, or `none`) and `limit` (at most 200). Counts every matching row and reads up to 5,000, spread over four equal parts of a busier range, scaling each pattern's count to the range. New and surging patterns first. An encrypted message field is refused.
+      responses: { '200': { description: "stream, field, levelField, timeRange, logs, read, unread, sampled, baseline (kind, startTime, endTime, logs, read, sampled), newPatterns, surgingPatterns, droppingPatterns, patternCount, and patterns (pattern, tokens, count, share, estimatedCount, firstSeen, lastSeen, levels, baselineCount, change, ratio, fragment, example)" } }
+
   /api/v1/web/traces/field-stats:
     post:
       summary: What one Span field holds across the Spans of listed Traces
@@ -3017,14 +3026,6 @@ paths:
       summary: Full span tree for a traceId (≤ 100k spans, 32 MiB hard cap → truncated=true)
       parameters:
         - { name: traceId, in: path, required: true, schema: { type: string } }
-  /api/v1/web/correlation/{fromKind}/{toKind}:
-    get:
-      summary: Server-side prefill of filters/time/prefill for metric ↔ trace ↔ log ↔ host jumps
-      parameters:
-        - { name: fromKind, in: path, required: true, schema: { type: string, enum: [trace, metric, log, host] } }
-        - { name: toKind,   in: path, required: true, schema: { type: string, enum: [trace, metric, log, host] } }
-        - { name: ctx,       in: query, required: true, schema: { type: string },
-            description: "base64-url JSON blob of source signal context" }
   /api/v1/web/investigation/blob:
     post:
       summary: Store ephemeral investigation-stack payload (returns blobId, 7d retention)
@@ -3033,6 +3034,39 @@ paths:
       summary: Fetch ephemeral payload by blobId
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+
+  /api/v1/entities:
+    get:
+      summary: Clusters, nodes, hosts, pods and containers seen over the last week, latest first, each with how many services run on it
+      parameters:
+        - { name: kind,      in: query, required: false, schema: { type: string, enum: [cluster, node, host, pod, container] } }
+        - { name: search,    in: query, required: false, schema: { type: string }, description: "Part of the name or the key" }
+        - { name: seenSince, in: query, required: false, schema: { type: integer, format: int64, description: "epoch micros" } }
+        - { name: limit,     in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
+  /api/v1/entities/detail:
+    get:
+      summary: One entity with what it runs on or is part of, what runs on or is part of it, and the services on it (404 when not seen)
+      parameters:
+        - { name: kind, in: query, required: true, schema: { type: string, enum: [cluster, node, host, pod, container] } }
+        - { name: key,  in: query, required: true, schema: { type: string }, description: "A node is cluster/node, a pod cluster/namespace/pod" }
+  /api/v1/business-context:
+    get:
+      summary: The business keys (tenant, plan, ...) and the span, log and RUM field each is carried in
+    put:
+      summary: Replace the business keys (apm.settings.manage); at most 8, each naming at least one field
+  /api/v1/web/traces/red/compare:
+    get:
+      summary: How the failed or slow requests of a trace query differ from the rest, field by field, read from a sample of up to 1,000 spans of each
+      parameters:
+        - { name: from,        in: query, required: true,  schema: { type: integer, format: int64, description: "epoch micros" } }
+        - { name: to,          in: query, required: true,  schema: { type: integer, format: int64 } }
+        - { name: bucketTime,  in: query, required: true,  schema: { type: integer, format: int64 } }
+        - { name: originTime,  in: query, required: true,  schema: { type: integer, format: int64 } }
+        - { name: expression,  in: query, required: false, schema: { type: string } }
+        - { name: scope,       in: query, required: false, schema: { type: string, enum: [entry, all], default: entry } }
+        - { name: errors,      in: query, required: false, schema: { type: boolean } }
+        - { name: minDuration, in: query, required: false, schema: { type: integer, format: int64, description: "nanoseconds, inclusive" } }
+        - { name: maxDuration, in: query, required: false, schema: { type: integer, format: int64, description: "nanoseconds, exclusive" } }
 
   /api/v1/query/stream:
     get:
