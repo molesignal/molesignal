@@ -9,13 +9,18 @@ name: Translate
 # points it at another OpenAI-compatible service.
 
 on:
-  # Only the hand-written English and Simplified Chinese JSON start a run. After changing the
-  # configs, the scripts or the server's text in the migrations, start it by hand.
+  # Starts on the hand-written English and Simplified Chinese text: the interface JSON, the
+  # translation configs, and the en-us and zh-cn rows of i18n_language in the baseline migration.
+  # The migration changes for other reasons too, so the job `changes` below looks at the rows
+  # themselves. After changing only the scripts, start it by hand.
   push:
     branches: [main]
     paths:
       - 'web/src/i18n/en-us/**.json'
       - 'web/src/i18n/zh-cn/**.json'
+      - 'web/i18n.config.json'
+      - 'web/i18n.zh-tw.config.json'
+      - 'crates/engines/postgres/src/migrations/20260101000001_initial.sql'
   workflow_dispatch:
 
 permissions:
@@ -26,8 +31,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    name: Look for changed source text
+    runs-on: ubuntu-26.04
+    outputs:
+      translate: ${{ steps.look.outputs.translate }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - id: look
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          # A manual run, or a push whose previous commit is unknown, always translates.
+          if [ "$EVENT" != push ] || [ -z "${BEFORE//0/}" ] || ! git fetch -q --no-tags --depth=1 origin "$BEFORE"; then
+            echo 'translate=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(git diff --name-only "$BEFORE" "$AFTER" -- web/src/i18n/en-us web/src/i18n/zh-cn web/i18n.config.json web/i18n.zh-tw.config.json)
+          rows=$(git diff --unified=0 "$BEFORE" "$AFTER" -- crates/engines/postgres/src/migrations/20260101000001_initial.sql \
+            | grep -E "^[+-] {4}\('[a-z0-9_.]+', '(en-us|zh-cn)', " || true)
+
+          if [ -n "$files" ] || [ -n "$rows" ]; then
+            printf '%s\n' "$files" "$rows" | grep -v '^$' | head -20
+            echo 'translate=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'No English or Simplified Chinese text changed.'
+            echo 'translate=false' >> "$GITHUB_OUTPUT"
+          fi
+
   translate:
     name: Translate
+    needs: changes
+    if: ${{ needs.changes.outputs.translate == 'true' }}
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
