@@ -30,7 +30,8 @@ use domain::stream::StreamType;
 use kernel::{Error, Result};
 
 use super::{
-    MAX_BODY_BYTES, decode_body, intake_events, resolve_connector, stream_of, token_from, touch,
+    MAX_BODY_BYTES, Refusals, decode_body, intake_events, resolve_connector, stream_of, token_from,
+    touch,
 };
 use crate::{
     api::AppState,
@@ -84,25 +85,28 @@ pub(super) async fn receive(
         return Ok(StatusCode::NO_CONTENT);
     }
 
-    if let Some(event) = pubsub::event(&pushed) {
-        let stream = stream_of(&connector, "targetStream", "gcp");
+    let refusals = match pubsub::event(&pushed) {
+        Some(event) => {
+            let stream = stream_of(&connector, "targetStream", "gcp");
 
-        intake_events(
-            &state,
-            &connector,
-            StreamType::LOGS,
-            &stream,
-            vec![event],
-            raw.len(),
-        )
-        .await?;
-    }
+            intake_events(
+                &state,
+                &connector,
+                StreamType::LOGS,
+                &stream,
+                vec![event],
+                raw.len(),
+            )
+            .await?
+        }
+        None => Refusals::default(),
+    };
 
     if !pushed.message_id.is_empty() {
         seen().insert(seen_key, ());
     }
 
-    touch(&state, &connector).await;
+    touch(&state, &connector, refusals).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

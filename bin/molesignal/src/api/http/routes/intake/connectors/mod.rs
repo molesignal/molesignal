@@ -47,7 +47,10 @@ use crate::{
     api::AppState,
     app::intake::usage::IntakeReceipt,
     infra::connectors::{
-        Connector, ConnectorKind, cloudflare::parse_ndjson, heroku::parse_text,
+        Connector, ConnectorKind,
+        cloudflare::parse_ndjson,
+        heroku::parse_text,
+        runner::{Refusals, note_warning},
         secrets::push_token_digest,
     },
 };
@@ -214,7 +217,7 @@ fn decode_body(headers: &HeaderMap, body: &Bytes, limit: usize) -> Result<Vec<u8
     Ok(out)
 }
 
-/// 把一种信号的事件分批写进 `stream`，记用量；返回写入的条数。
+/// 把一种信号的事件分批写进 `stream`，记用量；返回流拒收的事件。
 async fn intake_events(
     state: &AppState,
     connector: &Connector,
@@ -222,9 +225,11 @@ async fn intake_events(
     stream: &str,
     events: Vec<RawEvent>,
     bytes: usize,
-) -> Result<usize> {
+) -> Result<Refusals> {
+    let mut refusals = Refusals::default();
+
     if events.is_empty() {
-        return Ok(0);
+        return Ok(refusals);
     }
 
     state
@@ -257,7 +262,10 @@ async fn intake_events(
             received_at,
         };
 
-        accepted += state.intake.intake(batch).await?.accepted;
+        let result = state.intake.intake(batch).await?;
+
+        accepted += result.accepted;
+        refusals.add(&result);
         events = rest;
     }
 
@@ -266,16 +274,37 @@ async fn intake_events(
         .intake_meter
         .record(&connector.org_id, receipt, accepted as u64);
 
-    Ok(accepted)
+    Ok(refusals)
 }
 
 /// 记一次推送：last_run 仅观测用，失败不影响接入结果。
-async fn touch(state: &AppState, connector: &Connector) {
-    let _ = state
-        .storage
-        .connectors
-        .touch_last_run(&connector.id, TimestampMicros::now())
-        .await;
+///
+/// 流拒收的事件（值与字段类型不符）记成 connector 最近跳过的内容，在连接器页面可见，不让推送方
+/// 重试：平台会整包重发，已写入的事件因此重复，拒收的也仍然写不进去。
+async fn touch(state: &AppState, connector: &Connector, refusals: Refusals) {
+    let now = TimestampMicros::now();
+    let connectors = &state.storage.connectors;
+
+    let Some(warning) = refusals.warning() else {
+        let _ = connectors.touch_last_run(&connector.id, now).await;
+        return;
+    };
+
+    tracing::warn!(
+        connector = %connector.id.0,
+        rejected = refusals.count,
+        reason = refusals.first.as_deref().unwrap_or_default(),
+        "pushed events refused by their stream"
+    );
+
+    let read_state = note_warning(&connector.read_state, &warning, now);
+
+    if let Err(error) = connectors
+        .save_read_state(&connector.id, Some(now), &read_state)
+        .await
+    {
+        tracing::warn!(connector = %connector.id.0, %error, "connector read state not saved");
+    }
 }
 
 /// Cloudflare Logpush：NDJSON（每行一条 JSON），body 默认 gzip 压缩。
@@ -291,7 +320,7 @@ async fn cloudflare(
     let raw = decode_body(&headers, &body, MAX_BODY_BYTES)?;
     let text = String::from_utf8_lossy(&raw);
     let events = parse_ndjson(text.as_ref())?;
-    intake_events(
+    let refusals = intake_events(
         &state,
         &connector,
         StreamType::LOGS,
@@ -300,7 +329,8 @@ async fn cloudflare(
         raw.len(),
     )
     .await?;
-    touch(&state, &connector).await;
+
+    touch(&state, &connector, refusals).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -317,7 +347,7 @@ async fn heroku(
     let raw = decode_body(&headers, &body, MAX_BODY_BYTES)?;
     let text = String::from_utf8_lossy(&raw);
     let events = parse_text(text.as_ref())?;
-    intake_events(
+    let refusals = intake_events(
         &state,
         &connector,
         StreamType::LOGS,
@@ -326,7 +356,8 @@ async fn heroku(
         raw.len(),
     )
     .await?;
-    touch(&state, &connector).await;
+
+    touch(&state, &connector, refusals).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

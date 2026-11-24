@@ -23,14 +23,13 @@ use axum::{
 };
 use domain::{
     iam::{IamContext, permission},
-    intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
+    intake::{IntakeBatch, IntakeResult, RawEvent, usage::source::IntakeCredential},
     stream::StreamType,
 };
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use opentelemetry_proto::tonic::{
     collector::{
-        logs::v1::{ExportLogsServiceRequest, ExportLogsServiceResponse},
-        metrics::v1::{ExportMetricsServiceRequest, ExportMetricsServiceResponse},
+        logs::v1::ExportLogsServiceRequest, metrics::v1::ExportMetricsServiceRequest,
         trace::v1::ExportTraceServiceRequest,
     },
     common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value},
@@ -48,9 +47,11 @@ use crate::{api::AppState, app::intake::usage::IntakeReceipt};
 
 mod json;
 mod metrics;
+mod partial;
 mod traces;
 
 pub(crate) use metrics::metrics_to_events;
+pub(crate) use partial::{logs_response, metrics_response};
 pub(crate) use traces::submit_traces;
 
 pub fn routes() -> Router<AppState> {
@@ -414,9 +415,13 @@ pub(crate) async fn intake(
     stream: String,
     events: Vec<RawEvent>,
     bytes: usize,
-) -> Result<usize> {
+) -> Result<IntakeResult> {
     if events.is_empty() {
-        return Ok(0);
+        return Ok(IntakeResult {
+            accepted: 0,
+            rejected: 0,
+            errors: Vec::new(),
+        });
     }
 
     let receipt = IntakeReceipt::of_events(
@@ -443,7 +448,7 @@ pub(crate) async fn intake(
         .intake_meter
         .record(&ctx.org_id, receipt, r.accepted as u64);
 
-    Ok(r.accepted)
+    Ok(r)
 }
 
 // ===== handlers =====
@@ -460,9 +465,9 @@ async fn otlp_logs(
     let stream = stream_name(&headers, DEFAULT_STREAM);
     let events = logs_to_events(req);
 
-    intake(&state, StreamType::LOGS, &ctx, stream, events, body.len()).await?;
+    let result = intake(&state, StreamType::LOGS, &ctx, stream, events, body.len()).await?;
 
-    Ok(otlp_ok(enc, ExportLogsServiceResponse::default()))
+    Ok(otlp_ok(enc, logs_response(&result)))
 }
 
 #[permission("metrics.write")]
@@ -477,7 +482,7 @@ async fn otlp_metrics(
     let stream = stream_name(&headers, DEFAULT_STREAM);
     let events = metrics_to_events(req);
 
-    intake(
+    let result = intake(
         &state,
         StreamType::METRICS,
         &ctx,
@@ -487,7 +492,7 @@ async fn otlp_metrics(
     )
     .await?;
 
-    Ok(otlp_ok(enc, ExportMetricsServiceResponse::default()))
+    Ok(otlp_ok(enc, metrics_response(&result)))
 }
 
 #[cfg(test)]

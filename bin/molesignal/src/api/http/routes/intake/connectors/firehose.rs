@@ -138,7 +138,7 @@ async fn deliver(
     let logs_stream = stream_of(&connector, "targetStream", "kinesis");
     let metrics_stream = stream_of(&connector, "metricsStream", "cloudwatch");
 
-    intake_events(
+    let mut refusals = intake_events(
         state,
         &connector,
         StreamType::LOGS,
@@ -148,21 +148,23 @@ async fn deliver(
     )
     .await?;
 
-    intake_events(
-        state,
-        &connector,
-        StreamType::METRICS,
-        &metrics_stream,
-        decoded.metrics,
-        metrics_bytes,
-    )
-    .await?;
+    refusals.merge(
+        intake_events(
+            state,
+            &connector,
+            StreamType::METRICS,
+            &metrics_stream,
+            decoded.metrics,
+            metrics_bytes,
+        )
+        .await?,
+    );
 
     if !request.is_empty() {
         seen().insert(seen_key, ());
     }
 
-    touch(state, &connector).await;
+    touch(state, &connector, refusals).await;
     Ok(request)
 }
 

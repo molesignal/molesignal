@@ -32,7 +32,8 @@ use kernel::Result;
 use serde_json::json;
 
 use super::{
-    MAX_BODY_BYTES, decode_body, intake_events, resolve_connector, stream_of, token_from, touch,
+    MAX_BODY_BYTES, Refusals, decode_body, intake_events, resolve_connector, stream_of, token_from,
+    touch,
 };
 use crate::{
     api::AppState,
@@ -75,7 +76,7 @@ pub(super) async fn receive(
 
     let events = match cloud_events::read(&raw, &request)? {
         Delivery::Validation(code) => {
-            touch(&state, &connector).await;
+            touch(&state, &connector, Refusals::default()).await;
 
             return Ok((StatusCode::OK, Json(json!({"validationResponse": code}))).into_response());
         }
@@ -101,7 +102,7 @@ pub(super) async fn receive(
 
     let stream = stream_of(&connector, "targetStream", "cloud_events");
 
-    intake_events(
+    let refusals = intake_events(
         &state,
         &connector,
         StreamType::LOGS,
@@ -115,7 +116,7 @@ pub(super) async fn receive(
         seen().insert(dedup_key, ());
     }
 
-    touch(&state, &connector).await;
+    touch(&state, &connector, refusals).await;
     Ok(StatusCode::OK.into_response())
 }
 

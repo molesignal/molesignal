@@ -27,7 +27,7 @@ use axum::{
 };
 use domain::{
     iam::{IamContext, permission},
-    intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
+    intake::{IntakeBatch, IntakeResult, RawEvent, usage::source::IntakeCredential},
     metrics::{
         METRIC_NAME_FIELD, PROMETHEUS_EXEMPLAR_LABELS_FIELD, PROMETHEUS_EXEMPLAR_MARKER_FIELD,
         PROMETHEUS_EXEMPLAR_VALUE_FIELD, is_metric_identity_storage_field,
@@ -142,6 +142,8 @@ async fn remote_write(
     let mut events = Vec::with_capacity(max_samples);
     let mut services = ServiceTally::default();
     let mut accepted = 0_u64;
+    let mut rejected = 0_usize;
+    let mut first_refusal = None;
 
     for event in MetricEventIter::new(req, received_at) {
         events.push(event);
@@ -149,12 +151,22 @@ async fn remote_write(
         if events.len() >= max_samples {
             let chunk = std::mem::replace(&mut events, Vec::with_capacity(max_samples));
             services.add_events(&chunk);
-            accepted += intake_chunk(&state, &ctx.org_id, &stream, chunk, received_at).await?;
+
+            let result = intake_chunk(&state, &ctx.org_id, &stream, chunk, received_at).await?;
+
+            accepted += result.accepted as u64;
+            rejected += result.rejected;
+            first_refusal = first_refusal.or_else(|| result.errors.into_iter().next());
         }
     }
 
     services.add_events(&events);
-    accepted += intake_chunk(&state, &ctx.org_id, &stream, events, received_at).await?;
+
+    let result = intake_chunk(&state, &ctx.org_id, &stream, events, received_at).await?;
+
+    accepted += result.accepted as u64;
+    rejected += result.rejected;
+    first_refusal = first_refusal.or_else(|| result.errors.into_iter().next());
 
     state.platform.intake_meter.record(
         &ctx.org_id,
@@ -167,6 +179,16 @@ async fn remote_write(
         },
         accepted,
     );
+
+    // Samples refused for good (a value that does not fit its field's type) are reported, not
+    // acknowledged: remote write does not retry a 400, and the sender learns what was lost.
+    if rejected > 0 {
+        let reason = first_refusal.map(|error| error.reason).unwrap_or_default();
+
+        return Err(Error::invalid(format!(
+            "{rejected} samples rejected, {accepted} written: {reason}"
+        )));
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -187,12 +209,16 @@ async fn intake_chunk(
     stream: &str,
     events: Vec<RawEvent>,
     received_at: TimestampMicros,
-) -> Result<u64> {
+) -> Result<IntakeResult> {
     if events.is_empty() {
-        return Ok(0);
+        return Ok(IntakeResult {
+            accepted: 0,
+            rejected: 0,
+            errors: Vec::new(),
+        });
     }
 
-    let result = state
+    state
         .intake
         .intake(IntakeBatch {
             batch_id: Id::new(),
@@ -202,9 +228,7 @@ async fn intake_chunk(
             events,
             received_at,
         })
-        .await?;
-
-    Ok(result.accepted as u64)
+        .await
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

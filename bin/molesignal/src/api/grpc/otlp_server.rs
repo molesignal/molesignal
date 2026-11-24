@@ -16,7 +16,7 @@
 
 use domain::{
     iam::{IamContext, api_token::has_token_marker},
-    intake::RawEvent,
+    intake::{IntakeResult, RawEvent},
     stream::StreamType,
 };
 use kernel::{Error as MsError, ids::Id, time::TimestampMicros};
@@ -50,7 +50,8 @@ use crate::{
             middleware::{Permission, auth::authenticate_bearer},
             routes::{
                 intake::otlp::{
-                    intake, logs_to_events, metrics_to_events, submit_traces, traces_to_canonical,
+                    intake, logs_response, logs_to_events, metrics_response, metrics_to_events,
+                    submit_traces, traces_to_canonical,
                 },
                 profiles::{normalize_otlp_profiles, store_profile},
             },
@@ -119,12 +120,10 @@ impl OtlpGrpc {
         stream: String,
         events: Vec<RawEvent>,
         bytes: usize,
-    ) -> Result<(), Status> {
+    ) -> Result<IntakeResult, Status> {
         intake(&self.state, stream_type, ctx, stream, events, bytes)
             .await
-            .map_err(error_to_status)?;
-
-        Ok(())
+            .map_err(error_to_status)
     }
 }
 
@@ -270,9 +269,10 @@ impl LogsService for OtlpGrpc {
         let req = request.into_inner();
         let bytes = req.encoded_len();
         let events = logs_to_events(req);
-        self.intake_events(&ctx, StreamType::LOGS, stream, events, bytes)
+        let result = self
+            .intake_events(&ctx, StreamType::LOGS, stream, events, bytes)
             .await?;
-        Ok(Response::new(ExportLogsServiceResponse::default()))
+        Ok(Response::new(logs_response(&result)))
     }
 }
 
@@ -287,9 +287,10 @@ impl MetricsService for OtlpGrpc {
         let req = request.into_inner();
         let bytes = req.encoded_len();
         let events = metrics_to_events(req);
-        self.intake_events(&ctx, StreamType::METRICS, stream, events, bytes)
+        let result = self
+            .intake_events(&ctx, StreamType::METRICS, stream, events, bytes)
             .await?;
-        Ok(Response::new(ExportMetricsServiceResponse::default()))
+        Ok(Response::new(metrics_response(&result)))
     }
 }
 

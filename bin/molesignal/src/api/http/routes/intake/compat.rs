@@ -21,7 +21,7 @@ use axum::{
 };
 use domain::{
     iam::{IamContext, permission},
-    intake::{IntakeBatch, RawEvent, usage::source::IntakeCredential},
+    intake::{IntakeBatch, IntakeResult, RawEvent, usage::source::IntakeCredential},
     stream::StreamType,
 };
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
@@ -70,15 +70,30 @@ fn stream_name(headers: &HeaderMap, default: &str) -> String {
         .to_string()
 }
 
+/// One body's events by the stream each goes to, each with its position in the body.
+pub(super) type ByStream = BTreeMap<String, Vec<(usize, RawEvent)>>;
+
+/// An event of a body that its stream refused: a value that does not fit its field's type.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct Refused {
+    /// The event's position in the body.
+    pub position: usize,
+    pub reason: String,
+}
+
 pub(super) async fn intake_into(
     state: &AppState,
     ctx: &IamContext,
     stream: String,
     events: Vec<RawEvent>,
     bytes: u64,
-) -> Result<usize> {
+) -> Result<IntakeResult> {
     if events.is_empty() {
-        return Ok(0);
+        return Ok(IntakeResult {
+            accepted: 0,
+            rejected: 0,
+            errors: Vec::new(),
+        });
     }
 
     let receipt = IntakeReceipt::of_events(
@@ -98,14 +113,58 @@ pub(super) async fn intake_into(
         received_at: TimestampMicros::now(),
     };
 
-    let accepted = state.intake.intake(batch).await?.accepted;
+    let result = state.intake.intake(batch).await?;
 
     state
         .platform
         .intake_meter
-        .record(&ctx.org_id, receipt, accepted as u64);
+        .record(&ctx.org_id, receipt, result.accepted as u64);
 
-    Ok(accepted)
+    Ok(result)
+}
+
+/// Writes each stream's events, the body's `bytes` shared among the streams by how many events
+/// each has, and returns the events refused, in body order.
+pub(super) async fn write_streams(
+    state: &AppState,
+    ctx: &IamContext,
+    by_stream: ByStream,
+    bytes: u64,
+) -> Result<Vec<Refused>> {
+    let counts = by_stream
+        .values()
+        .map(|events| events.len() as u64)
+        .collect::<Vec<_>>();
+
+    let shares = split_by_events(bytes, &counts);
+    let mut refused = Vec::new();
+
+    for ((stream, placed), bytes) in by_stream.into_iter().zip(shares) {
+        let (positions, events): (Vec<usize>, Vec<RawEvent>) = placed.into_iter().unzip();
+        let result = intake_into(state, ctx, stream, events, bytes).await?;
+
+        refused.extend(result.errors.into_iter().map(|error| Refused {
+            position: positions[error.index],
+            reason: error.reason,
+        }));
+    }
+
+    refused.sort_by_key(|refused| refused.position);
+    Ok(refused)
+}
+
+/// What a sender is told when some of the `total` `records` of its body were refused: how many,
+/// and the first and why.
+pub(super) fn refusal_message(refused: &[Refused], total: usize, records: &str) -> String {
+    match refused.first() {
+        Some(first) => format!(
+            "{} of {total} {records} rejected; the first, at position {}: {}",
+            refused.len(),
+            first.position,
+            first.reason
+        ),
+        None => format!("0 of {total} {records} rejected"),
+    }
 }
 
 // ===== Elasticsearch _bulk =====
@@ -113,9 +172,11 @@ pub(super) async fn intake_into(
 /// 解析 ES bulk NDJSON：action 行 + 可选 doc 行交替，按目标 stream 分组事件。
 ///
 /// 支持 `index` / `create`（带 doc 行）；`delete` 无 doc 行、跳过；`update` 取其 `doc` 字段。
-/// `_index` 决定目标 stream，缺省回退到 `default_stream`。
-fn parse_es_bulk(text: &str, default_stream: &str) -> Result<BTreeMap<String, Vec<RawEvent>>> {
-    let mut by_stream: BTreeMap<String, Vec<RawEvent>> = BTreeMap::new();
+/// `_index` 决定目标 stream，缺省回退到 `default_stream`。事件的位置是它在带文档的 action 中的
+/// 序号，也就是它在应答 `items` 里的位置。
+fn parse_es_bulk(text: &str, default_stream: &str) -> Result<ByStream> {
+    let mut by_stream = ByStream::new();
+    let mut documents = 0;
     let mut lines = text.lines();
 
     while let Some(action_line) = lines.next() {
@@ -163,10 +224,14 @@ fn parse_es_bulk(text: &str, default_stream: &str) -> Result<BTreeMap<String, Ve
                     .map(TimestampMicros)
                     .unwrap_or_else(TimestampMicros::now);
 
-                by_stream.entry(target).or_default().push(RawEvent {
-                    timestamp,
-                    fields: doc,
-                });
+                by_stream.entry(target).or_default().push((
+                    documents,
+                    RawEvent {
+                        timestamp,
+                        fields: doc,
+                    },
+                ));
+                documents += 1;
             }
             other => return Err(Error::invalid(format!("es bulk: unknown action `{other}`"))),
         }
@@ -187,26 +252,31 @@ async fn es_bulk(
     let default_stream = stream_name(&headers, "default");
     let by_stream = parse_es_bulk(&text, &default_stream)?;
 
-    let accepted: usize = by_stream.values().map(Vec::len).sum();
+    let documents: usize = by_stream.values().map(Vec::len).sum();
+    let refused = write_streams(&state, &ctx, by_stream, raw.len() as u64).await?;
 
-    // One body fills several streams: each counts for its share of it, not for the whole.
-    let counts = by_stream
-        .values()
-        .map(|events| events.len() as u64)
-        .collect::<Vec<_>>();
+    Ok(Json(bulk_answer(documents, &refused)).into_response())
+}
 
-    let shares = split_by_events(raw.len() as u64, &counts);
+/// The `_bulk` answer for `documents` documents. ES clients (Filebeat and the like) read `errors`
+/// and each item's `status`: a refused document is a 400 with its reason, which they do not retry
+/// and report as lost.
+fn bulk_answer(documents: usize, refused: &[Refused]) -> Value {
+    let mut refusals = refused.iter().peekable();
 
-    for ((stream, events), bytes) in by_stream.into_iter().zip(shares) {
-        intake_into(&state, &ctx, stream, events, bytes).await?;
-    }
-
-    // ES 客户端（Filebeat 等）按 `errors` + `items[].status` 判定成功。
-    let items: Vec<Value> = (0..accepted)
-        .map(|_| serde_json::json!({"index": {"status": 201}}))
+    let items: Vec<Value> = (0..documents)
+        .map(
+            |position| match refusals.next_if(|refused| refused.position == position) {
+                Some(refused) => serde_json::json!({"index": {
+                    "status": 400,
+                    "error": {"type": "mapper_parsing_exception", "reason": refused.reason},
+                }}),
+                None => serde_json::json!({"index": {"status": 201}}),
+            },
+        )
         .collect();
 
-    Ok(Json(serde_json::json!({"took": 0, "errors": false, "items": items})).into_response())
+    serde_json::json!({"took": 0, "errors": !refused.is_empty(), "items": items})
 }
 
 // ===== Loki push =====
@@ -272,8 +342,20 @@ async fn loki_push(
     let payload: Value =
         serde_json::from_slice(&raw).map_err(|e| Error::invalid(format!("loki body: {e}")))?;
     let events = parse_loki(&payload)?;
+    let total = events.len();
     let stream = stream_name(&headers, "default");
-    intake_into(&state, &ctx, stream, events, raw.len() as u64).await?;
+    let by_stream = ByStream::from([(stream, events.into_iter().enumerate().collect())]);
+    let refused = write_streams(&state, &ctx, by_stream, raw.len() as u64).await?;
+
+    // Lines refused for good are reported: Loki clients do not retry a 400.
+    if !refused.is_empty() {
+        return Err(Error::invalid(refusal_message(
+            &refused,
+            total,
+            "log lines",
+        )));
+    }
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -309,14 +391,25 @@ mod tests {
         );
         // update 的 doc 字段被解包
         let web = &grouped["web"];
-        assert_eq!(web[1].fields.get("msg").and_then(|v| v.as_str()), Some("d"));
+        assert_eq!(
+            web[1].1.fields.get("msg").and_then(|v| v.as_str()),
+            Some("d")
+        );
+
+        // 位置按带文档的 action 计，跨 stream 连续，delete 不占位置。
+        let positions: Vec<usize> = grouped
+            .values()
+            .flatten()
+            .map(|(position, _)| *position)
+            .collect();
+        assert_eq!(positions, [0, 1, 2, 3]);
     }
 
     #[test]
     fn es_bulk_falls_back_to_default_stream_and_timestamp() {
         let body = "{\"index\":{}}\n{\"_timestamp\":1700000000000000,\"msg\":\"x\"}\n";
         let grouped = parse_es_bulk(body, "fallback").unwrap();
-        let ev = &grouped["fallback"][0];
+        let (_, ev) = &grouped["fallback"][0];
         assert_eq!(
             ev.timestamp.0, 1700000000000000,
             "_timestamp honored + removed from fields"
@@ -359,5 +452,45 @@ mod tests {
     #[test]
     fn loki_rejects_missing_streams() {
         assert!(parse_loki(&json!({})).is_err());
+    }
+
+    #[test]
+    fn a_refusal_says_how_many_and_the_first() {
+        let refused = [
+            Refused {
+                position: 2,
+                reason: "type mismatch on field `code`: expected Int64, got String".into(),
+            },
+            Refused {
+                position: 5,
+                reason: "type mismatch on field `code`: expected Int64, got Bool".into(),
+            },
+        ];
+
+        assert_eq!(
+            refusal_message(&refused, 7, "log lines"),
+            "2 of 7 log lines rejected; the first, at position 2: type mismatch on field `code`: \
+             expected Int64, got String"
+        );
+    }
+
+    #[test]
+    fn a_bulk_answer_marks_the_refused_documents() {
+        let refused = [Refused {
+            position: 1,
+            reason: "type mismatch on field `code`: expected Int64, got String".into(),
+        }];
+
+        let answer = bulk_answer(3, &refused);
+
+        assert_eq!(answer["errors"], true);
+        assert_eq!(answer["items"][0]["index"]["status"], 201);
+        assert_eq!(answer["items"][1]["index"]["status"], 400);
+        assert_eq!(
+            answer["items"][1]["index"]["error"]["reason"],
+            refused[0].reason
+        );
+        assert_eq!(answer["items"][2]["index"]["status"], 201);
+        assert_eq!(bulk_answer(2, &[])["errors"], false);
     }
 }

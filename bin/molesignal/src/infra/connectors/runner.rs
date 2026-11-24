@@ -22,7 +22,7 @@ use std::{
 
 use domain::{
     intake::{
-        IntakeBatch, RawEvent,
+        IntakeBatch, IntakeResult, RawEvent,
         usage::{event_bytes, source::IntakeCredential},
     },
     run_claim::{OpenGate, RunGate},
@@ -196,17 +196,38 @@ impl ConnectorRunner {
                 .write(c, StreamType::LOGS, &target_stream(c), events)
                 .await
             {
-                Ok(()) => {
-                    self.write(c, StreamType::METRICS, &metrics_stream(c), metrics)
-                        .await
-                }
+                Ok(mut refusals) => self
+                    .write(c, StreamType::METRICS, &metrics_stream(c), metrics)
+                    .await
+                    .map(|more| {
+                        refusals.merge(more);
+                        refusals
+                    }),
                 Err(e) => Err(e),
             };
 
-            if let Err(e) = written {
-                tracing::warn!(error = %e, connector_id = %c.id.0, "connector intake failed");
-                self.save_failure(c, &mut state, &e.to_string()).await;
-                return;
+            let refusals = match written {
+                Ok(refusals) => refusals,
+                Err(e) => {
+                    tracing::warn!(error = %e, connector_id = %c.id.0, "connector intake failed");
+                    self.save_failure(c, &mut state, &e.to_string()).await;
+                    return;
+                }
+            };
+
+            // Events the streams refused are not retried, which would not make them fit: the
+            // position moves on and the connector notes what was skipped.
+            let warning = match (warning, refusals.warning()) {
+                (Some(warning), Some(refused)) => Some(format!("{warning}; {refused}")),
+                (warning, refused) => warning.or(refused),
+            };
+
+            if refusals.count > 0 {
+                tracing::warn!(
+                    connector_id = %c.id.0,
+                    rejected = refusals.count,
+                    "connector events refused by their stream"
+                );
             }
 
             let now = TimestampMicros::now();
@@ -236,15 +257,16 @@ impl ConnectorRunner {
         }
     }
 
-    /// 把一批事件写进 `stream`，分批写；有一批失败就是这次拉取失败。
+    /// 把一批事件写进 `stream`，分批写；有一批失败就是这次拉取失败。返回流拒收的事件。
     async fn write(
         &self,
         c: &Connector,
         stream_type: StreamType,
         stream: &str,
         events: Vec<RawEvent>,
-    ) -> Result<()> {
+    ) -> Result<Refusals> {
         let mut events = events;
+        let mut refusals = Refusals::default();
 
         while !events.is_empty() {
             let rest = events.split_off(events.len().min(MAX_EVENTS_PER_WRITE));
@@ -275,14 +297,16 @@ impl ConnectorRunner {
                 received_at: TimestampMicros::now(),
             };
 
-            let accepted = self.intake.intake(batch).await?.accepted as u64;
+            let result = self.intake.intake(batch).await?;
+
+            refusals.add(&result);
 
             if let (Some(meter), Some(receipt)) = (&self.usage_meter, receipt) {
-                meter.record(&c.org_id, receipt, accepted);
+                meter.record(&c.org_id, receipt, result.accepted as u64);
             }
         }
 
-        Ok(())
+        Ok(refusals)
     }
 
     async fn save_failure(&self, c: &Connector, state: &mut ReadState, reason: &str) {
@@ -296,6 +320,46 @@ impl ConnectorRunner {
             tracing::warn!(error = %e, connector_id = %c.id.0, "connector read state not saved");
         }
     }
+}
+
+/// Events a connector's streams refused, a value not fitting its field's type: how many, and why
+/// the first was.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Refusals {
+    pub count: usize,
+    pub first: Option<String>,
+}
+
+impl Refusals {
+    pub fn add(&mut self, result: &IntakeResult) {
+        self.count += result.rejected;
+
+        if self.first.is_none() {
+            self.first = result.errors.first().map(|error| error.reason.clone());
+        }
+    }
+
+    pub fn merge(&mut self, other: Refusals) {
+        self.count += other.count;
+        self.first = self.first.take().or(other.first);
+    }
+
+    /// What the connector notes as skipped; `None` when nothing was refused.
+    pub fn warning(&self) -> Option<String> {
+        (self.count > 0).then(|| match &self.first {
+            Some(reason) => format!("{} events rejected; the first: {reason}", self.count),
+            None => format!("{} events rejected", self.count),
+        })
+    }
+}
+
+/// `read_state` with `warning` as what was last skipped, noted at `at`: a push connector notes
+/// this way the events its streams refused.
+pub fn note_warning(read_state: &Value, warning: &str, at: TimestampMicros) -> Value {
+    let mut state = ReadState::of(read_state);
+
+    state.last_warning = Some(Note::new(warning, at));
+    state.to_value()
 }
 
 /// `connectors.read_state`：读到哪了（各来源自己的格式）、最近一次失败和最近一次跳过了什么。
@@ -837,5 +901,58 @@ mod tests {
 
         assert_eq!(runner.tick_once().await, 0);
         assert!(pulls.0.lock().unwrap().is_empty());
+    }
+
+    /// Events a stream refused add up across writes, keep the first reason, and become what the
+    /// connector notes as skipped.
+    #[test]
+    fn refusals_add_up_and_keep_the_first_reason() {
+        let result = |rejected: usize, reason: &str| IntakeResult {
+            accepted: 1,
+            rejected,
+            errors: (0..rejected)
+                .map(|index| domain::intake::IntakeError {
+                    index,
+                    reason: reason.into(),
+                })
+                .collect(),
+        };
+
+        let mut refusals = Refusals::default();
+
+        refusals.add(&result(0, "unused"));
+        assert_eq!(refusals.warning(), None);
+
+        refusals.add(&result(2, "type mismatch on field `code`"));
+
+        let mut more = Refusals::default();
+
+        more.add(&result(1, "type mismatch on field `level`"));
+        refusals.merge(more);
+
+        assert_eq!(refusals.count, 3);
+        assert_eq!(
+            refusals.warning().as_deref(),
+            Some("3 events rejected; the first: type mismatch on field `code`")
+        );
+    }
+
+    /// A push connector's note keeps the rest of its read state.
+    #[test]
+    fn a_noted_warning_keeps_the_read_state() {
+        let before = json!({
+            "position": {"offset": 7},
+            "lastError": {"atTime": 1, "text": "broker down"},
+            "lastWarning": null,
+        });
+
+        let after = note_warning(&before, "2 events rejected", TimestampMicros(9));
+
+        assert_eq!(after["position"], before["position"]);
+        assert_eq!(after["lastError"], before["lastError"]);
+        assert_eq!(
+            after["lastWarning"],
+            json!({"atTime": 9, "text": "2 events rejected"})
+        );
     }
 }

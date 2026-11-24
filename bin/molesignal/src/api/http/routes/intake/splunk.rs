@@ -16,8 +16,6 @@
 //! asks for it keeps waiting for an ack ID. See
 //! <https://docs.splunk.com/Documentation/Splunk/latest/Data/FormateventsforHTTPEventCollector>.
 
-use std::collections::BTreeMap;
-
 use axum::{
     Extension, Json, Router,
     body::Bytes,
@@ -33,8 +31,12 @@ use domain::{
 use kernel::{Result, time::TimestampMicros};
 use serde_json::{Map, Value, json};
 
-use super::{MAX_BODY_BYTES, compat::intake_into, decoded, gzipped, stream_name};
-use crate::{api::AppState, app::intake::usage::split_by_events};
+use super::{
+    MAX_BODY_BYTES,
+    compat::{ByStream, Refused, write_streams},
+    decoded, gzipped, stream_name,
+};
+use crate::api::AppState;
 
 pub fn routes() -> Router<AppState> {
     let limit = || DefaultBodyLimit::max(MAX_BODY_BYTES);
@@ -97,7 +99,7 @@ impl Defaults {
 #[derive(Debug, PartialEq)]
 struct Refusal {
     code: u16,
-    text: &'static str,
+    text: String,
     /// The position of the event that could not be read.
     event: Option<usize>,
 }
@@ -118,30 +120,28 @@ fn success() -> Response {
     Json(json!({ "text": "Success", "code": 0 })).into_response()
 }
 
-/// The events of an `/event` body, by the stream each goes to.
+/// The events of an `/event` body, by the stream each goes to, each with its position in the body.
 fn parse_events(
     body: &[u8],
     defaults: &Defaults,
     fallback_stream: &str,
-) -> std::result::Result<BTreeMap<String, Vec<RawEvent>>, Refusal> {
-    let mut by_stream: BTreeMap<String, Vec<RawEvent>> = BTreeMap::new();
+) -> std::result::Result<ByStream, Refusal> {
+    let mut by_stream = ByStream::new();
     let values = serde_json::Deserializer::from_slice(body).into_iter::<Value>();
 
     for (position, value) in values.enumerate() {
-        let invalid = |text| Refusal {
-            code: 6,
-            text,
-            event: Some(position),
-        };
-
         let Ok(Value::Object(mut object)) = value else {
-            return Err(invalid("Invalid data format"));
+            return Err(Refusal {
+                code: 6,
+                text: "Invalid data format".into(),
+                event: Some(position),
+            });
         };
 
         let Some(payload) = object.remove("event") else {
             return Err(Refusal {
                 code: 12,
-                text: "Event field is required",
+                text: "Event field is required".into(),
                 event: Some(position),
             });
         };
@@ -151,7 +151,7 @@ fn parse_events(
             Value::String(text) if text.is_empty() => {
                 return Err(Refusal {
                     code: 13,
-                    text: "Event field cannot be blank",
+                    text: "Event field cannot be blank".into(),
                     event: Some(position),
                 });
             }
@@ -190,13 +190,13 @@ fn parse_events(
         by_stream
             .entry(stream)
             .or_default()
-            .push(RawEvent { timestamp, fields });
+            .push((position, RawEvent { timestamp, fields }));
     }
 
     if by_stream.is_empty() {
         return Err(Refusal {
             code: 5,
-            text: "No data",
+            text: "No data".into(),
             event: None,
         });
     }
@@ -237,24 +237,31 @@ fn body(headers: &HeaderMap, body: Bytes) -> Result<Bytes> {
     decoded(gzipped(headers), body)
 }
 
+/// Writes the events, and answers with HEC's refusal when a stream refused some of them: code 6
+/// with the first refused event's position and why, so the sender knows what was lost.
 async fn write(
     state: &AppState,
     ctx: &IamContext,
-    by_stream: BTreeMap<String, Vec<RawEvent>>,
+    by_stream: ByStream,
     bytes: usize,
-) -> Result<()> {
-    // One body fills several streams: each counts for its share of it.
-    let counts: Vec<u64> = by_stream
-        .values()
-        .map(|events| events.len() as u64)
-        .collect();
-    let shares = split_by_events(bytes as u64, &counts);
+) -> Result<Response> {
+    let refused = write_streams(state, ctx, by_stream, bytes as u64).await?;
 
-    for ((stream, events), bytes) in by_stream.into_iter().zip(shares) {
-        intake_into(state, ctx, stream, events, bytes).await?;
+    Ok(match refused.first() {
+        Some(first) => refusal(first, refused.len()).into_response(),
+        None => success(),
+    })
+}
+
+fn refusal(first: &Refused, count: usize) -> Refusal {
+    Refusal {
+        code: 6,
+        text: format!(
+            "Invalid data format: {count} events rejected, the first: {}",
+            first.reason
+        ),
+        event: Some(first.position),
     }
-
-    Ok(())
 }
 
 #[permission("logs.write")]
@@ -274,8 +281,7 @@ async fn event(
         Err(refusal) => return Ok(refusal.into_response()),
     };
 
-    write(&state, &ctx, by_stream, raw.len()).await?;
-    Ok(success())
+    write(&state, &ctx, by_stream, raw.len()).await
 }
 
 #[permission("logs.write")]
@@ -293,7 +299,7 @@ async fn raw(
     if events.is_empty() {
         return Ok(Refusal {
             code: 5,
-            text: "No data",
+            text: "No data".into(),
             event: None,
         }
         .into_response());
@@ -304,8 +310,9 @@ async fn raw(
         .clone()
         .unwrap_or_else(|| stream_name(&headers, "default"));
 
-    write(&state, &ctx, BTreeMap::from([(stream, events)]), raw.len()).await?;
-    Ok(success())
+    let by_stream = ByStream::from([(stream, events.into_iter().enumerate().collect())]);
+
+    write(&state, &ctx, by_stream, raw.len()).await
 }
 
 /// What HEC's health check answers.
@@ -315,10 +322,16 @@ async fn health() -> Response {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
 
     fn streams(body: &str, query: Option<&str>) -> BTreeMap<String, Vec<RawEvent>> {
-        parse_events(body.as_bytes(), &Defaults::of(query), "default").unwrap()
+        parse_events(body.as_bytes(), &Defaults::of(query), "default")
+            .unwrap()
+            .into_iter()
+            .map(|(stream, placed)| (stream, placed.into_iter().map(|(_, event)| event).collect()))
+            .collect()
     }
 
     #[test]
@@ -385,5 +398,32 @@ mod tests {
         );
         assert_eq!(epoch_seconds(&json!(1.25)).unwrap().0, 1_250_000);
         assert!(epoch_seconds(&json!("soon")).is_none());
+    }
+
+    /// Events follow one another in the body whatever stream they go to: a refusal names the
+    /// event's place in the body, as HEC's `invalid-event-number` does.
+    #[test]
+    fn a_refused_event_is_named_by_its_place_in_the_body() {
+        let body = r#"{"event": "a", "index": "x"} {"event": "b"} {"event": "c", "index": "x"}"#;
+        let placed = parse_events(body.as_bytes(), &Defaults::default(), "d").unwrap();
+
+        let positions: Vec<(&str, usize)> = placed
+            .iter()
+            .flat_map(|(stream, events)| {
+                events
+                    .iter()
+                    .map(move |(position, _)| (stream.as_str(), *position))
+            })
+            .collect();
+        assert_eq!(positions, [("d", 1), ("x", 0), ("x", 2)]);
+
+        let first = Refused {
+            position: 2,
+            reason: "type mismatch on field `code`: expected Int64, got String".into(),
+        };
+        let refusal = refusal(&first, 1);
+
+        assert_eq!((refusal.code, refusal.event), (6, Some(2)));
+        assert!(refusal.text.contains("field `code`"));
     }
 }
