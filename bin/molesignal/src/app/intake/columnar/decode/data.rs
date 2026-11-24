@@ -67,6 +67,20 @@ impl Data {
         }
     }
 
+    /// An Int64 column as Float64, its values so far converted; any other column is left as it is.
+    pub(super) fn widen(&mut self) {
+        if let Self::Int64(builder) = self {
+            let integers = builder.finish();
+            let mut floats = Float64Builder::with_capacity(integers.len());
+
+            for value in &integers {
+                floats.append_option(value.map(|value| value as f64));
+            }
+
+            *self = Self::Float64(floats);
+        }
+    }
+
     pub(super) fn append_text(&mut self, text: &str) {
         if let Self::Text(builder) = self {
             builder.append_value(text);
@@ -118,14 +132,15 @@ pub(super) fn timestamp_type() -> DataType {
 }
 
 /// Why `value` does not fit a field `name` of `field_type`, in the row path's words; `None` when
-/// it fits. Null fits every type.
+/// it fits. Null fits every type, and any number fits an Int64 field, which it may widen (see
+/// [`widens`]).
 pub(super) fn mismatch(name: &str, field_type: FieldType, value: &Value<'_, '_>) -> Option<String> {
     let kind = value.value_type();
 
     let fits = match (field_type, kind) {
         (_, ValueType::Null) | (FieldType::Json, _) => true,
         (FieldType::Bool, ValueType::Bool) => true,
-        (FieldType::Int64, ValueType::I64 | ValueType::U64) => value.as_i64().is_some(),
+        (FieldType::Int64, ValueType::I64 | ValueType::U64 | ValueType::F64) => true,
         (FieldType::Float64, ValueType::I64 | ValueType::U64 | ValueType::F64) => true,
         (FieldType::Utf8, ValueType::String) => true,
         (FieldType::Timestamp, ValueType::I64 | ValueType::U64) => value.as_i64().is_some(),
@@ -138,6 +153,18 @@ pub(super) fn mismatch(name: &str, field_type: FieldType, value: &Value<'_, '_>)
             type_name(kind)
         )
     })
+}
+
+/// Whether `value` turns a field of `field_type` into Float64, as on the row path: an Int64 field
+/// and a number that is not an i64.
+pub(super) fn widens(field_type: FieldType, value: &Value<'_, '_>) -> bool {
+    let number = match value.value_type() {
+        ValueType::F64 => true,
+        ValueType::U64 => value.as_i64().is_none(),
+        _ => false,
+    };
+
+    field_type == FieldType::Int64 && number
 }
 
 /// The type a new field takes from its first value. simd-json reads a non-negative integer as U64;

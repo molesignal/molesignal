@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use arrow::{
     array::{ArrayRef, RecordBatch, new_null_array},
+    compute::cast,
     datatypes::{DataType, Field, Schema as ArrowSchema, TimeUnit},
     error::ArrowError,
 };
@@ -62,7 +63,8 @@ fn map_type(t: FieldType) -> DataType {
 /// - 按 target 字段顺序取列；batch 里同名列存在 → 直接 reuse
 /// - batch 里缺这列 → 用 `new_null_array` 占位（必须是 nullable 字段；target 来自
 ///   `to_arrow` 时除 `_timestamp` 外都是 nullable，符合预期）
-/// - 同名列 data_type 不一致 → 返错（不做隐式 cast，避免静默丢精度）
+/// - 同名列 data_type 不一致 → 只允许 Int64 → Float64（字段被提升为 Float64 前写下的文件，
+///   见 [`widen_column`]）；其余返错，不做隐式 cast，避免静默丢精度
 pub fn align_batch_to_schema(
     batch: &RecordBatch,
     target: &Arc<ArrowSchema>,
@@ -73,20 +75,7 @@ pub fn align_batch_to_schema(
 
     for tf in target.fields() {
         match src.fields().iter().position(|f| f.name() == tf.name()) {
-            Some(idx) => {
-                let sf = src.field(idx);
-
-                if sf.data_type() != tf.data_type() {
-                    return Err(ArrowError::SchemaError(format!(
-                        "column `{}` data_type mismatch: source={:?} target={:?}",
-                        tf.name(),
-                        sf.data_type(),
-                        tf.data_type()
-                    )));
-                }
-
-                cols.push(batch.column(idx).clone());
-            }
+            Some(idx) => cols.push(widen_column(tf.name(), batch.column(idx), tf.data_type())?),
             None => {
                 cols.push(new_null_array(tf.data_type(), rows));
             }
@@ -94,6 +83,22 @@ pub fn align_batch_to_schema(
     }
 
     RecordBatch::try_new(target.clone(), cols)
+}
+
+/// `column` as `target`: as it is when it already has that type, converted when it is an Int64
+/// column of a field since widened to Float64. Any other difference is an error.
+pub fn widen_column(
+    name: &str,
+    column: &ArrayRef,
+    target: &DataType,
+) -> Result<ArrayRef, ArrowError> {
+    match (column.data_type(), target) {
+        (source, target) if source == target => Ok(column.clone()),
+        (DataType::Int64, DataType::Float64) => cast(column, target),
+        (source, target) => Err(ArrowError::SchemaError(format!(
+            "column `{name}` data_type mismatch: source={source:?} target={target:?}"
+        ))),
+    }
 }
 
 #[cfg(test)]
@@ -117,5 +122,45 @@ mod tests {
         assert_eq!(a.fields().len(), 2);
         assert_eq!(a.field(0).name(), TS_COL);
         assert_eq!(a.field(1).name(), "msg");
+    }
+
+    /// A file written while a field was Int64 merges with files written after it became Float64;
+    /// any other type difference is still refused.
+    #[test]
+    fn an_int_column_aligns_to_a_widened_float_field() {
+        use arrow::{
+            array::{AsArray, Float64Array, Int64Array, StringArray},
+            datatypes::Float64Type,
+        };
+
+        let old = Arc::new(ArrowSchema::new(vec![
+            Field::new("value", DataType::Int64, true),
+            Field::new("name", DataType::Utf8, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            old,
+            vec![
+                Arc::new(Int64Array::from(vec![Some(3), None])),
+                Arc::new(StringArray::from(vec!["a", "b"])),
+            ],
+        )
+        .unwrap();
+
+        let widened = Arc::new(ArrowSchema::new(vec![
+            Field::new("value", DataType::Float64, true),
+            Field::new("name", DataType::Utf8, true),
+        ]));
+        let aligned = align_batch_to_schema(&batch, &widened).unwrap();
+
+        assert_eq!(
+            aligned.column(0).as_primitive::<Float64Type>(),
+            &Float64Array::from(vec![Some(3.0), None])
+        );
+
+        let narrowed = Arc::new(ArrowSchema::new(vec![
+            Field::new("value", DataType::Int64, true),
+            Field::new("name", DataType::Int64, true),
+        ]));
+        assert!(align_batch_to_schema(&batch, &narrowed).is_err());
     }
 }

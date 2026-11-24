@@ -62,6 +62,8 @@ mod tables;
 #[cfg(test)]
 mod time_window_tests;
 mod waves;
+#[cfg(test)]
+mod widened_column_tests;
 
 pub struct DataFusionEngine {
     files: Arc<dyn QueryFileSource>,

@@ -8,7 +8,7 @@ use domain::{
     intake::{IntakeBatch, IntakeResult, RawEvent},
     rum::event::RumStream,
     stream::{
-        StreamDefinition, StreamType, is_reserved_system_stream, refuse_platform_stream,
+        FieldType, StreamDefinition, StreamType, is_reserved_system_stream, refuse_platform_stream,
         validate_stream_name,
     },
 };
@@ -172,14 +172,20 @@ impl IntakeService {
             _ => None,
         };
 
-        // Schema evolution: new fields get their indexes by the stream's rules, as on the row path.
-        if !decoded.new_fields.is_empty() {
+        // Schema evolution, as on the row path: widened Int64 fields become Float64, and new fields
+        // get their indexes by the stream's rules.
+        if !decoded.new_fields.is_empty() || !decoded.widened.is_empty() {
             let known = definition.schema.fields.len();
-            let mut extended = extend_schema(
-                &definition.schema,
-                decoded.new_fields.clone(),
-                definition.stream_type,
-            );
+            let mut widened = definition.schema.clone();
+
+            for field in &mut widened.fields {
+                if decoded.widened.contains(&field.name) {
+                    field.data_type = FieldType::Float64;
+                }
+            }
+
+            let mut extended =
+                extend_schema(&widened, decoded.new_fields.clone(), definition.stream_type);
 
             match self.streams.get_settings(&definition.id).await {
                 Ok(settings) => apply_index_rules(&mut extended, known, &settings),

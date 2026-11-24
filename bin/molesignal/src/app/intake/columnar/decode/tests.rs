@@ -13,7 +13,7 @@ use serde_json::{Value as Json, json};
 
 use super::*;
 use crate::{
-    app::intake::{check_event_types, usage::ServiceTally},
+    app::intake::{schema::admit, usage::ServiceTally},
     infra::intake::row_columns::rows_to_columns,
 };
 
@@ -53,9 +53,8 @@ fn row_path(body: &Json, schema: &Schema) -> (RecordBatch, Vec<usize>, u64) {
         other => vec![other.clone()],
     };
 
-    let mut kept = Vec::new();
-    let mut rejected = Vec::new();
-    let mut bytes = 0;
+    let mut events = Vec::new();
+    let mut sizes = Vec::new();
 
     for (index, item) in items.into_iter().enumerate() {
         let Json::Object(mut fields) = item else {
@@ -68,23 +67,19 @@ fn row_path(body: &Json, schema: &Schema) -> (RecordBatch, Vec<usize>, u64) {
             .map_or(NOW, TimestampMicros);
 
         let mut event = RawEvent { timestamp, fields };
-        let size = domain::intake::usage::event_bytes(&event).unwrap();
+        sizes.push(domain::intake::usage::event_bytes(&event).unwrap());
 
         event
             .fields
             .insert(EVENT_ID_FIELD.into(), Json::String(format!("b1:{index}")));
-
-        match check_event_types(schema, &event) {
-            Ok(()) => {
-                bytes += size;
-                kept.push(event);
-            }
-            Err(_) => rejected.push(index),
-        }
+        events.push(event);
     }
 
-    let extended = crate::app::intake::infer_schema_extension(schema, &kept, StreamType::LOGS)
-        .unwrap_or_else(|| schema.clone());
+    let admission = admit(schema, events, StreamType::LOGS);
+    let rejected = admission.errors.iter().map(|error| error.index).collect();
+    let bytes = admission.positions.iter().map(|&index| sizes[index]).sum();
+    let kept = admission.events;
+    let extended = admission.schema.unwrap_or_else(|| schema.clone());
 
     let stream = StreamDefinition {
         id: Id::new(),
@@ -161,7 +156,7 @@ fn rejections_name_the_first_failing_field_in_schema_order() {
 
     let body = json!([
         {"latency": "slow"},
-        {"level": "info", "latency": 1.5},
+        {"level": "info", "latency": true},
         {"level": 3}
     ]);
 
@@ -178,7 +173,7 @@ fn rejections_name_the_first_failing_field_in_schema_order() {
             (0, "missing non-null field `level`"),
             (
                 1,
-                "type mismatch on field `latency`: expected Int64, got Number"
+                "type mismatch on field `latency`: expected Int64, got Bool"
             ),
             (
                 2,
@@ -300,6 +295,67 @@ fn bodies_that_are_not_rows_are_refused() {
         ),
         Err(Error::InvalidArgument(_))
     ));
+}
+
+/// Integers first, then a float: the known Int64 field is widened, its column Float64 with the
+/// earlier rows converted, as the row path writes it.
+#[test]
+fn a_float_after_integers_widens_a_known_int_field() {
+    let schema = Schema {
+        fields: vec![field("latency", FieldType::Int64, true)],
+    };
+
+    let body = json!([{"latency": 1}, {"latency": 2.5}, {"latency": 3}, {"latency": null}]);
+    let decoded = run(&body, &schema).unwrap();
+
+    assert!(decoded.errors.is_empty());
+    assert_eq!(decoded.widened, BTreeSet::from(["latency".to_owned()]));
+
+    let latency = column(&decoded, "latency").as_primitive::<Float64Type>();
+    assert_eq!(latency.values()[..3], [1.0, 2.5, 3.0]);
+    assert!(latency.is_null(3));
+
+    let (expected, rejected, _) = row_path(&body, &schema);
+    assert!(rejected.is_empty());
+    assert_eq!(
+        column(&decoded, "latency").as_ref(),
+        expected.column_by_name("latency").unwrap().as_ref()
+    );
+}
+
+/// Floats first, then integers: the integers fit the Float64 field and nothing widens.
+#[test]
+fn integers_after_floats_fit_a_float_field() {
+    let schema = Schema {
+        fields: vec![field("ratio", FieldType::Float64, true)],
+    };
+
+    let decoded = run(&json!([{"ratio": 0.5}, {"ratio": 2}]), &schema).unwrap();
+
+    assert!(decoded.errors.is_empty());
+    assert!(decoded.widened.is_empty());
+
+    let ratio = column(&decoded, "ratio").as_primitive::<Float64Type>();
+    assert_eq!(ratio.values().as_ref(), [0.5, 2.0]);
+}
+
+/// A new field mixing integers and floats in one body is a Float64 field, whichever comes first.
+#[test]
+fn a_new_field_mixing_integers_and_floats_is_a_float_field() {
+    let schema = Schema { fields: vec![] };
+
+    let decoded = run(
+        &json!([{"value": 3}, {"value": 0.42}, {"value": 4}]),
+        &schema,
+    )
+    .unwrap();
+
+    assert!(decoded.errors.is_empty());
+    assert!(decoded.widened.is_empty());
+    assert_eq!(decoded.new_fields.get("value"), Some(&FieldType::Float64));
+
+    let value = column(&decoded, "value").as_primitive::<Float64Type>();
+    assert_eq!(value.values().as_ref(), [3.0, 0.42, 4.0]);
 }
 
 #[test]

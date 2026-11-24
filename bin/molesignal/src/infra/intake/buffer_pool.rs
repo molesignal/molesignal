@@ -10,7 +10,8 @@
 //!    仍对查询可见；Catalog commit 后才退休，失败则转为 retry generation。
 //!
 //! `RecordBuilder` 内部按 [`StreamDefinition::schema`] 顺序维护每列一个 `*Builder`；
-//! `extend_schema` 在 schema 演化时对历史行追加 null 补齐。
+//! `extend_schema` 在 schema 演化时对历史行追加 null 补齐；整型字段提升为 Float64 时，
+//! `sync_schema` 把已有行转成浮点。
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -122,8 +123,20 @@ impl ColumnBuilder {
                 b.append_array(array.as_primitive_opt::<Int64Type>().ok_or_else(wrong)?);
                 values * 8 + nulls
             }
+            // A batch built while the field was still Int64 (a WAL record replayed, or a write
+            // that raced the widening) is converted.
             Self::Float64(b) => {
-                b.append_array(array.as_primitive_opt::<Float64Type>().ok_or_else(wrong)?);
+                match array.as_primitive_opt::<Int64Type>() {
+                    Some(integers) => {
+                        for value in integers {
+                            b.append_option(value.map(|value| value as f64));
+                        }
+                    }
+                    None => {
+                        b.append_array(array.as_primitive_opt::<Float64Type>().ok_or_else(wrong)?);
+                    }
+                }
+
                 values * 8 + nulls
             }
             Self::Utf8(b) => {
@@ -137,6 +150,20 @@ impl ColumnBuilder {
         };
 
         Ok(bytes)
+    }
+
+    /// An Int64 column as Float64, its rows so far converted; any other column is left as it is.
+    fn widen(&mut self) {
+        if let Self::Int64(b) = self {
+            let integers = b.finish();
+            let mut floats = Float64Builder::with_capacity(integers.len());
+
+            for value in &integers {
+                floats.append_option(value.map(|value| value as f64));
+            }
+
+            *self = Self::Float64(floats);
+        }
     }
 
     fn finish(&mut self) -> ArrayRef {
@@ -323,6 +350,26 @@ impl RecordBuilder {
             ));
         }
 
+        // A Float64 column in the batch widens an Int64 column of the buffer: the batch was built
+        // after the stream widened the field.
+        let widening: Vec<String> = batch
+            .schema()
+            .fields()
+            .iter()
+            .filter(|field| field.data_type() == &DataType::Float64)
+            .filter(|field| {
+                matches!(
+                    self.columns.get(field.name()),
+                    Some(ColumnBuilder::Int64(_))
+                )
+            })
+            .map(|field| field.name().clone())
+            .collect();
+
+        for name in widening {
+            self.widen_column(&name);
+        }
+
         let mut bytes = 0;
 
         for name in &self.column_order {
@@ -403,9 +450,34 @@ impl RecordBuilder {
     /// Intake calls this while holding the same per-dataset mutex that orders WAL append and
     /// buffer push. New columns therefore become visible atomically to subsequent generations,
     /// while rows already present in the active generation are padded with nulls.
+    ///
+    /// An Int64 column whose field the stream has widened to Float64 becomes Float64, its rows
+    /// converted.
     pub fn sync_schema(&mut self, stream: &StreamDefinition) {
         for field in &stream.schema.fields {
             self.extend_schema(field);
+
+            if field.data_type == FieldType::Float64 && !field.encrypted {
+                self.widen_column(&field.name);
+            }
+        }
+    }
+
+    /// Makes the Int64 column `name` Float64, its rows converted; any other column is left as it
+    /// is.
+    fn widen_column(&mut self, name: &str) {
+        let Some(column) = self.columns.get_mut(name) else {
+            return;
+        };
+
+        if !matches!(column, ColumnBuilder::Int64(_)) {
+            return;
+        }
+
+        column.widen();
+
+        if let Some(field) = self.fields.iter_mut().find(|field| field.name() == name) {
+            *field = Field::new(name, DataType::Float64, field.is_nullable());
         }
     }
 
@@ -740,6 +812,94 @@ mod tests {
         assert!(arr.is_null(0));
         assert!(arr.is_null(1));
         assert_eq!(arr.value(2), "u-3");
+    }
+
+    fn latency_values(batch: &RecordBatch) -> Vec<Option<f64>> {
+        let column = batch.column_by_name("latency_ms").unwrap();
+
+        assert_eq!(column.data_type(), &DataType::Float64);
+        column.as_primitive::<Float64Type>().iter().collect()
+    }
+
+    fn latency_event(ts: i64, latency: serde_json::Value) -> RawEvent {
+        let mut fields = serde_json::Map::new();
+        fields.insert("level".into(), json!("info"));
+        fields.insert("latency_ms".into(), latency);
+        raw_event(ts, fields)
+    }
+
+    /// The stream widens `latency_ms` to Float64 while the generation holds Int64 rows: they are
+    /// converted, and a batch still built as Int64 (a WAL record replayed after the widening) is
+    /// converted on its way in.
+    #[test]
+    fn sync_schema_widens_an_int_column_with_its_rows() {
+        let original = stream_def();
+        let mut widened = original.clone();
+        widened.schema.fields[1].data_type = FieldType::Float64;
+
+        let mut builder = RecordBuilder::new(&original);
+
+        builder
+            .push(&latency_event(1_000_000, json!(7)), 1)
+            .unwrap();
+
+        builder.sync_schema(&widened);
+
+        let replayed = crate::infra::intake::row_columns::rows_to_columns(
+            &original,
+            &[latency_event(2_000_000, json!(8))],
+            None,
+        )
+        .unwrap();
+
+        let writer = BufferWriter::new(
+            domain::storage::WriterNodeId::new("test-node"),
+            domain::storage::WriterEpoch(1),
+        );
+
+        builder
+            .push_batch(&replayed, &writer, WalSequence(2))
+            .unwrap();
+
+        builder
+            .push(&latency_event(3_000_000, json!(2.5)), 3)
+            .unwrap();
+
+        let batch = builder.begin_flush().unwrap().unwrap().batch;
+        assert_eq!(latency_values(&batch), [Some(7.0), Some(8.0), Some(2.5)]);
+    }
+
+    /// A Float64 batch reaching a buffer whose column is still Int64 widens the column too.
+    #[test]
+    fn a_float_batch_widens_an_int_column() {
+        let original = stream_def();
+        let mut widened = original.clone();
+        widened.schema.fields[1].data_type = FieldType::Float64;
+
+        let mut builder = RecordBuilder::new(&original);
+
+        builder
+            .push(&latency_event(1_000_000, json!(7)), 1)
+            .unwrap();
+
+        let floats = crate::infra::intake::row_columns::rows_to_columns(
+            &widened,
+            &[latency_event(2_000_000, json!(0.5))],
+            None,
+        )
+        .unwrap();
+
+        let writer = BufferWriter::new(
+            domain::storage::WriterNodeId::new("test-node"),
+            domain::storage::WriterEpoch(1),
+        );
+
+        builder
+            .push_batch(&floats, &writer, WalSequence(2))
+            .unwrap();
+
+        let batch = builder.begin_flush().unwrap().unwrap().batch;
+        assert_eq!(latency_values(&batch), [Some(7.0), Some(0.5)]);
     }
 
     #[test]

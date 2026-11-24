@@ -10,7 +10,7 @@
 //! 1. 校验目标 stream 存在；日志流、指标流挂着实时流水线时整批交给它（见 [`realtime`]；链路在
 //!    写 span 的地方处理）；
 //! 2. 写入即脱敏；
-//! 3. 类型校验 + 新字段 schema 演化；
+//! 3. 类型校验 + schema 演化（新字段，整型字段遇到浮点提升为 Float64）；
 //! 4. 把整批喂给 `IntakeSink`（infra 实现 WAL + buffer + parquet flush）。
 //!
 //! 类型冲突的事件单条剔除并填到 `IntakeResult.errors`。
@@ -27,8 +27,7 @@ use std::sync::Arc;
 pub use columnar::{ColumnarBatch, ColumnarSink, JsonIntake};
 use domain::{
     intake::{
-        EVENT_ID_FIELD, IntakeBatch, IntakeError, IntakeResult, IntakeSink, RawEvent,
-        ServiceGraphObserver,
+        EVENT_ID_FIELD, IntakeBatch, IntakeResult, IntakeSink, RawEvent, ServiceGraphObserver,
     },
     masking::{Masker, MaskingProvider},
     metrics::MetricDirectory,
@@ -398,8 +397,6 @@ impl IntakeService {
                 .collect::<Result<Vec<_>>>()?,
         };
 
-        let mut errors: Vec<IntakeError> = Vec::new();
-
         // 1) 写入即脱敏（pattern 驱动）：实时流水线产出的字段也会被脱敏。无规则 → no-op。
         if let Some(masking) = &self.masking {
             let masker = masking.intake_masker(&batch.org_id).await?;
@@ -428,27 +425,24 @@ impl IntakeService {
             metrics::name_samples(&batch.stream, &mut batch.events);
         }
 
-        // 2) 类型冲突先在内存里剔除
-        let mut collected_bytes = 0_u64;
-        let mut kept: Vec<RawEvent> = Vec::with_capacity(batch.events.len());
+        // 2) 类型校验与 schema 演化：整型字段遇到浮点提升为 Float64，类型冲突的事件单条剔除，
+        // 新字段按数据流的索引规则定索引。
+        let admission = schema::admit(
+            &def.schema,
+            std::mem::take(&mut batch.events),
+            batch.stream_type,
+        );
 
-        for (idx, ev) in batch.events.drain(..).enumerate() {
-            match check_event_types(&def.schema, &ev) {
-                Ok(()) => {
-                    collected_bytes = collected_bytes.saturating_add(event_sizes[idx]);
-                    kept.push(ev);
-                }
-                Err(reason) => errors.push(IntakeError { index: idx, reason }),
-            }
-        }
+        let collected_bytes = admission.positions.iter().fold(0_u64, |total, &position| {
+            total.saturating_add(event_sizes[position])
+        });
 
-        let total_kept = kept.len();
-        batch.events = kept;
+        let total_kept = admission.events.len();
+        let errors = admission.errors;
 
-        // 3) schema 演化：新字段按数据流的索引规则定索引。
-        if let Some(mut new_schema) =
-            infer_schema_extension(&def.schema, &batch.events, batch.stream_type)
-        {
+        batch.events = admission.events;
+
+        if let Some(mut new_schema) = admission.schema {
             match self.streams.get_settings(&def.id).await {
                 Ok(settings) => {
                     apply_index_rules(&mut new_schema, def.schema.fields.len(), &settings);
@@ -1239,5 +1233,101 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(err.http_status_code(), 503);
+    }
+
+    fn metric_batch(events: Vec<RawEvent>) -> IntakeBatch {
+        IntakeBatch {
+            batch_id: Id::new(),
+            org_id: Id::from_string("org-1"),
+            stream: "host".into(),
+            stream_type: StreamType::METRICS,
+            events,
+            received_at: TimestampMicros::now(),
+        }
+    }
+
+    fn value_type(streams: &MemStreams) -> FieldType {
+        streams.0.lock()[0]
+            .schema
+            .fields
+            .iter()
+            .find(|field| field.name == "value")
+            .expect("value field")
+            .data_type
+    }
+
+    /// A metric stream whose `value` was first an integer takes the float points that follow: the
+    /// field becomes Float64 and nothing is refused.
+    #[tokio::test]
+    async fn float_points_after_integer_points_widen_the_value_field() {
+        let streams = Arc::new(MemStreams::default());
+        let sink = Arc::new(RecordingSink::default());
+        let svc = IntakeService::new(sink.clone(), streams.clone());
+
+        let first = svc
+            .intake(metric_batch(vec![ev(
+                json!({"metric_name": "procs", "value": 3}),
+            )]))
+            .await
+            .unwrap();
+
+        assert_eq!((first.accepted, first.rejected), (1, 0));
+        assert_eq!(value_type(&streams), FieldType::Int64);
+
+        let second = svc
+            .intake(metric_batch(vec![
+                ev(json!({"metric_name": "load1", "value": 0.42})),
+                ev(json!({"metric_name": "procs", "value": 4})),
+            ]))
+            .await
+            .unwrap();
+
+        assert_eq!((second.accepted, second.rejected), (2, 0));
+        assert_eq!(value_type(&streams), FieldType::Float64);
+
+        let batches = sink.batches.lock();
+        assert_eq!(batches[1].events[0].fields["value"], json!(0.42));
+    }
+
+    /// Integer points after float points fit the Float64 field as they are.
+    #[tokio::test]
+    async fn integer_points_after_float_points_fit_the_float_field() {
+        let streams = Arc::new(MemStreams::default());
+        let svc = IntakeService::new(Arc::new(RecordingSink::default()), streams.clone());
+
+        svc.intake(metric_batch(vec![ev(
+            json!({"metric_name": "load1", "value": 0.5}),
+        )]))
+        .await
+        .unwrap();
+
+        let result = svc
+            .intake(metric_batch(vec![ev(
+                json!({"metric_name": "procs", "value": 7}),
+            )]))
+            .await
+            .unwrap();
+
+        assert_eq!((result.accepted, result.rejected), (1, 0));
+        assert_eq!(value_type(&streams), FieldType::Float64);
+    }
+
+    /// The first batch of a new stream mixes integers and floats: the stream is created with a
+    /// Float64 `value`, and every point is kept.
+    #[tokio::test]
+    async fn a_first_batch_mixing_integers_and_floats_creates_a_float_field() {
+        let streams = Arc::new(MemStreams::default());
+        let svc = IntakeService::new(Arc::new(RecordingSink::default()), streams.clone());
+
+        let result = svc
+            .intake(metric_batch(vec![
+                ev(json!({"metric_name": "procs", "value": 3})),
+                ev(json!({"metric_name": "load1", "value": 0.42})),
+            ]))
+            .await
+            .unwrap();
+
+        assert_eq!((result.accepted, result.rejected), (2, 0));
+        assert_eq!(value_type(&streams), FieldType::Float64);
     }
 }

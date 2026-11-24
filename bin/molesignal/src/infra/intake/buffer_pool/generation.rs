@@ -19,7 +19,7 @@ use domain::storage::{
 use kernel::time::TimeRange;
 
 use super::{ColumnBuilder, RecordBuilder};
-use crate::infra::storage::arrow_schema::TS_COL;
+use crate::infra::storage::arrow_schema::{TS_COL, widen_column};
 
 /// WAL sequence namespace carried by one buffer generation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -332,7 +332,7 @@ impl RecordBuilder {
     }
 }
 
-/// 把暂存的历史 batch 转换为当前 schema：缺的列整列补 null。
+/// 把暂存的历史 batch 转换为当前 schema：缺的列整列补 null，提升为 Float64 的整型列转成浮点。
 pub(crate) fn align_to_schema(
     batch: RecordBatch,
     target: &Arc<ArrowSchema>,
@@ -347,7 +347,10 @@ pub(crate) fn align_to_schema(
 
     for field in target.fields() {
         match source.index_of(field.name()) {
-            Ok(index) => columns.push(batch.column(index).clone()),
+            Ok(index) => columns.push(
+                widen_column(field.name(), batch.column(index), field.data_type())
+                    .map_err(|error| anyhow!("align pending batch to evolved schema: {error}"))?,
+            ),
             Err(_) => columns.push(new_null_array(field.data_type(), rows)),
         }
     }

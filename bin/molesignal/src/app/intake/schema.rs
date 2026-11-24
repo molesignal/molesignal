@@ -2,11 +2,15 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! Schema-on-write validation and evolution policy.
+//!
+//! A number column takes every number: an Int64 field that meets a value outside the i64 range or
+//! with a fraction becomes Float64 (see [`widen_numeric_fields`]), so no value is dropped or
+//! truncated. Files and buffers written while it was Int64 are read as Float64.
 
 use std::collections::{BTreeMap, HashSet};
 
 use domain::{
-    intake::{EVENT_ID_FIELD, RawEvent},
+    intake::{EVENT_ID_FIELD, IntakeError, RawEvent},
     stream::{FieldDef, FieldType, Schema, StreamIndexType, StreamSettings, StreamType},
 };
 use signals::trace::summary::TRACE_SUMMARY_MARKER_FIELD;
@@ -33,6 +37,107 @@ pub fn check_event_types(schema: &Schema, event: &RawEvent) -> std::result::Resu
     }
 
     Ok(())
+}
+
+/// A batch's events after the type check, and the schema they are written under.
+pub(crate) struct Admission {
+    /// The events that fit, in batch order.
+    pub events: Vec<RawEvent>,
+    /// The batch position of each kept event.
+    pub positions: Vec<usize>,
+    /// The events refused, by batch position.
+    pub errors: Vec<IntakeError>,
+    /// The evolved schema when the batch widened a number field or brought new fields.
+    pub schema: Option<Schema>,
+}
+
+/// Checks `events` against `schema` and evolves it: Int64 fields that receive other numbers are
+/// widened to Float64 first, then the events that still do not fit are refused, and the fields
+/// first seen in the kept events are added. A kept event whose value contradicts the type a new
+/// field took from an earlier event of the batch (a string after a number) is refused too.
+pub(crate) fn admit(schema: &Schema, events: Vec<RawEvent>, stream_type: StreamType) -> Admission {
+    let widened = widen_numeric_fields(schema, &events);
+    let checked = widened.as_ref().unwrap_or(schema);
+
+    let mut errors = Vec::new();
+    let mut kept = Vec::with_capacity(events.len());
+    let mut positions = Vec::with_capacity(events.len());
+
+    for (index, event) in events.into_iter().enumerate() {
+        match check_event_types(checked, &event) {
+            Ok(()) => {
+                kept.push(event);
+                positions.push(index);
+            }
+            Err(reason) => errors.push(IntakeError { index, reason }),
+        }
+    }
+
+    let extended = infer_schema_extension(checked, &kept, stream_type);
+
+    // The new fields typed by the first value of the batch: later values of another kind are
+    // refused here rather than failing the whole batch when it becomes columns.
+    if let Some(extended) = &extended {
+        let mut fitting = Vec::with_capacity(kept.len());
+        let mut fitting_positions = Vec::with_capacity(kept.len());
+
+        for (event, position) in kept.into_iter().zip(positions) {
+            match check_event_types(extended, &event) {
+                Ok(()) => {
+                    fitting.push(event);
+                    fitting_positions.push(position);
+                }
+                Err(reason) => errors.push(IntakeError {
+                    index: position,
+                    reason,
+                }),
+            }
+        }
+
+        kept = fitting;
+        positions = fitting_positions;
+        errors.sort_by_key(|error| error.index);
+    }
+
+    Admission {
+        events: kept,
+        positions,
+        errors,
+        schema: extended.or(widened),
+    }
+}
+
+/// `schema` with its Int64 fields widened to Float64 where an event gives them a number that is
+/// not an i64: a fraction, or an integer above `i64::MAX`. `None` when no field widens.
+fn widen_numeric_fields(schema: &Schema, events: &[RawEvent]) -> Option<Schema> {
+    let mut widened: Option<Schema> = None;
+
+    for (position, field) in schema.fields.iter().enumerate() {
+        if field.data_type != FieldType::Int64 {
+            continue;
+        }
+
+        let widens = events.iter().any(|event| {
+            event
+                .fields
+                .get(&field.name)
+                .is_some_and(|value| widens_int(FieldType::Int64, value))
+        });
+
+        if widens {
+            widened.get_or_insert_with(|| schema.clone()).fields[position].data_type =
+                FieldType::Float64;
+        }
+    }
+
+    widened
+}
+
+/// Whether `value` turns a field of `field_type` into Float64: an Int64 field and a number that is
+/// not an i64.
+fn widens_int(field_type: FieldType, value: &serde_json::Value) -> bool {
+    field_type == FieldType::Int64
+        && matches!(value, serde_json::Value::Number(number) if !number.is_i64())
 }
 
 /// Return the automatic index policy for newly discovered fields.
@@ -105,7 +210,9 @@ pub fn apply_index_rules(schema: &mut Schema, known: usize, settings: &StreamSet
 
 /// Extend a schema with fields first observed in `events`.
 ///
-/// The inferred fields are nullable because earlier rows in the stream do not contain them.
+/// The inferred fields are nullable because earlier rows in the stream do not contain them. A field
+/// takes the type of its first value, except that a field first seen as Int64 is Float64 when a
+/// later value is a number that is not an i64.
 pub fn infer_schema_extension(
     schema: &Schema,
     events: &[RawEvent],
@@ -121,11 +228,19 @@ pub fn infer_schema_extension(
 
     for event in events {
         for (name, value) in &event.fields {
-            if known.contains(name.as_str()) || new_fields.contains_key(name) {
+            if known.contains(name.as_str()) {
                 continue;
             }
 
-            new_fields.insert(name.clone(), guess_field_type(value));
+            match new_fields.get_mut(name) {
+                Some(field_type) if widens_int(*field_type, value) => {
+                    *field_type = FieldType::Float64;
+                }
+                Some(_) => {}
+                None => {
+                    new_fields.insert(name.clone(), guess_field_type(value));
+                }
+            }
         }
     }
 
@@ -291,5 +406,154 @@ mod tests {
         assert_eq!(index_of("order_id"), StreamIndexType::Exact);
         assert_eq!(index_of("client_ip"), StreamIndexType::Ip);
         assert_eq!(index_of("note"), StreamIndexType::None);
+    }
+
+    fn number_field(name: &str, data_type: FieldType) -> FieldDef {
+        FieldDef {
+            name: name.into(),
+            data_type,
+            nullable: true,
+            index_type: StreamIndexType::None,
+            encrypted: false,
+        }
+    }
+
+    fn event(fields: serde_json::Value) -> RawEvent {
+        RawEvent {
+            timestamp: kernel::time::TimestampMicros(1),
+            fields: fields.as_object().unwrap().clone(),
+        }
+    }
+
+    fn type_of(schema: &Schema, name: &str) -> FieldType {
+        schema
+            .fields
+            .iter()
+            .find(|field| field.name == name)
+            .unwrap()
+            .data_type
+    }
+
+    /// Integer first, float after: the Int64 field becomes Float64 and the float is kept.
+    #[test]
+    fn a_float_after_integers_widens_the_field() {
+        let schema = Schema {
+            fields: vec![number_field("value", FieldType::Int64)],
+        };
+
+        let admission = admit(
+            &schema,
+            vec![event(serde_json::json!({"value": 1.5}))],
+            StreamType::METRICS,
+        );
+
+        assert!(admission.errors.is_empty());
+        assert_eq!(admission.positions, [0]);
+
+        let evolved = admission.schema.expect("widened schema");
+        assert_eq!(type_of(&evolved, "value"), FieldType::Float64);
+        assert_eq!(evolved.fields[0].index_type, schema.fields[0].index_type);
+    }
+
+    /// Float first, integer after: the integer fits the Float64 field and the schema stays.
+    #[test]
+    fn an_integer_after_floats_fits_the_float_field() {
+        let schema = Schema {
+            fields: vec![number_field("value", FieldType::Float64)],
+        };
+
+        let admission = admit(
+            &schema,
+            vec![event(serde_json::json!({"value": 2}))],
+            StreamType::METRICS,
+        );
+
+        assert!(admission.errors.is_empty());
+        assert_eq!(admission.events.len(), 1);
+        assert!(admission.schema.is_none());
+    }
+
+    /// Integers and floats in one batch: a new field and a known Int64 field both become Float64,
+    /// whichever comes first, and every event is kept.
+    #[test]
+    fn integers_and_floats_in_one_batch_make_a_float_field() {
+        let schema = Schema {
+            fields: vec![number_field("known", FieldType::Int64)],
+        };
+
+        let events = vec![
+            event(serde_json::json!({"known": 1, "fresh": 3})),
+            event(serde_json::json!({"known": 2.5, "fresh": 0.25})),
+            event(serde_json::json!({"known": 4, "fresh": 5})),
+        ];
+
+        let admission = admit(&schema, events, StreamType::METRICS);
+
+        assert!(admission.errors.is_empty());
+        assert_eq!(admission.positions, [0, 1, 2]);
+
+        let evolved = admission.schema.expect("evolved schema");
+        assert_eq!(type_of(&evolved, "known"), FieldType::Float64);
+        assert_eq!(type_of(&evolved, "fresh"), FieldType::Float64);
+
+        let empty = Schema { fields: vec![] };
+        let created = infer_schema_extension(
+            &empty,
+            &[
+                event(serde_json::json!({"value": 3})),
+                event(serde_json::json!({"value": 0.42})),
+            ],
+            StreamType::METRICS,
+        )
+        .unwrap();
+
+        assert_eq!(type_of(&created, "value"), FieldType::Float64);
+    }
+
+    /// An integer above `i64::MAX` cannot be an Int64 either: the field widens.
+    #[test]
+    fn an_integer_above_the_i64_range_widens_the_field() {
+        let schema = Schema {
+            fields: vec![number_field("count", FieldType::Int64)],
+        };
+
+        let admission = admit(
+            &schema,
+            vec![event(serde_json::json!({"count": u64::MAX}))],
+            StreamType::METRICS,
+        );
+
+        assert!(admission.errors.is_empty());
+        assert_eq!(
+            type_of(&admission.schema.unwrap(), "count"),
+            FieldType::Float64
+        );
+    }
+
+    /// What cannot be widened is refused and reported by position, not written or dropped
+    /// silently: a string in a number field, and a string after a number in a new field.
+    #[test]
+    fn values_that_cannot_widen_are_refused_by_position() {
+        let schema = Schema {
+            fields: vec![number_field("value", FieldType::Int64)],
+        };
+
+        let events = vec![
+            event(serde_json::json!({"value": "high"})),
+            event(serde_json::json!({"value": 1, "code": 200})),
+            event(serde_json::json!({"value": 2, "code": "OK"})),
+            event(serde_json::json!({"value": 3})),
+        ];
+
+        let admission = admit(&schema, events, StreamType::LOGS);
+
+        let refused: Vec<usize> = admission.errors.iter().map(|error| error.index).collect();
+        assert_eq!(refused, [0, 2]);
+        assert!(admission.errors[1].reason.contains("`code`"));
+        assert_eq!(admission.positions, [1, 3]);
+
+        let evolved = admission.schema.expect("extended schema");
+        assert_eq!(type_of(&evolved, "value"), FieldType::Int64);
+        assert_eq!(type_of(&evolved, "code"), FieldType::Int64);
     }
 }

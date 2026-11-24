@@ -9,6 +9,8 @@
 //!   deciding which;
 //! - a field the schema lacks takes the type of its first value in a kept row (`Json` when that
 //!   value is null); a later value of another type rejects its row;
+//! - an Int64 field, known or new, becomes Float64 at the first number it cannot hold (a fraction,
+//!   or an integer above `i64::MAX`), its earlier values converted;
 //! - `_timestamp` is taken out of the row (now, when it is not an integer), and `_event_id` is the
 //!   batch id and the row's position in the body, whatever the row says;
 //! - string values are masked when the organization masks at write time;
@@ -26,7 +28,7 @@
 mod data;
 
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Write as _,
     sync::Arc,
 };
@@ -35,7 +37,7 @@ use arrow::{
     array::{ArrayRef, RecordBatch, TimestampMicrosecondBuilder},
     datatypes::{Field, Schema as ArrowSchema},
 };
-use data::{Data, guess, mismatch, timestamp_type};
+use data::{Data, guess, mismatch, timestamp_type, widens};
 use domain::{
     intake::{EVENT_ID_FIELD, IntakeError, RawEvent, usage::source::UNNAMED_SERVICE},
     masking::Masker,
@@ -67,8 +69,11 @@ pub(crate) struct Options<'a> {
 pub(crate) struct Decoded {
     /// `_timestamp`, then the schema's fields in order, then the new fields by name.
     pub columns: RecordBatch,
-    /// Fields the schema lacks, with the type their first kept value gave them.
+    /// Fields the schema lacks, with the type their first kept value gave them: Float64 for one
+    /// first seen as Int64 that a later kept value widened.
     pub new_fields: BTreeMap<String, FieldType>,
+    /// Int64 fields of the schema that a kept value widened to Float64; their column is Float64.
+    pub widened: BTreeSet<String>,
     /// Rejected rows, by their position in the body.
     pub errors: Vec<IntakeError>,
     /// Usage bytes of the kept rows.
@@ -133,6 +138,7 @@ struct Decoder<'a> {
     timestamps: TimestampMicrosecondBuilder,
     kept: usize,
     errors: Vec<IntakeError>,
+    widened: BTreeSet<String>,
     collected_bytes: u64,
     services: ServiceTally,
     batch_id: &'a Id,
@@ -203,6 +209,7 @@ impl<'a> Decoder<'a> {
             timestamps: TimestampMicrosecondBuilder::new(),
             kept: 0,
             errors: Vec::new(),
+            widened: BTreeSet::new(),
             collected_bytes: 0,
             services: ServiceTally::default(),
             batch_id,
@@ -382,16 +389,32 @@ impl<'a> Decoder<'a> {
     fn keep(&mut self, index: usize, timestamp: i64, staged: &Staged<'_, '_>) {
         for &column in &staged.touched {
             let info = &mut self.columns[column];
+            let Some((value, _)) = &staged.values[column] else {
+                continue;
+            };
 
-            if info.field_type.is_none()
-                && let Some((value, _)) = &staged.values[column]
-            {
-                let field_type = guess(value);
-                let mut data = Data::new(field_type, false);
+            match info.field_type {
+                None => {
+                    let field_type = guess(value);
+                    let mut data = Data::new(field_type, false);
 
-                data.append_nulls(self.kept);
-                info.field_type = Some(field_type);
-                info.data = Some(data);
+                    data.append_nulls(self.kept);
+                    info.field_type = Some(field_type);
+                    info.data = Some(data);
+                }
+                // A number an Int64 column cannot hold makes it Float64, rows so far included.
+                Some(field_type) if widens(field_type, value) => {
+                    info.field_type = Some(FieldType::Float64);
+
+                    if let Some(data) = info.data.as_mut() {
+                        data.widen();
+                    }
+
+                    if info.known {
+                        self.widened.insert(info.name.clone());
+                    }
+                }
+                Some(_) => {}
             }
         }
 
@@ -471,6 +494,7 @@ impl<'a> Decoder<'a> {
         Ok(Decoded {
             columns,
             new_fields,
+            widened: self.widened,
             errors: self.errors,
             collected_bytes: self.collected_bytes,
             services: self.services,
