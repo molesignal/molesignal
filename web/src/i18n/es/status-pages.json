@@ -7,18 +7,18 @@
   "list": {
     "under_way_one": "{{count}} en curso",
     "under_way_other": "{{count}} en curso",
+    "under_way_many": "{{count}} en curso",
     "scheduled_one": "{{count}} programado",
     "scheduled_other": "{{count}} programados",
+    "scheduled_many": "{{count}} programados",
     "nothing_under_way": "Nada en curso",
     "components_one": "{{count}} componente",
     "components_other": "{{count}} componentes",
+    "components_many": "{{count}} componentes",
     "no_components": "Aún no hay componentes",
     "state_unavailable": "No se pudo consultar el estado de esta página.",
     "archived_on": "Archivada el {{date}}",
-    "removed_after": "se eliminará definitivamente después del {{date}}",
-    "under_way_many": "{{count}} en curso",
-    "scheduled_many": "{{count}} programados",
-    "components_many": "{{count}} componentes"
+    "removed_after": "se eliminará definitivamente después del {{date}}"
   },
   "first_run": {
     "title": "Informa a tus clientes sobre el estado del servicio antes de que pregunten",
@@ -43,25 +43,25 @@
     "seen_now": "Lo que ven tus clientes ahora",
     "events_under_way_one": "{{count}} evento en curso",
     "events_under_way_other": "{{count}} eventos en curso",
+    "events_under_way_many": "{{count}} eventos en curso",
     "maintenance_scheduled_one": "{{count}} mantenimiento programado",
     "maintenance_scheduled_other": "{{count}} mantenimientos programados",
+    "maintenance_scheduled_many": "{{count}} mantenimientos programados",
     "nothing_going_on": "No hay nada en curso ni programado",
     "last_change": "último cambio: {{time}}",
     "components_on_page_one": "{{count}} componente en la página",
     "components_on_page_other": "{{count}} componentes en la página",
+    "components_on_page_many": "{{count}} componentes en la página",
     "under_way": "En curso",
     "not_operational": "No operativo",
     "hidden_components_one": "{{count}} componente oculto no aparece en la página pública.",
     "hidden_components_other": "{{count}} componentes ocultos no aparecen en la página pública.",
+    "hidden_components_many": "{{count}} componentes ocultos no aparecen en la página pública.",
     "started": "inicio: {{when}}",
     "planned_for": "programado para el {{date}}, {{when}}",
     "lately": "Actividad reciente",
     "ended": "fin: {{when}}",
-    "lasted": "duró {{duration}}",
-    "events_under_way_many": "{{count}} eventos en curso",
-    "maintenance_scheduled_many": "{{count}} mantenimientos programados",
-    "components_on_page_many": "{{count}} componentes en la página",
-    "hidden_components_many": "{{count}} componentes ocultos no aparecen en la página pública."
+    "lasted": "duró {{duration}}"
   },
   "tabs": {
     "label": "Espacio de trabajo de la página de estado",
@@ -203,6 +203,7 @@
     "default_domain": "Dominio de MoleSignal",
     "days_one": "{{count}} día",
     "days_other": "{{count}} días",
+    "days_many": "{{count}} días",
     "no_description": "Sin descripción",
     "none": "Ninguno",
     "never": "Nunca",
@@ -212,18 +213,17 @@
     "duration_hours_minutes": "{{hours}} hr {{minutes}} min",
     "duration_hours_one": "{{count}} hr",
     "duration_hours_other": "{{count}} hr",
+    "duration_hours_many": "{{count}} hr",
     "duration_minutes_one": "{{count}} min",
     "duration_minutes_other": "{{count}} min",
+    "duration_minutes_many": "{{count}} min",
     "any": "Cualquiera",
     "next_update_by": "Próxima actualización a más tardar a las {{time}}",
     "not_notified": "No se notificó a los suscriptores",
     "group_components_one": "{{count}} componente",
     "group_components_other": "{{count}} componentes",
-    "empty_group": "Grupo vacío",
-    "days_many": "{{count}} días",
-    "duration_hours_many": "{{count}} hr",
-    "duration_minutes_many": "{{count}} min",
-    "group_components_many": "{{count}} componentes"
+    "group_components_many": "{{count}} componentes",
+    "empty_group": "Grupo vacío"
   },
   "sections": {
     "components": "Componentes",
@@ -326,12 +326,12 @@
       "next_update_none": "Sin compromiso de plazo",
       "next_update_minutes_one": "En un máximo de {{count}} minuto",
       "next_update_minutes_other": "En un máximo de {{count}} minutos",
+      "next_update_minutes_many": "En un máximo de {{count}} minutos",
       "next_update_hours_one": "En un máximo de {{count}} hora",
       "next_update_hours_other": "En un máximo de {{count}} horas",
+      "next_update_hours_many": "En un máximo de {{count}} horas",
       "notify_hint": "Los suscriptores reciben un correo electrónico, un webhook o un mensaje de Slack.",
-      "silent_hint": "Solo se modifica la página y no se envía ninguna notificación. Útil para corregir el texto.",
-      "next_update_minutes_many": "En un máximo de {{count}} minutos",
-      "next_update_hours_many": "En un máximo de {{count}} horas"
+      "silent_hint": "Solo se modifica la página y no se envía ninguna notificación. Útil para corregir el texto."
     },
     "event": {
       "new_incident": "Crear incidente",
@@ -413,9 +413,9 @@
     "postmortem_delete": "Borrador del análisis post mortem eliminado",
     "subscribers_imported_one": "{{count}} suscriptor importado",
     "subscribers_imported_other": "{{count}} suscriptores importados",
+    "subscribers_imported_many": "{{count}} suscriptores importados",
     "slack_app_on": "Los visitantes pueden agregar la página a Slack",
-    "slack_app_off": "La opción «Agregar a Slack» está desactivada",
-    "subscribers_imported_many": "{{count}} suscriptores importados"
+    "slack_app_off": "La opción «Agregar a Slack» está desactivada"
   },
   "confirm": {
     "delete_page_title": "¿Eliminar la página de estado?",
@@ -532,14 +532,14 @@
       "problems_first": "No se importaron {{count}} filas. Las primeras {{shown}}:",
       "problems_all_one": "No se importó {{count}} fila:",
       "problems_all_other": "No se importaron {{count}} filas:",
+      "problems_all_many": "No se importaron {{count}} filas:",
       "line": "Línea {{line}}",
       "reasons": {
         "missing_email": "Falta la dirección de correo electrónico",
         "invalid_email": "Dirección de correo electrónico no válida",
         "duplicate_email": "La dirección ya aparece en una fila anterior del archivo",
         "unknown_component": "No hay ningún componente con ese nombre en la página"
-      },
-      "problems_all_many": "No se importaron {{count}} filas:"
+      }
     }
   },
   "settings": {
@@ -607,10 +607,10 @@
     "rules": {
       "count_one": "{{count}} regla en orden de prioridad",
       "count_other": "{{count}} reglas en orden de prioridad",
+      "count_many": "{{count}} reglas en orden de prioridad",
       "empty": "Todavía no hay reglas de automatización. Se aplica la primera regla que cumpla todas las condiciones.",
       "delay_one": "Retraso de {{count}} minuto",
       "delay_other": "Retraso de {{count}} minutos",
-      "count_many": "{{count}} reglas en orden de prioridad",
       "delay_many": "Retraso de {{count}} minutos"
     },
     "actions": {
@@ -809,18 +809,18 @@
       "latest_update": "Última actualización",
       "all_updates_one": "Leer la actualización",
       "all_updates_other": "Leer las {{count}} actualizaciones",
-      "next_update": "Próxima actualización a más tardar a las {{time}}",
-      "all_updates_many": "Leer las {{count}} actualizaciones"
+      "all_updates_many": "Leer las {{count}} actualizaciones",
+      "next_update": "Próxima actualización a más tardar a las {{time}}"
     },
     "past": {
       "title": "Incidentes anteriores",
       "period_one": "Último {{count}} día",
       "period_other": "Últimos {{count}} días",
+      "period_many": "Últimos {{count}} días",
       "empty_one": "No se registraron incidentes en el último {{count}} día.",
       "empty_other": "No se registraron incidentes en los últimos {{count}} días.",
-      "history_link": "Historial completo de incidentes",
-      "period_many": "Últimos {{count}} días",
-      "empty_many": "No se registraron incidentes en los últimos {{count}} días."
+      "empty_many": "No se registraron incidentes en los últimos {{count}} días.",
+      "history_link": "Historial completo de incidentes"
     },
     "no_components": "No se ha publicado ningún componente del servicio.",
     "component_description": "Acerca de {{name}}",
@@ -885,24 +885,24 @@
       "history_title": "Historial de incidentes",
       "history_description_one": "Incidentes y mantenimientos que finalizaron en el último {{count}} día, del más reciente al más antiguo.",
       "history_description_other": "Incidentes y mantenimientos que finalizaron en los últimos {{count}} días, del más reciente al más antiguo.",
+      "history_description_many": "Incidentes y mantenimientos que finalizaron en los últimos {{count}} días, del más reciente al más antiguo.",
       "incident_count_one": "{{count}} evento",
       "incident_count_other": "{{count}} eventos",
+      "incident_count_many": "{{count}} eventos",
       "show_all_incidents_one": "Mostrar {{count}} evento",
       "show_all_incidents_other": "Mostrar los {{count}} eventos",
+      "show_all_incidents_many": "Mostrar los {{count}} eventos",
       "show_fewer_incidents": "Mostrar menos",
       "no_incidents_in_month": "No se reportaron incidentes este mes.",
       "uptime_title": "Historial de disponibilidad",
       "uptime_description": "Se muestra un componente a la vez. Cada cuadro representa un día. El mantenimiento programado no reduce la disponibilidad.",
       "window_uptime_one": "{{value}}% de disponibilidad en el último {{count}} día",
       "window_uptime_other": "{{value}}% de disponibilidad en los últimos {{count}} días",
+      "window_uptime_many": "{{value}}% de disponibilidad en los últimos {{count}} días",
       "component_label": "Componente",
       "no_uptime_components": "No se han publicado componentes del servicio.",
       "month_uptime": "{{value}}% de disponibilidad",
-      "uptime_day_label": "{{date}}: {{status}}",
-      "history_description_many": "Incidentes y mantenimientos que finalizaron en los últimos {{count}} días, del más reciente al más antiguo.",
-      "incident_count_many": "{{count}} eventos",
-      "show_all_incidents_many": "Mostrar los {{count}} eventos",
-      "window_uptime_many": "{{value}}% de disponibilidad en los últimos {{count}} días"
+      "uptime_day_label": "{{date}}: {{status}}"
     },
     "uptime": {
       "period": "Últimos 90 días · sin contar el mantenimiento",
@@ -994,9 +994,9 @@
     "health": "Estado de las dependencias",
     "open_incidents_one": "{{count}} incidente de alerta abierto",
     "open_incidents_other": "{{count}} incidentes de alerta abiertos",
+    "open_incidents_many": "{{count}} incidentes de alerta abiertos",
     "count_one": "{{count}} dependencia",
     "count_other": "{{count}} dependencias",
-    "open_incidents_many": "{{count}} incidentes de alerta abiertos",
     "count_many": "{{count}} dependencias"
   },
   "component_kind": {

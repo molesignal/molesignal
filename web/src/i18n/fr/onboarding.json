@@ -58,6 +58,7 @@
     "unavailable": "Impossible de charger",
     "quick_start_one": "{{count}} étape de configuration restante",
     "quick_start_other": "{{count}} étapes de configuration restantes",
+    "quick_start_many": "{{count}} étapes de configuration restantes",
     "refresh": "Actualiser",
     "window": {
       "label": "Plage horaire",
@@ -72,8 +73,8 @@
       "nothing": "Votre rôle ne vous permet de consulter l’état d’aucun système.",
       "issues_one": "{{count}} problème",
       "issues_other": "{{count}} problèmes",
-      "updated": "Mise à jour : {{time}}",
-      "issues_many": "{{count}} problèmes"
+      "issues_many": "{{count}} problèmes",
+      "updated": "Mise à jour : {{time}}"
     },
     "signal": {
       "logs": "Journaux",
@@ -179,8 +180,7 @@
       "unavailable": "Impossible de charger les plannings",
       "gap": "Personne n’est d’astreinte pour {{schedule}} en ce moment.",
       "arrange": "Attribuer l’astreinte"
-    },
-    "quick_start_many": "{{count}} étapes de configuration restantes"
+    }
   },
   "datasource": {
     "endpoint": "Point de terminaison",

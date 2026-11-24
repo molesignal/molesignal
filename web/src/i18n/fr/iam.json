@@ -130,8 +130,8 @@
     },
     "bulk_disable_title_one": "Désactiver {{count}} utilisateur ?",
     "bulk_disable_title_other": "Désactiver {{count}} utilisateurs ?",
-    "bulk_disable_description": "Les utilisateurs concernés ne pourront plus se connecter. Leurs affiliations et leurs paramètres seront conservés.",
-    "bulk_disable_title_many": "Désactiver {{count}} utilisateurs ?"
+    "bulk_disable_title_many": "Désactiver {{count}} utilisateurs ?",
+    "bulk_disable_description": "Les utilisateurs concernés ne pourront plus se connecter. Leurs affiliations et leurs paramètres seront conservés."
   },
   "approvals": {
     "title": "Approbations",
@@ -484,12 +484,12 @@
   "permission_summary": {
     "all_one": "Toutes les autorisations ({{count}})",
     "all_other": "Les {{count}} autorisations",
+    "all_many": "Les {{count}} autorisations",
     "all_organization_one": "Toutes les autorisations de l’organisation ({{count}})",
     "all_organization_other": "Les {{count}} autorisations de l’organisation",
+    "all_organization_many": "Les {{count}} autorisations de l’organisation",
     "all_platform_one": "Toutes les autorisations de la plateforme ({{count}})",
     "all_platform_other": "Les {{count}} autorisations de la plateforme",
-    "all_many": "Les {{count}} autorisations",
-    "all_organization_many": "Les {{count}} autorisations de l’organisation",
     "all_platform_many": "Les {{count}} autorisations de la plateforme"
   },
   "permissions": {
@@ -1143,9 +1143,9 @@
     "no_policies": "Aucune politique de permissions pour le moment.",
     "policy_permission_count_one": "{{count}} permission",
     "policy_permission_count_other": "{{count}} permissions",
+    "policy_permission_count_many": "{{count}} permissions",
     "policies_more_one": "{{shown}} et {{count}} autre",
     "policies_more_other": "{{shown}} et {{count}} autres",
-    "policy_permission_count_many": "{{count}} permissions",
     "policies_more_many": "{{shown}} et {{count}} autres"
   },
   "policies": {
@@ -1164,8 +1164,10 @@
     "type_custom": "Personnalisée",
     "usage_roles_one": "{{count}} rôle",
     "usage_roles_other": "{{count}} rôles",
+    "usage_roles_many": "{{count}} rôles",
     "usage_tokens_one": "{{count}} jeton",
     "usage_tokens_other": "{{count}} jetons",
+    "usage_tokens_many": "{{count}} jetons",
     "view_policy": "Afficher {{name}}",
     "edit_policy": "Modifier {{name}}",
     "copy_policy": "Copier {{name}}",
@@ -1212,6 +1214,7 @@
     "visual_needs_valid_json": "Corrigez le document pour pouvoir cocher des autorisations : {{problem}}",
     "allows_one": "Accorde {{count}} autorisation",
     "allows_other": "Accorde {{count}} autorisations",
+    "allows_many": "Accorde {{count}} autorisations",
     "allows_none": "N’accorde encore aucune autorisation",
     "allow_one": "Accordez au moins une autorisation avant d’enregistrer.",
     "problems": {
@@ -1253,10 +1256,7 @@
         "name": "Ingestion de données",
         "description": "Écrit des journaux, des métriques, des traces et d’autres données, et signale les déploiements et les modifications."
       }
-    },
-    "usage_roles_many": "{{count}} rôles",
-    "usage_tokens_many": "{{count}} jetons",
-    "allows_many": "Accorde {{count}} autorisations"
+    }
   },
   "invitations": {
     "title": "Invitations en attente",

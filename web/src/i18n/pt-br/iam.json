@@ -130,8 +130,8 @@
     },
     "bulk_disable_title_one": "Desativar {{count}} usuário?",
     "bulk_disable_title_other": "Desativar {{count}} usuários?",
-    "bulk_disable_description": "Os usuários não poderão mais entrar. Os vínculos e as configurações serão mantidos.",
-    "bulk_disable_title_many": "Desativar {{count}} usuários?"
+    "bulk_disable_title_many": "Desativar {{count}} usuários?",
+    "bulk_disable_description": "Os usuários não poderão mais entrar. Os vínculos e as configurações serão mantidos."
   },
   "approvals": {
     "title": "Aprovações",
@@ -484,12 +484,12 @@
   "permission_summary": {
     "all_one": "Todas as permissões ({{count}})",
     "all_other": "Todas as {{count}} permissões",
+    "all_many": "Todas as {{count}} permissões",
     "all_organization_one": "Todas as permissões da organização ({{count}})",
     "all_organization_other": "Todas as {{count}} permissões da organização",
+    "all_organization_many": "Todas as {{count}} permissões da organização",
     "all_platform_one": "Todas as permissões da plataforma ({{count}})",
     "all_platform_other": "Todas as {{count}} permissões da plataforma",
-    "all_many": "Todas as {{count}} permissões",
-    "all_organization_many": "Todas as {{count}} permissões da organização",
     "all_platform_many": "Todas as {{count}} permissões da plataforma"
   },
   "permissions": {
@@ -1143,9 +1143,9 @@
     "no_policies": "Ainda não há políticas de permissão.",
     "policy_permission_count_one": "{{count}} permissão",
     "policy_permission_count_other": "{{count}} permissões",
+    "policy_permission_count_many": "{{count}} permissões",
     "policies_more_one": "{{shown}} e mais {{count}}",
     "policies_more_other": "{{shown}} e mais {{count}}",
-    "policy_permission_count_many": "{{count}} permissões",
     "policies_more_many": "{{shown}} e mais {{count}}"
   },
   "policies": {
@@ -1164,8 +1164,10 @@
     "type_custom": "Personalizada",
     "usage_roles_one": "{{count}} função",
     "usage_roles_other": "{{count}} funções",
+    "usage_roles_many": "{{count}} funções",
     "usage_tokens_one": "{{count}} token",
     "usage_tokens_other": "{{count}} tokens",
+    "usage_tokens_many": "{{count}} tokens",
     "view_policy": "Visualizar {{name}}",
     "edit_policy": "Editar {{name}}",
     "copy_policy": "Copiar {{name}}",
@@ -1212,6 +1214,7 @@
     "visual_needs_valid_json": "Corrija o documento para marcar as permissões: {{problem}}",
     "allows_one": "Concede {{count}} permissão",
     "allows_other": "Concede {{count}} permissões",
+    "allows_many": "Concede {{count}} permissões",
     "allows_none": "Ainda não concede nenhuma permissão",
     "allow_one": "Conceda pelo menos uma permissão antes de salvar.",
     "problems": {
@@ -1253,10 +1256,7 @@
         "name": "Ingestão de dados",
         "description": "Grava logs, métricas, traces e outros dados e registra implantações e alterações."
       }
-    },
-    "usage_roles_many": "{{count}} funções",
-    "usage_tokens_many": "{{count}} tokens",
-    "allows_many": "Concede {{count}} permissões"
+    }
   },
   "invitations": {
     "title": "Convites pendentes",

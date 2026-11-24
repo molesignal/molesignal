@@ -58,6 +58,7 @@
     "unavailable": "No se pudo cargar",
     "quick_start_one": "Queda {{count}} paso de configuración",
     "quick_start_other": "Quedan {{count}} pasos de configuración",
+    "quick_start_many": "Quedan {{count}} pasos de configuración",
     "refresh": "Actualizar",
     "window": {
       "label": "Intervalo de tiempo",
@@ -72,8 +73,8 @@
       "nothing": "Tu rol no te permite ver el estado de ningún sistema.",
       "issues_one": "{{count}} problema",
       "issues_other": "{{count}} problemas",
-      "updated": "Actualizado {{time}}",
-      "issues_many": "{{count}} problemas"
+      "issues_many": "{{count}} problemas",
+      "updated": "Actualizado {{time}}"
     },
     "signal": {
       "logs": "Registros",
@@ -179,8 +180,7 @@
       "unavailable": "No se pudieron cargar los calendarios de guardia",
       "gap": "No hay nadie de guardia en {{schedule}} en este momento.",
       "arrange": "Asignar ahora"
-    },
-    "quick_start_many": "Quedan {{count}} pasos de configuración"
+    }
   },
   "datasource": {
     "endpoint": "Endpoint",

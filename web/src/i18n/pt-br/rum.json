@@ -60,12 +60,12 @@
       "aria": "Sessões e Core Web Vitals",
       "sessions_one": "<n>{{formatted}}</n> sessão",
       "sessions_other": "<n>{{formatted}}</n> sessões",
+      "sessions_many": "<n>{{formatted}}</n> sessões",
       "people_one": "<n>{{formatted}}</n> pessoa",
       "people_other": "<n>{{formatted}}</n> pessoas",
+      "people_many": "<n>{{formatted}}</n> pessoas",
       "browser": "<sessions/> de <people/>, e <n>{{share}}</n> das sessões não tiveram erros.",
-      "app": "<sessions/> de <people/>; <n>{{sessionShare}}</n> das sessões e <n>{{userShare}}</n> das pessoas não tiveram falhas do app.",
-      "sessions_many": "<n>{{formatted}}</n> sessões",
-      "people_many": "<n>{{formatted}}</n> pessoas"
+      "app": "<sessions/> de <people/>; <n>{{sessionShare}}</n> das sessões e <n>{{userShare}}</n> das pessoas não tiveram falhas do app."
     },
     "vitals": {
       "label": "{{name}} · p75",
@@ -106,8 +106,8 @@
       "map": "Mapa-múndi com a origem das sessões",
       "value_one": "{{formatted}} sessão",
       "value_other": "{{formatted}} sessões",
-      "legend": "Sessões",
-      "value_many": "{{formatted}} sessões"
+      "value_many": "{{formatted}} sessões",
+      "legend": "Sessões"
     },
     "shares": {
       "browsers": "Navegadores",
@@ -145,11 +145,11 @@
       "empty": "Nenhum problema novo ou recorrente neste período",
       "sessions_one": "{{formatted}} sessão",
       "sessions_other": "{{formatted}} sessões",
+      "sessions_many": "{{formatted}} sessões",
       "first_seen": "Detectado pela primeira vez {{ago}} · {{version}}",
       "first_seen_plain": "Detectado pela primeira vez {{ago}}",
       "regressed": "Resolvido na versão {{resolved}}, voltou na versão {{version}} {{ago}}",
-      "regressed_plain": "Resolvido, mas voltou {{ago}}",
-      "sessions_many": "{{formatted}} sessões"
+      "regressed_plain": "Resolvido, mas voltou {{ago}}"
     },
     "test_traffic": {
       "title": "Estes números refletem apenas o uso real: as sessões de verificações sintéticas e testes de CI não entram na contagem. Você pode consultá-las aqui.",
@@ -186,9 +186,9 @@
       "sentence": "<views/>. No 75º percentil, os valores são: LCP <lcp/>, INP <inp/> e CLS <cls/>.",
       "views_one": "<n>{{formatted}}</n> visualização de página",
       "views_other": "<n>{{formatted}}</n> visualizações de página",
+      "views_many": "<n>{{formatted}}</n> visualizações de página",
       "reading": "<figure>{{value}}</figure> (<grade>{{grade}}</grade>)",
-      "not_measured": "não medido",
-      "views_many": "<n>{{formatted}}</n> visualizações de página"
+      "not_measured": "não medido"
     },
     "picker": {
       "aria": "Nível exibido abaixo"
@@ -219,8 +219,10 @@
       "search_label": "Buscar valores na tabela",
       "count_one": "{{count}} valor",
       "count_other": "{{count}} valores",
+      "count_many": "{{count}} valores",
       "most_viewed_one": "O valor mais visualizado",
       "most_viewed_other": "Os {{count}} valores mais visualizados",
+      "most_viewed_many": "Os {{count}} valores mais visualizados",
       "few_note": "menos de {{views}} visualizações: em cinza",
       "views": "Visualizações",
       "good": "{{name}}: bom",
@@ -229,9 +231,7 @@
       "no_match": "Nenhum valor corresponde à busca",
       "aria": "Níveis por {{dimension}}",
       "open": "Ver o detalhamento das visualizações de {{value}}",
-      "few": "Menos de {{views}} visualizações: quantidade insuficiente para classificar",
-      "count_many": "{{count}} valores",
-      "most_viewed_many": "Os {{count}} valores mais visualizados"
+      "few": "Menos de {{views}} visualizações: quantidade insuficiente para classificar"
     },
     "drawer": {
       "title": "Onde essas visualizações são lentas",
@@ -241,10 +241,10 @@
       "close": "Fechar",
       "views_one": "{{formatted}} visualização",
       "views_other": "{{formatted}} visualizações",
+      "views_many": "{{formatted}} visualizações",
       "none": "Nenhuma visualização com esse valor registrou {{name}}.",
       "level": "{{name}} é <reading/> no 75º percentil, considerando <n>{{formatted}}</n> visualizações.",
-      "longest": "A etapa mais demorada é <n>{{part}}</n>: {{value}}, ou {{share}} do total.",
-      "views_many": "{{formatted}} visualizações"
+      "longest": "A etapa mais demorada é <n>{{part}}</n>: {{value}}, ou {{share}} do total."
     },
     "makeup": {
       "title": "Componentes de {{name}}",
@@ -307,11 +307,11 @@
         "aria": "Tarefas longas das páginas",
         "tasks_one": "<n>{{formatted}}</n> tarefa longa",
         "tasks_other": "<n>{{formatted}}</n> tarefas longas",
+        "tasks_many": "<n>{{formatted}}</n> tarefas longas",
         "sentence": "Na thread principal, houve <tasks/>, e <share>{{share}}</share> das visualizações de página tiveram pelo menos uma. No 75º percentil, uma tarefa longa durou <n>{{duration}}</n> e bloqueou a entrada do usuário por <n>{{blocking}}</n>.",
         "sentence_alone": "Na thread principal, houve <tasks/>. No 75º percentil, uma tarefa longa durou <n>{{duration}}</n> e bloqueou a entrada do usuário por <n>{{blocking}}</n>.",
         "sentence_share": "Na thread principal, houve <tasks/>, e <share>{{share}}</share> das visualizações de página tiveram pelo menos uma.",
-        "sentence_count": "Na thread principal, houve <tasks/>.",
-        "tasks_many": "<n>{{formatted}}</n> tarefas longas"
+        "sentence_count": "Na thread principal, houve <tasks/>."
       },
       "empty": {
         "title": "Nenhuma tarefa longa neste intervalo",
@@ -336,8 +336,10 @@
         "search_label": "Buscar scripts na tabela",
         "count_one": "{{count}} grupo",
         "count_other": "{{count}} grupos",
+        "count_many": "{{count}} grupos",
         "most_tasks_one": "O grupo com mais tarefas longas",
         "most_tasks_other": "Os {{count}} grupos com mais tarefas longas",
+        "most_tasks_many": "Os {{count}} grupos com mais tarefas longas",
         "few_note": "menos de {{tasks}} tarefas longas: cinza",
         "empty": "Nenhuma tarefa longa neste intervalo",
         "no_match": "Nenhum grupo corresponde à busca",
@@ -349,15 +351,14 @@
         "tasks": "Tarefas longas",
         "views": "Visualizações",
         "time": "Duração (p75)",
-        "blocking": "Tempo de bloqueio (p75)",
-        "count_many": "{{count}} grupos",
-        "most_tasks_many": "Os {{count}} grupos com mais tarefas longas"
+        "blocking": "Tempo de bloqueio (p75)"
       },
       "panel": {
         "aria": "Tarefas longas do grupo",
         "close": "Fechar",
         "tasks_one": "{{formatted}} tarefa longa",
         "tasks_other": "{{formatted}} tarefas longas",
+        "tasks_many": "{{formatted}} tarefas longas",
         "unattributed_note": "O Safari e o Firefox reportam tarefas longas sem identificar o script responsável. Também ficam sem atribuição as tarefas recebidas antes de o MoleSignal identificar o script. Todas elas entram na contagem.",
         "sentence": "No 75º percentil, as tarefas duraram <n>{{duration}}</n>, com <b>{{blocking}}</b> desse tempo bloqueando as interações do usuário.",
         "sentence_time": "No 75º percentil, as tarefas duraram <n>{{duration}}</n>.",
@@ -369,8 +370,7 @@
         "pages_empty": "Nenhuma página identificada",
         "samples": "Tarefas mais longas · cada uma abre os detalhes de carregamento da visualização correspondente",
         "samples_empty": "Nenhuma tarefa longa tem duração registrada",
-        "open_load": "Abrir os detalhes de carregamento da visualização de {{page}}",
-        "tasks_many": "{{formatted}} tarefas longas"
+        "open_load": "Abrir os detalhes de carregamento da visualização de {{page}}"
       }
     },
     "section": {
@@ -381,11 +381,11 @@
         "aria": "Requisições das páginas",
         "requests_one": "<n>{{formatted}}</n> requisição",
         "requests_other": "<n>{{formatted}}</n> requisições",
+        "requests_many": "<n>{{formatted}}</n> requisições",
         "sentence": "As páginas fizeram <requests/>. No 75º percentil, as requisições levaram <n>{{duration}}</n>, e <rate>{{rate}}</rate> falharam (com status de erro ou sem resposta).",
         "sentence_time": "As páginas fizeram <requests/>. No 75º percentil, as requisições levaram <n>{{duration}}</n>.",
         "sentence_count": "As páginas fizeram <requests/>.",
-        "per_view": "Em média, cada visualização de página solicitou <n>{{resources}}</n> recursos, somando <n>{{size}}</n>.",
-        "requests_many": "<n>{{formatted}}</n> requisições"
+        "per_view": "Em média, cada visualização de página solicitou <n>{{resources}}</n> recursos, somando <n>{{size}}</n>."
       },
       "empty": {
         "title": "Nenhuma requisição neste intervalo"
@@ -420,8 +420,10 @@
         "search_label": "Buscar nas requisições da tabela",
         "count_one": "{{count}} grupo",
         "count_other": "{{count}} grupos",
+        "count_many": "{{count}} grupos",
         "most_requested_one": "O grupo mais solicitado",
         "most_requested_other": "Os {{count}} grupos mais solicitados",
+        "most_requested_many": "Os {{count}} grupos mais solicitados",
         "few_note": "Menos de {{requests}} requisições: em cinza",
         "empty": "Nenhuma requisição neste intervalo",
         "no_match": "Nenhum grupo corresponde à busca",
@@ -433,15 +435,14 @@
         "time": "Tempo (p75)",
         "failed": "Falhas",
         "size": "Tamanho (p75)",
-        "cache": "Do cache",
-        "count_many": "{{count}} grupos",
-        "most_requested_many": "Os {{count}} grupos mais solicitados"
+        "cache": "Do cache"
       },
       "panel": {
         "aria": "Requisições do grupo",
         "close": "Fechar",
         "requests_one": "{{formatted}} requisição",
         "requests_other": "{{formatted}} requisições",
+        "requests_many": "{{formatted}} requisições",
         "sentence": "O tempo no 75º percentil foi de <n>{{duration}}</n>, e <rate>{{rate}}</rate> das requisições falharam.",
         "sentence_time": "O tempo no 75º percentil foi de <n>{{duration}}</n>.",
         "longest": "A etapa mais demorada é <n>{{part}}</n>: {{value}}.",
@@ -457,8 +458,7 @@
         "slowest_empty": "Nenhuma requisição registrou sua duração",
         "open_load": "Abrir o carregamento da visualização que fez a requisição {{path}}",
         "traced": "{{share}}% das requisições têm um ID de rastreamento",
-        "explore": "Ver requisições no explorador",
-        "requests_many": "{{formatted}} requisições"
+        "explore": "Ver requisições no explorador"
       }
     }
   },
@@ -473,31 +473,31 @@
       "sentence": "<share>{{share}}</share> das sessões apresentaram sinais de frustração: <kinds/>.",
       "sentence_count_one": "<n>{{sessions}}</n> sessão apresentou sinais de frustração: <kinds/>.",
       "sentence_count_other": "<n>{{sessions}}</n> sessões apresentaram sinais de frustração: <kinds/>.",
+      "sentence_count_many": "<n>{{sessions}}</n> sessões apresentaram sinais de frustração: <kinds/>.",
       "join": ", ",
       "sessions_one": "<n>{{formatted}}</n> sessão",
       "sessions_other": "<n>{{formatted}}</n> sessões",
+      "sessions_many": "<n>{{formatted}}</n> sessões",
       "kinds": {
         "rage_one": "<n>{{formatted}}</n> <k>clique repetido</k> (<sessions/>)",
         "rage_other": "<n>{{formatted}}</n> <k>cliques repetidos</k> (<sessions/>)",
+        "rage_many": "<n>{{formatted}}</n> <k>cliques repetidos</k> (<sessions/>)",
         "dead_one": "<n>{{formatted}}</n> <k>clique sem resposta</k> (<sessions/>)",
         "dead_other": "<n>{{formatted}}</n> <k>cliques sem resposta</k> (<sessions/>)",
+        "dead_many": "<n>{{formatted}}</n> <k>cliques sem resposta</k> (<sessions/>)",
         "error_one": "<n>{{formatted}}</n> <k>clique com erro</k> (<sessions/>)",
         "error_other": "<n>{{formatted}}</n> <k>cliques com erro</k> (<sessions/>)",
+        "error_many": "<n>{{formatted}}</n> <k>cliques com erro</k> (<sessions/>)",
         "rage_tap_one": "<n>{{formatted}}</n> <k>toque repetido</k> (<sessions/>)",
         "rage_tap_other": "<n>{{formatted}}</n> <k>toques repetidos</k> (<sessions/>)",
+        "rage_tap_many": "<n>{{formatted}}</n> <k>toques repetidos</k> (<sessions/>)",
         "dead_tap_one": "<n>{{formatted}}</n> <k>toque sem resposta</k> (<sessions/>)",
         "dead_tap_other": "<n>{{formatted}}</n> <k>toques sem resposta</k> (<sessions/>)",
+        "dead_tap_many": "<n>{{formatted}}</n> <k>toques sem resposta</k> (<sessions/>)",
         "error_tap_one": "<n>{{formatted}}</n> <k>toque com erro</k> (<sessions/>)",
         "error_tap_other": "<n>{{formatted}}</n> <k>toques com erro</k> (<sessions/>)",
-        "rage_many": "<n>{{formatted}}</n> <k>cliques repetidos</k> (<sessions/>)",
-        "dead_many": "<n>{{formatted}}</n> <k>cliques sem resposta</k> (<sessions/>)",
-        "error_many": "<n>{{formatted}}</n> <k>cliques com erro</k> (<sessions/>)",
-        "rage_tap_many": "<n>{{formatted}}</n> <k>toques repetidos</k> (<sessions/>)",
-        "dead_tap_many": "<n>{{formatted}}</n> <k>toques sem resposta</k> (<sessions/>)",
         "error_tap_many": "<n>{{formatted}}</n> <k>toques com erro</k> (<sessions/>)"
-      },
-      "sentence_count_many": "<n>{{sessions}}</n> sessões apresentaram sinais de frustração: <kinds/>.",
-      "sessions_many": "<n>{{formatted}}</n> sessões"
+      }
     },
     "groups": {
       "element": "Elemento",
@@ -515,8 +515,10 @@
       "search_label": "Buscar elementos ou páginas na tabela",
       "count_one": "{{count}} grupo",
       "count_other": "{{count}} grupos",
+      "count_many": "{{count}} grupos",
       "most_one": "O grupo que afeta mais sessões",
       "most_other": "Os {{count}} grupos que afetam mais sessões",
+      "most_many": "Os {{count}} grupos que afetam mais sessões",
       "empty": "Nenhum sinal de frustração neste período",
       "no_match": "Nenhum grupo encontrado",
       "aria": "Sinais de frustração por {{group}}",
@@ -524,15 +526,14 @@
       "none": "(nenhum)",
       "unnamed": "(sem nome)",
       "selector": "Seletor",
-      "sessions": "Sessões",
-      "count_many": "{{count}} grupos",
-      "most_many": "Os {{count}} grupos que afetam mais sessões"
+      "sessions": "Sessões"
     },
     "panel": {
       "aria": "Sinais de frustração do grupo",
       "close": "Fechar",
       "sentence_one": "<n>{{formatted}}</n> sessão apresentou sinais de frustração em {{noun}}.",
       "sentence_other": "<n>{{formatted}}</n> sessões apresentaram sinais de frustração em {{noun}}.",
+      "sentence_many": "<n>{{formatted}}</n> sessões apresentaram sinais de frustração em {{noun}}.",
       "page": "A maioria dos sinais ocorreu em <code>{{page}}</code>.",
       "trend": "Sessões afetadas",
       "trend_series": "Sessões afetadas",
@@ -562,8 +563,7 @@
         "version": "versão",
         "browser": "navegador",
         "system": "sistema"
-      },
-      "sentence_many": "<n>{{formatted}}</n> sessões apresentaram sinais de frustração em {{noun}}."
+      }
     }
   },
   "analytics": {
@@ -617,10 +617,13 @@
       "window_within": "Em até {{time}}",
       "minutes_one": "{{count}} minuto",
       "minutes_other": "{{count}} minutos",
+      "minutes_many": "{{count}} minutos",
       "hours_one": "{{count}} hora",
       "hours_other": "{{count}} horas",
+      "hours_many": "{{count}} horas",
       "days_one": "{{count}} dia",
       "days_other": "{{count}} dias",
+      "days_many": "{{count}} dias",
       "breakdown": "Contar sessões por",
       "breakdown_none": "Todas as sessões juntas",
       "breakdown_by": "Por {{field}}",
@@ -640,10 +643,7 @@
         "from_previous": "Abandono",
         "median": "Tempo mediano",
         "overall": "Da primeira à última etapa"
-      },
-      "minutes_many": "{{count}} minutos",
-      "hours_many": "{{count}} horas",
-      "days_many": "{{count}} dias"
+      }
     },
     "paths": {
       "title": "Caminhos",
@@ -659,6 +659,7 @@
       "depth": "Quantidade de páginas",
       "depth_pages_one": "{{count}} página",
       "depth_pages_other": "{{count}} páginas",
+      "depth_pages_many": "{{count}} páginas",
       "told_by": "Identificar páginas por",
       "by": {
         "view_url_path_group": "Grupo de páginas",
@@ -670,12 +671,11 @@
       "pick": "Iniciar os caminhos em {{page}}",
       "ends_one": "{{count}} sessão terminou aqui",
       "ends_other": "{{count}} sessões terminaram aqui",
+      "ends_many": "{{count}} sessões terminaram aqui",
       "begins_one": "{{count}} sessão começou aqui",
       "begins_other": "{{count}} sessões começaram aqui",
-      "chart_aria": "Caminhos de {{sessions}} sessões",
-      "depth_pages_many": "{{count}} páginas",
-      "ends_many": "{{count}} sessões terminaram aqui",
-      "begins_many": "{{count}} sessões começaram aqui"
+      "begins_many": "{{count}} sessões começaram aqui",
+      "chart_aria": "Caminhos de {{sessions}} sessões"
     },
     "retention": {
       "title": "Retenção",
@@ -686,8 +686,10 @@
       "by_week": "Semana",
       "days_after_one": "{{count}} dia depois",
       "days_after_other": "{{count}} dias depois",
+      "days_after_many": "{{count}} dias depois",
       "weeks_after_one": "{{count}} semana depois",
       "weeks_after_other": "{{count}} semanas depois",
+      "weeks_after_many": "{{count}} semanas depois",
       "cohort_day": "Primeira visita em",
       "cohort_week": "Primeira visita na semana de",
       "people": "Pessoas",
@@ -696,8 +698,6 @@
       "too_short": "Nenhum período após o primeiro terminou neste intervalo, então ainda não é possível saber quem voltou. Amplie o intervalo de tempo.",
       "cell_one": "{{count}} de {{total}} voltou",
       "cell_other": "{{count}} de {{total}} voltaram",
-      "days_after_many": "{{count}} dias depois",
-      "weeks_after_many": "{{count}} semanas depois",
       "cell_many": "{{count}} de {{total}} voltaram"
     },
     "heatmap": {
@@ -725,12 +725,16 @@
       "depths": "Profundidade da rolagem",
       "clicks_total_one": "{{count}} clique",
       "clicks_total_other": "{{count}} cliques",
+      "clicks_total_many": "{{count}} cliques",
       "views_total_one": "{{count}} visita",
       "views_total_other": "{{count}} visitas",
+      "views_total_many": "{{count}} visitas",
       "sessions_one": "{{count}} sessão",
       "sessions_other": "{{count}} sessões",
+      "sessions_many": "{{count}} sessões",
       "frustrated_one": "{{count}} sessão com frustração",
       "frustrated_other": "{{count}} sessões com frustração",
+      "frustrated_many": "{{count}} sessões com frustração",
       "off_snapshot": "Não aparece nesta gravação da página",
       "median_depth": "Metade das visitas chegou até aqui",
       "page_height": "Altura da página",
@@ -748,11 +752,7 @@
       "no_pages": {
         "title": "Nenhuma página no intervalo selecionado",
         "description": "Amplie o intervalo ou verifique se o SDK está enviando dados."
-      },
-      "clicks_total_many": "{{count}} cliques",
-      "views_total_many": "{{count}} visitas",
-      "sessions_many": "{{count}} sessões",
-      "frustrated_many": "{{count}} sessões com frustração"
+      }
     },
     "segment": {
       "label": "Segmento",
@@ -764,6 +764,7 @@
     "create": "Nova playlist",
     "result_count_one": "{{count}} playlist",
     "result_count_other": "{{count}} playlists",
+    "result_count_many": "{{count}} playlists",
     "application_filter": "Aplicação",
     "all_applications": "Todas as aplicações",
     "columns": {
@@ -801,6 +802,7 @@
       "title": "Sessões",
       "count_one": "{{count}} sessão",
       "count_other": "{{count}} sessões",
+      "count_many": "{{count}} sessões",
       "empty": "Nenhuma sessão nesta playlist. Adicione uma pela página da sessão.",
       "session": "Sessão",
       "person": "Pessoa",
@@ -813,10 +815,9 @@
       "gone": "Não encontrada nos dados",
       "errors_one": "{{count}} erro",
       "errors_other": "{{count}} erros",
+      "errors_many": "{{count}} erros",
       "frustrations_one": "{{count}} sinal de frustração",
       "frustrations_other": "{{count}} sinais de frustração",
-      "count_many": "{{count}} sessões",
-      "errors_many": "{{count}} erros",
       "frustrations_many": "{{count}} sinais de frustração"
     },
     "link": {
@@ -839,8 +840,7 @@
       "not_in": "Esta sessão não está na playlist",
       "previous": "Anterior",
       "next": "Próxima"
-    },
-    "result_count_many": "{{count}} playlists"
+    }
   },
   "errors": {
     "state": {
@@ -873,6 +873,7 @@
     },
     "count_one": "{{count}} problema",
     "count_other": "{{count}} problemas",
+    "count_many": "{{count}} problemas",
     "picked": {
       "clear": "Limpar {{dimension}} {{value}}"
     },
@@ -988,14 +989,14 @@
       "back": "O erro voltou a ocorrer em {{when}}.",
       "back_in": "O erro voltou a ocorrer na versão {{version}} em {{when}}.",
       "older": "Ocorrências na versão {{version}} ou em versões anteriores não reabrem o erro."
-    },
-    "count_many": "{{count}} problemas"
+    }
   },
   "applications": {
     "title": "Aplicações",
     "list_title": "Aplicações RUM",
     "result_count_one": "{{count}} aplicação",
     "result_count_other": "{{count}} aplicações",
+    "result_count_many": "{{count}} aplicações",
     "create_button": "Criar aplicação",
     "empty_title": "Nenhuma aplicação ainda",
     "empty_description": "Primeiro, crie uma aplicação. Depois, forneça o token de cliente dela ao SDK. Eventos enviados para uma aplicação inexistente são rejeitados.",
@@ -1159,8 +1160,7 @@
           "property": "Propriedade do usuário"
         }
       }
-    },
-    "result_count_many": "{{count}} aplicações"
+    }
   },
   "session_detail": {
     "title_error": "Sessão com erros",
@@ -1540,10 +1540,10 @@
     "results": {
       "loaded_count_one": "{{count}} linha carregada",
       "loaded_count_other": "{{count}} linhas carregadas",
+      "loaded_count_many": "{{count}} linhas carregadas",
       "reset_columns": "Restaurar as colunas padrão",
       "export": "Baixar como CSV (até 5.000 linhas)",
-      "export_more": "O arquivo contém as {{count}} linhas mais recentes. Há mais linhas que correspondem à consulta.",
-      "loaded_count_many": "{{count}} linhas carregadas"
+      "export_more": "O arquivo contém as {{count}} linhas mais recentes. Há mais linhas que correspondem à consulta."
     },
     "viz": {
       "label": "Visualizar como",
@@ -1584,15 +1584,15 @@
         "per_point": "{{bucket}} por ponto",
         "groups_one": "{{count}} grupo",
         "groups_other": "{{count}} grupos",
+        "groups_many": "{{count}} grupos",
         "top_groups_one": "{{count}} grupo principal",
         "top_groups_other": "{{count}} grupos principais",
+        "top_groups_many": "{{count}} grupos principais",
         "countries_one": "{{count}} país",
         "countries_other": "{{count}} países",
+        "countries_many": "{{count}} países",
         "rows_one": "{{count}} linha",
         "rows_other": "{{count}} linhas",
-        "groups_many": "{{count}} grupos",
-        "top_groups_many": "{{count}} grupos principais",
-        "countries_many": "{{count}} países",
         "rows_many": "{{count}} linhas"
       },
       "field": "Campo",
@@ -1731,6 +1731,7 @@
     "button": "Alertas",
     "button_aria_one": "Alertas, {{count}} ativo",
     "button_aria_other": "Alertas, {{count}} ativos",
+    "button_aria_many": "Alertas, {{count}} ativos",
     "drawer": {
       "title": "Alertas",
       "subtitle": "Mostra alertas da aplicação e do ambiente da página",
@@ -1773,6 +1774,7 @@
       "would_trip": "A regra dispararia com severidade {{severity}} assim que fosse criada",
       "sessions_per_one": "{{count}} sessão em {{window}}",
       "sessions_per_other": "{{count}} sessões em {{window}}",
+      "sessions_per_many": "{{count}} sessões em {{window}}",
       "list_separator": ", ",
       "line": "{{bands}} · {{window}}",
       "at_least": "pelo menos {{rows}} {{kind}}",
@@ -1817,10 +1819,8 @@
           "title": "Tráfego interrompido",
           "rule": "Menos de 1 sessão na janela → {{severity}} · {{window}} (não indicado para aplicativos com pouca atividade à noite)"
         }
-      },
-      "sessions_per_many": "{{count}} sessões em {{window}}"
-    },
-    "button_aria_many": "Alertas, {{count}} ativos"
+      }
+    }
   },
   "waterfall": {
     "failed": "Não foi possível ler as requisições desta visualização.",
@@ -1839,11 +1839,11 @@
       "lcp_element": "o LCP foi de <n>{{value}}</n> (<grade>{{grade}}</grade>, <code>{{element}}</code>)",
       "resources_one": "<n>{{count}}</n> recurso",
       "resources_other": "<n>{{count}}</n> recursos",
+      "resources_many": "<n>{{count}}</n> recursos",
       "long_tasks_one": "<n>{{count}}</n> tarefa longa",
       "long_tasks_other": "<n>{{count}}</n> tarefas longas",
-      "during": "Enquanto isso, a página solicitou <resources/> e encontrou <tasks/>.",
-      "resources_many": "<n>{{count}}</n> recursos",
-      "long_tasks_many": "<n>{{count}}</n> tarefas longas"
+      "long_tasks_many": "<n>{{count}}</n> tarefas longas",
+      "during": "Enquanto isso, a página solicitou <resources/> e encontrou <tasks/>."
     },
     "filters": {
       "type": "Tipo",
@@ -1872,8 +1872,8 @@
       "title": "Thread principal",
       "count_one": "{{count}} tarefa longa",
       "count_other": "{{count}} tarefas longas",
-      "task": "Tarefa longa de {{duration}}",
-      "count_many": "{{count}} tarefas longas"
+      "count_many": "{{count}} tarefas longas",
+      "task": "Tarefa longa de {{duration}}"
     },
     "row": {
       "blocking": "bloqueante",
@@ -1967,6 +1967,7 @@
     "list_description": "Feature flags avaliadas nas sessões deste período, em ordem decrescente de número de sessões",
     "sessions_one": "{{value}} sessão",
     "sessions_other": "{{value}} sessões",
+    "sessions_many": "{{value}} sessões",
     "compare_description": "Desempenho das sessões por valor desta feature flag",
     "compare_aria": "Valores de {{flag}} lado a lado",
     "no_values": "Nenhuma visualização registrou esta feature flag no período",
@@ -1981,7 +1982,6 @@
     "empty": {
       "title": "Nenhuma feature flag neste intervalo",
       "description": "As feature flags aparecem aqui assim que o SDK chama addFeatureFlagEvaluation."
-    },
-    "sessions_many": "{{value}} sessões"
+    }
   }
 }

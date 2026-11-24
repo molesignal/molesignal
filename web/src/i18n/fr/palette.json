@@ -52,7 +52,7 @@
   },
   "show_all_one": "Afficher {{count}} élément de plus",
   "show_all_other": "Afficher {{count}} éléments de plus",
+  "show_all_many": "Afficher {{count}} éléments de plus",
   "acknowledge": "Acquitter",
-  "acknowledged": "Incident acquitté",
-  "show_all_many": "Afficher {{count}} éléments de plus"
+  "acknowledged": "Incident acquitté"
 }

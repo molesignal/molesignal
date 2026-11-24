@@ -35,6 +35,7 @@
     "samples": "{{count}} échantillons",
     "service_count_one": "{{count}} service",
     "service_count_other": "{{count}} services",
+    "service_count_many": "{{count}} services",
     "captured": "Durée de capture : {{duration}}",
     "profiles_button": "{{selected}} / {{total}} profils",
     "profiles_button_aria": "Choisir les profils à analyser : {{selected}} sur {{total}} sélectionnés",
@@ -42,8 +43,7 @@
     "loading_flamegraph": "Fusion des profils sélectionnés…",
     "no_selection_title": "Aucun profil sélectionné pour l’analyse",
     "no_selection_description": "Le graphique en flammes est généré en fusionnant les profils que vous sélectionnez. Sélectionnez-en au moins un.",
-    "no_selection_action": "Choisir les profils",
-    "service_count_many": "{{count}} services"
+    "no_selection_action": "Choisir les profils"
   },
   "first_run": {
     "eyebrow": "Profilage continu",
@@ -185,6 +185,7 @@
     "baseline": "Référence",
     "period_profiles_one": "{{count}} profil",
     "period_profiles_other": "{{count}} profils",
+    "period_profiles_many": "{{count}} profils",
     "overall": "Variation globale",
     "unequal_counts": "Les deux périodes ne contiennent pas le même nombre de profils ({{comparison}} contre {{baseline}}). Une partie de la variation s’explique donc par cette différence de collecte.",
     "overlap": "Les deux périodes se chevauchent : les profils collectés sur la partie commune sont comptés dans les deux périodes.",
@@ -195,6 +196,7 @@
       "title": "Fonctions dont le coût a le plus varié",
       "count_one": "Le coût de {{count}} fonction a varié",
       "count_other": "Le coût de {{count}} fonctions a varié",
+      "count_many": "Le coût de {{count}} fonctions a varié",
       "function": "Fonction",
       "baseline": "Référence",
       "comparison": "Comparaison",
@@ -204,8 +206,7 @@
       "show_all": "Afficher les {{count}} fonctions",
       "show_top": "Afficher les {{count}} plus fortes variations",
       "none": "Le coût propre des fonctions n’a pas varié entre les deux périodes.",
-      "select_hint": "Mettre cette fonction en évidence dans le graphique en flammes",
-      "count_many": "Le coût de {{count}} fonctions a varié"
+      "select_hint": "Mettre cette fonction en évidence dans le graphique en flammes"
     },
     "empty": {
       "none_title": "Aucun profil dans les deux périodes",
@@ -215,8 +216,7 @@
       "comparison_title": "Aucun profil capturé pendant la période de comparaison",
       "comparison_description": "La période sélectionnée ne contient aucun profil à comparer à ceux de la période de référence. Choisissez une période pendant laquelle des profils ont été capturés.",
       "open_analysis": "Ouvrir cette période dans l’analyse"
-    },
-    "period_profiles_many": "{{count}} profils"
+    }
   },
   "detail": {
     "title": "Profil",

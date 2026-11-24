@@ -436,11 +436,14 @@
     "bar_range": "{{from}} – {{to}}",
     "bar_count_one": "{{formatted}} valor",
     "bar_count_other": "{{formatted}} valores",
+    "bar_count_many": "{{formatted}} valores",
     "bar_readout": "De {{from}} a {{to}}: {{formatted}} valores",
     "trend_one": "Valor más frecuente a lo largo del tiempo",
     "trend_other": "{{count}} valores más frecuentes a lo largo del tiempo",
+    "trend_many": "{{count}} valores más frecuentes a lo largo del tiempo",
     "trend_aria_one": "El valor más frecuente de {{name}} a lo largo del tiempo",
     "trend_aria_other": "Los {{count}} valores más frecuentes de {{name}} a lo largo del tiempo",
+    "trend_aria_many": "Los {{count}} valores más frecuentes de {{name}} a lo largo del tiempo",
     "top": "Valores más frecuentes",
     "all_different": "Casi todos los valores aparecen una sola vez: ninguno destaca por su frecuencia.",
     "protected": "Este campo está enmascarado o cifrado y no se puede analizar.",
@@ -449,10 +452,7 @@
       "time_budget": "Se agotó el tiempo para contar todas las coincidencias",
       "busy": "Hay demasiadas consultas en curso para contar todas las coincidencias",
       "failed": "No se pudieron contar todas las coincidencias"
-    },
-    "bar_count_many": "{{formatted}} valores",
-    "trend_many": "{{count}} valores más frecuentes a lo largo del tiempo",
-    "trend_aria_many": "Los {{count}} valores más frecuentes de {{name}} a lo largo del tiempo"
+    }
   },
   "histogram": {
     "bar_width": "{{width}} por barra",
@@ -466,8 +466,10 @@
     "bar_readout_whole": "De {{from}} a {{to}}: {{total}} en total",
     "scope_all_one": "El único resultado que coincide",
     "scope_all_other": "Los {{total}} resultados que coinciden",
+    "scope_all_many": "Los {{total}} resultados que coinciden",
     "scope_loaded_one": "El único resultado cargado",
     "scope_loaded_other": "Los {{total}} resultados cargados",
+    "scope_loaded_many": "Los {{total}} resultados cargados",
     "scope_because": "{{scope}}: {{reason}}",
     "counting": "Contando todas las coincidencias…",
     "unavailable": {
@@ -476,9 +478,7 @@
       "scan_limit": "el intervalo contiene demasiadas filas para contar todas las coincidencias",
       "timestamp_masked": "el campo de tiempo está enmascarado en este flujo",
       "failed": "no se pudieron contar todas las coincidencias"
-    },
-    "scope_all_many": "Los {{total}} resultados que coinciden",
-    "scope_loaded_many": "Los {{total}} resultados cargados"
+    }
   },
   "time_picker": {
     "title": "Seleccionar intervalo de tiempo",
@@ -560,17 +560,17 @@
     "select_row": "Seleccionar fila",
     "selected_one": "{{count}} seleccionada",
     "selected_other": "{{count}} seleccionadas",
+    "selected_many": "{{count}} seleccionadas",
     "clear_selection": "Borrar selección",
     "bulk_label": "Acciones sobre las filas seleccionadas",
     "export_csv": "Exportar CSV",
     "export_empty": "No hay filas para exportar",
     "bulk_done_one": "{{count}} fila actualizada",
     "bulk_done_other": "{{count}} filas actualizadas",
+    "bulk_done_many": "{{count}} filas actualizadas",
     "bulk_failed_one": "Falló {{count}} de {{total}}: {{reason}}",
     "bulk_failed_other": "Fallaron {{count}} de {{total}}: {{reason}}",
-    "clear_filters": "Borrar filtros",
-    "selected_many": "{{count}} seleccionadas",
-    "bulk_done_many": "{{count}} filas actualizadas",
-    "bulk_failed_many": "Fallaron {{count}} de {{total}}: {{reason}}"
+    "bulk_failed_many": "Fallaron {{count}} de {{total}}: {{reason}}",
+    "clear_filters": "Borrar filtros"
   }
 }

@@ -527,12 +527,14 @@
         "account": {
           "bound_you": "Faz login na sua conta, {{email}}.",
           "bound_other": "Faz login na conta {{email}}.",
+          "bound_one": "Entra na conta {{email}}.",
+          "bound_many": "Faz login na conta {{email}}.",
           "link_you": "Sua conta {{email}} usa este e-mail, mas ainda não está vinculada a esta identidade. No primeiro login, você precisará confirmar o vínculo com sua senha ou com um código enviado por e-mail.",
           "link_other": "A conta {{email}} usa este e-mail, mas ainda não está vinculada a esta identidade. No primeiro login, o titular da conta precisará confirmar o vínculo com a senha ou com um código enviado por e-mail.",
+          "link_one": "A conta {{email}} tem este email, mas esta identidade ainda não está vinculada a ela. O proprietário confirma no primeiro login, com a senha ou um código enviado por email.",
+          "link_many": "A conta {{email}} usa este e-mail, mas ainda não está vinculada a esta identidade. No primeiro login, o titular da conta precisará confirmar o vínculo com a senha ou com um código enviado por e-mail.",
           "create": "Nenhuma conta usa este e-mail. No primeiro login, a conta {{email}} será criada sem senha.",
-          "joins": "A conta será adicionada a este espaço de trabalho nesse login.",
-          "bound_many": "Faz login na conta {{email}}.",
-          "link_many": "A conta {{email}} usa este e-mail, mas ainda não está vinculada a esta identidade. No primeiro login, o titular da conta precisará confirmar o vínculo com a senha ou com um código enviado por e-mail."
+          "joins": "A conta será adicionada a este espaço de trabalho nesse login."
         },
         "role_source": {
           "group_mapping": "Dos grupos: {{groups}}",
@@ -1045,6 +1047,7 @@
     "subtitle": "Pesquise na trilha de auditoria por data e hora, autor, ação e alvo.",
     "subtitle_retention_days_one": "Pesquise na trilha de auditoria por data e hora, autor, ação e alvo. Os registros são mantidos por {{count}} dia.",
     "subtitle_retention_days_other": "Pesquise na trilha de auditoria por data e hora, autor, ação e alvo. Os registros são mantidos por {{count}} dias.",
+    "subtitle_retention_days_many": "Pesquise na trilha de auditoria por data e hora, autor, ação e alvo. Os registros são mantidos por {{count}} dias.",
     "subtitle_retention_forever": "Pesquise na trilha de auditoria por data e hora, autor, ação e alvo. Os registros são mantidos por tempo indeterminado.",
     "change_retention": "Alterar retenção",
     "change_retention_hint": "Leva você à organização da plataforma, onde a retenção dos registros de auditoria é configurada.",
@@ -1221,8 +1224,7 @@
       "updated": "atualizado",
       "use": "usado",
       "verify": "verificado"
-    },
-    "subtitle_retention_days_many": "Pesquise na trilha de auditoria por data e hora, autor, ação e alvo. Os registros são mantidos por {{count}} dias."
+    }
   },
   "audit_retention": {
     "title": "Retenção de registros de auditoria",
@@ -1248,18 +1250,18 @@
     "confirm": {
       "title_one": "Reduzir o período de retenção dos registros de auditoria de {{from}} dias para {{count}} dia?",
       "title_other": "Reduzir o período de retenção dos registros de auditoria de {{from}} dias para {{count}} dias?",
+      "title_many": "Reduzir o período de retenção dos registros de auditoria de {{from}} dias para {{count}} dias?",
       "title_from_forever_one": "Trocar a retenção por tempo indeterminado dos registros de auditoria por um período de {{count}} dia?",
       "title_from_forever_other": "Trocar a retenção por tempo indeterminado dos registros de auditoria por um período de {{count}} dias?",
+      "title_from_forever_many": "Trocar a retenção por tempo indeterminado dos registros de auditoria por um período de {{count}} dias?",
       "description": "Esses registros serão excluídos na próxima limpeza diária e não poderão ser recuperados.",
       "description_unknown_one": "Não foi possível contar os registros. Na próxima limpeza diária, os registros com mais de {{count}} dia serão excluídos e não poderão ser recuperados.",
       "description_unknown_other": "Não foi possível contar os registros. Na próxima limpeza diária, os registros com mais de {{count}} dias serão excluídos e não poderão ser recuperados.",
+      "description_unknown_many": "Não foi possível contar os registros. Na próxima limpeza diária, os registros com mais de {{count}} dias serão excluídos e não poderão ser recuperados.",
       "action": "Reduzir o prazo de retenção",
       "records": "Registros",
       "earliest": "Mais antigo",
-      "type_first": "Primeiro, digite o número de dias de retenção.",
-      "title_many": "Reduzir o período de retenção dos registros de auditoria de {{from}} dias para {{count}} dias?",
-      "title_from_forever_many": "Trocar a retenção por tempo indeterminado dos registros de auditoria por um período de {{count}} dias?",
-      "description_unknown_many": "Não foi possível contar os registros. Na próxima limpeza diária, os registros com mais de {{count}} dias serão excluídos e não poderão ser recuperados."
+      "type_first": "Primeiro, digite o número de dias de retenção."
     }
   },
   "stream_retention": {
@@ -1288,24 +1290,24 @@
       "unread": "Sem leitura",
       "unavailable_one": "{{count}} fluxo, então os valores reais podem ser maiores",
       "unavailable_other": "{{count}} fluxos, então os valores reais podem ser maiores",
+      "unavailable_many": "{{count}} fluxos, então os valores reais podem ser maiores",
       "column_stream": "Fluxo",
       "column_organization": "Organização",
       "column_type": "Tipo",
       "showing": "Os {{shown}} maiores fluxos de um total de {{total}}.",
       "show_all": "Mostrar mais",
-      "not_counted": "As gravações de sessão e os arquivos de perfil também seguem essa configuração, mas não entram na estimativa.",
-      "unavailable_many": "{{count}} fluxos, então os valores reais podem ser maiores"
+      "not_counted": "As gravações de sessão e os arquivos de perfil também seguem essa configuração, mas não entram na estimativa."
     },
     "confirm": {
       "title_one": "Reduzir o prazo de retenção padrão de {{from}} dias para {{count}} dia?",
       "title_other": "Reduzir o prazo de retenção padrão de {{from}} dias para {{count}} dias?",
+      "title_many": "Reduzir o prazo de retenção padrão de {{from}} dias para {{count}} dias?",
       "description": "Esses valores foram estimados com base no catálogo de arquivos. Na próxima limpeza, esses dados serão excluídos e não poderão ser recuperados.",
       "description_unknown_one": "Não foi possível estimar o impacto. Na próxima limpeza, os dados com mais de {{count}} dia serão excluídos e não poderão ser recuperados.",
       "description_unknown_other": "Não foi possível estimar o impacto. Na próxima limpeza, os dados com mais de {{count}} dias serão excluídos e não poderão ser recuperados.",
+      "description_unknown_many": "Não foi possível estimar o impacto. Na próxima limpeza, os dados com mais de {{count}} dias serão excluídos e não poderão ser recuperados.",
       "action": "Reduzir o prazo de retenção",
-      "type_first": "Primeiro, informe o número de dias de retenção.",
-      "title_many": "Reduzir o prazo de retenção padrão de {{from}} dias para {{count}} dias?",
-      "description_unknown_many": "Não foi possível estimar o impacto. Na próxima limpeza, os dados com mais de {{count}} dias serão excluídos e não poderão ser recuperados."
+      "type_first": "Primeiro, informe o número de dias de retenção."
     }
   },
   "synthetic_retention": {
@@ -1546,6 +1548,7 @@
     "delete_description": "Nenhuma configuração usa este calendário.",
     "delete_in_use_one": "Em uso em {{count}} local: {{names}}. Remova a referência ao calendário antes de excluí-lo.",
     "delete_in_use_other": "Em uso em {{count}} locais: {{names}}. Remova as referências ao calendário antes de excluí-lo.",
+    "delete_in_use_many": "Em uso em {{count}} locais: {{names}}. Remova as referências ao calendário antes de excluí-lo.",
     "delete_blocked": "O calendário está em uso.",
     "reference_kinds": {
       "routing_rule": "regra de roteamento",
@@ -1582,11 +1585,10 @@
     "import_hint": "Eventos de dia inteiro são importados como dias no calendário. Se o nome contiver 补班 ou 上班 ou terminar em 班, o dia será marcado como dia de reposição. Nada é salvo até você salvar o calendário.",
     "imported_one": "{{count}} dia lido do arquivo. Confira o dia e salve o calendário.",
     "imported_other": "{{count}} dias lidos do arquivo. Confira os dias e salve o calendário.",
+    "imported_many": "{{count}} dias lidos do arquivo. Confira os dias e salve o calendário.",
     "no_days": "Nenhum dia em {{year}}.",
     "remove_day": "Remover {{date}}",
-    "add_day": "Adicionar dia",
-    "delete_in_use_many": "Em uso em {{count}} locais: {{names}}. Remova as referências ao calendário antes de excluí-lo.",
-    "imported_many": "{{count}} dias lidos do arquivo. Confira os dias e salve o calendário."
+    "add_day": "Adicionar dia"
   },
   "importance": {
     "title": "Prioridade e urgência",

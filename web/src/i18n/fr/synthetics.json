@@ -80,10 +80,10 @@
     "map_zoom_level": "Niveau de zoom de la carte : ×{{level}}",
     "map_samples_one": "{{count}} échantillon",
     "map_samples_other": "{{count}} échantillons",
+    "map_samples_many": "{{count}} échantillons",
     "map_no_samples": "Aucun échantillon",
     "unlocated_locations": "Non localisés · {{count}}",
-    "unlocated_names": "Non localisés : {{names}}",
-    "map_samples_many": "{{count}} échantillons"
+    "unlocated_names": "Non localisés : {{names}}"
   },
   "checks": {
     "search_placeholder": "Rechercher des contrôles, des cibles ou des tags…",
@@ -118,10 +118,10 @@
     "state_filter": "État",
     "schedule_one": "{{interval}} · {{count}} emplacement",
     "schedule_other": "{{interval}} · {{count}} emplacements",
+    "schedule_many": "{{interval}} · {{count}} emplacements",
     "schedule_heartbeat": "Intervalle attendu : {{interval}}",
     "more_actions": "Plus d’actions pour {{name}}",
-    "run_named": "Exécuter {{name}} maintenant",
-    "schedule_many": "{{interval}} · {{count}} emplacements"
+    "run_named": "Exécuter {{name}} maintenant"
   },
   "editor": {
     "create_title": "Créer un test",
@@ -299,17 +299,21 @@
     "last_failure": "Dernier échec : {{when}}",
     "no_failures_one": "Aucun échec lors de la dernière exécution ({{count}})",
     "no_failures_other": "Aucun échec lors des {{count}} dernières exécutions",
+    "no_failures_many": "Aucun échec lors des {{count}} dernières exécutions",
     "never_ran": "Le contrôle n’a pas encore été exécuté",
     "no_data_detail_one": "Dernière exécution manquée pour les emplacements suivants : {{locations}}",
     "no_data_detail_other": "{{count}} dernières exécutions manquées pour les emplacements suivants : {{locations}}",
+    "no_data_detail_many": "{{count}} dernières exécutions manquées pour les emplacements suivants : {{locations}}",
     "location_missed_one": "Dernière exécution manquée",
     "location_missed_other": "{{count}} dernières exécutions manquées",
+    "location_missed_many": "{{count}} dernières exécutions manquées",
     "paused_detail": "Le contrôle s’exécutera de nouveau à la reprise",
     "response_time": "Temps de réponse",
     "p95": "p95 {{value}}",
     "schedule": "Planification",
     "schedule_detail_one": "depuis {{count}} emplacement · alerte après {{failures}} échecs consécutifs",
     "schedule_detail_other": "depuis {{count}} emplacements · alerte après {{failures}} échecs consécutifs",
+    "schedule_detail_many": "depuis {{count}} emplacements · alerte après {{failures}} échecs consécutifs",
     "schedule_heartbeat": "Attendu toutes les",
     "by_location": "Par emplacement",
     "response_by_location": "Temps de réponse par emplacement",
@@ -334,11 +338,7 @@
     "trace_context": "Contexte de trace",
     "traceroute_on_failure": "Traceroute en cas d’échec",
     "location_availability": "{{value}} de disponibilité",
-    "open_rum_session": "Ouvrir la session RUM de cette exécution",
-    "no_failures_many": "Aucun échec lors des {{count}} dernières exécutions",
-    "no_data_detail_many": "{{count}} dernières exécutions manquées pour les emplacements suivants : {{locations}}",
-    "location_missed_many": "{{count}} dernières exécutions manquées",
-    "schedule_detail_many": "depuis {{count}} emplacements · alerte après {{failures}} échecs consécutifs"
+    "open_rum_session": "Ouvrir la session RUM de cette exécution"
   },
   "results": {
     "title": "Résultats",
@@ -489,14 +489,14 @@
     "standing_eyebrow": "Les agents qui exécutent les vérifications privées",
     "all_online_one": "Le seul agent est en ligne ({{count}})",
     "all_online_other": "Les {{count}} agents sont tous en ligne",
+    "all_online_many": "Les {{count}} agents sont tous en ligne",
     "need_attention_one": "{{count}} agent nécessite votre attention",
     "need_attention_other": "{{count}} agents nécessitent votre attention",
+    "need_attention_many": "{{count}} agents nécessitent votre attention",
     "none_title": "Aucun agent n’est enregistré",
     "slots_free": "places disponibles",
     "browser_slots_free": "emplacements de navigateur disponibles",
-    "states": "États des agents",
-    "all_online_many": "Les {{count}} agents sont tous en ligne",
-    "need_attention_many": "{{count}} agents nécessitent votre attention"
+    "states": "États des agents"
   },
   "agent_tokens": {
     "title": "Jetons d’agent",
@@ -588,20 +588,26 @@
     "eyebrow": "Ce qu’indiquent les tests",
     "failing_one": "{{count}} test est en échec",
     "failing_other": "{{count}} tests sont en échec",
+    "failing_many": "{{count}} tests sont en échec",
     "attention_one": "{{count}} test nécessite votre attention",
     "attention_other": "{{count}} vérifications nécessitent une intervention",
+    "attention_many": "{{count}} vérifications nécessitent une intervention",
     "passing_one": "{{count}} vérification réussie",
     "passing_other": "Les {{count}} vérifications sont toutes réussies",
+    "passing_many": "Les {{count}} vérifications sont toutes réussies",
     "waiting": "En attente des premières exécutions",
     "idle": "Aucune vérification en cours",
     "running_one": "{{count}} vérification en cours",
     "running_other": "{{count}} vérifications en cours",
+    "running_many": "{{count}} vérifications en cours",
     "paused_one": "{{count}} en pause",
     "paused_other": "{{count}} en pause",
+    "paused_many": "{{count}} en pause",
     "states": "États des vérifications",
     "availability": "Disponibilité",
     "of_runs_one": "sur {{count}} exécution dans la période sélectionnée",
     "of_runs_other": "sur {{count}} exécutions dans la période sélectionnée",
+    "of_runs_many": "sur {{count}} exécutions dans la période sélectionnée",
     "no_runs": "Aucune exécution pour le moment",
     "locations": "Emplacements en ligne",
     "locations_all": "Tous les emplacements sont accessibles",
@@ -610,13 +616,7 @@
     "paging": "Notification d’astreinte",
     "paging_detail": "vérifications avec une politique d’escalade",
     "paging_none": "Personne ne serait averti en cas d’échec",
-    "of_total": "{{count}} sur {{total}}",
-    "failing_many": "{{count}} tests sont en échec",
-    "attention_many": "{{count}} vérifications nécessitent une intervention",
-    "passing_many": "Les {{count}} vérifications sont toutes réussies",
-    "running_many": "{{count}} vérifications en cours",
-    "paused_many": "{{count}} en pause",
-    "of_runs_many": "sur {{count}} exécutions dans la période sélectionnée"
+    "of_total": "{{count}} sur {{total}}"
   },
   "attention": {
     "title": "Intervention requise",
@@ -650,7 +650,7 @@
   "runs": {
     "summary_one": "{{passed}} réussite sur la dernière exécution ({{count}} au total)",
     "summary_other": "{{passed}} réussites sur les {{count}} dernières exécutions",
-    "none": "Aucune exécution pour le moment",
-    "summary_many": "{{passed}} réussites sur les {{count}} dernières exécutions"
+    "summary_many": "{{passed}} réussites sur les {{count}} dernières exécutions",
+    "none": "Aucune exécution pour le moment"
   }
 }

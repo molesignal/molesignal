@@ -96,6 +96,7 @@
         "title": "Códigos de recuperação",
         "description_one": "Se você perder o acesso ao autenticador ou às chaves de acesso, cada código de recuperação permite entrar uma vez. Resta {{count}} código.",
         "description_other": "Se você perder o acesso ao autenticador ou às chaves de acesso, cada código de recuperação permite entrar uma vez. Restam {{count}} códigos.",
+        "description_many": "Se você perder o acesso ao autenticador ou às chaves de acesso, cada código de recuperação permite entrar uma vez. Restam {{count}} códigos.",
         "regenerate": "Gerar novos códigos",
         "regenerate_title": "Gerar novos códigos de recuperação?",
         "regenerate_description": "Todos os seus códigos de recuperação atuais deixarão de funcionar.",
@@ -108,8 +109,7 @@
         "download": "Baixar",
         "saved": "Já salvei os códigos",
         "file_heading": "Códigos de recuperação do MoleSignal ({{email}})",
-        "file_note": "Cada código permite entrar uma vez no lugar de um segundo fator.",
-        "description_many": "Se você perder o acesso ao autenticador ou às chaves de acesso, cada código de recuperação permite entrar uma vez. Restam {{count}} códigos."
+        "file_note": "Cada código permite entrar uma vez no lugar de um segundo fator."
       }
     },
     "passkeys": {

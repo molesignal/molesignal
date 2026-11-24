@@ -130,8 +130,8 @@
     },
     "bulk_disable_title_one": "¿Desactivar a {{count}} usuario?",
     "bulk_disable_title_other": "¿Desactivar a {{count}} usuarios?",
-    "bulk_disable_description": "Ya no podrán iniciar sesión. Se conservarán sus membresías y su configuración.",
-    "bulk_disable_title_many": "¿Desactivar a {{count}} usuarios?"
+    "bulk_disable_title_many": "¿Desactivar a {{count}} usuarios?",
+    "bulk_disable_description": "Ya no podrán iniciar sesión. Se conservarán sus membresías y su configuración."
   },
   "approvals": {
     "title": "Aprobaciones",
@@ -484,12 +484,12 @@
   "permission_summary": {
     "all_one": "Todos los permisos ({{count}})",
     "all_other": "Los {{count}} permisos",
+    "all_many": "Los {{count}} permisos",
     "all_organization_one": "Todos los permisos de la organización ({{count}})",
     "all_organization_other": "Los {{count}} permisos de la organización",
+    "all_organization_many": "Los {{count}} permisos de la organización",
     "all_platform_one": "Todos los permisos de la plataforma ({{count}})",
     "all_platform_other": "Los {{count}} permisos de la plataforma",
-    "all_many": "Los {{count}} permisos",
-    "all_organization_many": "Los {{count}} permisos de la organización",
     "all_platform_many": "Los {{count}} permisos de la plataforma"
   },
   "permissions": {
@@ -1143,9 +1143,9 @@
     "no_policies": "Aún no hay políticas de permisos.",
     "policy_permission_count_one": "{{count}} permiso",
     "policy_permission_count_other": "{{count}} permisos",
+    "policy_permission_count_many": "{{count}} permisos",
     "policies_more_one": "{{shown}} y {{count}} más",
     "policies_more_other": "{{shown}} y {{count}} más",
-    "policy_permission_count_many": "{{count}} permisos",
     "policies_more_many": "{{shown}} y {{count}} más"
   },
   "policies": {
@@ -1164,8 +1164,10 @@
     "type_custom": "Personalizada",
     "usage_roles_one": "{{count}} rol",
     "usage_roles_other": "{{count}} roles",
+    "usage_roles_many": "{{count}} roles",
     "usage_tokens_one": "{{count}} token",
     "usage_tokens_other": "{{count}} tokens",
+    "usage_tokens_many": "{{count}} tokens",
     "view_policy": "Ver {{name}}",
     "edit_policy": "Editar {{name}}",
     "copy_policy": "Copiar {{name}}",
@@ -1212,6 +1214,7 @@
     "visual_needs_valid_json": "Corrige el documento para poder marcar permisos: {{problem}}",
     "allows_one": "Concede {{count}} permiso",
     "allows_other": "Concede {{count}} permisos",
+    "allows_many": "Concede {{count}} permisos",
     "allows_none": "Aún no concede ningún permiso",
     "allow_one": "Concede al menos un permiso antes de guardar.",
     "problems": {
@@ -1253,10 +1256,7 @@
         "name": "Ingesta de datos",
         "description": "Escribe registros, métricas, trazas y otros datos, e informa de despliegues y cambios."
       }
-    },
-    "usage_roles_many": "{{count}} roles",
-    "usage_tokens_many": "{{count}} tokens",
-    "allows_many": "Concede {{count}} permisos"
+    }
   },
   "invitations": {
     "title": "Invitaciones pendientes",

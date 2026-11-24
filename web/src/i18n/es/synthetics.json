@@ -80,10 +80,10 @@
     "map_zoom_level": "Nivel de zoom del mapa: {{level}} veces",
     "map_samples_one": "{{count}} muestra",
     "map_samples_other": "{{count}} muestras",
+    "map_samples_many": "{{count}} muestras",
     "map_no_samples": "Sin muestras",
     "unlocated_locations": "Sin ubicación · {{count}}",
-    "unlocated_names": "Sin ubicación: {{names}}",
-    "map_samples_many": "{{count}} muestras"
+    "unlocated_names": "Sin ubicación: {{names}}"
   },
   "checks": {
     "search_placeholder": "Buscar comprobaciones, destinos o etiquetas…",
@@ -118,10 +118,10 @@
     "state_filter": "Estado",
     "schedule_one": "{{interval}} · {{count}} ubicación",
     "schedule_other": "{{interval}} · {{count}} ubicaciones",
+    "schedule_many": "{{interval}} · {{count}} ubicaciones",
     "schedule_heartbeat": "Se espera cada {{interval}}",
     "more_actions": "Más acciones para {{name}}",
-    "run_named": "Ejecutar {{name}} ahora",
-    "schedule_many": "{{interval}} · {{count}} ubicaciones"
+    "run_named": "Ejecutar {{name}} ahora"
   },
   "editor": {
     "create_title": "Crear comprobación",
@@ -299,17 +299,21 @@
     "last_failure": "Último fallo: {{when}}",
     "no_failures_one": "Sin fallos en la última ejecución ({{count}})",
     "no_failures_other": "Sin fallos en las últimas {{count}} ejecuciones",
+    "no_failures_many": "Sin fallos en las últimas {{count}} ejecuciones",
     "never_ran": "Aún no se ha ejecutado",
     "no_data_detail_one": "Sin datos de {{locations}} en la última ejecución",
     "no_data_detail_other": "Sin datos de {{locations}} en las últimas {{count}} ejecuciones",
+    "no_data_detail_many": "Sin datos de {{locations}} en las últimas {{count}} ejecuciones",
     "location_missed_one": "No se realizó la última ejecución",
     "location_missed_other": "No se realizaron las últimas {{count}} ejecuciones",
+    "location_missed_many": "No se realizaron las últimas {{count}} ejecuciones",
     "paused_detail": "Volverá a ejecutarse cuando la reanudes",
     "response_time": "Tiempo de respuesta",
     "p95": "p95 {{value}}",
     "schedule": "Programación",
     "schedule_detail_one": "desde {{count}} ubicación · alerta tras {{failures}} fallos consecutivos",
     "schedule_detail_other": "desde {{count}} ubicaciones · alerta tras {{failures}} fallos consecutivos",
+    "schedule_detail_many": "desde {{count}} ubicaciones · alerta tras {{failures}} fallos consecutivos",
     "schedule_heartbeat": "Se espera cada",
     "by_location": "Por ubicación",
     "response_by_location": "Tiempo de respuesta por ubicación",
@@ -334,11 +338,7 @@
     "trace_context": "Contexto de la traza",
     "traceroute_on_failure": "Traceroute en caso de fallo",
     "location_availability": "{{value}} de disponibilidad",
-    "open_rum_session": "Abrir la sesión de RUM de esta ejecución",
-    "no_failures_many": "Sin fallos en las últimas {{count}} ejecuciones",
-    "no_data_detail_many": "Sin datos de {{locations}} en las últimas {{count}} ejecuciones",
-    "location_missed_many": "No se realizaron las últimas {{count}} ejecuciones",
-    "schedule_detail_many": "desde {{count}} ubicaciones · alerta tras {{failures}} fallos consecutivos"
+    "open_rum_session": "Abrir la sesión de RUM de esta ejecución"
   },
   "results": {
     "title": "Resultados",
@@ -489,14 +489,14 @@
     "standing_eyebrow": "Agentes que ejecutan comprobaciones privadas",
     "all_online_one": "{{count}} agente y está en línea",
     "all_online_other": "Los {{count}} agentes están en línea",
+    "all_online_many": "Los {{count}} agentes están en línea",
     "need_attention_one": "{{count}} agente requiere atención",
     "need_attention_other": "{{count}} agentes requieren atención",
+    "need_attention_many": "{{count}} agentes requieren atención",
     "none_title": "No hay agentes registrados",
     "slots_free": "cupos disponibles",
     "browser_slots_free": "cupos de navegador disponibles",
-    "states": "Estados de los agentes",
-    "all_online_many": "Los {{count}} agentes están en línea",
-    "need_attention_many": "{{count}} agentes requieren atención"
+    "states": "Estados de los agentes"
   },
   "agent_tokens": {
     "title": "Tokens de agente",
@@ -588,20 +588,26 @@
     "eyebrow": "Qué indican las comprobaciones ahora",
     "failing_one": "{{count}} comprobación está fallando",
     "failing_other": "{{count}} comprobaciones están fallando",
+    "failing_many": "{{count}} comprobaciones están fallando",
     "attention_one": "{{count}} comprobación requiere atención",
     "attention_other": "{{count}} comprobaciones requieren atención",
+    "attention_many": "{{count}} comprobaciones requieren atención",
     "passing_one": "La única comprobación ({{count}}) es correcta",
     "passing_other": "Las {{count}} comprobaciones son correctas",
+    "passing_many": "Las {{count}} comprobaciones son correctas",
     "waiting": "En espera de las primeras ejecuciones",
     "idle": "No hay comprobaciones en ejecución",
     "running_one": "{{count}} comprobación en ejecución",
     "running_other": "{{count}} comprobaciones en ejecución",
+    "running_many": "{{count}} comprobaciones en ejecución",
     "paused_one": "{{count}} en pausa",
     "paused_other": "{{count}} en pausa",
+    "paused_many": "{{count}} en pausa",
     "states": "Estados de las comprobaciones",
     "availability": "Disponibilidad",
     "of_runs_one": "de {{count}} ejecución en el intervalo",
     "of_runs_other": "de {{count}} ejecuciones en el intervalo",
+    "of_runs_many": "de {{count}} ejecuciones en el intervalo",
     "no_runs": "Aún no hay ejecuciones",
     "locations": "Ubicaciones en línea",
     "locations_all": "Se puede acceder a todas las ubicaciones",
@@ -610,13 +616,7 @@
     "paging": "Aviso al personal de guardia",
     "paging_detail": "comprobaciones con una política de escalamiento",
     "paging_none": "Si hubiera un fallo, no se avisaría a nadie",
-    "of_total": "{{count}} de {{total}}",
-    "failing_many": "{{count}} comprobaciones están fallando",
-    "attention_many": "{{count}} comprobaciones requieren atención",
-    "passing_many": "Las {{count}} comprobaciones son correctas",
-    "running_many": "{{count}} comprobaciones en ejecución",
-    "paused_many": "{{count}} en pausa",
-    "of_runs_many": "de {{count}} ejecuciones en el intervalo"
+    "of_total": "{{count}} de {{total}}"
   },
   "attention": {
     "title": "Requiere atención",
@@ -650,7 +650,7 @@
   "runs": {
     "summary_one": "Ejecuciones correctas: {{passed}} de {{count}} (solo la última)",
     "summary_other": "Ejecuciones correctas: {{passed}} de las últimas {{count}}",
-    "none": "Aún no hay ejecuciones",
-    "summary_many": "Ejecuciones correctas: {{passed}} de las últimas {{count}}"
+    "summary_many": "Ejecuciones correctas: {{passed}} de las últimas {{count}}",
+    "none": "Aún no hay ejecuciones"
   }
 }

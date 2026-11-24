@@ -366,12 +366,12 @@
     "resources": {
       "statement": {
         "aria": "頁面請求",
-        "requests_one": "<n>{{formatted}}</n> 次請求",
         "requests_other": "<n>{{formatted}}</n> 次請求",
         "sentence": "頁面共送出 <requests/>，p75 耗時 <n>{{duration}}</n>，失敗率為 <rate>{{rate}}</rate>（狀態碼為 400 以上或未收到回應）。",
         "sentence_time": "頁面共送出 <requests/>，p75 耗時 <n>{{duration}}</n>。",
         "sentence_count": "頁面共送出 <requests/>。",
-        "per_view": "每次頁面瀏覽平均載入 <n>{{resources}}</n> 個資源，大小為 <n>{{size}}</n>。"
+        "per_view": "每次頁面瀏覽平均載入 <n>{{resources}}</n> 個資源，大小為 <n>{{size}}</n>。",
+        "requests_one": "<n>{{formatted}}</n> 次請求"
       },
       "empty": {
         "title": "這段時間沒有請求"
@@ -404,9 +404,7 @@
         "all": "全部",
         "search": "搜尋主機或路徑",
         "search_label": "搜尋表格中請求的主機或路徑",
-        "count_one": "{{count}} 組",
         "count_other": "{{count}} 組",
-        "most_requested_one": "請求最多的一組",
         "most_requested_other": "請求最多的 {{count}} 組",
         "few_note": "請求不到 {{requests}} 次：以灰色顯示",
         "empty": "這段時間沒有請求",
@@ -419,12 +417,13 @@
         "time": "p75 耗時",
         "failed": "失敗率",
         "size": "p75 大小",
-        "cache": "快取命中"
+        "cache": "快取命中",
+        "count_one": "{{count}} 組",
+        "most_requested_one": "請求最多的一組"
       },
       "panel": {
         "aria": "這組請求",
         "close": "關閉",
-        "requests_one": "{{formatted}} 次請求",
         "requests_other": "{{formatted}} 次請求",
         "sentence": "p75 耗時 <n>{{duration}}</n>，有 <rate>{{rate}}</rate> 的請求失敗。",
         "sentence_time": "p75 耗時 <n>{{duration}}</n>。",
@@ -441,7 +440,8 @@
         "slowest_empty": "沒有任何請求記錄耗時",
         "open_load": "查看發出 {{path}} 請求的檢視的載入情況",
         "traced": "{{share}}% 的請求帶有 trace id",
-        "explore": "在「探索」中查看這些請求"
+        "explore": "在「探索」中查看這些請求",
+        "requests_one": "{{formatted}} 次請求"
       }
     }
   },
@@ -1782,11 +1782,11 @@
       "first_byte": "首位元組 <n>{{value}}</n>",
       "lcp": "LCP <n>{{value}}</n>（<grade>{{grade}}</grade>）",
       "lcp_element": "LCP <n>{{value}}</n>（<grade>{{grade}}</grade>，<code>{{element}}</code>）",
-      "resources_one": "<n>{{count}}</n> 個資源",
       "resources_other": "<n>{{count}}</n> 個資源",
-      "long_tasks_one": "<n>{{count}}</n> 個長時間工作",
       "long_tasks_other": "<n>{{count}}</n> 個長時間工作",
-      "during": "期間請求了 <resources/>，遇到 <tasks/>。"
+      "during": "期間請求了 <resources/>，遇到 <tasks/>。",
+      "resources_one": "<n>{{count}}</n> 個資源",
+      "long_tasks_one": "<n>{{count}}</n> 個長時間工作"
     },
     "filters": {
       "type": "類型",
@@ -1813,9 +1813,9 @@
     },
     "lane": {
       "title": "主執行緒",
-      "count_one": "{{count}} 個長任務",
       "count_other": "{{count}} 個長任務",
-      "task": "耗時 {{duration}} 的長任務"
+      "task": "耗時 {{duration}} 的長任務",
+      "count_one": "{{count}} 個長任務"
     },
     "row": {
       "blocking": "阻塞",
@@ -1874,7 +1874,7 @@
         "invoker": "觸發方式"
       }
     },
-    "truncated": "這個檢視的請求超過 {{count}} 筆，這裡只顯示最新的 {{count}} 筆。"
+    "truncated": "這個檢視的請求多於這裡繪製的 {{count}} 個，繪製的是最新的那些。"
   },
   "agent": {
     "investigate": "使用 Mole Agent 調查",

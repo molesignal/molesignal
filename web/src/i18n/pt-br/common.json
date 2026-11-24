@@ -436,11 +436,14 @@
     "bar_range": "{{from}} – {{to}}",
     "bar_count_one": "{{formatted}} valor",
     "bar_count_other": "{{formatted}} valores",
+    "bar_count_many": "{{formatted}} valores",
     "bar_readout": "De {{from}} a {{to}}: {{formatted}} valores",
     "trend_one": "Valor mais frequente ao longo do tempo",
     "trend_other": "{{count}} valores mais frequentes ao longo do tempo",
+    "trend_many": "{{count}} valores mais frequentes ao longo do tempo",
     "trend_aria_one": "O valor mais frequente de {{name}} ao longo do tempo",
     "trend_aria_other": "Os {{count}} valores mais frequentes de {{name}} ao longo do tempo",
+    "trend_aria_many": "Os {{count}} valores mais frequentes de {{name}} ao longo do tempo",
     "top": "Valores mais frequentes",
     "all_different": "Quase todos os valores aparecem uma única vez: nenhum se destaca pela frequência.",
     "protected": "Este campo está mascarado ou criptografado e não pode ser analisado.",
@@ -449,10 +452,7 @@
       "time_budget": "O tempo limite para contar todos os resultados da consulta foi atingido",
       "busy": "Há consultas demais em execução para contar todos os resultados",
       "failed": "Não foi possível contar todos os resultados da consulta"
-    },
-    "bar_count_many": "{{formatted}} valores",
-    "trend_many": "{{count}} valores mais frequentes ao longo do tempo",
-    "trend_aria_many": "Os {{count}} valores mais frequentes de {{name}} ao longo do tempo"
+    }
   },
   "histogram": {
     "bar_width": "{{width}} por barra",
@@ -466,8 +466,10 @@
     "bar_readout_whole": "De {{from}} a {{to}}: {{total}} no total",
     "scope_all_one": "O único resultado da consulta",
     "scope_all_other": "Todos os {{total}} resultados da consulta",
+    "scope_all_many": "Todos os {{total}} resultados da consulta",
     "scope_loaded_one": "O único resultado carregado",
     "scope_loaded_other": "Os {{total}} resultados carregados",
+    "scope_loaded_many": "Os {{total}} resultados carregados",
     "scope_because": "{{scope}}: {{reason}}",
     "counting": "Contando todos os resultados da consulta…",
     "unavailable": {
@@ -476,9 +478,7 @@
       "scan_limit": "o intervalo contém linhas demais para contar todos os resultados da consulta",
       "timestamp_masked": "o campo de horário deste fluxo está mascarado",
       "failed": "não foi possível contar todos os resultados da consulta"
-    },
-    "scope_all_many": "Todos os {{total}} resultados da consulta",
-    "scope_loaded_many": "Os {{total}} resultados carregados"
+    }
   },
   "time_picker": {
     "title": "Selecionar intervalo de tempo",
@@ -560,17 +560,17 @@
     "select_row": "Selecionar linha",
     "selected_one": "{{count}} selecionada",
     "selected_other": "{{count}} selecionadas",
+    "selected_many": "{{count}} selecionadas",
     "clear_selection": "Limpar seleção",
     "bulk_label": "Ações nas linhas selecionadas",
     "export_csv": "Exportar CSV",
     "export_empty": "Nenhuma linha para exportar",
     "bulk_done_one": "{{count}} linha atualizada",
     "bulk_done_other": "{{count}} linhas atualizadas",
+    "bulk_done_many": "{{count}} linhas atualizadas",
     "bulk_failed_one": "{{count}} de {{total}} falhou: {{reason}}",
     "bulk_failed_other": "{{count}} de {{total}} falharam: {{reason}}",
-    "clear_filters": "Limpar filtros",
-    "selected_many": "{{count}} selecionadas",
-    "bulk_done_many": "{{count}} linhas atualizadas",
-    "bulk_failed_many": "{{count}} de {{total}} falharam: {{reason}}"
+    "bulk_failed_many": "{{count}} de {{total}} falharam: {{reason}}",
+    "clear_filters": "Limpar filtros"
   }
 }

@@ -43,6 +43,7 @@
     "mark_all_read": "Marcar todas como lidas",
     "unread_label_one": "Notificações, {{count}} não lida",
     "unread_label_other": "Notificações, {{count}} não lidas",
+    "unread_label_many": "Notificações, {{count}} não lidas",
     "acknowledge": "Confirmar recebimento",
     "acknowledged": "Recebimento do incidente confirmado",
     "incident_meta": "{{service}} · aguardando há {{age}}",
@@ -51,8 +52,7 @@
     "agent_approval": "O Mole Agent pede permissão para executar {{action}}",
     "intake_budget_warning": "Orçamento de ingestão quase esgotado: {{name}}",
     "intake_budget_exceeded": "Orçamento de ingestão excedido: {{name}}",
-    "intake_budget_meta": "{{percent}}% do orçamento usado. A ingestão de dados continua.",
-    "unread_label_many": "Notificações, {{count}} não lidas"
+    "intake_budget_meta": "{{percent}}% do orçamento usado. A ingestão de dados continua."
   },
   "user_menu": {
     "language": "Idioma"
@@ -294,9 +294,9 @@
       "expired": "Esta tentativa de entrada expirou. Digite sua senha novamente.",
       "recovery_left_one": "Código de recuperação usado. Resta {{count}} código.",
       "recovery_left_other": "Código de recuperação usado. Restam {{count}} códigos.",
+      "recovery_left_many": "Código de recuperação usado. Restam {{count}} códigos.",
       "recovery_none_left": "Esse foi seu último código de recuperação. Gere novos códigos em Configurações da conta → Segurança.",
-      "locked": "Muitos códigos incorretos. O login está temporariamente bloqueado. Tente novamente mais tarde.",
-      "recovery_left_many": "Código de recuperação usado. Restam {{count}} códigos."
+      "locked": "Muitos códigos incorretos. O login está temporariamente bloqueado. Tente novamente mais tarde."
     },
     "enroll": {
       "title": "Ative a autenticação multifator",
@@ -316,13 +316,13 @@
     "sso_only": "Seu espaço de trabalho só permite login único (SSO). Entre com um dos provedores abaixo.",
     "limited_minutes_one": "Muitas tentativas sem sucesso. Tente novamente em {{count}} minuto.",
     "limited_minutes_other": "Muitas tentativas sem sucesso. Tente novamente em {{count}} minutos.",
+    "limited_minutes_many": "Muitas tentativas sem sucesso. Tente novamente em {{count}} minutos.",
     "limited_seconds_one": "Muitas tentativas sem sucesso. Tente novamente em {{count}} segundo.",
     "limited_seconds_other": "Muitas tentativas sem sucesso. Tente novamente em {{count}} segundos.",
+    "limited_seconds_many": "Muitas tentativas sem sucesso. Tente novamente em {{count}} segundos.",
     "limited_with_hint": "{{wait}} {{hint}}",
     "limited_hint": "Você também pode redefinir sua senha.",
-    "limited_hint_passkey": "Você também pode entrar com uma chave de acesso ou redefinir sua senha.",
-    "limited_minutes_many": "Muitas tentativas sem sucesso. Tente novamente em {{count}} minutos.",
-    "limited_seconds_many": "Muitas tentativas sem sucesso. Tente novamente em {{count}} segundos."
+    "limited_hint_passkey": "Você também pode entrar com uma chave de acesso ou redefinir sua senha."
   },
   "signup": {
     "title": "Crie sua conta",

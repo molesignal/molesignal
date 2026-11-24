@@ -264,6 +264,7 @@
       "ok": "Valide",
       "summary_one": "{{count}} problème",
       "summary_other": "{{count}} problèmes",
+      "summary_many": "{{count}} problèmes",
       "no_source": "Un pipeline a besoin d’un flux source.",
       "no_sink": "Un pipeline a besoin d’un flux de destination.",
       "source_is_sink": "Le pipeline écrirait dans {{name}}, un flux qu’il lit. Choisissez une autre destination.",
@@ -281,8 +282,10 @@
       "processor_percent_invalid": "Étape « {{name}} » : la part à conserver doit être un nombre supérieur à 0 et inférieur ou égal à 100.",
       "pending_one": "{{count}} élément à renseigner",
       "pending_other": "{{count}} éléments à renseigner",
+      "pending_many": "{{count}} éléments à renseigner",
       "warnings_one": "{{count}} remarque",
       "warnings_other": "{{count}} remarques",
+      "warnings_many": "{{count}} remarques",
       "stream_name_invalid": "« {{name}} » n’est pas un nom de flux valide : utilisez uniquement des lettres, des chiffres et les caractères « _ », « - » et « . ».",
       "source_duplicate": "{{name}} est déjà une source ; ce flux ne sera lu qu’une fois.",
       "sink_duplicate": "{{name}} est déjà une destination ; le pipeline n’y écrira qu’une fois.",
@@ -327,10 +330,7 @@
       "counting_realtime_only": "L’étape « {{name}} » compte les événements à mesure qu’ils arrivent : elle ne peut s’exécuter que dans un pipeline en temps réel.",
       "counting_not_here_metric": "L’étape « {{name}} » génère des métriques à partir de logs, d’événements RUM et de spans, mais ce pipeline transforme un autre type de données.",
       "counting_not_here_limit": "L’étape « {{name}} » limite le passage des logs et des événements RUM qu’une étape peut écarter. Dans ce pipeline, elle créerait des lacunes dans les données.",
-      "counting_name_duplicate": "Deux étapes portent le nom « {{name}} ». Une étape de comptage doit avoir un nom unique, car ses compteurs sont enregistrés sous ce nom.",
-      "summary_many": "{{count}} problèmes",
-      "pending_many": "{{count}} éléments à renseigner",
-      "warnings_many": "{{count}} remarques"
+      "counting_name_duplicate": "Deux étapes portent le nom « {{name}} ». Une étape de comptage doit avoir un nom unique, car ses compteurs sont enregistrés sous ce nom."
     }
   },
   "drawer": {
@@ -438,6 +438,7 @@
     "copy_detail": "Reçoit tous les événements",
     "node_with_issues_one": "{{name}}, {{count}} problème",
     "node_with_issues_other": "{{name}}, {{count}} problèmes",
+    "node_with_issues_many": "{{name}}, {{count}} problèmes",
     "source": "Source",
     "add_source": "Ajouter une source",
     "choose_connector": "Choisir un connecteur",
@@ -446,8 +447,7 @@
     "destination_connector": "Connecteur",
     "at_most": "{{max}} flux maximum",
     "no_steps": "Aucune étape : les événements sont écrits tels qu’ils sont lus.",
-    "destination_table": "Table d’enrichissement",
-    "node_with_issues_many": "{{name}}, {{count}} problèmes"
+    "destination_table": "Table d’enrichissement"
   },
   "steps": {
     "name": "Nom de l’étape",
@@ -945,6 +945,7 @@
     "policies_none": "Aucune politique de notification n’est encore définie pour les événements d’alerte.",
     "policies_count_one": "{{count}} politique",
     "policies_count_other": "{{count}} politiques",
+    "policies_count_many": "{{count}} politiques",
     "http": {
       "connector": "Connecteur HTTP",
       "connector_hint": "L’adresse, les identifiants et les contrôles du trafic sortant du connecteur sont utilisés. Créez un connecteur dans la section Connecteurs.",
@@ -1009,8 +1010,7 @@
       "today": "Aujourd’hui (UTC)",
       "last": "Dernière exécution : {{rule}}, {{when}}"
     },
-    "time_hint": "La condition est évaluée à l’ouverture de l’incident. Vous pouvez, par exemple, ignorer un type d’alerte uniquement la nuit.",
-    "policies_count_many": "{{count}} politiques"
+    "time_hint": "La condition est évaluée à l’ouverture de l’incident. Vous pouvez, par exemple, ignorer un type d’alerte uniquement la nuit."
   },
   "table_sink": {
     "table": "Table d’extension",

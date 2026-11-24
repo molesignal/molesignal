@@ -43,6 +43,7 @@
     "mark_all_read": "Marcar todas como leídas",
     "unread_label_one": "Notificaciones, {{count}} sin leer",
     "unread_label_other": "Notificaciones, {{count}} sin leer",
+    "unread_label_many": "Notificaciones, {{count}} sin leer",
     "acknowledge": "Confirmar recepción",
     "acknowledged": "Recepción del incidente confirmada",
     "incident_meta": "{{service}} · en espera desde hace {{age}}",
@@ -51,8 +52,7 @@
     "agent_approval": "Mole Agent solicita ejecutar {{action}}",
     "intake_budget_warning": "Presupuesto de ingesta casi agotado: {{name}}",
     "intake_budget_exceeded": "Presupuesto de ingesta superado: {{name}}",
-    "intake_budget_meta": "Se ha usado el {{percent}}% del presupuesto. Los datos siguen llegando.",
-    "unread_label_many": "Notificaciones, {{count}} sin leer"
+    "intake_budget_meta": "Se ha usado el {{percent}}% del presupuesto. Los datos siguen llegando."
   },
   "user_menu": {
     "language": "Idioma"
@@ -294,9 +294,9 @@
       "expired": "Este intento de inicio de sesión caducó. Ingresa tu contraseña de nuevo.",
       "recovery_left_one": "Usaste un código de recuperación. Te queda {{count}} código.",
       "recovery_left_other": "Usaste un código de recuperación. Te quedan {{count}} códigos.",
+      "recovery_left_many": "Usaste un código de recuperación. Te quedan {{count}} códigos.",
       "recovery_none_left": "Ese era tu último código de recuperación. Genera nuevos códigos en Configuración de la cuenta → Seguridad.",
-      "locked": "Ingresaste demasiados códigos incorrectos. El inicio de sesión está bloqueado temporalmente. Inténtalo de nuevo más tarde.",
-      "recovery_left_many": "Usaste un código de recuperación. Te quedan {{count}} códigos."
+      "locked": "Ingresaste demasiados códigos incorrectos. El inicio de sesión está bloqueado temporalmente. Inténtalo de nuevo más tarde."
     },
     "enroll": {
       "title": "Activa la autenticación multifactor",
@@ -316,13 +316,13 @@
     "sso_only": "Tu espacio de trabajo solo permite el inicio de sesión único. Inicia sesión con uno de los proveedores de abajo.",
     "limited_minutes_one": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} minuto.",
     "limited_minutes_other": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} minutos.",
+    "limited_minutes_many": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} minutos.",
     "limited_seconds_one": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} segundo.",
     "limited_seconds_other": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} segundos.",
+    "limited_seconds_many": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} segundos.",
     "limited_with_hint": "{{wait}} {{hint}}",
     "limited_hint": "También puedes restablecer tu contraseña.",
-    "limited_hint_passkey": "También puedes iniciar sesión con una llave de acceso o restablecer tu contraseña.",
-    "limited_minutes_many": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} minutos.",
-    "limited_seconds_many": "Demasiados intentos fallidos. Inténtalo de nuevo en {{count}} segundos."
+    "limited_hint_passkey": "También puedes iniciar sesión con una llave de acceso o restablecer tu contraseña."
   },
   "signup": {
     "title": "Crea tu cuenta",

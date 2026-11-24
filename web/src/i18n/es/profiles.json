@@ -35,6 +35,7 @@
     "samples": "{{count}} muestras",
     "service_count_one": "{{count}} servicio",
     "service_count_other": "{{count}} servicios",
+    "service_count_many": "{{count}} servicios",
     "captured": "{{duration}} de captura",
     "profiles_button": "{{selected}} / {{total}} perfiles",
     "profiles_button_aria": "Elige los perfiles de este análisis: {{selected}} de {{total}} seleccionados",
@@ -42,8 +43,7 @@
     "loading_flamegraph": "Combinando los perfiles seleccionados…",
     "no_selection_title": "No hay perfiles seleccionados para el análisis",
     "no_selection_description": "El gráfico de llama combina los perfiles que elijas. Selecciona al menos uno.",
-    "no_selection_action": "Elegir perfiles",
-    "service_count_many": "{{count}} servicios"
+    "no_selection_action": "Elegir perfiles"
   },
   "first_run": {
     "eyebrow": "Perfilado continuo",
@@ -185,6 +185,7 @@
     "baseline": "Referencia",
     "period_profiles_one": "{{count}} perfil",
     "period_profiles_other": "{{count}} perfiles",
+    "period_profiles_many": "{{count}} perfiles",
     "overall": "Cambio total",
     "unequal_counts": "Los períodos tienen distinta cantidad de perfiles ({{comparison}} frente a {{baseline}}), así que parte del cambio se debe a esa diferencia.",
     "overlap": "Los períodos se superponen: los perfiles capturados durante el intervalo común se cuentan en ambos.",
@@ -195,6 +196,7 @@
       "title": "Funciones con mayores cambios",
       "count_one": "{{count}} función cambió",
       "count_other": "{{count}} funciones cambiaron",
+      "count_many": "{{count}} funciones cambiaron",
       "function": "Función",
       "baseline": "Referencia",
       "comparison": "Comparación",
@@ -204,8 +206,7 @@
       "show_all": "Mostrar las {{count}} funciones",
       "show_top": "Mostrar las primeras {{count}}",
       "none": "El costo propio de las funciones no cambió entre los dos períodos.",
-      "select_hint": "Resaltar esta función en el gráfico de llamas",
-      "count_many": "{{count}} funciones cambiaron"
+      "select_hint": "Resaltar esta función en el gráfico de llamas"
     },
     "empty": {
       "none_title": "No hay perfiles en ninguno de los períodos",
@@ -215,8 +216,7 @@
       "comparison_title": "No se capturaron perfiles en el período de comparación",
       "comparison_description": "El período seleccionado no tiene perfiles para comparar con los del período de referencia. Elige un período en el que se hayan capturado perfiles.",
       "open_analysis": "Abrir este período en el análisis"
-    },
-    "period_profiles_many": "{{count}} perfiles"
+    }
   },
   "detail": {
     "title": "Perfil",

@@ -35,6 +35,7 @@
     "samples": "{{count}} amostras",
     "service_count_one": "{{count}} serviço",
     "service_count_other": "{{count}} serviços",
+    "service_count_many": "{{count}} serviços",
     "captured": "{{duration}} de captura",
     "profiles_button": "{{selected}} / {{total}} perfis",
     "profiles_button_aria": "Escolher os perfis para esta análise: {{selected}} de {{total}} selecionados",
@@ -42,8 +43,7 @@
     "loading_flamegraph": "Combinando os perfis selecionados…",
     "no_selection_title": "Nenhum perfil selecionado para análise",
     "no_selection_description": "O gráfico de chama combina os perfis que você seleciona. Selecione pelo menos um.",
-    "no_selection_action": "Escolher perfis",
-    "service_count_many": "{{count}} serviços"
+    "no_selection_action": "Escolher perfis"
   },
   "first_run": {
     "eyebrow": "Profiling contínuo",
@@ -185,6 +185,7 @@
     "baseline": "Referência",
     "period_profiles_one": "{{count}} perfil",
     "period_profiles_other": "{{count}} perfis",
+    "period_profiles_many": "{{count}} perfis",
     "overall": "Variação geral",
     "unequal_counts": "Os períodos têm quantidades diferentes de perfis ({{comparison}} contra {{baseline}}), então parte da variação se deve à diferença no volume coletado.",
     "overlap": "Os períodos se sobrepõem: os perfis coletados no intervalo em comum contam nos dois períodos.",
@@ -195,6 +196,7 @@
       "title": "Funções com maior variação",
       "count_one": "{{count}} função com variação",
       "count_other": "{{count}} funções com variação",
+      "count_many": "{{count}} funções com variação",
       "function": "Função",
       "baseline": "Referência",
       "comparison": "Comparação",
@@ -204,8 +206,7 @@
       "show_all": "Mostrar todas ({{count}})",
       "show_top": "Mostrar as {{count}} com maior variação",
       "none": "O custo próprio de todas as funções permaneceu igual nos dois períodos.",
-      "select_hint": "Destacar esta função no gráfico de chama",
-      "count_many": "{{count}} funções com variação"
+      "select_hint": "Destacar esta função no gráfico de chama"
     },
     "empty": {
       "none_title": "Nenhum perfil nos dois períodos",
@@ -215,8 +216,7 @@
       "comparison_title": "Nenhum perfil capturado no período de comparação",
       "comparison_description": "O período selecionado não tem perfis para comparar com o período de referência. Selecione um período em que houve captura de perfis.",
       "open_analysis": "Abrir este período na análise"
-    },
-    "period_profiles_many": "{{count}} perfis"
+    }
   },
   "detail": {
     "title": "Perfil",

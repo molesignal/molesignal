@@ -527,12 +527,14 @@
         "account": {
           "bound_you": "La connexion se fait à votre compte {{email}}.",
           "bound_other": "La connexion se fait au compte {{email}}.",
+          "bound_one": "Se connecte au compte {{email}}.",
+          "bound_many": "La connexion se fait au compte {{email}}.",
           "link_you": "Votre compte {{email}} utilise cette adresse e-mail, mais cette identité n’y est pas encore associée. À la première connexion, vous devrez confirmer l’association avec votre mot de passe ou un code envoyé par e-mail.",
           "link_other": "Le compte {{email}} utilise cette adresse e-mail, mais cette identité n’y est pas encore associée. À la première connexion, le titulaire devra confirmer l’association avec son mot de passe ou un code envoyé par e-mail.",
+          "link_one": "Le compte {{email}} possède cette adresse e-mail, mais cette identité n’y est pas encore associée. Son propriétaire le confirme lors de la première connexion, avec le mot de passe ou un code envoyé par e-mail.",
+          "link_many": "Le compte {{email}} utilise cette adresse e-mail, mais cette identité n’y est pas encore associée. À la première connexion, le titulaire devra confirmer l’association avec son mot de passe ou un code envoyé par e-mail.",
           "create": "Aucun compte n’utilise cette adresse e-mail. Le compte {{email}} sera créé sans mot de passe à la première connexion.",
-          "joins": "Le compte sera ajouté à cet espace de travail lors de cette connexion.",
-          "bound_many": "La connexion se fait au compte {{email}}.",
-          "link_many": "Le compte {{email}} utilise cette adresse e-mail, mais cette identité n’y est pas encore associée. À la première connexion, le titulaire devra confirmer l’association avec son mot de passe ou un code envoyé par e-mail."
+          "joins": "Le compte sera ajouté à cet espace de travail lors de cette connexion."
         },
         "role_source": {
           "group_mapping": "D’après les groupes : {{groups}}",
@@ -1045,6 +1047,7 @@
     "subtitle": "Filtrez le journal d’audit par période, acteur, action et cible.",
     "subtitle_retention_days_one": "Filtrez le journal d’audit par période, acteur, action et cible. Les entrées sont conservées pendant {{count}} jour.",
     "subtitle_retention_days_other": "Filtrez le journal d’audit par période, acteur, action et cible. Les entrées sont conservées pendant {{count}} jours.",
+    "subtitle_retention_days_many": "Filtrez le journal d’audit par période, acteur, action et cible. Les entrées sont conservées pendant {{count}} jours.",
     "subtitle_retention_forever": "Filtrez le journal d’audit par période, acteur, action et cible. Les entrées sont conservées indéfiniment.",
     "change_retention": "Modifier la durée de conservation",
     "change_retention_hint": "Vous accédez à l’organisation de la plateforme, où se règle la durée de conservation du journal d’audit.",
@@ -1221,8 +1224,7 @@
       "updated": "mis à jour",
       "use": "utilisé",
       "verify": "vérifié"
-    },
-    "subtitle_retention_days_many": "Filtrez le journal d’audit par période, acteur, action et cible. Les entrées sont conservées pendant {{count}} jours."
+    }
   },
   "audit_retention": {
     "title": "Conservation des journaux d’audit",
@@ -1248,18 +1250,18 @@
     "confirm": {
       "title_one": "Réduire la durée de conservation des journaux d’audit de {{from}} jours à {{count}} jour ?",
       "title_other": "Réduire la durée de conservation des journaux d’audit de {{from}} jours à {{count}} jours ?",
+      "title_many": "Réduire la durée de conservation des journaux d’audit de {{from}} jours à {{count}} jours ?",
       "title_from_forever_one": "Remplacer la conservation illimitée des journaux d’audit par une durée de {{count}} jour ?",
       "title_from_forever_other": "Remplacer la conservation illimitée des journaux d’audit par une durée de {{count}} jours ?",
+      "title_from_forever_many": "Remplacer la conservation illimitée des journaux d’audit par une durée de {{count}} jours ?",
       "description": "Le prochain nettoyage quotidien supprimera définitivement ces entrées.",
       "description_unknown_one": "Impossible de compter les entrées. Le prochain nettoyage quotidien supprimera définitivement les entrées datant de plus de {{count}} jour.",
       "description_unknown_other": "Impossible de compter les entrées. Le prochain nettoyage quotidien supprimera définitivement les entrées datant de plus de {{count}} jours.",
+      "description_unknown_many": "Impossible de compter les entrées. Le prochain nettoyage quotidien supprimera définitivement les entrées datant de plus de {{count}} jours.",
       "action": "Réduire la durée de conservation",
       "records": "Enregistrements",
       "earliest": "Les plus anciens",
-      "type_first": "Saisissez d’abord le nombre de jours de conservation.",
-      "title_many": "Réduire la durée de conservation des journaux d’audit de {{from}} jours à {{count}} jours ?",
-      "title_from_forever_many": "Remplacer la conservation illimitée des journaux d’audit par une durée de {{count}} jours ?",
-      "description_unknown_many": "Impossible de compter les entrées. Le prochain nettoyage quotidien supprimera définitivement les entrées datant de plus de {{count}} jours."
+      "type_first": "Saisissez d’abord le nombre de jours de conservation."
     }
   },
   "stream_retention": {
@@ -1288,24 +1290,24 @@
       "unread": "Non lu",
       "unavailable_one": "{{count}} flux non pris en compte : les chiffres réels peuvent donc être plus élevés",
       "unavailable_other": "{{count}} flux non pris en compte : les chiffres réels peuvent donc être plus élevés",
+      "unavailable_many": "{{count}} flux non pris en compte : les chiffres réels peuvent donc être plus élevés",
       "column_stream": "Flux",
       "column_organization": "Organisation",
       "column_type": "Type",
       "showing": "Les {{shown}} flux les plus volumineux sur {{total}}.",
       "show_all": "Afficher plus",
-      "not_counted": "Les enregistrements de sessions et les archives de profils suivent aussi ce paramètre, mais ne sont pas comptabilisés.",
-      "unavailable_many": "{{count}} flux non pris en compte : les chiffres réels peuvent donc être plus élevés"
+      "not_counted": "Les enregistrements de sessions et les archives de profils suivent aussi ce paramètre, mais ne sont pas comptabilisés."
     },
     "confirm": {
       "title_one": "Passer de {{from}} jours à {{count}} jour de conservation par défaut ?",
       "title_other": "Passer de {{from}} jours à {{count}} jours de conservation par défaut ?",
+      "title_many": "Passer de {{from}} jours à {{count}} jours de conservation par défaut ?",
       "description": "Ces chiffres sont estimés d’après le catalogue de fichiers. Ces données seront définitivement supprimées lors du prochain nettoyage.",
       "description_unknown_one": "Impossible d’estimer l’impact. Les données de plus de {{count}} jour seront définitivement supprimées lors du prochain nettoyage.",
       "description_unknown_other": "Impossible d’estimer l’impact. Les données de plus de {{count}} jours seront définitivement supprimées lors du prochain nettoyage.",
+      "description_unknown_many": "Impossible d’estimer l’impact. Les données de plus de {{count}} jours seront définitivement supprimées lors du prochain nettoyage.",
       "action": "Réduire la durée de conservation",
-      "type_first": "Saisissez d’abord la durée de conservation en jours.",
-      "title_many": "Passer de {{from}} jours à {{count}} jours de conservation par défaut ?",
-      "description_unknown_many": "Impossible d’estimer l’impact. Les données de plus de {{count}} jours seront définitivement supprimées lors du prochain nettoyage."
+      "type_first": "Saisissez d’abord la durée de conservation en jours."
     }
   },
   "synthetic_retention": {
@@ -1546,6 +1548,7 @@
     "delete_description": "Aucun calcul ne dépend de ce calendrier.",
     "delete_in_use_one": "Utilisé à {{count}} endroit : {{names}}. Retirez-le d’abord de cet endroit.",
     "delete_in_use_other": "Utilisé à {{count}} endroits : {{names}}. Retirez-le d’abord de ces endroits.",
+    "delete_in_use_many": "Utilisé à {{count}} endroits : {{names}}. Retirez-le d’abord de ces endroits.",
     "delete_blocked": "Le calendrier est utilisé.",
     "reference_kinds": {
       "routing_rule": "règle de routage",
@@ -1582,11 +1585,10 @@
     "import_hint": "Les événements sur la journée entière sont ajoutés au calendrier. Si leur nom contient 补班 ou 上班, ou se termine par 班, ils sont traités comme des jours de travail compensatoires. Rien n’est enregistré tant que vous n’enregistrez pas le calendrier.",
     "imported_one": "{{count}} jour lu dans le fichier. Vérifiez-le, puis enregistrez le calendrier.",
     "imported_other": "{{count}} jours lus dans le fichier. Vérifiez-les, puis enregistrez le calendrier.",
+    "imported_many": "{{count}} jours lus dans le fichier. Vérifiez-les, puis enregistrez le calendrier.",
     "no_days": "Aucun jour en {{year}}.",
     "remove_day": "Retirer le {{date}}",
-    "add_day": "Ajouter un jour",
-    "delete_in_use_many": "Utilisé à {{count}} endroits : {{names}}. Retirez-le d’abord de ces endroits.",
-    "imported_many": "{{count}} jours lus dans le fichier. Vérifiez-les, puis enregistrez le calendrier."
+    "add_day": "Ajouter un jour"
   },
   "importance": {
     "title": "Priorité et urgence",

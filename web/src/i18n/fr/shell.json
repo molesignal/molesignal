@@ -43,6 +43,7 @@
     "mark_all_read": "Tout marquer comme lu",
     "unread_label_one": "Notifications, {{count}} non lue",
     "unread_label_other": "Notifications, {{count}} non lues",
+    "unread_label_many": "Notifications, {{count}} non lues",
     "acknowledge": "Acquitter",
     "acknowledged": "Incident acquitté",
     "incident_meta": "{{service}} · en attente depuis {{age}}",
@@ -51,8 +52,7 @@
     "agent_approval": "Mole Agent demande à exécuter {{action}}",
     "intake_budget_warning": "Budget d’ingestion presque épuisé : {{name}}",
     "intake_budget_exceeded": "Budget d’ingestion dépassé : {{name}}",
-    "intake_budget_meta": "{{percent}} % du budget utilisé. L’ingestion des données se poursuit.",
-    "unread_label_many": "Notifications, {{count}} non lues"
+    "intake_budget_meta": "{{percent}} % du budget utilisé. L’ingestion des données se poursuit."
   },
   "user_menu": {
     "language": "Langue"
@@ -294,9 +294,9 @@
       "expired": "Cette tentative de connexion a expiré. Saisissez à nouveau votre mot de passe.",
       "recovery_left_one": "Code de récupération utilisé. Il vous reste {{count}} code.",
       "recovery_left_other": "Code de récupération utilisé. Il vous reste {{count}} codes.",
+      "recovery_left_many": "Code de récupération utilisé. Il vous reste {{count}} codes.",
       "recovery_none_left": "Vous avez utilisé votre dernier code de récupération. Générez-en de nouveaux dans Paramètres du compte → Sécurité.",
-      "locked": "Trop de codes incorrects. La connexion est temporairement bloquée ; réessayez plus tard.",
-      "recovery_left_many": "Code de récupération utilisé. Il vous reste {{count}} codes."
+      "locked": "Trop de codes incorrects. La connexion est temporairement bloquée ; réessayez plus tard."
     },
     "enroll": {
       "title": "Activer l’authentification multifacteur",
@@ -316,13 +316,13 @@
     "sso_only": "Votre espace de travail autorise uniquement l’authentification unique (SSO). Connectez-vous avec l’un des fournisseurs ci-dessous.",
     "limited_minutes_one": "Trop de tentatives infructueuses. Réessayez dans {{count}} minute.",
     "limited_minutes_other": "Trop de tentatives infructueuses. Réessayez dans {{count}} minutes.",
+    "limited_minutes_many": "Trop de tentatives infructueuses. Réessayez dans {{count}} minutes.",
     "limited_seconds_one": "Trop de tentatives infructueuses. Réessayez dans {{count}} seconde.",
     "limited_seconds_other": "Trop de tentatives infructueuses. Réessayez dans {{count}} secondes.",
+    "limited_seconds_many": "Trop de tentatives infructueuses. Réessayez dans {{count}} secondes.",
     "limited_with_hint": "{{wait}} {{hint}}",
     "limited_hint": "Vous pouvez aussi réinitialiser votre mot de passe.",
-    "limited_hint_passkey": "Vous pouvez aussi vous connecter avec une clé d’accès ou réinitialiser votre mot de passe.",
-    "limited_minutes_many": "Trop de tentatives infructueuses. Réessayez dans {{count}} minutes.",
-    "limited_seconds_many": "Trop de tentatives infructueuses. Réessayez dans {{count}} secondes."
+    "limited_hint_passkey": "Vous pouvez aussi vous connecter avec une clé d’accès ou réinitialiser votre mot de passe."
   },
   "signup": {
     "title": "Créez votre compte",

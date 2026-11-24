@@ -52,7 +52,7 @@
   },
   "show_all_one": "Mostrar {{count}} más",
   "show_all_other": "Mostrar {{count}} más",
+  "show_all_many": "Mostrar {{count}} más",
   "acknowledge": "Confirmar recepción",
-  "acknowledged": "Recepción del incidente confirmada",
-  "show_all_many": "Mostrar {{count}} más"
+  "acknowledged": "Recepción del incidente confirmada"
 }

@@ -583,8 +583,10 @@
       "merge_off": "No agrupar",
       "merge_seconds_one": "{{count}} segundo",
       "merge_seconds_other": "{{count}} segundos",
+      "merge_seconds_many": "{{count}} segundos",
       "merge_minutes_one": "{{count}} minuto",
       "merge_minutes_other": "{{count}} minutos",
+      "merge_minutes_many": "{{count}} minutos",
       "ack_timeout": "Tiempo de espera para la confirmación (segundos)",
       "escalation_resolver": "Resolutor de escalamiento",
       "escalation_config": "Configuración del resolutor de escalamiento (JSON)",
@@ -603,9 +605,7 @@
       "save": "Guardar política",
       "restore": "Restaurar valor predeterminado",
       "builtin_name_hint": "Las políticas integradas conservan su nombre.",
-      "time_hint": "Se usa la hora en que ocurrió el evento que generó la notificación. Si ocurrió fuera del intervalo, esta política no envía nada; las demás siguen aplicándose.",
-      "merge_seconds_many": "{{count}} segundos",
-      "merge_minutes_many": "{{count}} minutos"
+      "time_hint": "Se usa la hora en que ocurrió el evento que generó la notificación. Si ocurrió fuera del intervalo, esta política no envía nada; las demás siguen aplicándose."
     },
     "delivery_modes": {
       "prefer_user": "Respetar la preferencia del usuario",

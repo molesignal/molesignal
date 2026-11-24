@@ -332,8 +332,10 @@
       "clustering_interval": "Janela de tempo",
       "clustering_minutes_one": "{{count}} minuto",
       "clustering_minutes_other": "{{count}} minutos",
+      "clustering_minutes_many": "{{count}} minutos",
       "clustering_seconds_one": "{{count}} segundo",
       "clustering_seconds_other": "{{count}} segundos",
+      "clustering_seconds_many": "{{count}} segundos",
       "field_indexes": "Índices de campos",
       "field_indexes_hint": "Os campos recebem um índice com base no nome quando aparecem pela primeira vez neste fluxo.",
       "index_pattern": "Índice para novos campos",
@@ -342,9 +344,7 @@
       "index_pattern_add": "Adicionar uma regra",
       "index_pattern_remove": "Remover esta regra",
       "index_pattern_up": "Mover para cima",
-      "index_pattern_down": "Mover para baixo",
-      "clustering_minutes_many": "{{count}} minutos",
-      "clustering_seconds_many": "{{count}} segundos"
+      "index_pattern_down": "Mover para baixo"
     },
     "changes": {
       "unsaved": "Você tem alterações não salvas",
@@ -565,16 +565,16 @@
       "save": "Salvar orçamento",
       "saved_one": "Orçamento salvo",
       "saved_other": "{{count}} orçamentos salvos",
+      "saved_many": "{{count}} orçamentos salvos",
       "save_failed": "Não foi possível salvar {{count}} de {{total}} orçamentos: {{reason}}",
       "remove_title_one": "Remover este orçamento?",
       "remove_title_other": "Remover {{count}} orçamentos?",
+      "remove_title_many": "Remover {{count}} orçamentos?",
       "remove_description": "Ninguém mais receberá avisos sobre essas fontes. O uso delas continuará visível nesta página.",
       "removed_one": "Orçamento removido",
       "removed_other": "{{count}} orçamentos removidos",
-      "remove_failed": "Não foi possível remover {{count}} de {{total}} orçamentos: {{reason}}",
-      "saved_many": "{{count}} orçamentos salvos",
-      "remove_title_many": "Remover {{count}} orçamentos?",
-      "removed_many": "{{count}} orçamentos removidos"
+      "removed_many": "{{count}} orçamentos removidos",
+      "remove_failed": "Não foi possível remover {{count}} de {{total}} orçamentos: {{reason}}"
     },
     "detail": {
       "trend": "Ingestão ao longo do período",

@@ -96,6 +96,7 @@
         "title": "Códigos de recuperación",
         "description_one": "Si pierdes tu autenticador o tus llaves de acceso, puedes usar cada código de recuperación una sola vez para iniciar sesión. Te queda {{count}} código.",
         "description_other": "Si pierdes tu autenticador o tus llaves de acceso, puedes usar cada código de recuperación una sola vez para iniciar sesión. Te quedan {{count}} códigos.",
+        "description_many": "Si pierdes tu autenticador o tus llaves de acceso, puedes usar cada código de recuperación una sola vez para iniciar sesión. Te quedan {{count}} códigos.",
         "regenerate": "Generar nuevos códigos",
         "regenerate_title": "¿Generar nuevos códigos de recuperación?",
         "regenerate_description": "Todos tus códigos de recuperación actuales dejarán de funcionar.",
@@ -108,8 +109,7 @@
         "download": "Descargar",
         "saved": "Ya los guardé",
         "file_heading": "Códigos de recuperación de MoleSignal ({{email}})",
-        "file_note": "Puedes usar cada código una sola vez para iniciar sesión en lugar de usar el segundo factor.",
-        "description_many": "Si pierdes tu autenticador o tus llaves de acceso, puedes usar cada código de recuperación una sola vez para iniciar sesión. Te quedan {{count}} códigos."
+        "file_note": "Puedes usar cada código una sola vez para iniciar sesión en lugar de usar el segundo factor."
       }
     },
     "passkeys": {

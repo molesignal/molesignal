@@ -96,6 +96,7 @@
         "title": "Codes de récupération",
         "description_one": "Si vous perdez l’accès à votre application d’authentification ou à vos clés d’accès, chaque code de récupération vous permet de vous connecter une seule fois. Il vous reste {{count}} code.",
         "description_other": "Si vous perdez l’accès à votre application d’authentification ou à vos clés d’accès, chaque code de récupération vous permet de vous connecter une seule fois. Il vous reste {{count}} codes.",
+        "description_many": "Si vous perdez l’accès à votre application d’authentification ou à vos clés d’accès, chaque code de récupération vous permet de vous connecter une seule fois. Il vous reste {{count}} codes.",
         "regenerate": "Générer de nouveaux codes",
         "regenerate_title": "Générer de nouveaux codes de récupération ?",
         "regenerate_description": "Tous vos codes de récupération actuels ne seront plus valides.",
@@ -108,8 +109,7 @@
         "download": "Télécharger",
         "saved": "Je les ai enregistrés",
         "file_heading": "Codes de récupération MoleSignal ({{email}})",
-        "file_note": "Chaque code remplace le second facteur pour une seule connexion.",
-        "description_many": "Si vous perdez l’accès à votre application d’authentification ou à vos clés d’accès, chaque code de récupération vous permet de vous connecter une seule fois. Il vous reste {{count}} codes."
+        "file_note": "Chaque code remplace le second facteur pour une seule connexion."
       }
     },
     "passkeys": {

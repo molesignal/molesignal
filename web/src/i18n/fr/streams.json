@@ -332,8 +332,10 @@
       "clustering_interval": "Tranche temporelle",
       "clustering_minutes_one": "{{count}} minute",
       "clustering_minutes_other": "{{count}} minutes",
+      "clustering_minutes_many": "{{count}} minutes",
       "clustering_seconds_one": "{{count}} seconde",
       "clustering_seconds_other": "{{count}} secondes",
+      "clustering_seconds_many": "{{count}} secondes",
       "field_indexes": "Index des champs",
       "field_indexes_hint": "Les nouveaux champs de ce flux sont indexés selon leur nom.",
       "index_pattern": "Indexation des nouveaux champs",
@@ -342,9 +344,7 @@
       "index_pattern_add": "Ajouter une règle",
       "index_pattern_remove": "Supprimer cette règle",
       "index_pattern_up": "Monter",
-      "index_pattern_down": "Descendre",
-      "clustering_minutes_many": "{{count}} minutes",
-      "clustering_seconds_many": "{{count}} secondes"
+      "index_pattern_down": "Descendre"
     },
     "changes": {
       "unsaved": "Vous avez des modifications non enregistrées",
@@ -565,16 +565,16 @@
       "save": "Enregistrer le budget",
       "saved_one": "Budget enregistré",
       "saved_other": "{{count}} budgets enregistrés",
+      "saved_many": "{{count}} budgets enregistrés",
       "save_failed": "Impossible d’enregistrer {{count}} budgets sur {{total}} : {{reason}}",
       "remove_title_one": "Supprimer ce budget ?",
       "remove_title_other": "Supprimer {{count}} budgets ?",
+      "remove_title_many": "Supprimer {{count}} budgets ?",
       "remove_description": "Plus personne ne recevra de notifications pour ces sources. Leur consommation restera visible sur cette page.",
       "removed_one": "Budget supprimé",
       "removed_other": "{{count}} budgets supprimés",
-      "remove_failed": "Impossible de supprimer {{count}} budgets sur {{total}} : {{reason}}",
-      "saved_many": "{{count}} budgets enregistrés",
-      "remove_title_many": "Supprimer {{count}} budgets ?",
-      "removed_many": "{{count}} budgets supprimés"
+      "removed_many": "{{count}} budgets supprimés",
+      "remove_failed": "Impossible de supprimer {{count}} budgets sur {{total}} : {{reason}}"
     },
     "detail": {
       "trend": "Ingestion sur la période",

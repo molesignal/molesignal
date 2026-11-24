@@ -80,10 +80,10 @@
     "map_zoom_level": "Zoom do mapa: {{level}} vezes",
     "map_samples_one": "{{count}} amostra",
     "map_samples_other": "{{count}} amostras",
+    "map_samples_many": "{{count}} amostras",
     "map_no_samples": "Nenhuma amostra",
     "unlocated_locations": "Sem localização · {{count}}",
-    "unlocated_names": "Sem localização: {{names}}",
-    "map_samples_many": "{{count}} amostras"
+    "unlocated_names": "Sem localização: {{names}}"
   },
   "checks": {
     "search_placeholder": "Buscar verificações, destinos ou tags…",
@@ -118,10 +118,10 @@
     "state_filter": "Estado",
     "schedule_one": "{{interval}} · {{count}} local",
     "schedule_other": "{{interval}} · {{count}} locais",
+    "schedule_many": "{{interval}} · {{count}} locais",
     "schedule_heartbeat": "Esperado a cada {{interval}}",
     "more_actions": "Mais ações para {{name}}",
-    "run_named": "Executar {{name}} agora",
-    "schedule_many": "{{interval}} · {{count}} locais"
+    "run_named": "Executar {{name}} agora"
   },
   "editor": {
     "create_title": "Criar verificação",
@@ -299,17 +299,21 @@
     "last_failure": "Última falha: {{when}}",
     "no_failures_one": "Nenhuma falha na última execução ({{count}})",
     "no_failures_other": "Nenhuma falha nas últimas {{count}} execuções",
+    "no_failures_many": "Nenhuma falha nas últimas {{count}} execuções",
     "never_ran": "Ainda não foi executada",
     "no_data_detail_one": "Sem dados da última execução em {{locations}}",
     "no_data_detail_other": "Sem dados das últimas {{count}} execuções em {{locations}}",
+    "no_data_detail_many": "Sem dados das últimas {{count}} execuções em {{locations}}",
     "location_missed_one": "Sem dados da última execução",
     "location_missed_other": "Sem dados das últimas {{count}} execuções",
+    "location_missed_many": "Sem dados das últimas {{count}} execuções",
     "paused_detail": "A verificação voltará a ser executada quando você a retomar",
     "response_time": "Tempo de resposta",
     "p95": "p95 {{value}}",
     "schedule": "Agendamento",
     "schedule_detail_one": "de {{count}} local · alerta após {{failures}} falhas consecutivas",
     "schedule_detail_other": "de {{count}} locais · alerta após {{failures}} falhas consecutivas",
+    "schedule_detail_many": "de {{count}} locais · alerta após {{failures}} falhas consecutivas",
     "schedule_heartbeat": "Previsto a cada",
     "by_location": "Por local",
     "response_by_location": "Tempo de resposta por local",
@@ -334,11 +338,7 @@
     "trace_context": "Contexto do trace",
     "traceroute_on_failure": "Traceroute em caso de falha",
     "location_availability": "{{value}} de disponibilidade",
-    "open_rum_session": "Abrir a sessão de RUM desta execução",
-    "no_failures_many": "Nenhuma falha nas últimas {{count}} execuções",
-    "no_data_detail_many": "Sem dados das últimas {{count}} execuções em {{locations}}",
-    "location_missed_many": "Sem dados das últimas {{count}} execuções",
-    "schedule_detail_many": "de {{count}} locais · alerta após {{failures}} falhas consecutivas"
+    "open_rum_session": "Abrir a sessão de RUM desta execução"
   },
   "results": {
     "title": "Resultados",
@@ -489,14 +489,14 @@
     "standing_eyebrow": "Agentes que executam verificações privadas",
     "all_online_one": "{{count}} agente, e ele está online",
     "all_online_other": "Todos os {{count}} agentes estão online",
+    "all_online_many": "Todos os {{count}} agentes estão online",
     "need_attention_one": "{{count}} agente precisa de atenção",
     "need_attention_other": "{{count}} agentes precisam de atenção",
+    "need_attention_many": "{{count}} agentes precisam de atenção",
     "none_title": "Nenhum agente registrado",
     "slots_free": "vagas disponíveis",
     "browser_slots_free": "vagas livres para navegadores",
-    "states": "Estados dos agentes",
-    "all_online_many": "Todos os {{count}} agentes estão online",
-    "need_attention_many": "{{count}} agentes precisam de atenção"
+    "states": "Estados dos agentes"
   },
   "agent_tokens": {
     "title": "Tokens de agente",
@@ -588,20 +588,26 @@
     "eyebrow": "O que as verificações indicam agora",
     "failing_one": "{{count}} verificação está falhando",
     "failing_other": "{{count}} verificações estão falhando",
+    "failing_many": "{{count}} verificações estão falhando",
     "attention_one": "{{count}} verificação precisa de atenção",
     "attention_other": "{{count}} verificações precisam de atenção",
+    "attention_many": "{{count}} verificações precisam de atenção",
     "passing_one": "{{count}} verificação com sucesso",
     "passing_other": "Todas as {{count}} verificações estão passando",
+    "passing_many": "Todas as {{count}} verificações estão passando",
     "waiting": "Aguardando as primeiras execuções",
     "idle": "Nenhuma verificação em execução",
     "running_one": "{{count}} verificação em execução",
     "running_other": "{{count}} verificações em execução",
+    "running_many": "{{count}} verificações em execução",
     "paused_one": "{{count}} pausada",
     "paused_other": "{{count}} pausadas",
+    "paused_many": "{{count}} pausadas",
     "states": "Estados das verificações",
     "availability": "Disponibilidade",
     "of_runs_one": "de {{count}} execução no período",
     "of_runs_other": "de {{count}} execuções no período",
+    "of_runs_many": "de {{count}} execuções no período",
     "no_runs": "Nenhuma execução ainda",
     "locations": "Locais online",
     "locations_all": "Todos os locais estão acessíveis",
@@ -610,13 +616,7 @@
     "paging": "Acionamento do plantão",
     "paging_detail": "verificações com política de escalonamento",
     "paging_none": "Em caso de falha, ninguém seria notificado",
-    "of_total": "{{count}} de {{total}}",
-    "failing_many": "{{count}} verificações estão falhando",
-    "attention_many": "{{count}} verificações precisam de atenção",
-    "passing_many": "Todas as {{count}} verificações estão passando",
-    "running_many": "{{count}} verificações em execução",
-    "paused_many": "{{count}} pausadas",
-    "of_runs_many": "de {{count}} execuções no período"
+    "of_total": "{{count}} de {{total}}"
   },
   "attention": {
     "title": "Precisa de atenção",
@@ -650,7 +650,7 @@
   "runs": {
     "summary_one": "{{passed}} de {{count}} execução mais recente com sucesso",
     "summary_other": "{{passed}} das últimas {{count}} execuções com sucesso",
-    "none": "Nenhuma execução ainda",
-    "summary_many": "{{passed}} das últimas {{count}} execuções com sucesso"
+    "summary_many": "{{passed}} das últimas {{count}} execuções com sucesso",
+    "none": "Nenhuma execução ainda"
   }
 }

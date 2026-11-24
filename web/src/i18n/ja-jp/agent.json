@@ -2137,8 +2137,8 @@
       "offline_body": "アクセス権は自動で更新されるため、その都度認可する必要はありません。"
     },
     "trust_title": "{{client}}が信頼できるか確認してください",
-    "trust_registered": "{{client}}は自ら登録しており、MoleSignalはその名前や提供元を確認していません。認可すると、この組織であなたが閲覧できるデータを{{client}}も閲覧できます。アクセス権は<revoke>Mole Agent → 設定 → インバウンドMCP</revoke>でいつでも取り消せます。",
-    "trust_metadata": "{{client}}に関する情報は{{host}}が提供しています。認可すると、この組織であなたが閲覧できるデータを{{client}}も閲覧できます。アクセス権は<revoke>Mole Agent → 設定 → インバウンドMCP</revoke>でいつでも取り消せます。",
+    "trust_registered": "{{client}} は自身で登録しました。MoleSignal はその名前や発行元を確認していません。認可されると、この組織内であなたが閲覧できるデータを閲覧できるようになります。アクセスは <revoke>Mole Agent → Settings → Inbound MCP</revoke> でいつでも取り消せます。",
+    "trust_metadata": "{{client}} は {{host}} によって説明されています。認可されると、この組織内であなたが閲覧できるデータを閲覧できるようになります。アクセスは <revoke>Mole Agent → Settings → Inbound MCP</revoke> でいつでも取り消せます。",
     "client_website": "クライアントのWebサイト",
     "cancel": "キャンセル",
     "allow": "認可",

@@ -62,7 +62,7 @@
       "sessions_other": "<n>{{formatted}}</n>件のセッション",
       "people_one": "<n>{{formatted}}</n>人のユーザー",
       "people_other": "<n>{{formatted}}</n>人のユーザー",
-      "browser": "<people/>による< sessions/>のうち、<n>{{share}}</n>でエラーが発生しませんでした。",
+      "browser": "<people/> 人による <sessions/> 件のセッションのうち、<n>{{share}}</n> はエラーがありませんでした。",
       "app": "<people/>による<sessions/>がありました。セッションの<n>{{sessionShare}}</n>とユーザーの<n>{{userShare}}</n>では、クラッシュが発生しませんでした。"
     },
     "vitals": {

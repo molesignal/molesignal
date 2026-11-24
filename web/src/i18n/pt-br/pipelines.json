@@ -264,6 +264,7 @@
       "ok": "Válido",
       "summary_one": "{{count}} problema",
       "summary_other": "{{count}} problemas",
+      "summary_many": "{{count}} problemas",
       "no_source": "Um pipeline precisa de um fluxo de origem para leitura.",
       "no_sink": "Um pipeline precisa de um fluxo de destino para gravação.",
       "source_is_sink": "O pipeline gravaria no fluxo {{name}}, que já usa como origem. Escolha outro destino.",
@@ -281,8 +282,10 @@
       "processor_percent_invalid": "Etapa \"{{name}}\": o percentual a manter deve ser maior que 0 e menor ou igual a 100.",
       "pending_one": "Falta preencher {{count}} item",
       "pending_other": "Faltam preencher {{count}} itens",
+      "pending_many": "Faltam preencher {{count}} itens",
       "warnings_one": "{{count}} observação",
       "warnings_other": "{{count}} observações",
+      "warnings_many": "{{count}} observações",
       "stream_name_invalid": "\"{{name}}\" não é um nome de fluxo válido: use apenas letras, números, _, - e ponto.",
       "source_duplicate": "{{name}} já é uma origem e será lido uma única vez.",
       "sink_duplicate": "{{name}} já é um destino e receberá os dados uma única vez.",
@@ -327,10 +330,7 @@
       "counting_realtime_only": "A etapa \"{{name}}\" conta os eventos à medida que chegam e só é executada em um pipeline em tempo real.",
       "counting_not_here_metric": "A etapa \"{{name}}\" gera métricas a partir de logs, eventos de RUM e spans, mas este pipeline transforma outro tipo de dado.",
       "counting_not_here_limit": "A etapa \"{{name}}\" retém logs e eventos de RUM que podem ser descartados por uma etapa. Neste pipeline, isso deixaria lacunas nos dados.",
-      "counting_name_duplicate": "Duas etapas têm o nome \"{{name}}\". Uma etapa de contagem precisa de um nome exclusivo, pois as contagens são armazenadas com esse nome.",
-      "summary_many": "{{count}} problemas",
-      "pending_many": "Faltam preencher {{count}} itens",
-      "warnings_many": "{{count}} observações"
+      "counting_name_duplicate": "Duas etapas têm o nome \"{{name}}\". Uma etapa de contagem precisa de um nome exclusivo, pois as contagens são armazenadas com esse nome."
     }
   },
   "drawer": {
@@ -438,6 +438,7 @@
     "copy_detail": "Recebe todos os eventos",
     "node_with_issues_one": "{{name}}, {{count}} problema",
     "node_with_issues_other": "{{name}}, {{count}} problemas",
+    "node_with_issues_many": "{{name}}, {{count}} problemas",
     "source": "Origem",
     "add_source": "Adicionar origem",
     "choose_connector": "Escolher um conector",
@@ -446,8 +447,7 @@
     "destination_connector": "Conector",
     "at_most": "Até {{max}} fluxos",
     "no_steps": "Sem etapas: os eventos são gravados à medida que são lidos.",
-    "destination_table": "Tabela de extensão",
-    "node_with_issues_many": "{{name}}, {{count}} problemas"
+    "destination_table": "Tabela de extensão"
   },
   "steps": {
     "name": "Nome da etapa",
@@ -945,6 +945,7 @@
     "policies_none": "Ainda não há uma política de notificação para eventos de alerta.",
     "policies_count_one": "{{count}} política",
     "policies_count_other": "{{count}} políticas",
+    "policies_count_many": "{{count}} políticas",
     "http": {
       "connector": "Conector HTTP",
       "connector_hint": "São usados o endereço, a credencial e as verificações de saída do conector. Crie um em Conectores.",
@@ -1009,8 +1010,7 @@
       "today": "Hoje (UTC)",
       "last": "Última execução: {{rule}}, {{when}}"
     },
-    "time_hint": "A condição é avaliada na abertura do incidente. Por exemplo, você pode descartar um tipo de alerta apenas à noite.",
-    "policies_count_many": "{{count}} políticas"
+    "time_hint": "A condição é avaliada na abertura do incidente. Por exemplo, você pode descartar um tipo de alerta apenas à noite."
   },
   "table_sink": {
     "table": "Tabela de extensão",

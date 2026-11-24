@@ -26,10 +26,13 @@
     "span_events": "Eventos",
     "span_count_one": "{{count}} span",
     "span_count_other": "{{count}} spans",
+    "span_count_many": "{{count}} spans",
     "service_count_one": "{{count}} servicio",
     "service_count_other": "{{count}} servicios",
+    "service_count_many": "{{count}} servicios",
     "error_count_one": "{{count}} error",
     "error_count_other": "{{count}} errores",
+    "error_count_many": "{{count}} errores",
     "related_logs": "Logs relacionados",
     "service_metrics": "Métricas del servicio",
     "search_logs": "Buscar en los logs de ese momento",
@@ -42,10 +45,7 @@
     "malformed_title": "No se puede mostrar la traza",
     "malformed_multiple_roots": "Esta traza tiene {{count}} spans raíz; se necesita uno solo para mostrar el diagrama en cascada.",
     "malformed_no_root": "Esta traza no tiene ningún span raíz; se necesita uno solo para mostrar el diagrama en cascada.",
-    "malformed_empty": "Esta traza no tiene spans.",
-    "span_count_many": "{{count}} spans",
-    "service_count_many": "{{count}} servicios",
-    "error_count_many": "{{count}} errores"
+    "malformed_empty": "Esta traza no tiene spans."
   },
   "session": {
     "title": "Trazas de la sesión",
@@ -54,13 +54,13 @@
     "empty_description": "No hay trazas asociadas a este ID de sesión en los últimos siete días.",
     "result_count_one": "{{count}} traza",
     "result_count_other": "{{count}} trazas",
+    "result_count_many": "{{count}} trazas",
     "columns": {
       "trace_id": "trace_id",
       "service": "Servicio",
       "operation": "Operación",
       "duration_ms": "duration_ms"
-    },
-    "result_count_many": "{{count}} trazas"
+    }
   },
   "explore": {
     "title": "Trazas",
@@ -130,8 +130,8 @@
       "no_match": "Ninguna traza coincide con la consulta seleccionada.",
       "loaded_count_one": "{{count}} traza cargada",
       "loaded_count_other": "{{count}} trazas cargadas",
-      "close_detail": "Cerrar detalles de la traza",
-      "loaded_count_many": "{{count}} trazas cargadas"
+      "loaded_count_many": "{{count}} trazas cargadas",
+      "close_detail": "Cerrar detalles de la traza"
     },
     "recovery": {
       "query_failed": "Error al consultar las trazas",
@@ -203,21 +203,27 @@
       "fields_summary": "{{shown}} / {{total}} campos",
       "values_count_one": "{{count}} valor",
       "values_count_other": "{{count}} valores",
+      "values_count_many": "{{count}} valores",
       "values_top": "Los {{shown}} valores principales de {{count}}",
       "values_in_traces_one": "en {{matched}} de {{count}} traza",
       "values_in_traces_other": "en {{matched}} de {{count}} trazas",
+      "values_in_traces_many": "en {{matched}} de {{count}} trazas",
       "analysis_scope_spans_one": "De todos los spans de la traza cargada ({{count}})",
       "analysis_scope_spans_other": "De todos los spans de las {{count}} trazas cargadas",
+      "analysis_scope_spans_many": "De todos los spans de las {{count}} trazas cargadas",
       "analysis_scope_traces_one": "De la traza cargada ({{count}})",
       "analysis_scope_traces_other": "De las {{count}} trazas cargadas",
+      "analysis_scope_traces_many": "De las {{count}} trazas cargadas",
       "values_loading": "Cargando los valores de {{name}}",
       "values_failed": "No se pudieron cargar los valores.",
       "no_values": "Las trazas cargadas no tienen ningún valor para este campo.",
       "no_traces": "No hay trazas cargadas.",
       "value_trace_count_one": "{{count}} traza",
       "value_trace_count_other": "{{count}} trazas",
+      "value_trace_count_many": "{{count}} trazas",
       "value_span_count_one": "{{count}} span",
       "value_span_count_other": "{{count}} spans",
+      "value_span_count_many": "{{count}} spans",
       "filter_for": "Incluir este valor",
       "filter_out": "Excluir este valor",
       "filter_at_least": "Como mínimo este valor",
@@ -231,13 +237,7 @@
       "range_avg": "Prom.",
       "range_max": "Máx.",
       "range_earliest": "Más antiguo",
-      "range_latest": "Más reciente",
-      "values_count_many": "{{count}} valores",
-      "values_in_traces_many": "en {{matched}} de {{count}} trazas",
-      "analysis_scope_spans_many": "De todos los spans de las {{count}} trazas cargadas",
-      "analysis_scope_traces_many": "De las {{count}} trazas cargadas",
-      "value_trace_count_many": "{{count}} trazas",
-      "value_span_count_many": "{{count}} spans"
+      "range_latest": "Más reciente"
     },
     "red": {
       "select_range": "Arrastra sobre el gráfico para acotar el intervalo de tiempo",
@@ -374,28 +374,28 @@
       "trace_id": "ID de traza",
       "errors_one": "{{count}} error",
       "errors_other": "{{count}} errores",
+      "errors_many": "{{count}} errores",
       "spans_one": "{{count}} span",
       "spans_other": "{{count}} spans",
+      "spans_many": "{{count}} spans",
       "services_one": "{{count}} servicio",
       "services_other": "{{count}} servicios",
+      "services_many": "{{count}} servicios",
       "depth": "profundidad {{depth}}",
       "orphans_one": "{{count}} span sin su span padre",
       "orphans_other": "{{count}} spans sin su span padre",
+      "orphans_many": "{{count}} spans sin su span padre",
       "orphans_hint": "No se recibió su span padre, así que cada uno se muestra como raíz.",
       "links_one": "{{count}} enlace a otros spans",
       "links_other": "{{count}} enlaces a otros spans",
+      "links_many": "{{count}} enlaces a otros spans",
       "jumps": "Señales relacionadas",
       "jump": {
         "logs": "Registros relacionados",
         "metrics": "Métricas del servicio",
         "profiles": "Perfiles",
         "session": "Sesión de usuario"
-      },
-      "errors_many": "{{count}} errores",
-      "spans_many": "{{count}} spans",
-      "services_many": "{{count}} servicios",
-      "orphans_many": "{{count}} spans sin su span padre",
-      "links_many": "{{count}} enlaces a otros spans"
+      }
     },
     "toolbar": {
       "search": "Buscar spans",
@@ -405,6 +405,7 @@
       "next_match": "Siguiente coincidencia (Enter)",
       "errors_only_one": "Solo spans con errores ({{count}})",
       "errors_only_other": "Solo spans con errores ({{count}})",
+      "errors_only_many": "Solo spans con errores ({{count}})",
       "expand_all": "Expandir todo",
       "collapse_all": "Contraer todo",
       "focused": "Enfoque en {{operation}}",
@@ -412,18 +413,17 @@
       "zoomed": "Vista ampliada: {{from}} – {{to}}",
       "unzoom": "Mostrar todo el eje de tiempo",
       "open_panel": "Mostrar los detalles del span",
-      "critical_path": "Ruta crítica",
-      "errors_only_many": "Solo spans con errores ({{count}})"
+      "critical_path": "Ruta crítica"
     },
     "legend": {
       "aria": "Servicios de la traza",
       "item": "{{service}}: {{percent}}% del tiempo propio de la traza",
       "more_one": "+{{count}} más",
       "more_other": "+{{count}} más",
+      "more_many": "+{{count}} más",
       "critical": "Ruta crítica: {{duration}}",
       "critical_aria": "Servicios en la ruta crítica",
-      "critical_item": "{{service}}: {{percent}}% de la ruta crítica, {{duration}}",
-      "more_many": "+{{count}} más"
+      "critical_item": "{{service}}: {{percent}}% de la ruta crítica, {{duration}}"
     },
     "overview": {
       "aria": "Traza completa",
@@ -439,13 +439,13 @@
       "collapse": "Ocultar los spans que llamó",
       "descendants_one": "{{count}} span descendiente",
       "descendants_other": "{{count}} spans descendientes",
+      "descendants_many": "{{count}} spans descendientes",
       "failed": "Con error",
       "links_one": "{{count}} enlace a otro span",
       "links_other": "{{count}} enlaces a otros spans",
+      "links_many": "{{count}} enlaces a otros spans",
       "critical": "En la ruta crítica",
-      "profiled": "Las muestras de perfilado conservaron este span",
-      "descendants_many": "{{count}} spans descendientes",
-      "links_many": "{{count}} enlaces a otros spans"
+      "profiled": "Las muestras de perfilado conservaron este span"
     },
     "groups": {
       "name": "Servicio / operación",
@@ -462,14 +462,14 @@
       "entry": "Entrada",
       "calls_one": "{{count}} llamada",
       "calls_other": "{{count}} llamadas",
+      "calls_many": "{{count}} llamadas",
       "errors_one": "{{count}} fallida",
       "errors_other": "{{count}} fallidas",
+      "errors_many": "{{count}} fallidas",
       "spans_one": "{{count}} span",
       "spans_other": "{{count}} spans",
-      "share": "{{percent}}% de tiempo propio",
-      "calls_many": "{{count}} llamadas",
-      "errors_many": "{{count}} fallidas",
-      "spans_many": "{{count}} spans"
+      "spans_many": "{{count}} spans",
+      "share": "{{percent}}% de tiempo propio"
     },
     "panel": {
       "aria": "Detalles del span",
@@ -605,8 +605,10 @@
       "around": "Perfiles cercanos en el tiempo a este span",
       "linked_one": "{{count}} perfil registró este span.",
       "linked_other": "{{count}} perfiles registraron este span.",
+      "linked_many": "{{count}} perfiles registraron este span.",
       "samples_one": "{{samples}} muestra",
       "samples_other": "{{samples}} muestras",
+      "samples_many": "{{samples}} muestras",
       "types": "Tipos de perfil",
       "top": "Funciones principales",
       "top_of": "Mayor valor propio de {{type}}",
@@ -617,8 +619,6 @@
       "dialog_title": "Perfil de {{operation}}",
       "dialog_description_one": "{{service}} · {{type}} · {{count}} perfil combinado",
       "dialog_description_other": "{{service}} · {{type}} · {{count}} perfiles combinados",
-      "linked_many": "{{count}} perfiles registraron este span.",
-      "samples_many": "{{samples}} muestras",
       "dialog_description_many": "{{service}} · {{type}} · {{count}} perfiles combinados"
     }
   },
@@ -657,16 +657,17 @@
     },
     "more_one": "{{count}} fila más sin mostrar",
     "more_other": "{{count}} filas más sin mostrar",
+    "more_many": "{{count}} filas más sin mostrar",
     "calls": {
       "only_a": "Solo en A",
       "only_b": "Solo en B",
       "spans_one": "{{count}} span",
       "spans_other": "{{count}} spans",
+      "spans_many": "{{count}} spans",
       "none": "Todas las llamadas de esta traza también aparecen en la otra.",
       "same": "Ambas trazas hicieron las mismas llamadas el mismo número de veces.",
       "under_one": "y {{count}} span que invocó",
       "under_other": "y {{count}} spans que invocó",
-      "spans_many": "{{count}} spans",
       "under_many": "y {{count}} spans que invocó"
     },
     "unavailable_title": "No se pueden comparar las dos trazas",
@@ -677,7 +678,6 @@
       "placeholder": "4bf92f3577b34da6a3ce929d0e0e4736",
       "same": "Ese ID corresponde a esta misma traza.",
       "submit": "Comparar"
-    },
-    "more_many": "{{count}} filas más sin mostrar"
+    }
   }
 }

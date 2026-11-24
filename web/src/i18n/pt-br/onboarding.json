@@ -58,6 +58,7 @@
     "unavailable": "Não foi possível carregar",
     "quick_start_one": "Falta {{count}} etapa de configuração",
     "quick_start_other": "Faltam {{count}} etapas de configuração",
+    "quick_start_many": "Faltam {{count}} etapas de configuração",
     "refresh": "Atualizar",
     "window": {
       "label": "Intervalo de tempo",
@@ -72,8 +73,8 @@
       "nothing": "Seu perfil não permite visualizar o status de nenhum sistema.",
       "issues_one": "{{count}} problema",
       "issues_other": "{{count}} problemas",
-      "updated": "Atualizado {{time}}",
-      "issues_many": "{{count}} problemas"
+      "issues_many": "{{count}} problemas",
+      "updated": "Atualizado {{time}}"
     },
     "signal": {
       "logs": "Logs",
@@ -179,8 +180,7 @@
       "unavailable": "Não foi possível carregar as escalas",
       "gap": "Ninguém está de plantão agora na escala {{schedule}}.",
       "arrange": "Atribuir agora"
-    },
-    "quick_start_many": "Faltam {{count}} etapas de configuração"
+    }
   },
   "datasource": {
     "endpoint": "Endpoint",

@@ -436,11 +436,14 @@
     "bar_range": "{{from}} – {{to}}",
     "bar_count_one": "{{formatted}} valeur",
     "bar_count_other": "{{formatted}} valeurs",
+    "bar_count_many": "{{formatted}} valeurs",
     "bar_readout": "De {{from}} à {{to}} : {{formatted}} valeurs",
     "trend_one": "Valeur la plus fréquente au fil du temps",
     "trend_other": "{{count}} valeurs les plus fréquentes au fil du temps",
+    "trend_many": "{{count}} valeurs les plus fréquentes au fil du temps",
     "trend_aria_one": "Valeur la plus fréquente de {{name}} au fil du temps",
     "trend_aria_other": "Les {{count}} valeurs les plus fréquentes de {{name}} au fil du temps",
+    "trend_aria_many": "Les {{count}} valeurs les plus fréquentes de {{name}} au fil du temps",
     "top": "Valeurs les plus fréquentes",
     "all_different": "Presque toutes les valeurs n’apparaissent qu’une fois : aucune n’est plus fréquente que les autres.",
     "protected": "Ce champ est masqué ou chiffré et ne peut pas être analysé.",
@@ -449,10 +452,7 @@
       "time_budget": "Le délai de comptage de tous les résultats correspondants a expiré",
       "busy": "Trop de requêtes sont en cours pour compter tous les résultats correspondants",
       "failed": "Impossible de compter tous les résultats correspondants"
-    },
-    "bar_count_many": "{{formatted}} valeurs",
-    "trend_many": "{{count}} valeurs les plus fréquentes au fil du temps",
-    "trend_aria_many": "Les {{count}} valeurs les plus fréquentes de {{name}} au fil du temps"
+    }
   },
   "histogram": {
     "bar_width": "{{width}} par barre",
@@ -466,8 +466,10 @@
     "bar_readout_whole": "De {{from}} à {{to}} : {{total}} au total",
     "scope_all_one": "Le seul résultat correspondant",
     "scope_all_other": "Les {{total}} résultats correspondants",
+    "scope_all_many": "Les {{total}} résultats correspondants",
     "scope_loaded_one": "Le seul résultat chargé",
     "scope_loaded_other": "Les {{total}} résultats chargés",
+    "scope_loaded_many": "Les {{total}} résultats chargés",
     "scope_because": "{{scope}} : {{reason}}",
     "counting": "Comptage de tous les résultats correspondants…",
     "unavailable": {
@@ -476,9 +478,7 @@
       "scan_limit": "la plage contient trop de lignes pour compter tous les résultats correspondants",
       "timestamp_masked": "le champ d’horodatage est masqué dans ce flux",
       "failed": "impossible de compter tous les résultats correspondants"
-    },
-    "scope_all_many": "Les {{total}} résultats correspondants",
-    "scope_loaded_many": "Les {{total}} résultats chargés"
+    }
   },
   "time_picker": {
     "title": "Sélectionner une plage temporelle",
@@ -560,17 +560,17 @@
     "select_row": "Sélectionner la ligne",
     "selected_one": "{{count}} ligne sélectionnée",
     "selected_other": "{{count}} lignes sélectionnées",
+    "selected_many": "{{count}} lignes sélectionnées",
     "clear_selection": "Effacer la sélection",
     "bulk_label": "Actions sur les lignes sélectionnées",
     "export_csv": "Exporter au format CSV",
     "export_empty": "Aucune ligne à exporter",
     "bulk_done_one": "{{count}} ligne mise à jour",
     "bulk_done_other": "{{count}} lignes mises à jour",
+    "bulk_done_many": "{{count}} lignes mises à jour",
     "bulk_failed_one": "{{count}} échec sur {{total}} : {{reason}}",
     "bulk_failed_other": "{{count}} échecs sur {{total}} : {{reason}}",
-    "clear_filters": "Effacer les filtres",
-    "selected_many": "{{count}} lignes sélectionnées",
-    "bulk_done_many": "{{count}} lignes mises à jour",
-    "bulk_failed_many": "{{count}} échecs sur {{total}} : {{reason}}"
+    "bulk_failed_many": "{{count}} échecs sur {{total}} : {{reason}}",
+    "clear_filters": "Effacer les filtres"
   }
 }

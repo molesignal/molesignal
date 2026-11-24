@@ -26,10 +26,13 @@
     "span_events": "Événements",
     "span_count_one": "{{count}} span",
     "span_count_other": "{{count}} spans",
+    "span_count_many": "{{count}} spans",
     "service_count_one": "{{count}} service",
     "service_count_other": "{{count}} services",
+    "service_count_many": "{{count}} services",
     "error_count_one": "{{count}} erreur",
     "error_count_other": "{{count}} erreurs",
+    "error_count_many": "{{count}} erreurs",
     "related_logs": "Logs associés",
     "service_metrics": "Métriques du service",
     "search_logs": "Rechercher dans les logs autour de la trace",
@@ -42,10 +45,7 @@
     "malformed_title": "Impossible d’afficher la trace",
     "malformed_multiple_roots": "Cette trace contient {{count}} spans racines. Un seul span racine est nécessaire pour afficher le diagramme en cascade.",
     "malformed_no_root": "Cette trace ne contient aucun span racine. Un seul span racine est nécessaire pour afficher le diagramme en cascade.",
-    "malformed_empty": "Cette trace ne contient aucun span.",
-    "span_count_many": "{{count}} spans",
-    "service_count_many": "{{count}} services",
-    "error_count_many": "{{count}} erreurs"
+    "malformed_empty": "Cette trace ne contient aucun span."
   },
   "session": {
     "title": "Traces de la session",
@@ -54,13 +54,13 @@
     "empty_description": "Aucune trace ne correspond à cet identifiant de session au cours des sept derniers jours.",
     "result_count_one": "{{count}} trace",
     "result_count_other": "{{count}} traces",
+    "result_count_many": "{{count}} traces",
     "columns": {
       "trace_id": "trace_id",
       "service": "service",
       "operation": "opération",
       "duration_ms": "duration_ms"
-    },
-    "result_count_many": "{{count}} traces"
+    }
   },
   "explore": {
     "title": "Traces",
@@ -130,8 +130,8 @@
       "no_match": "Aucune trace ne correspond à la requête sélectionnée.",
       "loaded_count_one": "{{count}} trace chargée",
       "loaded_count_other": "{{count}} traces chargées",
-      "close_detail": "Fermer les détails de la trace",
-      "loaded_count_many": "{{count}} traces chargées"
+      "loaded_count_many": "{{count}} traces chargées",
+      "close_detail": "Fermer les détails de la trace"
     },
     "recovery": {
       "query_failed": "Échec de la requête de traces",
@@ -203,21 +203,27 @@
       "fields_summary": "{{shown}} / {{total}} champs",
       "values_count_one": "{{count}} valeur",
       "values_count_other": "{{count}} valeurs",
+      "values_count_many": "{{count}} valeurs",
       "values_top": "{{shown}} premières valeurs sur {{count}}",
       "values_in_traces_one": "dans {{matched}} trace sur {{count}}",
       "values_in_traces_other": "dans {{matched}} traces sur {{count}}",
+      "values_in_traces_many": "dans {{matched}} traces sur {{count}}",
       "analysis_scope_spans_one": "Sur l’ensemble des spans de la trace chargée ({{count}})",
       "analysis_scope_spans_other": "Sur l’ensemble des spans des {{count}} traces chargées",
+      "analysis_scope_spans_many": "Sur l’ensemble des spans des {{count}} traces chargées",
       "analysis_scope_traces_one": "Sur la trace chargée ({{count}})",
       "analysis_scope_traces_other": "Sur les {{count}} traces chargées",
+      "analysis_scope_traces_many": "Sur les {{count}} traces chargées",
       "values_loading": "Chargement des valeurs de {{name}}",
       "values_failed": "Impossible de charger les valeurs.",
       "no_values": "Les traces chargées ne contiennent aucune valeur pour ce champ.",
       "no_traces": "Aucune trace n’est chargée.",
       "value_trace_count_one": "{{count}} trace",
       "value_trace_count_other": "{{count}} traces",
+      "value_trace_count_many": "{{count}} traces",
       "value_span_count_one": "{{count}} span",
       "value_span_count_other": "{{count}} spans",
+      "value_span_count_many": "{{count}} spans",
       "filter_for": "Inclure cette valeur",
       "filter_out": "Exclure cette valeur",
       "filter_at_least": "Au moins cette valeur",
@@ -231,13 +237,7 @@
       "range_avg": "Moy.",
       "range_max": "Max.",
       "range_earliest": "Le plus ancien",
-      "range_latest": "Le plus récent",
-      "values_count_many": "{{count}} valeurs",
-      "values_in_traces_many": "dans {{matched}} traces sur {{count}}",
-      "analysis_scope_spans_many": "Sur l’ensemble des spans des {{count}} traces chargées",
-      "analysis_scope_traces_many": "Sur les {{count}} traces chargées",
-      "value_trace_count_many": "{{count}} traces",
-      "value_span_count_many": "{{count}} spans"
+      "range_latest": "Le plus récent"
     },
     "red": {
       "select_range": "Faites glisser le curseur sur le graphique pour réduire la plage temporelle",
@@ -374,28 +374,28 @@
       "trace_id": "ID de la trace",
       "errors_one": "{{count}} erreur",
       "errors_other": "{{count}} erreurs",
+      "errors_many": "{{count}} erreurs",
       "spans_one": "{{count}} span",
       "spans_other": "{{count}} spans",
+      "spans_many": "{{count}} spans",
       "services_one": "{{count}} service",
       "services_other": "{{count}} services",
+      "services_many": "{{count}} services",
       "depth": "profondeur {{depth}}",
       "orphans_one": "{{count}} span sans parent",
       "orphans_other": "{{count}} spans sans parent",
+      "orphans_many": "{{count}} spans sans parent",
       "orphans_hint": "Leur span parent n’a pas été reçu ; chacun est affiché comme une racine distincte.",
       "links_one": "{{count}} lien vers d’autres spans",
       "links_other": "{{count}} liens vers d’autres spans",
+      "links_many": "{{count}} liens vers d’autres spans",
       "jumps": "Signaux associés",
       "jump": {
         "logs": "Logs associés",
         "metrics": "Métriques du service",
         "profiles": "Profils",
         "session": "Session utilisateur"
-      },
-      "errors_many": "{{count}} erreurs",
-      "spans_many": "{{count}} spans",
-      "services_many": "{{count}} services",
-      "orphans_many": "{{count}} spans sans parent",
-      "links_many": "{{count}} liens vers d’autres spans"
+      }
     },
     "toolbar": {
       "search": "Rechercher des spans",
@@ -405,6 +405,7 @@
       "next_match": "Résultat suivant (Entrée)",
       "errors_only_one": "Span en échec uniquement ({{count}})",
       "errors_only_other": "Spans en échec uniquement ({{count}})",
+      "errors_only_many": "Spans en échec uniquement ({{count}})",
       "expand_all": "Tout développer",
       "collapse_all": "Tout réduire",
       "focused": "Vue centrée sur {{operation}}",
@@ -412,18 +413,17 @@
       "zoomed": "Zoom sur {{from}} – {{to}}",
       "unzoom": "Afficher tout l’axe temporel",
       "open_panel": "Afficher les détails du span",
-      "critical_path": "Chemin critique",
-      "errors_only_many": "Spans en échec uniquement ({{count}})"
+      "critical_path": "Chemin critique"
     },
     "legend": {
       "aria": "Services de la trace",
       "item": "{{service}} : {{percent}} % du temps propre de la trace",
       "more_one": "+{{count}} autre",
       "more_other": "+{{count}} autres",
+      "more_many": "+{{count}} autres",
       "critical": "Chemin critique : {{duration}}",
       "critical_aria": "Services sur le chemin critique",
-      "critical_item": "{{service}} : {{percent}} % du chemin critique, {{duration}}",
-      "more_many": "+{{count}} autres"
+      "critical_item": "{{service}} : {{percent}} % du chemin critique, {{duration}}"
     },
     "overview": {
       "aria": "Trace entière",
@@ -439,13 +439,13 @@
       "collapse": "Masquer les spans appelés",
       "descendants_one": "{{count}} span descendant",
       "descendants_other": "{{count}} spans descendants",
+      "descendants_many": "{{count}} spans descendants",
       "failed": "En échec",
       "links_one": "{{count}} lien vers un autre span",
       "links_other": "{{count}} liens vers d’autres spans",
+      "links_many": "{{count}} liens vers d’autres spans",
       "critical": "Sur le chemin critique",
-      "profiled": "Span conservé dans les échantillons de profilage",
-      "descendants_many": "{{count}} spans descendants",
-      "links_many": "{{count}} liens vers d’autres spans"
+      "profiled": "Span conservé dans les échantillons de profilage"
     },
     "groups": {
       "name": "Service / opération",
@@ -462,14 +462,14 @@
       "entry": "Point d’entrée",
       "calls_one": "{{count}} appel",
       "calls_other": "{{count}} appels",
+      "calls_many": "{{count}} appels",
       "errors_one": "{{count}} échec",
       "errors_other": "{{count}} échecs",
+      "errors_many": "{{count}} échecs",
       "spans_one": "{{count}} span",
       "spans_other": "{{count}} spans",
-      "share": "{{percent}} % de temps propre",
-      "calls_many": "{{count}} appels",
-      "errors_many": "{{count}} échecs",
-      "spans_many": "{{count}} spans"
+      "spans_many": "{{count}} spans",
+      "share": "{{percent}} % de temps propre"
     },
     "panel": {
       "aria": "Détails du span",
@@ -605,8 +605,10 @@
       "around": "Profils autour de ce span",
       "linked_one": "{{count}} profil est associé à ce span.",
       "linked_other": "{{count}} profils sont associés à ce span.",
+      "linked_many": "{{count}} profils sont associés à ce span.",
       "samples_one": "{{samples}} échantillon",
       "samples_other": "{{samples}} échantillons",
+      "samples_many": "{{samples}} échantillons",
       "types": "Types de profils",
       "top": "Fonctions principales",
       "top_of": "Classement par valeur propre de {{type}}",
@@ -617,8 +619,6 @@
       "dialog_title": "Profil de {{operation}}",
       "dialog_description_one": "{{service}} · {{type}} · {{count}} profil fusionné",
       "dialog_description_other": "{{service}} · {{type}} · {{count}} profils fusionnés",
-      "linked_many": "{{count}} profils sont associés à ce span.",
-      "samples_many": "{{samples}} échantillons",
       "dialog_description_many": "{{service}} · {{type}} · {{count}} profils fusionnés"
     }
   },
@@ -657,16 +657,17 @@
     },
     "more_one": "{{count}} ligne supplémentaire non affichée",
     "more_other": "{{count}} lignes supplémentaires non affichées",
+    "more_many": "{{count}} lignes supplémentaires non affichées",
     "calls": {
       "only_a": "Uniquement dans A",
       "only_b": "Uniquement dans B",
       "spans_one": "{{count}} span",
       "spans_other": "{{count}} spans",
+      "spans_many": "{{count}} spans",
       "none": "Tous les appels de cette trace figurent aussi dans l’autre.",
       "same": "Les deux traces contiennent les mêmes appels, avec le même nombre d’occurrences pour chacun.",
       "under_one": "et {{count}} span appelé",
       "under_other": "et {{count}} spans appelés",
-      "spans_many": "{{count}} spans",
       "under_many": "et {{count}} spans appelés"
     },
     "unavailable_title": "Impossible de comparer les deux traces",
@@ -677,7 +678,6 @@
       "placeholder": "4bf92f3577b34da6a3ce929d0e0e4736",
       "same": "C’est la trace actuelle.",
       "submit": "Comparer"
-    },
-    "more_many": "{{count}} lignes supplémentaires non affichées"
+    }
   }
 }

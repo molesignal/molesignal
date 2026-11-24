@@ -15,19 +15,19 @@
       "services": "Serviços ativos",
       "services_detail_one": "{{count}} serviço, {{idle}} sem tráfego",
       "services_detail_other": "{{count}} serviços, {{idle}} sem tráfego",
+      "services_detail_many": "{{count}} serviços, {{idle}} sem tráfego",
       "throughput": "Taxa de requisições",
       "requests_one": "{{formatted}} requisição",
       "requests_other": "{{formatted}} requisições",
+      "requests_many": "{{formatted}} requisições",
       "error_rate": "Taxa de erros",
       "errors_one": "{{formatted}} erro",
       "errors_other": "{{formatted}} erros",
+      "errors_many": "{{formatted}} erros",
       "p95": "Latência P95",
       "average": "média: {{value}}",
       "apdex": "Apdex",
-      "apdex_detail": "T = {{threshold}}",
-      "services_detail_many": "{{count}} serviços, {{idle}} sem tráfego",
-      "requests_many": "{{formatted}} requisições",
-      "errors_many": "{{formatted}} erros"
+      "apdex_detail": "T = {{threshold}}"
     },
     "health": "Saúde dos serviços",
     "health_description": "Serviços por estado ao longo do tempo",
@@ -50,19 +50,20 @@
     "no_environments": "Nenhum serviço neste período.",
     "environment_services_one": "{{count}} serviço",
     "environment_services_other": "{{count}} serviços",
+    "environment_services_many": "{{count}} serviços",
     "instrumentation": "Qualidade da instrumentação",
     "no_sdks": "Nenhum serviço informou seu SDK ainda.",
     "unknown": "Desconhecido",
     "gap_one": "{{formatted}} serviço",
     "gap_other": "{{formatted}} serviços",
+    "gap_many": "{{formatted}} serviços",
     "gap_attribute": "não informam",
-    "gap_action": "Abrir o guia de ingestão do OpenTelemetry",
-    "environment_services_many": "{{count}} serviços",
-    "gap_many": "{{formatted}} serviços"
+    "gap_action": "Abrir o guia de ingestão do OpenTelemetry"
   },
   "alerts": {
     "active_one": "{{count}} alerta",
     "active_other": "{{count}} alertas",
+    "active_many": "{{count}} alertas",
     "new": "Novo alerta",
     "related": "Alertas ativos",
     "kind": {
@@ -70,14 +71,14 @@
       "threshold_hint": "Dispara quando um valor ultrapassa o limite que você definiu",
       "anomaly": "Alerta de anomalia",
       "anomaly_hint": "Dispara quando um valor se desvia do padrão observado no mesmo horário nos dias anteriores"
-    },
-    "active_many": "{{count}} alertas"
+    }
   },
   "slo": {
     "title": "SLOs",
     "table": "Objetivos de nível de serviço",
     "summary_one": "{{count}} SLO",
     "summary_other": "{{count}} SLOs",
+    "summary_many": "{{count}} SLOs",
     "search": "Buscar SLOs ou serviços",
     "all_states": "Todos os estados",
     "new": "Novo SLO",
@@ -91,6 +92,7 @@
     "remove_description": "Apenas o objetivo será excluído. Os dados de APM serão mantidos.",
     "remove_with_alerts_one": "O SLO e seu {{count}} alerta de taxa de consumo do orçamento de erros serão excluídos. Os dados de APM serão mantidos.",
     "remove_with_alerts_other": "O SLO e seus {{count}} alertas de taxa de consumo do orçamento de erros serão excluídos. Os dados de APM serão mantidos.",
+    "remove_with_alerts_many": "O SLO e seus {{count}} alertas de taxa de consumo do orçamento de erros serão excluídos. Os dados de APM serão mantidos.",
     "removing": "Excluindo…",
     "remove_watched": "Ainda há regras de alerta monitorando este SLO. Exclua essas regras primeiro em Alertas → Regras de alerta.",
     "service_title": "Objetivos de nível de serviço",
@@ -98,6 +100,7 @@
     "budget_left": "{{value}} de orçamento restante",
     "window_one": "{{count}} dia",
     "window_other": "{{count}} dias",
+    "window_many": "{{count}} dias",
     "state": {
       "healthy": "Saudável",
       "at_risk": "Em risco",
@@ -147,6 +150,7 @@
       "create": "Criar alertas de taxa de consumo",
       "created_one": "{{count}} alerta de taxa de consumo criado",
       "created_other": "{{count}} alertas de taxa de consumo criados",
+      "created_many": "{{count}} alertas de taxa de consumo criados",
       "fast_name": "{{name}}: consumo rápido",
       "slow_name": "{{name}}: consumo lento",
       "description": "O orçamento de erros do SLO {{name}} está sendo consumido rápido demais",
@@ -157,10 +161,9 @@
       "off": "Desativado",
       "window_hours_one": "{{count}} hora",
       "window_hours_other": "{{count}} horas",
+      "window_hours_many": "{{count}} horas",
       "window_minutes_one": "{{count}} minuto",
       "window_minutes_other": "{{count}} minutos",
-      "created_many": "{{count}} alertas de taxa de consumo criados",
-      "window_hours_many": "{{count}} horas",
       "window_minutes_many": "{{count}} minutos"
     },
     "form": {
@@ -181,10 +184,7 @@
       "notes": "Observações",
       "choose": "Selecione",
       "saved": "SLO salvo"
-    },
-    "summary_many": "{{count}} SLOs",
-    "remove_with_alerts_many": "O SLO e seus {{count}} alertas de taxa de consumo do orçamento de erros serão excluídos. Os dados de APM serão mantidos.",
-    "window_many": "{{count}} dias"
+    }
   },
   "time": {
     "compare": "Comparar com",
@@ -208,6 +208,7 @@
     "partial_title": "Dados parciais de APM",
     "partial_description_one": "{{count}} lacuna na projeção afeta este intervalo. Os valores continuam disponíveis, mas podem subestimar o tráfego real.",
     "partial_description_other": "{{count}} lacunas na projeção afetam este intervalo. Os valores continuam disponíveis, mas podem subestimar o tráfego real.",
+    "partial_description_many": "{{count}} lacunas na projeção afetam este intervalo. Os valores continuam disponíveis, mas podem subestimar o tráfego real.",
     "overflow": "Alguns nomes foram contabilizados em Outros",
     "overflow_title": "Nomes que excedem os limites de cardinalidade",
     "overflow_description": "Os nomes que excedem os limites são contabilizados juntos na linha Outros. Os totais continuam completos.",
@@ -218,8 +219,7 @@
       "transaction": "Endpoints",
       "dependency": "Dependências",
       "error": "Erros"
-    },
-    "partial_description_many": "{{count}} lacunas na projeção afetam este intervalo. Os valores continuam disponíveis, mas podem subestimar o tráfego real."
+    }
   },
   "health": {
     "critical": "Crítico",
@@ -294,9 +294,9 @@
     "summary": {
       "services_one": "{{count}} serviço",
       "services_other": "{{count}} serviços",
+      "services_many": "{{count}} serviços",
       "throughput": "Taxa de transferência",
-      "error_rate": "Taxa de erros",
-      "services_many": "{{count}} serviços"
+      "error_rate": "Taxa de erros"
     },
     "columns": {
       "service": "Serviço",
@@ -329,6 +329,7 @@
     "unfavorite": "Remover {{name}} dos favoritos",
     "favorites_one": "Favoritos {{count}}",
     "favorites_other": "Favoritos {{count}}",
+    "favorites_many": "Favoritos {{count}}",
     "archived": "Arquivados",
     "inactive": "Inativos",
     "namespace": "Namespace",
@@ -337,6 +338,7 @@
     "all_tags": "Todas as tags",
     "show_archived_one": "Arquivados {{count}}",
     "show_archived_other": "Arquivados {{count}}",
+    "show_archived_many": "Arquivados {{count}}",
     "group": {
       "label": "Agrupar por",
       "off": "Sem agrupamento",
@@ -360,9 +362,7 @@
       "owner": "um responsável",
       "repository": "um repositório"
     },
-    "missing_hint": "Os requisitos do catálogo nas configurações de APM exigem essas informações para este nível.",
-    "favorites_many": "Favoritos {{count}}",
-    "show_archived_many": "Arquivados {{count}}"
+    "missing_hint": "Os requisitos do catálogo nas configurações de APM exigem essas informações para este nível."
   },
   "definition": {
     "title": "Descrever {{name}}",
@@ -505,12 +505,12 @@
       "team": "Equipe",
       "instances_one": "{{count}} instância",
       "instances_other": "{{count}} instâncias",
+      "instances_many": "{{count}} instâncias",
       "deployed_label": "Última implantação",
       "deployed": "implantado {{when}}",
       "region": "Região",
       "repository": "Repositório",
-      "aliases": "Também conhecido como",
-      "instances_many": "{{count}} instâncias"
+      "aliases": "Também conhecido como"
     },
     "coverage": {
       "missing": {
@@ -577,6 +577,7 @@
     },
     "count_one": "{{count}} endpoint",
     "count_other": "{{count}} endpoints",
+    "count_many": "{{count}} endpoints",
     "empty": "Nenhum endpoint correspondente.",
     "table": "Endpoints",
     "columns": {
@@ -596,14 +597,13 @@
     "key": "Transação-chave",
     "key_only_one": "Transação-chave {{count}}",
     "key_only_other": "Transações-chave {{count}}",
+    "key_only_many": "Transações-chave {{count}}",
     "long_tasks_one": "Tarefa longa {{count}}",
     "long_tasks_other": "Tarefas longas {{count}}",
+    "long_tasks_many": "Tarefas longas {{count}}",
     "long_tasks_hint": "Endpoints com P99 igual ou superior a {{threshold}}",
     "mark_key": "Marcar {{name}} como transação-chave",
-    "unmark_key": "Desmarcar {{name}} como transação-chave",
-    "count_many": "{{count}} endpoints",
-    "key_only_many": "Transações-chave {{count}}",
-    "long_tasks_many": "Tarefas longas {{count}}"
+    "unmark_key": "Desmarcar {{name}} como transação-chave"
   },
   "endpoint": {
     "errors": "Erros",
@@ -638,6 +638,7 @@
       "title": "Onde o tempo é gasto",
       "description_one": "Com base na requisição mais recente no armazenamento de traces",
       "description_other": "Com base nas {{count}} requisições mais recentes no armazenamento de traces",
+      "description_many": "Com base nas {{count}} requisições mais recentes no armazenamento de traces",
       "about": "Com base em até 200 das requisições mais recentes no armazenamento de traces",
       "none": "Nenhuma requisição deste endpoint está armazenada neste intervalo.",
       "unavailable": "O armazenamento de traces não respondeu a tempo. Tente um intervalo mais curto.",
@@ -652,8 +653,7 @@
         "messaging": "Mensageria",
         "internal": "Processamento interno",
         "other": "Outros"
-      },
-      "description_many": "Com base nas {{count}} requisições mais recentes no armazenamento de traces"
+      }
     }
   },
   "traces": {
@@ -683,6 +683,7 @@
     },
     "operations_one": "{{count}} operação",
     "operations_other": "{{count}} operações",
+    "operations_many": "{{count}} operações",
     "no_operation": "Sem nome de operação",
     "category": {
       "service": "Serviço",
@@ -695,8 +696,10 @@
     },
     "timeouts_one": "{{count}} chamada excedeu o tempo limite",
     "timeouts_other": "{{count}} chamadas excederam o tempo limite",
+    "timeouts_many": "{{count}} chamadas excederam o tempo limite",
     "retries_one": "{{count}} chamada foi tentada novamente",
     "retries_other": "{{count}} chamadas foram tentadas novamente",
+    "retries_many": "{{count}} chamadas foram tentadas novamente",
     "slowest_operation": "P95 da operação mais lenta",
     "score": {
       "errors": "Chamadas com falha: −{{points}}",
@@ -706,10 +709,7 @@
     },
     "slow_sql": "SQL lento",
     "slow_sql_description": "Instruções do banco de dados por P95, em formato de modelo: cada literal é substituído por ?",
-    "new_target": "Novo",
-    "operations_many": "{{count}} operações",
-    "timeouts_many": "{{count}} chamadas excederam o tempo limite",
-    "retries_many": "{{count}} chamadas foram tentadas novamente"
+    "new_target": "Novo"
   },
   "deployments": {
     "timeline": "Linha do tempo de implantações",
@@ -788,6 +788,7 @@
     "saved": "Grupo de erros atualizado",
     "count_one": "{{count}} grupo",
     "count_other": "{{count}} grupos",
+    "count_many": "{{count}} grupos",
     "none": "Nenhum grupo de erros neste intervalo",
     "none_open": "Nenhum grupo de erros em aberto neste intervalo",
     "none_description": "Os erros dos spans de backend são agrupados aqui por tipo e pelo local onde foram lançados.",
@@ -883,6 +884,7 @@
       "patterns_hint": "Cada padrão é comparado com o texto inteiro, sem distinção entre maiúsculas e minúsculas. Use * para representar qualquer texto. Um campo vazio aceita qualquer valor. Preencha pelo menos um campo.",
       "preview_one": "{{count}} grupo de erros listado corresponde a esta regra. Os grupos existentes não mudam: a regra se aplica aos erros detectados daqui em diante.",
       "preview_other": "{{count}} grupos de erros listados correspondem a esta regra. Os grupos existentes não mudam: a regra se aplica aos erros detectados daqui em diante.",
+      "preview_many": "{{count}} grupos de erros listados correspondem a esta regra. Os grupos existentes não mudam: a regra se aplica aos erros detectados daqui em diante.",
       "pattern": {
         "error_type": "tipo {{pattern}}",
         "message": "mensagem {{pattern}}",
@@ -899,10 +901,8 @@
       "removing": "Excluindo…",
       "saved": "Regra salva",
       "removed": "Regra excluída",
-      "from_error": "Criar regra a partir deste erro",
-      "preview_many": "{{count}} grupos de erros listados correspondem a esta regra. Os grupos existentes não mudam: a regra se aplica aos erros detectados daqui em diante."
-    },
-    "count_many": "{{count}} grupos"
+      "from_error": "Criar regra a partir deste erro"
+    }
   },
   "runtime": {
     "language": "Linguagem",
@@ -981,6 +981,7 @@
     },
     "group_figures_one": "{{count}} serviço",
     "group_figures_other": "{{count}} serviços",
+    "group_figures_many": "{{count}} serviços",
     "none": "Nenhuma chamada no período",
     "none_description": "Os serviços aparecem aqui quando seus spans chegam ao MoleSignal. As chamadas entre eles aparecem quando um span tem um span pai em outro serviço.",
     "truncated": "Apenas os nós com mais atividade são exibidos.",
@@ -1031,8 +1032,7 @@
     "calls": "Chamadas",
     "calls_out": "Chamadas",
     "calls_in": "Chamado por",
-    "gone_figures": "Nenhuma chamada desde o intervalo anterior",
-    "group_figures_many": "{{count}} serviços"
+    "gone_figures": "Nenhuma chamada desde o intervalo anterior"
   },
   "pagination": {
     "aria": "Páginas da lista",
@@ -1197,16 +1197,16 @@
       "limits_by_platform": "Definidos pelos administradores da plataforma",
       "gaps_one": "O APM não registrou spans em {{count}} trecho.",
       "gaps_other": "O APM não registrou spans em {{count}} trechos.",
+      "gaps_many": "O APM não registrou spans em {{count}} trechos.",
       "stale": "O APM está atrasado: o último minuto com dados completos é {{at}}.",
       "missing_one": "{{formatted}} serviço não reporta",
       "missing_other": "{{formatted}} serviços não reportam",
+      "missing_many": "{{formatted}} serviços não reportam",
       "instrument": "Configurar",
       "environments": "{{names}} diferem apenas no uso de maiúsculas e minúsculas.",
       "map_to": "Interpretar todos como {{name}}",
       "generated": "{{name}} parece ser {{base}} com um sufixo gerado automaticamente.",
-      "add_rule": "Adicionar regra de nomenclatura",
-      "gaps_many": "O APM não registrou spans em {{count}} trechos.",
-      "missing_many": "{{formatted}} serviços não reportam"
+      "add_rule": "Adicionar regra de nomenclatura"
     }
   },
   "instances": {

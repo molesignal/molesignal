@@ -52,7 +52,7 @@
   },
   "show_all_one": "Mostrar mais {{count}}",
   "show_all_other": "Mostrar mais {{count}}",
+  "show_all_many": "Mostrar mais {{count}}",
   "acknowledge": "Reconhecer",
-  "acknowledged": "Incidente reconhecido",
-  "show_all_many": "Mostrar mais {{count}}"
+  "acknowledged": "Incidente reconhecido"
 }

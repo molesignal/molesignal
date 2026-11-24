@@ -264,6 +264,7 @@
       "ok": "Válido",
       "summary_one": "{{count}} problema",
       "summary_other": "{{count}} problemas",
+      "summary_many": "{{count}} problemas",
       "no_source": "Un flujo de procesamiento necesita un flujo de origen del que leer.",
       "no_sink": "Un flujo de procesamiento necesita un flujo de destino en el que escribir.",
       "source_is_sink": "El flujo de procesamiento escribiría en {{name}}, un flujo del que ya lee. Elige otro destino.",
@@ -281,8 +282,10 @@
       "processor_percent_invalid": "Paso \"{{name}}\": el porcentaje que quieres conservar debe ser mayor que 0 y menor o igual que 100.",
       "pending_one": "{{count}} campo por completar",
       "pending_other": "{{count}} campos por completar",
+      "pending_many": "{{count}} campos por completar",
       "warnings_one": "{{count}} nota",
       "warnings_other": "{{count}} notas",
+      "warnings_many": "{{count}} notas",
       "stream_name_invalid": "\"{{name}}\" no es un nombre de flujo válido: usa solo letras, números y los signos _, - y .",
       "source_duplicate": "{{name}} ya es un origen; se lee una sola vez.",
       "sink_duplicate": "{{name}} ya es un destino; se escribe en él una sola vez.",
@@ -327,10 +330,7 @@
       "counting_realtime_only": "El paso \"{{name}}\" cuenta los eventos a medida que llegan, por lo que solo se ejecuta en pipelines en tiempo real.",
       "counting_not_here_metric": "El paso \"{{name}}\" genera métricas a partir de logs, eventos de RUM y spans. Este pipeline transforma otro tipo de datos.",
       "counting_not_here_limit": "El paso \"{{name}}\" limita los logs y los eventos de RUM que se pueden descartar. Si se ejecutara aquí, dejaría huecos en los datos.",
-      "counting_name_duplicate": "Hay dos pasos con el nombre \"{{name}}\". Un paso de conteo necesita un nombre único, ya que sus conteos se guardan con ese nombre.",
-      "summary_many": "{{count}} problemas",
-      "pending_many": "{{count}} campos por completar",
-      "warnings_many": "{{count}} notas"
+      "counting_name_duplicate": "Hay dos pasos con el nombre \"{{name}}\". Un paso de conteo necesita un nombre único, ya que sus conteos se guardan con ese nombre."
     }
   },
   "drawer": {
@@ -438,6 +438,7 @@
     "copy_detail": "Recibe todos los eventos",
     "node_with_issues_one": "{{name}}, {{count}} problema",
     "node_with_issues_other": "{{name}}, {{count}} problemas",
+    "node_with_issues_many": "{{name}}, {{count}} problemas",
     "source": "Origen",
     "add_source": "Agregar origen",
     "choose_connector": "Elige un conector",
@@ -446,8 +447,7 @@
     "destination_connector": "Conector",
     "at_most": "Máximo de {{max}} flujos",
     "no_steps": "Sin pasos: los eventos se escriben tal como se leen.",
-    "destination_table": "Tabla de enriquecimiento",
-    "node_with_issues_many": "{{name}}, {{count}} problemas"
+    "destination_table": "Tabla de enriquecimiento"
   },
   "steps": {
     "name": "Nombre del paso",
@@ -945,6 +945,7 @@
     "policies_none": "Aún no hay ninguna política de notificación para los eventos de alerta.",
     "policies_count_one": "{{count}} política",
     "policies_count_other": "{{count}} políticas",
+    "policies_count_many": "{{count}} políticas",
     "http": {
       "connector": "Conector HTTP",
       "connector_hint": "Se usan la dirección, la credencial y las comprobaciones de salida del conector. Crea uno en Conectores.",
@@ -1009,8 +1010,7 @@
       "today": "Hoy (UTC)",
       "last": "Último: {{rule}}, {{when}}"
     },
-    "time_hint": "La condición se evalúa al abrirse el incidente. Por ejemplo, puedes descartar un tipo de alerta solo por la noche.",
-    "policies_count_many": "{{count}} políticas"
+    "time_hint": "La condición se evalúa al abrirse el incidente. Por ejemplo, puedes descartar un tipo de alerta solo por la noche."
   },
   "table_sink": {
     "table": "Tabla de extensión",

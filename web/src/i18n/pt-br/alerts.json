@@ -216,13 +216,13 @@
         "eyebrow": "Disparados no momento",
         "firing_one": "{{count}} incidente",
         "firing_other": "{{count}} incidentes",
+        "firing_many": "{{count}} incidentes",
         "oldest": "O mais antigo está ativo há {{duration}}.",
         "watching_one": "{{count}} regra está sendo avaliada.",
         "watching_other": "{{count}} regras estão sendo avaliadas.",
+        "watching_many": "{{count}} regras estão sendo avaliadas.",
         "all_owned": "Todos os incidentes têm um responsável",
-        "last_recovery": "Última recuperação {{when}}",
-        "firing_many": "{{count}} incidentes",
-        "watching_many": "{{count}} regras estão sendo avaliadas."
+        "last_recovery": "Última recuperação {{when}}"
       },
       "recent": {
         "title": "Recuperados recentemente",
@@ -274,8 +274,8 @@
       "evaluated_ago": "há {{age}}",
       "bulk_delete_title_one": "Excluir {{count}} regra?",
       "bulk_delete_title_other": "Excluir {{count}} regras?",
-      "bulk_delete_description": "As regras excluídas deixarão de ser avaliadas e não poderão ser restauradas.",
-      "bulk_delete_title_many": "Excluir {{count}} regras?"
+      "bulk_delete_title_many": "Excluir {{count}} regras?",
+      "bulk_delete_description": "As regras excluídas deixarão de ser avaliadas e não poderão ser restauradas."
     }
   },
   "workbench": {
@@ -459,6 +459,7 @@
       "window": "Dados reais · últimas 6 horas",
       "window_hours_one": "Dados reais · última hora",
       "window_hours_other": "Dados reais · últimas {{count}} horas",
+      "window_hours_many": "Dados reais · últimas {{count}} horas",
       "window_open": "Dados reais",
       "not_run": "Teste ainda não executado",
       "not_run_description": "Execute o teste para ver a curva da consulta, a linha do limite e os disparos estimados com base no histórico.",
@@ -474,17 +475,16 @@
       "cost": "Linhas examinadas · latência",
       "groups_one": "{{count}} grupo por {{columns}}",
       "groups_other": "{{count}} grupos por {{columns}}",
+      "groups_many": "{{count}} grupos por {{columns}}",
       "backtest_fires_one": "Nessas condições, o alerta teria disparado {{count}} vez ({{times}}).",
       "backtest_fires_other": "Nessas condições, o alerta teria disparado {{count}} vezes ({{times}}).",
+      "backtest_fires_many": "Nessas condições, o alerta teria disparado {{count}} vezes ({{times}}).",
       "backtest_quiet": "Nessas condições, o alerta não teria disparado.",
       "backtest_near_one": "O valor cruzou o limite mais {{count}} vez, mas não ficou além dele por {{periods}} rodadas.",
       "backtest_near_other": "O valor cruzou o limite mais {{count}} vezes, mas não ficou além dele por {{periods}} rodadas.",
+      "backtest_near_many": "O valor cruzou o limite mais {{count}} vezes, mas não ficou além dele por {{periods}} rodadas.",
       "span_pending": "Limite ultrapassado, duração ainda insuficiente",
-      "span_firing": "Teria disparado",
-      "window_hours_many": "Dados reais · últimas {{count}} horas",
-      "groups_many": "{{count}} grupos por {{columns}}",
-      "backtest_fires_many": "Nessas condições, o alerta teria disparado {{count}} vezes ({{times}}).",
-      "backtest_near_many": "O valor cruzou o limite mais {{count}} vezes, mas não ficou além dele por {{periods}} rodadas."
+      "span_firing": "Teria disparado"
     },
     "validation": {
       "title": "Verificações antes da criação",
@@ -719,11 +719,11 @@
       },
       "hours_one": "{{count}} hora",
       "hours_other": "{{count}} horas",
+      "hours_many": "{{count}} horas",
       "days_one": "{{count}} dia",
       "days_other": "{{count}} dias",
-      "hint": "A cada rodada, a regra adiciona o valor atual à série. Uma regra nova carrega primeiro parte do histórico. Se não houver pontos suficientes, a regra não faz a avaliação.",
-      "hours_many": "{{count}} horas",
-      "days_many": "{{count}} dias"
+      "days_many": "{{count}} dias",
+      "hint": "A cada rodada, a regra adiciona o valor atual à série. Uma regra nova carrega primeiro parte do histórico. Se não houver pontos suficientes, a regra não faz a avaliação."
     },
     "outlier": {
       "tolerance": "Tolerância",
@@ -760,12 +760,12 @@
       "none": "Sem atraso",
       "seconds_one": "{{count}} s",
       "seconds_other": "{{count}} s",
+      "seconds_many": "{{count}} s",
       "minutes_one": "{{count}} min",
       "minutes_other": "{{count}} min",
+      "minutes_many": "{{count}} min",
       "hours_one": "{{count}} h",
       "hours_other": "{{count}} h",
-      "seconds_many": "{{count}} s",
-      "minutes_many": "{{count}} min",
       "hours_many": "{{count}} h"
     },
     "urgency_by_policy": "Conforme a política de escalonamento",
@@ -887,12 +887,12 @@
       "element": "elemento {{element}}",
       "crashes_one": "{{count}} falha inesperada",
       "crashes_other": "{{count}} falhas inesperadas",
+      "crashes_many": "{{count}} falhas inesperadas",
       "signs_one": "{{count}} sinal de frustração",
       "signs_other": "{{count}} sinais de frustração",
+      "signs_many": "{{count}} sinais de frustração",
       "no_answer": "sem resposta",
-      "sessions_failed": "Não foi possível ler as sessões. As linhas exibidas são as que ficaram registradas no incidente.",
-      "crashes_many": "{{count}} falhas inesperadas",
-      "signs_many": "{{count}} sinais de frustração"
+      "sessions_failed": "Não foi possível ler as sessões. As linhas exibidas são as que ficaram registradas no incidente."
     },
     "blast": {
       "off_map": "{{service}} não aparece no mapa de serviços neste período.",
@@ -904,16 +904,16 @@
       "direct": "direto",
       "hops_one": "a {{count}} salto",
       "hops_other": "a {{count}} saltos",
+      "hops_many": "a {{count}} saltos",
       "calls_one": "{{formatted}} chamada, {{rate}} de falha",
       "calls_other": "{{formatted}} chamadas, {{rate}} de falha",
+      "calls_many": "{{formatted}} chamadas, {{rate}} de falha",
       "health": {
         "critical": "Crítico",
         "warning": "Atenção",
         "healthy": "Saudável",
         "no_traffic": "Sem tráfego"
-      },
-      "hops_many": "a {{count}} saltos",
-      "calls_many": "{{formatted}} chamadas, {{rate}} de falha"
+      }
     }
   },
   "insights": {
@@ -1286,11 +1286,11 @@
       "removed": "A leitura desta caixa de e-mail foi desativada.",
       "test_ok_one": "Conexão estabelecida; esta pasta tem {{count}} e-mail",
       "test_ok_other": "Conexão estabelecida; esta pasta tem {{count}} e-mails",
+      "test_ok_many": "Conexão estabelecida; esta pasta tem {{count}} e-mails",
       "test_failed": "Não foi possível conectar: {{error}}",
       "last_error": "A última leitura falhou: {{error}}",
       "last_success": "Última leitura: {{time}}",
-      "not_read_yet": "Ainda não houve leitura; ela começa no próximo ciclo.",
-      "test_ok_many": "Conexão estabelecida; esta pasta tem {{count}} e-mails"
+      "not_read_yet": "Ainda não houve leitura; ela começa no próximo ciclo."
     },
     "standing": {
       "label": "Status da fonte",
@@ -1306,14 +1306,14 @@
       "requests": "Solicitações nas últimas 24 horas",
       "refused_count_one": "{{count}} recusada",
       "refused_count_other": "{{count}} recusadas",
+      "refused_count_many": "{{count}} recusadas",
       "none_refused": "Nenhuma recusada",
       "no_requests": "Nenhuma até agora",
       "alerts": "Alertas",
       "alert_outcomes": "{{opened}} abertos · {{resolved}} resolvidos",
       "open_incidents": "Incidentes em aberto",
       "oldest_open": "Mais antigo em aberto: {{when}}",
-      "none_open": "Nenhum em aberto",
-      "refused_count_many": "{{count}} recusadas"
+      "none_open": "Nenhum em aberto"
     },
     "steps": {
       "address": "Copie o endereço de recebimento",
@@ -1362,6 +1362,7 @@
       "via": "Encaminhada por {{cluster}}",
       "alert_count_one": "{{count}} alerta",
       "alert_count_other": "{{count}} alertas",
+      "alert_count_many": "{{count}} alertas",
       "outcomes": {
         "opened": "Aberto",
         "updated": "Atualizado",
@@ -1377,8 +1378,7 @@
       },
       "body": "Início do corpo da requisição",
       "open_incident": "Abrir incidente",
-      "no_alerts": "A requisição não continha nenhum alerta.",
-      "alert_count_many": "{{count}} alertas"
+      "no_alerts": "A requisição não continha nenhum alerta."
     },
     "incident": {
       "title": "Alerta externo",
@@ -1388,11 +1388,11 @@
       "last_intake": "Último recebimento",
       "members_one": "{{count}} alerta no grupo",
       "members_other": "{{count}} alertas no grupo",
+      "members_many": "{{count}} alertas no grupo",
       "member_firing": "Disparado",
       "member_resolved": "Resolvido",
       "since": "desde {{time}}",
-      "open_sender": "Abrir na origem",
-      "members_many": "{{count}} alertas no grupo"
+      "open_sender": "Abrir na origem"
     }
   },
   "routing": {
@@ -1436,8 +1436,10 @@
     },
     "members_one": "{{count}} membro",
     "members_other": "{{count}} membros",
+    "members_many": "{{count}} membros",
     "services_one": "{{count}} serviço",
     "services_other": "{{count}} serviços",
+    "services_many": "{{count}} serviços",
     "services_rest": ", …",
     "services_none": "Nenhum serviço no catálogo",
     "no_policy": "Nenhuma, usar a política padrão",
@@ -1523,9 +1525,7 @@
     "time_outside": "fora de {{ranges}} ({{timezone}})",
     "try_priority": "Prioridade",
     "try_at": "Horário de abertura",
-    "try_at_now": "Agora",
-    "members_many": "{{count}} membros",
-    "services_many": "{{count}} serviços"
+    "try_at_now": "Agora"
   },
   "matchers": {
     "title": "Critérios de correspondência de rótulos",
@@ -1602,8 +1602,10 @@
     "from_severity": "a partir de {{severity}}",
     "repeats_one": "repete {{count}} vez",
     "repeats_other": "repete {{count}} vezes",
+    "repeats_many": "repete {{count}} vezes",
     "unreachable_one": "Não foi possível contatar {{count}} destinatário",
     "unreachable_other": "Não foi possível contatar {{count}} destinatários",
+    "unreachable_many": "Não foi possível contatar {{count}} destinatários",
     "urgency": {
       "title": "Urgência",
       "description": "Define a urgência de um incidente quando ela ainda não foi definida. Os níveis de urgência da organização determinam se o incidente avança pelas etapas de escalonamento, como os horários de silêncio são aplicados e quais etapas pessoais são usadas.",
@@ -1626,9 +1628,7 @@
       "always_level": "Urgência",
       "inside": "Durante o horário de atendimento",
       "outside": "Fora do horário de atendimento"
-    },
-    "repeats_many": "repete {{count}} vezes",
-    "unreachable_many": "Não foi possível contatar {{count}} destinatários"
+    }
   },
   "schedules": {
     "title": "Escalas de plantão",
@@ -1970,13 +1970,14 @@
       "next": "{{name}} assume o próximo plantão, mas não pode receber alertas: não há um método de notificação que funcione nem uma rota de notificação pelo grupo.",
       "members_one": "{{count}} membro não pode receber alertas: {{names}}.",
       "members_other": "{{count}} membros não podem receber alertas: {{names}}.",
-      "fix": "Configurar métodos de notificação",
-      "members_many": "{{count}} membros não podem receber alertas: {{names}}."
+      "members_many": "{{count}} membros não podem receber alertas: {{names}}.",
+      "fix": "Configurar métodos de notificação"
     },
     "coverage": {
       "title": "Cobertura dos próximos 14 dias",
       "gaps_one": "{{count}} intervalo sem cobertura nos próximos {{days}} dias: ninguém estará de plantão por {{hours}} horas.",
       "gaps_other": "{{count}} intervalos sem cobertura nos próximos {{days}} dias: ninguém estará de plantão por {{hours}} horas.",
+      "gaps_many": "{{count}} intervalos sem cobertura nos próximos {{days}} dias: ninguém estará de plantão por {{hours}} horas.",
       "no_gaps": "Sempre haverá alguém de plantão nos próximos {{days}} dias.",
       "nobody": "Ninguém de plantão",
       "hours": "{{hours}} h",
@@ -1984,8 +1985,7 @@
         "rotation": "Rodízio",
         "override": "Substituição",
         "gap": "Ninguém de plantão"
-      },
-      "gaps_many": "{{count}} intervalos sem cobertura nos próximos {{days}} dias: ninguém estará de plantão por {{hours}} horas."
+      }
     }
   },
   "inhibitions": {
@@ -2008,9 +2008,9 @@
     "standing": {
       "holding_one": "Inibindo {{count}} incidente",
       "holding_other": "Inibindo {{count}} incidentes",
+      "holding_many": "Inibindo {{count}} incidentes",
       "on": "Nenhum incidente inibido",
-      "off": "Desativada",
-      "holding_many": "Inibindo {{count}} incidentes"
+      "off": "Desativada"
     },
     "drawer_title": "Nova regra de inibição",
     "edit_title": "Editar regra de inibição",
@@ -2024,6 +2024,7 @@
     "delete_effect_label": "Após a exclusão",
     "delete_effect_one": "A notificação do {{count}} incidente inibido será enviada imediatamente",
     "delete_effect_other": "As notificações dos {{count}} incidentes inibidos serão enviadas imediatamente",
+    "delete_effect_many": "As notificações dos {{count}} incidentes inibidos serão enviadas imediatamente",
     "sections": {
       "identity": "Informações básicas",
       "source": "Origem: o que inibe outros incidentes",
@@ -2070,8 +2071,7 @@
       "no_scope": "Especifique a origem ou os rótulos em comum. Caso contrário, qualquer incidente inibiria todos os outros.",
       "wait": "O alvo pode aguardar no máximo 600 segundos.",
       "linger": "Após a resolução do incidente de origem, a inibição pode durar no máximo 3600 segundos."
-    },
-    "delete_effect_many": "As notificações dos {{count}} incidentes inibidos serão enviadas imediatamente"
+    }
   },
   "silences": {
     "new_silence": "Nova política de silenciamento",
@@ -2167,11 +2167,11 @@
     "duration": {
       "minutes_one": "{{count}} min",
       "minutes_other": "{{count}} min",
+      "minutes_many": "{{count}} min",
       "hours_one": "{{count}} h",
       "hours_other": "{{count}} h",
-      "hours_minutes": "{{hours}} h {{minutes}} min",
-      "minutes_many": "{{count}} min",
-      "hours_many": "{{count}} h"
+      "hours_many": "{{count}} h",
+      "hours_minutes": "{{hours}} h {{minutes}} min"
     },
     "next_start": "Próximo início: {{time}}",
     "next_end": "Término: {{time}}",
@@ -2190,6 +2190,7 @@
     "snooze": "Adiar",
     "snooze_hours_one": "{{count}} hora",
     "snooze_hours_other": "{{count}} horas",
+    "snooze_hours_many": "{{count}} horas",
     "snooze_custom": "Personalizar…",
     "snooze_cancel": "Cancelar adiamento",
     "severity": "Gravidade",
@@ -2203,14 +2204,14 @@
       "escalated": "Incidente escalonado",
       "merged_one": "{{count}} incidente mesclado",
       "merged_other": "{{count}} incidentes mesclados",
+      "merged_many": "{{count}} incidentes mesclados",
       "bulk_done_one": "Ação concluída em {{count}} incidente",
       "bulk_done_other": "Ação concluída em {{count}} incidentes",
+      "bulk_done_many": "Ação concluída em {{count}} incidentes",
       "bulk_failed": "Falha em {{count}} de {{total}} incidentes: {{reason}}",
       "priority_changed": "Prioridade alterada",
       "urgency_changed": "Urgência alterada",
-      "urgency_raised": "Urgência elevada para alta. O nível 1 é notificado novamente",
-      "merged_many": "{{count}} incidentes mesclados",
-      "bulk_done_many": "Ação concluída em {{count}} incidentes"
+      "urgency_raised": "Urgência elevada para alta. O nível 1 é notificado novamente"
     },
     "people_search": "Buscar por nome ou e-mail",
     "reassign_title": "Reatribuir",
@@ -2253,15 +2254,14 @@
     "merge_nothing": "Não há outros incidentes ativos.",
     "merge_submit_one": "Mesclar {{count}}",
     "merge_submit_other": "Mesclar {{count}}",
+    "merge_submit_many": "Mesclar {{count}}",
     "bulk_label": "Ações em massa",
     "select_all": "Selecionar tudo",
     "select": "Selecionar {{name}}",
     "snoozed_until": "Adiado até {{time}}",
     "priority": "Prioridade",
     "urgency": "Urgência",
-    "adjust": "Ajustar",
-    "snooze_hours_many": "{{count}} horas",
-    "merge_submit_many": "Mesclar {{count}}"
+    "adjust": "Ajustar"
   },
   "incident_timeline": {
     "notice": {
@@ -2276,6 +2276,7 @@
     "pipeline_processed": "Processado pelo pipeline {{pipeline}}:",
     "pipeline_more_one": "e mais {{count}} alteração",
     "pipeline_more_other": "e mais {{count}} alterações",
+    "pipeline_more_many": "e mais {{count}} alterações",
     "pipeline_fields": {
       "summary": "título",
       "severity": "severidade",
@@ -2309,6 +2310,7 @@
     "merged_target": "outro incidente",
     "merged_in_one": "{{actor}} mesclou {{count}} incidente a este",
     "merged_in_other": "{{actor}} mesclou {{count}} incidentes a este",
+    "merged_in_many": "{{actor}} mesclou {{count}} incidentes a este",
     "merged_recovered": "O incidente mesclado “{{summary}}” se recuperou",
     "noted": "{{actor}} adicionou uma nota",
     "recovered": "Recuperado",
@@ -2361,9 +2363,7 @@
       "notice": "Notificações",
       "people": "Pessoas",
       "notes": "Notas"
-    },
-    "pipeline_more_many": "e mais {{count}} alterações",
-    "merged_in_many": "{{actor}} mesclou {{count}} incidentes a este"
+    }
   },
   "related": {
     "loading": "Carregando…",
@@ -2372,6 +2372,7 @@
     "resolved_by": "resolvido por {{name}}",
     "notes_one": "{{count}} nota",
     "notes_other": "{{count}} notas",
+    "notes_many": "{{count}} notas",
     "reasons": {
       "fingerprint": "mesmo alerta",
       "rule": "mesma regra",
@@ -2395,8 +2396,7 @@
       "failed": "falhou",
       "rolled_back": "revertido"
     },
-    "open_link": "Abrir pipeline",
-    "notes_many": "{{count}} notas"
+    "open_link": "Abrir pipeline"
   },
   "remediation": {
     "new_action": "Nova ação de remediação",
@@ -2506,6 +2506,7 @@
       "rejected": "Rejeitada",
       "requested_one": "Enviada para aprovação. É preciso que {{count}} pessoa aprove.",
       "requested_other": "Enviada para aprovação. É preciso que {{count}} pessoas aprovem.",
+      "requested_many": "Enviada para aprovação. É preciso que {{count}} pessoas aprovem.",
       "ran_preapproved": "Executada imediatamente com a pré-aprovação",
       "preapproved": "Pré-aprovada",
       "title": "Executar “{{name}}”",
@@ -2523,8 +2524,7 @@
         "verifying": "Aguardando verificação",
         "verified": "Verificação bem-sucedida",
         "verification_failed": "Falha na verificação"
-      },
-      "requested_many": "Enviada para aprovação. É preciso que {{count}} pessoas aprovem."
+      }
     },
     "preapproval": {
       "title": "Pré-aprovação",
@@ -2798,6 +2798,7 @@
     "open": "Abrir post-mortem",
     "summary_line_one": "{{status}} · {{count}} ação em aberto",
     "summary_line_other": "{{status}} · {{count}} ações em aberto",
+    "summary_line_many": "{{status}} · {{count}} ações em aberto",
     "saved": "Post-mortem salvo",
     "drawer_title": "Post-mortem",
     "title": "Título",
@@ -2820,14 +2821,17 @@
     "ticket_created": "{{key}} criado",
     "open_actions_one": "{{count}} ação em aberto",
     "open_actions_other": "{{count}} ações em aberto",
+    "open_actions_many": "{{count}} ações em aberto",
     "overdue_one": "{{count}} ação atrasada",
     "overdue_other": "{{count}} ações atrasadas",
+    "overdue_many": "{{count}} ações atrasadas",
     "template": {
       "summary": "Resumo",
       "impact": "Impacto",
       "duration": "Duração: {{value}}",
       "minutes_one": "{{count}} minuto",
       "minutes_other": "{{count}} minutos",
+      "minutes_many": "{{count}} minutos",
       "ongoing": "em andamento",
       "services": "Serviços afetados: {{value}}",
       "severity": "Severidade: {{value}}",
@@ -2858,12 +2862,8 @@
         "step_unreachable": "Escalado: não foi possível contatar ninguém",
         "priority_changed": "Prioridade alterada",
         "urgency_changed": "Urgência alterada"
-      },
-      "minutes_many": "{{count}} minutos"
-    },
-    "summary_line_many": "{{status}} · {{count}} ações em aberto",
-    "open_actions_many": "{{count}} ações em aberto",
-    "overdue_many": "{{count}} ações atrasadas"
+      }
+    }
   },
   "urgency": {
     "high": "alta",
@@ -3054,8 +3054,10 @@
     "export_all": "Exportar todas as regras",
     "export_one": "Exportar esta {{count}} regra",
     "export_other": "Exportar estas {{count}} regras",
+    "export_many": "Exportar estas {{count}} regras",
     "exported_one": "{{count}} regra exportada",
     "exported_other": "{{count}} regras exportadas",
+    "exported_many": "{{count}} regras exportadas",
     "import": "Importar regras…",
     "import_title": "Importar regras",
     "import_subtitle": "Cole ou selecione um pacote de regras exportado do MoleSignal ou um arquivo de regras de alerta do Prometheus (incluindo PrometheusRule). Simule a importação para ver o que acontecerá com cada regra e depois importe tudo de uma vez.",
@@ -3066,9 +3068,11 @@
     "try": "Simular",
     "apply_one": "Importar {{count}}",
     "apply_other": "Importar {{count}}",
+    "apply_many": "Importar {{count}}",
     "cancel": "Cancelar",
     "imported_one": "{{count}} regra importada",
     "imported_other": "{{count}} regras importadas",
+    "imported_many": "{{count}} regras importadas",
     "result": "Resultado da simulação de importação",
     "has_errors": "corrija as regras com erros antes de importar",
     "changes": "Alterações: {{fields}}",
@@ -3084,11 +3088,7 @@
       "unchanged": "Sem alterações",
       "skip": "Ignorar",
       "error": "Erro"
-    },
-    "export_many": "Exportar estas {{count}} regras",
-    "exported_many": "{{count}} regras exportadas",
-    "apply_many": "Importar {{count}}",
-    "imported_many": "{{count}} regras importadas"
+    }
   },
   "transfer": {
     "unknown_members": "Estes e-mails não correspondem a nenhum membro deste espaço de trabalho:",
@@ -3115,6 +3115,7 @@
       "timezone_from_events": "O fuso horário da escala é {{schedule_timezone}}, mas os eventos usam {{timezone}}. Aqui, a escala usa {{timezone}} para manter os horários das trocas de plantão.",
       "custom_shifts_one": "{{count}} turno personalizado a partir de agora: de {{at}} a {{until}}, com {{user}}. Aqui, o rodízio não permite turnos avulsos. Importe após o fim do turno ou remova-o de final_schedule no arquivo e adicione uma substituição após a importação.",
       "custom_shifts_other": "{{count}} turnos personalizados a partir de agora. O primeiro vai de {{at}} a {{until}}, com {{user}}. Aqui, o rodízio não permite turnos avulsos. Importe após o fim desses turnos ou remova-os de final_schedule no arquivo e adicione substituições após a importação.",
+      "custom_shifts_many": "{{count}} turnos personalizados a partir de agora. O primeiro vai de {{at}} a {{until}}, com {{user}}. Aqui, o rodízio não permite turnos avulsos. Importe após o fim desses turnos ou remova-os de final_schedule no arquivo e adicione substituições após a importação.",
       "rendered_several_on_call": "De {{at}} a {{until}}, {{first}} e {{second}} ficam de plantão ao mesmo tempo na origem, mas aqui cada escala só aceita uma pessoa por vez.",
       "rotation_type_unsupported": "{{rotation}}: o tipo de rodízio {{value}} é desconhecido.",
       "rotation_length_invalid": "{{rotation}}: não é possível usar a duração de rodízio {{value}}.",
@@ -3124,6 +3125,7 @@
       "rendered_mismatch": "Diferença em relação à origem de {{at}} a {{until}}: na origem, {{expected}} está de plantão; com a importação, seria {{actual}}.",
       "rendered_mismatch_more_one": "E mais {{count}} intervalo.",
       "rendered_mismatch_more_other": "E mais {{count}} intervalos.",
+      "rendered_mismatch_more_many": "E mais {{count}} intervalos.",
       "rotation_ended": "{{rotation}} terminou em {{at}} e não é importado, pois não define mais quem fica de plantão.",
       "too_many_rotations": "Uma escala tem mais de {{limit}} rodízios.",
       "schedule_paused": "Desativada na origem: a escala é importada como pausada e não foi comparada.",
@@ -3135,8 +3137,6 @@
       "clock_change_not_compared": "A comparação não chega à próxima mudança de horário em {{timezone}}: as trocas de plantão posteriores a essa mudança não foram comparadas.",
       "overrides_left_out_one": "{{count}} substituição de plantão no período comparado não é importada.",
       "overrides_left_out_other": "{{count}} substituições de plantão no período comparado não são importadas.",
-      "custom_shifts_many": "{{count}} turnos personalizados a partir de agora. O primeiro vai de {{at}} a {{until}}, com {{user}}. Aqui, o rodízio não permite turnos avulsos. Importe após o fim desses turnos ou remova-os de final_schedule no arquivo e adicione substituições após a importação.",
-      "rendered_mismatch_more_many": "E mais {{count}} intervalos.",
       "overrides_left_out_many": "{{count}} substituições de plantão no período comparado não são importadas."
     },
     "policies": {
@@ -3144,57 +3144,57 @@
       "export_all": "Exportar todas as políticas de escalonamento",
       "export_one": "Exportar {{count}} política de escalonamento",
       "export_other": "Exportar {{count}} políticas de escalonamento",
+      "export_many": "Exportar {{count}} políticas de escalonamento",
       "import": "Importar políticas de escalonamento…",
       "import_title": "Importar políticas de escalonamento",
       "import_subtitle": "Pacote `molesignal.escalation-policies/v1`. A correspondência é feita pelo nome: nomes novos criam políticas; nomes existentes atualizam as políticas correspondentes. Teste antes de importar.",
       "exported_one": "{{count}} política de escalonamento exportada",
       "exported_other": "{{count}} políticas de escalonamento exportadas",
+      "exported_many": "{{count}} políticas de escalonamento exportadas",
       "imported_one": "{{count}} política de escalonamento importada",
       "imported_other": "{{count}} políticas de escalonamento importadas",
-      "content_hint": "JSON ou YAML. Os usuários são identificados pelo e-mail; as escalas de plantão, as equipes e os calendários de feriados, pelo nome.",
-      "export_many": "Exportar {{count}} políticas de escalonamento",
-      "exported_many": "{{count}} políticas de escalonamento exportadas",
-      "imported_many": "{{count}} políticas de escalonamento importadas"
+      "imported_many": "{{count}} políticas de escalonamento importadas",
+      "content_hint": "JSON ou YAML. Os usuários são identificados pelo e-mail; as escalas de plantão, as equipes e os calendários de feriados, pelo nome."
     },
     "schedules": {
       "menu": "Importar/exportar",
       "export_all": "Exportar todas as escalas de plantão",
       "export_one": "Exportar {{count}} escala de plantão",
       "export_other": "Exportar {{count}} escalas de plantão",
+      "export_many": "Exportar {{count}} escalas de plantão",
       "import": "Importar escalas de plantão…",
       "import_title": "Importar escalas de plantão",
       "import_subtitle": "Pacote `molesignal.schedules/v1` ou escalas de plantão do Opsgenie ou do PagerDuty no formato retornado pelas respectivas APIs. A correspondência é feita pelo nome: nomes novos criam escalas; nomes existentes atualizam as escalas correspondentes. Teste antes de importar.",
       "exported_one": "{{count}} escala de plantão exportada",
       "exported_other": "{{count}} escalas de plantão exportadas",
+      "exported_many": "{{count}} escalas de plantão exportadas",
       "imported_one": "{{count}} escala de plantão importada",
       "imported_other": "{{count}} escalas de plantão importadas",
+      "imported_many": "{{count}} escalas de plantão importadas",
       "content_hint": "JSON ou YAML. Os membros são identificados pelo e-mail; as equipes e os calendários de feriados, pelo nome. O arquivo não inclui substituições nem trocas de plantão; a atualização mantém as que já existem.",
       "has_errors": "corrija as escalas de plantão com erros e depois importe",
       "migration_title": "Migração do Opsgenie ou do PagerDuty",
       "migration_intro": "Execute este script em um ambiente com curl e jq e selecione o arquivo gerado. A chave de API permanece nesse ambiente: o MoleSignal não armazena a chave nem faz chamadas à outra ferramenta.",
       "migration_key": "Configure {{name}} primeiro. Uma chave com permissão de leitura é suficiente.",
       "migration_copy": "Copiar script",
-      "migration_docs": "O que é importado e o que fica de fora",
-      "export_many": "Exportar {{count}} escalas de plantão",
-      "exported_many": "{{count}} escalas de plantão exportadas",
-      "imported_many": "{{count}} escalas de plantão importadas"
+      "migration_docs": "O que é importado e o que fica de fora"
     },
     "routing": {
       "menu": "Importar/exportar",
       "export_all": "Exportar todas as regras de roteamento",
       "export_one": "Exportar {{count}} regra de roteamento",
       "export_other": "Exportar {{count}} regras de roteamento",
+      "export_many": "Exportar {{count}} regras de roteamento",
       "import": "Importar regras de roteamento…",
       "import_title": "Importar regras de roteamento",
       "import_subtitle": "Pacote `molesignal.routing-rules/v1`. A correspondência é feita pelo nome: nomes novos criam regras; nomes existentes atualizam as regras correspondentes. Teste antes de importar.",
       "exported_one": "{{count}} regra de roteamento exportada",
       "exported_other": "{{count}} regras de roteamento exportadas",
+      "exported_many": "{{count}} regras de roteamento exportadas",
       "imported_one": "{{count}} regra de roteamento importada",
       "imported_other": "{{count}} regras de roteamento importadas",
-      "content_hint": "JSON ou YAML. Políticas de escalonamento, equipes e calendários de feriados são identificados pelo nome. As regras do arquivo vêm primeiro, na ordem em que aparecem nele. As demais vêm depois, mantendo a ordem original.",
-      "export_many": "Exportar {{count}} regras de roteamento",
-      "exported_many": "{{count}} regras de roteamento exportadas",
-      "imported_many": "{{count}} regras de roteamento importadas"
+      "imported_many": "{{count}} regras de roteamento importadas",
+      "content_hint": "JSON ou YAML. Políticas de escalonamento, equipes e calendários de feriados são identificados pelo nome. As regras do arquivo vêm primeiro, na ordem em que aparecem nele. As demais vêm depois, mantendo a ordem original."
     }
   }
 }

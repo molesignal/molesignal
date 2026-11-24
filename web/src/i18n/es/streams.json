@@ -332,8 +332,10 @@
       "clustering_interval": "Bloque de tiempo",
       "clustering_minutes_one": "{{count}} minuto",
       "clustering_minutes_other": "{{count}} minutos",
+      "clustering_minutes_many": "{{count}} minutos",
       "clustering_seconds_one": "{{count}} segundo",
       "clustering_seconds_other": "{{count}} segundos",
+      "clustering_seconds_many": "{{count}} segundos",
       "field_indexes": "Índices de campos",
       "field_indexes_hint": "Los campos que aparecen por primera vez en este flujo reciben un índice según su nombre.",
       "index_pattern": "Índice para campos nuevos",
@@ -342,9 +344,7 @@
       "index_pattern_add": "Agregar una regla",
       "index_pattern_remove": "Quitar esta regla",
       "index_pattern_up": "Subir",
-      "index_pattern_down": "Bajar",
-      "clustering_minutes_many": "{{count}} minutos",
-      "clustering_seconds_many": "{{count}} segundos"
+      "index_pattern_down": "Bajar"
     },
     "changes": {
       "unsaved": "Tienes cambios sin guardar",
@@ -565,16 +565,16 @@
       "save": "Guardar presupuesto",
       "saved_one": "Presupuesto guardado",
       "saved_other": "{{count}} presupuestos guardados",
+      "saved_many": "{{count}} presupuestos guardados",
       "save_failed": "No se pudieron guardar {{count}} de {{total}} presupuestos: {{reason}}",
       "remove_title_one": "¿Eliminar este presupuesto?",
       "remove_title_other": "¿Eliminar {{count}} presupuestos?",
+      "remove_title_many": "¿Eliminar {{count}} presupuestos?",
       "remove_description": "Ya no se enviarán avisos sobre estas fuentes. Su consumo seguirá apareciendo en esta página.",
       "removed_one": "Presupuesto eliminado",
       "removed_other": "{{count}} presupuestos eliminados",
-      "remove_failed": "No se pudieron eliminar {{count}} de {{total}} presupuestos: {{reason}}",
-      "saved_many": "{{count}} presupuestos guardados",
-      "remove_title_many": "¿Eliminar {{count}} presupuestos?",
-      "removed_many": "{{count}} presupuestos eliminados"
+      "removed_many": "{{count}} presupuestos eliminados",
+      "remove_failed": "No se pudieron eliminar {{count}} de {{total}} presupuestos: {{reason}}"
     },
     "detail": {
       "trend": "Ingesta durante el intervalo",

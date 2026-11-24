@@ -527,8 +527,10 @@
         "account": {
           "bound_you": "Sie werden bei Ihrem Konto {{email}} angemeldet.",
           "bound_other": "Die Anmeldung erfolgt beim Konto {{email}}.",
+          "bound_one": "Meldet sich beim Konto {{email}} an.",
           "link_you": "Diese E-Mail-Adresse ist in Ihrem Konto {{email}} hinterlegt, aber die Identität ist noch nicht mit dem Konto verknüpft. Bei der ersten Anmeldung bestätigen Sie die Verknüpfung mit Ihrem Passwort oder einem Code per E-Mail.",
           "link_other": "Diese E-Mail-Adresse ist im Konto {{email}} hinterlegt, aber die Identität ist noch nicht mit dem Konto verknüpft. Bei der ersten Anmeldung muss die Person, der das Konto gehört, die Verknüpfung mit dem Passwort oder einem Code per E-Mail bestätigen.",
+          "link_one": "Das Konto {{email}} hat diese E-Mail-Adresse, aber diese Identität ist noch nicht damit verknüpft. Der Inhaber bestätigt die Verknüpfung bei der ersten Anmeldung mit dem Passwort oder einem per E-Mail gesendeten Code.",
           "create": "Kein Konto hat diese E-Mail-Adresse. Bei der ersten Anmeldung wird das Konto {{email}} ohne Passwort erstellt.",
           "joins": "Das Konto wird bei dieser Anmeldung diesem Arbeitsbereich hinzugefügt."
         },

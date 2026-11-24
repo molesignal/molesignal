@@ -583,8 +583,10 @@
       "merge_off": "Ne pas regrouper",
       "merge_seconds_one": "{{count}} seconde",
       "merge_seconds_other": "{{count}} secondes",
+      "merge_seconds_many": "{{count}} secondes",
       "merge_minutes_one": "{{count}} minute",
       "merge_minutes_other": "{{count}} minutes",
+      "merge_minutes_many": "{{count}} minutes",
       "ack_timeout": "Délai d’acquittement (secondes)",
       "escalation_resolver": "Résolveur d’escalade",
       "escalation_config": "Configuration du résolveur d’escalade (JSON)",
@@ -603,9 +605,7 @@
       "save": "Enregistrer la politique",
       "restore": "Rétablir les paramètres par défaut",
       "builtin_name_hint": "Une politique intégrée conserve son nom.",
-      "time_hint": "La période s’applique à la date et à l’heure de l’événement qui a déclenché la notification. En dehors de cette période, cette politique n’envoie rien ; les autres politiques continuent de s’appliquer.",
-      "merge_seconds_many": "{{count}} secondes",
-      "merge_minutes_many": "{{count}} minutes"
+      "time_hint": "La période s’applique à la date et à l’heure de l’événement qui a déclenché la notification. En dehors de cette période, cette politique n’envoie rien ; les autres politiques continuent de s’appliquer."
     },
     "delivery_modes": {
       "prefer_user": "Respecter la préférence de l’utilisateur",

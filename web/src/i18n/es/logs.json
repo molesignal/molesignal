@@ -156,10 +156,10 @@
         "rules": "Realiza el análisis en modo de solo lectura: no cambies nada. Basa cada hallazgo en el resultado de una consulta. Si no puedes leer los datos, indícalo en lugar de hacer suposiciones.",
         "digest_one": "Lo que muestra el registro cargado en la página ({{count}}; es un punto de partida, no el panorama completo):",
         "digest_other": "Lo que muestran los {{count}} registros cargados en la página (un punto de partida, no el panorama completo):",
+        "digest_many": "Lo que muestran los {{count}} registros cargados en la página (un punto de partida, no el panorama completo):",
         "digest_levels": "Niveles",
         "digest_services": "Servicios",
-        "requirements": "En qué debes fijarte:",
-        "digest_many": "Lo que muestran los {{count}} registros cargados en la página (un punto de partida, no el panorama completo):"
+        "requirements": "En qué debes fijarte:"
       },
       "no_logs": "Ningún registro coincide con la consulta, así que no hay nada que inspeccionar por ahora."
     },
@@ -230,8 +230,10 @@
     "conditions": {
       "unmatched_one": "No se agregó a la consulta: {{conditions}}. El flujo {{stream}} no tiene un campo para esta condición.",
       "unmatched_other": "No se agregaron a la consulta: {{conditions}}. El flujo {{stream}} no tiene campos para estas condiciones.",
+      "unmatched_many": "No se agregaron a la consulta: {{conditions}}. El flujo {{stream}} no tiene campos para estas condiciones.",
       "pinned_one": "filtro fijado {{conditions}}",
       "pinned_other": "filtros fijados {{conditions}}",
+      "pinned_many": "filtros fijados {{conditions}}",
       "groups": "{{link}}; {{pinned}}",
       "meanings": {
         "trace_id": "ID de traza",
@@ -244,9 +246,7 @@
         "status": "código de estado",
         "environment": "entorno",
         "pod": "pod"
-      },
-      "unmatched_many": "No se agregaron a la consulta: {{conditions}}. El flujo {{stream}} no tiene campos para estas condiciones.",
-      "pinned_many": "filtros fijados {{conditions}}"
+      }
     },
     "results": {
       "content": "Contenido",
@@ -265,14 +265,17 @@
       "share": "Compartir",
       "pattern_one": "{{count}} patrón",
       "pattern_other": "{{count}} patrones",
+      "pattern_many": "{{count}} patrones",
       "level": "Nivel",
       "source": "Origen",
       "open_aria_one": "{{pattern}}: {{count}} evento. Mostrar sus logs",
       "open_aria_other": "{{pattern}}: {{count}} eventos. Mostrar sus logs",
+      "open_aria_many": "{{pattern}}: {{count}} eventos. Mostrar sus logs",
       "filter": "Mostrar solo logs como este",
       "filter_aria": "Mostrar solo logs como {{pattern}}",
       "show_more_one": "Mostrar {{count}} más",
       "show_more_other": "Mostrar {{count}} más",
+      "show_more_many": "Mostrar {{count}} más",
       "basis_latest": "Los eventos más recientes que coinciden",
       "basis_all": "Todos los eventos que coinciden",
       "basis_returned": "Los eventos que devolvió la consulta",
@@ -282,6 +285,7 @@
       "read_failed": "No se pudieron leer logs más antiguos.",
       "unread_one": "{{count}} evento no tiene mensaje y no pertenece a ningún patrón.",
       "unread_other": "{{count}} eventos no tienen mensaje y no pertenecen a ningún patrón.",
+      "unread_many": "{{count}} eventos no tienen mensaje y no pertenecen a ningún patrón.",
       "kind": {
         "number": "Un número",
         "id": "Un identificador",
@@ -290,11 +294,7 @@
         "time": "Un instante",
         "data": "Datos estructurados",
         "any": "Un valor"
-      },
-      "pattern_many": "{{count}} patrones",
-      "open_aria_many": "{{pattern}}: {{count}} eventos. Mostrar sus logs",
-      "show_more_many": "Mostrar {{count}} más",
-      "unread_many": "{{count}} eventos no tienen mensaje y no pertenecen a ningún patrón."
+      }
     },
     "detail": {
       "drawer_aria": "Panel de detalles del registro",
@@ -383,12 +383,12 @@
     "units": {
       "minutes_one": "{{count}} minuto",
       "minutes_other": "{{count}} minutos",
+      "minutes_many": "{{count}} minutos",
       "hours_one": "{{count}} hora",
       "hours_other": "{{count}} horas",
+      "hours_many": "{{count}} horas",
       "days_one": "{{count}} día",
       "days_other": "{{count}} días",
-      "minutes_many": "{{count}} minutos",
-      "hours_many": "{{count}} horas",
       "days_many": "{{count}} días"
     },
     "notify_when": {
@@ -490,6 +490,7 @@
       "channels_failed": "No se pudieron cargar los conectores de notificaciones.",
       "channels_kept_one": "El canal que ya elegiste ({{count}}) se conserva sin cambios.",
       "channels_kept_other": "Los {{count}} canales que ya elegiste se conservan sin cambios.",
+      "channels_kept_many": "Los {{count}} canales que ya elegiste se conservan sin cambios.",
       "connector_off": "{{name}} (deshabilitado)",
       "connector_gone": "{{name}} (no encontrado)",
       "channels_hint": "Opcional. Sin un canal, no se envían notificaciones, pero los informes se conservan en la página. Solo se envía una notificación cuando la inspección pasa de funcionar a fallar.",
@@ -506,8 +507,7 @@
       "run_as_you": "Después de guardar, cada ejecución leerá los registros con los permisos que tengas en ese momento.",
       "run_as_change": "La inspección se ejecuta con los permisos de {{name}}. Cuando la guardes, se ejecutará con los tuyos.",
       "save": "Guardar",
-      "create": "Guardar inspección",
-      "channels_kept_many": "Los {{count}} canales que ya elegiste se conservan sin cambios."
+      "create": "Guardar inspección"
     },
     "detail": {
       "runs": "Informes anteriores",

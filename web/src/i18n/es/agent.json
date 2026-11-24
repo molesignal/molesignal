@@ -251,8 +251,8 @@
       "writes_rca": "Redacta el análisis de causa raíz (RCA) del incidente",
       "channels_one": "Envía una notificación a {{count}} canal",
       "channels_other": "Envía una notificación a {{count}} canales",
-      "no_output": "Solo se guardan las ejecuciones",
-      "channels_many": "Envía una notificación a {{count}} canales"
+      "channels_many": "Envía una notificación a {{count}} canales",
+      "no_output": "Solo se guardan las ejecuciones"
     },
     "actions": {
       "run": "Ejecutar ahora",
@@ -359,6 +359,7 @@
       "timeout_hint": "Si una ejecución supera el límite, se detiene y se registra como fallida.",
       "minutes_one": "{{count}} minuto",
       "minutes_other": "{{count}} minutos",
+      "minutes_many": "{{count}} minutos",
       "enabled": "Activada",
       "outputs": "Resultado",
       "channels": "Canales de notificación",
@@ -374,8 +375,7 @@
       "min_severity": "Como mínimo",
       "any_severity": "Cualquier nivel de gravedad",
       "finding_subjects": "Servicios, hosts o contenedores",
-      "finding_subjects_hint": "Sepáralos con comas. Si dejas el campo vacío, se incluyen todos.",
-      "minutes_many": "{{count}} minutos"
+      "finding_subjects_hint": "Sepáralos con comas. Si dejas el campo vacío, se incluyen todos."
     },
     "runs": {
       "subtitle": "De la más reciente a la más antigua. Cada ejecución se guarda como un chat.",
@@ -445,6 +445,7 @@
       "no_stream": "un flujo de datos",
       "answers_one": "{{count}} respuesta",
       "answers_other": "{{count}} respuestas",
+      "answers_many": "{{count}} respuestas",
       "totals": {
         "label": "Brechas de datos en el período",
         "answers": "Respuestas con llamadas a herramientas",
@@ -472,22 +473,21 @@
       "notes": {
         "repeated_queries_one": "{{stream}}: {{count}} consulta, {{misses}} sin resultados o con errores",
         "repeated_queries_other": "{{stream}}: {{count}} consultas, {{misses}} sin resultados o con errores",
+        "repeated_queries_many": "{{stream}}: {{count}} consultas, {{misses}} sin resultados o con errores",
         "structure_lookups_one": "Se consultó la estructura {{count}} vez",
         "structure_lookups_other": "Se consultó la estructura {{count}} veces",
+        "structure_lookups_many": "Se consultó la estructura {{count}} veces",
         "structure_lookups_stream_one": "Se consultó la estructura {{count}} vez, principalmente la de {{stream}}",
         "structure_lookups_stream_other": "Se consultó la estructura {{count}} veces, principalmente la de {{stream}}",
+        "structure_lookups_stream_many": "Se consultó la estructura {{count}} veces, principalmente la de {{stream}}",
         "service_mismatch": "{{service}} tiene datos en las métricas o en APM, pero la consulta de {{stream}} con ese nombre no devolvió resultados",
         "raw_log_pulls_one": "Se obtuvieron los logs sin procesar de {{stream}} {{count}} vez sin analizar sus patrones",
         "raw_log_pulls_other": "Se obtuvieron los logs sin procesar de {{stream}} {{count}} veces sin analizar sus patrones",
+        "raw_log_pulls_many": "Se obtuvieron los logs sin procesar de {{stream}} {{count}} veces sin analizar sus patrones",
         "raw_metric_pulls_one": "Se obtuvieron las series sin procesar de {{stream}} {{count}} vez sin analizar su tendencia",
         "raw_metric_pulls_other": "Se obtuvieron las series sin procesar de {{stream}} {{count}} veces sin analizar su tendencia",
-        "repeated_queries_many": "{{stream}}: {{count}} consultas, {{misses}} sin resultados o con errores",
-        "structure_lookups_many": "Se consultó la estructura {{count}} veces",
-        "structure_lookups_stream_many": "Se consultó la estructura {{count}} veces, principalmente la de {{stream}}",
-        "raw_log_pulls_many": "Se obtuvieron los logs sin procesar de {{stream}} {{count}} veces sin analizar sus patrones",
         "raw_metric_pulls_many": "Se obtuvieron las series sin procesar de {{stream}} {{count}} veces sin analizar su tendencia"
-      },
-      "answers_many": "{{count}} respuestas"
+      }
     },
     "drills": {
       "description": "Vuelve a investigar incidentes resueltos como si estuvieran ocurriendo. Cada respuesta se evalúa comparándola con la causa raíz determinada después del incidente. Vuelve a ejecutar todos los simulacros después de cambiar el modelo, una instrucción o las herramientas.",
@@ -506,6 +506,7 @@
       "started": "El simulacro está en curso. Se evaluará cuando termine la investigación.",
       "started_all_one": "{{count}} simulacro en curso",
       "started_all_other": "{{count}} simulacros en curso",
+      "started_all_many": "{{count}} simulacros en curso",
       "deleted": "Se eliminó el simulacro",
       "delete": "Eliminar",
       "delete_confirm": {
@@ -561,8 +562,7 @@
       "incident_id_placeholder": "El ID que aparece en la URL del incidente",
       "open_incident": "Abrir el incidente",
       "open_run": "Abrir la investigación",
-      "prompt_version": "prompt v{{version}}",
-      "started_all_many": "{{count}} simulacros en curso"
+      "prompt_version": "prompt v{{version}}"
     },
     "empty_title": "Aún no se ha calificado ninguna respuesta",
     "empty_hint": "Las respuestas reciben una puntuación una vez redactadas. Agrega un evaluador en Evaluadores para puntuar también una muestra de las respuestas con un modelo.",
@@ -574,8 +574,8 @@
       "days": "Período",
       "last_days_one": "Último {{count}} día",
       "last_days_other": "Últimos {{count}} días",
-      "source": "Origen",
-      "last_days_many": "Últimos {{count}} días"
+      "last_days_many": "Últimos {{count}} días",
+      "source": "Origen"
     },
     "sources": {
       "all": "Todos los orígenes",
@@ -655,14 +655,18 @@
     "notes": {
       "tools_ok_one": "La llamada a la herramienta se completó correctamente",
       "tools_ok_other": "Las {{count}} llamadas a herramientas se completaron correctamente",
+      "tools_ok_many": "Las {{count}} llamadas a herramientas se completaron correctamente",
       "tools_failed": "Fallaron {{failed}} de {{total}} llamadas a herramientas",
       "evidence_none": "No cita ninguna evidencia",
       "evidence_one": "Cita {{count}} elemento de evidencia",
       "evidence_other": "Cita {{count}} elementos de evidencia",
+      "evidence_many": "Cita {{count}} elementos de evidencia",
       "evidence_unbacked_one": "Cita {{count}} elemento de evidencia, pero ninguna llamada a herramientas se completó correctamente",
       "evidence_unbacked_other": "Cita {{count}} elementos de evidencia, pero ninguna llamada a herramientas se completó correctamente",
+      "evidence_unbacked_many": "Cita {{count}} elementos de evidencia, pero ninguna llamada a herramientas se completó correctamente",
       "queries_ok_one": "La consulta tiene una sintaxis válida",
       "queries_ok_other": "Las {{count}} consultas tienen una sintaxis válida",
+      "queries_ok_many": "Las {{count}} consultas tienen una sintaxis válida",
       "queries_invalid": "{{invalid}} de {{total}} consultas tienen una sintaxis no válida",
       "format_ok": "En el formato solicitado",
       "format_plain": "No está en el formato solicitado",
@@ -676,11 +680,7 @@
       },
       "feedback_up": "Se consideró útil",
       "feedback_down": "Marcada como poco útil",
-      "feedback_down_reasons": "Marcada como poco útil: {{reasons}}",
-      "tools_ok_many": "Las {{count}} llamadas a herramientas se completaron correctamente",
-      "evidence_many": "Cita {{count}} elementos de evidencia",
-      "evidence_unbacked_many": "Cita {{count}} elementos de evidencia, pero ninguna llamada a herramientas se completó correctamente",
-      "queries_ok_many": "Las {{count}} consultas tienen una sintaxis válida"
+      "feedback_down_reasons": "Marcada como poco útil: {{reasons}}"
     },
     "answers": {
       "description": "Respuestas puntuadas, de la más reciente a la más antigua. Los chats personales solo se incluyen en los totales.",
@@ -698,14 +698,14 @@
       "not_evaluated": "Ningún evaluador le asignó una puntuación.",
       "samples_one": "se puntuó {{count}} vez",
       "samples_other": "promedio de {{count}} puntuaciones",
+      "samples_many": "promedio de {{count}} puntuaciones",
       "rules": "Reglas",
       "question": "Pregunta",
       "answer": "Respuesta",
       "tools_one": "{{count}} llamada a una herramienta, {{failed}} con error",
       "tools_other": "{{count}} llamadas a herramientas, {{failed}} con error",
-      "gone": "El chat o el RCA ya no está disponible.",
-      "samples_many": "promedio de {{count}} puntuaciones",
-      "tools_many": "{{count}} llamadas a herramientas, {{failed}} con error"
+      "tools_many": "{{count}} llamadas a herramientas, {{failed}} con error",
+      "gone": "El chat o el RCA ya no está disponible."
     },
     "reviews": {
       "description": "Respuestas para revisión manual: con puntuación por debajo del umbral, marcadas como poco útiles o seleccionadas al azar. Acepta las que sean incorrectas: formarán el conjunto de pruebas de regresión que se volverá a responder al comprobar un prompt.",
@@ -1261,15 +1261,15 @@
         "verdicts": {
           "better_one": "Mejor: para la misma respuesta ({{count}}), esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
           "better_other": "Mejor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
+          "better_many": "Mejor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
           "same_one": "No es peor: para la misma respuesta ({{count}}), esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
           "same_other": "No es peor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
+          "same_many": "No es peor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
           "worse_one": "Peor: para la misma respuesta ({{count}}), esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
           "worse_other": "Peor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
+          "worse_many": "Peor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
           "inconclusive_one": "No hay suficientes respuestas para llegar a una conclusión: solo se pudo comparar {{count}}. Esto no impide establecer el prompt como predeterminado.",
           "inconclusive_other": "No hay suficientes respuestas para llegar a una conclusión: solo se pudieron comparar {{count}}. Esto no impide establecer el prompt como predeterminado.",
-          "better_many": "Mejor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
-          "same_many": "No es peor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
-          "worse_many": "Peor: para las mismas {{count}} respuestas, esta versión obtuvo {{candidate}} y la predeterminada actual, {{baseline}}.",
           "inconclusive_many": "No hay suficientes respuestas para llegar a una conclusión: solo se pudieron comparar {{count}}. Esto no impide establecer el prompt como predeterminado."
         },
         "columns": {
@@ -2122,38 +2122,38 @@
     "separator": ", ",
     "look_one": "revisó {{count}} elemento",
     "look_other": "revisó {{count}} elementos",
+    "look_many": "revisó {{count}} elementos",
     "query_one": "ejecutó {{count}} consulta",
     "query_other": "ejecutó {{count}} consultas",
+    "query_many": "ejecutó {{count}} consultas",
     "knowledge_one": "consultó la base de conocimiento",
     "knowledge_other": "consultó la base de conocimiento {{count}} veces",
+    "knowledge_many": "consultó la base de conocimiento {{count}} veces",
     "knowledge_edit_one": "editó {{count}} archivo de conocimiento",
     "knowledge_edit_other": "editó {{count}} archivos de conocimiento",
+    "knowledge_edit_many": "editó {{count}} archivos de conocimiento",
     "memory_one": "recuperó un recuerdo",
     "memory_other": "recuperó {{count}} recuerdos",
+    "memory_many": "recuperó {{count}} recuerdos",
     "remember_one": "recordó {{count}} cosa",
     "remember_other": "recordó {{count}} cosas",
+    "remember_many": "recordó {{count}} cosas",
     "question_one": "te hizo una pregunta",
     "question_other": "te hizo {{count}} preguntas",
+    "question_many": "te hizo {{count}} preguntas",
     "plan_one": "actualizó el plan",
     "plan_other": "actualizó el plan {{count}} veces",
+    "plan_many": "actualizó el plan {{count}} veces",
     "change_one": "propuso {{count}} cambio",
     "change_other": "propuso {{count}} cambios",
+    "change_many": "propuso {{count}} cambios",
     "tool_one": "usó {{count}} herramienta",
     "tool_other": "usó {{count}} herramientas",
+    "tool_many": "usó {{count}} herramientas",
     "failed_one": "{{count}} no finalizó",
     "failed_other": "{{count}} no finalizaron",
-    "running": "En curso",
-    "look_many": "revisó {{count}} elementos",
-    "query_many": "ejecutó {{count}} consultas",
-    "knowledge_many": "consultó la base de conocimiento {{count}} veces",
-    "knowledge_edit_many": "editó {{count}} archivos de conocimiento",
-    "memory_many": "recuperó {{count}} recuerdos",
-    "remember_many": "recordó {{count}} cosas",
-    "question_many": "te hizo {{count}} preguntas",
-    "plan_many": "actualizó el plan {{count}} veces",
-    "change_many": "propuso {{count}} cambios",
-    "tool_many": "usó {{count}} herramientas",
-    "failed_many": "{{count}} no finalizaron"
+    "failed_many": "{{count}} no finalizaron",
+    "running": "En curso"
   },
   "oauth": {
     "invalid_request": "Esta solicitud de autorización de OAuth no es válida o está incompleta.",

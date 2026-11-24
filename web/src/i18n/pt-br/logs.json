@@ -156,10 +156,10 @@
         "rules": "Faça a análise em modo somente leitura: não altere nada. Fundamente cada constatação em um resultado de consulta. Se não for possível ler os dados, informe isso em vez de fazer suposições.",
         "digest_one": "O que mostra o {{count}} log carregado na página (apenas um ponto de partida):",
         "digest_other": "O que mostram os {{count}} logs carregados na página (apenas um ponto de partida):",
+        "digest_many": "O que mostram os {{count}} logs carregados na página (apenas um ponto de partida):",
         "digest_levels": "Níveis",
         "digest_services": "Serviços",
-        "requirements": "Pontos a observar:",
-        "digest_many": "O que mostram os {{count}} logs carregados na página (apenas um ponto de partida):"
+        "requirements": "Pontos a observar:"
       },
       "no_logs": "A consulta não encontrou nenhum log, então não há nada para inspecionar no momento."
     },
@@ -230,8 +230,10 @@
     "conditions": {
       "unmatched_one": "Não foi possível adicionar à consulta: {{conditions}}. O fluxo {{stream}} não tem um campo correspondente.",
       "unmatched_other": "Não foi possível adicionar à consulta: {{conditions}}. O fluxo {{stream}} não tem campos correspondentes.",
+      "unmatched_many": "Não foi possível adicionar à consulta: {{conditions}}. O fluxo {{stream}} não tem campos correspondentes.",
       "pinned_one": "filtro fixado {{conditions}}",
       "pinned_other": "filtros fixados {{conditions}}",
+      "pinned_many": "filtros fixados {{conditions}}",
       "groups": "{{link}}; {{pinned}}",
       "meanings": {
         "trace_id": "ID do trace",
@@ -244,9 +246,7 @@
         "status": "código de status",
         "environment": "ambiente",
         "pod": "pod"
-      },
-      "unmatched_many": "Não foi possível adicionar à consulta: {{conditions}}. O fluxo {{stream}} não tem campos correspondentes.",
-      "pinned_many": "filtros fixados {{conditions}}"
+      }
     },
     "results": {
       "content": "Conteúdo",
@@ -265,14 +265,17 @@
       "share": "Compartilhar",
       "pattern_one": "{{count}} padrão",
       "pattern_other": "{{count}} padrões",
+      "pattern_many": "{{count}} padrões",
       "level": "Nível",
       "source": "Origem",
       "open_aria_one": "{{pattern}}: {{count}} evento. Mostrar os logs do evento",
       "open_aria_other": "{{pattern}}: {{count}} eventos. Mostrar os logs dos eventos",
+      "open_aria_many": "{{pattern}}: {{count}} eventos. Mostrar os logs dos eventos",
       "filter": "Mostrar apenas logs como este",
       "filter_aria": "Mostrar apenas logs como {{pattern}}",
       "show_more_one": "Mostrar mais {{count}}",
       "show_more_other": "Mostrar mais {{count}}",
+      "show_more_many": "Mostrar mais {{count}}",
       "basis_latest": "Os eventos correspondentes mais recentes",
       "basis_all": "Todos os eventos correspondentes",
       "basis_returned": "Os eventos retornados pela consulta",
@@ -282,6 +285,7 @@
       "read_failed": "Não foi possível ler logs mais antigos.",
       "unread_one": "{{count}} evento não tem mensagem e não faz parte de nenhum padrão.",
       "unread_other": "{{count}} eventos não têm mensagem e não fazem parte de nenhum padrão.",
+      "unread_many": "{{count}} eventos não têm mensagem e não fazem parte de nenhum padrão.",
       "kind": {
         "number": "Um número",
         "id": "Um identificador",
@@ -290,11 +294,7 @@
         "time": "Um momento",
         "data": "Dados estruturados",
         "any": "Um valor"
-      },
-      "pattern_many": "{{count}} padrões",
-      "open_aria_many": "{{pattern}}: {{count}} eventos. Mostrar os logs dos eventos",
-      "show_more_many": "Mostrar mais {{count}}",
-      "unread_many": "{{count}} eventos não têm mensagem e não fazem parte de nenhum padrão."
+      }
     },
     "detail": {
       "drawer_aria": "Painel de detalhes do log",
@@ -383,12 +383,12 @@
     "units": {
       "minutes_one": "{{count}} minuto",
       "minutes_other": "{{count}} minutos",
+      "minutes_many": "{{count}} minutos",
       "hours_one": "{{count}} hora",
       "hours_other": "{{count}} horas",
+      "hours_many": "{{count}} horas",
       "days_one": "{{count}} dia",
       "days_other": "{{count}} dias",
-      "minutes_many": "{{count}} minutos",
-      "hours_many": "{{count}} horas",
       "days_many": "{{count}} dias"
     },
     "notify_when": {
@@ -490,6 +490,7 @@
       "channels_failed": "Não foi possível carregar os conectores de notificação.",
       "channels_kept_one": "O {{count}} canal já selecionado será mantido sem alterações.",
       "channels_kept_other": "Os {{count}} canais já selecionados serão mantidos sem alterações.",
+      "channels_kept_many": "Os {{count}} canais já selecionados serão mantidos sem alterações.",
       "connector_off": "{{name}} (desativado)",
       "connector_gone": "{{name}} (não encontrado)",
       "channels_hint": "Opcional. Sem um canal, nenhuma notificação é enviada, mas os relatórios continuam disponíveis na página. Você recebe uma única notificação de falha quando a inspeção passa de uma execução bem-sucedida para uma com falha.",
@@ -506,8 +507,7 @@
       "run_as_you": "Depois de salvar, cada execução usará as permissões de acesso que você tiver no momento da execução para ler os logs.",
       "run_as_change": "A inspeção usa as permissões de acesso de {{name}}. Depois que você salvar, ela usará as suas.",
       "save": "Salvar",
-      "create": "Salvar inspeção",
-      "channels_kept_many": "Os {{count}} canais já selecionados serão mantidos sem alterações."
+      "create": "Salvar inspeção"
     },
     "detail": {
       "runs": "Relatórios anteriores",

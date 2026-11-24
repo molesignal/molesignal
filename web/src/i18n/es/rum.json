@@ -60,12 +60,12 @@
       "aria": "Sesiones y Core Web Vitals",
       "sessions_one": "<n>{{formatted}}</n> sesión",
       "sessions_other": "<n>{{formatted}}</n> sesiones",
+      "sessions_many": "<n>{{formatted}}</n> sesiones",
       "people_one": "<n>{{formatted}}</n> persona",
       "people_other": "<n>{{formatted}}</n> personas",
+      "people_many": "<n>{{formatted}}</n> personas",
       "browser": "<sessions/> de <people/>; el <n>{{share}}</n> de las sesiones no registró errores.",
-      "app": "<sessions/> de <people/>; no se registraron cierres inesperados en el <n>{{sessionShare}}</n> de las sesiones ni para el <n>{{userShare}}</n> de las personas.",
-      "sessions_many": "<n>{{formatted}}</n> sesiones",
-      "people_many": "<n>{{formatted}}</n> personas"
+      "app": "<sessions/> de <people/>; no se registraron cierres inesperados en el <n>{{sessionShare}}</n> de las sesiones ni para el <n>{{userShare}}</n> de las personas."
     },
     "vitals": {
       "label": "{{name}} · p75",
@@ -106,8 +106,8 @@
       "map": "Mapa mundial del origen de las sesiones",
       "value_one": "{{formatted}} sesión",
       "value_other": "{{formatted}} sesiones",
-      "legend": "Sesiones",
-      "value_many": "{{formatted}} sesiones"
+      "value_many": "{{formatted}} sesiones",
+      "legend": "Sesiones"
     },
     "shares": {
       "browsers": "Navegadores",
@@ -145,11 +145,11 @@
       "empty": "No hay problemas nuevos ni reaparecidos en este período",
       "sessions_one": "{{formatted}} sesión",
       "sessions_other": "{{formatted}} sesiones",
+      "sessions_many": "{{formatted}} sesiones",
       "first_seen": "Primera detección: {{ago}} · {{version}}",
       "first_seen_plain": "Primera detección: {{ago}}",
       "regressed": "Se resolvió en {{resolved}} y reapareció en {{version}} ({{ago}})",
-      "regressed_plain": "Se resolvió y reapareció {{ago}}",
-      "sessions_many": "{{formatted}} sesiones"
+      "regressed_plain": "Se resolvió y reapareció {{ago}}"
     },
     "test_traffic": {
       "title": "Estas cifras solo incluyen sesiones de usuarios reales. Las sesiones de comprobaciones sintéticas y de pruebas de CI no se cuentan. Consúltalas aquí.",
@@ -186,9 +186,9 @@
       "sentence": "<views/>. En el percentil 75, LCP es <lcp/>, INP es <inp/> y CLS es <cls/>.",
       "views_one": "<n>{{formatted}}</n> vista de página",
       "views_other": "<n>{{formatted}}</n> vistas de página",
+      "views_many": "<n>{{formatted}}</n> vistas de página",
       "reading": "<figure>{{value}}</figure> (<grade>{{grade}}</grade>)",
-      "not_measured": "sin medición",
-      "views_many": "<n>{{formatted}}</n> vistas de página"
+      "not_measured": "sin medición"
     },
     "picker": {
       "aria": "Nivel que se muestra a continuación"
@@ -219,8 +219,10 @@
       "search_label": "Buscar en los valores de la tabla",
       "count_one": "{{count}} valor",
       "count_other": "{{count}} valores",
+      "count_many": "{{count}} valores",
       "most_viewed_one": "El valor con más vistas",
       "most_viewed_other": "Los {{count}} valores con más vistas",
+      "most_viewed_many": "Los {{count}} valores con más vistas",
       "few_note": "menos de {{views}} vistas: en gris",
       "views": "Vistas",
       "good": "{{name}}: bueno",
@@ -229,9 +231,7 @@
       "no_match": "Ningún valor coincide",
       "aria": "Niveles por {{dimension}}",
       "open": "Ver el desglose de las vistas de {{value}}",
-      "few": "Menos de {{views}} vistas: no son suficientes para establecer una clasificación",
-      "count_many": "{{count}} valores",
-      "most_viewed_many": "Los {{count}} valores con más vistas"
+      "few": "Menos de {{views}} vistas: no son suficientes para establecer una clasificación"
     },
     "drawer": {
       "title": "Qué tarda más en estas vistas",
@@ -241,10 +241,10 @@
       "close": "Cerrar",
       "views_one": "{{formatted}} vista",
       "views_other": "{{formatted}} vistas",
+      "views_many": "{{formatted}} vistas",
       "none": "Ninguna vista de este valor registró {{name}}.",
       "level": "El valor de {{name}} en el percentil 75 es <reading/>, a partir de <n>{{formatted}}</n> vistas.",
-      "longest": "La fase más larga es <n>{{part}}</n>: {{value}}, que representa el {{share}} del total.",
-      "views_many": "{{formatted}} vistas"
+      "longest": "La fase más larga es <n>{{part}}</n>: {{value}}, que representa el {{share}} del total."
     },
     "makeup": {
       "title": "Desglose de {{name}}",
@@ -307,11 +307,11 @@
         "aria": "Tareas largas de las páginas",
         "tasks_one": "<n>{{formatted}}</n> tarea larga",
         "tasks_other": "<n>{{formatted}}</n> tareas largas",
+        "tasks_many": "<n>{{formatted}}</n> tareas largas",
         "sentence": "En el hilo principal se ejecutaron <tasks/>, y el <share>{{share}}</share> de las vistas de página tuvo al menos una. En el percentil 75, una tarea larga duró <n>{{duration}}</n> y retrasó la respuesta a las interacciones durante <n>{{blocking}}</n>.",
         "sentence_alone": "En el hilo principal se ejecutaron <tasks/>. En el percentil 75, una tarea larga duró <n>{{duration}}</n> y retrasó la respuesta a las interacciones durante <n>{{blocking}}</n>.",
         "sentence_share": "En el hilo principal se ejecutaron <tasks/>, y el <share>{{share}}</share> de las vistas de página tuvo al menos una.",
-        "sentence_count": "En el hilo principal se ejecutaron <tasks/>.",
-        "tasks_many": "<n>{{formatted}}</n> tareas largas"
+        "sentence_count": "En el hilo principal se ejecutaron <tasks/>."
       },
       "empty": {
         "title": "No hay tareas largas en este intervalo",
@@ -336,8 +336,10 @@
         "search_label": "Buscar en los scripts de la tabla",
         "count_one": "{{count}} grupo",
         "count_other": "{{count}} grupos",
+        "count_many": "{{count}} grupos",
         "most_tasks_one": "El grupo con más tareas largas",
         "most_tasks_other": "Los {{count}} grupos con más tareas largas",
+        "most_tasks_many": "Los {{count}} grupos con más tareas largas",
         "few_note": "menos de {{tasks}} tareas largas: gris",
         "empty": "No hay tareas largas en este intervalo",
         "no_match": "No se encontraron grupos que coincidan",
@@ -349,15 +351,14 @@
         "tasks": "Tareas largas",
         "views": "Vistas",
         "time": "Duración p75",
-        "blocking": "Tiempo de bloqueo p75",
-        "count_many": "{{count}} grupos",
-        "most_tasks_many": "Los {{count}} grupos con más tareas largas"
+        "blocking": "Tiempo de bloqueo p75"
       },
       "panel": {
         "aria": "Tareas largas del grupo",
         "close": "Cerrar",
         "tasks_one": "{{formatted}} tarea larga",
         "tasks_other": "{{formatted}} tareas largas",
+        "tasks_many": "{{formatted}} tareas largas",
         "unattributed_note": "Safari y Firefox informan de las tareas largas sin identificar el script que las originó. Tampoco se identifica el script en las tareas largas recibidas antes de que MoleSignal pudiera hacerlo. Estas tareas sí se incluyen en el recuento.",
         "sentence": "En el percentil 75, duraron <n>{{duration}}</n> y bloquearon la entrada del usuario durante <b>{{blocking}}</b> de ese tiempo.",
         "sentence_time": "En el percentil 75, duraron <n>{{duration}}</n>.",
@@ -369,8 +370,7 @@
         "pages_empty": "No hay páginas identificadas",
         "samples": "Las de mayor duración · selecciona una para ver la carga de su vista",
         "samples_empty": "No se registró la duración de ninguna tarea larga",
-        "open_load": "Ver la carga de la vista de {{page}}",
-        "tasks_many": "{{formatted}} tareas largas"
+        "open_load": "Ver la carga de la vista de {{page}}"
       }
     },
     "section": {
@@ -381,11 +381,11 @@
         "aria": "Solicitudes de las páginas",
         "requests_one": "<n>{{formatted}}</n> solicitud",
         "requests_other": "<n>{{formatted}}</n> solicitudes",
+        "requests_many": "<n>{{formatted}}</n> solicitudes",
         "sentence": "Las páginas hicieron <requests/>. En el percentil 75, las solicitudes tardaron <n>{{duration}}</n> y el <rate>{{rate}}</rate> falló (por un estado de error o por falta de respuesta).",
         "sentence_time": "Las páginas hicieron <requests/>. En el percentil 75, las solicitudes tardaron <n>{{duration}}</n>.",
         "sentence_count": "Las páginas hicieron <requests/>.",
-        "per_view": "Por cada vista de página, se solicitaron en promedio <n>{{resources}}</n> recursos, con un tamaño total de <n>{{size}}</n>.",
-        "requests_many": "<n>{{formatted}}</n> solicitudes"
+        "per_view": "Por cada vista de página, se solicitaron en promedio <n>{{resources}}</n> recursos, con un tamaño total de <n>{{size}}</n>."
       },
       "empty": {
         "title": "No hay solicitudes en este intervalo"
@@ -420,8 +420,10 @@
         "search_label": "Buscar en las solicitudes de la tabla",
         "count_one": "{{count}} grupo",
         "count_other": "{{count}} grupos",
+        "count_many": "{{count}} grupos",
         "most_requested_one": "El grupo con más solicitudes",
         "most_requested_other": "Los {{count}} grupos con más solicitudes",
+        "most_requested_many": "Los {{count}} grupos con más solicitudes",
         "few_note": "Menos de {{requests}} solicitudes: en gris",
         "empty": "No hay solicitudes en este intervalo",
         "no_match": "Ningún grupo coincide",
@@ -433,15 +435,14 @@
         "time": "Duración (p75)",
         "failed": "Fallidas",
         "size": "Tamaño (p75)",
-        "cache": "Desde la caché",
-        "count_many": "{{count}} grupos",
-        "most_requested_many": "Los {{count}} grupos con más solicitudes"
+        "cache": "Desde la caché"
       },
       "panel": {
         "aria": "Solicitudes del grupo",
         "close": "Cerrar",
         "requests_one": "{{formatted}} solicitud",
         "requests_other": "{{formatted}} solicitudes",
+        "requests_many": "{{formatted}} solicitudes",
         "sentence": "La duración en el percentil 75 fue de <n>{{duration}}</n> y falló el <rate>{{rate}}</rate> de las solicitudes.",
         "sentence_time": "La duración en el percentil 75 fue de <n>{{duration}}</n>.",
         "longest": "La fase que más tarda es <n>{{part}}</n>: {{value}}.",
@@ -457,8 +458,7 @@
         "slowest_empty": "No se registró la duración de ninguna solicitud",
         "open_load": "Abre la carga de la vista que solicitó {{path}}",
         "traced": "El {{share}}% de las solicitudes tiene un ID de traza",
-        "explore": "Ver en el explorador",
-        "requests_many": "{{formatted}} solicitudes"
+        "explore": "Ver en el explorador"
       }
     }
   },
@@ -473,31 +473,31 @@
       "sentence": "<share>{{share}}</share> de las sesiones mostraron señales de frustración: <kinds/>.",
       "sentence_count_one": "<n>{{sessions}}</n> sesión mostró señales de frustración: <kinds/>.",
       "sentence_count_other": "<n>{{sessions}}</n> sesiones mostraron señales de frustración: <kinds/>.",
+      "sentence_count_many": "<n>{{sessions}}</n> sesiones mostraron señales de frustración: <kinds/>.",
       "join": ", ",
       "sessions_one": "<n>{{formatted}}</n> sesión",
       "sessions_other": "<n>{{formatted}}</n> sesiones",
+      "sessions_many": "<n>{{formatted}}</n> sesiones",
       "kinds": {
         "rage_one": "<n>{{formatted}}</n> <k>clic repetido</k> (<sessions/>)",
         "rage_other": "<n>{{formatted}}</n> <k>clics repetidos</k> (<sessions/>)",
+        "rage_many": "<n>{{formatted}}</n> <k>clics repetidos</k> (<sessions/>)",
         "dead_one": "<n>{{formatted}}</n> <k>clic sin respuesta</k> (<sessions/>)",
         "dead_other": "<n>{{formatted}}</n> <k>clics sin respuesta</k> (<sessions/>)",
+        "dead_many": "<n>{{formatted}}</n> <k>clics sin respuesta</k> (<sessions/>)",
         "error_one": "<n>{{formatted}}</n> <k>clic con error</k> (<sessions/>)",
         "error_other": "<n>{{formatted}}</n> <k>clics con error</k> (<sessions/>)",
+        "error_many": "<n>{{formatted}}</n> <k>clics con error</k> (<sessions/>)",
         "rage_tap_one": "<n>{{formatted}}</n> <k>toque repetido</k> (<sessions/>)",
         "rage_tap_other": "<n>{{formatted}}</n> <k>toques repetidos</k> (<sessions/>)",
+        "rage_tap_many": "<n>{{formatted}}</n> <k>toques repetidos</k> (<sessions/>)",
         "dead_tap_one": "<n>{{formatted}}</n> <k>toque sin respuesta</k> (<sessions/>)",
         "dead_tap_other": "<n>{{formatted}}</n> <k>toques sin respuesta</k> (<sessions/>)",
+        "dead_tap_many": "<n>{{formatted}}</n> <k>toques sin respuesta</k> (<sessions/>)",
         "error_tap_one": "<n>{{formatted}}</n> <k>toque con error</k> (<sessions/>)",
         "error_tap_other": "<n>{{formatted}}</n> <k>toques con error</k> (<sessions/>)",
-        "rage_many": "<n>{{formatted}}</n> <k>clics repetidos</k> (<sessions/>)",
-        "dead_many": "<n>{{formatted}}</n> <k>clics sin respuesta</k> (<sessions/>)",
-        "error_many": "<n>{{formatted}}</n> <k>clics con error</k> (<sessions/>)",
-        "rage_tap_many": "<n>{{formatted}}</n> <k>toques repetidos</k> (<sessions/>)",
-        "dead_tap_many": "<n>{{formatted}}</n> <k>toques sin respuesta</k> (<sessions/>)",
         "error_tap_many": "<n>{{formatted}}</n> <k>toques con error</k> (<sessions/>)"
-      },
-      "sentence_count_many": "<n>{{sessions}}</n> sesiones mostraron señales de frustración: <kinds/>.",
-      "sessions_many": "<n>{{formatted}}</n> sesiones"
+      }
     },
     "groups": {
       "element": "Elemento",
@@ -515,8 +515,10 @@
       "search_label": "Buscar elementos o páginas en la tabla",
       "count_one": "{{count}} grupo",
       "count_other": "{{count}} grupos",
+      "count_many": "{{count}} grupos",
       "most_one": "El grupo con más sesiones afectadas",
       "most_other": "Los {{count}} grupos con más sesiones afectadas",
+      "most_many": "Los {{count}} grupos con más sesiones afectadas",
       "empty": "No hay señales de frustración en este intervalo",
       "no_match": "Ningún grupo coincide",
       "aria": "Señales de frustración por {{group}}",
@@ -524,15 +526,14 @@
       "none": "(ninguno)",
       "unnamed": "(sin nombre)",
       "selector": "Selector",
-      "sessions": "Sesiones",
-      "count_many": "{{count}} grupos",
-      "most_many": "Los {{count}} grupos con más sesiones afectadas"
+      "sessions": "Sesiones"
     },
     "panel": {
       "aria": "Señales de frustración del grupo",
       "close": "Cerrar",
       "sentence_one": "Se detectaron señales de frustración en <n>{{formatted}}</n> sesión en {{noun}}.",
       "sentence_other": "Se detectaron señales de frustración en <n>{{formatted}}</n> sesiones en {{noun}}.",
+      "sentence_many": "Se detectaron señales de frustración en <n>{{formatted}}</n> sesiones en {{noun}}.",
       "page": "La mayoría se detectó en <code>{{page}}</code>.",
       "trend": "Sesiones afectadas",
       "trend_series": "Sesiones afectadas",
@@ -562,8 +563,7 @@
         "version": "versión",
         "browser": "navegador",
         "system": "sistema"
-      },
-      "sentence_many": "Se detectaron señales de frustración en <n>{{formatted}}</n> sesiones en {{noun}}."
+      }
     }
   },
   "analytics": {
@@ -617,10 +617,13 @@
       "window_within": "En un plazo de {{time}}",
       "minutes_one": "{{count}} minuto",
       "minutes_other": "{{count}} minutos",
+      "minutes_many": "{{count}} minutos",
       "hours_one": "{{count}} hora",
       "hours_other": "{{count}} horas",
+      "hours_many": "{{count}} horas",
       "days_one": "{{count}} día",
       "days_other": "{{count}} días",
+      "days_many": "{{count}} días",
       "breakdown": "Agrupar sesiones por",
       "breakdown_none": "Todas las sesiones juntas",
       "breakdown_by": "Por {{field}}",
@@ -640,10 +643,7 @@
         "from_previous": "Abandono",
         "median": "Tiempo mediano",
         "overall": "Del primer al último paso"
-      },
-      "minutes_many": "{{count}} minutos",
-      "hours_many": "{{count}} horas",
-      "days_many": "{{count}} días"
+      }
     },
     "paths": {
       "title": "Rutas",
@@ -659,6 +659,7 @@
       "depth": "Número de páginas",
       "depth_pages_one": "{{count}} página",
       "depth_pages_other": "{{count}} páginas",
+      "depth_pages_many": "{{count}} páginas",
       "told_by": "Identificar páginas por",
       "by": {
         "view_url_path_group": "Grupo de páginas",
@@ -670,12 +671,11 @@
       "pick": "Inicia los recorridos en {{page}}",
       "ends_one": "{{count}} sesión terminó aquí",
       "ends_other": "{{count}} sesiones terminaron aquí",
+      "ends_many": "{{count}} sesiones terminaron aquí",
       "begins_one": "{{count}} sesión comenzó aquí",
       "begins_other": "{{count}} sesiones comenzaron aquí",
-      "chart_aria": "Recorridos de {{sessions}} sesiones",
-      "depth_pages_many": "{{count}} páginas",
-      "ends_many": "{{count}} sesiones terminaron aquí",
-      "begins_many": "{{count}} sesiones comenzaron aquí"
+      "begins_many": "{{count}} sesiones comenzaron aquí",
+      "chart_aria": "Recorridos de {{sessions}} sesiones"
     },
     "retention": {
       "title": "Retención",
@@ -686,8 +686,10 @@
       "by_week": "Semana",
       "days_after_one": "{{count}} día después",
       "days_after_other": "{{count}} días después",
+      "days_after_many": "{{count}} días después",
       "weeks_after_one": "{{count}} semana después",
       "weeks_after_other": "{{count}} semanas después",
+      "weeks_after_many": "{{count}} semanas después",
       "cohort_day": "Primera visita el",
       "cohort_week": "Primera visita en la semana del",
       "people": "Personas",
@@ -696,8 +698,6 @@
       "too_short": "En este intervalo aún no ha terminado ningún período posterior al primero, así que todavía no se puede saber quién regresó. Amplía el intervalo de tiempo.",
       "cell_one": "Volvió {{count}} de {{total}}",
       "cell_other": "Volvieron {{count}} de {{total}}",
-      "days_after_many": "{{count}} días después",
-      "weeks_after_many": "{{count}} semanas después",
       "cell_many": "Volvieron {{count}} de {{total}}"
     },
     "heatmap": {
@@ -725,12 +725,16 @@
       "depths": "Profundidad de desplazamiento",
       "clicks_total_one": "{{count}} clic",
       "clicks_total_other": "{{count}} clics",
+      "clicks_total_many": "{{count}} clics",
       "views_total_one": "{{count}} visita",
       "views_total_other": "{{count}} visitas",
+      "views_total_many": "{{count}} visitas",
       "sessions_one": "{{count}} sesión",
       "sessions_other": "{{count}} sesiones",
+      "sessions_many": "{{count}} sesiones",
       "frustrated_one": "{{count}} sesión con frustración",
       "frustrated_other": "{{count}} sesiones con frustración",
+      "frustrated_many": "{{count}} sesiones con frustración",
       "off_snapshot": "No aparece en esta grabación de la página",
       "median_depth": "La mitad de las visitas llegó hasta aquí",
       "page_height": "Altura de la página",
@@ -748,11 +752,7 @@
       "no_pages": {
         "title": "No hay páginas en este intervalo",
         "description": "Amplía el intervalo o verifica que el SDK esté enviando datos."
-      },
-      "clicks_total_many": "{{count}} clics",
-      "views_total_many": "{{count}} visitas",
-      "sessions_many": "{{count}} sesiones",
-      "frustrated_many": "{{count}} sesiones con frustración"
+      }
     },
     "segment": {
       "label": "Segmento",
@@ -764,6 +764,7 @@
     "create": "Nueva lista de reproducción",
     "result_count_one": "{{count}} lista de reproducción",
     "result_count_other": "{{count}} listas de reproducción",
+    "result_count_many": "{{count}} listas de reproducción",
     "application_filter": "Aplicación",
     "all_applications": "Todas las aplicaciones",
     "columns": {
@@ -801,6 +802,7 @@
       "title": "Sesiones",
       "count_one": "{{count}} sesión",
       "count_other": "{{count}} sesiones",
+      "count_many": "{{count}} sesiones",
       "empty": "No hay sesiones en esta lista de reproducción. Agrega una desde la página de la sesión.",
       "session": "Sesión",
       "person": "Persona",
@@ -813,10 +815,9 @@
       "gone": "No se encontró en los datos",
       "errors_one": "{{count}} error",
       "errors_other": "{{count}} errores",
+      "errors_many": "{{count}} errores",
       "frustrations_one": "{{count}} señal de frustración",
       "frustrations_other": "{{count}} señales de frustración",
-      "count_many": "{{count}} sesiones",
-      "errors_many": "{{count}} errores",
       "frustrations_many": "{{count}} señales de frustración"
     },
     "link": {
@@ -839,8 +840,7 @@
       "not_in": "Esta sesión no está en la lista de reproducción",
       "previous": "Anterior",
       "next": "Siguiente"
-    },
-    "result_count_many": "{{count}} listas de reproducción"
+    }
   },
   "errors": {
     "state": {
@@ -873,6 +873,7 @@
     },
     "count_one": "{{count}} problema",
     "count_other": "{{count}} problemas",
+    "count_many": "{{count}} problemas",
     "picked": {
       "clear": "Quitar filtro {{dimension}}: {{value}}"
     },
@@ -988,14 +989,14 @@
       "back": "Volvió a ocurrir el {{when}}.",
       "back_in": "Volvió a ocurrir en la versión {{version}} el {{when}}.",
       "older": "Los errores en la versión {{version}} o en versiones anteriores no lo reabren."
-    },
-    "count_many": "{{count}} problemas"
+    }
   },
   "applications": {
     "title": "Aplicaciones",
     "list_title": "Aplicaciones RUM",
     "result_count_one": "{{count}} aplicación",
     "result_count_other": "{{count}} aplicaciones",
+    "result_count_many": "{{count}} aplicaciones",
     "create_button": "Crear aplicación",
     "empty_title": "Aún no hay aplicaciones",
     "empty_description": "Primero crea una aplicación y luego proporciona su token de cliente al SDK. Se rechazan los eventos enviados a una aplicación que no existe.",
@@ -1159,8 +1160,7 @@
           "property": "Propiedad del usuario"
         }
       }
-    },
-    "result_count_many": "{{count}} aplicaciones"
+    }
   },
   "session_detail": {
     "title_error": "Sesión con errores",
@@ -1540,10 +1540,10 @@
     "results": {
       "loaded_count_one": "{{count}} fila cargada",
       "loaded_count_other": "{{count}} filas cargadas",
+      "loaded_count_many": "{{count}} filas cargadas",
       "reset_columns": "Restablecer las columnas predeterminadas",
       "export": "Descargar como CSV (hasta 5000 filas)",
-      "export_more": "El archivo contiene las {{count}} filas más recientes. Hay más filas que coinciden con la consulta.",
-      "loaded_count_many": "{{count}} filas cargadas"
+      "export_more": "El archivo contiene las {{count}} filas más recientes. Hay más filas que coinciden con la consulta."
     },
     "viz": {
       "label": "Visualizar como",
@@ -1584,15 +1584,15 @@
         "per_point": "{{bucket}} por punto",
         "groups_one": "{{count}} grupo",
         "groups_other": "{{count}} grupos",
+        "groups_many": "{{count}} grupos",
         "top_groups_one": "{{count}} grupo principal",
         "top_groups_other": "{{count}} grupos principales",
+        "top_groups_many": "{{count}} grupos principales",
         "countries_one": "{{count}} país",
         "countries_other": "{{count}} países",
+        "countries_many": "{{count}} países",
         "rows_one": "{{count}} fila",
         "rows_other": "{{count}} filas",
-        "groups_many": "{{count}} grupos",
-        "top_groups_many": "{{count}} grupos principales",
-        "countries_many": "{{count}} países",
         "rows_many": "{{count}} filas"
       },
       "field": "Campo",
@@ -1731,6 +1731,7 @@
     "button": "Alertas",
     "button_aria_one": "Alertas, {{count}} activa",
     "button_aria_other": "Alertas, {{count}} activas",
+    "button_aria_many": "Alertas, {{count}} activas",
     "drawer": {
       "title": "Alertas",
       "subtitle": "se filtran según la aplicación y el entorno de la página",
@@ -1773,6 +1774,7 @@
       "would_trip": "Se dispararía con nivel de gravedad {{severity}} en cuanto se creara",
       "sessions_per_one": "{{count}} sesión en {{window}}",
       "sessions_per_other": "{{count}} sesiones en {{window}}",
+      "sessions_per_many": "{{count}} sesiones en {{window}}",
       "list_separator": ", ",
       "line": "{{bands}} · {{window}}",
       "at_least": "al menos {{rows}} {{kind}}",
@@ -1817,10 +1819,8 @@
           "title": "Tráfico interrumpido",
           "rule": "Menos de 1 sesión durante el intervalo → {{severity}} · {{window}} (no recomendado para aplicaciones con poca actividad nocturna)"
         }
-      },
-      "sessions_per_many": "{{count}} sesiones en {{window}}"
-    },
-    "button_aria_many": "Alertas, {{count}} activas"
+      }
+    }
   },
   "waterfall": {
     "failed": "No se pudieron leer las solicitudes de esta vista.",
@@ -1839,11 +1839,11 @@
       "lcp_element": "el LCP fue de <n>{{value}}</n> (<grade>{{grade}}</grade>, <code>{{element}}</code>)",
       "resources_one": "<n>{{count}}</n> recurso",
       "resources_other": "<n>{{count}}</n> recursos",
+      "resources_many": "<n>{{count}}</n> recursos",
       "long_tasks_one": "<n>{{count}}</n> tarea larga",
       "long_tasks_other": "<n>{{count}}</n> tareas largas",
-      "during": "Mientras tanto, la vista solicitó <resources/> y ejecutó <tasks/>.",
-      "resources_many": "<n>{{count}}</n> recursos",
-      "long_tasks_many": "<n>{{count}}</n> tareas largas"
+      "long_tasks_many": "<n>{{count}}</n> tareas largas",
+      "during": "Mientras tanto, la vista solicitó <resources/> y ejecutó <tasks/>."
     },
     "filters": {
       "type": "Tipo",
@@ -1872,8 +1872,8 @@
       "title": "Hilo principal",
       "count_one": "{{count}} tarea larga",
       "count_other": "{{count}} tareas largas",
-      "task": "Tarea larga de {{duration}}",
-      "count_many": "{{count}} tareas largas"
+      "count_many": "{{count}} tareas largas",
+      "task": "Tarea larga de {{duration}}"
     },
     "row": {
       "blocking": "bloqueante",
@@ -1967,6 +1967,7 @@
     "list_description": "Indicadores evaluados en este intervalo, ordenados de mayor a menor por número de sesiones",
     "sessions_one": "{{value}} sesión",
     "sessions_other": "{{value}} sesiones",
+    "sessions_many": "{{value}} sesiones",
     "compare_description": "Rendimiento de las sesiones para cada valor de este indicador",
     "compare_aria": "Comparación de los valores de {{flag}}",
     "no_values": "No se registró este indicador en ninguna vista del intervalo",
@@ -1981,7 +1982,6 @@
     "empty": {
       "title": "No hay indicadores de funciones en este intervalo",
       "description": "Los indicadores de funciones aparecen aquí cuando el SDK llama a addFeatureFlagEvaluation."
-    },
-    "sessions_many": "{{value}} sesiones"
+    }
   }
 }
