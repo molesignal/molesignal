@@ -1,11 +1,11 @@
 import { http } from '@/lib/http';
 
 import type { ApmMeta, ApmQueryParams, ServiceHealth, ServiceIdentity } from './apm';
-import type { DeploymentStatus } from './apmDeployments';
+import type { DeploymentStatus, ReportedChangeKind } from './changes';
 
-export type InsightKind = 'anomaly' | 'regression' | 'slow_dependency' | 'repeated_call' | 'slow_query' | 'hot_endpoint';
+export type InsightKind = 'anomaly' | 'regression' | 'slow_dependency' | 'repeated_call' | 'slow_query' | 'hot_endpoint' | 'log_errors';
 export type InsightSeverity = 'critical' | 'warning' | 'info';
-export type ChangeKind = 'deployment' | 'configuration' | 'feature_flag';
+export type ChangeKind = ReportedChangeKind;
 
 /** A change near when a move began: reported by a pipeline or a tool, or a version spans first carried then. */
 export interface NearbyChange {
@@ -30,7 +30,7 @@ export interface Insight {
   transaction?: { name: string; kind: string };
   dependency?: { category: string; target: string; operation?: string };
   /** What moved or got worse. */
-  metric?: 'error_rate' | 'p95' | 'throughput';
+  metric?: 'error_rate' | 'p95' | 'throughput' | 'log_errors';
   /** The error rate, the P95 in microseconds or the requests a second; a share of time; the calls a request. */
   value: number;
   /** The same figure over the stretch before, and over the same stretch a week before. */

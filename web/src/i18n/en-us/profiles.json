@@ -169,16 +169,6 @@
     "title": "Compare profiles",
     "subtitle": "What got hotter or cooler in one period against another. Set both freely.",
     "filters_aria": "What is compared",
-    "baseline_aria": "Baseline: {{value}}",
-    "baseline_title": "Choose the baseline",
-    "baseline_relative": "Following the period",
-    "baseline_overlaps": "This baseline would overlap the period it is compared with.",
-    "baselines": {
-      "previous": "The period before",
-      "day": "Same time a day earlier",
-      "week": "Same time a week earlier",
-      "custom": "A period of its own"
-    },
     "statement_aria": "The two periods compared",
     "comparison": "Comparison",
     "baseline": "Baseline",

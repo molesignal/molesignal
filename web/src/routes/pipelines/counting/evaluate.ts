@@ -12,6 +12,8 @@ export type CountingOutcome =
   | { kind: 'not_picked' }
   /** `value` is what the event adds; `null` when the field the metric reads holds no number. */
   | { kind: 'metric'; series: string; type: MetricSettings['type']; field: string; value: number | null }
+  /** The event is read for a change; whether it tells one depends on the object seen before. */
+  | { kind: 'change' }
   | {
       kind: 'limit';
       step: Exclude<CountingKind, 'generate_metric'>;
@@ -132,6 +134,8 @@ export function countingOutcome(kind: CountingKind, parts: CountingParts, event:
       value: field === '' ? 1 : numberOf(fieldValue(event, field)),
     };
   }
+
+  if (kind === 'to_change') return { kind: 'change' };
 
   if (kind === 'quota' && parts.quota) {
     const quota = parts.quota;

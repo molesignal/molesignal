@@ -386,6 +386,49 @@ test.describe('Logs explorer modules', () => {
     await panel.getByRole('button', { name: 'Expand fields' }).click();
     await expect(panel.locator('[data-log-field-row]').first()).toBeVisible();
   });
+
+  test('marks the changes of the range where they happened, each telling what changed on hover', async ({ page }) => {
+    await serveLogs(page, 12);
+    await serveLogCounts(page, () => ({ total: 40, errors: 4 }));
+    const asked: string[] = [];
+    await page.route('**/api/v1/changes?**', (route) => {
+      const url = new URL(route.request().url());
+      asked.push(url.searchParams.get('stream') ?? '');
+      const from = Number(url.searchParams.get('from'));
+      const to = Number(url.searchParams.get('to'));
+      return route.fulfill({
+        json: [
+          {
+            id: 'deploy-1',
+            kind: 'deployment',
+            at: Math.round((from + to) / 2),
+            service: 'checkout',
+            namespace: 'shop',
+            environment: 'prod',
+            version: '2.0.0',
+            status: 'succeeded',
+            author: 'ada',
+            pullRequestUrl: 'https://github.com/acme/checkout/pull/42',
+          },
+        ],
+      });
+    });
+    await page.goto('/logs');
+    const histogram = page.locator('[data-explorer-module="histogram"]');
+    await expect(histogram).toHaveAttribute('data-histogram-counting', 'all');
+
+    // Annotations are asked for the stream in view.
+    await expect.poll(() => asked).toContain('application_logs');
+    await expect(histogram.locator('[data-change-line="deployment"]')).toHaveCount(1);
+
+    const mark = histogram.locator('[data-change-mark="deployment"]');
+    await expect(mark).toHaveAccessibleName('Deployment · checkout 2.0.0');
+    await mark.hover();
+    const card = page.getByText('Deployment · checkout 2.0.0', { exact: true }).last();
+    await expect(card).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Pull request' })).toHaveAttribute('href', 'https://github.com/acme/checkout/pull/42');
+    await expect(page.getByRole('link', { name: 'Open', exact: true })).toHaveAttribute('href', '/apm/services/checkout/deployments?namespace=shop&environment=prod');
+  });
 });
 
 test.describe('Traces explorer modules', () => {

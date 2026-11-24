@@ -278,6 +278,26 @@
       "read_failed": "Could not read further back.",
       "unread_one": "{{count}} event carries no message and is in no pattern.",
       "unread_other": "{{count}} events carry no message and are in no pattern.",
+      "change_column": "Change",
+      "change": {
+        "new": "New",
+        "surging": "×{{ratio}}",
+        "dropping": "Fewer",
+        "steady": "—"
+      },
+      "estimated": "About {{count}} over the whole range",
+      "example_only": "Not among the events read",
+      "basis_counted_one": "Counted over all {{formatted}} event in range",
+      "basis_counted_other": "Counted over all {{formatted}} events in range",
+      "basis_sampled": "patterns read from {{read}} sampled across it",
+      "counting": "Counting the whole range…",
+      "count_failed": "Could not count the whole range.",
+      "baseline_label": "Compare with",
+      "baseline": {
+        "previous": "Compared with the stretch before",
+        "week_before": "Compared with a week before",
+        "none": "Not compared"
+      },
       "kind": {
         "number": "A number",
         "id": "An identifier",

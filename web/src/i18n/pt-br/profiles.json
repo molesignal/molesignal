@@ -170,16 +170,6 @@
     "title": "Comparar perfis",
     "subtitle": "Veja onde o custo aumentou ou diminuiu de um período para o outro. Você pode definir os dois períodos livremente.",
     "filters_aria": "O que está sendo comparado",
-    "baseline_aria": "Referência: {{value}}",
-    "baseline_title": "Escolha o período de referência",
-    "baseline_relative": "Vinculado ao período comparado",
-    "baseline_overlaps": "O período de referência ficaria sobreposto ao período comparado.",
-    "baselines": {
-      "previous": "Período anterior",
-      "day": "Mesmo horário no dia anterior",
-      "week": "Mesmo horário na semana anterior",
-      "custom": "Período personalizado"
-    },
     "statement_aria": "Os dois períodos comparados",
     "comparison": "Comparação",
     "baseline": "Referência",

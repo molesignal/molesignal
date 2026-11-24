@@ -563,5 +563,15 @@
     "bulk_failed_one": "{{count}} von {{total}} fehlgeschlagen: {{reason}}",
     "bulk_failed_other": "{{count}} von {{total}} fehlgeschlagen: {{reason}}",
     "clear_filters": "Filter zurücksetzen"
+  },
+  "baseline": {
+    "aria": "Referenzzeitraum: {{value}}",
+    "title": "Referenzzeitraum auswählen",
+    "relative": "Relativ zum Vergleichszeitraum",
+    "overlaps": "Dieser Referenzzeitraum würde sich mit dem Vergleichszeitraum überschneiden.",
+    "previous": "Vorheriger Zeitraum",
+    "day": "Gleiche Zeit am Vortag",
+    "week": "Gleiche Zeit eine Woche zuvor",
+    "custom": "Benutzerdefinierter Zeitraum"
   }
 }

@@ -214,9 +214,11 @@ const versions = [
 ];
 
 /** What the pipeline reported: 2.0.0 going out, and before it a deployment that failed. */
+/** The changes pipelines reported for checkout, as `GET /changes` lists them, the latest first. */
 export const DEPLOYMENTS = [
   {
     id: 'deploy-2',
+    kind: 'deployment',
     namespace: 'shop',
     service: 'checkout',
     environment: 'prod',
@@ -227,12 +229,11 @@ export const DEPLOYMENTS = [
     pullRequestUrl: 'https://github.com/acme/checkout/pull/42',
     author: 'ada',
     ciUrl: 'https://ci.example.com/runs/7',
-    deployedAt: NOW - 1_860_000_000,
-    createdBy: 'token-1',
-    createdAt: NOW - 1_860_000_000,
+    at: NOW - 1_860_000_000,
   },
   {
     id: 'deploy-1',
+    kind: 'deployment',
     namespace: 'shop',
     service: 'checkout',
     environment: 'prod',
@@ -241,9 +242,7 @@ export const DEPLOYMENTS = [
     commit: '1a2b3c4d5e6f7a8b',
     author: 'ada',
     ciUrl: 'https://ci.example.com/runs/6',
-    deployedAt: NOW - 2_400_000_000,
-    createdBy: 'token-1',
-    createdAt: NOW - 2_400_000_000,
+    at: NOW - 2_400_000_000,
   },
 ];
 
@@ -395,6 +394,24 @@ export const COVERAGE = {
   rum: { state: 'reported', found: ['session-1'] },
 };
 
+/** How well the services tie to other data: checkout's logs carry trace ids on part of their lines, and it says not where it runs. */
+export const CORRELATION = {
+  from: NOW - 3_600_000_000,
+  to: NOW,
+  changesSince: NOW - 7 * 86_400_000_000,
+  services: [
+    {
+      service: SERVICE,
+      logs: { state: 'reported', streams: ['default'], lines: 1_200, traced: 480, sampled: 10, matched: 9 },
+      metrics: 'missing',
+      resource: { environment: true, version: true, instance: true, placement: false },
+      changes: { count: 3, lastAt: NOW - 3_600_000_000 },
+      grades: { traceIds: 'partial', resource: 'partial', metrics: 'missing', changes: 'good' },
+    },
+  ],
+  unmatched: [{ name: 'checkout-svc', signal: 'logs', streams: ['default'], lines: 640 }],
+};
+
 const page50 = (items: unknown[], sort: string) => ({ meta, items, nextCursor: null, previousCursor: null, hasMore: false, sort });
 
 export const overview = {
@@ -515,8 +532,8 @@ const responses: Record<string, unknown> = {
   },
   '/api/v1/apm/service-definitions': definitions,
   '/api/v1/apm/map': MAP,
-  '/api/v1/apm/deployments': DEPLOYMENTS,
   '/api/v1/apm/insights': INSIGHTS,
+  '/api/v1/apm/correlation': CORRELATION,
   '/api/v1/apm/blast-radius': BLAST_RADIUS,
   '/api/v1/apm/settings': APM_SETTINGS,
 };
@@ -574,6 +591,9 @@ export async function installApmRoutes(page: Page, options: { runtimeMetrics?: b
   // Each test starts from the definitions as written above, stars included.
   const kept = JSON.parse(JSON.stringify(definitions)) as typeof definitions;
   const savedRules: Array<Record<string, unknown>> = [];
+
+  // Changes are listed beside APM: the deployments checkout's pipeline reported.
+  await page.route('**/api/v1/changes?**', (route) => route.fulfill({ json: DEPLOYMENTS }));
 
   await page.route('**/api/v1/apm/**', async (route) => {
     const request = route.request();

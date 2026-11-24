@@ -1,6 +1,8 @@
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { ChangeRail } from '@/shell/changes/ChangeMarks';
+import { useChanges } from '@/shell/changes/useChanges';
 import { ChromeButton } from '@/shell/chrome';
 import { QueryState } from '@/shell/query/State';
 import { TimeSeriesChart } from '@/viz/timeseries/TimeSeriesChart';
@@ -24,12 +26,15 @@ export function GraphView({
   exemplars,
   recovery,
   starter,
+  baselineSeries,
   onViewRawCounter,
   onInspectMetricType,
 }: GraphViewProps) {
   const { t } = useTranslation('metrics');
-  const canStack = series.chartSeries.length > 1;
+  // A baseline laid over the series is read beside them, not stacked on them.
+  const canStack = series.chartSeries.length > 1 && baselineSeries.length === 0;
   const effectiveStackMode = canStack ? chart.stackMode : 'none';
+  const changes = useChanges(series.metricSeries.length > 0 ? { from: chart.xDomain[0], to: chart.xDomain[1] } : null);
 
   return (
     <div className="flex min-h-0 flex-[1_0_auto] flex-col p-3">
@@ -56,7 +61,7 @@ export function GraphView({
           <TimeSeriesChart
             height="auto"
             className="flex-[1_0_auto]"
-            series={series.chartSeries}
+            series={baselineSeries.length > 0 ? [...series.chartSeries, ...baselineSeries] : series.chartSeries}
             xDomain={chart.xDomain}
             seriesIdentity={{
               title: t('explore.series.title'),
@@ -101,6 +106,7 @@ export function GraphView({
             {...(chart.zoomed ? { onRangeReset: chart.onRangeReset } : {})}
             rangeSelectionAriaLabel={t('explore.chart.zoom_aria')}
           />
+          <ChangeRail changes={changes} start={chart.xDomain[0]} end={chart.xDomain[1]} className="mt-1" />
           <ExemplarRail
             series={exemplars.series}
             fromMicros={chart.xDomain[0]}

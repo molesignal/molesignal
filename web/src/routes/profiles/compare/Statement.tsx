@@ -3,14 +3,13 @@ import { useTranslation } from 'react-i18next';
 
 import { formatMicrosActive } from '@/lib/time';
 import { cn } from '@/shell/lib/cn';
+import { type Period, periodsOverlap } from '@/time/baseline/periods';
 import {
   type DiffTotals,
   formatChange,
   formatChangePct,
   formatValue,
 } from '@/viz/profiles/flamebearer';
-
-import { type Period, periodsOverlap } from './periods';
 
 /**
  * What a comparison is of, and where it is set: the period looked at and the

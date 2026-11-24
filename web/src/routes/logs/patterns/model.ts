@@ -1,3 +1,5 @@
+import type { LogPatternChange } from '@/api/web';
+
 import {
   logLevelLabel,
   logLevelTone,
@@ -39,6 +41,12 @@ export interface LogPattern {
   fragment: string;
   /** The field the logs say it in. */
   field: string;
+  /** How it moved against the stretch it is compared with, where the server compared it. */
+  change?: LogPatternChange | undefined;
+  /** Its count over the baseline's; absent when the baseline had none. */
+  ratio?: number | undefined;
+  /** One of its messages, where none of the logs read has it. */
+  example?: string | undefined;
 }
 
 export interface LogPatterns {

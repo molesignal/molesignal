@@ -53,6 +53,45 @@ spec:
         },
       },
       {
+        code: {
+          lang: 'yaml',
+          content: `# OpenTelemetry Collector (contrib): watch workloads and ConfigMaps into the k8s_objects stream.
+receivers:
+  k8sobjects:
+    auth_type: serviceAccount
+    objects:
+      - { name: deployments,  group: apps, mode: watch }
+      - { name: statefulsets, group: apps, mode: watch }
+      - { name: daemonsets,   group: apps, mode: watch }
+      - { name: configmaps,                mode: watch }
+processors:
+  resource:
+    attributes:
+      - { key: k8s.cluster.name, value: production, action: upsert }
+exporters:
+  otlphttp/molesignal:
+    endpoint: ${ENDPOINT}/api
+    headers:
+      authorization: "Bearer ${TOKEN}"
+      stream-name: k8s_objects
+service:
+  pipelines:
+    logs/changes:
+      receivers: [k8sobjects]
+      processors: [resource]
+      exporters: [otlphttp/molesignal]`,
+        },
+      },
+      {
+        code: {
+          lang: 'text',
+          content: `Pipelines → New pipeline
+  Mode:    Realtime
+  Source:  k8s_objects
+  Step:    Record changes (environment field: k8s.cluster.name)`,
+        },
+      },
+      {
         verification: true,
         code: { lang: 'bash', content: 'kubectl logs -n telemetry -l app=fluent-bit --tail=20' },
       },

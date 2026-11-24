@@ -510,8 +510,52 @@ export interface IncidentRca {
   promptTokens: number;
   completionTokens: number;
   finishReason: string | null;
+  /** What the summary rests on, each piece labelled as the summary cites it (`E1`, `E2`, …). */
+  evidence?: RcaEvidence[];
   createdAt: number;
   updatedAt: number;
+}
+
+export type RcaEvidenceKind =
+  | 'insight'
+  | 'new_error_group'
+  | 'sample_trace'
+  | 'error_logs'
+  | 'new_log_pattern'
+  | 'business_impact'
+  | 'attribute_skew'
+  | 'change'
+  | 'similar_incident'
+  | 'investigation';
+
+/** Where a piece of evidence came from; telemetry figures go only to readers of their source. */
+export type RcaEvidenceSource = 'apm' | 'traces' | 'logs' | 'incident';
+
+export interface RcaEvidence {
+  label: string;
+  kind: RcaEvidenceKind;
+  source: RcaEvidenceSource;
+  service?: string;
+  /** What it is about, without figures. */
+  subject?: string;
+  /** For an insight, its kind and the figure that moved: `anomaly.p95`. */
+  detail?: string;
+  at?: number;
+  /** Named figures: `value`, `previous`, `lastWeek`, `occurrences`, `duration` (µs), `now`, …. */
+  figures?: Record<string, number>;
+  /** The figures were left out: the reader may not read their source. */
+  withheld?: boolean;
+  link?: {
+    namespace?: string;
+    environment?: string;
+    fingerprint?: string;
+    traceId?: string;
+    stream?: string;
+    incidentId?: string;
+    route?: string;
+    from?: number;
+    to?: number;
+  };
 }
 
 export type RotationKind =

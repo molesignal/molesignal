@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { VersionSummary } from '@/api/apm';
-import type { DeploymentEvent } from '@/api/apmDeployments';
+import type { ChangeEntry } from '@/api/changes';
 
 import { canaryPair, commitLink, deployTimeline } from './deployTimeline';
 
@@ -17,17 +17,16 @@ function version(name: string, first: number, last: number): VersionSummary {
   };
 }
 
-function event(id: string, name: string, at: number, status: DeploymentEvent['status'] = 'succeeded'): DeploymentEvent {
+function event(id: string, name: string, at: number, status: ChangeEntry['status'] = 'succeeded'): ChangeEntry {
   return {
     id,
+    kind: 'deployment',
     namespace: 'shop',
     service: 'checkout',
     environment: 'prod',
-    version: name,
+    ...(name ? { version: name } : {}),
     status,
-    deployedAt: at * MINUTE,
-    createdBy: 'token-1',
-    createdAt: at * MINUTE,
+    at: at * MINUTE,
   };
 }
 
@@ -78,7 +77,7 @@ describe('the deployment timeline', () => {
 
 describe('changes other than deployments', () => {
   it('sit on the line without moving the running version', () => {
-    const flag: DeploymentEvent = { ...event('f1', '', 40), kind: 'feature_flag', description: 'new_checkout on' };
+    const flag: ChangeEntry = { ...event('f1', '', 40), kind: 'feature_flag', description: 'new_checkout on' };
     const entries = deployTimeline([event('d1', '1.0.0', 0), flag, event('d2', '2.0.0', 50)], [version('1.0.0', 1, 49), version('2.0.0', 51, 120)]);
 
     expect(entries.map((entry) => [entry.version, entry.kind])).toEqual([

@@ -563,5 +563,37 @@
     "bulk_failed_one": "{{count}} of {{total}} failed: {{reason}}",
     "bulk_failed_other": "{{count}} of {{total}} failed: {{reason}}",
     "clear_filters": "Clear filters"
+  },
+  "changes": {
+    "kind": {
+      "deployment": "Deployment",
+      "configuration": "Configuration",
+      "feature_flag": "Feature flag",
+      "scaling": "Scaling",
+      "infrastructure": "Infrastructure",
+      "annotation": "Annotation",
+      "version": "New version",
+      "rule": "Rule edited"
+    },
+    "status": {
+      "succeeded": "succeeded",
+      "failed": "failed",
+      "rolled_back": "rolled back"
+    },
+    "rail_one": "{{count}} change in this range",
+    "rail_other": "{{count}} changes in this range",
+    "open": "Open",
+    "pull_request": "Pull request",
+    "ci_run": "CI run"
+  },
+  "baseline": {
+    "aria": "Baseline: {{value}}",
+    "title": "Choose the baseline",
+    "relative": "Following the period",
+    "overlaps": "This baseline would overlap the period it is compared with.",
+    "previous": "The period before",
+    "day": "Same time a day earlier",
+    "week": "Same time a week earlier",
+    "custom": "A period of its own"
   }
 }

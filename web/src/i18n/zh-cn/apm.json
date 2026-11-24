@@ -309,7 +309,8 @@
       "last_deploy": "最近部署",
       "tags": "标签",
       "last_seen": "最后活跃",
-      "favorite": "收藏"
+      "favorite": "收藏",
+      "correlation": "关联度"
     },
     "favorite": "收藏 {{name}}",
     "unfavorite": "取消收藏 {{name}}",
@@ -709,7 +710,9 @@
       "returned": "退回",
       "first_seen": "首次出现",
       "configuration": "配置变更",
-      "feature_flag": "功能开关"
+      "feature_flag": "功能开关",
+      "scaling": "扩缩容",
+      "infrastructure": "基础设施变更"
     },
     "from": "自 {{version}}",
     "pull_request": "PR",
@@ -1177,7 +1180,42 @@
       "environments": "{{names}} 只有大小写不同。",
       "map_to": "全部读作 {{name}}",
       "generated": "{{name}} 看起来是 {{base}} 加上自动生成的后缀。",
-      "add_rule": "添加命名规则"
+      "add_rule": "添加命名规则",
+      "correlation": {
+        "untraced_one": "{{formatted}} 个服务最近一小时的日志不带 TraceID：{{names}}。",
+        "untraced_other": "{{formatted}} 个服务最近一小时的日志不带 TraceID：{{names}}。",
+        "partly_traced_one": "{{formatted}} 个服务只有部分日志能对上留存的 Trace：{{names}}。",
+        "partly_traced_other": "{{formatted}} 个服务只有部分日志能对上留存的 Trace：{{names}}。",
+        "unplaced_one": "{{formatted}} 个服务没有上报运行位置（主机、Pod、Node 或容器）：{{names}}。",
+        "unplaced_other": "{{formatted}} 个服务没有上报运行位置（主机、Pod、Node 或容器）：{{names}}。",
+        "unmatched_one": "日志或指标里有 {{formatted}} 个 APM 不认识的服务名：{{names}}。",
+        "unmatched_other": "日志或指标里有 {{formatted}} 个 APM 不认识的服务名：{{names}}。",
+        "no_changes_one": "{{formatted}} 个服务过去一周没有上报变更：{{names}}。",
+        "no_changes_other": "{{formatted}} 个服务过去一周没有上报变更：{{names}}。",
+        "names_more_one": "{{names}} 等，另有 {{count}} 个",
+        "names_more_other": "{{names}} 等，另有 {{count}} 个",
+        "to_naming": "命名规则",
+        "report_changes": "接入变更"
+      }
+    },
+    "business": {
+      "title": "业务上下文",
+      "hint": "租户、套餐这类业务键，以及各信号里承载它的字段：服务页按它拆分请求，事件会列出受影响的取值",
+      "empty": "还没有业务键",
+      "add": "添加业务键",
+      "key": "键",
+      "label": "显示名",
+      "label_placeholder": "租户",
+      "span": "Span 属性",
+      "log": "日志字段",
+      "rum": "RUM 字段",
+      "important": "重点取值",
+      "important_placeholder": "最重要的取值，用逗号分隔",
+      "issue": {
+        "key": "键以小写字母开头，只能包含小写字母、数字和 _。",
+        "twice": "每个键只能声明一次。",
+        "nowhere": "每个键至少要指定一个信号里的字段。"
+      }
     }
   },
   "instances": {
@@ -1223,12 +1261,14 @@
       "slow_dependency": "瓶颈",
       "repeated_call": "N+1",
       "slow_query": "慢 SQL",
-      "hot_endpoint": "热点端点"
+      "hot_endpoint": "热点端点",
+      "log_errors": "错误日志"
     },
     "metric": {
       "error_rate": "错误率",
       "p95": "P95",
-      "throughput": "吞吐"
+      "throughput": "吞吐",
+      "log_errors": "错误日志行数"
     },
     "sentence": {
       "anomaly_up": "{{metric}}升到 {{value}}（{{before}}）",
@@ -1237,13 +1277,16 @@
       "slow_dependency": "请求 {{share}} 的时间花在 {{target}} 上",
       "repeated_call": "每个请求平均调用 {{operation}} {{each}} 次（共 {{calls}} 次），疑似 N+1，可合并为一次调用",
       "slow_query": "{{operation}}：P95 {{p95}}，共 {{calls}} 次",
-      "hot_endpoint": "{{endpoint}} 占服务 {{share}} 的耗时（P95 {{p95}}）"
+      "hot_endpoint": "{{endpoint}} 占服务 {{share}} 的耗时（P95 {{p95}}）",
+      "log_errors": "错误日志升到 {{value}}（{{before}}）"
     },
     "change": {
       "deployment": "发布",
       "configuration": "配置变更",
       "feature_flag": "功能开关",
-      "observed": "（从 Span 观测到）"
+      "observed": "（从 Span 观测到）",
+      "scaling": "扩缩容",
+      "infrastructure": "基础设施变更"
     },
     "baseline": {
       "previous": "与上一时段相比：",
@@ -1262,5 +1305,52 @@
       "error": "调查 {{service}}（{{environment}}）的错误 {{error}}（指纹 {{fingerprint}}）：从什么时候开始、影响多少请求、最可能的原因。",
       "finding": "调查 {{service}}（{{environment}}）在 {{from}} 至 {{to}} 的这条发现：{{finding}}"
     }
+  },
+  "correlation": {
+    "and": "、",
+    "aspect": {
+      "traceIds": "日志 TraceID",
+      "resource": "资源属性",
+      "metrics": "指标",
+      "changes": "变更"
+    },
+    "grade": {
+      "good": "良好",
+      "partial": "部分",
+      "missing": "缺失",
+      "unknown": "未知"
+    },
+    "attribute": {
+      "environment": "环境",
+      "version": "版本",
+      "instance": "实例",
+      "placement": "主机或 Pod"
+    },
+    "detail": {
+      "unknown": "读取失败。",
+      "no_logs": "最近一小时没有日志。",
+      "traced": "{{lines}} 行中 {{share}} 带 TraceID。",
+      "matched": "抽样的 {{sampled}} 条 Trace 找到 {{matched}} 条。",
+      "resource_complete": "环境、版本、实例和主机或 Pod 都已上报。",
+      "resource_missing": "未上报：{{attributes}}。",
+      "metrics_reported": "指标带有它的服务名。",
+      "metrics_missing": "最近一小时没有指标带它的服务名。",
+      "metrics_unknown": "读取失败。",
+      "changes_one": "过去一周上报了 {{formatted}} 次变更。",
+      "changes_other": "过去一周上报了 {{formatted}} 次变更。"
+    }
+  },
+  "business": {
+    "title": "按业务键拆分请求",
+    "key": "业务键",
+    "any_field": "按任意字段拆分",
+    "requests": "请求数",
+    "errors": "错误率",
+    "no_value": "（无值）",
+    "important": "重点",
+    "loading": "正在拆分…",
+    "failed": "拆分结果加载失败",
+    "unavailable": "暂时无法读取这个业务键",
+    "empty": "当前时间范围内没有请求带这个业务键"
   }
 }

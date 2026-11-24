@@ -288,7 +288,7 @@ test.describe('Logs list and detail', () => {
     await expect(patterns.nth(1)).toHaveAttribute('data-log-level', 'error');
     await expect(patterns.nth(1).locator('[data-log-pattern-levels]')).toHaveText('ERROR');
     // Where the list has its pages stands what the patterns were read from: here, all there is.
-    await expect(page.locator('[data-log-patterns-basis]')).toHaveText('Every event that matches');
+    await expect(page.locator('[data-log-patterns-basis]')).toContainText('Every event that matches');
     await expect(page.getByRole('navigation', { name: 'Log results pagination' })).toHaveCount(0);
 
     // Opening a pattern shows its logs, and one of them opens in the drawer.

@@ -91,7 +91,8 @@
     "expand_group": "展开{{group}}",
     "open_navigation": "打开告警导航",
     "collapse_navigation": "收起告警导航",
-    "expand_navigation": "展开告警导航"
+    "expand_navigation": "展开告警导航",
+    "changes": "变更"
   },
   "history": {
     "error_title": "无法加载告警历史",
@@ -792,7 +793,8 @@
       "tickets": "工单",
       "major": "重大事件",
       "postmortem": "复盘",
-      "guide": "排查线索"
+      "guide": "排查线索",
+      "business_impact": "业务影响"
     },
     "guide": {
       "queries": "排查查询",
@@ -814,7 +816,46 @@
       "generating": "生成中…",
       "generated": "根因分析已生成",
       "empty": "暂无分析 - 可手动生成，或等待后台自动分析。",
-      "budget_exhausted": "组织今天的 Mole Agent token 预算已用完，根因分析没有生成。预算重置或调高后再试。"
+      "budget_exhausted": "组织今天的 Mole Agent token 预算已用完，根因分析没有生成。预算重置或调高后再试。",
+      "evidence": {
+        "title": "证据",
+        "separator": "，",
+        "withheld": "数字已隐藏：你没有这类数据的读取权限",
+        "open": "打开 {{label}}",
+        "kind": {
+          "insight": "APM 洞察",
+          "new_error_group": "新错误组",
+          "sample_trace": "样本 Trace",
+          "error_logs": "错误日志",
+          "new_log_pattern": "新出现的错误日志模式",
+          "change": "变更",
+          "similar_incident": "相似事件",
+          "investigation": "调查发现",
+          "business_impact": "业务影响",
+          "attribute_skew": "失败请求的差异字段"
+        },
+        "insight": {
+          "anomaly": "突变",
+          "regression": "版本回归",
+          "slow_dependency": "慢依赖",
+          "repeated_call": "重复调用",
+          "slow_query": "慢查询",
+          "hot_endpoint": "热点端点",
+          "log_errors": "错误日志上升"
+        },
+        "figures": {
+          "now": "当前 {{value}}",
+          "previous": "前一段 {{value}}",
+          "last_week": "上周同期 {{value}}",
+          "occurrences_one": "{{formatted}} 次",
+          "occurrences_other": "{{formatted}} 次",
+          "error_logs": "当前 {{now}}，上周同期 {{lastWeek}}",
+          "lines_one": "{{formatted}} 行",
+          "lines_other": "{{formatted}} 行",
+          "business": "{{requests}} 个请求中 {{errors}} 个失败",
+          "skew": "失败请求中占 {{failed}}，其他请求中占 {{others}}"
+        }
+      }
     },
     "signals": {
       "services": "服务",
@@ -898,6 +939,11 @@
         "healthy": "健康",
         "no_traffic": "无流量"
       }
+    },
+    "business": {
+      "important": "重点",
+      "failed": "{{requests}} 个中 {{errors}} 个失败 · {{rate}}",
+      "more": "还有更多取值有请求"
     }
   },
   "insights": {
@@ -3146,5 +3192,29 @@
       "imported_other": "已导入 {{count}} 条路由规则",
       "content_hint": "JSON 或 YAML。升级策略、团队和节假日日历按名称引用。文件里的规则按文件的先后排在最前面，其余的保持原来的先后排在后面。"
     }
+  },
+  "changes": {
+    "error_title": "无法加载变更",
+    "empty_title": "这段时间没有变更",
+    "empty_description": "流水线上报的发布和其他变更、注解、新版本和规则修改会显示在这里。",
+    "search_label": "搜索变更",
+    "search_placeholder": "服务、版本、标题、作者或提交",
+    "kind_label": "类型",
+    "all_kinds": "全部类型",
+    "span_label": "时间范围",
+    "span": {
+      "24h": "最近 24 小时",
+      "7d": "最近 7 天",
+      "30d": "最近 30 天"
+    },
+    "columns": {
+      "at": "时间",
+      "kind": "类型",
+      "subject": "变更",
+      "status": "结果",
+      "by": "发起人",
+      "open": "打开"
+    },
+    "open": "打开 {{change}}"
   }
 }

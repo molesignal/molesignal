@@ -115,3 +115,51 @@ export async function tracesRedBreakdown(
   });
   return data;
 }
+
+/** One value's share of the chosen requests and of the rest, each from 0 to 1. */
+export interface TraceRedValueShare {
+  /** `null` for the requests without a value. */
+  value: string | null;
+  selected: number;
+  baseline: number;
+}
+
+/** A field, how far apart the two sets are on it (0 to 1), and the values whose shares differ most. */
+export interface TraceRedDimension {
+  field: string;
+  score: number;
+  values: TraceRedValueShare[];
+}
+
+export interface TraceRedCompareResponse {
+  scope: TraceRedScope;
+  /** Requests read of the chosen set and of the rest. */
+  selected: number;
+  baseline: number;
+  /** Either set had more requests than were read. */
+  sampled: boolean;
+  /** The furthest apart first. */
+  dimensions: TraceRedDimension[];
+  unavailable?: TraceRedUnavailable;
+}
+
+/** Which requests are compared with the rest: those that failed, took at least or less than so long, or all of it. */
+export interface TraceRedChoice {
+  errors?: boolean;
+  /** Nanoseconds, inclusive. */
+  minDuration?: number;
+  /** Nanoseconds, exclusive. */
+  maxDuration?: number;
+}
+
+/** How the chosen requests differ from the rest of the query's, field by field, read from a sample of each. */
+export async function tracesRedCompare(
+  params: TraceRedParams & TraceRedChoice,
+  signal?: AbortSignal,
+): Promise<TraceRedCompareResponse> {
+  const { data } = await http.get<TraceRedCompareResponse>('/web/traces/red/compare', {
+    params: requestParams(params),
+    ...(signal && { signal }),
+  });
+  return data;
+}

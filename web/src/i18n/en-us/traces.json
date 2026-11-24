@@ -311,6 +311,25 @@
           "timestamp_masked": "Time is masked for you, so nothing can be laid out over it.",
           "field_protected": "This field is masked for you, so it cannot break requests down."
         }
+      },
+      "compare": {
+        "title": "Compare",
+        "choice_label": "Requests to compare with the others",
+        "choice": {
+          "none": "Choose requests…",
+          "failed": "Failed requests",
+          "p95": "Slower than p95 ({{duration}})",
+          "p99": "Slower than p99 ({{duration}})"
+        },
+        "sample": "{{chosen}} chosen and {{others}} other requests read",
+        "sample_sampled": "A sample of {{chosen}} chosen and {{others}} other requests",
+        "score": "{{score}} apart",
+        "shares": "{{chosen}} of chosen · {{others}} of others",
+        "break_down": "Break the requests down by this field",
+        "loading": "Comparing…",
+        "failed": "The comparison could not be loaded",
+        "none_chosen": "None of the requests are of the chosen kind",
+        "alike": "The chosen requests share their values with the others: no field sets them apart"
       }
     },
     "spans": {

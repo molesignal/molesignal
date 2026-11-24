@@ -397,7 +397,7 @@ function rootCauseAnalysis(incidentId: string, now: number): IncidentRca {
     incidentId: incidentId,
     orgId: ORG,
     summary:
-      '## Likely cause\n\nThe edge proxy rollout at 09:04 dropped the keep-alive pool for the public API, so 16% of requests get a 502.\n\n- Roll back the edge proxy change.',
+      '## Likely cause\n\nThe edge proxy rollout at 09:04 dropped the keep-alive pool for the public API, so 16% of requests get a 502 [E1] [E3].\n\n- Roll back the edge proxy change.',
     provider: 'openai',
     model: 'gpt-4o',
     promptBuiltinKey: 'incident_rca',
@@ -405,6 +405,30 @@ function rootCauseAnalysis(incidentId: string, now: number): IncidentRca {
     promptTokens: 6_400,
     completionTokens: 820,
     finishReason: 'stop',
+    // The error logs' figures are withheld: the signed-in member may not read the log streams.
+    evidence: [
+      {
+        label: 'E1',
+        kind: 'insight',
+        source: 'apm',
+        service: 'api-gateway',
+        detail: 'anomaly.error_rate',
+        subject: 'GET /v1/orders',
+        at: now - 20 * 60_000_000,
+        figures: { value: 0.16, previous: 0.004, lastWeek: 0.003 },
+        link: { namespace: 'edge', environment: 'prod' },
+      },
+      { label: 'E2', kind: 'error_logs', source: 'logs', service: 'api-gateway', subject: 'default', withheld: true, link: { stream: 'default', from: now - 30 * 60_000_000, to: now } },
+      {
+        label: 'E3',
+        kind: 'change',
+        source: 'incident',
+        service: 'edge-proxy',
+        detail: 'deployment',
+        subject: 'deployment · edge-proxy 2.4.0 (succeeded) · by ada',
+        at: now - 22 * 60_000_000,
+      },
+    ],
     createdAt: now,
     updatedAt: now,
   };
@@ -451,6 +475,8 @@ export function registerAlertRoutes(
     analyses.set(req.params.id, analysis);
     return res.json(analysis);
   });
+  // Nothing changed here; a spec that needs changes routes its own.
+  app.get('/api/v1/changes', (_req, res) => res.json([]));
   // No incident here is like another and nothing was reported near them; a spec that needs them routes its own.
   app.get('/api/v1/alerts/incidents/:id/similar', (_req, res) => res.json({ incidents: [] }));
   app.get('/api/v1/alerts/incidents/:id/changes', (_req, res) => res.json({ from: 0, to: 0, changes: [] }));

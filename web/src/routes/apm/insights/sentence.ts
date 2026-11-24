@@ -8,6 +8,7 @@ import { formatCount, formatDuration, formatRate, formatThroughput } from '../fo
 export function insightFigure(insight: Pick<Insight, 'metric'>, value: number): string {
   if (insight.metric === 'error_rate') return formatRate(value);
   if (insight.metric === 'p95') return formatDuration(value);
+  if (insight.metric === 'log_errors') return formatLinesPerMinute(value);
   return formatThroughput(value);
 }
 
@@ -56,7 +57,20 @@ export function insightSentence(t: TFunction<'apm'>, insight: Insight): string {
         share: formatRate(insight.value),
         p95: formatDuration(insight.p95Time),
       });
+    case 'log_errors': {
+      const before = [
+        insight.previous !== undefined ? t('insights.before', { value: insightFigure(insight, insight.previous) }) : null,
+        insight.lastWeek !== undefined ? t('insights.week_before', { value: insightFigure(insight, insight.lastWeek) }) : null,
+      ].filter(Boolean);
+
+      return t('insights.sentence.log_errors', { value: insightFigure(insight, insight.value), before: before.join(t('insights.and')) });
+    }
   }
+}
+
+/** Error log lines a minute, to one decimal under ten. */
+function formatLinesPerMinute(value: number): string {
+  return `${value < 10 ? value.toFixed(1) : Math.round(value).toLocaleString()}/min`;
 }
 
 /** A change near a move, in a few words. */

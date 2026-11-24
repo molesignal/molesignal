@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import * as webApi from '@/api/web';
+import { useRangeChanges } from '@/shell/changes/useChanges';
 import { ResultHistogram } from '@/shell/query/histogram/Chart';
 import { answerFromPayload, type HistogramCountsSource } from '@/shell/query/histogram/counts';
 import type { HistogramPoint, HistogramRange } from '@/shell/query/histogram/model';
@@ -143,6 +144,7 @@ export function TraceHistogramBand({
   className?: string;
 }) {
   const { t } = useTranslation('traces');
+  const changes = useRangeChanges(model.visible ? model.range : null);
 
   if (!model.visible || model.points.length === 0) return null;
 
@@ -161,6 +163,7 @@ export function TraceHistogramBand({
         ? { latency: { chart: t('explore.histogram.latency_label'), p50: 'p50', p95: 'p95', p99: 'p99' } }
         : {})}
       onRangeSelect={model.onRangeSelect}
+      changes={changes}
       {...(className ? { className } : {})}
     />
   );

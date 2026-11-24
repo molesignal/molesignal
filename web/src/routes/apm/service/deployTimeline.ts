@@ -1,5 +1,5 @@
 import type { VersionSummary } from '@/api/apm';
-import type { DeploymentEvent } from '@/api/apmDeployments';
+import type { ChangeEntry } from '@/api/changes';
 
 /** Versions seen this close to the last one seen are still running. */
 export const LIVE_WINDOW_MICROS = 5 * 60_000_000;
@@ -7,10 +7,14 @@ export const LIVE_WINDOW_MICROS = 5 * 60_000_000;
 /**
  * What happened to the service at a moment: a pipeline reported a deployment
  * (that went out, failed, or took a version back) or a change of its
- * configuration or of a feature flag; or spans first carried a version no
- * pipeline reported, or they went back to an older version.
+ * configuration, of a feature flag, of its scaling or of the infrastructure
+ * under it; or spans first carried a version no pipeline reported, or they
+ * went back to an older version.
  */
-export type TimelineKind = 'deployed' | 'failed' | 'rolled_back' | 'first_seen' | 'returned' | 'configuration' | 'feature_flag';
+export type TimelineKind = 'deployed' | 'failed' | 'rolled_back' | 'first_seen' | 'returned' | 'configuration' | 'feature_flag' | 'scaling' | 'infrastructure';
+
+/** Kinds that change no version: they sit on the line without moving it. */
+const VERSIONLESS: ReadonlySet<TimelineKind> = new Set(['failed', 'configuration', 'feature_flag', 'scaling', 'infrastructure']);
 
 export interface TimelineEntry {
   key: string;
@@ -18,7 +22,7 @@ export interface TimelineEntry {
   version: string;
   kind: TimelineKind;
   /** What the pipeline reported. */
-  event?: DeploymentEvent;
+  event?: ChangeEntry;
   /** What spans saw of the version, on the newest entry of each version only. */
   observed?: VersionSummary;
   /** The version a rollback went back from. */
@@ -31,19 +35,20 @@ export interface TimelineEntry {
  * return to an older version spans show without a report. A deployment of a
  * version that ran before another is a rollback, whatever its status says.
  */
-export function deployTimeline(events: readonly DeploymentEvent[], versions: readonly VersionSummary[]): TimelineEntry[] {
-  const deployments = events.filter((event) => (event.kind ?? 'deployment') === 'deployment');
-  const reported = new Set(deployments.map((event) => event.version));
+export function deployTimeline(events: readonly ChangeEntry[], versions: readonly VersionSummary[]): TimelineEntry[] {
+  const reportedKinds = events.filter((event) => event.kind !== 'annotation' && event.kind !== 'version' && event.kind !== 'rule');
+  const deployments = reportedKinds.filter((event) => event.kind === 'deployment');
+  const reported = new Set(deployments.map((event) => event.version ?? ''));
   const entries: TimelineEntry[] = [];
 
-  for (const event of events) {
-    const kind = event.kind ?? 'deployment';
+  for (const event of reportedKinds) {
+    const status = event.status ?? 'succeeded';
 
     entries.push({
       key: `event:${event.id}`,
-      at: event.deployedAt,
-      version: event.version,
-      kind: kind !== 'deployment' ? kind : event.status === 'succeeded' ? 'deployed' : event.status,
+      at: event.at,
+      version: event.version ?? '',
+      kind: event.kind !== 'deployment' ? (event.kind as TimelineKind) : status === 'succeeded' ? 'deployed' : status,
       event,
     });
   }
@@ -57,7 +62,7 @@ export function deployTimeline(events: readonly DeploymentEvent[], versions: rea
   const returned = returnedVersion(versions);
 
   // A return a pipeline reported after the newer version came is already on the line.
-  if (returned && !deployments.some((event) => event.version === returned.version && event.deployedAt > returned.after.firstSeenAt)) {
+  if (returned && !deployments.some((event) => event.version === returned.version && event.at > returned.after.firstSeenAt)) {
     entries.push({ key: `returned:${returned.version}`, at: returned.after.lastSeenAt, version: returned.version, kind: 'returned', from: returned.after.version });
   }
 
@@ -69,7 +74,7 @@ export function deployTimeline(events: readonly DeploymentEvent[], versions: rea
 
   for (const entry of entries) {
     // A failure, or a change other than a deployment, leaves the running version as it was.
-    if (entry.kind === 'failed' || entry.kind === 'configuration' || entry.kind === 'feature_flag') continue;
+    if (VERSIONLESS.has(entry.kind)) continue;
 
     if (current !== null && entry.version !== current) {
       if (before.has(entry.version) && entry.kind === 'deployed') entry.kind = 'rolled_back';
@@ -88,7 +93,7 @@ export function deployTimeline(events: readonly DeploymentEvent[], versions: rea
   for (const entry of entries) {
     const observed = byVersion.get(entry.version);
 
-    if (observed && !shown.has(entry.version) && entry.kind !== 'failed' && entry.kind !== 'configuration' && entry.kind !== 'feature_flag') {
+    if (observed && !shown.has(entry.version) && !VERSIONLESS.has(entry.kind)) {
       entry.observed = observed;
       shown.add(entry.version);
     }

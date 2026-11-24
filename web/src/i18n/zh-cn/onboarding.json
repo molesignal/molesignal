@@ -212,6 +212,7 @@
       "databases": "数据库",
       "queues": "消息队列",
       "applications": "应用与语言",
+      "devops": "DevOps",
       "security": "安全",
       "custom": "自定义"
     },

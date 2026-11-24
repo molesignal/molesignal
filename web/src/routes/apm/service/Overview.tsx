@@ -6,6 +6,7 @@ import type { DependencySummary, ServiceDetailResponse, TransactionSummary } fro
 import { cn } from '@/shell/lib/cn';
 import { TraceOperationName } from '@/viz/trace/TraceOperationName';
 
+import { BusinessBreakdownCard } from './BusinessBreakdownCard';
 import { useKeyTransactions } from './keyTransactions';
 import type { ServiceAddress } from './useService';
 import { LatencyDistribution } from '../charts/LatencyDistribution';
@@ -62,6 +63,7 @@ export function ServiceOverview({
         <InsightsCard data={insights.data} range={address.range} service={address.identity} hide={['slow_dependency', 'hot_endpoint']} />
       )}
       <ServiceSlos address={address} />
+      <BusinessBreakdownCard orgId={address.orgId} service={address.identity.name} range={range} />
       <div className="grid min-w-0 gap-[8px] lg:grid-cols-2">
         <ApmCard icon={ChartColumn} title={t('charts.distribution')} testId="distribution">
           <LatencyDistribution

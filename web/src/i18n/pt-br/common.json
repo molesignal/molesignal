@@ -572,5 +572,15 @@
     "bulk_failed_other": "{{count}} de {{total}} falharam: {{reason}}",
     "bulk_failed_many": "{{count}} de {{total}} falharam: {{reason}}",
     "clear_filters": "Limpar filtros"
+  },
+  "baseline": {
+    "aria": "Referência: {{value}}",
+    "title": "Escolha o período de referência",
+    "relative": "Vinculado ao período comparado",
+    "overlaps": "O período de referência ficaria sobreposto ao período comparado.",
+    "previous": "Período anterior",
+    "day": "Mesmo horário no dia anterior",
+    "week": "Mesmo horário na semana anterior",
+    "custom": "Período personalizado"
   }
 }

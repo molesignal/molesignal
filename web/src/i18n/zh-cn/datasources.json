@@ -11,6 +11,14 @@
         "description": "将下面 YAML 保存为 fluent-bit-daemonset.yaml，并 apply。"
       },
       "3": {
+        "title": "监听工作负载和 ConfigMap（可选）",
+        "description": "运行带 k8sobjects receiver 的 OpenTelemetry Collector，所用的 ServiceAccount 需要能 list 和 watch 这些对象。每个对象以一行日志写入 k8s_objects 数据流。"
+      },
+      "4": {
+        "title": "把它们记为变更",
+        "description": "在 k8s_objects 上建一条实时流水线，加一个「记录变更」步骤：新镜像记为发布，新副本数记为扩缩容，ConfigMap 数据变化记为配置变更。它们会出现在变更页和图表上。"
+      },
+      "5": {
         "title": "验证日志已进入",
         "description": "一分钟后回到 Logs 页面，stream 选 app-logs 应该能看到 kubernetes.* 字段。"
       }
@@ -679,6 +687,58 @@
       "1": {
         "title": "使用 WebSocket relay",
         "description": "部署 relay 节点，把 subscription 数据 forward 到 MoleSignal。"
+      }
+    }
+  },
+  "launchdarkly": {
+    "name": "LaunchDarkly",
+    "description": "通过 LaunchDarkly 的 Webhook 把功能开关变更上报到变更列表。",
+    "steps": {
+      "1": {
+        "title": "复制 Webhook 地址",
+        "description": "在 LaunchDarkly 中打开 Integrations → Webhooks → Add integration，粘贴这个地址。把 service= 改成开关所属的服务；环境从每条记录中读取。Token 需要 apm.deploy 权限，因为 LaunchDarkly 不能设置自定义请求头，只能放在地址里，建议给它单独建一个 Token。"
+      },
+      "2": {
+        "title": "只发送需要的开关（可选）",
+        "description": "加一条 policy，让 Webhook 只发送某个环境（如 production）的变更。"
+      }
+    }
+  },
+  "unleash": {
+    "name": "Unleash",
+    "description": "通过 Unleash 的 Webhook 插件把功能开关变更上报到变更列表。",
+    "steps": {
+      "1": {
+        "title": "添加 Webhook 集成",
+        "description": "在 Unleash 中打开 Integrations → Webhook，填入这个地址和请求头，请求体模板留空，让 Unleash 发送它自己的事件，再勾选要发送的事件。Token 需要 apm.deploy 权限。"
+      }
+    }
+  },
+  "nacos": {
+    "name": "Nacos",
+    "description": "把 Nacos 的配置变更上报到变更列表。",
+    "steps": {
+      "1": {
+        "title": "复制地址",
+        "description": "Nacos 本身不发 Webhook：用配置变更插件，或基于 Nacos 客户端写一个小的监听程序，把变更发到这个地址。Token 需要 apm.deploy 权限，也可以放在 Authorization 请求头里。"
+      },
+      "2": {
+        "title": "每次变更发送一次",
+        "description": "发送 Data ID、分组、命名空间和修改人。请求体按 Nacos 文档中的字段编写，还没有在真实服务上验证。"
+      }
+    }
+  },
+  "apollo": {
+    "name": "Apollo",
+    "description": "把 Apollo 的配置发布上报到变更列表。",
+    "steps": {
+      "1": {
+        "title": "复制地址",
+        "description": "把 Apollo 的发布 Webhook，或监听发布消息的程序指向这个地址。App ID 会作为服务名，不需要填 service=。Token 需要 apm.deploy 权限。"
+      },
+      "2": {
+        "title": "每次发布发送一次",
+        "description": "发送 App ID、集群、命名空间、发布标题和操作人。请求体按 Apollo 文档中的字段编写，还没有在真实服务上验证。"
       }
     }
   }

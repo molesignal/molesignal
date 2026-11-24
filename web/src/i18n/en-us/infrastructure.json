@@ -1,0 +1,60 @@
+{
+  "title": "Infrastructure",
+  "subtitle": "What your services run on: clusters, nodes, hosts, pods and containers, read from the resource fields of spans, metrics and logs.",
+  "kind": {
+    "all": "All kinds",
+    "cluster": "Cluster",
+    "node": "Node",
+    "host": "Host",
+    "pod": "Pod",
+    "container": "Container"
+  },
+  "list": {
+    "search_label": "Search infrastructure",
+    "search_placeholder": "Search by name or key",
+    "kind_label": "Kind",
+    "error_title": "Cannot load infrastructure",
+    "retry": "Retry",
+    "empty_title": "Nothing seen yet",
+    "empty_description": "Entities appear within five minutes once spans, metrics or logs carry resource fields such as k8s.pod.name, k8s.node.name or host.name.",
+    "no_match_title": "Nothing matches",
+    "no_match_description": "Try another name or kind.",
+    "columns": {
+      "name": "Name",
+      "kind": "Kind",
+      "where": "Where",
+      "services": "Services",
+      "last_seen": "Last seen"
+    },
+    "open": "Open {{name}}"
+  },
+  "status": {
+    "current": "Running now",
+    "stale": "Last seen {{when}}"
+  },
+  "detail": {
+    "error_title": "Cannot load this entity",
+    "not_found_title": "Not seen",
+    "not_found_description": "Nothing of this kind and key was seen over the last week.",
+    "key": "Key",
+    "kind": "Kind",
+    "first_seen": "First seen",
+    "last_seen": "Last seen",
+    "copy": "Copy",
+    "copied": "Copied",
+    "parents": "Runs on",
+    "parents_empty": "Not part of anything seen.",
+    "children": "Runs here",
+    "children_empty": "Nothing seen running on it.",
+    "services": "Services",
+    "services_description": "On it, and on what runs on it",
+    "services_empty": "No service seen on it. Services appear once their spans name this place.",
+    "attributes": "Resource attributes",
+    "changes": "Changes to its services",
+    "changes_description": "Last 24 hours",
+    "changes_empty": "No change in the last 24 hours.",
+    "logs": "Logs",
+    "metrics": "Metrics",
+    "open_page": "Open page"
+  }
+}

@@ -498,6 +498,7 @@ export function Metrics() {
             onPick: pickMetric,
             onBrowse: () => setMetricBrowserOpen(true),
           }}
+          queryOptions={queryOptions}
           timeRangeSeconds={timeRangeSeconds}
           language={language}
           preferredView={

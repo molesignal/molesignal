@@ -2247,6 +2247,10 @@
       "title": "获取链路 DAG",
       "description": "返回单条链路的紧凑服务与 Span 依赖 DAG，不返回完整 Span 载荷。"
     },
+    "compare_attribute_distributions": {
+      "title": "对比慢请求或失败请求",
+      "description": "在两组请求的采样上比较各字段的取值分布，按差异大小排出慢请求或失败请求与其他请求差别最大的字段。"
+    },
     "list_trace_sessions": {
       "title": "列出 Trace Session",
       "description": "当 Trace 流包含 Session 字段时，有界列出 LLM/AI Trace Session。"
@@ -2491,6 +2495,10 @@
       "title": "获取服务影响范围",
       "description": "沿服务地图返回调用该服务的服务和它调用的对象，不健康的排在前面。"
     },
+    "get_correlation_quality": {
+      "title": "获取关联质量",
+      "description": "返回每个服务与日志、指标、Trace 和变更的关联情况，以及日志和指标里 APM 不认识的服务名。"
+    },
     "correlate_signals": {
       "title": "跨信号关联",
       "description": "按服务或 Trace 在事件、链路、日志、RUM 与 Profile 间建立有界关联。"
@@ -2498,6 +2506,14 @@
     "get_service_topology": {
       "title": "获取服务拓扑",
       "description": "返回指定时间范围内的有界服务依赖图。"
+    },
+    "list_entities": {
+      "title": "查询基础设施",
+      "description": "列出最近一周看到的集群、节点、主机、Pod 和容器，以及每个上面运行的服务数。"
+    },
+    "get_entity": {
+      "title": "获取基础设施实体",
+      "description": "返回一个集群、节点、主机、Pod 或容器：它运行在哪里、哪些运行在它上面，以及它上面的服务。"
     },
     "list_rum_sessions": {
       "title": "查询 RUM 会话",

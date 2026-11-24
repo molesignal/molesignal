@@ -1155,17 +1155,36 @@ export function registerRoutes(app: Express): void {
     }),
   );
 
-  // ── web/* (search, topology, trace, correlation, investigation blob) ──
+  // ── web/* (search, topology, trace, investigation blob) ──
   app.get('/api/v1/web/search', (_req, res) => res.json(SEARCH));
   app.get('/api/v1/web/topology', (_req, res) => res.json(TOPOLOGY));
   app.get('/api/v1/web/trace/:id', (req, res) => res.json({ ...TRACE, traceId: req.params.id }));
-  app.get('/api/v1/web/correlation/:from/:to', (_req, res) =>
-    res.json({
-      timeRange: { from: FROZEN_NOW_ISO, to: FROZEN_NOW_ISO },
-      filters: [],
-      prefill: {},
-    }),
+  // No business key is declared until a spec says otherwise: the cards that split by one stay away.
+  app.get('/api/v1/business-context', (_req, res) => res.json({ keys: [] }));
+  app.put('/api/v1/business-context', (req: Request, res: Response) => res.json(req.body ?? { keys: [] }));
+  app.get('/api/v1/alerts/incidents/:id/business-impact', (_req, res) =>
+    res.json({ from: 0, to: 0, services: [], declared: false, keys: [] }),
   );
+  // The patterns of a range as the server counts them: none until a spec says otherwise, so the
+  // page groups the logs it read.
+  app.post('/api/v1/web/logs/patterns', (req: Request, res: Response) => {
+    const { stream = '', from = 0, to = 0 } = (req.body ?? {}) as { stream?: string; from?: number; to?: number };
+    res.json({
+      stream,
+      field: '',
+      levelField: null,
+      timeRange: { startTime: from, endTime: to },
+      logs: 0,
+      read: 0,
+      unread: 0,
+      sampled: false,
+      patternCount: 0,
+      patterns: [],
+    });
+  });
+  // What services run on: nothing seen until a spec says otherwise.
+  app.get('/api/v1/entities', (_req, res) => res.json([]));
+  app.get('/api/v1/entities/detail', (_req, res) => res.status(404).json({ code: 'not_found', message: 'not seen' }));
   const investigationBlobs = new Map<string, unknown>();
   app.post('/api/v1/web/investigation/blob', (req: Request, res: Response) => {
     const id = `blob-${investigationBlobs.size + 1}`;

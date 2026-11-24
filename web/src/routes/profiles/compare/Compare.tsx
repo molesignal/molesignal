@@ -11,14 +11,14 @@ import { ChromeButton } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { QueryState } from '@/shell/query/State';
 import { useTimeStore } from '@/stores/useTimeStore';
+import { BaselinePicker, timeRangeLabel } from '@/time/baseline/BaselinePicker';
+import { type CompareBaseline, comparePeriods, settledBaseline, windowPeriod } from '@/time/baseline/periods';
 import { TimeRangeControl } from '@/time/TimePicker';
 import { diffFunctions, diffTotals } from '@/viz/profiles/flamebearer';
 import { Flamegraph } from '@/viz/profiles/Flamegraph';
 
 import { profileTypesIn, ServiceSelect, TruncatedNotice, TypeSelect } from '../shared';
-import { BaselinePicker, timeRangeLabel } from './BaselinePicker';
 import { ChangedFunctions } from './ChangedFunctions';
-import { type CompareBaseline, comparePeriods, settledBaseline, windowPeriod } from './periods';
 import { CompareStatement } from './Statement';
 
 /** As many profiles as are listed to learn which services and types the periods hold. */
@@ -170,7 +170,7 @@ export function ProfilesCompare() {
           comparisonControl={
             // The times a range spans are said beside the control, in the reader's time zone:
             // the control names the range, as the baseline's does.
-            <TimeRangeControl fill align="start" value={timeRangeLabel(timeWindow, t, tCommon)} />
+            <TimeRangeControl fill align="start" value={timeRangeLabel(timeWindow, tCommon)} />
           }
           baselineControl={
             <BaselinePicker

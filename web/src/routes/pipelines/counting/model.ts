@@ -3,13 +3,13 @@ import { FILTER_TESTS, filterTestTakesValue, type FilterTest } from '../processo
 
 /**
  * Steps of a realtime pipeline that keep count across events: a metric made
- * of the events a step picks, a quota a UTC day and a throttle. They change no
- * field. Each picks its events with field tests that must all hold, the tests
+ * of the events a step picks, a quota a UTC day, a throttle, and the changes
+ * Kubernetes objects tell (`to_change`). They change no field. Each picks its events with field tests that must all hold, the tests
  * of the filter; none picks every event. The backend's rules are in
  * `domain/pipeline/{metric,limit,condition}.rs`.
  */
-export type CountingKind = 'generate_metric' | 'quota' | 'throttle';
-export const COUNTING_KINDS: readonly CountingKind[] = ['generate_metric', 'quota', 'throttle'];
+export type CountingKind = 'generate_metric' | 'quota' | 'throttle' | 'to_change';
+export const COUNTING_KINDS: readonly CountingKind[] = ['generate_metric', 'quota', 'throttle', 'to_change'];
 
 export interface StepCondition {
   field: string;
@@ -69,18 +69,26 @@ export interface ThrottleSettings {
   target: string;
 }
 
+/** Where a `to_change` step takes the environment of the changes it notes. */
+export interface ChangeSettings {
+  /** The environment of every change; when empty, the field below names it. */
+  environment: string;
+  environmentField: string;
+}
+
 /** The parts of a step that a counting kind uses. */
 export interface CountingParts {
   conditions?: StepCondition[];
   metric?: MetricSettings;
   quota?: QuotaSettings;
   throttle?: ThrottleSettings;
+  change?: ChangeSettings;
 }
 
 export const MIB = 1_048_576;
 
 export function isCountingKind(kind: unknown): kind is CountingKind {
-  return kind === 'generate_metric' || kind === 'quota' || kind === 'throttle';
+  return kind === 'generate_metric' || kind === 'quota' || kind === 'throttle' || kind === 'to_change';
 }
 
 /**
@@ -93,8 +101,10 @@ export function countingKinds(mode: string | undefined, signalType: string, sour
 
   const metric: CountingKind[] = signalType === 'logs' || signalType === 'traces' ? ['generate_metric'] : [];
   const limits: CountingKind[] = signalType === 'logs' && !keepsEveryRow(source.trim()) ? ['quota', 'throttle'] : [];
+  // Kubernetes objects come in as logs; RUM events are no objects.
+  const changes: CountingKind[] = signalType === 'logs' && !isRumStream(source.trim()) ? ['to_change'] : [];
 
-  return [...metric, ...limits];
+  return [...metric, ...limits, ...changes];
 }
 
 /** What a new step of a kind starts as. Its metric goes into a metrics stream named like the source. */
@@ -118,6 +128,9 @@ export function defaultCounting(kind: CountingKind, source = ''): CountingParts 
       conditions: [],
       quota: { unit: 'events', limit: '', partitionBy: [], overrides: [], action: 'drop', target: '' },
     };
+  }
+  if (kind === 'to_change') {
+    return { conditions: [], change: { environment: '', environmentField: 'k8s.cluster.name' } };
   }
 
   return {
@@ -202,6 +215,17 @@ export function countingOf(kind: CountingKind, raw: Record<string, unknown>): Co
         }),
         action: quota.action === 'pass' || quota.action === 'route' ? quota.action : 'drop',
         target: TEXT(quota.target) ? quota.target : '',
+      },
+    };
+  }
+
+  if (kind === 'to_change') {
+    const change = record(raw.change);
+    return {
+      conditions,
+      change: {
+        environment: TEXT(change.environment) ? change.environment : '',
+        environmentField: TEXT(change.environmentField) ? change.environmentField : '',
       },
     };
   }
@@ -293,6 +317,11 @@ export function countingInput(kind: CountingKind, parts: CountingParts) {
     };
   }
 
+  if (kind === 'to_change') {
+    const change = parts.change ?? (defaultCounting(kind).change as ChangeSettings);
+    return { conditions, change: { environment: change.environment.trim(), environmentField: change.environmentField.trim() } };
+  }
+
   const throttle = parts.throttle ?? (defaultCounting(kind).throttle as ThrottleSettings);
 
   return {
@@ -364,6 +393,9 @@ export function countingProblem(kind: CountingKind, parts: CountingParts): strin
 
     return null;
   }
+
+  // A change step needs nothing besides its conditions: the environment may be left unsaid.
+  if (kind === 'to_change') return null;
 
   if (kind === 'quota') {
     const quota = parts.quota;
@@ -446,7 +478,8 @@ export function countingIssue(
   mode: string | undefined,
 ): CountingIssue | null {
   if (!allowed.includes(kind)) {
-    return { code: mode === 'realtime' ? `counting_not_here_${kind === 'generate_metric' ? 'metric' : 'limit'}` : 'counting_realtime_only' };
+    const here = kind === 'generate_metric' ? 'metric' : kind === 'to_change' ? 'change' : 'limit';
+    return { code: mode === 'realtime' ? `counting_not_here_${here}` : 'counting_realtime_only' };
   }
 
   const problem = countingProblem(kind, parts);

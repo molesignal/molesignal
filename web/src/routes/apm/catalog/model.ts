@@ -1,7 +1,9 @@
 import type { ServiceDefinition, ServiceSummary, ServiceTier } from '@/api/apm';
+import type { ServiceCorrelation } from '@/api/apmCorrelation';
 import type { MetadataRules } from '@/api/apmSettings';
 import type { Incident } from '@/types/alerting';
 
+import { correlationScore } from '../correlation/model';
 import { serviceKey } from '../scope';
 import { entryKindsOf, stackOf } from '../service/serviceFacts';
 
@@ -78,11 +80,12 @@ export const CATALOG_COLUMNS = [
   'version',
   'last_deploy',
   'last_seen',
+  'correlation',
 ] as const;
 
 export type CatalogColumn = (typeof CATALOG_COLUMNS)[number];
 
-export const DEFAULT_CATALOG_COLUMNS: readonly CatalogColumn[] = ['environment', 'type', 'team', 'tier', 'alerts', 'throughput', 'error_rate', 'p95', 'version', 'last_deploy'];
+export const DEFAULT_CATALOG_COLUMNS: readonly CatalogColumn[] = ['environment', 'type', 'team', 'tier', 'alerts', 'throughput', 'error_rate', 'p95', 'version', 'last_deploy', 'correlation'];
 
 /** How wide each column is drawn; the service's name takes what is left. */
 export const CATALOG_COLUMN_WIDTH: Record<CatalogColumn, string> = {
@@ -109,6 +112,7 @@ export const CATALOG_COLUMN_WIDTH: Record<CatalogColumn, string> = {
   version: '120px',
   last_deploy: '128px',
   last_seen: '112px',
+  correlation: '84px',
 };
 
 /** Columns whose figures read from the right. */
@@ -217,6 +221,8 @@ export interface CatalogLookups {
   user: (id: string) => string;
   /** The incidents going on about a row's service; none when unknown. */
   alerts?: (row: CatalogRow) => readonly Incident[];
+  /** How well a row's service ties to other data; none when unknown. */
+  correlation?: (row: CatalogRow) => ServiceCorrelation | null;
 }
 
 export function sortValue(row: CatalogRow, key: CatalogSortKey, names: CatalogLookups): string | number | null {
@@ -271,6 +277,10 @@ export function sortValue(row: CatalogRow, key: CatalogSortKey, names: CatalogLo
       return row.summary?.currentVersionSince ?? null;
     case 'last_seen':
       return row.summary?.lastSeenAt ?? null;
+    case 'correlation': {
+      const entry = names.correlation?.(row);
+      return entry ? correlationScore(entry.grades) : null;
+    }
   }
 }
 

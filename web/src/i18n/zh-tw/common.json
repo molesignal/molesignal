@@ -563,5 +563,15 @@
     "bulk_failed_one": "{{total}} 項中有 {{count}} 項失敗：{{reason}}",
     "bulk_failed_other": "{{total}} 項中有 {{count}} 項失敗：{{reason}}",
     "clear_filters": "清除篩選"
+  },
+  "baseline": {
+    "aria": "基準：{{value}}",
+    "title": "選擇基準",
+    "relative": "跟隨比較時段",
+    "overlaps": "此基準時段會與比較時段重疊。",
+    "previous": "上一個時段",
+    "day": "一天前的同一時段",
+    "week": "一週前的同一時段",
+    "custom": "自訂時段"
   }
 }

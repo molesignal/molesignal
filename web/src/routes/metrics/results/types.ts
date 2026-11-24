@@ -10,6 +10,7 @@ import type { TimeSeriesSeries } from '@/viz/timeseries/types';
 
 import type { ExemplarRail } from '../ExemplarRail';
 import type { MetricsDrawStyle, MetricsStackMode } from '../model';
+import type { MetricsQueryOptions } from '../queryOptions/model';
 
 export interface MetricsExploreResultsProps {
   query: {
@@ -56,6 +57,8 @@ export interface MetricsExploreResultsProps {
     onPick: (metric: MetricCatalogEntry) => void;
     onBrowse: () => void;
   };
+  /** How the query was run, which a baseline is read with too. */
+  queryOptions: MetricsQueryOptions;
   timeRangeSeconds: number;
   language: string;
   preferredView: 'graph' | 'table';
@@ -71,6 +74,8 @@ export interface GraphViewProps {
   exemplars: MetricsExploreResultsProps['exemplars'];
   recovery: MetricsExploreResultsProps['recovery'];
   starter: MetricsExploreResultsProps['starter'];
+  /** The baseline's series laid over the chart, dashed; none while nothing is compared. */
+  baselineSeries: TimeSeriesSeries[];
   onViewRawCounter: () => void;
   onInspectMetricType: () => void;
 }

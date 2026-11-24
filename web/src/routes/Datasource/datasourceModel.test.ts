@@ -29,11 +29,11 @@ function source(overrides: Partial<Source>): Source {
 const ids = (sources: Source[]) => sources.map((item) => item.id);
 
 describe('datasourceModel', () => {
-  it('maps old route categories into the simplified catalogue', () => {
-    expect(primaryCategoryFromRoute('otel')).toBe('applications');
-    expect(primaryCategoryFromRoute('networking')).toBe('infrastructure');
+  it('opens the category an address names, and Recommended for any other name', () => {
+    expect(primaryCategoryFromRoute('devops')).toBe('devops');
     expect(primaryCategoryFromRoute('cloud')).toBe('cloud');
-    expect(primaryCategoryFromRoute('does-not-exist')).toBe('recommended');
+    expect(primaryCategoryFromRoute('otel')).toBe('recommended');
+    expect(primaryCategoryFromRoute(undefined)).toBe('recommended');
   });
 
   it('groups recommended cloud sources under the cloud catalogue too', () => {
@@ -65,6 +65,8 @@ describe('datasourceModel', () => {
     expect(ids(sourcesInCategory(sources, 'recommended', 'all'))).toEqual(['linux', 'kubernetes']);
     expect(ids(sourcesInCategory(sources, 'recommended', 'metrics'))).toEqual(['linux']);
     expect(ids(sourcesInCategory(sources, 'applications', 'traces'))).toEqual(['opentelemetry']);
+    expect(sourcesInCategory([source({ id: 'nacos', category: 'devops', signals: ['traces'] })], 'applications', 'all')).toEqual([]);
+    expect(ids(sourcesInCategory([source({ id: 'nacos', category: 'devops', signals: ['traces'] })], 'devops', 'all'))).toEqual(['nacos']);
     expect(sourcesInCategory(sources, 'recommended', 'profiles')).toEqual([]);
     expect(sendsSignal(sources[0]!, 'all')).toBe(true);
     expect(sendsSignal(sources[1]!, 'metrics')).toBe(false);

@@ -13,13 +13,14 @@ import { ChromeButton } from '@/shell/chrome';
 import { LoadingState } from '@/shell/LoadingState';
 import { toast } from '@/shell/ui/sonner';
 
+import { RcaEvidenceList } from './RcaEvidenceList';
 import { IncidentSection } from './Section';
 
 /**
  * AI root-cause analysis. The backend generates one for an active incident
  * within a couple of minutes; the button asks for one now
  * (`POST /alerts/incidents/{id}/rca`). Until one exists the read returns
- * nothing, which is not an error.
+ * nothing, which is not an error. Under the summary, the evidence it cites.
  */
 export function IncidentRcaSection({ incidentId, surface = false }: { incidentId: string; surface?: boolean }) {
   const { t, i18n } = useTranslation('alerts');
@@ -84,6 +85,7 @@ export function IncidentRcaSection({ incidentId, surface = false }: { incidentId
               className="font-sans text-xs [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-xs [&_h4]:text-xs"
             />
           </div>
+          <RcaEvidenceList evidence={rca.evidence ?? []} summary={rca.summary} />
           <div className="flex items-center gap-2 font-sans text-xs text-tx-2">
             {rca.model && <span className="truncate">{rca.model}</span>}
             <span className="ml-auto tabular-nums">{formatMicrosActive(rca.createdAt)}</span>

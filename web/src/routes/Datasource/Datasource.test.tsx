@@ -139,6 +139,8 @@ describe('Datasource page', () => {
     expect(titles(sections[1]!)).toEqual([
       'Create the namespace and ConfigMap',
       'Deploy the Fluent Bit DaemonSet',
+      'Watch workloads and ConfigMaps (optional)',
+      'Read them as changes',
     ]);
     expect(titles(sections[2]!)).toEqual(['Check that logs are arriving']);
   });

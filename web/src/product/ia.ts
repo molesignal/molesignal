@@ -7,6 +7,7 @@ import {
   Flame,
   GitBranch,
   Home as HomeIcon,
+  Server,
   LayoutDashboard,
   type LucideIcon,
   ScrollText,
@@ -50,6 +51,7 @@ export type ProductOwnerModule =
   | 'apm'
   | 'rum'
   | 'profiles'
+  | 'infrastructure'
   | 'dashboards'
   | 'alerts'
   | 'synthetics'
@@ -262,6 +264,27 @@ export const PRODUCT_ROUTES = [
     emptyStateStrategy: 'query-first',
     breadcrumbs: [crumb('profiles', '/profiles'), crumb('breadcrumbs.profile_detail')],
     backTo: '/profiles',
+  }),
+  route({
+    id: 'infrastructure',
+    path: '/infrastructure',
+    labelKey: 'infrastructure',
+    group: 'observe',
+    icon: Server,
+    owner: 'infrastructure',
+    emptyStateStrategy: 'activation',
+    nav: true,
+  }),
+  route({
+    id: 'infrastructure.entity',
+    path: '/infrastructure/:kind',
+    labelKey: 'breadcrumbs.infrastructure_entity',
+    group: 'observe',
+    icon: Server,
+    owner: 'infrastructure',
+    emptyStateStrategy: 'query-first',
+    breadcrumbs: [crumb('infrastructure', '/infrastructure'), crumb('breadcrumbs.infrastructure_entity')],
+    backTo: '/infrastructure',
   }),
   route({
     id: 'dashboard.new.edit',

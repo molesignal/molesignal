@@ -113,3 +113,17 @@ export function useRedBreakdown(
     retry: false,
   });
 }
+
+/** How the chosen requests differ from the rest, field by field; nothing is read until a choice is made. */
+export function useRedComparison(
+  request: RedRequest,
+  bars: RedBars & { from: number; to: number },
+  choice: redApi.TraceRedChoice | null,
+) {
+  return useQuery({
+    queryKey: ['traces', 'red', 'compare', JSON.stringify(choice), ...requestKey(request, bars)],
+    queryFn: ({ signal }) => redApi.tracesRedCompare({ ...params(request, bars), ...choice }, signal),
+    enabled: request.enabled && Boolean(request.orgId) && choice !== null,
+    retry: false,
+  });
+}

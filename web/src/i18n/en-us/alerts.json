@@ -91,7 +91,8 @@
     "expand_group": "Expand {{group}}",
     "open_navigation": "Open the alerts navigation",
     "collapse_navigation": "Collapse the alerts navigation",
-    "expand_navigation": "Expand the alerts navigation"
+    "expand_navigation": "Expand the alerts navigation",
+    "changes": "Changes"
   },
   "history": {
     "error_title": "Cannot load alert history",
@@ -792,7 +793,8 @@
       "tickets": "Tickets",
       "major": "Major incident",
       "postmortem": "Postmortem",
-      "guide": "Investigation guide"
+      "guide": "Investigation guide",
+      "business_impact": "Business impact"
     },
     "guide": {
       "queries": "Queries",
@@ -814,7 +816,46 @@
       "generating": "Generating…",
       "generated": "Root-cause analysis generated",
       "empty": "No analysis yet — generate one or wait for the background pass.",
-      "budget_exhausted": "Today's Mole Agent token budget for the organization is used up, so no analysis was generated. Try again once it resets or is raised."
+      "budget_exhausted": "Today's Mole Agent token budget for the organization is used up, so no analysis was generated. Try again once it resets or is raised.",
+      "evidence": {
+        "title": "Evidence",
+        "separator": ", ",
+        "withheld": "Figures hidden: you cannot read this data",
+        "open": "Open {{label}}",
+        "kind": {
+          "insight": "APM insight",
+          "new_error_group": "New error group",
+          "sample_trace": "Sample trace",
+          "error_logs": "Error logs",
+          "new_log_pattern": "New error log pattern",
+          "change": "Change",
+          "similar_incident": "Similar incident",
+          "investigation": "Investigation",
+          "business_impact": "Business impact",
+          "attribute_skew": "Where failed requests differ"
+        },
+        "insight": {
+          "anomaly": "moved",
+          "regression": "regressed",
+          "slow_dependency": "slow dependency",
+          "repeated_call": "repeated call",
+          "slow_query": "slow query",
+          "hot_endpoint": "hot endpoint",
+          "log_errors": "error logs rose"
+        },
+        "figures": {
+          "now": "now {{value}}",
+          "previous": "before {{value}}",
+          "last_week": "a week ago {{value}}",
+          "occurrences_one": "{{formatted}} occurrence",
+          "occurrences_other": "{{formatted}} occurrences",
+          "error_logs": "{{now}} now, {{lastWeek}} a week ago",
+          "lines_one": "{{formatted}} line",
+          "lines_other": "{{formatted}} lines",
+          "business": "{{errors}} of {{requests}} requests failed",
+          "skew": "{{failed}} of failed requests, {{others}} of others"
+        }
+      }
     },
     "signals": {
       "services": "Services",
@@ -898,6 +939,11 @@
         "healthy": "Healthy",
         "no_traffic": "Idle"
       }
+    },
+    "business": {
+      "important": "Important",
+      "failed": "{{errors}} of {{requests}} failed · {{rate}}",
+      "more": "More values had requests"
     }
   },
   "insights": {
@@ -3146,5 +3192,29 @@
       "imported_other": "Imported {{count}} routing rules",
       "content_hint": "JSON or YAML. Escalation policies, teams and holiday calendars are named by name. The rules of the file go first, in its order; the others keep theirs after them."
     }
+  },
+  "changes": {
+    "error_title": "Cannot load changes",
+    "empty_title": "No changes in this range",
+    "empty_description": "Deployments and other changes your pipelines report, annotations, new versions and rule edits appear here.",
+    "search_label": "Search changes",
+    "search_placeholder": "Service, version, title, author or commit",
+    "kind_label": "Kind",
+    "all_kinds": "All kinds",
+    "span_label": "Range",
+    "span": {
+      "24h": "Last 24 hours",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days"
+    },
+    "columns": {
+      "at": "When",
+      "kind": "Kind",
+      "subject": "Change",
+      "status": "Result",
+      "by": "By",
+      "open": "Open"
+    },
+    "open": "Open {{change}}"
   }
 }

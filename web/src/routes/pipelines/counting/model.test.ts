@@ -22,12 +22,20 @@ const metric = (patch: Partial<NonNullable<CountingParts['metric']>> = {}): Coun
 
 describe('counting steps', () => {
   it('are offered where their data allows', () => {
-    expect(countingKinds('realtime', 'logs', 'app')).toEqual(['generate_metric', 'quota', 'throttle']);
+    expect(countingKinds('realtime', 'logs', 'app')).toEqual(['generate_metric', 'quota', 'throttle', 'to_change']);
     expect(countingKinds('realtime', 'traces', 'app')).toEqual(['generate_metric']);
     expect(countingKinds('realtime', 'metrics', 'app')).toEqual([]);
     expect(countingKinds('realtime', 'logs', 'rum_views')).toEqual(['generate_metric']);
     expect(countingKinds('realtime', 'logs', 'rum_errors')).toEqual(['generate_metric', 'quota', 'throttle']);
     expect(countingKinds('scheduled', 'logs', 'app')).toEqual([]);
+  });
+
+  it('read the environment of a change step from where it says', () => {
+    const parts = countingOf('to_change', { conditions: [], change: { environment: ' prod ', environmentField: 'k8s.cluster.name' } });
+
+    expect(countingInput('to_change', parts)).toEqual({ conditions: [], change: { environment: 'prod', environmentField: 'k8s.cluster.name' } });
+    expect(countingProblem('to_change', parts)).toBeNull();
+    expect(defaultCounting('to_change').change).toEqual({ environment: '', environmentField: 'k8s.cluster.name' });
   });
 
   it('start with a metric written into a metrics stream named like the source', () => {

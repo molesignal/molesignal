@@ -170,16 +170,6 @@
     "title": "Comparar perfiles",
     "subtitle": "Consulta qué aumentó o disminuyó de un período a otro. Puedes elegir ambos períodos libremente.",
     "filters_aria": "Qué se compara",
-    "baseline_aria": "Referencia: {{value}}",
-    "baseline_title": "Elige el período de referencia",
-    "baseline_relative": "Según el período",
-    "baseline_overlaps": "Este período de referencia se superpondría al período de comparación.",
-    "baselines": {
-      "previous": "El período anterior",
-      "day": "El mismo intervalo un día antes",
-      "week": "El mismo intervalo una semana antes",
-      "custom": "Un período personalizado"
-    },
     "statement_aria": "Los dos períodos que se comparan",
     "comparison": "Comparación",
     "baseline": "Referencia",

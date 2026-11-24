@@ -327,7 +327,8 @@
       "counting_realtime_only": "步骤「{{name}}」在事件进来时计数，只能用在实时流水线里。",
       "counting_not_here_metric": "步骤「{{name}}」从日志、RUM 事件和 Span 生成指标，这条流水线处理的是别的数据。",
       "counting_not_here_limit": "步骤「{{name}}」只拦日志和允许丢弃的 RUM 事件，放在这里会让数据出现缺口。",
-      "counting_name_duplicate": "有两个步骤都叫「{{name}}」。计数的步骤按名字存它的计数，名字不能重复。"
+      "counting_name_duplicate": "有两个步骤都叫「{{name}}」。计数的步骤按名字存它的计数，名字不能重复。",
+      "counting_not_here_change": "步骤「{{name}}」读取以日志形式接入的 Kubernetes 对象；这条流水线处理的是其他类型的数据。"
     }
   },
   "drawer": {
@@ -480,7 +481,8 @@
       "query_enrich": "查询补充",
       "generate_metric": "生成指标",
       "quota": "配额",
-      "throttle": "限流"
+      "throttle": "限流",
+      "to_change": "记录变更"
     }
   },
   "editor": {
@@ -1191,7 +1193,8 @@
       "past_route": "转到 {{stream}}",
       "quota_limit": "每天 {{limit}} {{unit}}",
       "throttle_limit": "每 {{window}} 秒 {{limit}} 条",
-      "limit": "计入 {{bucket}}（{{limit}}），超出上限后{{past}}。"
+      "limit": "计入 {{bucket}}（{{limit}}），超出上限后{{past}}。",
+      "change": "对象与上次看到时相比有变化时记为变更：新镜像、新副本数、新的 spec 或数据。"
     },
     "usage": {
       "title": "今日配额与限流",
@@ -1204,7 +1207,12 @@
       "mib": "{{value}} MiB",
       "whole": "整个步骤",
       "others": "其余的桶"
-    }
+    },
+    "change_environment": "环境",
+    "change_environment_hint": "所有变更所属的环境。留空则从下面的字段读取。",
+    "change_environment_field": "环境字段",
+    "change_environment_field_hint": "事件中标明环境的字段，例如集群名。",
+    "summary_change": "{{environment}} 的变更"
   },
   "schedule_every": "每 {{interval}}"
 }

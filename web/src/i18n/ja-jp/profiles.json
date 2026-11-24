@@ -169,16 +169,6 @@
     "title": "プロファイルの比較",
     "subtitle": "2つの期間を比較し、負荷が増えた箇所と減った箇所を確認できます。どちらの期間も自由に設定できます。",
     "filters_aria": "比較条件",
-    "baseline_aria": "ベースライン: {{value}}",
-    "baseline_title": "ベースラインの選択",
-    "baseline_relative": "比較期間に連動",
-    "baseline_overlaps": "このベースラインは比較期間と重なります。",
-    "baselines": {
-      "previous": "直前の期間",
-      "day": "1日前の同じ時間帯",
-      "week": "1週間前の同じ時間帯",
-      "custom": "カスタム期間"
-    },
     "statement_aria": "比較する2つの期間",
     "comparison": "比較対象",
     "baseline": "ベースライン",

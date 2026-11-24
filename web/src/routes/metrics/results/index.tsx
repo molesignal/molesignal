@@ -5,12 +5,15 @@ import { cn } from '@/shell/lib/cn';
 import { QueryRecommendations } from '@/shell/query/Recommendations';
 import { QuerySplitToggle } from '@/shell/queryTabs';
 import { ModuleTabs } from '@/shell/tabs/ModuleTabs';
+import type { CompareBaseline } from '@/time/baseline/periods';
 
+import { BaselineControl } from './BaselineControl';
 import { ChartControls } from './ChartControls';
 import { GraphView } from './GraphView';
 import { InspectorView } from './InspectorView';
 import { TableView } from './TableView';
 import type { MetricsExploreResultsProps } from './types';
+import { useBaselineOverlay } from './useBaselineOverlay';
 
 type ResultsView = 'graph' | 'table' | 'inspector';
 
@@ -21,6 +24,7 @@ export function MetricsExploreResults({
   exemplars,
   recovery,
   starter,
+  queryOptions,
   timeRangeSeconds,
   language,
   preferredView,
@@ -42,6 +46,17 @@ export function MetricsExploreResults({
   };
   const graph = activeView === 'graph';
   const hasQuery = Boolean(query.promql.trim());
+  const [baseline, setBaseline] = React.useState<CompareBaseline | null>(null);
+  const comparison = React.useMemo(() => ({ from: chart.xDomain[0], to: chart.xDomain[1] }), [chart.xDomain]);
+  const overlay = useBaselineOverlay({
+    statement: query.executedPromql,
+    comparison,
+    baseline,
+    queryOptions,
+    current: series.chartSeries,
+  });
+  // Only a range query over time has a stretch to set a baseline against.
+  const comparable = queryOptions.type === 'range' && Boolean(query.executedPromql) && series.metricSeries.length > 0;
 
   return (
     <div
@@ -102,8 +117,17 @@ export function MetricsExploreResults({
             ) : null}
             {/* The switch that splits the page leads the controls, in every view of the results. */}
             <QuerySplitToggle size="sm" />
+            {graph && comparable && (
+              <BaselineControl
+                value={baseline}
+                comparison={comparison}
+                resolved={overlay.resolved}
+                failed={overlay.failed}
+                onChange={setBaseline}
+              />
+            )}
             {graph && (
-              <ChartControls chart={chart} canStack={series.chartSeries.length > 1} />
+              <ChartControls chart={chart} canStack={series.chartSeries.length > 1 && !baseline} />
             )}
           </div>
         </div>
@@ -116,6 +140,7 @@ export function MetricsExploreResults({
             exemplars={exemplars}
             recovery={recovery}
             starter={starter}
+            baselineSeries={comparable ? overlay.series : []}
             onViewRawCounter={onViewRawCounter}
             onInspectMetricType={onInspectMetricType}
           />

@@ -47,7 +47,7 @@ import {
 import { useAuthStore } from '@/stores/auth';
 
 import { DashboardRenderer } from './DashboardRenderer';
-import { AnnotationEventsEditor } from './editor/configuration/AnnotationEventsEditor';
+import { AnnotationEventsEditor, AnnotationServicesEditor } from './editor/configuration/AnnotationEventsEditor';
 import {
   EditorField,
   EditorInput,
@@ -2603,17 +2603,24 @@ function AnnotationsSettings({
             </EditorField>
           </div>
           <div className="grid grid-cols-[1fr_160px] gap-2">
-            <AnnotationEventsEditor
-              value={annotation.query ?? {}}
-              onChange={(query) =>
-                updateCollection(
-                  annotations,
-                  annotation.id,
-                  { ...annotation, query },
-                  onChange,
-                )
-              }
-            />
+            {annotation.source === 'deployments' ? (
+              <AnnotationServicesEditor
+                value={annotation.query ?? {}}
+                onChange={(query) => updateCollection(annotations, annotation.id, { ...annotation, query }, onChange)}
+              />
+            ) : (
+              <AnnotationEventsEditor
+                value={annotation.query ?? {}}
+                onChange={(query) =>
+                  updateCollection(
+                    annotations,
+                    annotation.id,
+                    { ...annotation, query },
+                    onChange,
+                  )
+                }
+              />
+            )}
             <div className="space-y-3">
               <EditorField label="Color">
                 <EditorInput

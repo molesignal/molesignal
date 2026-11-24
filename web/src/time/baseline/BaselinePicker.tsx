@@ -17,14 +17,10 @@ import {
 } from './periods';
 
 /** What a baseline is called on its control. The times it spans are said beside the control. */
-export function baselineLabel(
-  baseline: CompareBaseline,
-  t: (key: string) => string,
-  tCommon: (key: string) => string,
-): string {
-  if (baseline.kind !== 'window') return t(`compare.baselines.${baseline.kind}`);
+export function baselineLabel(baseline: CompareBaseline, t: (key: string) => string): string {
+  if (baseline.kind !== 'window') return t(`baseline.${baseline.kind}`);
 
-  return timeRangeLabel(baseline.window, t, tCommon);
+  return timeRangeLabel(baseline.window, t);
 }
 
 /**
@@ -32,12 +28,8 @@ export function baselineLabel(
  * name, a start and an end of one's own as that. Their times stand beside the
  * control in the reader's time zone, so the control does not repeat them.
  */
-export function timeRangeLabel(
-  window: TimeWindow,
-  t: (key: string) => string,
-  tCommon: (key: string) => string,
-): string {
-  return window.mode === 'absolute' ? t('compare.baselines.custom') : formatTimeWindowLabel(window, tCommon);
+export function timeRangeLabel(window: TimeWindow, t: (key: string) => string): string {
+  return window.mode === 'absolute' ? t('baseline.custom') : formatTimeWindowLabel(window, t);
 }
 
 /**
@@ -63,8 +55,7 @@ export function BaselinePicker({
   onChange: (baseline: CompareBaseline) => void;
   className?: string | undefined;
 }) {
-  const { t } = useTranslation('profiles');
-  const { t: tCommon } = useTranslation('common');
+  const { t } = useTranslation('common');
   const [open, setOpen] = React.useState(false);
 
   // The time panel every page has, pointed at the baseline. It shows the baseline as it stands
@@ -85,7 +76,7 @@ export function BaselinePicker({
     });
   }, [store, shown.from, shown.to, shown.mode]);
 
-  const label = baselineLabel(value, t, tCommon);
+  const label = baselineLabel(value, t);
   const spans = `${formatMicrosActive(resolved.from, false)} – ${formatMicrosActive(resolved.to, false)}`;
 
   return (
@@ -95,7 +86,7 @@ export function BaselinePicker({
           type="button"
           data-compare-baseline={value.kind}
           // Named with its times for a reader who cannot see them beside it.
-          aria-label={t('compare.baseline_aria', { value: `${label}, ${spans}` })}
+          aria-label={t('baseline.aria', { value: `${label}, ${spans}` })}
           // The box the time range of the page is: the two stand one over the other, of one width.
           className={cn(
             'group flex h-9 w-full shrink-0 items-center gap-2 rounded-md border-0 bg-[var(--control-surface)] px-3 font-sans text-[13px] font-strong text-tx-1 transition-colors duration-fast hover:bg-bg-3 hover:text-tx-0 focus-visible:bg-bg-3 focus-visible:text-tx-0 data-[state=open]:bg-bg-3 data-[state=open]:text-tx-0',
@@ -114,18 +105,18 @@ export function BaselinePicker({
         align="start"
         sideOffset={8}
         collisionPadding={12}
-        aria-label={t('compare.baseline_title')}
+        aria-label={t('baseline.title')}
         data-compare-baseline-panel
         data-time-picker-surface="workbench"
         className="w-[600px] max-w-[calc(100vw-24px)] overflow-hidden rounded-md p-0"
       >
         <div className="px-3 pb-2 pt-3 font-sans text-sm font-strong leading-5 text-tx-0">
-          {t('compare.baseline_title')}
+          {t('baseline.title')}
         </div>
 
         <section className="px-3 pb-2 pt-1">
           <div className="px-2 pb-2 font-sans text-xs font-strong text-tx-3">
-            {t('compare.baseline_relative')}
+            {t('baseline.relative')}
           </div>
           <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-3">
             {BASELINE_RELATIONS.map((relation) => {
@@ -140,7 +131,7 @@ export function BaselinePicker({
                   data-compare-baseline-option={relation}
                   aria-pressed={selected}
                   disabled={!fits}
-                  title={fits ? undefined : t('compare.baseline_overlaps')}
+                  title={fits ? undefined : t('baseline.overlaps')}
                   onClick={() => {
                     onChange({ kind: relation });
                     setOpen(false);
@@ -152,7 +143,7 @@ export function BaselinePicker({
                       : 'text-tx-1 enabled:hover:bg-[var(--floating-item-hover)] enabled:hover:text-tx-0 enabled:focus-visible:bg-[var(--floating-item-hover)] enabled:focus-visible:text-tx-0',
                   )}
                 >
-                  <span className="min-w-0 flex-1 truncate">{t(`compare.baselines.${relation}`)}</span>
+                  <span className="min-w-0 flex-1 truncate">{t(`baseline.${relation}`)}</span>
                   {selected && <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />}
                 </button>
               );

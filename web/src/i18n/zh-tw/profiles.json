@@ -169,16 +169,6 @@
     "title": "比較 profile",
     "subtitle": "比較兩個時段，看看哪些函式變熱、哪些變冷；兩個時段都可以自由設定。",
     "filters_aria": "比較範圍",
-    "baseline_aria": "基準：{{value}}",
-    "baseline_title": "選擇基準",
-    "baseline_relative": "跟隨比較時段",
-    "baseline_overlaps": "此基準時段會與比較時段重疊。",
-    "baselines": {
-      "previous": "上一個時段",
-      "day": "一天前的同一時段",
-      "week": "一週前的同一時段",
-      "custom": "自訂時段"
-    },
     "statement_aria": "用於比較的兩個時段",
     "comparison": "比較時段",
     "baseline": "基準時段",

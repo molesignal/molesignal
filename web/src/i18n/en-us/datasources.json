@@ -11,6 +11,14 @@
         "description": "Save the YAML below as fluent-bit-daemonset.yaml and apply it."
       },
       "3": {
+        "title": "Watch workloads and ConfigMaps (optional)",
+        "description": "Run an OpenTelemetry Collector with the k8sobjects receiver, with a service account that may list and watch these objects. Each object comes in as a log line of the k8s_objects stream."
+      },
+      "4": {
+        "title": "Read them as changes",
+        "description": "A realtime pipeline on k8s_objects with a Record changes step turns a new image into a deployment, new replicas into a scaling, and new ConfigMap data into a configuration change. They appear on the Changes page and on the charts."
+      },
+      "5": {
         "title": "Check that logs are arriving",
         "description": "After a minute, open Logs and pick the app-logs stream; the kubernetes.* fields should be there."
       }
@@ -679,6 +687,58 @@
       "1": {
         "title": "Use a WebSocket relay",
         "description": "Deploy a relay node that forwards subscription data to MoleSignal."
+      }
+    }
+  },
+  "launchdarkly": {
+    "name": "LaunchDarkly",
+    "description": "Report flag changes to the change list from a LaunchDarkly webhook.",
+    "steps": {
+      "1": {
+        "title": "Copy the webhook address",
+        "description": "In LaunchDarkly, open Integrations → Webhooks → Add integration and paste this URL. Set service= to the service the flags belong to; the environment is read from each entry. The token needs apm.deploy and rides in the address, since LaunchDarkly sends no custom header: give it a token of its own."
+      },
+      "2": {
+        "title": "Limit it to the flags that matter (optional)",
+        "description": "Add a policy so the webhook sends only the changes of one environment, such as production."
+      }
+    }
+  },
+  "unleash": {
+    "name": "Unleash",
+    "description": "Report feature toggle changes to the change list from the Unleash webhook add-on.",
+    "steps": {
+      "1": {
+        "title": "Add the webhook integration",
+        "description": "In Unleash, open Integrations → Webhook. Use this URL and header, leave the body template empty so Unleash sends its own event, and pick the events to send. The token needs apm.deploy."
+      }
+    }
+  },
+  "nacos": {
+    "name": "Nacos",
+    "description": "Report configuration changes to the change list from Nacos.",
+    "steps": {
+      "1": {
+        "title": "Copy the address",
+        "description": "Nacos sends no webhook of its own: point a config-change plugin, or a small listener of the Nacos client, at this address. The token needs apm.deploy and may also go in an Authorization header."
+      },
+      "2": {
+        "title": "Post each change",
+        "description": "Send the data ID, group, namespace and who changed it. The body was written against Nacos's documented fields and has not been checked against a live server."
+      }
+    }
+  },
+  "apollo": {
+    "name": "Apollo",
+    "description": "Report configuration releases to the change list from Apollo.",
+    "steps": {
+      "1": {
+        "title": "Copy the address",
+        "description": "Point Apollo's release webhook, or a listener of release messages, at this address. The app ID is read as the service, so no service= is needed. The token needs apm.deploy."
+      },
+      "2": {
+        "title": "Post each release",
+        "description": "Send the app ID, cluster, namespace, release title and operator. The body was written against Apollo's documented fields and has not been checked against a live server."
       }
     }
   }

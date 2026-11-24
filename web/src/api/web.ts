@@ -1,4 +1,3 @@
-import type { AxiosResponse } from 'axios';
 
 import { type AddressParams, getOrPost, http } from '@/lib/http';
 import type { CursorPage } from '@/pagination/cursor';
@@ -381,6 +380,74 @@ export async function logsFieldStats(
   );
 }
 
+/** What a log pattern is compared with: the stretch just before, the same stretch a week before, or nothing. */
+export type LogPatternBaseline = 'previous' | 'week_before' | 'none';
+
+/** How a pattern moved against the baseline. */
+export type LogPatternChange = 'new' | 'surging' | 'dropping' | 'steady';
+
+export interface LogPatternToken {
+  lead: string;
+  trail: string;
+  text: string;
+  wild: 'number' | 'id' | 'ip' | 'url' | 'time' | 'data' | 'any' | null;
+  unit: string;
+}
+
+export interface ServerLogPattern {
+  pattern: string;
+  tokens?: LogPatternToken[];
+  /** How many of the window's logs read have it. */
+  count: number;
+  share: number;
+  /** Its count over the whole range, when the range was sampled. */
+  estimatedCount?: number;
+  firstSeen: number | null;
+  lastSeen: number | null;
+  levels: { level: string; count: number }[];
+  baselineCount?: number;
+  change?: LogPatternChange;
+  ratio?: number;
+  fragment?: string;
+  example?: string;
+}
+
+export interface LogPatternReport {
+  stream: string;
+  field: string;
+  levelField: string | null;
+  timeRange: { startTime: number; endTime: number };
+  /** The range's logs that hold the message field, and how many were read. */
+  logs: number;
+  read: number;
+  unread: number;
+  sampled: boolean;
+  baseline?: { kind: Exclude<LogPatternBaseline, 'none'>; startTime: number; endTime: number; logs: number; read: number; sampled: boolean };
+  newPatterns?: number;
+  surgingPatterns?: number;
+  droppingPatterns?: number;
+  patternCount: number;
+  patterns: ServerLogPattern[];
+}
+
+/** The kinds of message among the log rows the list query matches in `[from, to)`, compared with a baseline. */
+export async function logPatterns(
+  params: {
+    stream: string;
+    from: number;
+    to: number;
+    filters?: LogListFilter[];
+    freeText?: string[];
+    where?: LogCondition;
+    baseline: LogPatternBaseline;
+    limit?: number;
+  },
+  signal?: AbortSignal,
+): Promise<LogPatternReport> {
+  const { data } = await http.post<LogPatternReport>('/web/logs/patterns', params, { ...(signal && { signal }) });
+  return data;
+}
+
 /** Reads a field of a Span in every Span of the listed Traces. */
 export async function tracesFieldStats(
   params: {
@@ -402,34 +469,6 @@ export interface Filter {
   field: string;
   op: '=' | '!=' | 'IN' | 'CONTAINS';
   value: string | string[];
-}
-
-export interface CorrelationContext {
-  timeRange: { from: string; to: string };
-  filters: Filter[];
-  prefill?: { sql?: string; promql?: string };
-}
-
-export async function correlation(
-  from: string,
-  to: string,
-  ctx: Record<string, unknown>,
-  signal?: AbortSignal,
-): Promise<CorrelationContext> {
-  // Backend decodes with `URL_SAFE_NO_PAD` — convert standard base64 to that
-  // alphabet: `+` → `-`, `/` → `_`, strip `=` padding.
-  const b64 = btoa(JSON.stringify(ctx))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-  const { data } = await http.get<CorrelationContext, AxiosResponse<CorrelationContext>>(
-    `/web/correlation/${from}/${to}`,
-    {
-      params: { ctx: b64 },
-      ...(signal && { signal }),
-    },
-  );
-  return data;
 }
 
 export interface BlobRef {

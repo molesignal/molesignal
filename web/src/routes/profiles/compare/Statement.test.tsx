@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import i18n from '@/i18n';
 import { setActiveTimePreference } from '@/lib/time';
+import type { Period } from '@/time/baseline/periods';
 
-import type { Period } from './periods';
 import { CompareStatement } from './Statement';
 
 const at = (iso: string) => new Date(iso).getTime() * 1000;

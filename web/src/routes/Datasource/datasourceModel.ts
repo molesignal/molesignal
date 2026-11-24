@@ -1,6 +1,6 @@
 import type { HomeHealthStatus, HomeOverview } from '@/api/home';
 
-import type { Category, Signal, Source } from './sources';
+import type { Signal, Source } from './sources';
 
 export type PrimaryCategory =
   | 'recommended'
@@ -9,6 +9,7 @@ export type PrimaryCategory =
   | 'databases'
   | 'queues'
   | 'applications'
+  | 'devops'
   | 'security'
   | 'custom';
 
@@ -38,6 +39,7 @@ export const PRIMARY_CATEGORIES: readonly PrimaryCategory[] = [
   'databases',
   'queues',
   'applications',
+  'devops',
   'security',
   'custom',
 ];
@@ -56,25 +58,9 @@ const APPLICATION_SOURCE_IDS = new Set([
   'continuous-profiling',
 ]);
 
+/** The category an address names; any other name opens Recommended. */
 export function primaryCategoryFromRoute(value: string | undefined): PrimaryCategory {
-  if (value && PRIMARY_CATEGORIES.includes(value as PrimaryCategory)) {
-    return value as PrimaryCategory;
-  }
-  const legacy: Partial<Record<Category, PrimaryCategory>> = {
-    otel: 'applications',
-    'otel-collector': 'applications',
-    servers: 'infrastructure',
-    databases: 'databases',
-    security: 'security',
-    devops: 'applications',
-    networking: 'infrastructure',
-    queues: 'queues',
-    languages: 'applications',
-    ai: 'applications',
-    custom: 'custom',
-    recommended: 'recommended',
-  };
-  return legacy[value as Category] ?? 'recommended';
+  return PRIMARY_CATEGORIES.includes(value as PrimaryCategory) ? (value as PrimaryCategory) : 'recommended';
 }
 
 export function sourceInPrimaryCategory(source: Source, category: PrimaryCategory): boolean {
@@ -91,10 +77,11 @@ export function sourceInPrimaryCategory(source: Source, category: PrimaryCategor
   if (category === 'queues') return source.category === 'queues';
   if (category === 'security') return source.category === 'security';
   if (category === 'custom') return source.category === 'custom';
+  // Delivery pipelines and the tools whose changes they report: deployments, flags, configuration.
+  if (category === 'devops') return source.category === 'devops';
   return (
     APPLICATION_SOURCE_IDS.has(source.id) ||
     source.category === 'languages' ||
-    source.category === 'devops' ||
     source.category === 'ai' ||
     source.category === 'otel' ||
     source.category === 'otel-collector'

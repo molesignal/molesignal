@@ -278,6 +278,26 @@
       "read_failed": "未能继续往前读取。",
       "unread_one": "{{count}} 条事件没有消息内容，未归入任何模式。",
       "unread_other": "{{count}} 条事件没有消息内容，未归入任何模式。",
+      "change_column": "变化",
+      "change": {
+        "new": "新出现",
+        "surging": "×{{ratio}}",
+        "dropping": "减少",
+        "steady": "—"
+      },
+      "estimated": "整个时间范围内约 {{count}} 条",
+      "example_only": "已读取的事件中没有",
+      "basis_counted_one": "按时间范围内全部 {{formatted}} 条事件统计",
+      "basis_counted_other": "按时间范围内全部 {{formatted}} 条事件统计",
+      "basis_sampled": "模式取自均匀分布的 {{read}} 条采样",
+      "counting": "正在统计整个时间范围…",
+      "count_failed": "无法统计整个时间范围。",
+      "baseline_label": "对比对象",
+      "baseline": {
+        "previous": "与上一时段对比",
+        "week_before": "与一周前对比",
+        "none": "不对比"
+      },
       "kind": {
         "number": "数字",
         "id": "标识符",

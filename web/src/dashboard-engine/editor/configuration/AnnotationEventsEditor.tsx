@@ -134,3 +134,28 @@ function stringValue(value: unknown): string {
 function numberValue(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
+
+/**
+ * What a `deployments` definition asks for: the services whose changes it
+ * marks, every service when it names none.
+ */
+export function AnnotationServicesEditor({
+  value,
+  onChange,
+}: {
+  value: Record<string, unknown>;
+  onChange: (value: Record<string, unknown>) => void;
+}) {
+  const tr = useDashboardText();
+  const services = Array.isArray(value.services) ? value.services.filter((service) => typeof service === 'string').join(', ') : stringValue(value.services);
+
+  return (
+    <EditorField label="Services">
+      <EditorInput
+        value={services}
+        placeholder={tr('Services whose changes are marked, comma-separated; every service when empty')}
+        onChange={(next) => onChange({ ...value, services: next })}
+      />
+    </EditorField>
+  );
+}

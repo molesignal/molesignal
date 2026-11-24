@@ -309,7 +309,8 @@
       "last_deploy": "Last deploy",
       "tags": "Tags",
       "last_seen": "Last seen",
-      "favorite": "Favorite"
+      "favorite": "Favorite",
+      "correlation": "Correlation"
     },
     "favorite": "Add {{name}} to favorites",
     "unfavorite": "Remove {{name}} from favorites",
@@ -709,7 +710,9 @@
       "returned": "Went back",
       "first_seen": "First seen",
       "configuration": "Configuration",
-      "feature_flag": "Feature flag"
+      "feature_flag": "Feature flag",
+      "scaling": "Scaling",
+      "infrastructure": "Infrastructure"
     },
     "from": "from {{version}}",
     "pull_request": "PR",
@@ -1177,7 +1180,42 @@
       "environments": "{{names}} differ only in case.",
       "map_to": "Read all as {{name}}",
       "generated": "{{name}} looks like {{base}} with a generated suffix.",
-      "add_rule": "Add a naming rule"
+      "add_rule": "Add a naming rule",
+      "correlation": {
+        "untraced_one": "{{formatted}} service writes logs without trace ids in the last hour: {{names}}.",
+        "untraced_other": "{{formatted}} services write logs without trace ids in the last hour: {{names}}.",
+        "partly_traced_one": "{{formatted}} service ties only part of its logs to kept traces: {{names}}.",
+        "partly_traced_other": "{{formatted}} services tie only part of their logs to kept traces: {{names}}.",
+        "unplaced_one": "{{formatted}} service does not say where it runs (host, pod, node or container): {{names}}.",
+        "unplaced_other": "{{formatted}} services do not say where they run (host, pod, node or container): {{names}}.",
+        "unmatched_one": "Logs or metrics name {{formatted}} service APM does not know: {{names}}.",
+        "unmatched_other": "Logs or metrics name {{formatted}} services APM does not know: {{names}}.",
+        "no_changes_one": "{{formatted}} service reported no change in the past week: {{names}}.",
+        "no_changes_other": "{{formatted}} services reported no change in the past week: {{names}}.",
+        "names_more_one": "{{names}} and {{count}} more",
+        "names_more_other": "{{names}} and {{count}} more",
+        "to_naming": "Naming rules",
+        "report_changes": "Report changes"
+      }
+    },
+    "business": {
+      "title": "Business context",
+      "hint": "Keys such as a tenant or a plan and the field each signal carries them in: the service page splits requests by them, and incidents say which values they hit",
+      "empty": "No business keys yet",
+      "add": "Add a key",
+      "key": "Key",
+      "label": "Label",
+      "label_placeholder": "Tenant",
+      "span": "Span attribute",
+      "log": "Log field",
+      "rum": "RUM field",
+      "important": "Important values",
+      "important_placeholder": "Values that matter most, separated by commas",
+      "issue": {
+        "key": "A key starts with a lower-case letter and holds only lower-case letters, digits and _.",
+        "twice": "Each key can be declared once.",
+        "nowhere": "Name the field of at least one signal for each key."
+      }
     }
   },
   "instances": {
@@ -1223,12 +1261,14 @@
       "slow_dependency": "Bottleneck",
       "repeated_call": "N+1",
       "slow_query": "Slow SQL",
-      "hot_endpoint": "Hot endpoint"
+      "hot_endpoint": "Hot endpoint",
+      "log_errors": "Error logs"
     },
     "metric": {
       "error_rate": "Error rate",
       "p95": "P95",
-      "throughput": "Throughput"
+      "throughput": "Throughput",
+      "log_errors": "Error log lines"
     },
     "sentence": {
       "anomaly_up": "{{metric}} rose to {{value}} ({{before}})",
@@ -1237,13 +1277,16 @@
       "slow_dependency": "{{share}} of the requests' time goes to {{target}}",
       "repeated_call": "calls {{operation}} {{each}} times a request ({{calls}} calls): a loop one call could replace",
       "slow_query": "{{operation}}: P95 {{p95}} over {{calls}} calls",
-      "hot_endpoint": "{{endpoint}} takes {{share}} of the service's time (P95 {{p95}})"
+      "hot_endpoint": "{{endpoint}} takes {{share}} of the service's time (P95 {{p95}})",
+      "log_errors": "error log lines rose to {{value}} ({{before}})"
     },
     "change": {
       "deployment": "Deployment of",
       "configuration": "Configuration change of",
       "feature_flag": "Feature flag of",
-      "observed": ", first seen in spans"
+      "observed": ", first seen in spans",
+      "scaling": "Scaling of",
+      "infrastructure": "Infrastructure change of"
     },
     "baseline": {
       "previous": "Against the stretch before:",
@@ -1262,5 +1305,52 @@
       "error": "Investigate the error {{error}} of {{service}} in {{environment}} (fingerprint {{fingerprint}}): since when, how many requests it fails, and its likely cause.",
       "finding": "Investigate this finding about {{service}} in {{environment}} from {{from}} to {{to}}: {{finding}}"
     }
+  },
+  "correlation": {
+    "and": ", ",
+    "aspect": {
+      "traceIds": "Trace ids in logs",
+      "resource": "Resource attributes",
+      "metrics": "Metrics",
+      "changes": "Changes"
+    },
+    "grade": {
+      "good": "good",
+      "partial": "partial",
+      "missing": "missing",
+      "unknown": "unknown"
+    },
+    "attribute": {
+      "environment": "environment",
+      "version": "version",
+      "instance": "instance",
+      "placement": "host or pod"
+    },
+    "detail": {
+      "unknown": "Could not be read.",
+      "no_logs": "No log lines in the last hour.",
+      "traced": "{{share}} of {{lines}} lines carry a trace id.",
+      "matched": "{{matched}} of {{sampled}} sampled traces were found.",
+      "resource_complete": "Environment, version, instance and host or pod reported.",
+      "resource_missing": "Not reported: {{attributes}}.",
+      "metrics_reported": "Metrics carry its name.",
+      "metrics_missing": "No metric carries its name in the last hour.",
+      "metrics_unknown": "Could not be read.",
+      "changes_one": "{{formatted}} change in the past week.",
+      "changes_other": "{{formatted}} changes in the past week."
+    }
+  },
+  "business": {
+    "title": "Requests by business key",
+    "key": "Business key",
+    "any_field": "Split by any field",
+    "requests": "Requests",
+    "errors": "Error rate",
+    "no_value": "(no value)",
+    "important": "Important",
+    "loading": "Splitting…",
+    "failed": "The split could not be loaded",
+    "unavailable": "This key cannot be read for you right now",
+    "empty": "No request carried this key in the time in view"
   }
 }

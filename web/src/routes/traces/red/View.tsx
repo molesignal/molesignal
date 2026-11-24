@@ -11,6 +11,8 @@ import type { TimeWindow } from '@/stores/useTimeStore';
 
 import type { ParsedTraceStatement, TraceFieldDef, TraceQueryMode } from '../fieldQueryModel';
 import { RedBreakdown } from './Breakdown';
+import { type CompareChoice, choiceParams } from './compare';
+import { RedComparison } from './Comparison';
 import { RedDrillPath } from './DrillPath';
 import {
   dimensionFor,
@@ -25,7 +27,7 @@ import {
   withoutStep,
 } from './model';
 import { type DurationView, RedSignals } from './Signals';
-import { type RedRequest, useRedBars, useRedBreakdown, useRedOverview } from './useTraceRed';
+import { type RedRequest, useRedBars, useRedBreakdown, useRedComparison, useRedOverview } from './useTraceRed';
 
 interface TraceRedViewProps {
   orgId: string;
@@ -75,6 +77,9 @@ export function TraceRedView({
   const [searchParams, setSearchParams] = useQueryTabSearchParams();
   const [signal, setSignal] = useQueryTabState<RedSignal>('traces.red.signal', 'rate');
   const [durationView, setDurationView] = useQueryTabState<DurationView>('traces.red.duration', 'trend');
+  // Kept as text, as the tab remembers it: `none` until a set is chosen.
+  const [compareKept, setCompareKept] = useQueryTabState<CompareChoice | 'none'>('traces.red.compare', 'none');
+  const compareChoice = compareKept === 'none' ? null : compareKept;
   const scope: TraceRedScope = searchParams.get('scope') === 'all' ? 'all' : 'entry';
   const groupable = React.useMemo(() => groupableFields(fields), [fields]);
   const dimension = dimensionFor(searchParams.get('by'), fields, parsedQuery.filters);
@@ -92,6 +97,8 @@ export function TraceRedView({
   };
   const overview = useRedOverview(request, bars);
   const breakdown = useRedBreakdown(request, bars, dimension);
+  const comparing = overview.data ? choiceParams(compareChoice, overview.data.total) : null;
+  const comparison = useRedComparison(request, bars, comparing);
 
   const writeParams = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams);
@@ -205,6 +212,17 @@ export function TraceRedView({
           onRangeSelect={selectRange}
           onFailuresOnly={() => onQueryChange(narrowToFailures(queryText))}
           onDurationSelect={(fromNs, toNs) => onQueryChange(narrowDuration(queryText, fromNs, toNs))}
+        />
+        <RedComparison
+          choice={compareChoice}
+          onChoiceChange={(choice) => setCompareKept(choice ?? 'none')}
+          total={data.total}
+          response={comparison.data}
+          pending={comparison.isFetching}
+          error={comparison.error}
+          onRetry={() => void comparison.refetch()}
+          onBreakDown={(field) => writeParams({ by: field })}
+          onDrill={(field, value) => onQueryChange(drillInto(queryText, fieldNamed(field), field, value))}
         />
         <RedBreakdown
           response={breakdown.data}

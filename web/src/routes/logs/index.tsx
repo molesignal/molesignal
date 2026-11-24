@@ -22,6 +22,7 @@ import {
   explorerPageSizesFor,
 } from '@/pagination/explorerPageSize';
 import { useCursorPagination } from '@/pagination/useCursorPagination';
+import { useRangeChanges } from '@/shell/changes/useChanges';
 import { TimeRangeChip } from '@/shell/chrome';
 import { CursorPagination } from '@/shell/CursorPagination';
 import { FilterBuilder } from '@/shell/query/builder/FilterBuilder';
@@ -277,6 +278,7 @@ export function Logs() {
   // The time range that produced `queryResult`, captured at run time: another page of
   // the list, the histogram and the patterns are all of that range, not of the live picker.
   const [executedTimeRange, setExecutedTimeRange] = React.useState<HistogramRange | null>(null);
+  const changes = useRangeChanges(executedTimeRange, selectedStream?.name);
   // The field query the rows came from, for the histogram to count everything it matches.
   // A statement the reader wrote has none: its histogram is of the rows it returned.
   const [countedQuery, setCountedQuery] = React.useState<CountedLogQuery | null>(null);
@@ -954,6 +956,7 @@ export function Logs() {
                     errors: t('explore.histogram.errors'),
                   }}
                   onRangeSelect={selectHistogramRange}
+                  changes={changes}
                 />
               )}
 
@@ -1033,6 +1036,7 @@ export function Logs() {
                   <LogPatternsView
                     rows={viewRows}
                     selectedIndex={selectedRow}
+                    query={patternQuery}
                     sample={
                       patternQuery
                         ? {

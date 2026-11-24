@@ -563,5 +563,15 @@
     "bulk_failed_one": "{{total}}개 중 {{count}}개 실패: {{reason}}",
     "bulk_failed_other": "{{total}}개 중 {{count}}개 실패: {{reason}}",
     "clear_filters": "필터 해제"
+  },
+  "baseline": {
+    "aria": "기준: {{value}}",
+    "title": "기준 기간 선택",
+    "relative": "비교 기간에 연동",
+    "overlaps": "이 기준 기간을 사용하면 비교 기간과 겹칩니다.",
+    "previous": "직전 기간",
+    "day": "하루 전 같은 시간대",
+    "week": "일주일 전 같은 시간대",
+    "custom": "별도 기간 지정"
   }
 }

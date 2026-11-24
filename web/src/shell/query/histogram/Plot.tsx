@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { ChangeEntry } from '@/api/changes';
+import { ChangeLines, ChangeRail } from '@/shell/changes/ChangeMarks';
 import { cn } from '@/shell/lib/cn';
 import { formatCompactNumber } from '@/viz/timeseries/formatters';
 
@@ -43,6 +45,8 @@ interface HistogramPlotProps {
   onRangeSelect: (range: { from: number; to: number }) => void;
   /** The element the chart is laid out in, for whoever settles its bars to measure. */
   onModule: (element: HTMLDivElement | null) => void;
+  /** Changes in the frame: a line across the plot and a mark under the axis for each. */
+  changes?: readonly ChangeEntry[] | undefined;
   className?: string | undefined;
 }
 
@@ -54,6 +58,7 @@ const LABEL_AIR_PIXELS = 44;
 /** Shorter than this, a press is a click and selects nothing. */
 const MIN_DRAG_PIXELS = 4;
 const OK_FILL = 'bg-[var(--blue-fill)]';
+const NO_CHANGES: readonly ChangeEntry[] = [];
 const ERROR_FILL = 'bg-[var(--orange-fill)]';
 
 interface Cursor {
@@ -83,6 +88,7 @@ export function HistogramPlot({
   stale,
   onRangeSelect,
   onModule,
+  changes = NO_CHANGES,
   className,
 }: HistogramPlotProps) {
   const { t } = useTranslation('common');
@@ -322,6 +328,7 @@ export function HistogramPlot({
               </span>
             );
           })}
+          <ChangeLines changes={changes} start={frame.start} end={frame.end} />
           {selected && (
             <span
               aria-hidden="true"
@@ -354,6 +361,12 @@ export function HistogramPlot({
             );
           })}
         </div>
+        {changes.length > 0 && (
+          <>
+            <span />
+            <ChangeRail changes={changes} start={frame.start} end={frame.end} />
+          </>
+        )}
         <span />
         {/* What the axis leaves unsaid: the day it lies on, what the bars count, and what a bar stands for. */}
         <div

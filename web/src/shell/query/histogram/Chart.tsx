@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { ChangeEntry } from '@/api/changes';
 import { useTimeFormatter } from '@/lib/time';
 import { cn } from '@/shell/lib/cn';
 
@@ -41,6 +42,8 @@ interface ResultHistogramProps {
    * say: on the same bars, from the same answer.
    */
   latency?: LatencyLabels | undefined;
+  /** Changes in the range, marked where they happened. */
+  changes?: readonly ChangeEntry[] | undefined;
   className?: string;
 }
 
@@ -92,6 +95,7 @@ export function ResultHistogram({
   onRangeSelect,
   timezone,
   latency,
+  changes,
   className,
 }: ResultHistogramProps) {
   const { t, i18n } = useTranslation('common');
@@ -176,6 +180,7 @@ export function ResultHistogram({
       stale={drawn.stale}
       onRangeSelect={onRangeSelect}
       onModule={setModule}
+      changes={changes}
       className={latency && plan ? undefined : className}
     />
   );

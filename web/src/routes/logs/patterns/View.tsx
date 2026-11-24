@@ -1,9 +1,10 @@
-import { ChevronRight, ListFilter, Loader2 } from 'lucide-react';
+import { ChevronRight, ListFilter } from 'lucide-react';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { LogPatternBaseline } from '@/api/web';
 import { useTimeFormatter } from '@/lib/time';
-import { ChromeButton, uiTableHeaderClass } from '@/shell/chrome';
+import { uiTableHeaderClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shell/ui/tooltip';
 
@@ -19,7 +20,10 @@ import {
   type LogEntry,
   type LogLevelTone,
 } from '../viewModel';
+import { PatternsBasis, type PatternSampleState } from './Basis';
 import { logPatterns, type LogPattern, type PatternToken } from './model';
+import type { PatternSampleQuery } from './sample';
+import { serverPatternsOf, useServerPatterns } from './server';
 
 /** The logs of a pattern shown when it is opened, and how many more each further ask shows. */
 const EXAMPLES = 6;
@@ -37,25 +41,14 @@ const CELL = {
   count: 'w-[52px] shrink-0 text-right',
   share: 'hidden w-[84px] shrink-0 [@container_(min-width:600px)]:block',
   pattern: 'min-w-0 flex-1',
+  change: 'hidden w-[76px] shrink-0 text-right [@container_(min-width:600px)]:block',
   level: 'w-[60px] shrink-0 [@container_(min-width:600px)]:w-[176px]',
   source: 'hidden w-[152px] shrink-0 [@container_(min-width:800px)]:block',
   action: 'w-7 shrink-0',
 } as const;
 const ROW = 'flex items-center gap-3 border-b border-l-[3px] border-bd-0 pl-[13px] pr-4';
 
-/** How the view came by its logs, where it read them itself: further back than a page of the list. */
-export interface PatternSampleState {
-  /** The rows are what was read, not yet only the page the list had. */
-  held: boolean;
-  reading: boolean;
-  /** Older logs match and have not been read. */
-  more: boolean;
-  failed: boolean;
-  /** How many logs one further ask reads. */
-  step: number;
-  onReadMore: () => void;
-  onRetry: () => void;
-}
+export type { PatternSampleState } from './Basis';
 
 interface LogPatternsViewProps {
   rows: LogEntry[];
@@ -63,6 +56,8 @@ interface LogPatternsViewProps {
   selectedIndex?: number | null | undefined;
   /** Absent where the rows are all there is: what a statement the reader wrote returned. */
   sample?: PatternSampleState | undefined;
+  /** The structured query the rows are of, which the server counts the patterns of over its whole range. */
+  query?: PatternSampleQuery | null | undefined;
   /** Opens one log, by its place among the rows. */
   onOpenLog: (index: number) => void;
   /** Narrows the query to the logs that have these words in this field. Absent where the query cannot say so. */
@@ -77,14 +72,23 @@ interface LogPatternsViewProps {
  * its logs; asking for it puts it in the query. Under the patterns stands what
  * they were read from.
  */
-export function LogPatternsView({ rows, selectedIndex, sample, onOpenLog, onFilter }: LogPatternsViewProps) {
+export function LogPatternsView({ rows, selectedIndex, sample, query, onOpenLog, onFilter }: LogPatternsViewProps) {
   const { t } = useTranslation('logs');
   const time = useTimeFormatter();
   const clock = React.useMemo<LogClock>(
     () => ({ tz: time.tz, format: time.format, dateFormat: time.dateFormat }),
     [time.dateFormat, time.format, time.tz],
   );
-  const { patterns, unread } = React.useMemo(() => logPatterns(rows), [rows]);
+  const [baseline, setBaseline] = React.useState<LogPatternBaseline>('previous');
+  const server = useServerPatterns(query ?? null, baseline);
+  const local = React.useMemo(() => logPatterns(rows), [rows]);
+  // A range the server found no message in is told from the logs read, as before it has counted.
+  const report = server.report && server.report.logs > 0 ? server.report : undefined;
+  // Until the server has counted the range, and where it cannot, the patterns are of the logs read.
+  const patterns = React.useMemo(() => (report ? serverPatternsOf(report, rows) : local.patterns), [local.patterns, report, rows]);
+  const unread = report ? report.unread : local.unread;
+  const compared = Boolean(report?.baseline);
+  const estimated = Boolean(report?.sampled);
   // Within a day the day is not said on every log.
   const scope = React.useMemo(
     () => (momentsShareDay(rows.map((row) => row.micros), clock.tz) ? 'time' : 'day'),
@@ -99,7 +103,8 @@ export function LogPatternsView({ rows, selectedIndex, sample, onOpenLog, onFilt
           <div className={cn('sticky top-0 z-10 border-l-transparent bg-[var(--table-head-surface)] py-2', ROW, uiTableHeaderClass)}>
             <span className={CELL.count}>{t('explore.patterns.events')}</span>
             <span className={CELL.share}>{t('explore.patterns.share')}</span>
-            <span className={CELL.pattern}>{t('explore.patterns.pattern', { count: patterns.length })}</span>
+            <span className={CELL.pattern}>{t('explore.patterns.pattern', { count: report?.patternCount ?? patterns.length })}</span>
+            {compared && <span className={CELL.change}>{t('explore.patterns.change_column')}</span>}
             <span className={CELL.level}>{t('explore.patterns.level')}</span>
             <span className={CELL.source}>{t('explore.patterns.source')}</span>
             <span className={CELL.action} />
@@ -112,6 +117,8 @@ export function LogPatternsView({ rows, selectedIndex, sample, onOpenLog, onFilt
               clock={clock}
               scope={scope}
               selectedIndex={selectedIndex ?? null}
+              compared={compared}
+              estimated={estimated}
               open={open === pattern.key}
               onOpenChange={(next) => setOpen(next ? pattern.key : null)}
               onOpenLog={onOpenLog}
@@ -124,7 +131,17 @@ export function LogPatternsView({ rows, selectedIndex, sample, onOpenLog, onFilt
             </p>
           )}
         </div>
-        <PatternsBasis rows={rows} clock={clock} scope={scope} sample={sample} />
+        <PatternsBasis
+          rows={rows}
+          clock={clock}
+          scope={scope}
+          sample={sample}
+          server={
+            query
+              ? { report, loading: server.loading, failed: server.failed, onRetry: server.retry, baseline, onBaselineChange: setBaseline }
+              : undefined
+          }
+        />
       </div>
     </TooltipProvider>
   );
@@ -136,6 +153,8 @@ function PatternRow({
   clock,
   scope,
   selectedIndex,
+  compared,
+  estimated,
   open,
   onOpenChange,
   onOpenLog,
@@ -146,6 +165,8 @@ function PatternRow({
   clock: LogClock;
   scope: 'time' | 'day';
   selectedIndex: number | null;
+  compared: boolean;
+  estimated: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenLog: (index: number) => void;
@@ -179,7 +200,11 @@ function PatternRow({
           aria-label={t('explore.patterns.open_aria', { pattern: pattern.key, count: pattern.count })}
           className="absolute inset-0 focus-visible:bg-bg-3"
         />
-        <span className={cn('relative text-md tabular-nums text-tx-0', CELL.count)}>
+        <span
+          className={cn('relative text-md tabular-nums text-tx-0', CELL.count)}
+          title={estimated ? t('explore.patterns.estimated', { count: pattern.count }) : undefined}
+        >
+          {estimated && '≈'}
           {pattern.count}
         </span>
         {/* The count again as a length, of all the logs read: the number itself is said once. */}
@@ -199,6 +224,7 @@ function PatternRow({
           />
           <PatternText tokens={pattern.tokens} className={open ? 'whitespace-pre-wrap break-words' : 'truncate'} />
         </span>
+        {compared && <PatternChange pattern={pattern} className={cn('relative', CELL.change)} />}
         <PatternLevels levels={pattern.levels} className={cn('relative', CELL.level)} />
         <span
           className={cn('relative truncate text-tx-1', CELL.source)}
@@ -271,6 +297,12 @@ function PatternRow({
               </button>
             );
           })}
+          {pattern.rows.length === 0 && pattern.example && (
+            <p data-log-pattern-example-only className="flex items-baseline gap-3 px-2 py-[5px] font-sans text-xs">
+              <span className="min-w-0 flex-1 truncate text-tx-0">{pattern.example}</span>
+              <span className="shrink-0 text-tx-3">{t('explore.patterns.example_only')}</span>
+            </p>
+          )}
           {pattern.rows.length > shown && (
             <button
               type="button"
@@ -283,6 +315,29 @@ function PatternRow({
         </div>
       )}
     </div>
+  );
+}
+
+/** How a pattern moved against the stretch it is compared with: new and rising ones stand out. */
+function PatternChange({ pattern, className }: { pattern: LogPattern; className?: string }) {
+  const { t } = useTranslation('logs');
+  const change = pattern.change ?? 'steady';
+  const label =
+    change === 'surging' && pattern.ratio !== undefined
+      ? t('explore.patterns.change.surging', { ratio: pattern.ratio < 10 ? pattern.ratio.toFixed(1) : Math.round(pattern.ratio) })
+      : t(`explore.patterns.change.${change}`);
+
+  return (
+    <span
+      data-log-pattern-change={change}
+      className={cn(
+        'truncate tabular-nums',
+        change === 'new' || change === 'surging' ? 'font-strong text-[var(--red-ink)]' : change === 'dropping' ? 'text-tx-2' : 'text-tx-3',
+        className,
+      )}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -344,90 +399,5 @@ function PatternText({ tokens, className }: { tokens: readonly PatternToken[]; c
         </React.Fragment>
       ))}
     </span>
-  );
-}
-
-/**
- * What the patterns were read from, where the list has its pages: which logs
- * they are and how far back they reach, and, while older ones match, the way
- * to read further.
- */
-function PatternsBasis({
-  rows,
-  clock,
-  scope,
-  sample,
-}: {
-  rows: LogEntry[];
-  clock: LogClock;
-  scope: 'time' | 'day';
-  sample: PatternSampleState | undefined;
-}) {
-  const { t } = useTranslation('logs');
-  const { t: tCommon } = useTranslation('common');
-  // The rows come newest first: the last one with a moment is how far back they reach.
-  const oldest = React.useMemo(() => {
-    for (let index = rows.length - 1; index >= 0; index -= 1) {
-      const micros = rows[index]!.micros;
-      if (micros != null) return micros;
-    }
-
-    return null;
-  }, [rows]);
-  const partial = sample !== undefined && (sample.more || sample.reading || sample.failed);
-
-  return (
-    <div
-      data-log-patterns-basis
-      className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-4 py-1.5 font-sans text-xs text-tx-2"
-    >
-      {/* Until the first answer the rows are the page the list had, which need not be the latest. */}
-      {(!sample || sample.held) && (
-        <>
-          <span>
-            {t(
-              !sample
-                ? 'explore.patterns.basis_returned'
-                : partial
-                  ? 'explore.patterns.basis_latest'
-                  : 'explore.patterns.basis_all',
-            )}
-          </span>
-          {partial && oldest != null && (
-            <>
-              <span aria-hidden="true" className="text-tx-3">
-                ·
-              </span>
-              <span className="whitespace-nowrap tabular-nums">
-                {t('explore.patterns.basis_back_to', { moment: formatLogMoment(oldest, clock, scope) })}
-              </span>
-            </>
-          )}
-        </>
-      )}
-      {sample && (
-        <span className="ml-auto flex shrink-0 items-center gap-2">
-          {sample.reading ? (
-            <span role="status" className="inline-flex items-center gap-1.5">
-              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin text-tx-3" />
-              {t('explore.patterns.reading')}
-            </span>
-          ) : sample.failed ? (
-            <>
-              <span role="alert" className="text-[var(--red-ink)]">
-                {t('explore.patterns.read_failed')}
-              </span>
-              <ChromeButton size="sm" onClick={sample.onRetry}>
-                {tCommon('actions.retry')}
-              </ChromeButton>
-            </>
-          ) : sample.more ? (
-            <ChromeButton size="sm" onClick={sample.onReadMore}>
-              {t('explore.patterns.read_more', { logs: sample.step })}
-            </ChromeButton>
-          ) : null}
-        </span>
-      )}
-    </div>
   );
 }

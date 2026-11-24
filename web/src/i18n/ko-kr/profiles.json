@@ -169,16 +169,6 @@
     "title": "프로필 비교",
     "subtitle": "두 기간을 비교해 부하가 늘거나 줄어든 부분을 확인합니다. 두 기간은 자유롭게 설정할 수 있습니다.",
     "filters_aria": "비교 대상",
-    "baseline_aria": "기준: {{value}}",
-    "baseline_title": "기준 기간 선택",
-    "baseline_relative": "비교 기간에 연동",
-    "baseline_overlaps": "이 기준 기간을 사용하면 비교 기간과 겹칩니다.",
-    "baselines": {
-      "previous": "직전 기간",
-      "day": "하루 전 같은 시간대",
-      "week": "일주일 전 같은 시간대",
-      "custom": "별도 기간 지정"
-    },
     "statement_aria": "비교할 두 기간",
     "comparison": "비교",
     "baseline": "기준",

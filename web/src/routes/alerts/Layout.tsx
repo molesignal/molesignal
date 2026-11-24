@@ -21,6 +21,7 @@ const ALERT_GROUPS: ReadonlyArray<{ key: string; pages: readonly AlertPage[] }> 
     pages: [
       { to: '/alerts/incidents', labelKey: 'subnav.incidents', fallback: 'Incidents' },
       { to: '/alerts/history', labelKey: 'subnav.history', fallback: 'History' },
+      { to: '/alerts/changes', labelKey: 'subnav.changes', fallback: 'Changes' },
       { to: '/alerts/postmortems', labelKey: 'subnav.postmortems', fallback: 'Postmortems' },
       { to: '/alerts/insights', labelKey: 'subnav.insights', fallback: 'Insights' },
     ],

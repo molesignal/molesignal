@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 
 import type { ServiceTier } from '@/api/apm';
+import type { ServiceCorrelation } from '@/api/apmCorrelation';
 import { cn } from '@/shell/lib/cn';
 import { Sparkline } from '@/shell/readout/Sparkline';
 import { formatRelativeMicros } from '@/time/relative';
@@ -8,6 +9,7 @@ import type { Incident } from '@/types/alerting';
 
 import { formatDuration, formatRate, formatThroughput } from '../format';
 import { type CatalogColumn, type CatalogRow, instanceCount, tagsOf, throughputOf } from './model';
+import { CorrelationDots } from '../correlation/Dots';
 import { SEVERITY_TEXT } from '../frame/alerts';
 import { apdexTone } from '../overview/model';
 import { ENDPOINT_KIND_TONE } from '../service/Overview';
@@ -45,6 +47,8 @@ export interface CatalogNames {
   onCall: (teamId: string) => string | null;
   /** The incidents going on about a row's service. */
   alerts: (row: CatalogRow) => readonly Incident[];
+  /** How well a row's service ties to other data; none while unknown. */
+  correlation: (row: CatalogRow) => ServiceCorrelation | null;
 }
 
 const QUIET = <span className="text-tx-4">—</span>;
@@ -222,5 +226,7 @@ export function CatalogCell({
       ) : (
         QUIET
       );
+    case 'correlation':
+      return <CorrelationDots entry={names.correlation(row)} t={t} locale={locale} />;
   }
 }

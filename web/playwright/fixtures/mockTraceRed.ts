@@ -1,6 +1,6 @@
 /**
- * Answers for the RED view of the Traces explorer: `GET /api/v1/web/traces/red`
- * and `GET /api/v1/web/traces/red/breakdown`.
+ * Answers for the RED view of the Traces explorer: `GET /api/v1/web/traces/red`,
+ * `GET /api/v1/web/traces/red/breakdown` and `GET /api/v1/web/traces/red/compare`.
  *
  * The shared mock answers neither. `serveTraceRed` counts a day of Spans the
  * way the backend does: the requests of the scope asked for that pass the
@@ -301,15 +301,64 @@ function breakdown(params: URLSearchParams) {
   };
 }
 
+/** The fields a comparison weighs, as the backend reads every field of a Span but ids and moments. */
+const COMPARED = ['service.name', 'name', 'http.route', 'http.request.method', 'http.response.status_code', 'status_code'];
+
+/** The failed requests, or those that took at least `minDuration`, against the rest, field by field. */
+function comparison(params: URLSearchParams) {
+  const errors = params.get('errors') === 'true';
+  const min = params.has('minDuration') ? Number(params.get('minDuration')) : null;
+  const chosen = (span: MockSpan) => (!errors || failed(span)) && (min === null || Number(span.fields.duration_ns) >= min);
+  const spans = requestsOf(params);
+  const selected = spans.filter(chosen);
+  const rest = spans.filter((span) => !chosen(span));
+  const valueOf = (span: MockSpan, field: string) => {
+    const raw = span.fields[field];
+    return raw === null || raw === undefined || raw === '' ? null : String(raw);
+  };
+  const shares = (set: MockSpan[], field: string) => {
+    const counts = new Map<string | null, number>();
+    for (const span of set) counts.set(valueOf(span, field), (counts.get(valueOf(span, field)) ?? 0) + 1);
+    return counts;
+  };
+
+  const dimensions = selected.length === 0 || rest.length === 0
+    ? []
+    : COMPARED.filter((field) => !(errors && field === 'status_code'))
+        .map((field) => {
+          const left = shares(selected, field);
+          const right = shares(rest, field);
+          const values = [...new Set([...left.keys(), ...right.keys()])].map((value) => ({
+            value,
+            selected: (left.get(value) ?? 0) / selected.length,
+            baseline: (right.get(value) ?? 0) / rest.length,
+          }));
+          const score = values.reduce((sum, value) => sum + Math.abs(value.selected - value.baseline), 0) / 2;
+          values.sort((a, b) => Math.abs(b.selected - b.baseline) - Math.abs(a.selected - a.baseline) || b.selected - a.selected);
+          return { field, score, values: values.slice(0, 5) };
+        })
+        .filter((dimension) => dimension.score > 0)
+        .sort((a, b) => b.score - a.score || a.field.localeCompare(b.field));
+
+  return {
+    scope: params.get('scope') === 'all' ? 'all' : 'entry',
+    selected: selected.length,
+    baseline: rest.length,
+    sampled: false,
+    dimensions,
+  };
+}
+
 /** What the RED view asked, each endpoint in the order it was asked. */
 export interface AskedRed {
   overview: URLSearchParams[];
   breakdown: URLSearchParams[];
+  compare: URLSearchParams[];
 }
 
 /** Serves the RED view from the day of Spans above. Register it after `mountMockRoutes`. */
 export async function serveTraceRed(page: Page): Promise<AskedRed> {
-  const asked: AskedRed = { overview: [], breakdown: [] };
+  const asked: AskedRed = { overview: [], breakdown: [], compare: [] };
 
   await page.route(/\/api\/v1\/web\/traces\/red(\?.*)?$/, async (route) => {
     const params = new URL(route.request().url()).searchParams;
@@ -320,6 +369,11 @@ export async function serveTraceRed(page: Page): Promise<AskedRed> {
     const params = new URL(route.request().url()).searchParams;
     asked.breakdown.push(params);
     await route.fulfill({ json: breakdown(params) });
+  });
+  await page.route(/\/api\/v1\/web\/traces\/red\/compare(\?.*)?$/, async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    asked.compare.push(params);
+    await route.fulfill({ json: comparison(params) });
   });
 
   return asked;

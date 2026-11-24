@@ -311,6 +311,25 @@
           "timestamp_masked": "时间字段对你遮掩，无法按时间展开。",
           "field_protected": "这个字段对你遮掩，不能用来拆分请求。"
         }
+      },
+      "compare": {
+        "title": "对比",
+        "choice_label": "与其他请求对比的请求",
+        "choice": {
+          "none": "选择请求…",
+          "failed": "失败的请求",
+          "p95": "慢于 p95（{{duration}}）",
+          "p99": "慢于 p99（{{duration}}）"
+        },
+        "sample": "读取了 {{chosen}} 个选中请求和 {{others}} 个其他请求",
+        "sample_sampled": "采样 {{chosen}} 个选中请求和 {{others}} 个其他请求",
+        "score": "差异 {{score}}",
+        "shares": "选中 {{chosen}} · 其他 {{others}}",
+        "break_down": "按这个字段拆分请求",
+        "loading": "正在对比…",
+        "failed": "对比结果加载失败",
+        "none_chosen": "没有符合所选条件的请求",
+        "alike": "选中的请求和其他请求取值相近，没有哪个字段能把它们区分开"
       }
     },
     "spans": {

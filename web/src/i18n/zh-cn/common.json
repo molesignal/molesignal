@@ -563,5 +563,37 @@
     "bulk_failed_one": "{{total}} 项中有 {{count}} 项失败：{{reason}}",
     "bulk_failed_other": "{{total}} 项中有 {{count}} 项失败：{{reason}}",
     "clear_filters": "清除筛选"
+  },
+  "changes": {
+    "kind": {
+      "deployment": "发布",
+      "configuration": "配置变更",
+      "feature_flag": "功能开关",
+      "scaling": "扩缩容",
+      "infrastructure": "基础设施变更",
+      "annotation": "注解",
+      "version": "新版本",
+      "rule": "规则修改"
+    },
+    "status": {
+      "succeeded": "成功",
+      "failed": "失败",
+      "rolled_back": "已回滚"
+    },
+    "rail_one": "这段时间有 {{count}} 次变更",
+    "rail_other": "这段时间有 {{count}} 次变更",
+    "open": "打开",
+    "pull_request": "合并请求",
+    "ci_run": "CI 运行"
+  },
+  "baseline": {
+    "aria": "基线：{{value}}",
+    "title": "选择基线",
+    "relative": "跟随对比时段",
+    "overlaps": "该基线会与对比时段重叠。",
+    "previous": "上一个时段",
+    "day": "一天前的同一时段",
+    "week": "一周前的同一时段",
+    "custom": "自定义时段"
   }
 }

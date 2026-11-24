@@ -170,16 +170,6 @@
     "title": "Comparer les profils",
     "subtitle": "Voyez quels coûts ont augmenté ou diminué d’une période à l’autre. Choisissez librement les deux périodes.",
     "filters_aria": "Éléments comparés",
-    "baseline_aria": "Référence : {{value}}",
-    "baseline_title": "Choisir la période de référence",
-    "baseline_relative": "Par rapport à la période comparée",
-    "baseline_overlaps": "Cette période de référence chevaucherait la période comparée.",
-    "baselines": {
-      "previous": "Période précédente",
-      "day": "Même créneau la veille",
-      "week": "Même créneau une semaine plus tôt",
-      "custom": "Période personnalisée"
-    },
     "statement_aria": "Les deux périodes comparées",
     "comparison": "Comparaison",
     "baseline": "Référence",

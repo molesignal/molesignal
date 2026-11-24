@@ -563,5 +563,15 @@
     "bulk_failed_one": "{{total}} 行のうち {{count}} 行の更新に失敗しました：{{reason}}",
     "bulk_failed_other": "{{total}} 行のうち {{count}} 行の更新に失敗しました：{{reason}}",
     "clear_filters": "フィルターをクリア"
+  },
+  "baseline": {
+    "aria": "ベースライン: {{value}}",
+    "title": "ベースラインの選択",
+    "relative": "比較期間に連動",
+    "overlaps": "このベースラインは比較期間と重なります。",
+    "previous": "直前の期間",
+    "day": "1日前の同じ時間帯",
+    "week": "1週間前の同じ時間帯",
+    "custom": "カスタム期間"
   }
 }

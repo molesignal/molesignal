@@ -22,6 +22,8 @@ type Translate = TFunction<'pipelines'>;
 function line(outcome: CountingOutcome, t: Translate): string {
   if (outcome.kind === 'not_picked') return t('counting.test.not_picked');
 
+  if (outcome.kind === 'change') return t('counting.test.change');
+
   if (outcome.kind === 'metric') {
     if (outcome.value === null) return t('counting.test.no_number', { field: outcome.field });
 

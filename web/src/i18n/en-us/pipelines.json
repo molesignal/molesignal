@@ -327,7 +327,8 @@
       "counting_realtime_only": "Step \"{{name}}\" keeps count as events arrive: it runs only in a realtime pipeline.",
       "counting_not_here_metric": "Step \"{{name}}\" makes metrics of logs, RUM events and spans; this pipeline changes another kind of data.",
       "counting_not_here_limit": "Step \"{{name}}\" holds back logs and the RUM events a step may drop; here it would leave gaps in the data.",
-      "counting_name_duplicate": "Two steps are named \"{{name}}\". A step that keeps count needs a name of its own: its counts are kept under it."
+      "counting_name_duplicate": "Two steps are named \"{{name}}\". A step that keeps count needs a name of its own: its counts are kept under it.",
+      "counting_not_here_change": "Step \"{{name}}\" reads Kubernetes objects that come in as logs; this pipeline changes another kind of data."
     }
   },
   "drawer": {
@@ -480,7 +481,8 @@
       "query_enrich": "Add query results",
       "generate_metric": "Generate metric",
       "quota": "Quota",
-      "throttle": "Throttle"
+      "throttle": "Throttle",
+      "to_change": "Record changes"
     }
   },
   "editor": {
@@ -1191,7 +1193,8 @@
       "past_route": "sent to {{stream}}",
       "quota_limit": "{{limit}} {{unit}} a day",
       "throttle_limit": "{{limit}} per {{window}} s",
-      "limit": "Counts in {{bucket}} ({{limit}}); past the limit it is {{past}}."
+      "limit": "Counts in {{bucket}} ({{limit}}); past the limit it is {{past}}.",
+      "change": "Read as a change when its object moved since it was last seen: a new image, new replicas, a new spec or data."
     },
     "usage": {
       "title": "Limits today",
@@ -1204,7 +1207,12 @@
       "mib": "{{value}} MiB",
       "whole": "Whole step",
       "others": "Other buckets"
-    }
+    },
+    "change_environment": "Environment",
+    "change_environment_hint": "The environment of every change. Leave empty to take it from the field.",
+    "change_environment_field": "Environment field",
+    "change_environment_field_hint": "The event field that names the environment, such as the cluster.",
+    "summary_change": "Changes of {{environment}}"
   },
   "schedule_every": "Every {{interval}}"
 }

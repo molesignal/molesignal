@@ -4,15 +4,25 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import type { OverviewResponse } from '@/api/apm';
+import type { CorrelationReport } from '@/api/apmCorrelation';
 import type { EnvironmentMapping, NamingRule } from '@/api/apmSettings';
 import { useTimeFormatter } from '@/lib/time';
 
 import { caseVariants, generatedBase, renamed, suffixRule } from './form';
+import { correlationFindings, someNames } from '../correlation/model';
 import { formatCount } from '../format';
 import { ApmCard, ApmQueryState } from '../frame/Page';
 import { qualityState } from '../frame/QualityChip';
 
 const ACTION = 'font-strong text-indigo-soft outline-none hover:underline focus-visible:underline';
+
+/** Where each correlation finding is fixed. */
+const CORRELATION_FIX = {
+  untraced: '/datasource/applications/opentelemetry?signal=logs',
+  partly_traced: '/datasource/applications/opentelemetry?signal=logs',
+  unplaced: '/datasource/applications/opentelemetry?signal=traces',
+  no_changes: '/datasource/devops',
+} as const;
 
 interface Finding {
   key: string;
@@ -26,10 +36,14 @@ interface Finding {
  * How well APM read the services over the day before: what it could not
  * keep apart past the limits, what it missed or has yet to read, what the
  * services leave out; and the names a naming rule or an environment
- * mapping would read as one, each a setting away.
+ * mapping would read as one, each a setting away. Then how well the
+ * services tie to the rest of their data: logs without trace ids, services
+ * that do not say where they run, names in logs and metrics no service
+ * answers to, and services that report no changes.
  */
 export function QualityCard({
   query,
+  correlation,
   rules,
   mapped,
   limitsShown,
@@ -37,6 +51,8 @@ export function QualityCard({
   onAddMappings,
 }: {
   query: { data?: OverviewResponse | undefined; isPending: boolean; isError: boolean; error: unknown; refetch: () => unknown };
+  /** How well the services tie to the rest of their data; its findings follow the others once read. */
+  correlation: CorrelationReport | undefined;
   /** The naming rules as they stand, saved or not: a name they rename is not suggested again. */
   rules: readonly NamingRule[];
   /** The environments mapped, saved or not. */
@@ -140,6 +156,27 @@ export function QualityCard({
         ),
       });
     }
+  }
+
+  for (const finding of correlationFindings(correlation)) {
+    const { shown, more } = someNames(finding.names);
+    const names = more > 0 ? t('org_settings.quality.correlation.names_more', { names: shown.join(t('org_settings.quality.and')), count: more }) : shown.join(t('org_settings.quality.and'));
+
+    findings.push({
+      key: `correlation:${finding.key}`,
+      tone: finding.tone,
+      text: t(`org_settings.quality.correlation.${finding.key}`, { count: finding.names.length, formatted: formatCount(finding.names.length), names }),
+      action:
+        finding.key === 'unmatched' ? (
+          <button type="button" className={ACTION} onClick={() => document.querySelector('[data-apm-card="settings-naming"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' })}>
+            {t('org_settings.quality.correlation.to_naming')}
+          </button>
+        ) : (
+          <Link to={CORRELATION_FIX[finding.key]} className={ACTION}>
+            {t(finding.key === 'no_changes' ? 'org_settings.quality.correlation.report_changes' : 'org_settings.quality.instrument')}
+          </Link>
+        ),
+    });
   }
 
   return (

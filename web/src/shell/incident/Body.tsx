@@ -11,6 +11,7 @@ import { useUsers } from '@/shell/useUsers';
 import type { AlertRule, Incident } from '@/types/alerting';
 
 import { IncidentBlastRadius } from './BlastRadius';
+import { IncidentBusinessImpact } from './BusinessImpact';
 import { IncidentExternalAlert } from './ExternalAlert';
 import { IncidentGuide } from './Guide';
 import { IncidentHandlingNote } from './HandlingNote';
@@ -89,6 +90,7 @@ export function IncidentBody({
   const guide = <IncidentGuide rule={rule} time={timeWindow} surface={surface} />;
   const analysis = <IncidentRcaSection incidentId={incident.id} surface={surface} />;
   const blastRadius = <IncidentBlastRadius incident={incident} surface={surface} />;
+  const business = <IncidentBusinessImpact incident={incident} surface={surface} />;
   const similar = <IncidentSimilar incident={incident} surface={surface} />;
   const changes = <IncidentChanges incident={incident} surface={surface} />;
   const remediation = <IncidentRemediation incident={incident} surface={surface} />;
@@ -173,6 +175,7 @@ export function IncidentBody({
         {tickets}
         {postmortem}
         {blastRadius}
+        {business}
         {similar}
         {signals}
         {metadata}
@@ -205,6 +208,7 @@ export function IncidentBody({
         {tickets}
         {postmortem}
         {blastRadius}
+        {business}
         {similar}
         {signals}
         {metadata}

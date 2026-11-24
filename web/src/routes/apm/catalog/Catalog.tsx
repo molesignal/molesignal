@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { apmApi, apmQueryKeys } from '@/api/apm';
+import { apmCorrelationApi, apmCorrelationQueryKeys } from '@/api/apmCorrelation';
 import { cn } from '@/shell/lib/cn';
 import { Button } from '@/shell/ui/button';
 import { useUsers } from '@/shell/useUsers';
@@ -17,6 +18,7 @@ import { groupCatalogRows, tagKeys } from './groups';
 import { CATALOG_COLUMNS, catalogRows, type CatalogRow, type CatalogSort, DEFAULT_CATALOG_COLUMNS, filterCatalogRows, sortCatalogRows, tagChoices } from './model';
 import { catalogParamWriter, readCatalogParams } from './params';
 import { useOnCall, useTeams } from './people';
+import { correlationLookup } from '../correlation/model';
 import { ApmFirstRun } from '../frame/Activation';
 import { incidentsAbout, useActiveIncidents } from '../frame/alerts';
 import { ApmColumnMenu } from '../frame/ColumnMenu';
@@ -78,6 +80,12 @@ export function ApmCatalog() {
     queryFn: apmApi.definitions,
     enabled: Boolean(orgId),
   });
+  const correlation = useQuery({
+    queryKey: apmCorrelationQueryKeys.report(orgId, params),
+    queryFn: () => apmCorrelationApi.report(params),
+    enabled: Boolean(orgId) && columns.visible.includes('correlation'),
+    staleTime: 300_000,
+  });
   const { byId: teamsById, teams } = useTeams();
   const { nameOf } = useUsers();
 
@@ -95,8 +103,9 @@ export function ApmCatalog() {
       onCall: (teamId: string) => onCall.get(teamId) ?? null,
       alerts: (row: CatalogRow) =>
         row.environment ? incidentsAbout(incidents.data, { name: row.name, environment: row.environment }) : [],
+      correlation: correlationLookup(correlation.data),
     }),
-    [incidents.data, nameOf, onCall, teamsById],
+    [correlation.data, incidents.data, nameOf, onCall, teamsById],
   );
   const choices = React.useMemo(
     () => ({

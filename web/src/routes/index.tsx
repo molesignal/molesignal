@@ -37,6 +37,7 @@ import {
 } from './agent';
 import { Alerts } from './alerts';
 import { AlertsAnomaly } from './alerts/Anomaly';
+import { AlertsChanges } from './alerts/Changes';
 import { AlertsDiscovery } from './alerts/discovery';
 import { AlertsEscalations } from './alerts/escalation';
 import { AlertsHistory } from './alerts/History';
@@ -84,6 +85,7 @@ import {
   Users as IamUsers,
 } from './iam';
 import { IncidentDetail } from './IncidentDetail';
+import { EntityPage, Infrastructure } from './infrastructure';
 import { Investigate } from './Investigate';
 import { Logs } from './logs';
 import { LogInspections } from './logs/inspections';
@@ -394,6 +396,7 @@ export const router = createBrowserRouter(aboveShell([
       { path: 'alerts/rules/new', element: <AlertRuleWorkbench /> },
       { path: 'alerts/rules/:id/edit', element: <AlertRuleWorkbench /> },
       { path: 'alerts/history', element: <AlertsHistory /> },
+      { path: 'alerts/changes', element: <AlertsChanges /> },
       { path: 'alerts/insights', element: <AlertsInsights /> },
       { path: 'alerts/anomaly/add', element: <AlertsAnomaly /> },
       { path: 'alerts/anomaly/edit/:id', element: <AlertsAnomaly /> },
@@ -440,6 +443,8 @@ export const router = createBrowserRouter(aboveShell([
       { path: 'profiles', element: <Profiles /> },
       { path: 'profiles/compare', element: <ProfilesCompare /> },
       { path: 'profiles/:id', element: <ProfileDetail /> },
+      { path: 'infrastructure', element: <Infrastructure /> },
+      { path: 'infrastructure/:kind', element: <EntityPage /> },
 
       /* ADMIN */
       {

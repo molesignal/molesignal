@@ -1,0 +1,60 @@
+{
+  "title": "基础设施",
+  "subtitle": "服务运行在哪里：集群、节点、主机、Pod 和容器，从 Span、指标和日志的资源字段读出。",
+  "kind": {
+    "all": "全部类型",
+    "cluster": "集群",
+    "node": "节点",
+    "host": "主机",
+    "pod": "Pod",
+    "container": "容器"
+  },
+  "list": {
+    "search_label": "搜索基础设施",
+    "search_placeholder": "按名称或键搜索",
+    "kind_label": "类型",
+    "error_title": "无法加载基础设施",
+    "retry": "重试",
+    "empty_title": "还没有看到任何实体",
+    "empty_description": "Span、指标或日志带上 k8s.pod.name、k8s.node.name、host.name 等资源字段后，五分钟内会出现在这里。",
+    "no_match_title": "没有匹配项",
+    "no_match_description": "换个名称或类型试试。",
+    "columns": {
+      "name": "名称",
+      "kind": "类型",
+      "where": "位置",
+      "services": "服务",
+      "last_seen": "最后出现"
+    },
+    "open": "打开 {{name}}"
+  },
+  "status": {
+    "current": "正在运行",
+    "stale": "最后出现于 {{when}}"
+  },
+  "detail": {
+    "error_title": "无法加载该实体",
+    "not_found_title": "没有看到",
+    "not_found_description": "最近一周没有看到这个类型和键的实体。",
+    "key": "键",
+    "kind": "类型",
+    "first_seen": "首次出现",
+    "last_seen": "最后出现",
+    "copy": "复制",
+    "copied": "已复制",
+    "parents": "运行在",
+    "parents_empty": "不属于任何已看到的实体。",
+    "children": "运行在它上面",
+    "children_empty": "没有看到运行在它上面的实体。",
+    "services": "服务",
+    "services_description": "在它上面，以及在运行于它上面的实体上",
+    "services_empty": "没有看到它上面的服务。服务的 Span 写明这个位置后才会出现。",
+    "attributes": "资源属性",
+    "changes": "其服务的变更",
+    "changes_description": "最近 24 小时",
+    "changes_empty": "最近 24 小时没有变更。",
+    "logs": "日志",
+    "metrics": "指标",
+    "open_page": "打开页面"
+  }
+}

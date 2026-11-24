@@ -56,7 +56,7 @@ import {
   TooltipTrigger,
 } from '@/shell/ui/tooltip';
 
-import { resolveInlineAnnotations } from './annotations';
+import { useDashboardAnnotations } from './annotations';
 import { buildDataLinkUrl } from './dataLinks';
 import {
   EditableDashboardGridItem,
@@ -503,15 +503,7 @@ function DashboardPanelCard({
       ? null
       : `dashboard:${context.dashboard.uid}`;
   const data = usePanelData(panel, variables, context);
-  const annotations = React.useMemo(
-    () =>
-      resolveInlineAnnotations(
-        context.dashboard.annotations,
-        variables,
-        data.timeRange,
-      ),
-    [context.dashboard.annotations, data.timeRange, variables],
-  );
+  const annotations = useDashboardAnnotations(context.dashboard, variables, data.timeRange);
   const renderPanel = React.useMemo(
     () =>
       panel.visualization.type === 'time_series' && annotations.length > 0

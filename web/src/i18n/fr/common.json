@@ -572,5 +572,15 @@
     "bulk_failed_other": "{{count}} échecs sur {{total}} : {{reason}}",
     "bulk_failed_many": "{{count}} échecs sur {{total}} : {{reason}}",
     "clear_filters": "Effacer les filtres"
+  },
+  "baseline": {
+    "aria": "Référence : {{value}}",
+    "title": "Choisir la période de référence",
+    "relative": "Par rapport à la période comparée",
+    "overlaps": "Cette période de référence chevaucherait la période comparée.",
+    "previous": "Période précédente",
+    "day": "Même créneau la veille",
+    "week": "Même créneau une semaine plus tôt",
+    "custom": "Période personnalisée"
   }
 }

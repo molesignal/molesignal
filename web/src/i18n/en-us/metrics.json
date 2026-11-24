@@ -1,5 +1,11 @@
 {
   "explore": {
+    "baseline": {
+      "compare": "Compare",
+      "stop": "Stop comparing",
+      "failed": "The baseline could not be read",
+      "series": "{{name}} (baseline)"
+    },
     "title": "Metrics",
     "subtitle": "explorer",
     "toolbar": {

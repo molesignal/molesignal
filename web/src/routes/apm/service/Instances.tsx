@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import type { ServiceInstance } from '@/api/apm';
+import { entityHref, placeOf } from '@/routes/infrastructure/model';
 import { cn } from '@/shell/lib/cn';
 import { LONG_LIST_ROW_CLASS, longListRowStyle } from '@/shell/list/longList';
 import { Sparkline } from '@/shell/readout/Sparkline';
@@ -99,7 +100,7 @@ export function ServiceInstances({
                   className="truncate text-tx-0"
                   title={[where(instance), instance.attributes['container.name'], instance.attributes['k8s.node.name'], instance.attributes['cloud.region']].filter(Boolean).join(' · ')}
                 >
-                  {where(instance) || '—'}
+                  <Where instance={instance} />
                 </span>
                 <span role="cell" className="truncate text-tx-0">
                   {runtime(instance) || '—'}
@@ -172,6 +173,20 @@ export function instanceLabel(instance: ServiceInstance): RuntimeInstance {
   if (attributes['k8s.pod.name'] === value) return { label: 'k8s.pod.name', value };
   if (attributes['host.name'] === value) return { label: 'host.name', value };
   return { label: 'service.instance.id', value };
+}
+
+/** Where an instance runs, opening the page of its pod or host when it names one. */
+function Where({ instance }: { instance: ServiceInstance }) {
+  const label = where(instance);
+  const place = placeOf(instance.attributes);
+  if (!label) return <>—</>;
+  if (!place) return <>{label}</>;
+
+  return (
+    <Link to={entityHref(place.kind, place.key)} data-apm-instance-place={place.key} className="hover:underline focus-visible:underline focus-visible:outline-none">
+      {label}
+    </Link>
+  );
 }
 
 /** Where an instance runs: its Kubernetes workload and pod, else its host. */

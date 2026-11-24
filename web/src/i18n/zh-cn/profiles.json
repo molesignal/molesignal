@@ -169,16 +169,6 @@
     "title": "对比 profile",
     "subtitle": "一个时段相对另一个时段，哪些函数变热、哪些变冷；两个时段都可以自由设定。",
     "filters_aria": "对比范围",
-    "baseline_aria": "基线：{{value}}",
-    "baseline_title": "选择基线",
-    "baseline_relative": "跟随对比时段",
-    "baseline_overlaps": "该基线会与对比时段重叠。",
-    "baselines": {
-      "previous": "上一个时段",
-      "day": "一天前的同一时段",
-      "week": "一周前的同一时段",
-      "custom": "自定义时段"
-    },
     "statement_aria": "参与对比的两个时段",
     "comparison": "对比时段",
     "baseline": "基线时段",

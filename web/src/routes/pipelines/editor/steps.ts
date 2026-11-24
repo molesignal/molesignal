@@ -16,6 +16,7 @@ import {
   Regex,
   Replace,
   ReplaceAll,
+  Rocket,
   Sparkles,
   Split,
   TableProperties,
@@ -63,6 +64,7 @@ export const STEP_ICONS: Record<StepType, LucideIcon> = {
   generate_metric: ChartLine,
   quota: CalendarClock,
   throttle: Timer,
+  to_change: Rocket,
 };
 
 /**

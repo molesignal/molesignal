@@ -32,6 +32,11 @@ export function countingSummary(step: CountingParts & { kind?: string | undefine
     return [limit, by && t('counting.summary_by', { fields: by })].filter(Boolean).join(' · ');
   }
 
+  if (kind === 'to_change') {
+    const environment = step.change?.environment.trim() || step.change?.environmentField.trim();
+    return environment ? t('counting.summary_change', { environment }) : '';
+  }
+
   const throttle = step.throttle;
   if (!throttle?.limit.trim()) return '';
 

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import type { VersionSummary } from '@/api/apm';
-import { apmDeploymentsApi, apmDeploymentsQueryKeys, type DeploymentEvent } from '@/api/apmDeployments';
+import { type ChangeEntry, changesApi, changesQueryKeys, REPORTED_CHANGE_KINDS } from '@/api/changes';
 import { useTimeFormatter } from '@/lib/time';
 import { cn } from '@/shell/lib/cn';
 import { formatRelativeMicros } from '@/time/relative';
@@ -26,6 +26,8 @@ const KIND_TEXT: Record<TimelineKind, string> = {
   first_seen: 'text-tx-2',
   configuration: 'text-[var(--purple-ink)]',
   feature_flag: 'text-[var(--purple-ink)]',
+  scaling: 'text-[var(--blue-ink)]',
+  infrastructure: 'text-[var(--blue-ink)]',
 };
 
 const LINK = 'inline-flex min-w-0 items-center gap-1 rounded text-tx-1 outline-none hover:text-tx-0 hover:underline focus-visible:underline';
@@ -47,15 +49,16 @@ export function DeployTimelineCard({
 }) {
   const { t } = useTranslation('apm');
   const params = {
-    service: address.name,
+    services: [address.name],
     namespace: address.namespace || undefined,
     environment: address.scope.environment || undefined,
+    kinds: REPORTED_CHANGE_KINDS,
     from: address.range.from.getTime() * 1_000,
     to: address.range.to.getTime() * 1_000,
   };
   const events = useQuery({
-    queryKey: apmDeploymentsQueryKeys.list(address.orgId, params),
-    queryFn: () => apmDeploymentsApi.list(params),
+    queryKey: changesQueryKeys.list(address.orgId, params),
+    queryFn: () => changesApi.list(params),
     enabled: Boolean(address.orgId && address.name),
     refetchInterval: 60_000,
   });
@@ -71,7 +74,7 @@ export function DeployTimelineCard({
       testId="deployments"
       actions={
         reported === 0 && (
-          <Link to="/datasource/applications/github-actions" className="font-sans text-xs font-strong text-indigo-soft hover:underline">
+          <Link to="/datasource/devops/github-actions" className="font-sans text-xs font-strong text-indigo-soft hover:underline">
             {t('deployments.report')}
           </Link>
         )
@@ -153,7 +156,7 @@ function TimelineRow({ entry, current, onCompare }: { entry: TimelineEntry; curr
 }
 
 /** Where a reported deployment came from: its commit, pull request, CI run and author. */
-function Change({ event }: { event: DeploymentEvent }) {
+function Change({ event }: { event: ChangeEntry }) {
   const { t } = useTranslation('apm');
   const commit = event.commit?.slice(0, 7);
   const commitHref = event.commit ? commitLink(event.repositoryUrl, event.commit) : null;

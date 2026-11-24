@@ -2247,6 +2247,10 @@
       "title": "Get trace DAG",
       "description": "Return a compact service/span dependency DAG for one trace without full span payloads."
     },
+    "compare_attribute_distributions": {
+      "title": "Compare slow or failed requests",
+      "description": "Rank the fields whose values slow or failed requests have apart from the other requests, read from a sample of each."
+    },
     "list_trace_sessions": {
       "title": "List trace sessions",
       "description": "List bounded LLM/AI trace sessions when session fields exist in the trace stream."
@@ -2491,6 +2495,10 @@
       "title": "Get a service's blast radius",
       "description": "Return the services that call a service and what it calls along the service map, the unhealthy first."
     },
+    "get_correlation_quality": {
+      "title": "Get correlation quality",
+      "description": "Return how well each service ties to its logs, metrics, traces and changes, and the service names in logs and metrics that APM does not know."
+    },
     "correlate_signals": {
       "title": "Correlate signals",
       "description": "Return bounded links between incidents, traces, logs, RUM, and profiles for a service or trace."
@@ -2498,6 +2506,14 @@
     "get_service_topology": {
       "title": "Get service topology",
       "description": "Return a bounded service dependency graph for a time range."
+    },
+    "list_entities": {
+      "title": "List infrastructure",
+      "description": "List the clusters, nodes, hosts, pods and containers seen over the last week, with how many services run on each."
+    },
+    "get_entity": {
+      "title": "Get an infrastructure entity",
+      "description": "Return a cluster, node, host, pod or container with what it runs on, what runs on it and the services on it."
     },
     "list_rum_sessions": {
       "title": "List RUM sessions",

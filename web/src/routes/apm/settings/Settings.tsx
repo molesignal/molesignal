@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { apmApi, apmQueryKeys } from '@/api/apm';
+import { apmCorrelationApi, apmCorrelationQueryKeys } from '@/api/apmCorrelation';
 import { type ApmSettings as Settings, DEFAULT_APM_SETTINGS } from '@/api/apmSettings';
 import { toApiError } from '@/lib/http';
 import { hasPermission, useProductAccess } from '@/product/access';
@@ -10,6 +11,7 @@ import { useActionAccess } from '@/product/actionAccess';
 import { toast } from '@/shell/ui/sonner';
 import { useAuthStore } from '@/stores/auth';
 
+import { BusinessContextCard } from './BusinessContextCard';
 import { EnvironmentMapCard, NamingRulesCard } from './NamingCards';
 import { useDraft } from './parts';
 import { LimitsCard, SamplingCard } from './PlatformCards';
@@ -52,6 +54,11 @@ export function ApmSettings() {
     queryFn: () => apmApi.overview(params),
     enabled: Boolean(orgId),
   });
+  const correlation = useQuery({
+    queryKey: apmCorrelationQueryKeys.report(orgId, params),
+    queryFn: () => apmCorrelationApi.report(params),
+    enabled: Boolean(orgId),
+  });
   const services = [...new Set((overview.data?.services ?? []).map((summary) => summary.service.name))].sort();
   const limitsShown = hasPermission('sys.settings.limits.read', product);
 
@@ -73,6 +80,7 @@ export function ApmSettings() {
       <ApmQueryState query={query} empty={false}>
         <QualityCard
           query={overview}
+          correlation={correlation.data}
           rules={naming.value}
           mapped={environments.value}
           limitsShown={limitsShown}
@@ -86,6 +94,7 @@ export function ApmSettings() {
           <EnvironmentMapCard draft={environments} {...shared} onSave={() => persist({ environmentMap: environments.value }, environments.reset)} />
         </div>
         <AliasesCard draft={aliases} services={services} {...shared} onSave={() => persist({ aliases: aliases.value }, aliases.reset)} />
+        <BusinessContextCard access={access} />
         {limitsShown && <LimitsCard />}
         {hasPermission('sys.telemetry.read', product) && <SamplingCard />}
       </ApmQueryState>

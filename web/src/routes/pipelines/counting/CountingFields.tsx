@@ -5,6 +5,7 @@ import { ChromeButton, IconButton, uiLabelClass } from '@/shell/chrome';
 import { CopyField } from '@/shell/CopyField';
 import { FormField, FormInput, FormSelect } from '@/shell/FormDrawer';
 
+import { ChangeFields } from './ChangeFields';
 import {
   DEFAULT_BUCKETS,
   METRIC_INTERVALS,
@@ -55,6 +56,7 @@ export function CountingFields({
       {kind === 'generate_metric' && step.metric && (
         <MetricFields metric={step.metric} resources={resources} onChange={(metric) => onChange({ metric })} />
       )}
+      {kind === 'to_change' && step.change && <ChangeFields change={step.change} onChange={(change) => onChange({ change })} />}
       {kind === 'quota' && step.quota && (
         <QuotaFields
           quota={step.quota}

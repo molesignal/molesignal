@@ -169,16 +169,6 @@
     "title": "Profile vergleichen",
     "subtitle": "Sehen Sie, wo die Kosten im Vergleich gestiegen oder gesunken sind. Beide Zeiträume sind frei wählbar.",
     "filters_aria": "Was verglichen wird",
-    "baseline_aria": "Referenzzeitraum: {{value}}",
-    "baseline_title": "Referenzzeitraum auswählen",
-    "baseline_relative": "Relativ zum Vergleichszeitraum",
-    "baseline_overlaps": "Dieser Referenzzeitraum würde sich mit dem Vergleichszeitraum überschneiden.",
-    "baselines": {
-      "previous": "Vorheriger Zeitraum",
-      "day": "Gleiche Zeit am Vortag",
-      "week": "Gleiche Zeit eine Woche zuvor",
-      "custom": "Benutzerdefinierter Zeitraum"
-    },
     "statement_aria": "Die beiden verglichenen Zeiträume",
     "comparison": "Vergleich",
     "baseline": "Referenz",
