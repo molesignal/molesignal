@@ -9,16 +9,13 @@ name: Translate
 # points it at another OpenAI-compatible service.
 
 on:
+  # Only the hand-written English and Simplified Chinese JSON start a run. After changing the
+  # configs, the scripts or the server's text in the migrations, start it by hand.
   push:
     branches: [main]
     paths:
-      - 'web/src/i18n/en-us/**'
-      - 'web/src/i18n/zh-cn/**'
-      - 'web/i18n.config.json'
-      - 'web/i18n.zh-tw.config.json'
-      - 'web/scripts/i18n/**'
-      - 'crates/engines/postgres/src/migrations/20260101000001_initial.sql'
-      - '.github/workflows/translate.yml'
+      - 'web/src/i18n/en-us/**.json'
+      - 'web/src/i18n/zh-cn/**.json'
   workflow_dispatch:
 
 permissions:
