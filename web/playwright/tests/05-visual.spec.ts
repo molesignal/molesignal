@@ -109,6 +109,9 @@ for (const combo of COMBINATIONS) {
       await expect(page.getByPlaceholder(/search commands/i)).toBeVisible();
       // What waits on the reader comes from a request of its own.
       await expect(page.locator('[data-acknowledge]').first()).toBeVisible();
+      // Those rows arrive after the palette opened on its actions; the highlight moves up to the
+      // first of them a moment later, and the picture is of where it rests.
+      await expect(page.locator('[cmdk-item]').first()).toHaveAttribute('data-selected', 'true');
       await expect(page).toHaveScreenshot(`palette-${combo.theme}-${combo.density}.png`, {
         fullPage: true,
         animations: 'disabled',

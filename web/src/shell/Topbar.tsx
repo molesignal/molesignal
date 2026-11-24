@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 
 import * as meApi from '@/api/me';
 import { docsLocale } from '@/i18n';
-import { resolveDefaultHomeRoute } from '@/lib/homeRoute';
+import { homeButtonRoute, resolveDefaultHomeRoute } from '@/lib/homeRoute';
 import { toApiError } from '@/lib/http';
 import {
   canAccessProductPath,
@@ -25,6 +25,7 @@ import {
 import { AboutDialog } from '@/shell/AboutDialog';
 import { chromeIconButtonSizeClass, uiUserAvatarClass } from '@/shell/chrome';
 import { cn } from '@/shell/lib/cn';
+import { HomeButton } from '@/shell/menu/HomeButton';
 import { MenuButton } from '@/shell/menu/MenuButton';
 import type { HoverOpen } from '@/shell/menu/useHoverOpen';
 import { NotificationCenter } from '@/shell/notifications/NotificationCenter';
@@ -100,6 +101,16 @@ export function Topbar({
   const avatarUrl = profile?.avatarUrl?.trim() ?? '';
 
   const initial = displayName[0]?.toUpperCase() ?? 'M';
+  // The shell root loads these; reading them here keeps the home button on the chosen page.
+  const preferencesQuery = useQuery({
+    queryKey: USER_PREFERENCES_QUERY_KEY,
+    queryFn: () => meApi.preferences(),
+    enabled: !!ctx,
+    staleTime: 5 * 60_000,
+  });
+  const homeRoute = homeButtonRoute(
+    (preferencesQuery.data ?? meApi.DEFAULT_USER_PREFERENCES).defaultHomeRoute,
+  );
   const preferredHome = (orgId = ctx?.orgId ?? '') => {
     const preferences =
       queryClient.getQueryData<meApi.UserPreferences>(
@@ -189,13 +200,18 @@ export function Topbar({
         className="-ml-1.5"
       />
 
-      {/* The whole navigation hangs from here, on every screen. */}
-      <MenuButton
-        open={menuOpen}
-        onToggle={menuHover.toggle}
-        onPointerEnter={menuHover.onPointerEnter}
-        onPointerLeave={menuHover.onPointerLeave}
-      />
+      {/* Home, then the menu the whole navigation hangs from, on every screen. The pair draws in
+          by the buttons' own padding: it meets the organization's button edge to edge, so the
+          chevron, home and menu icons stand evenly apart, and the search a little nearer. */}
+      <div className="-ml-[12px] -mr-[6px] flex shrink-0 items-center gap-[2px]">
+        <HomeButton to={homeRoute} />
+        <MenuButton
+          open={menuOpen}
+          onToggle={menuHover.toggle}
+          onPointerEnter={menuHover.onPointerEnter}
+          onPointerLeave={menuHover.onPointerLeave}
+        />
+      </div>
 
       {/* Global search — the product's "launch anything" control surface. It is a card on the bar,
           not a field: no ring drawn round it, a soft shadow that lifts under the pointer, and a

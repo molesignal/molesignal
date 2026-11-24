@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  homeButtonRoute,
   LAST_VISITED_HOME,
   rememberLastVisitedRoute,
   resolveDefaultHomeRoute,
@@ -129,5 +130,14 @@ describe('last visited route', () => {
       expect(localStorage.getItem('molesignal-last-route:u3:o1')).toBeNull();
       expect(stored()['u3:o1']).toBeUndefined();
     });
+  });
+});
+
+describe('home button route', () => {
+  it('goes to the chosen page, and to the platform home when the choice is the last page seen', () => {
+    rememberLastVisitedRoute('u1', 'o1', '/logs');
+    expect(homeButtonRoute('/dashboards/d1')).toBe('/dashboards/d1');
+    expect(homeButtonRoute(LAST_VISITED_HOME)).toBe('/home');
+    expect(homeButtonRoute('')).toBe('/home');
   });
 });

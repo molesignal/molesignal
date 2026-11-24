@@ -72,6 +72,14 @@ export function rememberLastVisitedRoute(
   localStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
 }
 
+/**
+ * Where the top bar's home button goes: the home page the reader chose, or the platform's when
+ * they chose to come back to the last page they saw — a button cannot follow that one.
+ */
+export function homeButtonRoute(preference: string): string {
+  return preference.startsWith('/') ? preference : FALLBACK_HOME;
+}
+
 export function resolveDefaultHomeRoute(
   preference: string,
   userId: string,
