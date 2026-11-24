@@ -5,7 +5,7 @@ import {
   flatten,
   listLocales,
   listNamespaces,
-  manyFormOf,
+  pluralFormOf,
   readNamespace,
   setsEqual,
 } from './shared';
@@ -74,7 +74,7 @@ for (const locale of targets) {
     }
     const sourceKeys = new Set(Object.keys(source));
     for (const key of Object.keys(target)) {
-      if (!sourceKeys.has(key) && !manyFormOf(locale, key, sourceKeys)) {
+      if (!sourceKeys.has(key) && !pluralFormOf(locale, key, sourceKeys)) {
         findings.push({ locale, namespace, kind: 'orphan', key });
       }
     }

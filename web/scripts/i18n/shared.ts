@@ -96,13 +96,14 @@ export function pluralForms(locale: string): Set<string> {
 }
 
 /**
- * The `_many` form of a key the source counts (it has `key_other`), in a
- * locale whose plural rules have a `many` form the source language lacks —
- * French, Spanish and Portuguese say "1 million" with it. Such a key is part
- * of the target, not an orphan; it reads as the `_other` form.
+ * A plural form the target language has and the source lacks, of a key the source counts (it
+ * has `key_other`): French, Spanish and Portuguese say "1 million" with `_many`, and a key that
+ * English writes only as `_other` still needs `_one` in German. i18n-cli adds these forms, so
+ * they are part of the target, not orphans.
  */
-export function manyFormOf(locale: string, key: string, sourceKeys: ReadonlySet<string>): boolean {
-  if (!key.endsWith('_many') || !pluralForms(locale).has('many')) return false;
+export function pluralFormOf(locale: string, key: string, sourceKeys: ReadonlySet<string>): boolean {
+  const match = /^(.+)_(zero|one|two|few|many|other)$/.exec(key);
+  if (!match?.[1] || !match[2] || !pluralForms(locale).has(match[2] as Intl.LDMLPluralRule)) return false;
 
-  return sourceKeys.has(`${key.slice(0, -'_many'.length)}_other`);
+  return sourceKeys.has(`${match[1]}_other`);
 }
