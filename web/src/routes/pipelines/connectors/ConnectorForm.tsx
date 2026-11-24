@@ -108,8 +108,7 @@ function SettingField({
       {field.stream ? (
         <StreamCombobox
           value={value}
-          // A source connector brings logs in, so it writes to a log stream.
-          streams={pipelineStreamOptions(resources.streams, 'logs', value)}
+          streams={pipelineStreamOptions(resources.streams, field.stream, value)}
           pending={resources.streamsPending}
           creatable
           onChange={(stream) => onChange(field.key, stream)}

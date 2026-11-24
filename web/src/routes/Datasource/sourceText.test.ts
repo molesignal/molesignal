@@ -65,12 +65,12 @@ describe('the catalogue and its words', () => {
   it('puts this workspace\'s address into a sentence that names the endpoint', () => {
     const { result } = renderHook(() => useSourceText());
 
-    const forward = result.current.step({ id: 'gcp' }, 1, {
+    const forward = result.current.step({ id: 'azure' }, 0, {
       ENDPOINT: 'https://obs.example.com',
     });
 
     expect(forward.description).toContain(
-      'POST to https://obs.example.com/api/v1/intake/logs/default',
+      'POSTs to https://obs.example.com/api/v1/intake/logs/default',
     );
   });
 

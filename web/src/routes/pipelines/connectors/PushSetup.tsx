@@ -32,7 +32,12 @@ export function PushSetup({ kind, token }: { kind: ConnectorKind; token?: string
         ? { label: 'destination', value: `${endpoint}?header_X-Connector-Token=${token}` }
         : kind === 'heroku_drain'
           ? { label: 'command', value: `heroku drains:add "${endpoint}?token=${token}"` }
-          : null;
+          : kind === 'gcp_pubsub_push'
+            ? {
+                label: 'command',
+                value: `gcloud pubsub subscriptions create molesignal --topic=<topic> --push-endpoint="${endpoint}?token=${token}"`,
+              }
+            : null;
 
   return (
     <div data-connector-push-setup className="grid gap-[12px]">

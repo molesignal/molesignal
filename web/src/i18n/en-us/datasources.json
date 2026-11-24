@@ -41,28 +41,32 @@
     }
   },
   "aws": {
-    "name": "AWS (CloudWatch + S3)",
-    "description": "Push logs to MoleSignal through a CloudWatch Logs subscription and Kinesis Firehose.",
+    "name": "AWS (CloudWatch)",
+    "description": "Push CloudWatch Logs and CloudWatch metrics to MoleSignal through Amazon Data Firehose.",
     "steps": {
       "1": {
-        "title": "Create a Firehose delivery stream (HTTP endpoint destination)",
-        "description": "Firehose cannot send a Bearer token, so it goes through a push connector: use the address below as the endpoint URL, and as the access key the connector push token created under Data sources → Connectors."
+        "title": "Create a Firehose stream with an HTTP endpoint destination",
+        "description": "Firehose cannot send a Bearer token, so it goes through a push connector: create an Amazon Data Firehose connector under Pipelines → Connectors, then use the address below as the endpoint URL and the connector’s token as the access key. Firehose only delivers to HTTPS on port 443 with a publicly trusted certificate."
       },
       "2": {
         "title": "Subscribe CloudWatch Logs"
+      },
+      "3": {
+        "title": "Stream CloudWatch metrics",
+        "description": "Use the OpenTelemetry 1.0 or JSON output format. Each statistic becomes a sample named like aws_ec2_cpuutilization_average in the connector’s metrics stream."
       }
     }
   },
   "gcp": {
     "name": "GCP (Cloud Logging)",
-    "description": "Push Cloud Logging to the MoleSignal HTTP endpoint through a Pub/Sub sink.",
+    "description": "Push Cloud Logging to MoleSignal through a Log Router sink and a Pub/Sub push subscription.",
     "steps": {
       "1": {
         "title": "Create a Cloud Logging sink → Pub/Sub topic"
       },
       "2": {
-        "title": "Subscribe and forward to MoleSignal",
-        "description": "Read Pub/Sub with a Cloud Run function and POST to {{ENDPOINT}}/api/v1/intake/logs/default with Authorization: Bearer <token>."
+        "title": "Push the topic to MoleSignal",
+        "description": "Create a Google Cloud Pub/Sub push connector under Pipelines → Connectors, and put its token in the push endpoint. To check the subscription’s OIDC token as well, name its service account on the connector and add --push-auth-service-account."
       }
     }
   },
@@ -436,6 +440,24 @@
       "1": {
         "title": "Configure the Logpush job",
         "description": "Point destination_conf at {{ENDPOINT}}/api/v1/_cloudflare with the header X-Connector-Token=<connector-push-token> (push connectors authenticate themselves; no Bearer token)."
+      }
+    }
+  },
+  "aliyun-prometheus": {
+    "name": "Alibaba Cloud Prometheus delivery",
+    "description": "Deliver cloud product metrics from Alibaba Cloud Managed Service for Prometheus to MoleSignal by remote write.",
+    "steps": {
+      "1": {
+        "title": "Bring the cloud product metrics into a Prometheus instance",
+        "description": "Delivery needs a paid Prometheus for cloud services instance: the free cloud-product-prometheus instances cannot deliver. Enterprise CloudMonitor and EventBridge must be activated, and both bill for what is delivered."
+      },
+      "2": {
+        "title": "Create a delivery task to a self-managed Prometheus",
+        "description": "In the console, open the instance's data delivery, add a task, and choose Prometheus Remote Write as the target. Enter the address and the Basic Auth user name and password below; the user name can be anything, the password is the intake token. The stream query parameter names the metrics stream. MoleSignal must be reachable from the delivery network."
+      },
+      "3": {
+        "title": "Check the metrics in MoleSignal",
+        "description": "Cloud product metrics are named like AliyunEcs_CPUUtilization. Run this query on the aliyun metrics stream once the first delivery has arrived."
       }
     }
   },

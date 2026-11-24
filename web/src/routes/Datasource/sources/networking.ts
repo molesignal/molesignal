@@ -1,6 +1,6 @@
 /** Service meshes, ingress and the edge. */
 
-import type { Source } from './types';
+import { ENDPOINT, TOKEN, type Source } from './types';
 
 export const NETWORKING_SOURCES: Source[] = [
   {
@@ -37,6 +37,29 @@ export const NETWORKING_SOURCES: Source[] = [
     signals: ['logs'],
     steps: [
       {},
+    ],
+  },
+  {
+    // Alibaba Cloud's managed Prometheus delivers cloud product metrics by remote write.
+    id: 'aliyun-prometheus',
+    category: 'networking',
+    signals: ['metrics'],
+    steps: [
+      {},
+      {
+        code: {
+          lang: 'text',
+          content: `Remote Write URL: ${ENDPOINT}/api/v1/prometheus/api/v1/write?stream=aliyun
+Basic Auth username: molesignal
+Basic Auth password: ${TOKEN}`,
+        },
+      },
+      {
+        code: {
+          lang: 'text',
+          content: 'count by (__name__) ({__name__=~"Aliyun.*"})',
+        },
+      },
     ],
   },
 ];

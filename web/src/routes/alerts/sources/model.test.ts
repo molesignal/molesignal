@@ -43,7 +43,7 @@ describe('alert source model', () => {
     expect(intakeAddress('https://obs.example.com', { ...source, kind: 'aliyun_cms' }, 'mspat-ab')).toBe(
       'https://obs.example.com/api/v1/intake/alerts?token=mspat-ab',
     );
-    for (const kind of ['tencent_monitor', 'aws_cloudwatch'] as const) {
+    for (const kind of ['tencent_monitor', 'aws_cloudwatch', 'azure_monitor', 'gcp_monitoring', 'huawei_ces'] as const) {
       expect(intakeAddress('https://obs.example.com', { ...source, kind }, 'mspat-ab')).toBe(
         'https://obs.example.com/api/v1/intake/alerts?token=mspat-ab',
       );
@@ -62,6 +62,12 @@ describe('alert source model', () => {
     // Aliyun is set up by its address alone, the token in it.
     expect(setupSnippet('aliyun_cms', url)).toBeNull();
     expect(setupSnippet('tencent_monitor', url)).toBeNull();
+    expect(setupSnippet('gcp_monitoring', url)).toBeNull();
+    expect(setupSnippet('huawei_ces', url)).toBeNull();
+    // Azure Monitor needs the common alert schema on the webhook action.
+    expect(setupSnippet('azure_monitor', `${url}?token=mspat-xy`)?.content).toContain(
+      `--add-action webhook molesignal '${url}?token=mspat-xy' usecommonalertschema`,
+    );
     // CloudWatch reaches it through an SNS topic, which subscribes the address.
     expect(setupSnippet('aws_cloudwatch', `${url}?token=mspat-xy`)?.content).toContain(
       `--notification-endpoint '${url}?token=mspat-xy'`,

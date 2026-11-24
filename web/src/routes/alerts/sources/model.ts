@@ -5,7 +5,14 @@ import type { Incident } from '@/types/alerting';
 /** Stands for the token where it is not known: after creation it is never shown again. */
 export const TOKEN_PLACEHOLDER = '<TOKEN>';
 
-const TOKEN_IN_ADDRESS: readonly AlertSourceKind[] = ['aliyun_cms', 'tencent_monitor', 'aws_cloudwatch'];
+const TOKEN_IN_ADDRESS: readonly AlertSourceKind[] = [
+  'aliyun_cms',
+  'tencent_monitor',
+  'aws_cloudwatch',
+  'azure_monitor',
+  'gcp_monitoring',
+  'huawei_ces',
+];
 
 /** A sender that cannot set a header: the token rides in the address. */
 export function tokenInAddress(kind: AlertSourceKind): boolean {
@@ -178,6 +185,8 @@ Custom Header: Authorization = Bearer ${token}`,
       };
     case 'aliyun_cms':
     case 'tencent_monitor':
+    case 'gcp_monitoring':
+    case 'huawei_ces':
       // The token rides in the address.
       return null;
     case 'aws_cloudwatch':
@@ -187,6 +196,14 @@ Custom Header: Authorization = Bearer ${token}`,
   --topic-arn <SNS topic ARN of the alarm> \\
   --protocol https \\
   --notification-endpoint '${url}'`,
+      };
+    case 'azure_monitor':
+      return {
+        language: 'bash',
+        content: `az monitor action-group update \\
+  --resource-group <resource group> \\
+  --name <action group> \\
+  --add-action webhook molesignal '${url}' usecommonalertschema`,
       };
     case 'zabbix':
       return { language: 'yaml', content: zabbixMediaType(url, token) };

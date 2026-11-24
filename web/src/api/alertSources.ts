@@ -12,6 +12,9 @@ export type AlertSourceKind =
   | 'tencent_monitor'
   | 'aws_cloudwatch'
   | 'zabbix'
+  | 'azure_monitor'
+  | 'gcp_monitoring'
+  | 'huawei_ces'
   | 'email';
 
 export const ALERT_SOURCE_KINDS: readonly AlertSourceKind[] = [
@@ -24,6 +27,9 @@ export const ALERT_SOURCE_KINDS: readonly AlertSourceKind[] = [
   'tencent_monitor',
   'aws_cloudwatch',
   'zabbix',
+  'azure_monitor',
+  'gcp_monitoring',
+  'huawei_ces',
   'email',
 ];
 

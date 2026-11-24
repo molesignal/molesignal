@@ -57,8 +57,24 @@ describe('connector kinds', () => {
     expect(auth('kafka')).toEqual(['none', 'sasl_plain', 'sasl_scram_sha_256', 'sasl_scram_sha_512', 'mtls']);
     expect(auth('http')).toEqual(['none', 'bearer', 'basic', 'header', 'hmac']);
     expect(auth('heroku_drain')).toEqual(['push_token']);
+    expect(auth('gcp_pubsub_push')).toEqual(['push_token']);
+    expect(auth('cloud_events')).toEqual(['push_token']);
+    expect(auth('aws_cloudwatch_metrics')).toEqual(aws);
+    expect(auth('azure_monitor_metrics')).toEqual(['client_secret']);
+    expect(auth('gcp_monitoring_metrics')).toEqual(['service_account_key']);
+    expect(auth('gcp_pubsub_pull')).toEqual(['service_account_key']);
+    expect(auth('aliyun_cms_metrics')).toEqual(['access_key']);
     expect(auth('kafka_source')).toEqual(auth('kafka'));
     expect(auth('s3_source')).toEqual(aws);
+  });
+
+  it('lets Firehose write metrics to a metrics stream beside its log stream', () => {
+    const fields = KINDS.find((spec) => spec.kind === 'aws_kinesis_firehose')?.fields ?? [];
+
+    expect(fields.map((field) => [field.key, field.stream])).toEqual([
+      ['targetStream', 'logs'],
+      ['metricsStream', 'metrics'],
+    ]);
   });
 
   it('counts a topic or a bucket to read as a source, not as somewhere to deliver', () => {
@@ -150,6 +166,10 @@ describe('a connector in a line', () => {
     expect(targetStreamOf(connector('cloudflare_logpush', {}))).toBe('cloudflare');
     expect(targetStreamOf(connector('aws_kinesis_firehose', {}))).toBe('kinesis');
     expect(targetStreamOf(connector('heroku_drain', {}))).toBe('heroku');
+    expect(targetStreamOf(connector('gcp_pubsub_push', {}))).toBe('gcp');
+    expect(targetStreamOf(connector('cloud_events', {}))).toBe('cloud_events');
+    expect(targetStreamOf(connector('huawei_ces_metrics', {}))).toBe('huaweicloud');
+    expect(targetStreamOf(connector('azure_monitor_metrics', { metricsStream: 'prod' }))).toBe('prod');
     expect(targetStreamOf(connector('aws_cloudwatch_logs', {}))).toBe('default');
   });
 });

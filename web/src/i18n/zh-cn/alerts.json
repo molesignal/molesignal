@@ -1126,6 +1126,9 @@
       "tencent_monitor": "腾讯云可观测平台",
       "aws_cloudwatch": "Amazon CloudWatch",
       "zabbix": "Zabbix",
+      "azure_monitor": "Azure Monitor",
+      "gcp_monitoring": "Google Cloud Monitoring",
+      "huawei_ces": "华为云云监控",
       "email": "邮件"
     },
     "kind_hints": {
@@ -1138,6 +1141,9 @@
       "tencent_monitor": "通知模板里的接口回调，指标告警和事件告警都行；Token 写在地址里。",
       "aws_cloudwatch": "告警发到 SNS 主题，主题订阅这个地址；验 SNS 的签名，自动确认订阅。",
       "zabbix": "导入 Webhook 媒介类型；一个问题一个事件，跟着恢复和确认。",
+      "azure_monitor": "操作组的 Webhook 操作，用通用警报架构；Token 写在地址里。",
+      "gcp_monitoring": "Webhook 通知渠道，或经推送订阅的 Pub/Sub 通知渠道；Token 写在地址里。",
+      "huawei_ces": "告警发到 SMN 主题，主题订阅这个地址；验 SMN 的签名，自动确认订阅。",
       "email": "读一个 IMAP 邮箱，不用公网地址；也能收已有邮件系统转来的原始邮件。"
     },
     "columns": {
@@ -1313,6 +1319,9 @@
       "aliyun_cms": "把接入地址填进报警规则的「报警回调」；系统事件则填进事件订阅推送渠道的 Webhook 地址。",
       "tencent_monitor": "在告警管理 → 通知模板的「接口回调」填接入地址，再把通知模板绑到告警策略上。",
       "aws_cloudwatch": "让告警的状态变化发到一个 SNS 主题，给主题加一个 HTTPS 订阅（下面是 AWS CLI 的写法），地址就是接入地址。订阅会自动确认；不要打开 Raw message delivery。OK 状态也要发到这个主题，事件才会自动解决。",
+      "azure_monitor": "在告警规则的操作组里加一个 Webhook 操作，地址填接入地址，并打开「启用通用警报架构」（下面是 Azure CLI 的写法）。有状态的告警恢复后事件自动解决。",
+      "gcp_monitoring": "在 Monitoring → Alerting → Edit notification channels 新建 Webhook 通知渠道，Endpoint URL 填接入地址，再把渠道加到告警政策里。事件关闭后自动解决。",
+      "huawei_ces": "给一个 SMN 主题加一个 HTTPS 订阅，地址填接入地址；在云监控告警规则的告警通知里选这个主题，告警和恢复都要通知。订阅会自动确认。",
       "zabbix": "把下面存成 YAML，在 Alerts → Media types 导入；给一个用户加这个媒介（发送到随便填），再建一个触发器动作，操作、恢复操作和更新操作都发给他。",
       "email": "邮箱读不了的时候用这个：已有的邮件系统（Postfix、SES、Mailgun）把原始邮件这样 POST 过来，读法和邮箱一样。"
     },
@@ -1326,6 +1335,9 @@
       "tencent_monitor": "腾讯云可观测平台",
       "aws_cloudwatch": "amazon-cloudwatch",
       "zabbix": "zabbix",
+      "azure_monitor": "azure-monitor",
+      "gcp_monitoring": "google-cloud-monitoring",
+      "huawei_ces": "华为云云监控",
       "email": "邮件"
     },
     "requests": {

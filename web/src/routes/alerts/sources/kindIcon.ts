@@ -13,5 +13,8 @@ export const SOURCE_KIND_ICONS: Record<AlertSourceKind, LucideIcon> = {
   tencent_monitor: Cloud,
   aws_cloudwatch: Cloud,
   zabbix: Activity,
+  azure_monitor: Cloud,
+  gcp_monitoring: Cloud,
+  huawei_ces: Cloud,
   email: Mail,
 };

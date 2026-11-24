@@ -673,24 +673,42 @@
     "kinds": {
       "aws_cloudwatch_logs": "AWS CloudWatch Logs",
       "aws_kinesis_firehose": "Amazon Data Firehose",
+      "gcp_pubsub_push": "Google Cloud Pub/Sub push",
       "cloudflare_logpush": "Cloudflare Logpush",
       "heroku_drain": "Heroku log drain",
       "s3": "Amazon S3",
       "kafka": "Apache Kafka",
       "http": "HTTP / Webhook",
       "kafka_source": "Kafka topic",
-      "s3_source": "S3 objects"
+      "s3_source": "S3 objects",
+      "aws_cloudwatch_metrics": "AWS CloudWatch metrics",
+      "azure_monitor_metrics": "Azure Monitor metrics",
+      "gcp_monitoring_metrics": "Google Cloud Monitoring metrics",
+      "aliyun_cms_metrics": "Alibaba Cloud CloudMonitor metrics",
+      "tencent_monitor_metrics": "Tencent Cloud Monitor metrics",
+      "huawei_ces_metrics": "Huawei Cloud Eye metrics",
+      "cloud_events": "Cloud event bus",
+      "gcp_pubsub_pull": "Google Cloud Pub/Sub pull"
     },
     "kind_hints": {
       "aws_cloudwatch_logs": "MoleSignal fetches a log group on a timer.",
-      "aws_kinesis_firehose": "A Firehose stream pushes its records here.",
+      "aws_kinesis_firehose": "A Firehose stream pushes its records here: log lines, CloudWatch Logs subscriptions and CloudWatch Metric Streams.",
+      "gcp_pubsub_push": "A Pub/Sub push subscription pushes its messages here, such as Cloud Logging entries a Log Router sink publishes.",
       "cloudflare_logpush": "A Logpush job pushes request logs here.",
       "heroku_drain": "An app's log drain pushes its lines here.",
       "s3": "Each batch a pipeline writes becomes a JSON Lines object in a bucket. Also for MinIO, R2, OSS and other S3-compatible stores.",
       "kafka": "Each event a pipeline writes becomes a message on a topic.",
       "http": "Each batch a pipeline writes is sent to an HTTP address as NDJSON or a JSON array. For a receiver of your own, Logstash, Vector and the like.",
       "kafka_source": "MoleSignal reads a topic on a timer and keeps its own offsets.",
-      "s3_source": "MoleSignal reads the new objects under a prefix on a timer. Also for MinIO, R2, OSS and other S3-compatible stores."
+      "s3_source": "MoleSignal reads the new objects under a prefix on a timer. Also for MinIO, R2, OSS and other S3-compatible stores.",
+      "aws_cloudwatch_metrics": "MoleSignal reads a namespace's metrics with GetMetricData on a timer. For what a metric stream does not carry.",
+      "azure_monitor_metrics": "MoleSignal reads the metrics of one resource type in a region with the Azure Monitor batch API on a timer.",
+      "gcp_monitoring_metrics": "MoleSignal reads metric types of a project from Cloud Monitoring on a timer.",
+      "aliyun_cms_metrics": "MoleSignal reads a CloudMonitor namespace's metrics on a timer.",
+      "tencent_monitor_metrics": "MoleSignal reads a Cloud Monitor namespace's metrics on a timer.",
+      "huawei_ces_metrics": "MoleSignal reads a Cloud Eye namespace's metrics on a timer.",
+      "cloud_events": "An event bus pushes its events here: Amazon EventBridge, Azure Event Grid, Alibaba Cloud EventBridge, Huawei Cloud EventGrid and any CloudEvents sender.",
+      "gcp_pubsub_pull": "MoleSignal reads a Pub/Sub subscription on a timer and acknowledges what it has written. For more logs than a push subscription carries well."
     },
     "transport": {
       "pull": "Pulled",
@@ -719,7 +737,9 @@
         "bearer": "Bearer token",
         "basic": "Basic auth",
         "header": "Custom header",
-        "hmac": "HMAC signature"
+        "hmac": "HMAC signature",
+        "client_secret": "App registration",
+        "service_account_key": "Service account key"
       },
       "hints": {
         "access_key": "A long-lived key of an IAM user. Give that user only what this connector needs.",
@@ -739,7 +759,14 @@
         "bearer": "Every request carries an Authorization: Bearer <token> header.",
         "basic": "Every request carries an HTTP Basic authorization header; use it over https.",
         "header": "The key travels in a header the receiver names, such as X-API-Key or DD-API-KEY.",
-        "hmac": "Every request carries X-MoleSignal-Timestamp (Unix seconds) and X-MoleSignal-Sign: sha256=<hex>, the HMAC-SHA256 of \"<timestamp>.<body>\" under the shared secret. The receiver computes it again with the same secret and refuses an old timestamp."
+        "hmac": "Every request carries X-MoleSignal-Timestamp (Unix seconds) and X-MoleSignal-Sign: sha256=<hex>, the HMAC-SHA256 of \"<timestamp>.<body>\" under the shared secret. The receiver computes it again with the same secret and refuses an old timestamp.",
+        "client_secret": "An app registration of Microsoft Entra ID with a client secret. Give it Monitoring Reader on the subscription itself; the role on single resources is not enough for the batch API.",
+        "service_account_key": "The JSON key file of a service account with roles/monitoring.viewer on the project.",
+        "access_key_aws_cloudwatch_metrics": "A long-lived key of an IAM user that may call cloudwatch:ListMetrics and cloudwatch:GetMetricData.",
+        "access_key_aliyun_cms_metrics": "The AccessKey of a RAM user with AliyunCloudMonitorReadOnlyAccess.",
+        "access_key_tencent_monitor_metrics": "The SecretId and SecretKey of a CAM user with QcloudMonitorReadOnlyAccess, and QcloudCVMReadOnlyAccess to find CVM instances.",
+        "access_key_huawei_ces_metrics": "The AK and SK of an IAM user with CES ReadOnlyAccess.",
+        "service_account_key_gcp_pubsub_pull": "The JSON key file of a service account with roles/pubsub.subscriber on the subscription."
       },
       "external_id": "External ID",
       "external_id_hint": "This organization assumes roles with this external ID, which cannot be changed. Require it in the role's trust policy with an sts:ExternalId condition, and no other organization can assume the role even if it learns the ARN.",
@@ -753,6 +780,7 @@
       "region": "Region",
       "logGroup": "Log group",
       "targetStream": "Write to stream",
+      "metricsStream": "Metrics stream",
       "bucket": "Bucket",
       "prefix": "Key prefix",
       "endpoint": "Endpoint",
@@ -778,10 +806,32 @@
       "headerName": "Header name",
       "headerValue": "Header value",
       "hmacSecret": "Shared secret",
-      "startFrom": "Start from"
+      "startFrom": "Start from",
+      "oidcServiceAccount": "Push service account",
+      "oidcAudience": "Token audience",
+      "namespace": "Namespace",
+      "metrics": "Metrics",
+      "statistics": "Statistics",
+      "period": "Period (seconds)",
+      "delay": "Delay (seconds)",
+      "messageFormat": "Message format",
+      "subscriptionId": "Subscription ID",
+      "resourceType": "Resource type",
+      "aggregations": "Aggregations",
+      "filter": "Filter",
+      "top": "Series per resource",
+      "projectId": "Project ID",
+      "dimensions": "Dimensions",
+      "instances": "Instances",
+      "tenantId": "Tenant ID",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "serviceAccountKey": "Service account key",
+      "subscription": "Subscription"
     },
     "hints": {
       "targetStream": "A stream that does not exist yet is created by the first event.",
+      "targetStream_aws_kinesis_firehose": "Where log records go, CloudWatch Logs subscription events among them. A stream that does not exist yet is created by the first event.",
       "region_s3": "The bucket's region. An S3-compatible store may not need one.",
       "region_s3_source": "The bucket's region. An S3-compatible store may not need one.",
       "prefix": "Objects are named <prefix><id>.jsonl.",
@@ -791,7 +841,36 @@
       "brokers": "Host and port. Separate several with commas.",
       "endpoint": "The store's S3 API address, starting with http:// or https://.",
       "url": "Where the events are sent, starting with http:// or https://. An address often carries a credential, so it is kept like one: once saved, only its host is shown.",
-      "tlsCaCert": "When a private CA issued the brokers' certificates, its certificate as PEM. Leave empty to trust the system's CAs."
+      "tlsCaCert": "When a private CA issued the brokers' certificates, its certificate as PEM. Leave empty to trust the system's CAs.",
+      "oidcServiceAccount": "When set, only pushes that carry this service account’s OIDC token are accepted: turn on authentication for the push subscription with this account. Leave empty to rely on the token alone.",
+      "oidcAudience": "The audience the subscription puts in its OIDC token. Leave empty to accept any.",
+      "metricsStream_aws_kinesis_firehose": "Where CloudWatch Metric Streams samples go, one per statistic, named like aws_ec2_cpuutilization_average. Give the metric stream the JSON or OpenTelemetry 1.0 output format.",
+      "metricsStream": "Where the samples go, one per statistic, named <cloud>_<namespace>_<metric>_<statistic> such as aliyun_ecs_dashboard_cpuutilization_average. A stream that does not exist yet is created by the first sample.",
+      "namespace_aws_cloudwatch_metrics": "Such as AWS/EC2, AWS/RDS or a custom namespace.",
+      "metrics_aws_cloudwatch_metrics": "Leave empty to read every metric of the namespace that had data in the last three hours, at most 2,000 series.",
+      "statistics_aws_cloudwatch_metrics": "Average, Sum, Minimum, Maximum, SampleCount, and percentiles such as p99. Each statistic of each series is billed as one metric requested. Default: Average, Maximum.",
+      "period": "The length of one aggregate, in whole minutes. Default: 300.",
+      "delay": "How long after a period ends it is read, since the cloud completes an aggregate some minutes late. Periods are read once and never again.",
+      "messageFormat": "Azure Monitor export: each message is {\"records\": [...]} as diagnostic settings, data export and data collection rules send it to an event hub; each record becomes its own event, and metric records become metric samples in the metrics stream.",
+      "resourceType": "Also the metric namespace, such as Microsoft.Compute/virtualMachines.",
+      "metrics_azure_monitor_metrics": "Metric names as Azure Monitor shows them, such as Percentage CPU.",
+      "aggregations": "Any of average, minimum, maximum, total and count. Default: average.",
+      "filter_azure_monitor_metrics": "Optional dimension filter of the batch API, such as LUN eq '*' to split by a dimension.",
+      "filter_gcp_monitoring_metrics": "Optional clause added to each metric's filter.",
+      "top": "How many series a filter may split each metric of each resource into. Default: 100.",
+      "period_azure_monitor_metrics": "One of 60, 300, 900, 1800, 3600, 21600, 43200 and 86400. Default: 300.",
+      "projectId_gcp_monitoring_metrics": "Leave empty to use the project of the service account key.",
+      "metrics_gcp_monitoring_metrics": "One metric type per line, such as compute.googleapis.com/instance/cpu/utilization. Gauges are read as their mean, deltas as their sum, counters as their rate.",
+      "namespace_aliyun_cms_metrics": "Such as acs_ecs_dashboard or acs_rds_dashboard.",
+      "statistics_aliyun_cms_metrics": "As CloudMonitor names them: Average, Maximum, Minimum, Sum. Default: Average, Maximum.",
+      "dimensions": "Optional JSON passed as Dimensions. Leave empty to read every instance of the account.",
+      "namespace_tencent_monitor_metrics": "Such as QCE/CVM or QCE/CDB.",
+      "statistics_tencent_monitor_metrics": "Any of avg, max and min. Default: avg.",
+      "instances": "One instance per line as Name=Value, several dimensions joined with &, no commas. Required except for QCE/CVM, whose instances are found in the region when left empty.",
+      "projectId_huawei_ces_metrics": "The project of the region, under My Credentials in the console.",
+      "namespace_huawei_ces_metrics": "Such as SYS.ECS or SYS.RDS.",
+      "statistics_huawei_ces_metrics": "Any of average, max, min, sum and variance. Default: average.",
+      "subscription": "Its full name, or its name in the project of the key. Give it an acknowledgement deadline of 60 seconds or more."
     },
     "compatible": {
       "toggle": "S3-compatible storage",
@@ -845,9 +924,11 @@
       "regenerated": "A new token is ready. It replaces the current one when you save, and is shown once after that.",
       "keep": "Keep the current token",
       "steps": {
-        "aws_kinesis_firehose": "In the Firehose stream, choose the HTTP endpoint destination. Enter the endpoint as its URL and the token as its access key.",
+        "aws_kinesis_firehose": "In the Firehose stream, choose the HTTP endpoint destination. Enter the endpoint as its URL and the token as its access key, and keep the buffer at 4 MiB or less. A CloudWatch Logs subscription filter or a CloudWatch metric stream can then deliver to the Firehose stream.",
+        "gcp_pubsub_push": "Route logs to a Pub/Sub topic with a Log Router sink, then create a push subscription on the topic with this address. Pub/Sub cannot send a header of your choice, so the token travels in the address.",
         "cloudflare_logpush": "Create a Logpush job with this HTTP destination. The token travels in a header Cloudflare adds to every push.",
-        "heroku_drain": "Add the drain to your app. Heroku cannot send a header, so the token travels in the address."
+        "heroku_drain": "Add the drain to your app. Heroku cannot send a header, so the token travels in the address.",
+        "cloud_events": "Point the event bus at this address. Amazon EventBridge: an API destination with an API key connection whose header is X-Connector-Token. Azure Event Grid and the CloudEvents senders: a webhook whose address ends with ?token=<token>; the validation handshake is answered automatically. Alibaba Cloud EventBridge: an HTTPS target with this token."
       },
       "done": "Done",
       "will_generate": "A token is generated when the connector is created, and shown once."
@@ -887,6 +968,17 @@
       "format": {
         "ndjson": "NDJSON (one event per line)",
         "json": "JSON array"
+      },
+      "messageFormat": {
+        "json": "JSON or text",
+        "azure_records": "Azure Monitor export"
+      },
+      "period": {
+        "300": "5 minutes",
+        "1200": "20 minutes",
+        "3600": "1 hour",
+        "14400": "4 hours",
+        "86400": "1 day"
       }
     },
     "tls": {

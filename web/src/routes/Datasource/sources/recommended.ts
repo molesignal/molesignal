@@ -129,9 +129,9 @@ output.http:
         code: {
           lang: 'bash',
           content: `aws firehose create-delivery-stream \\
-  --delivery-stream-name molesignal-logs \\
+  --delivery-stream-name molesignal \\
   --http-endpoint-destination-configuration \\
-    "EndpointConfiguration={Url=${ENDPOINT}/api/v1/_kinesis_firehose,AccessKey=<connector-push-token>}"`,
+    "EndpointConfiguration={Url=${ENDPOINT}/api/v1/_kinesis_firehose,AccessKey=<connector-push-token>},BufferingHints={SizeInMBs=4,IntervalInSeconds=60},S3Configuration={RoleARN=<firehose-role-arn>,BucketARN=<backup-bucket-arn>}"`,
         },
       },
       {
@@ -141,7 +141,18 @@ output.http:
   --log-group-name /aws/lambda/my-fn \\
   --filter-name molesignal \\
   --filter-pattern "" \\
-  --destination-arn arn:aws:firehose:us-east-1:123:deliverystream/molesignal-logs`,
+  --destination-arn arn:aws:firehose:us-east-1:123456789012:deliverystream/molesignal \\
+  --role-arn arn:aws:iam::123456789012:role/cwl-to-firehose`,
+        },
+      },
+      {
+        code: {
+          lang: 'bash',
+          content: `aws cloudwatch put-metric-stream \\
+  --name molesignal \\
+  --firehose-arn arn:aws:firehose:us-east-1:123456789012:deliverystream/molesignal \\
+  --role-arn arn:aws:iam::123456789012:role/metric-stream-to-firehose \\
+  --output-format opentelemetry1.0`,
         },
       },
     ],
@@ -159,7 +170,15 @@ output.http:
   --log-filter='resource.type="k8s_container"'`,
         },
       },
-      {},
+      {
+        code: {
+          lang: 'bash',
+          content: `gcloud pubsub subscriptions create molesignal-push \\
+  --topic=molesignal-logs \\
+  --push-endpoint="${ENDPOINT}/api/v1/_gcp_pubsub?token=<connector-push-token>" \\
+  --ack-deadline=30`,
+        },
+      },
     ],
   },
   {

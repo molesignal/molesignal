@@ -1,5 +1,7 @@
 import type { Connector } from '@/api/connectors';
 
+import { METRICS_DEFAULTS, cloudMetricKinds } from './cloudMetrics';
+
 /**
  * The connector kinds the backend knows (`infra/connectors/mod.rs`) and what
  * each needs to work: where it reads from or delivers to, and how it proves
@@ -9,13 +11,22 @@ import type { Connector } from '@/api/connectors';
 export type ConnectorKind =
   | 'aws_cloudwatch_logs'
   | 'aws_kinesis_firehose'
+  | 'gcp_pubsub_push'
+  | 'gcp_pubsub_pull'
   | 'cloudflare_logpush'
   | 'heroku_drain'
   | 's3'
   | 'kafka'
   | 'http'
   | 'kafka_source'
-  | 's3_source';
+  | 's3_source'
+  | 'aws_cloudwatch_metrics'
+  | 'azure_monitor_metrics'
+  | 'gcp_monitoring_metrics'
+  | 'aliyun_cms_metrics'
+  | 'tencent_monitor_metrics'
+  | 'huawei_ces_metrics'
+  | 'cloud_events';
 
 /** Whether a connector brings data in, or carries what pipelines write out. */
 export type Direction = 'source' | 'destination';
@@ -43,6 +54,10 @@ export type Transport = 'pull' | 'push' | 'sink';
  * `header`, or an `hmac` signature of the body.
  *
  * A push connector's `pushToken` is what the other service presents.
+ *
+ * Cloud metrics: Azure signs in with an app registration's `client_secret`,
+ * Google Cloud with a `service_account_key`, and Alibaba Cloud, Tencent Cloud
+ * and Huawei Cloud with an `access_key` pair.
  */
 export type AuthMode =
   | 'access_key'
@@ -59,7 +74,9 @@ export type AuthMode =
   | 'basic'
   | 'header'
   | 'hmac'
-  | 'push_token';
+  | 'push_token'
+  | 'client_secret'
+  | 'service_account_key';
 
 export interface KindSpec {
   kind: ConnectorKind;
@@ -78,8 +95,8 @@ export interface FieldSpec {
   required?: boolean;
   /** An example of the value, shown while the field is empty. It is not copy: it reads the same in any language. */
   example?: string;
-  /** A stream of this workspace, existing or to be created by the first event. */
-  stream?: boolean;
+  /** A stream of this workspace of this signal, existing or to be created by the first event. */
+  stream?: 'logs' | 'metrics';
   /** Belongs with the S3-compatible settings, shown only when those are open. */
   compatible?: boolean;
   /** Belongs with the TLS settings, shown only while the connection is encrypted. */
@@ -100,7 +117,7 @@ export interface AuthField {
   example?: string;
 }
 
-const TARGET_STREAM: FieldSpec = { key: 'targetStream', stream: true, example: 'default' };
+const TARGET_STREAM: FieldSpec = { key: 'targetStream', stream: 'logs', example: 'default' };
 
 const AWS_AUTH: readonly AuthMode[] = ['access_key', 'temporary_key', 'node_role', 'assume_role', 'web_identity'];
 
@@ -130,8 +147,16 @@ export const KINDS: readonly KindSpec[] = [
       { key: 'topic', required: true, example: 'logs' },
       TARGET_STREAM,
       START_FROM,
+      { key: 'messageFormat', choices: ['json', 'azure_records'] },
       { key: 'tlsCaCert', tls: true, multiline: true, example: '-----BEGIN CERTIFICATE-----' },
     ],
+  },
+  {
+    kind: 'gcp_pubsub_pull',
+    direction: 'source',
+    transport: 'pull',
+    auth: ['service_account_key'],
+    fields: [{ key: 'subscription', required: true, example: 'projects/my-project/subscriptions/molesignal-pull' }, TARGET_STREAM],
   },
   {
     kind: 's3_source',
@@ -147,13 +172,35 @@ export const KINDS: readonly KindSpec[] = [
       { key: 'endpoint', example: 'https://minio.internal:9000', compatible: true },
     ],
   },
+  ...cloudMetricKinds(AWS_AUTH),
   {
     kind: 'aws_kinesis_firehose',
     direction: 'source',
     transport: 'push',
     auth: ['push_token'],
-    fields: [TARGET_STREAM],
+    // Log records go to the target stream, CloudWatch Metric Streams samples to the metrics stream.
+    fields: [TARGET_STREAM, { key: 'metricsStream', stream: 'metrics', example: 'cloudwatch' }],
     pushPath: '/api/v1/_kinesis_firehose',
+  },
+  {
+    kind: 'gcp_pubsub_push',
+    direction: 'source',
+    transport: 'push',
+    auth: ['push_token'],
+    fields: [
+      TARGET_STREAM,
+      { key: 'oidcServiceAccount', example: 'pubsub-push@my-project.iam.gserviceaccount.com' },
+      { key: 'oidcAudience', example: 'https://molesignal.example.com/api/v1/_gcp_pubsub' },
+    ],
+    pushPath: '/api/v1/_gcp_pubsub',
+  },
+  {
+    kind: 'cloud_events',
+    direction: 'source',
+    transport: 'push',
+    auth: ['push_token'],
+    fields: [TARGET_STREAM],
+    pushPath: '/api/v1/_cloud_events',
   },
   {
     kind: 'cloudflare_logpush',
@@ -249,6 +296,14 @@ export const AUTH_FIELDS: Record<AuthMode, readonly AuthField[]> = {
   ],
   hmac: [{ key: 'hmacSecret', secret: true }],
   push_token: [{ key: 'pushToken', secret: true }],
+  client_secret: [
+    { key: 'tenantId', secret: false, example: 'contoso.onmicrosoft.com' },
+    { key: 'clientId', secret: false, example: '00000000-0000-0000-0000-000000000000' },
+    { key: 'clientSecret', secret: true },
+  ],
+  service_account_key: [
+    { key: 'serviceAccountKey', secret: true, multiline: true, example: '{"type": "service_account", ...}' },
+  ],
 };
 
 /**
@@ -284,7 +339,7 @@ export function isDestinationKind(kind: string): boolean {
 
 /** Whether a kind is reached over AWS, with AWS's ways of authenticating. */
 export function isAwsKind(kind: ConnectorKind): boolean {
-  return kind === 's3' || kind === 's3_source' || kind === 'aws_cloudwatch_logs';
+  return kind === 's3' || kind === 's3_source' || kind === 'aws_cloudwatch_logs' || kind === 'aws_cloudwatch_metrics';
 }
 
 /** Whether a kind talks to Kafka brokers. */
@@ -369,6 +424,17 @@ export function placeOf(connector: Connector): string {
       return value('urlOrigin');
     case 'aws_cloudwatch_logs':
       return [value('logGroup'), value('region')].filter(Boolean).join(' · ');
+    case 'aws_cloudwatch_metrics':
+    case 'aliyun_cms_metrics':
+    case 'tencent_monitor_metrics':
+    case 'huawei_ces_metrics':
+      return [value('namespace'), value('region')].filter(Boolean).join(' · ');
+    case 'azure_monitor_metrics':
+      return [value('resourceType'), value('region')].filter(Boolean).join(' · ');
+    case 'gcp_monitoring_metrics':
+      return value('projectId');
+    case 'gcp_pubsub_pull':
+      return value('subscription');
     default:
       return '';
   }
@@ -376,6 +442,9 @@ export function placeOf(connector: Connector): string {
 
 /** The stream a source connector writes what it receives to. */
 export function targetStreamOf(connector: Connector): string {
+  const metricsDefault = METRICS_DEFAULTS[connector.kind as ConnectorKind];
+  if (metricsDefault) return text(connector.configJson.metricsStream).trim() || metricsDefault;
+
   const named = text(connector.configJson.targetStream).trim();
   if (named) return named;
 
@@ -383,6 +452,10 @@ export function targetStreamOf(connector: Connector): string {
   switch (connector.kind) {
     case 'aws_kinesis_firehose':
       return 'kinesis';
+    case 'gcp_pubsub_push':
+      return 'gcp';
+    case 'cloud_events':
+      return 'cloud_events';
     case 'cloudflare_logpush':
       return 'cloudflare';
     case 'heroku_drain':

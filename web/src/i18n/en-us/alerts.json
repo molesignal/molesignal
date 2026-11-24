@@ -1126,6 +1126,9 @@
       "tencent_monitor": "Tencent Cloud Observability Platform",
       "aws_cloudwatch": "Amazon CloudWatch",
       "zabbix": "Zabbix",
+      "azure_monitor": "Azure Monitor",
+      "gcp_monitoring": "Google Cloud Monitoring",
+      "huawei_ces": "Huawei Cloud Eye",
       "email": "Email"
     },
     "kind_hints": {
@@ -1138,6 +1141,9 @@
       "tencent_monitor": "API callbacks of a notification template, for metric and event alarms. The token goes in the address.",
       "aws_cloudwatch": "Alarms go to an SNS topic that subscribes this address. SNS signatures are checked and the subscription confirmed for you.",
       "zabbix": "Import a webhook media type; one incident per problem, following recoveries and acknowledgements.",
+      "azure_monitor": "The webhook action of an action group, in the common alert schema. The token goes in the address.",
+      "gcp_monitoring": "A webhook notification channel, or the Pub/Sub channel through a push subscription. The token goes in the address.",
+      "huawei_ces": "Alarms go to an SMN topic that subscribes this address. SMN signatures are checked and the subscription confirmed for you.",
       "email": "Reads an IMAP mailbox and needs no public address; also takes raw mail from a mail system you already run."
     },
     "columns": {
@@ -1313,6 +1319,9 @@
       "aliyun_cms": "Enter the intake address as the alarm callback of an alarm rule, or as the webhook address of an event subscription push channel for system events.",
       "tencent_monitor": "Enter the intake address as the API callback of a notification template under Alarm Management, then bind the template to an alarm policy.",
       "aws_cloudwatch": "Have the alarm's state changes go to an SNS topic, and add an HTTPS subscription to the topic with the intake address (the AWS CLI form is below). The subscription confirms itself; leave Raw message delivery off. Send the OK state to the topic too, or incidents will not resolve on their own.",
+      "azure_monitor": "Add a webhook action to the action group of your alert rules with the intake address, and turn on Enable the common alert schema (the Azure CLI form is below). Alerts that keep state resolve on their own.",
+      "gcp_monitoring": "Create a Webhook notification channel under Monitoring → Alerting → Edit notification channels with the intake address as its endpoint URL, then add the channel to your alerting policies. Closed incidents resolve on their own.",
+      "huawei_ces": "Add an HTTPS subscription with the intake address to an SMN topic, and choose that topic in the alarm notifications of your Cloud Eye alarm rules, for both alarm and recovery. The subscription confirms itself.",
       "zabbix": "Save this as YAML and import it under Alerts → Media types. Give a user this media (Send to can be anything), then add a trigger action whose operations, recovery operations and update operations go to that user.",
       "email": "For when a mailbox cannot be read: a mail system you already run (Postfix, SES, Mailgun) posts the raw message like this, and it is read the same way."
     },
@@ -1326,6 +1335,9 @@
       "tencent_monitor": "tencent-cloud-observability-platform",
       "aws_cloudwatch": "amazon-cloudwatch",
       "zabbix": "zabbix",
+      "azure_monitor": "azure-monitor",
+      "gcp_monitoring": "google-cloud-monitoring",
+      "huawei_ces": "huawei-cloud-eye",
       "email": "email"
     },
     "requests": {

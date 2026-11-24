@@ -673,24 +673,42 @@
     "kinds": {
       "aws_cloudwatch_logs": "AWS CloudWatch Logs",
       "aws_kinesis_firehose": "Amazon Data Firehose",
+      "gcp_pubsub_push": "Google Cloud Pub/Sub 推送",
       "cloudflare_logpush": "Cloudflare Logpush",
       "heroku_drain": "Heroku 日志 Drain",
       "s3": "Amazon S3",
       "kafka": "Apache Kafka",
       "http": "HTTP / Webhook",
       "kafka_source": "Kafka 主题",
-      "s3_source": "S3 对象"
+      "s3_source": "S3 对象",
+      "aws_cloudwatch_metrics": "AWS CloudWatch 指标",
+      "azure_monitor_metrics": "Azure Monitor 指标",
+      "gcp_monitoring_metrics": "Google Cloud Monitoring 指标",
+      "aliyun_cms_metrics": "阿里云云监控指标",
+      "tencent_monitor_metrics": "腾讯云可观测平台指标",
+      "huawei_ces_metrics": "华为云云监控指标",
+      "cloud_events": "云事件总线",
+      "gcp_pubsub_pull": "Google Cloud Pub/Sub 拉取"
     },
     "kind_hints": {
       "aws_cloudwatch_logs": "MoleSignal 定时拉取一个日志组。",
-      "aws_kinesis_firehose": "由 Firehose 流把记录推送过来。",
+      "aws_kinesis_firehose": "由 Firehose 流把记录推送过来：日志行、CloudWatch Logs 订阅和 CloudWatch Metric Streams。",
+      "gcp_pubsub_push": "由 Pub/Sub 推送订阅把消息推送过来，例如日志路由器的接收器发布的 Cloud Logging 日志。",
       "cloudflare_logpush": "由 Logpush 任务把请求日志推送过来。",
       "heroku_drain": "由应用的日志 Drain 把日志行推送过来。",
       "s3": "流水线每写一批，就在存储桶里生成一个 JSON Lines 对象。也适用于 MinIO、R2、OSS 等 S3 兼容存储。",
       "kafka": "流水线写入的每条事件成为主题上的一条消息。",
       "http": "流水线每写一批，就把事件以 NDJSON 或 JSON 数组发到一个 HTTP 地址。适用于自建的接收服务、Logstash、Vector 等。",
       "kafka_source": "MoleSignal 定时读取一个主题，读取位点自己保存。",
-      "s3_source": "MoleSignal 定时读取一个前缀下的新对象。也适用于 MinIO、R2、OSS 等 S3 兼容存储。"
+      "s3_source": "MoleSignal 定时读取一个前缀下的新对象。也适用于 MinIO、R2、OSS 等 S3 兼容存储。",
+      "aws_cloudwatch_metrics": "MoleSignal 用 GetMetricData 定时读取一个命名空间的指标，用于指标流覆盖不到的部分。",
+      "azure_monitor_metrics": "MoleSignal 用 Azure Monitor 的批量接口定时读取一个区域内某类资源的指标。",
+      "gcp_monitoring_metrics": "MoleSignal 定时从 Cloud Monitoring 读取一个项目的指标类型。",
+      "aliyun_cms_metrics": "MoleSignal 定时读取云监控一个命名空间的指标。",
+      "tencent_monitor_metrics": "MoleSignal 定时读取腾讯云可观测平台一个命名空间的指标。",
+      "huawei_ces_metrics": "MoleSignal 定时读取华为云云监控一个命名空间的指标。",
+      "cloud_events": "由事件总线把事件推送过来：Amazon EventBridge、Azure Event Grid、阿里云 EventBridge、华为云 EventGrid，以及任何 CloudEvents 发送方。",
+      "gcp_pubsub_pull": "MoleSignal 定时读取一个 Pub/Sub 订阅，写入后再确认消息。适合推送订阅承载不了的日志量。"
     },
     "transport": {
       "pull": "拉取",
@@ -719,7 +737,9 @@
         "bearer": "Bearer 令牌",
         "basic": "Basic 认证",
         "header": "自定义请求头",
-        "hmac": "HMAC 签名"
+        "hmac": "HMAC 签名",
+        "client_secret": "应用注册",
+        "service_account_key": "服务账号密钥"
       },
       "hints": {
         "access_key": "IAM 用户的长期密钥。只给该用户这个连接器需要的权限。",
@@ -739,7 +759,14 @@
         "bearer": "每个请求都带 Authorization: Bearer <令牌> 头。",
         "basic": "每个请求都带 HTTP Basic 认证头，请配合 https 使用。",
         "header": "把密钥放在接收方指定的请求头里，例如 X-API-Key 或 DD-API-KEY。",
-        "hmac": "每个请求带 X-MoleSignal-Timestamp（Unix 秒）和 X-MoleSignal-Sign: sha256=<十六进制>，后者是用共享密钥对「时间戳.请求体」计算的 HMAC-SHA256。接收方用同一密钥重算比对，并拒绝过旧的时间戳。"
+        "hmac": "每个请求带 X-MoleSignal-Timestamp（Unix 秒）和 X-MoleSignal-Sign: sha256=<十六进制>，后者是用共享密钥对「时间戳.请求体」计算的 HMAC-SHA256。接收方用同一密钥重算比对，并拒绝过旧的时间戳。",
+        "client_secret": "Microsoft Entra ID 的应用注册及其客户端密钥。请在订阅本身上授予 Monitoring Reader：批量接口不认单个资源上的角色。",
+        "service_account_key": "服务账号的 JSON 密钥文件，该账号需要项目的 roles/monitoring.viewer 角色。",
+        "access_key_aws_cloudwatch_metrics": "IAM 用户的长期密钥，需要能调用 cloudwatch:ListMetrics 和 cloudwatch:GetMetricData。",
+        "access_key_aliyun_cms_metrics": "RAM 用户的 AccessKey，需要 AliyunCloudMonitorReadOnlyAccess 权限。",
+        "access_key_tencent_monitor_metrics": "CAM 用户的 SecretId 与 SecretKey，需要 QcloudMonitorReadOnlyAccess；要自动发现 CVM 实例时还需要 QcloudCVMReadOnlyAccess。",
+        "access_key_huawei_ces_metrics": "IAM 用户的 AK 与 SK，需要 CES ReadOnlyAccess 权限。",
+        "service_account_key_gcp_pubsub_pull": "服务账号的 JSON 密钥文件，该账号需要订阅上的 roles/pubsub.subscriber 角色。"
       },
       "external_id": "外部 ID",
       "external_id_hint": "本组织扮演角色时都带这个外部 ID，无法修改。在角色的信任策略里用 sts:ExternalId 条件要求它，别的组织即使知道角色的 ARN 也扮演不了。",
@@ -753,6 +780,7 @@
       "region": "区域",
       "logGroup": "日志组",
       "targetStream": "写入数据流",
+      "metricsStream": "指标写入数据流",
       "bucket": "存储桶",
       "prefix": "对象键前缀",
       "endpoint": "端点",
@@ -778,10 +806,32 @@
       "headerName": "请求头名称",
       "headerValue": "请求头的值",
       "hmacSecret": "共享密钥",
-      "startFrom": "从哪里开始"
+      "startFrom": "从哪里开始",
+      "oidcServiceAccount": "推送服务账号",
+      "oidcAudience": "令牌受众",
+      "namespace": "命名空间",
+      "metrics": "指标",
+      "statistics": "统计量",
+      "period": "周期（秒）",
+      "delay": "延迟（秒）",
+      "messageFormat": "消息格式",
+      "subscriptionId": "订阅 ID",
+      "resourceType": "资源类型",
+      "aggregations": "聚合方式",
+      "filter": "过滤条件",
+      "top": "每个资源的序列数",
+      "projectId": "项目 ID",
+      "dimensions": "维度",
+      "instances": "实例",
+      "tenantId": "租户 ID",
+      "clientId": "客户端 ID",
+      "clientSecret": "客户端密钥",
+      "serviceAccountKey": "服务账号密钥",
+      "subscription": "订阅"
     },
     "hints": {
       "targetStream": "数据流不存在时，会在写入第一条事件时自动创建。",
+      "targetStream_aws_kinesis_firehose": "日志记录写入这里，包括 CloudWatch Logs 订阅的事件。数据流不存在时，会在写入第一条事件时自动创建。",
       "region_s3": "存储桶所在区域。S3 兼容存储可能不需要。",
       "region_s3_source": "存储桶所在区域。S3 兼容存储可能不需要。",
       "prefix": "对象命名为 <前缀><id>.jsonl。",
@@ -791,7 +841,36 @@
       "brokers": "主机和端口，多个用逗号分隔。",
       "endpoint": "存储的 S3 API 地址，以 http:// 或 https:// 开头。",
       "url": "接收事件的地址，以 http:// 或 https:// 开头。地址常带凭据，所以按密钥保存：保存后只显示它的主机。",
-      "tlsCaCert": "Broker 的证书由私有 CA 签发时填写，PEM 格式；留空则信任系统的 CA。"
+      "tlsCaCert": "Broker 的证书由私有 CA 签发时填写，PEM 格式；留空则信任系统的 CA。",
+      "oidcServiceAccount": "填写后，只接受带这个服务账号 OIDC 令牌的推送：请用这个账号为推送订阅开启身份验证。留空则只凭令牌鉴权。",
+      "oidcAudience": "推送订阅写进 OIDC 令牌的受众。留空则不限。",
+      "metricsStream_aws_kinesis_firehose": "CloudWatch Metric Streams 的样本写入这里，每个统计量一个样本，名称形如 aws_ec2_cpuutilization_average。指标流的输出格式请选 JSON 或 OpenTelemetry 1.0。",
+      "metricsStream": "样本写入这里，每个统计量一个样本，命名为 <云>_<命名空间>_<指标>_<统计量>，例如 aliyun_ecs_dashboard_cpuutilization_average。数据流不存在时，会在写入第一个样本时自动创建。",
+      "namespace_aws_cloudwatch_metrics": "例如 AWS/EC2、AWS/RDS 或自定义命名空间。",
+      "metrics_aws_cloudwatch_metrics": "留空则读取命名空间里最近三小时有数据的全部指标，最多 2000 个序列。",
+      "statistics_aws_cloudwatch_metrics": "Average、Sum、Minimum、Maximum、SampleCount，以及 p99 这类百分位。每个序列的每个统计量按一次指标请求计费。默认 Average、Maximum。",
+      "period": "一个聚合值覆盖的时长，须为整分钟。默认 300。",
+      "delay": "周期结束后多久再读：云平台要过几分钟才算完一个聚合值。每个周期只读一次，不会回头再读。",
+      "messageFormat": "Azure Monitor 导出：每条消息是诊断设置、数据导出、数据收集规则写入事件中心的 {\"records\": [...]}，每条记录成为一条事件，指标记录写入指标数据流。",
+      "resourceType": "也是指标命名空间，例如 Microsoft.Compute/virtualMachines。",
+      "metrics_azure_monitor_metrics": "按 Azure Monitor 显示的指标名填写，例如 Percentage CPU。",
+      "aggregations": "average、minimum、maximum、total、count 中的若干个。默认 average。",
+      "filter_azure_monitor_metrics": "可选，批量接口的维度过滤，例如 LUN eq '*' 表示按某个维度拆分。",
+      "filter_gcp_monitoring_metrics": "可选，附加到每个指标过滤条件上的子句。",
+      "top": "过滤条件把每个资源的每个指标最多拆成多少个序列。默认 100。",
+      "period_azure_monitor_metrics": "取 60、300、900、1800、3600、21600、43200、86400 之一。默认 300。",
+      "projectId_gcp_monitoring_metrics": "留空则使用服务账号密钥所属的项目。",
+      "metrics_gcp_monitoring_metrics": "每行一个指标类型，例如 compute.googleapis.com/instance/cpu/utilization。gauge 读平均值，delta 读总和，counter 读速率。",
+      "namespace_aliyun_cms_metrics": "例如 acs_ecs_dashboard、acs_rds_dashboard。",
+      "statistics_aliyun_cms_metrics": "按云监控的写法：Average、Maximum、Minimum、Sum。默认 Average、Maximum。",
+      "dimensions": "可选，作为 Dimensions 传入的 JSON。留空则读取账号下全部实例。",
+      "namespace_tencent_monitor_metrics": "例如 QCE/CVM、QCE/CDB。",
+      "statistics_tencent_monitor_metrics": "avg、max、min 中的若干个。默认 avg。",
+      "instances": "每行一个实例，写成 Name=Value，多个维度用 & 连接，不能含逗号。除 QCE/CVM 外必填；QCE/CVM 留空时自动发现本地域的实例。",
+      "projectId_huawei_ces_metrics": "该区域的项目 ID，在控制台「我的凭证」中查看。",
+      "namespace_huawei_ces_metrics": "例如 SYS.ECS、SYS.RDS。",
+      "statistics_huawei_ces_metrics": "average、max、min、sum、variance 中的若干个。默认 average。",
+      "subscription": "订阅的全名，或密钥所属项目中的订阅名。确认期限请设为 60 秒或更长。"
     },
     "compatible": {
       "toggle": "S3 兼容存储",
@@ -845,9 +924,11 @@
       "regenerated": "新令牌已就绪。保存后它将取代当前令牌，并在保存后显示一次。",
       "keep": "保留当前令牌",
       "steps": {
-        "aws_kinesis_firehose": "在 Firehose 流中选择 HTTP 端点作为目标，把端点填为 URL，把令牌填为访问密钥。",
+        "aws_kinesis_firehose": "在 Firehose 流中选择 HTTP 端点作为目标，把端点填为 URL，把令牌填为访问密钥，缓冲大小不超过 4 MiB。之后 CloudWatch Logs 订阅过滤器或 CloudWatch 指标流就可以投递到这个 Firehose 流。",
+        "gcp_pubsub_push": "用日志路由器的接收器把日志路由到一个 Pub/Sub 主题，再用这个地址在主题上创建推送订阅。Pub/Sub 无法发送自定义请求头，所以令牌放在地址里。",
         "cloudflare_logpush": "用这个 HTTP 目标地址创建 Logpush 任务。令牌放在 Cloudflare 每次推送都会带上的请求头里。",
-        "heroku_drain": "给应用添加这个 Drain。Heroku 无法发送请求头，所以令牌放在地址里。"
+        "heroku_drain": "给应用添加这个 Drain。Heroku 无法发送请求头，所以令牌放在地址里。",
+        "cloud_events": "把事件总线指向这个地址。Amazon EventBridge：创建 API 目的地，连接选 API Key，请求头名填 X-Connector-Token。Azure Event Grid 和 CloudEvents 发送方：Webhook 地址末尾加 ?token=<令牌>，验证握手会自动应答。阿里云 EventBridge：HTTPS 目标，填写这个令牌。"
       },
       "done": "完成",
       "will_generate": "创建连接器时会生成令牌，并只显示一次。"
@@ -887,6 +968,17 @@
       "format": {
         "ndjson": "NDJSON（每行一个事件）",
         "json": "JSON 数组"
+      },
+      "messageFormat": {
+        "json": "JSON 或文本",
+        "azure_records": "Azure Monitor 导出"
+      },
+      "period": {
+        "300": "5 分钟",
+        "1200": "20 分钟",
+        "3600": "1 小时",
+        "14400": "4 小时",
+        "86400": "1 天"
       }
     },
     "tls": {

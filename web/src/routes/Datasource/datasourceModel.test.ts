@@ -44,6 +44,13 @@ describe('datasourceModel', () => {
     expect(sourceInPrimaryCategory(nginx, 'infrastructure')).toBe(true);
   });
 
+  it('lists the Alibaba Cloud Prometheus delivery among the clouds, not the infrastructure', () => {
+    const aliyun = source({ id: 'aliyun-prometheus', category: 'networking', signals: ['metrics'] });
+    expect(sourceInPrimaryCategory(aliyun, 'cloud')).toBe(true);
+    expect(sourceInPrimaryCategory(aliyun, 'infrastructure')).toBe(false);
+    expect(sourceInPrimaryCategory(aliyun, 'recommended')).toBe(false);
+  });
+
   it('lists a category narrowed to the sources that send a signal', () => {
     const sources = [
       source({ id: 'linux', signals: ['logs', 'metrics'] }),

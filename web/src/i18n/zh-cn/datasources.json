@@ -41,28 +41,32 @@
     }
   },
   "aws": {
-    "name": "AWS (CloudWatch + S3)",
-    "description": "通过 CloudWatch Logs subscription + Kinesis Firehose 把日志推送到 MoleSignal。",
+    "name": "AWS (CloudWatch)",
+    "description": "通过 Amazon Data Firehose 把 CloudWatch Logs 和 CloudWatch 指标推送到 MoleSignal。",
     "steps": {
       "1": {
-        "title": "创建 Firehose delivery stream（HTTP endpoint 目标）",
-        "description": "Firehose 带不了 Bearer，走 push connector：endpoint URL 填下方地址，access key 填在「数据源 → 连接器」里创建的 connector push token。"
+        "title": "创建以 HTTP 端点为目标的 Firehose 流",
+        "description": "Firehose 无法发送 Bearer 令牌，所以经推送连接器接入：先在「流水线 → 连接器」创建 Amazon Data Firehose 连接器，再把下方地址填为端点 URL，把连接器的令牌填为访问密钥。Firehose 只投递到 443 端口的 HTTPS，证书须由公共 CA 签发。"
       },
       "2": {
         "title": "订阅 CloudWatch Logs"
+      },
+      "3": {
+        "title": "推送 CloudWatch 指标",
+        "description": "输出格式选 OpenTelemetry 1.0 或 JSON。每个统计量写入连接器的指标数据流，名称形如 aws_ec2_cpuutilization_average。"
       }
     }
   },
   "gcp": {
     "name": "GCP (Cloud Logging)",
-    "description": "通过 Pub/Sub sink 把 Cloud Logging 推送到 MoleSignal HTTP endpoint。",
+    "description": "通过日志路由器的接收器和 Pub/Sub 推送订阅，把 Cloud Logging 推送到 MoleSignal。",
     "steps": {
       "1": {
-        "title": "创建 Cloud Logging sink → Pub/Sub topic"
+        "title": "创建 Cloud Logging 接收器 → Pub/Sub 主题"
       },
       "2": {
-        "title": "订阅 + 转发到 MoleSignal",
-        "description": "用 Cloud Run 函数读取 Pub/Sub，POST 到 {{ENDPOINT}}/api/v1/intake/logs/default，带 Authorization: Bearer <Token>。"
+        "title": "把主题推送到 MoleSignal",
+        "description": "在「流水线 → 连接器」创建 Google Cloud Pub/Sub 推送连接器，把它的令牌写进推送端点。若还要校验订阅的 OIDC 令牌，请在连接器上填写服务账号，并给订阅加上 --push-auth-service-account。"
       }
     }
   },
@@ -436,6 +440,24 @@
       "1": {
         "title": "配置 Logpush job",
         "description": "destination_conf 指向 {{ENDPOINT}}/api/v1/_cloudflare，并带 header X-Connector-Token=<connector-push-token>（push connector 自鉴权，不用 Bearer）。"
+      }
+    }
+  },
+  "aliyun-prometheus": {
+    "name": "阿里云 Prometheus 数据投递",
+    "description": "把阿里云 Prometheus 监控里的云产品指标，经 Remote Write 投递到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "把云产品指标接入 Prometheus 实例",
+        "description": "投递需要付费的「Prometheus for 云服务」实例，免费的 cloud-product-prometheus 实例不能投递。还要开通企业云监控和事件总线 EventBridge，两者都会按投递量计费。"
+      },
+      "2": {
+        "title": "新建投递到自建 Prometheus 的任务",
+        "description": "在控制台打开实例的数据投递，新建任务，目标类型选 Prometheus Remote Write，按下方填写地址和 Basic Auth 的用户名、密码：用户名可以随意，密码是接入 Token。地址里的 stream 参数指定写入的指标数据流。投递所走的网络要能访问 MoleSignal。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中确认指标",
+        "description": "云产品指标的名称形如 AliyunEcs_CPUUtilization。首批数据到达后，在 aliyun 指标数据流上运行这条查询。"
       }
     }
   },
