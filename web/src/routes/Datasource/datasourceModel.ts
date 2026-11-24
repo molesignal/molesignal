@@ -42,7 +42,11 @@ export const PRIMARY_CATEGORIES: readonly PrimaryCategory[] = [
   'custom',
 ];
 
-const CLOUD_SOURCE_IDS = new Set(['aws', 'gcp', 'azure', 'cloudflare', 'aliyun-prometheus', 'tencent-prometheus', 'huawei-prometheus']);
+const CLOUD_SOURCE_IDS = new Set(['aws', 'gcp', 'azure', 'cloudflare', 'aliyun-prometheus', 'tencent-prometheus',
+  'huawei-prometheus',
+  'volcengine-cloudmonitor',
+  'volcengine-prometheus',
+]);
 const INFRASTRUCTURE_SOURCE_IDS = new Set(['kubernetes', 'linux', 'windows']);
 const APPLICATION_SOURCE_IDS = new Set([
   'rum',

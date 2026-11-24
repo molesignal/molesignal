@@ -50,7 +50,7 @@ describe('datasourceModel', () => {
     expect(sourceInPrimaryCategory(aliyun, 'infrastructure')).toBe(false);
     expect(sourceInPrimaryCategory(aliyun, 'recommended')).toBe(false);
 
-    for (const id of ['tencent-prometheus', 'huawei-prometheus']) {
+    for (const id of ['tencent-prometheus', 'huawei-prometheus', 'volcengine-cloudmonitor', 'volcengine-prometheus']) {
       expect(sourceInPrimaryCategory(source({ id, category: 'networking', signals: ['metrics'] }), 'cloud')).toBe(true);
     }
   });

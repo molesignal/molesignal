@@ -98,4 +98,40 @@ Token: ${TOKEN}`,
       { code: { lang: 'text', content: 'topk(20, count by (__name__) ({__name__=~".+"}))' } },
     ],
   },
+  {
+    // Volcengine CloudMonitor's exporter, run by the user, remote-writes cloud product metrics.
+    id: 'volcengine-cloudmonitor',
+    category: 'networking',
+    signals: ['metrics'],
+    steps: [
+      {},
+      {
+        code: {
+          lang: 'text',
+          content: `EndPoint: ${ENDPOINT}/api/v1/prometheus/api/v1/write?stream=volcengine
+Username: molesignal
+Password: ${TOKEN}`,
+        },
+      },
+      { code: { lang: 'text', content: 'topk(20, count by (__name__) ({__name__=~".+_VCM_.+"}))' } },
+    ],
+  },
+  {
+    // Volcengine Managed Service for Prometheus (VMP) exports a workspace to another Prometheus.
+    id: 'volcengine-prometheus',
+    category: 'networking',
+    signals: ['metrics'],
+    steps: [
+      {},
+      {
+        code: {
+          lang: 'text',
+          content: `Remote Write address: ${ENDPOINT}/api/v1/prometheus/api/v1/write?stream=volcengine_prometheus
+Authentication: Bearer token
+Token: ${TOKEN}`,
+        },
+      },
+      { code: { lang: 'text', content: 'topk(20, count by (__name__) ({__name__=~".+"}))' } },
+    ],
+  },
 ];

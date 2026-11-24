@@ -497,6 +497,42 @@
       }
     }
   },
+  "volcengine-cloudmonitor": {
+    "name": "火山引擎云监控 Remote Write",
+    "description": "部署火山引擎云监控的 Exporter 读取云产品指标，经 Remote Write 写到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "部署云监控 Exporter",
+        "description": "这项导出处于公测：先开通按量付费，再向客户经理申请。用有 CloudMonitorReadOnlyAccess 权限的用户的 AccessKey，在 Kubernetes、Docker 或主机上部署 1.4.0 及以上版本的 Exporter。它通过 GetMetricData 读取所支持产品的指标。"
+      },
+      "2": {
+        "title": "把 MoleSignal 加进 Exporter 的 Remote Write",
+        "description": "在 Exporter 配置的 RemoteWrites 中加一项，填入下方字段：用户名可以随意，密码是接入 Token。地址里的 stream 参数指定写入的指标数据流。样本会比其时间晚几分钟到达，MoleSignal 可以接收。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中确认指标",
+        "description": "指标命名为 metricName_subNamespace_namespace，例如 AggregatedMemUtil_aggregated_server_VCM_Redis，资源信息以 volc_resource_info 输出。首批数据到达后，在 volcengine 指标数据流上运行这条查询。"
+      }
+    }
+  },
+  "volcengine-prometheus": {
+    "name": "火山引擎 Prometheus 导出",
+    "description": "把火山引擎托管 Prometheus（VMP）工作区的数据，经 Remote Write 导出到 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "确认工作区能导出什么",
+        "description": "导出任务处于公测，只能导出通用工作区的付费指标；数据保存 15 天及以下的工作区只能导出自定义指标。"
+      },
+      "2": {
+        "title": "创建导出任务",
+        "description": "在 VMP 控制台选择地域，打开导出任务并新建，导出目标选「自建 Prometheus」。按公网或私网访问填入下方地址，鉴权方式选 Bearer token，填接入 Token，并至少添加一条数据过滤规则。地址里的 stream 参数指定写入的指标数据流，也可以改用名为 stream-name 的自定义 HTTP Header。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中确认指标",
+        "description": "首批数据到达后，在 volcengine_prometheus 指标数据流上运行这条查询，列出序列最多的指标。任务详情页可以查看写入请求数和写入时延。"
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "通过 Kafka Connect Sink Connector 或 kafka-exporter 推送。",

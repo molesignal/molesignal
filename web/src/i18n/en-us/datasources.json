@@ -497,6 +497,42 @@
       }
     }
   },
+  "volcengine-cloudmonitor": {
+    "name": "Volcengine CloudMonitor remote write",
+    "description": "Run Volcengine CloudMonitor's exporter to read cloud product metrics and remote-write them to MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "Deploy the CloudMonitor exporter",
+        "description": "The export is in public beta: activate pay-as-you-go and ask your account manager for it. Deploy the exporter, version 1.4.0 or later, on Kubernetes, Docker or a host, with the AccessKey of a user that has CloudMonitorReadOnlyAccess. It reads the metrics of the products it supports with GetMetricData."
+      },
+      "2": {
+        "title": "Add MoleSignal to the exporter's remote writes",
+        "description": "Add an entry with these fields to the RemoteWrites section of the exporter's configuration; the user name can be anything, the password is the intake token. The stream query parameter names the metrics stream. Samples arrive some minutes after their time, which MoleSignal accepts."
+      },
+      "3": {
+        "title": "Check the metrics in MoleSignal",
+        "description": "Metrics are named metricName_subNamespace_namespace, such as AggregatedMemUtil_aggregated_server_VCM_Redis, and resource details come as volc_resource_info. Run this query on the volcengine metrics stream once the first write has arrived."
+      }
+    }
+  },
+  "volcengine-prometheus": {
+    "name": "Volcengine Prometheus export",
+    "description": "Export a Volcengine Managed Service for Prometheus workspace to MoleSignal by remote write.",
+    "steps": {
+      "1": {
+        "title": "Check what the workspace can export",
+        "description": "The export task is in public beta. It exports general workspaces only, and only their billed metrics; a workspace that keeps data for 15 days or less exports custom metrics only."
+      },
+      "2": {
+        "title": "Create an export task",
+        "description": "In the VMP console, choose the region, open Export tasks and create one with Self-managed Prometheus as the target. Enter the address below over public or private network access, choose Bearer token authentication with the intake token, and add at least one filter rule. The stream query parameter names the metrics stream; a stream-name custom HTTP header does the same."
+      },
+      "3": {
+        "title": "Check the metrics in MoleSignal",
+        "description": "Once the first export has arrived, this query on the volcengine_prometheus metrics stream lists the metrics with the most series. The task's detail page shows its write requests and latency."
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Push through a Kafka Connect sink connector or kafka-exporter.",
