@@ -1143,6 +1143,9 @@
       "tencent_monitor": "Tencent Cloud Observability Platform",
       "aws_cloudwatch": "Amazon CloudWatch",
       "zabbix": "Zabbix",
+      "azure_monitor": "Azure Monitor",
+      "gcp_monitoring": "Google Cloud Monitoring",
+      "huawei_ces": "Huawei Cloud Eye",
       "email": "E-mail"
     },
     "kind_hints": {
@@ -1155,6 +1158,9 @@
       "tencent_monitor": "Callbacks de API de um modelo de notificação para alarmes de métricas e eventos. Inclua o token no endereço.",
       "aws_cloudwatch": "Os alarmes são enviados a um tópico do SNS, no qual este endereço é inscrito. As assinaturas do SNS são verificadas e a inscrição é confirmada automaticamente.",
       "zabbix": "Importe um tipo de mídia webhook. Cada problema abre um incidente que acompanha as recuperações e os reconhecimentos.",
+      "azure_monitor": "A ação de webhook de um grupo de ações, no esquema de alerta comum. O token vai no endereço.",
+      "gcp_monitoring": "Um canal de notificação de webhook, ou o canal do Pub/Sub por meio de uma assinatura push. O token vai no endereço.",
+      "huawei_ces": "Os alarmes vão para um tópico do SMN que assina este endereço. As assinaturas do SMN são verificadas e a inscrição é confirmada para você.",
       "email": "Lê uma caixa de e-mail via IMAP sem precisar de um endereço público. Também aceita mensagens no formato bruto de um sistema de e-mail que você já usa."
     },
     "columns": {
@@ -1332,6 +1338,9 @@
       "aliyun_cms": "Informe o endereço de recebimento como callback de uma regra de alarme ou como endereço do webhook do canal de envio de uma assinatura de eventos do sistema.",
       "tencent_monitor": "Em Gerenciamento de alarmes, informe o endereço de recebimento como callback de API de um modelo de notificação. Em seguida, vincule o modelo a uma política de alarme.",
       "aws_cloudwatch": "Envie as mudanças de estado do alarme a um tópico do SNS e adicione a ele uma assinatura HTTPS com o endereço de recebimento (veja abaixo como fazer isso pela AWS CLI). A assinatura é confirmada automaticamente; deixe a opção de entrega de mensagens brutas desativada. Envie também o estado OK ao tópico para que os incidentes sejam resolvidos automaticamente.",
+      "azure_monitor": "Adicione uma ação de webhook ao grupo de ações das suas regras de alerta com o endereço de entrada e ative Habilitar o esquema de alerta comum (o formato da CLI do Azure está abaixo). Alertas que mantêm estado se resolvem sozinhos.",
+      "gcp_monitoring": "Crie um canal de notificação de Webhook em Monitoramento → Alertas → Editar canais de notificação com o endereço de entrada como URL do endpoint e depois adicione o canal às suas políticas de alerta. Incidentes fechados se resolvem sozinhos.",
+      "huawei_ces": "Adicione uma inscrição HTTPS com o endereço de entrada a um tópico do SMN e escolha esse tópico nas notificações de alarme das suas regras de alarme do Cloud Eye, tanto para alarme quanto para recuperação. A inscrição se confirma sozinha.",
       "zabbix": "Salve como YAML e importe em Alertas → Tipos de mídia. Atribua essa mídia a um usuário (o campo Enviar para pode ter qualquer valor). Depois, adicione uma ação de trigger e configure as operações, as operações de recuperação e as operações de atualização para notificar esse usuário.",
       "email": "Use esta opção quando não for possível ler a caixa de correio. Um sistema de e-mail que você já usa (Postfix, SES, Mailgun) envia a mensagem bruta via POST, como neste exemplo, e ela é lida da mesma forma."
     },
@@ -1345,6 +1354,9 @@
       "tencent_monitor": "tencent-cloud-observability-platform",
       "aws_cloudwatch": "amazon-cloudwatch",
       "zabbix": "zabbix",
+      "azure_monitor": "azure-monitor",
+      "gcp_monitoring": "google-cloud-monitoring",
+      "huawei_ces": "huawei-cloud-eye",
       "email": "e-mail"
     },
     "requests": {

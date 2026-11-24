@@ -1126,6 +1126,9 @@
       "tencent_monitor": "騰訊雲可觀測平台",
       "aws_cloudwatch": "Amazon CloudWatch",
       "zabbix": "Zabbix",
+      "azure_monitor": "Azure Monitor",
+      "gcp_monitoring": "Google Cloud Monitoring",
+      "huawei_ces": "華為雲雲監控",
       "email": "電子郵件"
     },
     "kind_hints": {
@@ -1138,6 +1141,9 @@
       "tencent_monitor": "使用通知範本中的 API 回呼，支援指標告警和事件告警；將 Token 放在網址中。",
       "aws_cloudwatch": "將告警傳送到 SNS 主題，並讓主題訂閱此網址；系統會驗證 SNS 簽章並自動確認訂閱。",
       "zabbix": "匯入 Webhook 媒介類型；每個問題建立一個事件，並同步恢復與確認狀態。",
+      "azure_monitor": "動作群組的 Webhook 動作，採用通用警示結構；Token 寫在網址中。",
+      "gcp_monitoring": "Webhook 通知管道，或經推送訂閱的 Pub/Sub 通知管道；Token 寫在網址中。",
+      "huawei_ces": "告警會傳送到 SMN 主題，由主題訂閱這個網址；驗證 SMN 的簽章，自動確認訂閱。",
       "email": "從 IMAP 信箱讀取郵件，不需要公開網址；也可接收現有郵件系統轉寄的原始郵件。"
     },
     "columns": {
@@ -1313,6 +1319,9 @@
       "aliyun_cms": "將接收網址填入警示規則的「警示回呼」欄位；若是系統事件，則填入事件訂閱推播管道的 Webhook 網址欄位。",
       "tencent_monitor": "在「警示管理 → 通知範本」的「介面回呼」欄位填入接收網址，再將通知範本繫結至警示政策。",
       "aws_cloudwatch": "將警示的狀態變更傳送到 SNS 主題，並為該主題新增 HTTPS 訂閱（下方是 AWS CLI 的寫法），訂閱端點請填入接收網址。訂閱會自動確認；請勿啟用 Raw message delivery。OK 狀態也要傳送到這個主題，事件才會自動解決。",
+      "azure_monitor": "在警示規則的動作群組中新增一個 Webhook 動作，網址填入接入網址，並開啟「啟用通用警示結構」（以下是 Azure CLI 的寫法）。有狀態的警示恢復後，事件會自動解決。",
+      "gcp_monitoring": "在 Monitoring → Alerting → Edit notification channels 新增 Webhook 通知管道，Endpoint URL 填入接入網址，再把管道加到警示政策中。事件關閉後會自動解決。",
+      "huawei_ces": "為 SMN 主題新增一個 HTTPS 訂閱，網址填入接入網址；在雲監控警示規則的警示通知中選擇這個主題，警示和恢復都要通知。訂閱會自動確認。",
       "zabbix": "將下方內容存成 YAML，在 Alerts → Media types 匯入；為一位使用者新增這個媒介（「傳送至」可任意填寫），再建立觸發器動作，將操作、復原操作和更新操作都傳送給該使用者。",
       "email": "無法讀取信箱時可用這個方式：讓現有的郵件系統（Postfix、SES、Mailgun）依下方範例將原始郵件以 POST 送出，讀取方式與從信箱讀取相同。"
     },
@@ -1326,6 +1335,9 @@
       "tencent_monitor": "騰訊雲可觀測平台",
       "aws_cloudwatch": "amazon-cloudwatch",
       "zabbix": "zabbix",
+      "azure_monitor": "azure-monitor",
+      "gcp_monitoring": "google-cloud-monitoring",
+      "huawei_ces": "華為雲雲監控",
       "email": "電子郵件"
     },
     "requests": {

@@ -1126,6 +1126,9 @@
       "tencent_monitor": "Tencent Cloud Observability Platform",
       "aws_cloudwatch": "Amazon CloudWatch",
       "zabbix": "Zabbix",
+      "azure_monitor": "Azure Monitor",
+      "gcp_monitoring": "Google Cloud Monitoring",
+      "huawei_ces": "Huawei Cloud Eye",
       "email": "メール"
     },
     "kind_hints": {
@@ -1138,6 +1141,9 @@
       "tencent_monitor": "メトリクスアラームとイベントアラームを通知テンプレートの API コールバックで受信します。トークンはアドレスに含めます。",
       "aws_cloudwatch": "アラームは、このアドレスをサブスクライバーとして登録した SNS トピックに送信されます。SNS の署名検証とサブスクリプションの確認は自動で行われます。",
       "zabbix": "Webhook メディアタイプをインポートします。障害ごとにインシデントを1件作成し、復旧や確認を反映します。",
+      "azure_monitor": "アクショングループの Webhook アクション（共通アラートスキーマ）です。トークンはアドレスに含めます。",
+      "gcp_monitoring": "Webhook 通知チャネル、またはプッシュサブスクリプション経由の Pub/Sub チャネルです。トークンはアドレスに含めます。",
+      "huawei_ces": "アラームは、このアドレスをサブスクライブする SMN トピックに送信されます。SMN の署名を検証し、サブスクリプションを自動で確認します。",
       "email": "IMAP メールボックスからメールを読み取るため、公開アドレスは不要です。既存のメールシステムからメールの原文を直接受信することもできます。"
     },
     "columns": {
@@ -1313,6 +1319,9 @@
       "aliyun_cms": "受信アドレスを、アラームルールのアラームコールバック、またはシステムイベント用のイベントサブスクリプションのプッシュチャネルの Webhook アドレスとして入力します。",
       "tencent_monitor": "「アラーム管理」で通知テンプレートの API コールバックに受信アドレスを入力し、そのテンプレートをアラームポリシーに紐づけます。",
       "aws_cloudwatch": "アラームの状態変更を SNS トピックに送信するように設定し、受信アドレスを指定した HTTPS サブスクリプションをそのトピックに追加します（AWS CLI での指定方法は以下のとおりです）。サブスクリプションは自動で確認されます。「Raw メッセージ配信」は無効のままにしてください。OK 状態もトピックに送信してください。送信しないと、インシデントは自動で解決されません。",
+      "azure_monitor": "アラートルールのアクショングループに、取り込みアドレスを指定した Webhook アクションを追加し、「共通アラートスキーマを有効にする」をオンにします（Azure CLI の形式は以下）。状態を保持するアラートは自動的に解決されます。",
+      "gcp_monitoring": "監視 → アラート → 通知チャネルの編集 で、取り込みアドレスをエンドポイント URL とする Webhook 通知チャネルを作成し、そのチャネルをアラートポリシーに追加します。クローズされたインシデントは自動的に解決されます。",
+      "huawei_ces": "SMN トピックに取り込みアドレスを持つ HTTPS サブスクリプションを追加し、Cloud Eye アラームルールのアラーム通知で、アラーム時と復旧時の両方にそのトピックを選択します。サブスクリプションは自動的に確認されます。",
       "zabbix": "これをYAMLとして保存し、［アラート］→［メディアタイプ］からインポートします。このメディアをユーザーに割り当てます（［送信先］には任意の値を指定できます）。次に、そのユーザーに通知するように、実行内容、復旧時の実行内容、更新時の実行内容を設定したトリガーアクションを追加します。",
       "email": "メールボックスを読み取れない場合は、運用中のメールシステム（Postfix、SES、Mailgun）から、この例のようにメールの原文をPOSTします。受信したメールは通常どおり処理されます。"
     },
@@ -1326,6 +1335,9 @@
       "tencent_monitor": "tencent-cloud-observability-platform",
       "aws_cloudwatch": "amazon-cloudwatch",
       "zabbix": "zabbix",
+      "azure_monitor": "azure-monitor",
+      "gcp_monitoring": "google-cloud-monitoring",
+      "huawei_ces": "huawei-cloud-eye",
       "email": "メール"
     },
     "requests": {

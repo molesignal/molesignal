@@ -677,24 +677,42 @@
     "kinds": {
       "aws_cloudwatch_logs": "AWS CloudWatch Logs",
       "aws_kinesis_firehose": "Amazon Data Firehose",
+      "gcp_pubsub_push": "Push do Google Cloud Pub/Sub",
       "cloudflare_logpush": "Cloudflare Logpush",
       "heroku_drain": "Dreno de logs do Heroku",
       "s3": "Amazon S3",
       "kafka": "Apache Kafka",
       "http": "HTTP / Webhook",
       "kafka_source": "Tópico do Kafka",
-      "s3_source": "Objetos do S3"
+      "s3_source": "Objetos do S3",
+      "aws_cloudwatch_metrics": "Métricas do AWS CloudWatch",
+      "azure_monitor_metrics": "Métricas do Azure Monitor",
+      "gcp_monitoring_metrics": "Métricas do Google Cloud Monitoring",
+      "aliyun_cms_metrics": "Métricas do CloudMonitor da Alibaba Cloud",
+      "tencent_monitor_metrics": "Métricas do Tencent Cloud Monitor",
+      "huawei_ces_metrics": "Métricas do Huawei Cloud Eye",
+      "cloud_events": "Barramento de eventos em nuvem",
+      "gcp_pubsub_pull": "Pull do Google Cloud Pub/Sub"
     },
     "kind_hints": {
       "aws_cloudwatch_logs": "O MoleSignal coleta periodicamente os logs de um grupo.",
-      "aws_kinesis_firehose": "Um fluxo do Firehose envia seus registros para cá.",
+      "aws_kinesis_firehose": "Um fluxo do Firehose envia seus registros para cá: linhas de log, assinaturas do CloudWatch Logs e CloudWatch Metric Streams.",
+      "gcp_pubsub_push": "Uma assinatura push do Pub/Sub envia suas mensagens para cá, como entradas do Cloud Logging publicadas por um sink do Log Router.",
       "cloudflare_logpush": "Uma tarefa do Logpush envia logs de requisições para cá.",
       "heroku_drain": "O dreno de logs de um aplicativo envia as linhas de log para cá.",
       "s3": "Cada lote gravado por um pipeline vira um objeto no formato JSON Lines em um bucket. Também funciona com MinIO, R2, OSS e outros serviços de armazenamento compatíveis com S3.",
       "kafka": "Cada evento gravado por um pipeline vira uma mensagem em um tópico.",
       "http": "Cada lote gravado por um pipeline é enviado a um endereço HTTP como NDJSON ou como um array JSON. Você pode usar um receptor próprio, Logstash, Vector ou outro semelhante.",
       "kafka_source": "O MoleSignal lê um tópico em intervalos regulares e mantém seus próprios offsets.",
-      "s3_source": "O MoleSignal lê, em intervalos regulares, os novos objetos com o prefixo especificado. Também funciona com MinIO, R2, OSS e outros serviços de armazenamento compatíveis com S3."
+      "s3_source": "O MoleSignal lê, em intervalos regulares, os novos objetos com o prefixo especificado. Também funciona com MinIO, R2, OSS e outros serviços de armazenamento compatíveis com S3.",
+      "aws_cloudwatch_metrics": "O MoleSignal lê as métricas de um namespace com GetMetricData periodicamente. Para o que um fluxo de métricas não carrega.",
+      "azure_monitor_metrics": "O MoleSignal lê as métricas de um tipo de recurso em uma região com a API em lote do Azure Monitor periodicamente.",
+      "gcp_monitoring_metrics": "O MoleSignal lê tipos de métrica de um projeto do Cloud Monitoring periodicamente.",
+      "aliyun_cms_metrics": "O MoleSignal lê as métricas de um namespace do CloudMonitor periodicamente.",
+      "tencent_monitor_metrics": "O MoleSignal lê as métricas de um namespace do Cloud Monitor periodicamente.",
+      "huawei_ces_metrics": "O MoleSignal lê as métricas de um namespace do Cloud Eye periodicamente.",
+      "cloud_events": "Um barramento de eventos envia seus eventos para cá: Amazon EventBridge, Azure Event Grid, Alibaba Cloud EventBridge, Huawei Cloud EventGrid e qualquer remetente CloudEvents.",
+      "gcp_pubsub_pull": "O MoleSignal lê uma assinatura do Pub/Sub periodicamente e confirma o que gravou. Para mais logs do que uma assinatura push comporta bem."
     },
     "transport": {
       "pull": "Coletado",
@@ -723,7 +741,9 @@
         "bearer": "Token Bearer",
         "basic": "Autenticação básica",
         "header": "Cabeçalho personalizado",
-        "hmac": "Assinatura HMAC"
+        "hmac": "Assinatura HMAC",
+        "client_secret": "Registro de aplicativo",
+        "service_account_key": "Chave da conta de serviço"
       },
       "hints": {
         "access_key": "Uma chave de longa duração de um usuário do IAM. Conceda a esse usuário apenas as permissões de que o conector precisa.",
@@ -743,7 +763,14 @@
         "bearer": "Cada solicitação inclui o cabeçalho Authorization: Bearer <token>.",
         "basic": "Cada solicitação inclui um cabeçalho de autenticação HTTP Basic. Use essa opção apenas via https.",
         "header": "A chave é enviada em um cabeçalho definido pelo destinatário, como X-API-Key ou DD-API-KEY.",
-        "hmac": "Cada solicitação inclui os cabeçalhos X-MoleSignal-Timestamp (em segundos Unix) e X-MoleSignal-Sign: sha256=<hex>. A assinatura é o HMAC-SHA256 de \"<timestamp>.<body>\", calculado com o segredo compartilhado. O destinatário recalcula a assinatura com o mesmo segredo e rejeita solicitações com carimbo de data e hora antigo."
+        "hmac": "Cada solicitação inclui os cabeçalhos X-MoleSignal-Timestamp (em segundos Unix) e X-MoleSignal-Sign: sha256=<hex>. A assinatura é o HMAC-SHA256 de \"<timestamp>.<body>\", calculado com o segredo compartilhado. O destinatário recalcula a assinatura com o mesmo segredo e rejeita solicitações com carimbo de data e hora antigo.",
+        "client_secret": "Um registro de aplicativo do Microsoft Entra ID com um segredo de cliente. Conceda a ele a função Leitor de Monitoramento na própria assinatura; a função em recursos individuais não é suficiente para a API em lote.",
+        "service_account_key": "O arquivo de chave JSON de uma conta de serviço com roles/monitoring.viewer no projeto.",
+        "access_key_aws_cloudwatch_metrics": "Uma chave de longa duração de um usuário IAM que pode chamar cloudwatch:ListMetrics e cloudwatch:GetMetricData.",
+        "access_key_aliyun_cms_metrics": "A AccessKey de um usuário RAM com AliyunCloudMonitorReadOnlyAccess.",
+        "access_key_tencent_monitor_metrics": "O SecretId e a SecretKey de um usuário CAM com QcloudMonitorReadOnlyAccess e QcloudCVMReadOnlyAccess para encontrar instâncias CVM.",
+        "access_key_huawei_ces_metrics": "O AK e o SK de um usuário IAM com CES ReadOnlyAccess.",
+        "service_account_key_gcp_pubsub_pull": "O arquivo de chave JSON de uma conta de serviço com roles/pubsub.subscriber na assinatura."
       },
       "external_id": "ID externo",
       "external_id_hint": "Esta organização usa este ID externo para assumir funções, e o ID não pode ser alterado. Exija esse ID com uma condição sts:ExternalId na política de confiança da função. Assim, nenhuma outra organização poderá assumir a função, mesmo que conheça o ARN.",
@@ -757,6 +784,7 @@
       "region": "Região",
       "logGroup": "Grupo de logs",
       "targetStream": "Gravar no fluxo",
+      "metricsStream": "Fluxo de métricas",
       "bucket": "Bucket",
       "prefix": "Prefixo da chave",
       "endpoint": "Endpoint",
@@ -782,10 +810,32 @@
       "headerName": "Nome do cabeçalho",
       "headerValue": "Valor do cabeçalho",
       "hmacSecret": "Segredo compartilhado",
-      "startFrom": "Começar a partir de"
+      "startFrom": "Começar a partir de",
+      "oidcServiceAccount": "Conta de serviço de push",
+      "oidcAudience": "Público do token",
+      "namespace": "Namespace",
+      "metrics": "Métricas",
+      "statistics": "Estatísticas",
+      "period": "Período (segundos)",
+      "delay": "Atraso (segundos)",
+      "messageFormat": "Formato da mensagem",
+      "subscriptionId": "ID da assinatura",
+      "resourceType": "Tipo de recurso",
+      "aggregations": "Agregações",
+      "filter": "Filtro",
+      "top": "Séries por recurso",
+      "projectId": "ID do projeto",
+      "dimensions": "Dimensões",
+      "instances": "Instâncias",
+      "tenantId": "ID do locatário",
+      "clientId": "ID do cliente",
+      "clientSecret": "Segredo do cliente",
+      "serviceAccountKey": "Chave da conta de serviço",
+      "subscription": "Assinatura"
     },
     "hints": {
       "targetStream": "Se o fluxo ainda não existir, ele será criado no primeiro evento.",
+      "targetStream_aws_kinesis_firehose": "Para onde vão os registros de log, entre eles eventos de assinatura do CloudWatch Logs. Um fluxo que ainda não existe é criado pelo primeiro evento.",
       "region_s3": "A região do bucket. Alguns serviços de armazenamento compatíveis com S3 não exigem uma região.",
       "region_s3_source": "A região do bucket. Alguns serviços de armazenamento compatíveis com S3 não exigem uma região.",
       "prefix": "Os objetos são nomeados no formato <prefix><id>.jsonl.",
@@ -795,7 +845,36 @@
       "brokers": "Host e porta. Separe as entradas com vírgulas.",
       "endpoint": "Endereço da API S3 do serviço de armazenamento, começando com http:// ou https://.",
       "url": "Endereço para onde os eventos são enviados, começando com http:// ou https://. Como pode conter credenciais, ele é protegido: depois de salvo, apenas o host é exibido.",
-      "tlsCaCert": "Se uma CA privada emitiu os certificados dos brokers, informe o certificado dela no formato PEM. Deixe em branco para confiar nas CAs do sistema."
+      "tlsCaCert": "Se uma CA privada emitiu os certificados dos brokers, informe o certificado dela no formato PEM. Deixe em branco para confiar nas CAs do sistema.",
+      "oidcServiceAccount": "Quando definido, apenas envios que carregam o token OIDC desta conta de serviço são aceitos: ative a autenticação para a assinatura push com esta conta. Deixe vazio para confiar apenas no token.",
+      "oidcAudience": "A audiência que a assinatura coloca no token OIDC. Deixe vazio para aceitar qualquer uma.",
+      "metricsStream_aws_kinesis_firehose": "Para onde vão as amostras do CloudWatch Metric Streams, uma por estatística, nomeadas como aws_ec2_cpuutilization_average. Defina o formato de saída JSON ou OpenTelemetry 1.0 para o fluxo de métricas.",
+      "metricsStream": "O destino das amostras, uma por estatística, nomeadas <cloud>_<namespace>_<metric>_<statistic>, como aliyun_ecs_dashboard_cpuutilization_average. Um fluxo que ainda não existe é criado pela primeira amostra.",
+      "namespace_aws_cloudwatch_metrics": "Como AWS/EC2, AWS/RDS ou um namespace personalizado.",
+      "metrics_aws_cloudwatch_metrics": "Deixe vazio para ler todas as métricas do namespace que tiveram dados nas últimas três horas, no máximo 2.000 séries.",
+      "statistics_aws_cloudwatch_metrics": "Average, Sum, Minimum, Maximum, SampleCount e percentis como p99. Cada estatística de cada série é cobrada como uma métrica solicitada. Padrão: Average, Maximum.",
+      "period": "A duração de um agregado, em minutos inteiros. Padrão: 300.",
+      "delay": "Quanto tempo depois do fim de um período ele é lido, já que a nuvem conclui uma agregação com alguns minutos de atraso. Os períodos são lidos uma vez e nunca mais.",
+      "messageFormat": "Exportação do Azure Monitor: cada mensagem é {\"records\": [...]}, como as configurações de diagnóstico, a exportação de dados e as regras de coleta de dados a enviam para um hub de eventos; cada registro se torna um evento próprio, e os registros de métrica se tornam amostras de métrica no fluxo de métricas.",
+      "resourceType": "Também o namespace da métrica, como Microsoft.Compute/virtualMachines.",
+      "metrics_azure_monitor_metrics": "Nomes de métrica conforme exibidos pelo Azure Monitor, como Percentage CPU.",
+      "aggregations": "Qualquer um entre average, minimum, maximum, total e count. Padrão: average.",
+      "filter_azure_monitor_metrics": "Filtro de dimensão opcional da API em lote, como LUN eq '*' para dividir por uma dimensão.",
+      "filter_gcp_monitoring_metrics": "Cláusula opcional adicionada ao filtro de cada métrica.",
+      "top": "Em quantas séries um filtro pode dividir cada métrica de cada recurso. Padrão: 100.",
+      "period_azure_monitor_metrics": "Um de 60, 300, 900, 1800, 3600, 21600, 43200 e 86400. Padrão: 300.",
+      "projectId_gcp_monitoring_metrics": "Deixe vazio para usar o projeto da chave da conta de serviço.",
+      "metrics_gcp_monitoring_metrics": "Um tipo de métrica por linha, como compute.googleapis.com/instance/cpu/utilization. Medidores são lidos como sua média, deltas como sua soma, contadores como sua taxa.",
+      "namespace_aliyun_cms_metrics": "Como acs_ecs_dashboard ou acs_rds_dashboard.",
+      "statistics_aliyun_cms_metrics": "Como o CloudMonitor os nomeia: Average, Maximum, Minimum, Sum. Padrão: Average, Maximum.",
+      "dimensions": "JSON opcional passado como Dimensões. Deixe vazio para ler todas as instâncias da conta.",
+      "namespace_tencent_monitor_metrics": "Como QCE/CVM ou QCE/CDB.",
+      "statistics_tencent_monitor_metrics": "Qualquer uma entre avg, max e min. Padrão: avg.",
+      "instances": "Uma instância por linha como Nome=Valor, várias dimensões unidas com &, sem vírgulas. Obrigatório, exceto para QCE/CVM, cujas instâncias são encontradas na região quando deixado em branco.",
+      "projectId_huawei_ces_metrics": "O projeto da região, em Minhas credenciais no console.",
+      "namespace_huawei_ces_metrics": "Como SYS.ECS ou SYS.RDS.",
+      "statistics_huawei_ces_metrics": "Qualquer uma entre average, max, min, sum e variance. Padrão: average.",
+      "subscription": "O nome completo dela, ou o nome dela no projeto da chave. Defina um prazo de confirmação de 60 segundos ou mais."
     },
     "compatible": {
       "toggle": "Armazenamento compatível com S3",
@@ -849,9 +928,11 @@
       "regenerated": "O novo token está pronto. Ao salvar, ele substituirá o atual e será exibido uma única vez.",
       "keep": "Manter o token atual",
       "steps": {
-        "aws_kinesis_firehose": "No fluxo do Firehose, escolha o destino de endpoint HTTP. Use o endpoint como URL do destino e o token como chave de acesso.",
+        "aws_kinesis_firehose": "No stream do Firehose, escolha o destino de endpoint HTTP. Insira o endpoint como URL e o token como chave de acesso, e mantenha o buffer em 4 MiB ou menos. Um filtro de assinatura do CloudWatch Logs ou um stream de métricas do CloudWatch pode então entregar ao stream do Firehose.",
+        "gcp_pubsub_push": "Encaminhe os logs para um tópico do Pub/Sub com um sink do Log Router e, em seguida, crie uma assinatura push no tópico com este endereço. O Pub/Sub não pode enviar um cabeçalho de sua escolha, então o token é enviado no endereço.",
         "cloudflare_logpush": "Crie uma tarefa do Logpush com este destino HTTP. O token é enviado em um cabeçalho que a Cloudflare adiciona a cada envio.",
-        "heroku_drain": "Adicione o drain ao seu aplicativo. O Heroku não permite enviar um cabeçalho, por isso o token vai no endereço."
+        "heroku_drain": "Adicione o drain ao seu aplicativo. O Heroku não permite enviar um cabeçalho, por isso o token vai no endereço.",
+        "cloud_events": "Aponte o barramento de eventos para este endereço. Amazon EventBridge: um destino de API com uma conexão de chave de API cujo cabeçalho é X-Connector-Token. Azure Event Grid e os remetentes do CloudEvents: um webhook cujo endereço termina com ?token=<token>; o handshake de validação é respondido automaticamente. Alibaba Cloud EventBridge: um destino HTTPS com este token."
       },
       "done": "Concluído",
       "will_generate": "Ao criar o conector, um token será gerado e exibido uma única vez."
@@ -891,6 +972,17 @@
       "format": {
         "ndjson": "NDJSON (um evento por linha)",
         "json": "Array JSON"
+      },
+      "messageFormat": {
+        "json": "JSON ou texto",
+        "azure_records": "Exportação do Azure Monitor"
+      },
+      "period": {
+        "300": "5 minutos",
+        "1200": "20 minutos",
+        "3600": "1 hora",
+        "14400": "4 horas",
+        "86400": "1 dia"
       }
     },
     "tls": {

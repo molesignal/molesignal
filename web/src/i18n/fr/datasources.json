@@ -41,28 +41,32 @@
     }
   },
   "aws": {
-    "name": "AWS (CloudWatch + S3)",
-    "description": "Envoyez les logs à MoleSignal via un abonnement CloudWatch Logs et Kinesis Firehose.",
+    "name": "AWS (CloudWatch)",
+    "description": "Envoyez les journaux CloudWatch et les métriques CloudWatch à MoleSignal via Amazon Data Firehose.",
     "steps": {
       "1": {
-        "title": "Créez un flux de diffusion Firehose (destination : point de terminaison HTTP)",
-        "description": "Firehose ne peut pas envoyer de jeton Bearer et passe donc par un connecteur d’envoi. Utilisez l’adresse ci-dessous comme URL du point de terminaison et, comme clé d’accès, le jeton d’envoi du connecteur créé dans Sources de données → Connecteurs."
+        "title": "Créer un flux Firehose avec un point de terminaison HTTP comme destination",
+        "description": "Firehose ne peut pas envoyer de jeton Bearer, il passe donc par un connecteur push : créez un connecteur Amazon Data Firehose sous Pipelines → Connecteurs, puis utilisez l’adresse ci-dessous comme URL du point de terminaison et le jeton du connecteur comme clé d’accès. Firehose ne transmet qu’en HTTPS sur le port 443 avec un certificat approuvé publiquement."
       },
       "2": {
         "title": "Créez un abonnement CloudWatch Logs"
+      },
+      "3": {
+        "title": "Diffuser les métriques CloudWatch",
+        "description": "Utilisez le format de sortie OpenTelemetry 1.0 ou JSON. Chaque statistique devient un échantillon du type aws_ec2_cpuutilization_average dans le flux de métriques du connecteur."
       }
     }
   },
   "gcp": {
     "name": "GCP (Cloud Logging)",
-    "description": "Envoyez les logs de Cloud Logging au point de terminaison HTTP de MoleSignal via un récepteur Pub/Sub.",
+    "description": "Envoyez Cloud Logging à MoleSignal via un récepteur Log Router et un abonnement push Pub/Sub.",
     "steps": {
       "1": {
         "title": "Créez un récepteur Cloud Logging qui cible un sujet Pub/Sub"
       },
       "2": {
-        "title": "Abonnez-vous au sujet et transférez les logs à MoleSignal",
-        "description": "Lisez les messages Pub/Sub avec une fonction Cloud Run et envoyez-les par POST à {{ENDPOINT}}/api/v1/intake/logs/default avec l’en-tête Authorization: Bearer <token>."
+        "title": "Envoyer le sujet à MoleSignal",
+        "description": "Créez un connecteur push Google Cloud Pub/Sub sous Pipelines → Connecteurs, et placez son jeton dans le point de terminaison push. Pour vérifier également le jeton OIDC de l’abonnement, indiquez son compte de service sur le connecteur et ajoutez --push-auth-service-account."
       }
     }
   },
@@ -436,6 +440,24 @@
       "1": {
         "title": "Configurez la tâche Logpush",
         "description": "Configurez destination_conf pour qu’il pointe vers {{ENDPOINT}}/api/v1/_cloudflare avec l’en-tête X-Connector-Token=<connector-push-token> (les connecteurs push s’authentifient eux-mêmes, sans jeton Bearer)."
+      }
+    }
+  },
+  "aliyun-prometheus": {
+    "name": "Livraison Alibaba Cloud Prometheus",
+    "description": "Transmettez les métriques des produits cloud d’Alibaba Cloud Managed Service for Prometheus vers MoleSignal via remote write.",
+    "steps": {
+      "1": {
+        "title": "Importer les métriques des produits cloud dans une instance Prometheus",
+        "description": "La livraison nécessite une instance payante de Prometheus pour les services cloud : les instances gratuites cloud-product-prometheus ne peuvent pas effectuer de livraison. Enterprise CloudMonitor et EventBridge doivent être activés, et tous deux facturent les données livrées."
+      },
+      "2": {
+        "title": "Créer une tâche de livraison vers un Prometheus autogéré",
+        "description": "Dans la console, ouvrez la livraison de données de l’instance, ajoutez une tâche et choisissez Prometheus Remote Write comme cible. Saisissez ci-dessous l’adresse ainsi que le nom d’utilisateur et le mot de passe Basic Auth ; le nom d’utilisateur peut être quelconque, le mot de passe correspond au jeton d’ingestion. Le paramètre de requête stream désigne le flux de métriques. MoleSignal doit être joignable depuis le réseau de livraison."
+      },
+      "3": {
+        "title": "Vérifier les métriques dans MoleSignal",
+        "description": "Les métriques des produits cloud portent des noms comme AliyunEcs_CPUUtilization. Exécutez cette requête sur le flux de métriques aliyun une fois la première livraison arrivée."
       }
     }
   },

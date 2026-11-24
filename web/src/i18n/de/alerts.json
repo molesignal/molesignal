@@ -1126,6 +1126,9 @@
       "tencent_monitor": "Tencent Cloud Observability Platform",
       "aws_cloudwatch": "Amazon CloudWatch",
       "zabbix": "Zabbix",
+      "azure_monitor": "Azure Monitor",
+      "gcp_monitoring": "Google Cloud Monitoring",
+      "huawei_ces": "Huawei Cloud Eye",
       "email": "E-Mail"
     },
     "kind_hints": {
@@ -1138,6 +1141,9 @@
       "tencent_monitor": "API-Callbacks einer Benachrichtigungsvorlage für Metrik- und Ereignisalarme. Geben Sie das Token in der Adresse an.",
       "aws_cloudwatch": "Alarme gehen an ein SNS-Thema, das diese Adresse als Abonnenten hat. MoleSignal prüft die SNS-Signaturen und bestätigt das Abonnement für Sie.",
       "zabbix": "Importieren Sie einen Webhook-Medientyp. Pro Problem wird ein Incident eröffnet, dessen Status bei Bestätigung oder Behebung aktualisiert wird.",
+      "azure_monitor": "Die Webhook-Aktion einer Aktionsgruppe im allgemeinen Warnungsschema. Das Token gehört in die Adresse.",
+      "gcp_monitoring": "Ein Webhook-Benachrichtigungskanal oder der Pub/Sub-Kanal über ein Push-Abonnement. Das Token gehört in die Adresse.",
+      "huawei_ces": "Alarme gehen an ein SMN-Topic, das diese Adresse abonniert. SMN-Signaturen werden geprüft und das Abonnement für Sie bestätigt.",
       "email": "Liest ein IMAP-Postfach und benötigt keine öffentliche Adresse. Nimmt auch unverarbeitete E-Mails aus Ihrem bestehenden E-Mail-System entgegen."
     },
     "columns": {
@@ -1313,6 +1319,9 @@
       "aliyun_cms": "Geben Sie die Empfangsadresse als Alarm-Callback einer Alarmregel oder als Webhook-Adresse eines Push-Kanals für ein Systemereignisabonnement ein.",
       "tencent_monitor": "Geben Sie unter Alarm Management die Empfangsadresse als API-Callback einer Benachrichtigungsvorlage ein und verknüpfen Sie die Vorlage mit einer Alarmrichtlinie.",
       "aws_cloudwatch": "Leiten Sie die Statusänderungen des Alarms an ein SNS-Thema weiter und fügen Sie dem Thema ein HTTPS-Abonnement mit der Empfangsadresse hinzu (siehe AWS CLI-Befehl unten). Das Abonnement wird automatisch bestätigt. Lassen Sie Raw message delivery deaktiviert. Senden Sie auch den Status OK an das Thema, damit Incidents automatisch als behoben markiert werden.",
+      "azure_monitor": "Fügen Sie der Aktionsgruppe Ihrer Warnungsregeln eine Webhook-Aktion mit der Empfangsadresse hinzu und aktivieren Sie „Common Alert Schema aktivieren“ (die Azure CLI-Variante finden Sie unten). Zustandsbehaftete Warnungen werden automatisch aufgelöst.",
+      "gcp_monitoring": "Erstellen Sie unter Monitoring → Alerting → Benachrichtigungskanäle bearbeiten einen Webhook-Benachrichtigungskanal mit der Empfangsadresse als Endpunkt-URL und fügen Sie den Kanal dann Ihren Alerting-Richtlinien hinzu. Geschlossene Incidents werden automatisch aufgelöst.",
+      "huawei_ces": "Fügen Sie einem SMN-Topic ein HTTPS-Abonnement mit der Empfangsadresse hinzu und wählen Sie dieses Topic in den Alarmbenachrichtigungen Ihrer Cloud Eye-Alarmregeln aus – sowohl für Alarmierung als auch für Wiederherstellung. Das Abonnement bestätigt sich selbst.",
       "zabbix": "Speichern Sie dies als YAML und importieren Sie die Datei unter Alarme → Medientypen. Weisen Sie einem Benutzer dieses Medium zu (im Feld „Senden an“ ist ein beliebiger Wert möglich). Fügen Sie dann eine Trigger-Aktion hinzu, deren Operationen, Wiederherstellungsoperationen und Aktualisierungsoperationen an diesen Benutzer gerichtet sind.",
       "email": "Wenn ein Postfach nicht ausgelesen werden kann, kann ein bereits eingesetztes Mailsystem (Postfix, SES, Mailgun) die unformatierte E-Mail wie hier gezeigt per POST senden. Sie wird dann auf dieselbe Weise verarbeitet."
     },
@@ -1326,6 +1335,9 @@
       "tencent_monitor": "tencent-cloud-observability-platform",
       "aws_cloudwatch": "amazon-cloudwatch",
       "zabbix": "zabbix",
+      "azure_monitor": "azure-monitor",
+      "gcp_monitoring": "google-cloud-monitoring",
+      "huawei_ces": "huawei-cloud-eye",
       "email": "e-mail"
     },
     "requests": {

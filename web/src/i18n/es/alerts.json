@@ -1143,6 +1143,9 @@
       "tencent_monitor": "Tencent Cloud Observability Platform",
       "aws_cloudwatch": "Amazon CloudWatch",
       "zabbix": "Zabbix",
+      "azure_monitor": "Azure Monitor",
+      "gcp_monitoring": "Google Cloud Monitoring",
+      "huawei_ces": "Huawei Cloud Eye",
       "email": "Correo electrónico"
     },
     "kind_hints": {
@@ -1155,6 +1158,9 @@
       "tencent_monitor": "Callbacks de API de una plantilla de notificación para alarmas de métricas y eventos. Incluye el token en la dirección.",
       "aws_cloudwatch": "Las alarmas se envían a un tema de SNS al que se suscribe esta dirección. MoleSignal verifica las firmas de SNS y confirma la suscripción por ti.",
       "zabbix": "Importa un tipo de medio webhook. Se abre un incidente por problema y se hace seguimiento de las recuperaciones y las confirmaciones.",
+      "azure_monitor": "La acción de webhook de un grupo de acciones, con el esquema de alertas comunes. El token va en la dirección.",
+      "gcp_monitoring": "Un canal de notificación de webhook, o el canal de Pub/Sub a través de una suscripción push. El token va en la dirección.",
+      "huawei_ces": "Las alarmas llegan a un tema de SMN suscrito a esta dirección. Se comprueban las firmas de SMN y la suscripción se confirma automáticamente.",
       "email": "Lee un buzón IMAP sin necesidad de una dirección pública. También acepta mensajes sin procesar de un sistema de correo que ya tengas en funcionamiento."
     },
     "columns": {
@@ -1332,6 +1338,9 @@
       "aliyun_cms": "Usa la dirección de recepción como URL de devolución de llamada en una regla de alarma o como dirección del webhook en el canal de envío de una suscripción a eventos del sistema.",
       "tencent_monitor": "Usa la dirección de recepción como URL de devolución de llamada de la API en una plantilla de notificación de Administración de alarmas y luego vincula la plantilla a una política de alarmas.",
       "aws_cloudwatch": "Envía los cambios de estado de la alarma a un tema de SNS y agrega al tema una suscripción HTTPS con la dirección de recepción (abajo se muestra el comando de AWS CLI). La suscripción se confirma automáticamente; deja desactivada la entrega de mensajes sin procesar. Envía también el estado OK al tema; de lo contrario, los incidentes no se resolverán automáticamente.",
+      "azure_monitor": "Agrega una acción de webhook al grupo de acciones de tus reglas de alerta con la dirección de ingesta y activa Enable the common alert schema (la variante con la CLI de Azure está más abajo). Las alertas que mantienen estado se resuelven solas.",
+      "gcp_monitoring": "Crea un canal de notificación de Webhook en Monitoring → Alerting → Edit notification channels con la dirección de ingesta como URL de endpoint y luego agrega el canal a tus políticas de alerta. Los incidentes cerrados se resuelven solos.",
+      "huawei_ces": "Agrega una suscripción HTTPS con la dirección de ingesta a un tema de SMN y elige ese tema en las notificaciones de alarma de tus reglas de alarma de Cloud Eye, tanto para la alarma como para la recuperación. La suscripción se confirma sola.",
       "zabbix": "Guarda esto como YAML e impórtalo en Alertas → Tipos de medios. Asigna este medio a un usuario (puedes poner cualquier valor en Enviar a) y añade una acción de disparador que dirija a ese usuario las operaciones, las operaciones de recuperación y las operaciones de actualización.",
       "email": "Si no se puede leer un buzón, usa un sistema de correo que ya tengas en funcionamiento (Postfix, SES o Mailgun) para enviar el mensaje sin procesar como se muestra aquí. El mensaje se leerá de la misma manera."
     },
@@ -1345,6 +1354,9 @@
       "tencent_monitor": "tencent-cloud-observability-platform",
       "aws_cloudwatch": "amazon-cloudwatch",
       "zabbix": "zabbix",
+      "azure_monitor": "azure-monitor",
+      "gcp_monitoring": "google-cloud-monitoring",
+      "huawei_ces": "huawei-cloud-eye",
       "email": "correo-electrónico"
     },
     "requests": {

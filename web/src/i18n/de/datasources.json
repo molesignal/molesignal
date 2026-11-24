@@ -41,28 +41,32 @@
     }
   },
   "aws": {
-    "name": "AWS (CloudWatch + S3)",
-    "description": "Senden Sie Logs über ein CloudWatch Logs-Abonnement und Kinesis Firehose an MoleSignal.",
+    "name": "AWS (CloudWatch)",
+    "description": "Senden Sie CloudWatch Logs und CloudWatch-Metriken über Amazon Data Firehose an MoleSignal.",
     "steps": {
       "1": {
-        "title": "Firehose-Bereitstellungsstream mit HTTP-Endpunkt als Ziel erstellen",
-        "description": "Firehose kann kein Bearer-Token senden, daher erfolgt die Übertragung über einen Push-Connector. Verwenden Sie die unten angegebene Adresse als Endpunkt-URL und das unter „Datenquellen → Connectors“ erstellte Push-Token des Connectors als Zugriffsschlüssel."
+        "title": "Firehose-Stream mit HTTP-Endpoint als Ziel erstellen",
+        "description": "Firehose kann kein Bearer-Token senden, daher wird ein Push-Connector verwendet: Erstellen Sie unter Pipelines → Connectors einen Amazon Data Firehose-Connector, und verwenden Sie die unten stehende Adresse als Endpoint-URL sowie das Token des Connectors als Access Key. Firehose liefert nur an HTTPS über Port 443 mit einem öffentlich vertrauenswürdigen Zertifikat."
       },
       "2": {
         "title": "CloudWatch Logs abonnieren"
+      },
+      "3": {
+        "title": "CloudWatch-Metriken streamen",
+        "description": "Verwenden Sie das Ausgabeformat OpenTelemetry 1.0 oder JSON. Jede Statistik wird zu einem Sample mit einem Namen wie aws_ec2_cpuutilization_average im Metrik-Stream des Connectors."
       }
     }
   },
   "gcp": {
     "name": "GCP (Cloud Logging)",
-    "description": "Senden Sie Logs aus Cloud Logging über eine Pub/Sub-Senke an den HTTP-Endpunkt von MoleSignal.",
+    "description": "Senden Sie Cloud Logging über einen Log Router-Sink und ein Pub/Sub-Push-Abonnement an MoleSignal.",
     "steps": {
       "1": {
         "title": "Cloud Logging-Senke mit einem Pub/Sub-Thema als Ziel erstellen"
       },
       "2": {
-        "title": "Abonnieren und an MoleSignal weiterleiten",
-        "description": "Lesen Sie die Nachrichten aus Pub/Sub mit einer Cloud Run-Funktion und senden Sie sie per POST an {{ENDPOINT}}/api/v1/intake/logs/default mit dem Header Authorization: Bearer <token>."
+        "title": "Topic an MoleSignal übermitteln",
+        "description": "Erstellen Sie unter Pipelines → Connectors einen Google Cloud Pub/Sub-Push-Connector und hinterlegen Sie dessen Token im Push-Endpoint. Um zusätzlich das OIDC-Token des Abonnements zu prüfen, geben Sie dessen Dienstkonto beim Connector an und fügen Sie --push-auth-service-account hinzu."
       }
     }
   },
@@ -436,6 +440,24 @@
       "1": {
         "title": "Logpush-Job konfigurieren",
         "description": "Setzen Sie destination_conf auf {{ENDPOINT}}/api/v1/_cloudflare und verwenden Sie den Header X-Connector-Token=<connector-push-token> (Push-Konnektoren authentifizieren sich selbst; kein Bearer-Token)."
+      }
+    }
+  },
+  "aliyun-prometheus": {
+    "name": "Alibaba Cloud Prometheus-Übermittlung",
+    "description": "Übermitteln Sie Cloud-Produktmetriken von Alibaba Cloud Managed Service for Prometheus per Remote Write an MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "Cloud-Produktmetriken in eine Prometheus-Instanz übernehmen",
+        "description": "Für die Übermittlung ist eine kostenpflichtige Instanz von Prometheus for Cloud Services erforderlich: Die kostenlosen cloud-product-prometheus-Instanzen können keine Daten übermitteln. Enterprise CloudMonitor und EventBridge müssen aktiviert sein, und beide werden nach dem übermittelten Umfang abgerechnet."
+      },
+      "2": {
+        "title": "Übermittlungsaufgabe an einen selbst verwalteten Prometheus erstellen",
+        "description": "Öffnen Sie in der Konsole die Datenübermittlung der Instanz, fügen Sie eine Aufgabe hinzu und wählen Sie Prometheus Remote Write als Ziel. Geben Sie unten die Adresse sowie Benutzername und Passwort für Basic Auth ein; der Benutzername kann beliebig sein, das Passwort ist das Intake-Token. Der Query-Parameter stream legt den Metrik-Stream fest. MoleSignal muss aus dem Übermittlungsnetzwerk erreichbar sein."
+      },
+      "3": {
+        "title": "Metriken in MoleSignal prüfen",
+        "description": "Cloud-Produktmetriken haben Namen wie AliyunEcs_CPUUtilization. Führen Sie diese Abfrage auf dem aliyun-Metrik-Stream aus, sobald die erste Übermittlung eingetroffen ist."
       }
     }
   },

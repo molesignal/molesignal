@@ -41,28 +41,32 @@
     }
   },
   "aws": {
-    "name": "AWS (CloudWatch + S3)",
-    "description": "Envie logs para o MoleSignal por meio de uma assinatura do CloudWatch Logs e do Kinesis Firehose.",
+    "name": "AWS (CloudWatch)",
+    "description": "Envie CloudWatch Logs e métricas do CloudWatch para o MoleSignal por meio do Amazon Data Firehose.",
     "steps": {
       "1": {
-        "title": "Crie um fluxo de entrega do Firehose (destino: endpoint HTTP)",
-        "description": "Como o Firehose não pode enviar um token Bearer, use um conector de envio. Use o endereço abaixo como URL do endpoint e, como chave de acesso, o token de envio do conector criado em Fontes de dados → Conectores."
+        "title": "Crie um fluxo do Firehose com um endpoint HTTP como destino",
+        "description": "O Firehose não consegue enviar um token Bearer, então use um conector de push: crie um conector do Amazon Data Firehose em Pipelines → Conectores, depois use o endereço abaixo como URL do endpoint e o token do conector como chave de acesso. O Firehose só entrega em HTTPS na porta 443 com um certificado publicamente confiável."
       },
       "2": {
         "title": "Crie uma assinatura do CloudWatch Logs"
+      },
+      "3": {
+        "title": "Envie métricas do CloudWatch",
+        "description": "Use o formato de saída OpenTelemetry 1.0 ou JSON. Cada estatística se torna uma amostra com nome como aws_ec2_cpuutilization_average no fluxo de métricas do conector."
       }
     }
   },
   "gcp": {
     "name": "GCP (Cloud Logging)",
-    "description": "Envie logs do Cloud Logging para o endpoint HTTP do MoleSignal por meio de um coletor com destino ao Pub/Sub.",
+    "description": "Envie o Cloud Logging para o MoleSignal por meio de um sink do Log Router e de uma assinatura push do Pub/Sub.",
     "steps": {
       "1": {
         "title": "Crie um coletor do Cloud Logging → tópico do Pub/Sub"
       },
       "2": {
-        "title": "Assine o tópico e encaminhe os logs para o MoleSignal",
-        "description": "Leia as mensagens do Pub/Sub com uma função do Cloud Run e envie uma solicitação POST para {{ENDPOINT}}/api/v1/intake/logs/default com Authorization: Bearer <token>."
+        "title": "Envie o tópico para o MoleSignal",
+        "description": "Crie um conector push do Google Cloud Pub/Sub em Pipelines → Conectores e coloque o token dele no endpoint de push. Para verificar também o token OIDC da assinatura, informe a conta de serviço dela no conector e adicione --push-auth-service-account."
       }
     }
   },
@@ -436,6 +440,24 @@
       "1": {
         "title": "Configure a tarefa do Logpush",
         "description": "Aponte destination_conf para {{ENDPOINT}}/api/v1/_cloudflare com o cabeçalho X-Connector-Token=<connector-push-token> (os conectores de envio se autenticam sem um token Bearer)."
+      }
+    }
+  },
+  "aliyun-prometheus": {
+    "name": "Envio do Alibaba Cloud Prometheus",
+    "description": "Envie métricas de produtos de nuvem do Alibaba Cloud Managed Service for Prometheus para o MoleSignal por remote write.",
+    "steps": {
+      "1": {
+        "title": "Leve as métricas de produtos de nuvem para uma instância do Prometheus",
+        "description": "O envio precisa de uma instância paga do Prometheus para serviços de nuvem: as instâncias gratuitas cloud-product-prometheus não podem enviar. O Enterprise CloudMonitor e o EventBridge precisam estar ativados, e ambos cobram pelo que é enviado."
+      },
+      "2": {
+        "title": "Crie uma tarefa de entrega para um Prometheus autogerenciado",
+        "description": "No console, abra a entrega de dados da instância, adicione uma tarefa e escolha Prometheus Remote Write como destino. Informe o endereço e o nome de usuário e a senha do Basic Auth abaixo; o nome de usuário pode ser qualquer valor, a senha é o token de ingestão. O parâmetro de consulta stream define o nome do fluxo de métricas. O MoleSignal precisa ser acessível pela rede de entrega."
+      },
+      "3": {
+        "title": "Verifique as métricas no MoleSignal",
+        "description": "As métricas de produtos de nuvem têm nomes como AliyunEcs_CPUUtilization. Execute esta consulta no fluxo de métricas aliyun assim que o primeiro envio chegar."
       }
     }
   },

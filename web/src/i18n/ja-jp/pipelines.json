@@ -673,24 +673,42 @@
     "kinds": {
       "aws_cloudwatch_logs": "AWS CloudWatch Logs",
       "aws_kinesis_firehose": "Amazon Data Firehose",
+      "gcp_pubsub_push": "Google Cloud Pub/Sub プッシュ",
       "cloudflare_logpush": "Cloudflare Logpush",
       "heroku_drain": "Heroku ログドレイン",
       "s3": "Amazon S3",
       "kafka": "Apache Kafka",
       "http": "HTTP / Webhook",
       "kafka_source": "Kafka トピック",
-      "s3_source": "S3 オブジェクト"
+      "s3_source": "S3 オブジェクト",
+      "aws_cloudwatch_metrics": "AWS CloudWatch メトリック",
+      "azure_monitor_metrics": "Azure Monitor メトリクス",
+      "gcp_monitoring_metrics": "Google Cloud Monitoring メトリクス",
+      "aliyun_cms_metrics": "Alibaba Cloud CloudMonitor メトリック",
+      "tencent_monitor_metrics": "Tencent Cloud Monitor メトリクス",
+      "huawei_ces_metrics": "Huawei Cloud Eye メトリクス",
+      "cloud_events": "クラウドイベントバス",
+      "gcp_pubsub_pull": "Google Cloud Pub/Sub プル"
     },
     "kind_hints": {
       "aws_cloudwatch_logs": "MoleSignal がロググループから定期的にログを取得します。",
-      "aws_kinesis_firehose": "Firehose ストリームがここにレコードを送信します。",
+      "aws_kinesis_firehose": "Firehose ストリームがレコードをここにプッシュします。ログ行、CloudWatch Logs サブスクリプション、CloudWatch Metric Streams などです。",
+      "gcp_pubsub_push": "Pub/Sub プッシュ サブスクリプションがメッセージをここにプッシュします。たとえば、Log Router シンクが公開する Cloud Logging エントリです。",
       "cloudflare_logpush": "Logpush ジョブがここにリクエストログを送信します。",
       "heroku_drain": "アプリのログドレインがログの各行をここにプッシュします。",
       "s3": "パイプラインが書き込む各バッチは、バケットに JSON Lines オブジェクトとして保存されます。MinIO、R2、OSS などの S3 互換ストレージにも対応しています。",
       "kafka": "パイプラインが書き込む各イベントは、トピックにメッセージとして送信されます。",
       "http": "パイプラインが書き込む各バッチは、NDJSON または JSON 配列として HTTP アドレスに送信されます。独自の受信サービスや、Logstash、Vector などを利用できます。",
       "kafka_source": "MoleSignal は定期的にトピックから読み取り、オフセットを自分で管理します。",
-      "s3_source": "MoleSignal は指定したプレフィックス配下の新しいオブジェクトを定期的に読み取ります。MinIO、R2、OSS などの S3 互換ストレージにも対応しています。"
+      "s3_source": "MoleSignal は指定したプレフィックス配下の新しいオブジェクトを定期的に読み取ります。MinIO、R2、OSS などの S3 互換ストレージにも対応しています。",
+      "aws_cloudwatch_metrics": "MoleSignal は、GetMetricData を使用して名前空間のメトリックをタイマーで読み取ります。メトリック ストリームでは取得できないものを対象とします。",
+      "azure_monitor_metrics": "MoleSignal は、Azure Monitor バッチ API を使用して、リージョン内の 1 つのリソース タイプのメトリックをタイマーで読み取ります。",
+      "gcp_monitoring_metrics": "MoleSignal は、Cloud Monitoring からプロジェクトのメトリック タイプをタイマーで読み取ります。",
+      "aliyun_cms_metrics": "MoleSignal は、CloudMonitor 名前空間のメトリックをタイマーで読み取ります。",
+      "tencent_monitor_metrics": "MoleSignal は、Cloud Monitor 名前空間のメトリックをタイマーで読み取ります。",
+      "huawei_ces_metrics": "MoleSignal は、Cloud Eye 名前空間のメトリックをタイマーで読み取ります。",
+      "cloud_events": "イベント バスがイベントをここにプッシュします。Amazon EventBridge、Azure Event Grid、Alibaba Cloud EventBridge、Huawei Cloud EventGrid、および任意の CloudEvents 送信者です。",
+      "gcp_pubsub_pull": "MoleSignal は、Pub/Sub サブスクリプションをタイマーで読み取り、書き込んだ内容を確認応答します。プッシュ サブスクリプションでは適切に処理しきれない大量のログ向けです。"
     },
     "transport": {
       "pull": "プル受信",
@@ -719,7 +737,9 @@
         "bearer": "Bearer トークン",
         "basic": "Basic 認証",
         "header": "カスタムヘッダー",
-        "hmac": "HMAC 署名"
+        "hmac": "HMAC 署名",
+        "client_secret": "アプリ登録",
+        "service_account_key": "サービス アカウント キー"
       },
       "hints": {
         "access_key": "IAM ユーザーの長期アクセスキーです。そのユーザーには、このコネクターに必要な権限のみを付与してください。",
@@ -739,7 +759,14 @@
         "bearer": "すべてのリクエストに Authorization: Bearer <token> ヘッダーが含まれます。",
         "basic": "すべてのリクエストに HTTP Basic 認証ヘッダーが含まれます。HTTPS 経由で使用してください。",
         "header": "キーは、X-API-Key や DD-API-KEY など、受信側が指定するヘッダーで送信されます。",
-        "hmac": "すべてのリクエストに X-MoleSignal-Timestamp（Unix 時刻の秒数）と X-MoleSignal-Sign: sha256=<hex> が含まれます。署名は、共有シークレットを使って \"<timestamp>.<body>\" に対して計算した HMAC-SHA256 です。受信側は同じシークレットで署名を再計算し、タイムスタンプが古いリクエストを拒否します。"
+        "hmac": "すべてのリクエストに X-MoleSignal-Timestamp（Unix 時刻の秒数）と X-MoleSignal-Sign: sha256=<hex> が含まれます。署名は、共有シークレットを使って \"<timestamp>.<body>\" に対して計算した HMAC-SHA256 です。受信側は同じシークレットで署名を再計算し、タイムスタンプが古いリクエストを拒否します。",
+        "client_secret": "クライアント シークレットを持つ Microsoft Entra ID のアプリ登録です。サブスクリプション自体で Monitoring Reader を付与してください。個々のリソースに付与したロールでは、バッチ API には不十分です。",
+        "service_account_key": "プロジェクトで roles/monitoring.viewer を持つサービス アカウントの JSON キー ファイルです。",
+        "access_key_aws_cloudwatch_metrics": "cloudwatch:ListMetrics と cloudwatch:GetMetricData を呼び出せる IAM ユーザーの長期キーです。",
+        "access_key_aliyun_cms_metrics": "AliyunCloudMonitorReadOnlyAccess を持つ RAM ユーザーの AccessKey です。",
+        "access_key_tencent_monitor_metrics": "QcloudMonitorReadOnlyAccess を持つ CAM ユーザーの SecretId と SecretKey です。CVM インスタンスを検出するには QcloudCVMReadOnlyAccess も必要です。",
+        "access_key_huawei_ces_metrics": "CES ReadOnlyAccess を持つ IAM ユーザーの AK と SK です。",
+        "service_account_key_gcp_pubsub_pull": "サブスクリプションで roles/pubsub.subscriber を持つサービス アカウントの JSON キー ファイルです。"
       },
       "external_id": "外部 ID",
       "external_id_hint": "この組織は、変更できないこの外部 ID を使ってロールを引き受けます。ロールの信頼ポリシーで sts:ExternalId 条件を使ってこの ID を必須にすると、他の組織は ARN を知っていてもそのロールを引き受けられません。",
@@ -753,6 +780,7 @@
       "region": "リージョン",
       "logGroup": "ロググループ",
       "targetStream": "書き込み先ストリーム",
+      "metricsStream": "メトリクス ストリーム",
       "bucket": "バケット",
       "prefix": "キープレフィックス",
       "endpoint": "エンドポイント",
@@ -778,10 +806,32 @@
       "headerName": "ヘッダー名",
       "headerValue": "ヘッダー値",
       "hmacSecret": "共有シークレット",
-      "startFrom": "読み取り開始位置"
+      "startFrom": "読み取り開始位置",
+      "oidcServiceAccount": "プッシュ用サービス アカウント",
+      "oidcAudience": "トークン オーディエンス",
+      "namespace": "名前空間",
+      "metrics": "メトリクス",
+      "statistics": "統計",
+      "period": "期間（秒）",
+      "delay": "遅延（秒）",
+      "messageFormat": "メッセージ形式",
+      "subscriptionId": "サブスクリプション ID",
+      "resourceType": "リソースの種類",
+      "aggregations": "集計",
+      "filter": "フィルター",
+      "top": "リソースあたりのシリーズ数",
+      "projectId": "プロジェクト ID",
+      "dimensions": "ディメンション",
+      "instances": "インスタンス",
+      "tenantId": "テナント ID",
+      "clientId": "クライアント ID",
+      "clientSecret": "クライアント シークレット",
+      "serviceAccountKey": "サービス アカウント キー",
+      "subscription": "サブスクリプション"
     },
     "hints": {
       "targetStream": "ストリームがまだ存在しない場合は、最初のイベントで作成されます。",
+      "targetStream_aws_kinesis_firehose": "ログ レコードの送信先です。CloudWatch Logs のサブスクリプション イベントも含まれます。まだ存在しないストリームは、最初のイベントで作成されます。",
       "region_s3": "バケットのリージョンです。S3 互換ストレージでは指定が不要な場合があります。",
       "region_s3_source": "バケットのリージョンです。S3 互換ストレージでは指定が不要な場合があります。",
       "prefix": "オブジェクト名は <prefix><id>.jsonl 形式です。",
@@ -791,7 +841,36 @@
       "brokers": "ホストとポートを指定します。複数指定する場合はカンマで区切ってください。",
       "endpoint": "http:// または https:// で始まるストレージの S3 API アドレスです。",
       "url": "イベントの送信先です。http:// または https:// で始まるアドレスを指定してください。アドレスには認証情報が含まれることが多いため、認証情報と同様に扱います。保存後はホストのみが表示されます。",
-      "tlsCaCert": "プライベート CA がブローカーの証明書を発行した場合は、その CA の証明書を PEM 形式で入力してください。システムの CA を信頼する場合は空欄にしてください。"
+      "tlsCaCert": "プライベート CA がブローカーの証明書を発行した場合は、その CA の証明書を PEM 形式で入力してください。システムの CA を信頼する場合は空欄にしてください。",
+      "oidcServiceAccount": "設定すると、このサービス アカウントの OIDC トークンを含むプッシュのみを受け入れます。プッシュ サブスクリプションでこのアカウントの認証を有効にしてください。空欄にすると、トークンのみに依存します。",
+      "oidcAudience": "サブスクリプションが OIDC トークンに含めるオーディエンスです。空欄にすると、任意のオーディエンスを受け入れます。",
+      "metricsStream_aws_kinesis_firehose": "CloudWatch Metric Streams のサンプルの送信先です。統計ごとに 1 つで、aws_ec2_cpuutilization_average のように命名します。メトリック ストリームの出力形式は JSON または OpenTelemetry 1.0 にしてください。",
+      "metricsStream": "サンプルの送信先です。統計ごとに 1 つで、<cloud>_<namespace>_<metric>_<statistic> のように命名します（例: aliyun_ecs_dashboard_cpuutilization_average）。まだ存在しないストリームは、最初のサンプルで作成されます。",
+      "namespace_aws_cloudwatch_metrics": "例: AWS/EC2、AWS/RDS、またはカスタム名前空間。",
+      "metrics_aws_cloudwatch_metrics": "空欄にすると、過去 3 時間にデータがあった名前空間のすべてのメトリックを読み取ります（最大 2,000 シリーズ）。",
+      "statistics_aws_cloudwatch_metrics": "Average、Sum、Minimum、Maximum、SampleCount、および p99 などのパーセンタイル。各シリーズの各統計は、1 メトリック要求として課金されます。デフォルト: Average、Maximum。",
+      "period": "1 つの集計の長さを整数の分で指定します。デフォルト: 300。",
+      "delay": "クラウド側で集計が数分遅れて完了するため、期間の終了後どれだけ経ってから読み取るかを指定します。期間は一度だけ読み取られ、二度と読み取られません。",
+      "messageFormat": "Azure Monitor のエクスポート: 各メッセージは {\"records\": [...]} です。診断設定、データ エクスポート、データ収集ルールがイベント ハブに送信するときの形式です。各レコードは個別のイベントになり、メトリック レコードはメトリック ストリーム内のメトリック サンプルになります。",
+      "resourceType": "メトリック名前空間でもあります（例: Microsoft.Compute/virtualMachines）。",
+      "metrics_azure_monitor_metrics": "Azure Monitor に表示されるメトリック名です（例: Percentage CPU）。",
+      "aggregations": "average、minimum、maximum、total、count のいずれかを指定します。デフォルトは average です。",
+      "filter_azure_monitor_metrics": "バッチ API の省略可能なディメンション フィルターです。たとえば LUN eq '*' を指定すると、ディメンションで分割します。",
+      "filter_gcp_monitoring_metrics": "各メトリックのフィルターに追加される省略可能な句です。",
+      "top": "フィルターが各リソースの各メトリックを最大いくつのシリーズに分割できるかです。デフォルト: 100。",
+      "period_azure_monitor_metrics": "60、300、900、1800、3600、21600、43200、86400 のいずれかです。デフォルト: 300。",
+      "projectId_gcp_monitoring_metrics": "空欄にすると、サービス アカウント キーのプロジェクトを使用します。",
+      "metrics_gcp_monitoring_metrics": "1 行に 1 メトリック タイプを指定します（例: compute.googleapis.com/instance/cpu/utilization）。ゲージは平均、デルタは合計、カウンターはレートとして読み取ります。",
+      "namespace_aliyun_cms_metrics": "例: acs_ecs_dashboard または acs_rds_dashboard。",
+      "statistics_aliyun_cms_metrics": "CloudMonitor での名前: Average、Maximum、Minimum、Sum。デフォルト: Average、Maximum。",
+      "dimensions": "Dimensions として渡す省略可能な JSON です。空欄にすると、アカウントのすべてのインスタンスを読み取ります。",
+      "namespace_tencent_monitor_metrics": "例: QCE/CVM または QCE/CDB。",
+      "statistics_tencent_monitor_metrics": "avg、max、min のいずれかです。デフォルト: avg。",
+      "instances": "1 行に 1 インスタンスを Name=Value 形式で指定し、複数のディメンションは & で連結します。カンマは使用しません。QCE/CVM を除いて必須です。QCE/CVM は空欄にすると、リージョン内のインスタンスが検出されます。",
+      "projectId_huawei_ces_metrics": "リージョンのプロジェクトです。コンソールの [My Credentials] にあります。",
+      "namespace_huawei_ces_metrics": "例: SYS.ECS または SYS.RDS。",
+      "statistics_huawei_ces_metrics": "average、max、min、sum、variance のいずれかです。デフォルト: average。",
+      "subscription": "完全名、またはキーのプロジェクト内での名前です。確認応答の期限を 60 秒以上に設定してください。"
     },
     "compatible": {
       "toggle": "S3 互換ストレージ",
@@ -845,9 +924,11 @@
       "regenerated": "新しいトークンを生成しました。保存すると現在のトークンが置き換わり、新しいトークンが一度だけ表示されます。",
       "keep": "現在のトークンを維持",
       "steps": {
-        "aws_kinesis_firehose": "Firehoseストリームで送信先にHTTPエンドポイントを選択します。URLにエンドポイントを、アクセスキーにトークンを入力してください。",
+        "aws_kinesis_firehose": "Firehose ストリームで、送信先に HTTP エンドポイントを選択します。エンドポイントにはその URL を、トークンにはそのアクセスキーを入力し、バッファは 4 MiB 以下に保ってください。その後、CloudWatch Logs のサブスクリプションフィルターまたは CloudWatch メトリクスストリームから Firehose ストリームに配信できます。",
+        "gcp_pubsub_push": "ログルーターのシンクを使用してログを Pub/Sub トピックにルーティングし、そのトピックにこのアドレスを指定したプッシュサブスクリプションを作成します。Pub/Sub は任意のヘッダーを送信できないため、トークンはアドレス内で送信されます。",
         "cloudflare_logpush": "このHTTP送信先を指定してLogpushジョブを作成します。トークンは、Cloudflareが送信のたびに付与するヘッダーに含まれます。",
-        "heroku_drain": "アプリにドレインを追加してください。Herokuではヘッダーを送信できないため、トークンはアドレスに含まれます。"
+        "heroku_drain": "アプリにドレインを追加してください。Herokuではヘッダーを送信できないため、トークンはアドレスに含まれます。",
+        "cloud_events": "イベントバスをこのアドレスに向けてください。Amazon EventBridge: ヘッダーが X-Connector-Token である API キー接続を使用した API 送信先。Azure Event Grid と CloudEvents 送信元: アドレスが ?token=<token> で終わる Webhook。検証ハンドシェイクには自動で応答します。Alibaba Cloud EventBridge: このトークンを使用した HTTPS ターゲット。"
       },
       "done": "完了",
       "will_generate": "コネクターの作成時にトークンが生成され、一度だけ表示されます。"
@@ -887,6 +968,17 @@
       "format": {
         "ndjson": "NDJSON（1 行に 1 イベント）",
         "json": "JSON 配列"
+      },
+      "messageFormat": {
+        "json": "JSON またはテキスト",
+        "azure_records": "Azure Monitor のエクスポート"
+      },
+      "period": {
+        "300": "5 分",
+        "1200": "20 分",
+        "3600": "1 時間",
+        "14400": "4 時間",
+        "86400": "1 日"
       }
     },
     "tls": {

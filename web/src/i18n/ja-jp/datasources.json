@@ -41,28 +41,32 @@
     }
   },
   "aws": {
-    "name": "AWS (CloudWatch + S3)",
-    "description": "CloudWatch Logs のサブスクリプションと Kinesis Firehose を経由して、MoleSignal にログをプッシュします。",
+    "name": "AWS (CloudWatch)",
+    "description": "Amazon Data Firehose を介して CloudWatch Logs と CloudWatch メトリクスを MoleSignal にプッシュします。",
     "steps": {
       "1": {
-        "title": "Firehose 配信ストリームの作成（送信先: HTTP エンドポイント）",
-        "description": "Firehose は Bearer トークンを送信できないため、プッシュコネクタを経由します。エンドポイント URL には以下のアドレスを、アクセスキーには「データソース」→「コネクタ」で作成したコネクタのプッシュトークンを使用します。"
+        "title": "HTTP エンドポイントを送信先とする Firehose ストリームを作成する",
+        "description": "Firehose は Bearer トークンを送信できないため、プッシュコネクタを経由します。Pipelines → Connectors で Amazon Data Firehose コネクタを作成し、以下のアドレスをエンドポイント URL に、コネクタのトークンをアクセスキーに指定します。Firehose は、公的に信頼された証明書を使用したポート 443 の HTTPS にのみ配信します。"
       },
       "2": {
         "title": "CloudWatch Logs のサブスクリプション設定"
+      },
+      "3": {
+        "title": "CloudWatch メトリクスをストリーミングする",
+        "description": "OpenTelemetry 1.0 または JSON 出力形式を使用します。各統計は、コネクタのメトリクスストリーム内で aws_ec2_cpuutilization_average のような名前のサンプルになります。"
       }
     }
   },
   "gcp": {
     "name": "GCP (Cloud Logging)",
-    "description": "Pub/Sub を宛先とするシンクを経由して、Cloud Logging のログを MoleSignal の HTTP エンドポイントにプッシュします。",
+    "description": "ログルーター シンクと Pub/Sub プッシュ サブスクリプションを介して、Cloud Logging を MoleSignal にプッシュします。",
     "steps": {
       "1": {
         "title": "Cloud Logging シンクの作成（宛先: Pub/Sub トピック）"
       },
       "2": {
-        "title": "Pub/Sub のサブスクライブと MoleSignal への転送",
-        "description": "Cloud Run 関数で Pub/Sub からメッセージを読み取り、Authorization: Bearer <token> を指定して {{ENDPOINT}}/api/v1/intake/logs/default に POST リクエストを送信します。"
+        "title": "トピックを MoleSignal にプッシュする",
+        "description": "Pipelines → Connectors で Google Cloud Pub/Sub プッシュコネクタを作成し、そのトークンをプッシュエンドポイントに設定します。サブスクリプションの OIDC トークンも確認するには、コネクタでサービスアカウント名を指定し、--push-auth-service-account を追加します。"
       }
     }
   },
@@ -436,6 +440,24 @@
       "1": {
         "title": "Logpush ジョブの設定",
         "description": "destination_conf の送信先を {{ENDPOINT}}/api/v1/_cloudflare に設定し、ヘッダー X-Connector-Token=<connector-push-token> を指定します（プッシュコネクターは独自に認証を行うため、Bearer トークンは不要です）。"
+      }
+    }
+  },
+  "aliyun-prometheus": {
+    "name": "Alibaba Cloud Prometheus 配信",
+    "description": "Alibaba Cloud Managed Service for Prometheus からクラウド製品のメトリクスをリモート書き込みで MoleSignal に配信します。",
+    "steps": {
+      "1": {
+        "title": "クラウド製品のメトリクスを Prometheus インスタンスに取り込む",
+        "description": "配信には有料の Prometheus for cloud services インスタンスが必要です。無料の cloud-product-prometheus インスタンスは配信できません。Enterprise CloudMonitor と EventBridge を有効化する必要があり、どちらも配信量に応じて課金されます。"
+      },
+      "2": {
+        "title": "セルフマネージド Prometheus への配信タスクを作成する",
+        "description": "コンソールでインスタンスのデータ配信を開き、タスクを追加して、ターゲットに Prometheus Remote Write を選択します。以下に表示されるアドレスと Basic Auth のユーザー名およびパスワードを入力します。ユーザー名は任意の値でかまいません。パスワードは取り込みトークンです。stream クエリパラメータでメトリクスストリームを指定します。配信ネットワークから MoleSignal に到達できる必要があります。"
+      },
+      "3": {
+        "title": "MoleSignal でメトリクスを確認する",
+        "description": "クラウド製品のメトリクスは AliyunEcs_CPUUtilization のような名前です。最初の配信が届いたら、aliyun メトリクスストリームでこのクエリを実行します。"
       }
     }
   },

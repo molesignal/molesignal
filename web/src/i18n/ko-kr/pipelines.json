@@ -673,24 +673,42 @@
     "kinds": {
       "aws_cloudwatch_logs": "AWS CloudWatch Logs",
       "aws_kinesis_firehose": "Amazon Data Firehose",
+      "gcp_pubsub_push": "Google Cloud Pub/Sub 푸시",
       "cloudflare_logpush": "Cloudflare Logpush",
       "heroku_drain": "Heroku 로그 드레인",
       "s3": "Amazon S3",
       "kafka": "Apache Kafka",
       "http": "HTTP / 웹훅",
       "kafka_source": "Kafka 토픽",
-      "s3_source": "S3 객체"
+      "s3_source": "S3 객체",
+      "aws_cloudwatch_metrics": "AWS CloudWatch 메트릭",
+      "azure_monitor_metrics": "Azure Monitor 메트릭",
+      "gcp_monitoring_metrics": "Google Cloud Monitoring 메트릭",
+      "aliyun_cms_metrics": "Alibaba Cloud CloudMonitor 메트릭",
+      "tencent_monitor_metrics": "Tencent Cloud Monitor 메트릭",
+      "huawei_ces_metrics": "Huawei Cloud Eye 메트릭",
+      "cloud_events": "클라우드 이벤트 버스",
+      "gcp_pubsub_pull": "Google Cloud Pub/Sub 풀"
     },
     "kind_hints": {
       "aws_cloudwatch_logs": "MoleSignal이 로그 그룹을 주기적으로 가져옵니다.",
-      "aws_kinesis_firehose": "Firehose 스트림이 이곳으로 레코드를 전송합니다.",
+      "aws_kinesis_firehose": "Firehose 스트림이 레코드를 여기로 푸시합니다. 로그 라인, CloudWatch Logs 구독, CloudWatch Metric Streams 등이 포함됩니다.",
+      "gcp_pubsub_push": "Pub/Sub 푸시 구독이 메시지를 여기로 푸시합니다. 예를 들어 Log Router 싱크가 게시하는 Cloud Logging 항목이 있습니다.",
       "cloudflare_logpush": "Logpush 작업이 이곳으로 요청 로그를 전송합니다.",
       "heroku_drain": "앱의 로그 드레인이 로그를 한 줄씩 이곳으로 푸시합니다.",
       "s3": "파이프라인이 쓰는 배치마다 버킷에 JSON Lines 객체가 하나씩 생성됩니다. MinIO, R2, OSS 등 S3 호환 스토리지에도 사용할 수 있습니다.",
       "kafka": "파이프라인이 쓰는 이벤트마다 토픽에 메시지가 하나씩 생성됩니다.",
       "http": "파이프라인이 쓰는 각 배치를 NDJSON 또는 JSON 배열로 HTTP 주소에 전송합니다. 자체 수신기나 Logstash, Vector 등에 사용할 수 있습니다.",
       "kafka_source": "MoleSignal은 일정한 간격으로 토픽을 읽고 오프셋을 직접 관리합니다.",
-      "s3_source": "MoleSignal은 일정한 간격으로 지정된 접두사 아래의 새 객체를 읽습니다. MinIO, R2, OSS 등 S3 호환 스토리지에도 사용할 수 있습니다."
+      "s3_source": "MoleSignal은 일정한 간격으로 지정된 접두사 아래의 새 객체를 읽습니다. MinIO, R2, OSS 등 S3 호환 스토리지에도 사용할 수 있습니다.",
+      "aws_cloudwatch_metrics": "MoleSignal은 GetMetricData로 네임스페이스의 메트릭을 주기적으로 읽습니다. 메트릭 스트림이 전달하지 않는 항목을 위한 것입니다.",
+      "azure_monitor_metrics": "MoleSignal은 Azure Monitor 배치 API를 사용하여 한 리전의 한 리소스 유형 메트릭을 주기적으로 읽습니다.",
+      "gcp_monitoring_metrics": "MoleSignal은 Cloud Monitoring에서 프로젝트의 메트릭 유형을 주기적으로 읽습니다.",
+      "aliyun_cms_metrics": "MoleSignal은 CloudMonitor 네임스페이스의 메트릭을 주기적으로 읽습니다.",
+      "tencent_monitor_metrics": "MoleSignal은 Cloud Monitor 네임스페이스의 메트릭을 주기적으로 읽습니다.",
+      "huawei_ces_metrics": "MoleSignal은 Cloud Eye 네임스페이스의 메트릭을 주기적으로 읽습니다.",
+      "cloud_events": "이벤트 버스가 이벤트를 여기로 푸시합니다. Amazon EventBridge, Azure Event Grid, Alibaba Cloud EventBridge, Huawei Cloud EventGrid 및 모든 CloudEvents 발신자가 포함됩니다.",
+      "gcp_pubsub_pull": "MoleSignal은 Pub/Sub 구독을 주기적으로 읽고, 기록한 항목을 확인 응답합니다. 푸시 구독이 원활히 처리할 수 있는 것보다 많은 로그에 적합합니다."
     },
     "transport": {
       "pull": "가져옴",
@@ -719,7 +737,9 @@
         "bearer": "Bearer 토큰",
         "basic": "기본 인증",
         "header": "사용자 지정 헤더",
-        "hmac": "HMAC 서명"
+        "hmac": "HMAC 서명",
+        "client_secret": "앱 등록",
+        "service_account_key": "서비스 계정 키"
       },
       "hints": {
         "access_key": "IAM 사용자의 장기 키입니다. 해당 사용자에게 이 커넥터에 필요한 권한만 부여하세요.",
@@ -739,7 +759,14 @@
         "bearer": "모든 요청에 Authorization: Bearer <token> 헤더가 포함됩니다.",
         "basic": "모든 요청에 HTTP Basic 인증 헤더가 포함됩니다. https를 통해 사용하세요.",
         "header": "키는 X-API-Key 또는 DD-API-KEY와 같이 수신자가 지정한 헤더로 전송됩니다.",
-        "hmac": "모든 요청에 X-MoleSignal-Timestamp(Unix 시간, 초 단위)와 X-MoleSignal-Sign: sha256=<hex>가 포함됩니다. 서명 값은 공유 비밀 키로 \"<timestamp>.<body>\"의 HMAC-SHA256을 계산한 결과입니다. 수신자는 같은 키로 서명을 다시 계산하며, 타임스탬프가 오래된 요청은 거부합니다."
+        "hmac": "모든 요청에 X-MoleSignal-Timestamp(Unix 시간, 초 단위)와 X-MoleSignal-Sign: sha256=<hex>가 포함됩니다. 서명 값은 공유 비밀 키로 \"<timestamp>.<body>\"의 HMAC-SHA256을 계산한 결과입니다. 수신자는 같은 키로 서명을 다시 계산하며, 타임스탬프가 오래된 요청은 거부합니다.",
+        "client_secret": "클라이언트 암호가 있는 Microsoft Entra ID 앱 등록입니다. 구독 자체에 Monitoring Reader를 부여해야 합니다. 단일 리소스에 대한 역할로는 일괄 API에 충분하지 않습니다.",
+        "service_account_key": "프로젝트에 roles/monitoring.viewer 역할이 있는 서비스 계정의 JSON 키 파일입니다.",
+        "access_key_aws_cloudwatch_metrics": "cloudwatch:ListMetrics 및 cloudwatch:GetMetricData를 호출할 수 있는 IAM 사용자의 장기 액세스 키입니다.",
+        "access_key_aliyun_cms_metrics": "AliyunCloudMonitorReadOnlyAccess 권한이 있는 RAM 사용자의 AccessKey입니다.",
+        "access_key_tencent_monitor_metrics": "QcloudMonitorReadOnlyAccess 권한과 CVM 인스턴스를 찾기 위한 QcloudCVMReadOnlyAccess 권한이 있는 CAM 사용자의 SecretId 및 SecretKey입니다.",
+        "access_key_huawei_ces_metrics": "CES ReadOnlyAccess 권한이 있는 IAM 사용자의 AK 및 SK입니다.",
+        "service_account_key_gcp_pubsub_pull": "구독에 roles/pubsub.subscriber 역할이 있는 서비스 계정의 JSON 키 파일입니다."
       },
       "external_id": "외부 ID",
       "external_id_hint": "이 조직은 변경할 수 없는 이 외부 ID를 사용해 역할을 수임합니다. 역할의 신뢰 정책에서 sts:ExternalId 조건으로 이 ID를 요구하면, 다른 조직은 ARN을 알아도 해당 역할을 수임할 수 없습니다.",
@@ -753,6 +780,7 @@
       "region": "리전",
       "logGroup": "로그 그룹",
       "targetStream": "쓰기 대상 스트림",
+      "metricsStream": "메트릭 스트림",
       "bucket": "버킷",
       "prefix": "키 접두사",
       "endpoint": "엔드포인트",
@@ -778,10 +806,32 @@
       "headerName": "헤더 이름",
       "headerValue": "헤더 값",
       "hmacSecret": "공유 시크릿",
-      "startFrom": "읽기 시작 위치"
+      "startFrom": "읽기 시작 위치",
+      "oidcServiceAccount": "푸시 서비스 계정",
+      "oidcAudience": "토큰 대상",
+      "namespace": "네임스페이스",
+      "metrics": "메트릭",
+      "statistics": "통계",
+      "period": "기간(초)",
+      "delay": "지연(초)",
+      "messageFormat": "메시지 형식",
+      "subscriptionId": "구독 ID",
+      "resourceType": "리소스 유형",
+      "aggregations": "집계",
+      "filter": "필터",
+      "top": "리소스당 시리즈",
+      "projectId": "프로젝트 ID",
+      "dimensions": "차원",
+      "instances": "인스턴스",
+      "tenantId": "테넌트 ID",
+      "clientId": "클라이언트 ID",
+      "clientSecret": "클라이언트 암호",
+      "serviceAccountKey": "서비스 계정 키",
+      "subscription": "구독"
     },
     "hints": {
       "targetStream": "스트림이 아직 없으면 첫 번째 이벤트가 도착할 때 생성됩니다.",
+      "targetStream_aws_kinesis_firehose": "로그 레코드가 전송될 스트림입니다. 여기에는 CloudWatch Logs 구독 이벤트도 포함됩니다. 아직 없는 스트림은 첫 이벤트가 생성합니다.",
       "region_s3": "버킷의 리전입니다. S3 호환 스토리지에서는 리전을 지정하지 않아도 될 수 있습니다.",
       "region_s3_source": "버킷의 리전입니다. S3 호환 스토리지에서는 리전을 지정하지 않아도 될 수 있습니다.",
       "prefix": "객체 이름은 <prefix><id>.jsonl 형식입니다.",
@@ -791,7 +841,36 @@
       "brokers": "호스트와 포트를 입력하세요. 여러 항목은 쉼표로 구분하세요.",
       "endpoint": "http:// 또는 https://로 시작하는 스토리지의 S3 API 주소입니다.",
       "url": "이벤트를 전송할 주소입니다. http:// 또는 https://로 시작해야 합니다. 주소에 인증 정보가 포함되는 경우가 많아 인증 정보와 동일하게 보호하며, 저장 후에는 호스트만 표시합니다.",
-      "tlsCaCert": "브로커 인증서를 비공개 CA에서 발급했다면 해당 CA 인증서를 PEM 형식으로 입력하세요. 비워 두면 시스템의 CA를 신뢰합니다."
+      "tlsCaCert": "브로커 인증서를 비공개 CA에서 발급했다면 해당 CA 인증서를 PEM 형식으로 입력하세요. 비워 두면 시스템의 CA를 신뢰합니다.",
+      "oidcServiceAccount": "설정하면 이 서비스 계정의 OIDC 토큰을 포함한 푸시만 허용됩니다. 이 계정으로 푸시 구독의 인증을 켜세요. 비워 두면 토큰만 사용합니다.",
+      "oidcAudience": "구독이 OIDC 토큰에 넣는 대상입니다. 비워 두면 모두 허용합니다.",
+      "metricsStream_aws_kinesis_firehose": "CloudWatch Metric Streams 샘플이 전송될 스트림입니다. 통계당 하나씩 전송되며 이름은 aws_ec2_cpuutilization_average와 같은 형식입니다. 메트릭 스트림의 출력 형식을 JSON 또는 OpenTelemetry 1.0으로 설정하세요.",
+      "metricsStream": "샘플이 전송될 스트림입니다. 통계당 하나씩 전송되며 이름은 <cloud>_<namespace>_<metric>_<statistic> 형식입니다(예: aliyun_ecs_dashboard_cpuutilization_average). 아직 없는 스트림은 첫 샘플이 생성합니다.",
+      "namespace_aws_cloudwatch_metrics": "예: AWS/EC2, AWS/RDS 또는 사용자 지정 네임스페이스.",
+      "metrics_aws_cloudwatch_metrics": "최근 3시간 동안 데이터가 있었던 네임스페이스의 모든 메트릭(최대 2,000개 시리즈)을 읽으려면 비워 두세요.",
+      "statistics_aws_cloudwatch_metrics": "Average, Sum, Minimum, Maximum, SampleCount 및 p99와 같은 백분위수입니다. 각 시리즈의 각 통계는 요청된 메트릭 1개로 청구됩니다. 기본값: Average, Maximum.",
+      "period": "집계 한 개의 기간(분 단위 정수)입니다. 기본값: 300.",
+      "delay": "클라우드가 집계를 몇 분 늦게 완료하므로 기간이 끝난 뒤 얼마나 지나서 읽을지 나타냅니다. 기간은 한 번만 읽고 다시는 읽지 않습니다.",
+      "messageFormat": "Azure Monitor 내보내기: 각 메시지는 {\"records\": [...]} 형식이며, 진단 설정, 데이터 내보내기, 데이터 수집 규칙이 이를 이벤트 허브로 보냅니다. 각 레코드는 별도의 이벤트가 되고, 메트릭 레코드는 메트릭 스트림의 메트릭 샘플이 됩니다.",
+      "resourceType": "메트릭 네임스페이스이기도 합니다(예: Microsoft.Compute/virtualMachines).",
+      "metrics_azure_monitor_metrics": "Azure Monitor에 표시되는 메트릭 이름입니다(예: Percentage CPU).",
+      "aggregations": "average, minimum, maximum, total, count 중 하나입니다. 기본값: average.",
+      "filter_azure_monitor_metrics": "배치 API의 선택적 차원 필터입니다. 예: LUN eq '*'를 사용하여 차원별로 분할합니다.",
+      "filter_gcp_monitoring_metrics": "각 메트릭 필터에 추가되는 선택적 절입니다.",
+      "top": "필터가 각 리소스의 각 메트릭을 분할할 수 있는 최대 시리즈 수입니다. 기본값: 100.",
+      "period_azure_monitor_metrics": "60, 300, 900, 1800, 3600, 21600, 43200, 86400 중 하나입니다. 기본값: 300.",
+      "projectId_gcp_monitoring_metrics": "서비스 계정 키의 프로젝트를 사용하려면 비워 두세요.",
+      "metrics_gcp_monitoring_metrics": "메트릭 유형을 한 줄에 하나씩 입력하세요(예: compute.googleapis.com/instance/cpu/utilization). 게이지는 평균으로, 델타는 합계로, 카운터는 비율로 읽습니다.",
+      "namespace_aliyun_cms_metrics": "예: acs_ecs_dashboard 또는 acs_rds_dashboard.",
+      "statistics_aliyun_cms_metrics": "CloudMonitor에서 사용하는 이름: Average, Maximum, Minimum, Sum. 기본값: Average, Maximum.",
+      "dimensions": "Dimensions로 전달되는 선택적 JSON입니다. 계정의 모든 인스턴스를 읽으려면 비워 두세요.",
+      "namespace_tencent_monitor_metrics": "예: QCE/CVM 또는 QCE/CDB.",
+      "statistics_tencent_monitor_metrics": "avg, max, min 중 하나입니다. 기본값: avg.",
+      "instances": "인스턴스당 한 줄에 Name=Value 형식으로 입력하고, 여러 차원은 &로 연결하며 쉼표는 쓰지 마세요. QCE/CVM 외에는 필수입니다. QCE/CVM은 비워 두면 해당 리전에서 인스턴스를 찾습니다.",
+      "projectId_huawei_ces_metrics": "콘솔의 My Credentials에 있는 해당 리전의 프로젝트입니다.",
+      "namespace_huawei_ces_metrics": "예: SYS.ECS 또는 SYS.RDS.",
+      "statistics_huawei_ces_metrics": "average, max, min, sum, variance 중 하나입니다. 기본값: average.",
+      "subscription": "전체 이름 또는 키가 속한 프로젝트에서 사용하는 이름입니다. 확인 응답 기한을 60초 이상으로 설정하세요."
     },
     "compatible": {
       "toggle": "S3 호환 스토리지",
@@ -845,9 +924,11 @@
       "regenerated": "새 토큰이 준비되었습니다. 저장하면 현재 토큰을 대체하며, 저장 직후 한 번만 표시됩니다.",
       "keep": "현재 토큰 유지",
       "steps": {
-        "aws_kinesis_firehose": "Firehose 스트림에서 HTTP 엔드포인트를 대상으로 선택합니다. URL에는 엔드포인트를, 액세스 키에는 토큰을 입력합니다.",
+        "aws_kinesis_firehose": "Firehose 스트림에서 HTTP 엔드포인트 대상을 선택합니다. 엔드포인트는 URL로, 토큰은 액세스 키로 입력하고 버퍼 크기는 4 MiB 이하로 유지합니다. 그러면 CloudWatch Logs 구독 필터 또는 CloudWatch 메트릭 스트림에서 Firehose 스트림으로 전달할 수 있습니다.",
+        "gcp_pubsub_push": "Log Router 싱크를 사용해 로그를 Pub/Sub 주제로 라우팅한 다음, 해당 주제에 이 주소를 사용하는 푸시 구독을 만듭니다. Pub/Sub은 원하는 헤더를 보낼 수 없으므로 토큰은 주소에 포함되어 전송됩니다.",
         "cloudflare_logpush": "이 HTTP 대상을 사용하는 Logpush 작업을 생성합니다. Cloudflare는 푸시할 때마다 헤더를 추가해 토큰을 전송합니다.",
-        "heroku_drain": "앱에 로그 드레인을 추가합니다. Heroku는 헤더를 보낼 수 없으므로 토큰이 주소에 포함되어 전송됩니다."
+        "heroku_drain": "앱에 로그 드레인을 추가합니다. Heroku는 헤더를 보낼 수 없으므로 토큰이 주소에 포함되어 전송됩니다.",
+        "cloud_events": "이벤트 버스를 이 주소로 지정합니다. Amazon EventBridge: 헤더가 X-Connector-Token인 API 키 연결을 사용하는 API 대상입니다. Azure Event Grid 및 CloudEvents 발신자: 주소가 ?token=<token>으로 끝나는 웹훅이며, 검증 핸드셰이크는 자동으로 응답됩니다. Alibaba Cloud EventBridge: 이 토큰을 사용하는 HTTPS 대상입니다."
       },
       "done": "완료",
       "will_generate": "커넥터를 생성할 때 토큰이 생성되며 한 번만 표시됩니다."
@@ -887,6 +968,17 @@
       "format": {
         "ndjson": "NDJSON(한 줄에 이벤트 하나)",
         "json": "JSON 배열"
+      },
+      "messageFormat": {
+        "json": "JSON 또는 텍스트",
+        "azure_records": "Azure Monitor 내보내기"
+      },
+      "period": {
+        "300": "5분",
+        "1200": "20분",
+        "3600": "1시간",
+        "14400": "4시간",
+        "86400": "1일"
       }
     },
     "tls": {
