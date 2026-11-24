@@ -98,13 +98,24 @@ export function intlLocale(language: string | null | undefined): string {
   return INTL_TAGS[toLocale(language)];
 }
 
-/**
- * The language of docs.molesignal.com pages to link: the site is written in
- * English and Simplified Chinese, and a reader of Traditional Chinese is sent
- * to the Chinese pages.
- */
-export function docsLocale(language: string | null | undefined): 'zh-Hans' | 'en-US' {
-  return toLocale(language).startsWith('zh-') ? 'zh-Hans' : 'en-US';
+/** The directory of docs.molesignal.com that holds each language's pages. */
+const DOCS_DIRECTORIES = {
+  'en-us': 'en-US',
+  'zh-cn': 'zh-Hans',
+  'zh-tw': 'zh-Hant',
+  'ja-jp': 'ja',
+  'ko-kr': 'ko',
+  de: 'de',
+  es: 'es',
+  fr: 'fr',
+  'pt-br': 'pt-BR',
+} as const satisfies Record<Locale, string>;
+
+export type DocsLanguage = (typeof DOCS_DIRECTORIES)[Locale];
+
+/** The language of docs.molesignal.com pages to link: the site has every language the product has. */
+export function docsLocale(language: string | null | undefined): DocsLanguage {
+  return DOCS_DIRECTORIES[toLocale(language)];
 }
 
 /** Whether the reader is in mainland China, where domestic vendors come first in a list. */

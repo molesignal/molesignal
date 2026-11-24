@@ -1326,7 +1326,7 @@
       "tencent_monitor": "tencent-cloud-observability-platform",
       "aws_cloudwatch": "amazon-cloudwatch",
       "zabbix": "zabbix",
-      "email": "email"
+      "email": "이메일"
     },
     "requests": {
       "columns": {

@@ -1,4 +1,4 @@
-import { docsLocale } from '@/i18n/locales';
+import { type DocsLanguage, docsLocale } from '@/i18n/locales';
 
 export type RumDocumentationSection =
   | 'explorer'
@@ -17,7 +17,7 @@ const DOCUMENTATION_PATHS: Record<RumDocumentationSection, string> = {
   'session-replay': 'session-replay',
 };
 
-export function rumDocumentationLocale(language?: string): 'en-US' | 'zh-Hans' {
+export function rumDocumentationLocale(language?: string): DocsLanguage {
   return docsLocale(language);
 }
 

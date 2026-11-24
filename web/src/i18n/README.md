@@ -108,10 +108,13 @@ pnpm i18n:translate --provider=claude --model=claude-sonnet-5-5   # cheaper mode
 ## Adding a locale
 
 1. Register it in `SUPPORTED_LOCALES`, `LOCALE_LABELS`, `matchLocale` and the
-   Intl tag table in `src/i18n/locales.ts`; add `bundles/<new>.ts` and its
-   loader in `index.ts`; add a date-fns locale in `shell/ui/calendar.tsx`; add
-   its name and style to `LANGUAGES` in `scripts/i18n/translate.ts`. The
-   backend lists its languages too (`crates/core/domain/src/domain/i18n_language.rs`).
+   Intl tag and docs directory tables in `src/i18n/locales.ts`; add
+   `bundles/<new>.ts` and its loader in `index.ts`; add a date-fns locale in
+   `shell/ui/calendar.tsx`; add its name and style to `LANGUAGES` in
+   `scripts/i18n/engine.ts`. The backend lists its languages too
+   (`crates/core/domain/src/domain/i18n_language.rs`; fill its rows with
+   `pnpm i18n:translate-backend`), and so does the docs site
+   (`../docs/scripts/i18n/languages.mjs`).
 2. Run `pnpm i18n:translate --locale=<new>` — the directory and all namespace
    files are created from `en-us`.
 3. Run `pnpm i18n:check --locale=<new>` to confirm full coverage.

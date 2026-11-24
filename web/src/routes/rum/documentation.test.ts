@@ -6,6 +6,9 @@ describe('RUM documentation links', () => {
   it.each([
     ['zh-CN', 'zh-Hans'],
     ['zh-Hans', 'zh-Hans'],
+    ['zh-TW', 'zh-Hant'],
+    ['ja', 'ja'],
+    ['pt-BR', 'pt-BR'],
     ['en-US', 'en-US'],
     [undefined, 'en-US'],
   ] as const)('maps %s to the matching documentation locale', (language, locale) => {

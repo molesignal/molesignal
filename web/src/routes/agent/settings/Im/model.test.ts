@@ -55,5 +55,6 @@ describe('an IM bot row', () => {
   it('links to the setup docs in the reader’s language', () => {
     expect(imDocumentationUrl('zh-cn')).toBe('https://docs.molesignal.com/zh-Hans/im');
     expect(imDocumentationUrl('en-us')).toBe('https://docs.molesignal.com/en-US/im');
+    expect(imDocumentationUrl('ko-kr')).toBe('https://docs.molesignal.com/ko/im');
   });
 });
