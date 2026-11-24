@@ -461,6 +461,42 @@
       }
     }
   },
+  "tencent-prometheus": {
+    "name": "騰訊雲 Prometheus 資料多寫",
+    "description": "將騰訊雲 Prometheus 監控服務收集的資料，經 Remote Write 寫入 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "確認執行個體收集了什麼",
+        "description": "資料多寫涵蓋執行個體從容器服務和整合中心收集的資料；預先聚合規則算出的指標不會寫出。雲監控整合的指標能否多寫尚未確認，請在自己的執行個體上核實。"
+      },
+      "2": {
+        "title": "新增多寫目標",
+        "description": "在主控台開啟執行個體的資料多寫，新增目標：位址填下方位址，開啟安全驗證，填入下方的使用者名稱和密碼。使用者名稱可以隨意，密碼是接入 Token。位址裡的 stream 參數指定寫入的指標資料流。執行個體所在的網路要能存取 MoleSignal。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中確認指標",
+        "description": "首批資料到達後，在 tencent_prometheus 指標資料流上執行這條查詢，列出序列最多的指標。"
+      }
+    }
+  },
+  "huawei-prometheus": {
+    "name": "華為雲 AOM Prometheus 資料多寫",
+    "description": "將華為雲 AOM Prometheus 執行個體的資料，經 VPC 端點以 Remote Write 寫入 MoleSignal。",
+    "steps": {
+      "1": {
+        "title": "確認多寫能到達 MoleSignal",
+        "description": "資料多寫僅對部分區域的通用執行個體和 CCE 類執行個體開放，需要提工單開通。它只經 VPC 端點服務寫出：MoleSignal 必須部署在華為雲 VPC 內，前面是端點服務所接的 ECS 或 ELB，並且你的帳號已加入該服務的白名單。"
+      },
+      "2": {
+        "title": "新增多寫目標",
+        "description": "在 AOM 主控台開啟執行個體的資料多寫，選擇 VPC 端點，填入下方位址。認證方式選 Token，填接入 Token；也可以選 Basic，使用者名稱隨意，密碼填接入 Token。位址裡的 stream 參數指定寫入的指標資料流。"
+      },
+      "3": {
+        "title": "在 MoleSignal 中確認指標",
+        "description": "首批資料到達後，在 huawei_prometheus 指標資料流上執行這條查詢，列出序列最多的指標。"
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "透過 Kafka Connect Sink Connector 或 kafka-exporter 推送。",

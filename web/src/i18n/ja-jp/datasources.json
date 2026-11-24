@@ -461,6 +461,42 @@
       }
     }
   },
+  "tencent-prometheus": {
+    "name": "Tencent Cloud Prometheus マルチ書き込み",
+    "description": "Tencent Cloud Managed Service for Prometheus が収集するデータを、リモート書き込みで MoleSignal に書き込みます。",
+    "steps": {
+      "1": {
+        "title": "インスタンスが収集する内容を確認",
+        "description": "マルチ書き込みの対象は、インスタンスがコンテナサービスと統合センターから収集するデータです。事前集計ルールで生成されたメトリクスは書き込まれません。Cloud Monitor 統合のメトリクスが書き込まれるかは未確認です。インスタンスで確認してください。"
+      },
+      "2": {
+        "title": "マルチ書き込みターゲットを追加",
+        "description": "コンソールでインスタンスのデータマルチ書き込みを開き、ターゲットを追加します。以下のアドレスを入力し、ユーザー名は任意、パスワードは取り込みトークンとしてセキュリティ検証を有効にします。stream クエリパラメータでメトリクスストリームを指定します。MoleSignal はインスタンスのネットワークから到達可能である必要があります。"
+      },
+      "3": {
+        "title": "MoleSignal でメトリクスを確認",
+        "description": "最初の書き込みが届いたら、tencent_prometheus メトリクスストリームに対する次のクエリで、シリーズ数が最も多いメトリクスを一覧表示できます。"
+      }
+    }
+  },
+  "huawei-prometheus": {
+    "name": "Huawei Cloud AOM Prometheus マルチ書き込み",
+    "description": "Huawei Cloud AOM Prometheus インスタンスが保持するデータを、VPC エンドポイント経由のリモート書き込みで MoleSignal に書き込みます。",
+    "steps": {
+      "1": {
+        "title": "マルチ書き込みから MoleSignal に到達できることを確認",
+        "description": "マルチ書き込みは、一部のリージョンで一般および CCE の Prometheus インスタンスに、チケットによる申請で利用できます。書き込みは VPC エンドポイントサービス経由のみです。MoleSignal は Huawei Cloud VPC 内で、エンドポイントサービスが前面に配置する ECS または ELB の背後で稼働し、お客様のアカウントからそこへ接続できる必要があります。"
+      },
+      "2": {
+        "title": "マルチ書き込みターゲットを追加",
+        "description": "AOM コンソールでインスタンスのデータマルチ書き込みを開き、VPC エンドポイントを選択して、以下のアドレスを入力します。取り込みトークンを使用する Token 認証を選択してください。任意のユーザー名と、パスワードとしてのトークンを使用する Basic 認証も利用できます。stream クエリパラメータでメトリクスストリームを指定します。"
+      },
+      "3": {
+        "title": "MoleSignal でメトリクスを確認",
+        "description": "最初の書き込みが届いたら、huawei_prometheus メトリクスストリームに対する次のクエリで、シリーズ数が最も多いメトリクスを一覧表示できます。"
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Kafka Connect のシンクコネクターまたは kafka-exporter 経由でプッシュします。",

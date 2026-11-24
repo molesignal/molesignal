@@ -461,6 +461,42 @@
       }
     }
   },
+  "tencent-prometheus": {
+    "name": "Escritura múltiple de Prometheus de Tencent Cloud",
+    "description": "Envía a MoleSignal lo que recopila el servicio gestionado de Prometheus de Tencent Cloud mediante escritura remota.",
+    "steps": {
+      "1": {
+        "title": "Comprueba qué recopila la instancia",
+        "description": "La escritura múltiple transporta lo que la instancia recopila de los servicios de contenedores y del centro de integraciones; las métricas generadas por reglas de preagregación no se escriben. No está confirmado si se escriben las métricas de la integración con Cloud Monitor: compruébalo en tu instancia."
+      },
+      "2": {
+        "title": "Agrega un destino de escritura múltiple",
+        "description": "En la consola, abre la escritura múltiple de datos de la instancia y agrega un destino. Introduce la dirección de abajo y activa la verificación de seguridad con este nombre de usuario y contraseña; el nombre de usuario puede ser cualquiera y la contraseña es el token de ingesta. El parámetro de consulta stream indica el nombre del flujo de métricas. MoleSignal debe ser accesible desde la red de la instancia."
+      },
+      "3": {
+        "title": "Comprueba las métricas en MoleSignal",
+        "description": "Cuando haya llegado la primera escritura, esta consulta en el flujo de métricas tencent_prometheus enumera las métricas con más series."
+      }
+    }
+  },
+  "huawei-prometheus": {
+    "name": "Escritura múltiple de Prometheus de AOM de Huawei Cloud",
+    "description": "Envía a MoleSignal lo que contiene una instancia de Prometheus de AOM de Huawei Cloud mediante escritura remota, a través de un punto de conexión de VPC.",
+    "steps": {
+      "1": {
+        "title": "Comprueba que la escritura múltiple puede llegar a MoleSignal",
+        "description": "La escritura múltiple está disponible para instancias de Prometheus generales y de CCE en algunas regiones, previa solicitud mediante un ticket. Solo escribe a través de un servicio de punto de conexión de VPC: MoleSignal debe ejecutarse en una VPC de Huawei Cloud, detrás de un ECS o un ELB publicado mediante un servicio de punto de conexión, con tu cuenta autorizada para conectarse a él."
+      },
+      "2": {
+        "title": "Agrega un destino de escritura múltiple",
+        "description": "En la consola de AOM, abre la escritura múltiple de datos de la instancia, elige el punto de conexión de VPC e introduce la dirección de abajo. Elige la autenticación por token con el token de ingesta; la autenticación básica con cualquier nombre de usuario y el token como contraseña también funciona. El parámetro de consulta stream indica el nombre del flujo de métricas."
+      },
+      "3": {
+        "title": "Comprueba las métricas en MoleSignal",
+        "description": "Cuando haya llegado la primera escritura, esta consulta en el flujo de métricas huawei_prometheus enumera las métricas con más series."
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Envía los datos mediante un conector de destino de Kafka Connect o kafka-exporter.",

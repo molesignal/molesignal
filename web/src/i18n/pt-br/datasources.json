@@ -461,6 +461,42 @@
       }
     }
   },
+  "tencent-prometheus": {
+    "name": "Multi-write do Prometheus da Tencent Cloud",
+    "description": "Envie por remote write o que o Managed Service for Prometheus da Tencent Cloud coleta para o MoleSignal.",
+    "steps": {
+      "1": {
+        "title": "Verifique o que a instância coleta",
+        "description": "O multi-write encaminha o que a instância coleta dos serviços de contêiner e do centro de integrações; métricas geradas por regras de pré-agregação não são gravadas. Não está confirmado se as métricas da integração com o Cloud Monitor são gravadas: verifique na sua instância."
+      },
+      "2": {
+        "title": "Adicione um destino de multi-write",
+        "description": "No console, abra o multi-write de dados da instância e adicione um destino. Insira o endereço abaixo e ative a verificação de segurança com este nome de usuário e senha; o nome de usuário pode ser qualquer coisa, a senha é o token de ingestão. O parâmetro de consulta stream nomeia o stream de métricas. O MoleSignal deve estar acessível a partir da rede da instância."
+      },
+      "3": {
+        "title": "Verifique as métricas no MoleSignal",
+        "description": "Assim que a primeira gravação chegar, esta consulta no stream de métricas tencent_prometheus lista as métricas com mais séries."
+      }
+    }
+  },
+  "huawei-prometheus": {
+    "name": "Multi-write do Prometheus do AOM da Huawei Cloud",
+    "description": "Envie por remote write o que uma instância Prometheus do AOM da Huawei Cloud armazena para o MoleSignal, através de um endpoint de VPC.",
+    "steps": {
+      "1": {
+        "title": "Verifique se o multi-write consegue alcançar o MoleSignal",
+        "description": "O multi-write está disponível para instâncias Prometheus gerais e do CCE em algumas regiões, mediante solicitação por meio de um ticket. Ele grava apenas por um serviço de endpoint de VPC: o MoleSignal deve ser executado em uma VPC da Huawei Cloud, atrás de um ECS ou ELB que um serviço de endpoint expõe, com sua conta autorizada a se conectar a ele."
+      },
+      "2": {
+        "title": "Adicione um destino de multi-write",
+        "description": "No console do AOM, abra o multi-write de dados da instância, escolha o endpoint de VPC e insira o endereço abaixo. Escolha a autenticação por Token com o token de ingestão; a autenticação Basic com qualquer nome de usuário e o token como senha também funciona. O parâmetro de consulta stream nomeia o stream de métricas."
+      },
+      "3": {
+        "title": "Verifique as métricas no MoleSignal",
+        "description": "Assim que a primeira gravação chegar, esta consulta no stream de métricas huawei_prometheus lista as métricas com mais séries."
+      }
+    }
+  },
   "kafka": {
     "name": "Apache Kafka",
     "description": "Envie dados por um conector de destino do Kafka Connect ou pelo kafka-exporter.",
