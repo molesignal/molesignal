@@ -32,6 +32,9 @@ pub mod sections {
     pub const BUSINESS_CONTEXT: &str = "business_context";
     /// 对外的 MCP Server。
     pub const INBOUND_MCP: &str = "inbound_mcp";
+    /// How many Node Agent tasks may be active at once and created per hour, per organization and
+    /// per node (`domain::node_agent::TaskQuota`).
+    pub const NODE_AGENT_TASK_QUOTA: &str = "node_agent.task_quota";
     /// 优先级与紧急度档位。
     pub const INCIDENT_IMPORTANCE: &str = "incident.importance";
     /// 重大事件：建群、会议、检查清单、自动宣布；会议密钥放在 `secret_*`。

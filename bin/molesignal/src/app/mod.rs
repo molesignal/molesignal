@@ -27,6 +27,7 @@ pub mod intake;
 pub mod log_inspection;
 pub mod log_patterns;
 pub mod mcp;
+pub mod node_agent;
 pub mod notify;
 pub mod onboarding;
 pub mod profile_storage;

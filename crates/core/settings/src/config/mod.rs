@@ -36,6 +36,7 @@ mod listeners;
 mod meta_database;
 mod network;
 mod node;
+mod node_agent;
 mod object_store;
 mod query;
 mod storage;
@@ -60,6 +61,7 @@ pub use intake::*;
 pub use meta_database::*;
 pub use network::*;
 pub use node::*;
+pub use node_agent::*;
 pub use object_store::*;
 use once_cell::sync::OnceCell;
 pub use query::*;
@@ -83,6 +85,9 @@ pub struct Settings {
     /// `[probe]`: Probe Agent register/control plane with mandatory TLS identities.
     #[serde(default)]
     pub probe: ProbeGrpcSettings,
+    /// `[node_agent]`: Node Agent managed-mode control endpoint (enrollment, sessions, leases).
+    #[serde(default)]
+    pub node_agent: NodeAgentControlSettings,
     #[serde(default)]
     pub telemetry: TelemetrySettings,
     /// `[profiling]`：节点本地 pprof listener，默认关闭。
@@ -192,6 +197,7 @@ impl Settings {
         self.intake.validate()?;
         self.compactor.validate()?;
         self.probe.validate()?;
+        self.node_agent.validate()?;
         self.cache.object.validate()?;
         self.object_store.validate()?;
         Ok(())

@@ -4716,6 +4716,13 @@ VALUES
     ('sys.telemetry.read', 'platform', 'platform', 'permissions.sys_telemetry_read', 'permissions_hint.sys_telemetry_read', 5),
     ('sys.trace_debug.manage', 'platform', 'platform', 'permissions.sys_trace_debug_manage', 'permissions_hint.sys_trace_debug_manage', 5),
 
+    ('node_agents.enroll', 'organization', 'node_agents', 'permissions.node_agents_enroll', 'permissions_hint.node_agents_enroll', 31),
+    ('node_agents.manage', 'organization', 'node_agents', 'permissions.node_agents_manage', 'permissions_hint.node_agents_manage', 31),
+    ('node_agents.read', 'organization', 'node_agents', 'permissions.node_agents_read', 'permissions_hint.node_agents_read', 31),
+    ('node_agents.revoke', 'organization', 'node_agents', 'permissions.node_agents_revoke', 'permissions_hint.node_agents_revoke', 31),
+    ('node_agents.tasks.read', 'organization', 'node_agents', 'permissions.node_agents_tasks_read', 'permissions_hint.node_agents_tasks_read', 31),
+    ('node_agents.tasks.run', 'organization', 'node_agents', 'permissions.node_agents_tasks_run', 'permissions_hint.node_agents_tasks_run', 31),
+
     ('postmortems.manage', 'organization', 'postmortems', 'permissions.postmortems_manage', 'permissions_hint.postmortems_manage', 9),
     ('postmortems.read', 'organization', 'postmortems', 'permissions.postmortems_read', 'permissions_hint.postmortems_read', 9),
 
@@ -4763,7 +4770,7 @@ CREATE TABLE iam_catalog_versions (
 );
 
 INSERT INTO iam_catalog_versions (catalog_key, version, updated_at)
-VALUES ('permissions', 30, clock_timestamp());
+VALUES ('permissions', 31, clock_timestamp());
 
 -- The built-in roles with what they grant. Every organization gets a copy of the
 -- organization roles, and `_sys` of the platform roles.
@@ -4865,7 +4872,10 @@ FROM (
              'iam.roles.manage', 'iam.roles.read', 'inspections.manage', 'inspections.read',
              'inspections.run', 'intake_budgets.manage', 'intake_usage.read',
              'log_patterns.manage', 'log_patterns.read', 'logs.read', 'logs.write', 'metrics.read',
-             'metrics.write', 'notify.connectors.delete', 'notify.connectors.manage',
+             'metrics.write',
+             'node_agents.enroll', 'node_agents.manage', 'node_agents.read', 'node_agents.revoke',
+             'node_agents.tasks.read', 'node_agents.tasks.run',
+             'notify.connectors.delete', 'notify.connectors.manage',
              'notify.connectors.read', 'notify.defaults.manage', 'notify.defaults.read',
              'notify.deliveries.acknowledge', 'notify.deliveries.read', 'notify.deliveries.retry',
              'notify.policies.delete', 'notify.policies.manage', 'notify.policies.read',
@@ -4951,7 +4961,10 @@ FROM (
              'iam.roles.manage', 'iam.roles.read', 'inspections.manage', 'inspections.read',
              'inspections.run', 'intake_budgets.manage', 'intake_usage.read',
              'log_patterns.manage', 'log_patterns.read', 'logs.read', 'logs.write', 'metrics.read',
-             'metrics.write', 'notify.connectors.delete', 'notify.connectors.manage',
+             'metrics.write',
+             'node_agents.enroll', 'node_agents.manage', 'node_agents.read', 'node_agents.revoke',
+             'node_agents.tasks.read', 'node_agents.tasks.run',
+             'notify.connectors.delete', 'notify.connectors.manage',
              'notify.connectors.read', 'notify.defaults.manage', 'notify.defaults.read',
              'notify.deliveries.acknowledge', 'notify.deliveries.read', 'notify.deliveries.retry',
              'notify.policies.delete', 'notify.policies.manage', 'notify.policies.read',
@@ -5026,6 +5039,8 @@ FROM (
              'functions.delete', 'functions.edit', 'functions.read', 'functions.run',
              'inspections.manage', 'inspections.read', 'inspections.run', 'log_patterns.manage',
              'log_patterns.read', 'logs.read', 'logs.write', 'metrics.read', 'metrics.write',
+             'node_agents.enroll', 'node_agents.read', 'node_agents.tasks.read',
+             'node_agents.tasks.run',
              'notify.connectors.delete', 'notify.connectors.manage', 'notify.connectors.read',
              'notify.defaults.manage', 'notify.defaults.read', 'notify.deliveries.acknowledge',
              'notify.deliveries.read', 'notify.deliveries.retry', 'notify.policies.delete',
@@ -5064,7 +5079,9 @@ FROM (
              'apm.services.read', 'apm.settings.read', 'apm.slos.read', 'connectors.read',
              'dashboards.annotations.read', 'dashboards.folders.read', 'dashboards.read',
              'debug_artifacts.read', 'functions.read', 'inspections.read', 'log_patterns.read',
-             'logs.read', 'metrics.read', 'notify.connectors.read', 'notify.defaults.read',
+             'logs.read', 'metrics.read',
+             'node_agents.read', 'node_agents.tasks.read',
+             'notify.connectors.read', 'notify.defaults.read',
              'notify.deliveries.read', 'notify.policies.read', 'notify.templates.read',
              'personal_tokens.manage', 'pipelines.read', 'profiles.read', 'query.jobs.read',
              'query.jobs.run', 'query.slow.read', 'reports.read', 'rum.analytics.read',
@@ -6948,15 +6965,17 @@ VALUES (
     clock_timestamp()
 );
 
-CREATE TABLE synthetic_probe_certificate_authorities (
+-- Private CAs of the agents that authenticate with mTLS, one row per kind of agent: `probe-root-v1`
+-- (Probe Agents) and `node-agent-root-v1` (Node Agents). The key is sealed with the root key.
+CREATE TABLE certificate_authorities (
     id                      VARCHAR(64) PRIMARY KEY,
     private_key_nonce       BYTEA NOT NULL,
     private_key_ciphertext  BYTEA NOT NULL,
     certificate_pem         TEXT NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL,
-    CONSTRAINT chk_synthetic_probe_ca_nonce
+    CONSTRAINT chk_certificate_authorities_nonce
         CHECK (OCTET_LENGTH(private_key_nonce) = 12),
-    CONSTRAINT chk_synthetic_probe_ca_ciphertext
+    CONSTRAINT chk_certificate_authorities_ciphertext
         CHECK (OCTET_LENGTH(private_key_ciphertext) > 16)
 );
 
@@ -7907,6 +7926,123 @@ CREATE INDEX idx_synthetic_probe_agent_configurations_agent_id
 -- Global result pages are ordered within one organization, independently of monitor.
 CREATE INDEX ix_synthetic_results_org_time
     ON synthetic_results (organization_id, finished_at DESC, id DESC);
+
+-- ============================================================
+-- Node Agents (managed mode)
+-- ============================================================
+
+-- Inventory, enrollment tokens and tasks of Node Agents (molesignal-node-agent, control protocol
+-- in its docs/control-protocol.md). Separate from Probe Agents on purpose: a node authenticates
+-- with a certificate of the `node-agent-root-v1` CA bound to one organization, and its tasks are
+-- the closed kinds below.
+
+-- Tokens that let agents enroll into an organization. Only the SHA-256 of the token is kept; it
+-- enrolls up to `max_uses` nodes until it expires or is revoked.
+CREATE TABLE node_agent_enrollment_tokens (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    token_hash          BYTEA        NOT NULL,
+    description         VARCHAR(255) NOT NULL DEFAULT '',
+    labels              JSONB        NOT NULL DEFAULT '{}'::JSONB,
+    max_uses            INTEGER      NOT NULL,
+    uses                INTEGER      NOT NULL DEFAULT 0,
+    expires_at          TIMESTAMPTZ  NOT NULL,
+    revoked_at          TIMESTAMPTZ,
+    last_used_at        TIMESTAMPTZ,
+    created_by          VARCHAR(64)  NOT NULL,
+    created_at          TIMESTAMPTZ  NOT NULL,
+    CONSTRAINT chk_node_agent_enrollment_tokens_uses
+        CHECK (max_uses > 0 AND uses BETWEEN 0 AND max_uses),
+    CONSTRAINT chk_node_agent_enrollment_tokens_labels CHECK (JSONB_TYPEOF(labels) = 'object')
+);
+CREATE UNIQUE INDEX uq_node_agent_enrollment_tokens_hash ON node_agent_enrollment_tokens (token_hash);
+CREATE INDEX idx_node_agent_enrollment_tokens_org
+    ON node_agent_enrollment_tokens (org_id, created_at DESC);
+
+-- One row per enrolled host and organization: enrolling the same host again keeps the node and
+-- replaces its certificate. `previous_certificate_serial` is the certificate the last rotation
+-- replaced, accepted until a session uses the new one. `desired_config` is
+-- {revision, config, updatedBy, updatedAt}; `config_status` is what the agent last said about a
+-- revision. Health and collector states are those of the last heartbeat.
+CREATE TABLE node_agents (
+    id                          VARCHAR(64)  PRIMARY KEY,
+    org_id                      VARCHAR(64)  NOT NULL,
+    host_id                     VARCHAR(255) NOT NULL,
+    boot_id                     VARCHAR(255) NOT NULL DEFAULT '',
+    hostname                    VARCHAR(255) NOT NULL DEFAULT '',
+    labels                      JSONB        NOT NULL DEFAULT '{}'::JSONB,
+    agent_version               VARCHAR(64)  NOT NULL,
+    protocol_version            VARCHAR(16)  NOT NULL,
+    capabilities                JSONB        NOT NULL DEFAULT '{}'::JSONB,
+    certificate_serial          VARCHAR(128) NOT NULL,
+    previous_certificate_serial VARCHAR(128),
+    certificate_expires_at      TIMESTAMPTZ  NOT NULL,
+    enrollment_token_id         VARCHAR(64),
+    health                      JSONB        NOT NULL DEFAULT '{}'::JSONB,
+    collector_states            JSONB        NOT NULL DEFAULT '[]'::JSONB,
+    applied_config_revision     BIGINT       NOT NULL DEFAULT 0,
+    desired_config              JSONB,
+    config_status               JSONB,
+    last_heartbeat_at           TIMESTAMPTZ,
+    last_connected_at           TIMESTAMPTZ,
+    drain_requested_at          TIMESTAMPTZ,
+    drain_deadline              TIMESTAMPTZ,
+    drained_at                  TIMESTAMPTZ,
+    revoked_at                  TIMESTAMPTZ,
+    revoke_reason               TEXT,
+    enrolled_at                 TIMESTAMPTZ  NOT NULL,
+    created_at                  TIMESTAMPTZ  NOT NULL,
+    updated_at                  TIMESTAMPTZ  NOT NULL,
+    CONSTRAINT chk_node_agents_revoked CHECK ((revoked_at IS NULL) = (revoke_reason IS NULL)),
+    CONSTRAINT chk_node_agents_drain
+        CHECK ((drain_requested_at IS NULL) = (drain_deadline IS NULL)),
+    CONSTRAINT chk_node_agents_config_revision CHECK (applied_config_revision >= 0),
+    CONSTRAINT chk_node_agents_labels CHECK (JSONB_TYPEOF(labels) = 'object')
+);
+CREATE UNIQUE INDEX uq_node_agents_host ON node_agents (org_id, host_id);
+CREATE UNIQUE INDEX uq_node_agents_certificate ON node_agents (certificate_serial);
+CREATE UNIQUE INDEX uq_node_agents_previous_certificate
+    ON node_agents (previous_certificate_serial) WHERE previous_certificate_serial IS NOT NULL;
+
+-- Tasks offered to one node as leases `(id, attempt)`. Queued, offered and running tasks count
+-- against the organization's `node_agent.task_quota`. `result` is the node's result
+-- {resultId, attempt, status, summary, artifactRefs, receivedAt}, recorded once; `failure` says why
+-- the control plane ended a task the node did not.
+CREATE TABLE node_agent_tasks (
+    id                  VARCHAR(64)  PRIMARY KEY,
+    org_id              VARCHAR(64)  NOT NULL,
+    node_id             VARCHAR(64)  NOT NULL REFERENCES node_agents (id) ON DELETE CASCADE,
+    kind                VARCHAR(32)  NOT NULL,
+    spec                JSONB        NOT NULL,
+    state               VARCHAR(16)  NOT NULL,
+    attempt             INTEGER      NOT NULL,
+    max_attempts        INTEGER      NOT NULL,
+    available_at        TIMESTAMPTZ  NOT NULL,
+    lease_expires_at    TIMESTAMPTZ,
+    deadline            TIMESTAMPTZ  NOT NULL,
+    cancel_requested_at TIMESTAMPTZ,
+    cancel_requested_by VARCHAR(64),
+    result              JSONB,
+    failure             TEXT,
+    created_by          VARCHAR(64)  NOT NULL,
+    created_at          TIMESTAMPTZ  NOT NULL,
+    updated_at          TIMESTAMPTZ  NOT NULL,
+    finished_at         TIMESTAMPTZ,
+    CONSTRAINT chk_node_agent_tasks_kind CHECK (kind IN ('autotracing_run', 'profile', 'tool')),
+    CONSTRAINT chk_node_agent_tasks_state
+        CHECK (state IN ('queued', 'offered', 'running', 'succeeded', 'failed', 'cancelled',
+                         'lease_expired', 'expired', 'rejected')),
+    CONSTRAINT chk_node_agent_tasks_attempt
+        CHECK (max_attempts BETWEEN 1 AND 10 AND attempt BETWEEN 1 AND max_attempts),
+    CONSTRAINT chk_node_agent_tasks_lease
+        CHECK ((state IN ('offered', 'running')) = (lease_expires_at IS NOT NULL)),
+    CONSTRAINT chk_node_agent_tasks_finished
+        CHECK ((state IN ('queued', 'offered', 'running')) = (finished_at IS NULL))
+);
+CREATE INDEX idx_node_agent_tasks_node ON node_agent_tasks (node_id, state, available_at);
+CREATE INDEX idx_node_agent_tasks_org ON node_agent_tasks (org_id, created_at DESC);
+CREATE INDEX idx_node_agent_tasks_active ON node_agent_tasks (org_id, state)
+    WHERE state IN ('queued', 'offered', 'running');
 
 -- ============================================================
 -- Backend-written text
@@ -11300,7 +11436,9 @@ FROM (
              'alerts.tickets.read', 'apm.definitions.read', 'apm.deployments.read',
              'apm.error_rules.read', 'apm.errors.read', 'apm.services.read', 'apm.settings.read',
              'apm.slos.read', 'debug_artifacts.read', 'log_patterns.read', 'logs.read',
-             'metrics.read', 'notify.connectors.delete', 'notify.connectors.manage',
+             'metrics.read',
+             'node_agents.read', 'node_agents.tasks.read', 'node_agents.tasks.run',
+             'notify.connectors.delete', 'notify.connectors.manage',
              'notify.connectors.read', 'notify.defaults.manage', 'notify.defaults.read',
              'notify.deliveries.acknowledge', 'notify.deliveries.read', 'notify.deliveries.retry',
              'notify.policies.delete', 'notify.policies.manage', 'notify.policies.read',
@@ -11347,6 +11485,8 @@ FROM (
              'iam.cross_org.manage', 'iam.cross_org.read', 'iam.grants.manage', 'iam.grants.read',
              'iam.policies.delete', 'iam.policies.manage', 'iam.policies.read', 'iam.roles.delete',
              'iam.roles.manage', 'iam.roles.read', 'intake_budgets.manage', 'intake_usage.read',
+             'node_agents.enroll', 'node_agents.manage', 'node_agents.read', 'node_agents.revoke',
+             'node_agents.tasks.read',
              'org.cipher_keys.manage', 'org.cipher_keys.read', 'org.cipher_keys.rotate',
              'org.domains.manage', 'org.domains.read', 'org.email_domains.manage',
              'org.email_domains.read', 'org.field_masking.manage', 'org.field_masking.read',
@@ -11398,7 +11538,9 @@ FROM (
              'apm.services.read', 'apm.settings.read', 'apm.slos.read', 'connectors.read',
              'dashboards.annotations.read', 'dashboards.folders.read', 'dashboards.read',
              'debug_artifacts.read', 'functions.read', 'log_patterns.read', 'logs.read',
-             'metrics.read', 'notify.connectors.read', 'notify.defaults.read',
+             'metrics.read',
+             'node_agents.read', 'node_agents.tasks.read',
+             'notify.connectors.read', 'notify.defaults.read',
              'notify.deliveries.read', 'notify.policies.read', 'notify.templates.read',
              'pipelines.read', 'postmortems.read', 'profiles.read', 'query.jobs.read',
              'query.jobs.run', 'query.slow.read', 'reports.read', 'rum.analytics.read',

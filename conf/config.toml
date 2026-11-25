@@ -69,6 +69,22 @@ certificate_days = 30
 # 单条收发消息允许的最大大小，单位 MiB。
 max_message_size = 32
 
+[node_agent]
+# Managed-mode control endpoint of Node Agents (gRPC NodeControl). One TLS port: Enroll takes an
+# enrollment token and a CSR; Session and RotateCertificate need the node's client certificate.
+enabled = true
+bind = "0.0.0.0"
+port = 5086
+# Public URL agents connect to, shown with every new enrollment token. Set it behind a proxy/LB.
+endpoint = "https://localhost:5086"
+server_names = ["localhost", "127.0.0.1"]
+certificate_days = 30
+heartbeat_interval_secs = 30
+lease_ttl_secs = 120
+offer_ttl_secs = 60
+# 单条收发消息允许的最大大小，单位 MiB。
+max_message_size = 4
+
 # 对外 Arrow Flight SQL 端口（DBeaver / JDBC / ADBC 直连查询）。
 # 与 [grpc]（集群内可信网络）分端口；每个 RPC 强制 API token 鉴权。
 [flight_sql]

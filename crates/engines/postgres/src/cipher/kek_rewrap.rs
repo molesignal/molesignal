@@ -132,7 +132,7 @@ const SPECS: &[RewrapSpec] = &[
         pairs: &[pair("nonce", "ciphertext")],
     },
     RewrapSpec {
-        table: "synthetic_probe_certificate_authorities",
+        table: "certificate_authorities",
         pk: &["id"],
         pairs: &[pair("private_key_nonce", "private_key_ciphertext")],
     },
@@ -440,6 +440,7 @@ mod tests {
         ("synthetic_probe_agents", "public_key_der"),
         // 普通摘要，不用根密钥算，也不可逆。
         ("synthetic_probe_register_tokens", "token_hash"),
+        ("node_agent_enrollment_tokens", "token_hash"),
         ("synthetic_probe_agent_tokens", "token_hash"),
         ("synthetic_monitor_revisions", "heartbeat_token_hash"),
         ("synthetic_result_artifacts", "sha256"),

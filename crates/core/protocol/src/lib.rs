@@ -38,6 +38,18 @@ pub mod query {
     }
 }
 
+/// Node Agent managed-mode control protocol (`molesignal.node.control.v1.NodeControl`).
+///
+/// Source proto: `proto/molesignal/node/control/v1/node_control.proto`; the agent repository
+/// vendors the same file at the same relative path.
+pub mod node_control {
+    #[allow(clippy::all)]
+    #[rustfmt::skip]
+    pub mod v1 {
+        tonic::include_proto!("molesignal.node.control.v1");
+    }
+}
+
 pub mod probe {
     #[allow(clippy::all)]
     #[rustfmt::skip]

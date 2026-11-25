@@ -41,6 +41,7 @@ pub mod inhibit_rules;
 pub mod instance_settings;
 pub mod investigation_blobs;
 pub mod invitations;
+pub mod node_agent;
 pub mod org_profiles;
 pub mod org_settings;
 pub mod realtime_snapshots;

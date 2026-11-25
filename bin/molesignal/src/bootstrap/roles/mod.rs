@@ -150,6 +150,13 @@ pub async fn run(state: AppState, settings: &Settings) -> anyhow::Result<()> {
         set.spawn(async move { crate::api::grpc::serve_probe_grpc(s, &cfg).await });
     }
 
+    // Node Agent control endpoint: on the same nodes as the Probe control plane.
+    if plan.probe_grpc && settings.node_agent.enabled {
+        let s = state.clone();
+        let cfg = settings.node_agent.clone();
+        set.spawn(async move { crate::api::grpc::serve_node_agent_grpc(s, &cfg).await });
+    }
+
     if settings.profiling.enabled {
         let state = state.clone();
         let profiling = settings.profiling.clone();

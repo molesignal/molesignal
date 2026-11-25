@@ -472,7 +472,8 @@
     "synthetics": "拨测",
     "service_levels": "服务等级",
     "postmortems": "复盘",
-    "agent": "AI能力"
+    "agent": "AI能力",
+    "node_agents": "节点 Agent"
   },
   "permission_picker": {
     "search_aria": "搜索权限",
@@ -783,7 +784,13 @@
     "agent_im_manage": "管理 IM 机器人",
     "rum_replay_comments_write": "评论会话回放",
     "rum_replay_comments_manage": "管理回放评论",
-    "rum_replay_summaries_generate": "生成回放摘要"
+    "rum_replay_summaries_generate": "生成回放摘要",
+    "node_agents_enroll": "注册节点 Agent",
+    "node_agents_manage": "管理节点 Agent",
+    "node_agents_read": "查看节点 Agent",
+    "node_agents_revoke": "吊销节点 Agent",
+    "node_agents_tasks_read": "查看节点任务",
+    "node_agents_tasks_run": "下发节点任务"
   },
   "permissions_hint": {
     "sys_organizations_read": "列出平台上的组织。",
@@ -1080,7 +1087,13 @@
     "agent_im_manage": "连接和移除 Mole Agent 的 IM 机器人。",
     "rum_replay_comments_write": "在回放的某个时刻写评论，修改和删除自己写的。",
     "rum_replay_comments_manage": "修改和删除别人写的回放评论。",
-    "rum_replay_summaries_generate": "用 Mole Agent 的模型生成会话摘要和章节，计入每日预算。"
+    "rum_replay_summaries_generate": "用 Mole Agent 的模型生成会话摘要和章节，计入每日预算。",
+    "node_agents_enroll": "签发和吊销 enrollment token，让 Node Agent 加入组织。",
+    "node_agents_manage": "让 Node Agent 进入或退出排空，下发配置，设置节点任务配额。",
+    "node_agents_read": "查看已注册的 Node Agent 及其版本、能力、健康状态和心跳。",
+    "node_agents_revoke": "吊销 Node Agent：证书立即失效，正在运行的任务被取消。",
+    "node_agents_tasks_read": "查看下发给 Node Agent 的诊断任务及其结果。",
+    "node_agents_tasks_run": "向 Node Agent 下发诊断任务（AutoTracing、profiling、工具）并取消任务。"
   },
   "roles": {
     "title": "角色",

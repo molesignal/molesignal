@@ -146,6 +146,8 @@ pub struct AppState {
     pub status_pages: Arc<StatusPageService>,
     pub synthetics: Arc<SyntheticService>,
     pub probe_control: Option<Arc<ProbeControlService>>,
+    /// Node Agents in managed mode: enrollment, sessions, inventory, tasks.
+    pub node_agents: Arc<crate::app::node_agent::NodeAgentService>,
     pub alerting: AlertingState,
     pub iam: IamState,
     pub telemetry: TelemetryState,

@@ -138,7 +138,7 @@ const SEEDS: &[Seed] = &[
         sealed: &[sealed("nonce", "ciphertext")],
     },
     Seed {
-        table: "synthetic_probe_certificate_authorities",
+        table: "certificate_authorities",
         columns: "id, certificate_pem, created_at",
         values: "'r1', 'pem', to_timestamp(1)",
         sealed: &[sealed("private_key_nonce", "private_key_ciphertext")],

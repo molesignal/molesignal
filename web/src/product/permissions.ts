@@ -11,6 +11,7 @@ export type PermissionDomain =
   | 'reports'
   | 'status_pages'
   | 'synthetics'
+  | 'node_agents'
   | 'service_levels'
   | 'postmortems'
   | 'agent';
