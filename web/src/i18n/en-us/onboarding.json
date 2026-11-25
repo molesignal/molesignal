@@ -314,7 +314,7 @@
     "node_agent": {
       "assets": {
         "title": "Install the host assets",
-        "description": "Indexes, a dashboard, saved queries and real-time alert rules for the hosts the agent watches.",
+        "description": "Indexes, a dashboard, saved views and real-time alert rules for the hosts the agent watches.",
         "install": "Install",
         "up_to_date": "Installed",
         "install_hint": "Installing again only adds what is missing and never overwrites your changes. Alert rules start disabled.",
@@ -336,7 +336,7 @@
           "taken": "another dashboard uses the uid host-overview"
         },
         "views": {
-          "title": "Saved queries",
+          "title": "Saved views",
           "count": "{{installed}} of {{total}}: OOM, network, RAS and hangs, errors"
         },
         "alerts": {

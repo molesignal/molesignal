@@ -314,7 +314,7 @@
     "node_agent": {
       "assets": {
         "title": "安装主机资产",
-        "description": "为 agent 监控的主机准备索引、仪表盘、保存的查询和实时告警规则。",
+        "description": "为 agent 监控的主机准备索引、仪表盘、保存的视图和实时告警规则。",
         "install": "安装",
         "up_to_date": "已安装",
         "install_hint": "重复安装只补缺失的部分，不会覆盖你的修改；告警规则默认关闭。",
@@ -336,7 +336,7 @@
           "taken": "已有其他仪表盘占用 uid host-overview"
         },
         "views": {
-          "title": "保存的查询",
+          "title": "保存的视图",
           "count": "已安装 {{installed}}/{{total}}：OOM、网络、RAS 与内核卡顿、错误事件"
         },
         "alerts": {

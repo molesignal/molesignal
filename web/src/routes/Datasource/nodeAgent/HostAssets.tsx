@@ -31,7 +31,7 @@ const STATE_TEXT: Record<AssetState, string> = {
 
 /**
  * What the organization gets for its hosts once the agent sends: the indexes of the host events,
- * the host dashboard, the saved queries and the alert rules. One button installs what is missing;
+ * the host dashboard, the saved views and the alert rules. One button installs what is missing;
  * the alert rules come disabled and are switched on one by one below.
  */
 export function HostAssets({ query }: { query: UseQueryResult<NodeAgentAssets> }) {
