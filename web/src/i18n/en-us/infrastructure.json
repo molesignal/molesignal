@@ -360,7 +360,8 @@
         "container": "A container ID.",
         "devices": "At least one interface.",
         "block_devices": "Each device as major:minor, for example 259:3."
-      }
+      },
+      "rule_container_hint": "Optional; empty runs it on the container the node finds busiest."
     }
   }
 }

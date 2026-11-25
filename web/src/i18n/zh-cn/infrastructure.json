@@ -360,7 +360,8 @@
         "container": "需要容器 ID。",
         "devices": "至少一个网卡。",
         "block_devices": "每个设备写成 major:minor，例如 259:3。"
-      }
+      },
+      "rule_container_hint": "可选；留空时由节点挑选最忙的容器。"
     }
   }
 }

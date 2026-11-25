@@ -5,6 +5,7 @@ import { FormField, FormGroup, FormInput, FormRow, FormSelect } from '@/shell/Fo
 import { Switch } from '@/shell/ui/switch';
 
 import {
+  CONTAINER_RULES,
   defaultDuration,
   DEVICE_SCOPES,
   PROFILE_MODES,
@@ -55,13 +56,25 @@ export function SpecFields({
 
   if (kind === 'autotracing_run') {
     return (
-      <FormField label={t('node_agents.spec.rule')} required hint={t(`node_agents.spec.rule_hint.${draft.rule}`)}>
-        <FormSelect
-          value={draft.rule}
-          onChange={(value) => set('rule', value as SpecDraft['rule'])}
-          options={RULES.map((rule) => ({ value: rule, label: t(`node_agents.spec.rules.${rule}`) }))}
-        />
-      </FormField>
+      <>
+        <FormField label={t('node_agents.spec.rule')} required hint={t(`node_agents.spec.rule_hint.${draft.rule}`)}>
+          <FormSelect
+            value={draft.rule}
+            onChange={(value) => set('rule', value as SpecDraft['rule'])}
+            options={RULES.map((rule) => ({ value: rule, label: t(`node_agents.spec.rules.${rule}`) }))}
+          />
+        </FormField>
+        {CONTAINER_RULES.includes(draft.rule) && (
+          <FormField label={t('node_agents.spec.container_id')} hint={t('node_agents.spec.rule_container_hint')}>
+            <FormInput
+              value={draft.containerId}
+              placeholder="c86df4740fab"
+              className="font-code"
+              onChange={(event) => set('containerId', event.target.value)}
+            />
+          </FormField>
+        )}
+      </>
     );
   }
 

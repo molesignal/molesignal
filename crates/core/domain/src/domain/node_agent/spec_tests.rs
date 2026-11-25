@@ -77,6 +77,23 @@ fn an_autotracing_run_names_one_scenario() {
         json!({"rule": "dload", "extra": 1}),
     );
     refused(TaskKind::AutotracingRun, json!({}));
+
+    ok(
+        TaskKind::AutotracingRun,
+        json!({"rule": "cpuidle", "container_id": "c86df4740fab"}),
+    );
+    ok(
+        TaskKind::AutotracingRun,
+        json!({"rule": "dload", "container_id": "c86df4740fab"}),
+    );
+    refused(
+        TaskKind::AutotracingRun,
+        json!({"rule": "cpusys", "container_id": "c86df4740fab"}),
+    );
+    refused(
+        TaskKind::AutotracingRun,
+        json!({"rule": "dload", "container_id": ""}),
+    );
 }
 
 #[test]

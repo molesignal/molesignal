@@ -4,7 +4,8 @@
 //! The spec of each task kind, checked as the node checks it: the keys a kind takes and no other.
 //!
 //! - `tool`: `node_observe::tools::ToolSpec` (dropwatch, tcpshark, iotracing, perf).
-//! - `autotracing_run`: `{"rule"}`, one of the AutoTracing scenarios, run once now.
+//! - `autotracing_run`: `{"rule", "container_id"?}`, one of the AutoTracing scenarios run once now;
+//!   `container_id` only for cpuidle and dload (without it the node picks the container).
 //! - `profile`: perf's options without `tool` (`duration_secs`, `pid` | `container_id`,
 //!   `frequency_hz`, `mode`, `phase`, `min_duration_us`, `probability`, `language`); the node runs it
 //!   as perf.
@@ -16,6 +17,9 @@ use super::TaskKind;
 
 /// The AutoTracing scenarios an `autotracing_run` can name.
 pub const AUTOTRACING_RULES: [&str; 5] = ["cpusys", "cpuidle", "dload", "memburst", "iotracing"];
+
+/// The scenarios that run against one container, given by `container_id` or picked by the node.
+pub const CONTAINER_RULES: [&str; 2] = ["cpuidle", "dload"];
 
 /// The languages `perf` and `profile` take: the native profiler or a runtime's.
 pub const PROFILE_LANGUAGES: [&str; 3] = ["native", "java", "python"];
@@ -274,14 +278,25 @@ pub fn validate_spec(kind: TaskKind, spec: &Value) -> Result<()> {
     match kind {
         TaskKind::Tool => tool(object),
         TaskKind::AutotracingRun => {
-            only_keys(object, &["rule"], "an AutoTracing run")?;
+            only_keys(object, &["rule", "container_id"], "an AutoTracing run")?;
 
-            match string(object, "rule")? {
-                Some(rule) if AUTOTRACING_RULES.contains(&rule) => Ok(()),
-                _ => Err(invalid(format!(
-                    "`rule` must be one of {}",
-                    AUTOTRACING_RULES.join(", ")
-                ))),
+            let rule = match string(object, "rule")? {
+                Some(rule) if AUTOTRACING_RULES.contains(&rule) => rule,
+                _ => {
+                    return Err(invalid(format!(
+                        "`rule` must be one of {}",
+                        AUTOTRACING_RULES.join(", ")
+                    )));
+                }
+            };
+
+            // Only the rules that pick a container take one; without it the node picks the busiest.
+            match string(object, "container_id")? {
+                Some("") => Err(invalid("`container_id` cannot be empty")),
+                Some(_) if !CONTAINER_RULES.contains(&rule) => {
+                    Err(invalid(format!("rule {rule} has no container target")))
+                }
+                _ => Ok(()),
             }
         }
         // perf's options without `tool`: the node runs it as perf.

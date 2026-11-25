@@ -4,7 +4,7 @@ import type { NodeTaskKind } from '@/api/nodeAgents';
  * The spec of a new task, filled in as a form and written as the JSON the node reads.
  *
  * `tool` follows `node_observe::tools::ToolSpec` exactly: the keys of each tool and no other.
- * `autotracing_run` names one of the AutoTracing scenarios. `profile` takes perf's sampling
+ * `autotracing_run` names one of the AutoTracing scenarios, and a container for cpuidle and dload. `profile` takes perf's sampling
  * options (window, target, frequency and mode).
  */
 
@@ -13,6 +13,9 @@ export type ToolName = (typeof TOOLS)[number];
 
 export const RULES = ['cpusys', 'cpuidle', 'dload', 'memburst', 'iotracing'] as const;
 export type RuleName = (typeof RULES)[number];
+
+/** The scenarios that run against one container: given here, or the busiest the node finds. */
+export const CONTAINER_RULES: readonly RuleName[] = ['cpuidle', 'dload'];
 
 export const PROFILE_MODES = ['oncpu', 'offcpu', 'virtual_alloc', 'physical_alloc', 'physical_usage'] as const;
 export type ProfileMode = (typeof PROFILE_MODES)[number];
@@ -172,7 +175,11 @@ function toolSpec(draft: SpecDraft): Record<string, unknown> {
 export function buildSpec(kind: NodeTaskKind, draft: SpecDraft): Built {
   try {
     if (kind === 'tool') return { spec: toolSpec(draft) };
-    if (kind === 'autotracing_run') return { spec: { rule: draft.rule } };
+    if (kind === 'autotracing_run') {
+      const spec: Record<string, unknown> = { rule: draft.rule };
+      if (CONTAINER_RULES.includes(draft.rule)) put(spec, 'container_id', draft.containerId.trim());
+      return { spec };
+    }
 
     const spec: Record<string, unknown> = { duration_secs: duration(draft) };
     target(draft, spec);

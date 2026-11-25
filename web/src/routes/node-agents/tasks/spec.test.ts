@@ -65,6 +65,13 @@ describe('task spec form', () => {
 
   it('writes an AutoTracing run and a profile', () => {
     expect(buildSpec('autotracing_run', draft({ rule: 'memburst' }))).toEqual({ spec: { rule: 'memburst' } });
+    expect(buildSpec('autotracing_run', draft({ rule: 'dload', containerId: ' c86df4740fab ' }))).toEqual({
+      spec: { rule: 'dload', container_id: 'c86df4740fab' },
+    });
+    // A container typed for a scenario that takes none is not sent.
+    expect(buildSpec('autotracing_run', draft({ rule: 'cpusys', containerId: 'c86df4740fab' }))).toEqual({
+      spec: { rule: 'cpusys' },
+    });
     expect(buildSpec('profile', draft({ durationSecs: '30', mode: 'offcpu', target: 'pid', pid: '42' }))).toEqual({
       spec: { duration_secs: 30, pid: 42, frequency_hz: 99, mode: 'offcpu' },
     });
