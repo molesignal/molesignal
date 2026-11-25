@@ -187,14 +187,12 @@
       "kind": "Kind",
       "kind_hint": "Only the kinds the node said it runs.",
       "spec": "Spec",
-      "spec_hint_tool": "One of dropwatch, tcpshark, iotracing and perf, with duration_secs from 1 to 3600.",
-      "spec_hint_profile": "How long to profile and at what frequency.",
-      "spec_hint_autotracing_run": "The AutoTracing rule to run once.",
       "timeout": "Deadline",
       "timeout_hint": "The task never runs past this, whatever happens.",
       "attempts": "Attempts",
       "attempts_hint": "How often it is offered again when the node does not take it.",
-      "created": "Task queued"
+      "created": "Task queued",
+      "limits": "Limits"
     },
     "cancel": {
       "done": "Task cancelled",
@@ -270,6 +268,77 @@
       "revoked": "Token revoked",
       "empty_title": "No enrollment token yet",
       "empty_description": "Issue a token to enroll the first Node Agent."
+    },
+    "spec": {
+      "tool": "Tool",
+      "tool_hint": {
+        "dropwatch": "Packets the kernel drops, with where they were dropped.",
+        "tcpshark": "TCP retransmissions, as they happen.",
+        "iotracing": "Who waits on block I/O and on which files: one snapshot at the end of the window.",
+        "perf": "A CPU or memory profile, uploaded to Profiles."
+      },
+      "duration": "Window (seconds)",
+      "duration_hint": "From 1 to 3600 seconds.",
+      "filter": "Filter",
+      "filter_hint": "A pcap filter; empty takes every packet.",
+      "max_events_per_second": "Events per second at most",
+      "node_default": "Node default",
+      "device_scope": "Interfaces",
+      "device_scopes": {
+        "all": "All interfaces",
+        "only": "Only these",
+        "except": "All but these"
+      },
+      "interfaces": "Interface names",
+      "list_hint": "Separated by commas or spaces.",
+      "enable_tlp": "Count tail loss probes",
+      "enable_tlp_hint": "Also report the probes TCP sends before a timeout retransmission.",
+      "block_devices": "Block devices",
+      "block_devices_hint": "major:minor, separated by commas; empty traces every device.",
+      "max_stack": "Stacks kept",
+      "max_process": "Processes kept",
+      "max_files_per_process": "Files per process",
+      "schedule_threshold_ms": "Wait threshold (ms)",
+      "target": "Target",
+      "targets": {
+        "host": "Whole host",
+        "pid": "One process",
+        "container": "One container"
+      },
+      "pid": "Process ID",
+      "container_id": "Container ID",
+      "mode": "Mode",
+      "modes": {
+        "oncpu": "On-CPU",
+        "offcpu": "Off-CPU",
+        "virtual_alloc": "Virtual memory allocations",
+        "physical_alloc": "Physical memory allocations",
+        "physical_usage": "Physical memory in use"
+      },
+      "frequency": "Frequency (Hz)",
+      "rule": "Scenario",
+      "rules": {
+        "cpusys": "High system CPU (cpusys)",
+        "cpuidle": "CPU usage burst (cpuidle)",
+        "dload": "Uninterruptible tasks (dload)",
+        "memburst": "Memory burst (memburst)",
+        "iotracing": "I/O wait (iotracing)"
+      },
+      "rule_hint": {
+        "cpusys": "Samples what keeps the kernel busy and records it with a flame graph.",
+        "cpuidle": "Samples the container or host whose CPU usage jumped.",
+        "dload": "Collects the stacks of tasks stuck in D state.",
+        "memburst": "Records the processes using the most memory.",
+        "iotracing": "Records who waits on block I/O and on which files."
+      },
+      "problem": {
+        "duration": "Between 1 and 3600 seconds.",
+        "number": "A whole number.",
+        "pid": "A process ID above 0.",
+        "container": "A container ID.",
+        "devices": "At least one interface.",
+        "block_devices": "Each device as major:minor, for example 259:3."
+      }
     }
   }
 }

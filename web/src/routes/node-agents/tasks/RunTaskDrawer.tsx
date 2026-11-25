@@ -5,24 +5,16 @@ import { useTranslation } from 'react-i18next';
 import * as nodeAgentsApi from '@/api/nodeAgents';
 import type { NodeAgent, NodeTask, NodeTaskKind } from '@/api/nodeAgents';
 import { toApiError } from '@/lib/http';
-import {
-  FormDrawer,
-  FormField,
-  FormGroup,
-  FormSection,
-  FormSelect,
-  FormSubmitFooter,
-} from '@/shell/FormDrawer';
-import { JsonEditor } from '@/shell/JsonEditor';
+import { FormDrawer, FormField, FormSection, FormSelect, FormSubmitFooter } from '@/shell/FormDrawer';
 import { toast } from '@/shell/ui/sonner';
 
 import { durationLabel } from '../Frame';
-import { DEFAULT_SPECS, nodeName, parseSpec } from '../model';
+import { nodeName } from '../model';
+import { buildSpec, defaultDraft, type SpecDraft } from './spec';
+import { SpecFields } from './SpecFields';
 
 const TIMEOUT_MINUTES = [5, 15, 60, 360, 1440] as const;
 const ATTEMPTS = [1, 2, 3, 5] as const;
-
-const specText = (kind: NodeTaskKind) => JSON.stringify(DEFAULT_SPECS[kind], null, 2);
 
 /**
  * A diagnostic task for one node: the kind among those the node runs, its spec, how long it may
@@ -47,7 +39,7 @@ export function RunTaskDrawer({
   const node = nodes.find((candidate) => candidate.id === nodeId);
   const kinds = node?.capabilities.taskKinds ?? [];
   const [kind, setKind] = React.useState<NodeTaskKind>('tool');
-  const [text, setText] = React.useState(specText('tool'));
+  const [draft, setDraft] = React.useState<SpecDraft>(defaultDraft);
   const [timeout, setTimeoutMinutes] = React.useState('60');
   const [attempts, setAttempts] = React.useState('3');
 
@@ -58,13 +50,13 @@ export function RunTaskDrawer({
     const startKind = start?.capabilities.taskKinds[0] ?? 'tool';
     setNodeId(start?.id ?? '');
     setKind(startKind);
-    setText(specText(startKind));
+    setDraft(defaultDraft());
     setTimeoutMinutes('60');
     setAttempts('3');
   }, [initialNodeId, nodes, open]);
 
-  const parsed = parseSpec(text);
-  const problem = 'error' in parsed ? t(`node_agents.config.invalid_${parsed.error}`) : undefined;
+  const built = buildSpec(kind, draft);
+  const problem = 'problem' in built ? built : undefined;
 
   const create = useMutation({
     mutationFn: (spec: Record<string, unknown>) =>
@@ -86,16 +78,7 @@ export function RunTaskDrawer({
     setNodeId(id);
     const next = nodes.find((candidate) => candidate.id === id)?.capabilities.taskKinds ?? [];
 
-    if (!next.includes(kind) && next[0]) {
-      setKind(next[0]);
-      setText(specText(next[0]));
-    }
-  };
-
-  const chooseKind = (value: string) => {
-    const next = value as NodeTaskKind;
-    setKind(next);
-    setText(specText(next));
+    if (!next.includes(kind) && next[0]) setKind(next[0]);
   };
 
   return (
@@ -118,7 +101,7 @@ export function RunTaskDrawer({
         id="run-node-task"
         onSubmit={(event) => {
           event.preventDefault();
-          if ('spec' in parsed && node) create.mutate(parsed.spec);
+          if ('spec' in built && node) create.mutate(built.spec);
         }}
       >
         <FormSection>
@@ -133,20 +116,15 @@ export function RunTaskDrawer({
           <FormField label={t('node_agents.run.kind')} required hint={t('node_agents.run.kind_hint')}>
             <FormSelect
               value={kind}
-              onChange={chooseKind}
+              onChange={(value) => setKind(value as NodeTaskKind)}
               options={kinds.map((value) => ({ value, label: t(`node_agents.kind.${value}`) }))}
             />
           </FormField>
-          <FormGroup label={t('node_agents.run.spec')} hint={t(`node_agents.run.spec_hint_${kind}`)}>
-            <JsonEditor
-              value={text}
-              onChange={setText}
-              ariaLabel={t('node_agents.run.spec')}
-              minHeight={140}
-              maxHeight={360}
-            />
-            {problem && <span className="text-xs text-red">{problem}</span>}
-          </FormGroup>
+        </FormSection>
+        <FormSection title={t('node_agents.run.spec')}>
+          <SpecFields kind={kind} draft={draft} problem={problem} onChange={setDraft} />
+        </FormSection>
+        <FormSection title={t('node_agents.run.limits')}>
           <FormField label={t('node_agents.run.timeout')} hint={t('node_agents.run.timeout_hint')}>
             <FormSelect
               value={timeout}

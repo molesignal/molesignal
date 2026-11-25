@@ -63,13 +63,32 @@ test.describe('node agents', () => {
 
     await page.getByRole('button', { name: 'Run a task' }).first().click();
     const run = page.getByRole('dialog').filter({ hasText: 'Run a task' });
+    // The spec is a form: a tool and its own options, written as the JSON the node reads.
+    await run.getByLabel('Kind').click();
+    await page.getByRole('option', { name: 'Tool', exact: true }).click();
+    await run.getByLabel(/^Tool/).click();
+    await page.getByRole('option', { name: 'tcpshark' }).click();
+    await run.getByRole('switch', { name: 'Count tail loss probes' }).click();
+    await run.getByLabel('Window (seconds)').fill('5000');
+    await expect(run.getByText('Between 1 and 3600 seconds.')).toBeVisible();
+    await expect(run.getByRole('button', { name: 'Run a task' })).toBeDisabled();
+    await run.getByLabel('Window (seconds)').fill('30');
+
+    const created = page.waitForRequest(
+      (request) => request.method() === 'POST' && request.url().endsWith('/api/v1/node-agents/tasks'),
+    );
     await run.getByRole('button', { name: 'Run a task' }).click();
+    expect((await created).postDataJSON()).toMatchObject({
+      nodeId: 'node-web-1',
+      kind: 'tool',
+      spec: { tool: 'tcpshark', duration_secs: 30, mode: 'retransmit', enable_tlp: true, max_events_per_second: 100 },
+    });
     await expect(page).toHaveURL(/\/node-agents\/tasks\/9e8d7c6b-/);
     await expect(page.getByRole('dialog')).toContainText('Queued');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('row')).toHaveCount(4);
 
-    await page.getByRole('row').filter({ hasText: 'tcpshark' }).click();
+    await page.getByRole('row').filter({ hasText: 'Running' }).click();
     const task = page.getByRole('dialog');
     await task.getByRole('button', { name: 'Cancel task' }).click();
     await expect(task).toContainText('cancel requested');

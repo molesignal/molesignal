@@ -187,14 +187,12 @@
       "kind": "类型",
       "kind_hint": "只能选节点声明支持的类型。",
       "spec": "参数",
-      "spec_hint_tool": "dropwatch、tcpshark、iotracing、perf 之一，duration_secs 为 1 到 3600。",
-      "spec_hint_profile": "采样时长和频率。",
-      "spec_hint_autotracing_run": "要运行一次的 AutoTracing 规则。",
       "timeout": "截止时间",
       "timeout_hint": "无论发生什么，任务都不会运行超过这个时间。",
       "attempts": "尝试次数",
       "attempts_hint": "节点没有接收时最多重新下发几次。",
-      "created": "任务已排队"
+      "created": "任务已排队",
+      "limits": "限制"
     },
     "cancel": {
       "done": "任务已取消",
@@ -270,6 +268,77 @@
       "revoked": "token 已吊销",
       "empty_title": "还没有 enrollment token",
       "empty_description": "签发一个 token 来注册第一个 Node Agent。"
+    },
+    "spec": {
+      "tool": "工具",
+      "tool_hint": {
+        "dropwatch": "内核丢弃的数据包及丢包位置。",
+        "tcpshark": "实时记录 TCP 重传。",
+        "iotracing": "谁在等块设备 I/O、等的是哪些文件：窗口结束时出一份快照。",
+        "perf": "CPU 或内存 profile，上传到 Profiles。"
+      },
+      "duration": "窗口（秒）",
+      "duration_hint": "1 到 3600 秒。",
+      "filter": "过滤条件",
+      "filter_hint": "pcap 过滤表达式；留空表示所有数据包。",
+      "max_events_per_second": "每秒最多事件数",
+      "node_default": "节点默认值",
+      "device_scope": "网卡",
+      "device_scopes": {
+        "all": "全部网卡",
+        "only": "只看这些",
+        "except": "排除这些"
+      },
+      "interfaces": "网卡名",
+      "list_hint": "用逗号或空格分隔。",
+      "enable_tlp": "统计尾部丢包探测",
+      "enable_tlp_hint": "同时记录 TCP 在超时重传前发出的探测包。",
+      "block_devices": "块设备",
+      "block_devices_hint": "major:minor，用逗号分隔；留空表示所有设备。",
+      "max_stack": "保留栈数",
+      "max_process": "保留进程数",
+      "max_files_per_process": "每进程文件数",
+      "schedule_threshold_ms": "等待阈值（毫秒）",
+      "target": "目标",
+      "targets": {
+        "host": "整台主机",
+        "pid": "单个进程",
+        "container": "单个容器"
+      },
+      "pid": "进程 ID",
+      "container_id": "容器 ID",
+      "mode": "模式",
+      "modes": {
+        "oncpu": "On-CPU",
+        "offcpu": "Off-CPU",
+        "virtual_alloc": "虚拟内存分配",
+        "physical_alloc": "物理内存分配",
+        "physical_usage": "物理内存占用"
+      },
+      "frequency": "采样频率（Hz）",
+      "rule": "场景",
+      "rules": {
+        "cpusys": "内核态 CPU 高（cpusys）",
+        "cpuidle": "CPU 使用率突增（cpuidle）",
+        "dload": "D 状态进程（dload）",
+        "memburst": "内存突增（memburst）",
+        "iotracing": "I/O 等待（iotracing）"
+      },
+      "rule_hint": {
+        "cpusys": "采样内核在忙什么，连同火焰图一起记录。",
+        "cpuidle": "采样 CPU 使用率突增的容器或主机。",
+        "dload": "收集卡在 D 状态的进程调用栈。",
+        "memburst": "记录占用内存最多的进程。",
+        "iotracing": "记录谁在等块设备 I/O、等的是哪些文件。"
+      },
+      "problem": {
+        "duration": "1 到 3600 秒。",
+        "number": "需要整数。",
+        "pid": "需要大于 0 的进程 ID。",
+        "container": "需要容器 ID。",
+        "devices": "至少一个网卡。",
+        "block_devices": "每个设备写成 major:minor，例如 259:3。"
+      }
     }
   }
 }

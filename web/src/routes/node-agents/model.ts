@@ -1,4 +1,4 @@
-import type { NodeAgent, NodeStatus, NodeTask, NodeTaskKind } from '@/api/nodeAgents';
+import type { NodeAgent, NodeStatus, NodeTask } from '@/api/nodeAgents';
 
 export const NODE_STATUSES: readonly NodeStatus[] = [
   'online',
@@ -80,13 +80,6 @@ export function parseLabels(
 
   return { labels };
 }
-
-/** What a new task of each kind starts from: a spec the node takes as it is. */
-export const DEFAULT_SPECS: Record<NodeTaskKind, Record<string, unknown>> = {
-  tool: { tool: 'dropwatch', duration_secs: 60, max_events_per_second: 100 },
-  profile: { duration_secs: 30, frequency_hz: 99 },
-  autotracing_run: { rule: 'cpu_sys' },
-};
 
 /** A spec typed as JSON: the object, or why it is not one. */
 export function parseSpec(text: string): { spec: Record<string, unknown> } | { error: 'json' | 'object' } {
