@@ -1,0 +1,267 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 MoleSignal Authors
+
+// Node Agent control protocol (managed mode), v1.
+//
+// Specification: molesignal-node-agent `docs/control-protocol.md`. The control channel carries
+// identity, heartbeats, configuration, task leases and results only; metrics, events and profiles
+// always go through the OTLP / pprof data plane.
+//
+// Versioning: `protocol_version` is "<major>.<minor>" (currently "1.0"). Majors must match;
+// minors only add fields and messages, and receivers ignore unknown fields, capabilities and
+// optional messages.
+//
+// Times: every point in time is Unix seconds (`uint64`), durations are seconds. The agent turns a
+// lease expiry into local monotonic time with the `server_time` of the same message, so clock
+// offsets cancel out.
+syntax = "proto3";
+
+package molesignal.node.control.v1;
+
+service NodeControl {
+  // Exchanges an enrollment token and a CSR for a node identity. Needs no client certificate; the
+  // private key never leaves the node.
+  rpc Enroll(EnrollRequest) returns (EnrollResponse);
+  // Signs a new CSR for the node the current client certificate identifies (mTLS required).
+  rpc RotateCertificate(RotateCertificateRequest) returns (RotateCertificateResponse);
+  // The single bidirectional session (mTLS required). The first agent message must be `Hello`;
+  // the server answers with `Welcome`.
+  rpc Session(stream AgentMessage) returns (stream ControlMessage);
+}
+
+// What the agent can do. Task kinds are the closed set "autotracing_run", "profile" and "tool";
+// the server only offers kinds both sides know. Unknown kinds and features are ignored.
+message Capabilities {
+  repeated string task_kinds = 1;
+  repeated string features = 2;
+  // How many managed tasks the agent runs at once. The server offers no more than this (and no
+  // more than the node quota) at a time.
+  uint32 max_running_tasks = 3;
+}
+
+message EnrollRequest {
+  string enrollment_token = 1;
+  // PKCS#10 CSR, PEM. Its subject is ignored: the server names the certificate.
+  string csr_pem = 2;
+  // Stable machine id (e.g. /etc/machine-id). Enrolling the same host id again in the same
+  // organization keeps the node id and replaces its certificate (reinstall).
+  string host_id = 3;
+  string boot_id = 4;
+  string agent_version = 5;
+  string protocol_version = 6;
+  Capabilities capabilities = 7;
+  string hostname = 8;
+}
+
+message EnrollResponse {
+  string node_id = 1;
+  // Leaf certificate, PEM. Client authentication only.
+  string certificate_pem = 2;
+  // CA that signs node certificates and the server certificate; trust it for the control
+  // endpoint and for `ConfigUpdate.signature`.
+  string ca_bundle_pem = 3;
+  uint64 not_after = 4;
+  // The version the server chose.
+  string protocol_version = 5;
+}
+
+message RotateCertificateRequest {
+  string csr_pem = 1;
+}
+
+message RotateCertificateResponse {
+  string certificate_pem = 1;
+  string ca_bundle_pem = 2;
+  uint64 not_after = 3;
+}
+
+message AgentMessage {
+  oneof payload {
+    Hello hello = 1;
+    Heartbeat heartbeat = 2;
+    ConfigStatus config_status = 3;
+    LeaseAccept lease_accept = 4;
+    LeaseReject lease_reject = 5;
+    TaskResult task_result = 6;
+    Drained drained = 7;
+  }
+}
+
+message ControlMessage {
+  oneof payload {
+    Welcome welcome = 1;
+    HeartbeatAck heartbeat_ack = 2;
+    ConfigUpdate config_update = 3;
+    LeaseOffer lease_offer = 4;
+    LeaseCancel lease_cancel = 5;
+    ResultAck result_ack = 6;
+    Drain drain = 7;
+    Revoke revoke = 8;
+  }
+}
+
+// `(task_id, attempt)` is unique per offer; a new attempt is a retry.
+message LeaseKey {
+  string task_id = 1;
+  uint32 attempt = 2;
+}
+
+message Hello {
+  // Must match the client certificate.
+  string node_id = 1;
+  string protocol_version = 2;
+  string agent_version = 3;
+  Capabilities capabilities = 4;
+  uint64 applied_config_revision = 5;
+  // Reconnect reconciliation: leases the agent still holds, and `result_id`s it has not had
+  // acknowledged. The server cancels leases it no longer holds and acknowledges results it
+  // already has.
+  repeated LeaseKey active_leases = 6;
+  repeated string pending_results = 7;
+}
+
+// When the majors differ the server still sends `Welcome` (with its own version) and then ends
+// the stream with FAILED_PRECONDITION "UNSUPPORTED_PROTOCOL".
+message Welcome {
+  string protocol_version = 1;
+  uint32 heartbeat_interval_seconds = 2;
+  uint64 desired_config_revision = 3;
+  uint64 server_time = 4;
+}
+
+enum HealthState {
+  HEALTH_STATE_UNSPECIFIED = 0;
+  HEALTH_STATE_HEALTHY = 1;
+  HEALTH_STATE_DEGRADED = 2;
+}
+
+message Health {
+  HealthState state = 1;
+  repeated string messages = 2;
+}
+
+message CollectorState {
+  string name = 1;
+  // e.g. "running", "disabled", "failed".
+  string state = 2;
+  string message = 3;
+}
+
+message Heartbeat {
+  uint64 seq = 1;
+  uint64 applied_config_revision = 2;
+  Health health = 3;
+  repeated CollectorState collector_states = 4;
+  // The leases to renew. A lease the server no longer holds gets a `LeaseCancel` instead.
+  repeated LeaseKey active_leases = 5;
+}
+
+message LeaseRenewal {
+  string task_id = 1;
+  uint32 attempt = 2;
+  // Never earlier than the expiry given before, never later than the task deadline.
+  uint64 lease_expires_at = 3;
+}
+
+message HeartbeatAck {
+  uint64 seq = 1;
+  uint64 desired_config_revision = 2;
+  repeated LeaseRenewal lease_renewals = 3;
+  uint64 server_time = 4;
+}
+
+message ConfigUpdate {
+  // Monotonic per node; the agent only applies a revision newer than the one in effect.
+  uint64 revision = 1;
+  // JSON document.
+  bytes config = 2;
+  // ECDSA P-256 / SHA-256 signature (ASN.1 DER) by the CA key in `ca_bundle_pem` over
+  // the 8-byte big-endian revision followed by `config`.
+  bytes signature = 3;
+}
+
+enum ConfigState {
+  CONFIG_STATE_UNSPECIFIED = 0;
+  CONFIG_STATE_APPLIED = 1;
+  CONFIG_STATE_REJECTED = 2;
+  CONFIG_STATE_ROLLED_BACK = 3;
+}
+
+message ConfigStatus {
+  uint64 revision = 1;
+  ConfigState state = 2;
+  string reason = 3;
+}
+
+message LeaseOffer {
+  string task_id = 1;
+  uint32 attempt = 2;
+  // "autotracing_run" | "profile" | "tool".
+  string kind = 3;
+  // Kind-specific JSON (for "tool": `node_observe::tools::ToolSpec`).
+  bytes spec = 4;
+  uint64 lease_expires_at = 5;
+  // The task never runs past this point, whatever the renewals.
+  uint64 deadline = 6;
+  uint64 server_time = 7;
+}
+
+message LeaseAccept {
+  string task_id = 1;
+  uint32 attempt = 2;
+}
+
+enum RejectReason {
+  REJECT_REASON_UNSPECIFIED = 0;
+  REJECT_REASON_UNSUPPORTED_KIND = 1;
+  REJECT_REASON_QUOTA = 2;
+  REJECT_REASON_DRAINING = 3;
+  REJECT_REASON_EXPIRED = 4;
+}
+
+message LeaseReject {
+  string task_id = 1;
+  uint32 attempt = 2;
+  RejectReason reason = 3;
+}
+
+message LeaseCancel {
+  string task_id = 1;
+  uint32 attempt = 2;
+  string reason = 3;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_SUCCEEDED = 1;
+  TASK_STATUS_FAILED = 2;
+  TASK_STATUS_CANCELLED = 3;
+  TASK_STATUS_LEASE_EXPIRED = 4;
+}
+
+message TaskResult {
+  // "<task_id>/<attempt>". Recorded once; a repeated result is acknowledged and not recorded again.
+  string result_id = 1;
+  string task_id = 2;
+  uint32 attempt = 3;
+  TaskStatus status = 4;
+  string summary = 5;
+  // References to output uploaded through the data plane, e.g. "pprof:sha256:<hex>".
+  repeated string artifact_refs = 6;
+}
+
+message ResultAck {
+  string result_id = 1;
+}
+
+// Stop taking leases, let running tasks finish until `deadline`, then answer `Drained`.
+message Drain {
+  uint64 deadline = 1;
+}
+
+message Drained {}
+
+// Terminal: cancel managed tasks, delete the identity, drop unacknowledged results.
+message Revoke {
+  string reason = 1;
+}

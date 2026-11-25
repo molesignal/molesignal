@@ -9,6 +9,7 @@
   "rum_source_maps": "Source maps",
   "profiles": "Profiles",
   "infrastructure": "Infrastructure",
+  "node_agents": "Node agents",
   "dashboards": "Dashboards",
   "alerts": "Alerts",
   "synthetics": "Synthetics",

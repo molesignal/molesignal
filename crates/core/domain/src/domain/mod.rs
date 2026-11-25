@@ -32,6 +32,7 @@ pub mod log_inspection;
 
 pub mod masking;
 pub mod metrics;
+pub mod node_agent;
 pub mod notify;
 pub mod pipeline;
 pub mod query;

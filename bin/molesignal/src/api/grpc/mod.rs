@@ -17,6 +17,7 @@ pub mod cluster_server;
 pub mod event_server;
 pub mod flight;
 pub mod intake_server;
+pub mod node_control;
 pub mod otlp_server;
 pub mod probe;
 pub mod query_server;
@@ -27,7 +28,9 @@ pub mod trace;
 use std::{net::SocketAddr, sync::Arc};
 
 use postgres::repositories::cluster::nodes::ClusterNodesRepository;
-use settings::{FlightSqlSettings, GrpcSettings, OtlpGrpcSettings, ProbeGrpcSettings};
+use settings::{
+    FlightSqlSettings, GrpcSettings, NodeAgentControlSettings, OtlpGrpcSettings, ProbeGrpcSettings,
+};
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 
 use crate::api::{
@@ -110,6 +113,51 @@ pub async fn serve_probe_grpc(state: AppState, settings: &ProbeGrpcSettings) -> 
 
     tokio::try_join!(register_server, control_server)?;
     Ok(())
+}
+
+/// Node Agent managed-mode control endpoint: one TLS port, client certificates optional at the
+/// TLS layer and required by `Session` and `RotateCertificate`.
+pub async fn serve_node_agent_grpc(
+    state: AppState,
+    settings: &NodeAgentControlSettings,
+) -> anyhow::Result<()> {
+    let addr: SocketAddr = format!("{}:{}", settings.bind, settings.port).parse()?;
+    let max_message = (settings.max_message_size as usize).saturating_mul(1024 * 1024);
+    let tls = node_control::server_tls_config(state.node_agents.authority());
+
+    let service = node_control::NodeControlGrpc::new(state.node_agents.clone())
+        .into_server()
+        .max_decoding_message_size(max_message)
+        .max_encoding_message_size(max_message);
+
+    // Tasks whose lease or deadline passed end even when no one looks at them.
+    let sweeper = state.node_agents.clone();
+
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(std::time::Duration::from_secs(5));
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            tick.tick().await;
+
+            if let Err(error) = sweeper
+                .sweep_expired(kernel::time::TimestampMicros::now())
+                .await
+            {
+                tracing::warn!(%error, "Node Agent task expiry sweep failed");
+            }
+        }
+    });
+
+    tracing::info!(addr = %addr, "Node Agent control gRPC server listening");
+
+    Server::builder()
+        .tls_config(tls)?
+        .layer(trace::layer::GrpcTraceLayer)
+        .add_service(service)
+        .serve(addr)
+        .await
+        .map_err(|error| anyhow::anyhow!("Node Agent control gRPC serve: {error}"))
 }
 
 /// 起 tonic server。`grpc.bind:port` 来自 settings；与 HTTP server 在 `bootstrap`

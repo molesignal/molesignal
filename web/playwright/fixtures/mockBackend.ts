@@ -40,6 +40,7 @@ import { registerLogInspectionRoutes } from './mockLogInspections';
 import { registerMfaRoutes } from './mockMfa';
 import { registerReliabilityRoutes } from './mockReliability';
 import { registerIntakeUsageRoutes } from './mockIntakeUsage';
+import { registerNodeAgentRoutes } from './mockNodeAgents';
 import { registerSearchJobRoutes } from './mockSearchJobs';
 import { registerSsoTestRoutes } from './mockSsoTests';
 
@@ -153,6 +154,12 @@ const MOCK_IAM_ORGANIZATION_PERMISSIONS = [
   'traces.write',
   'metrics.write',
   'profiles.write',
+  'node_agents.read',
+  'node_agents.enroll',
+  'node_agents.manage',
+  'node_agents.revoke',
+  'node_agents.tasks.read',
+  'node_agents.tasks.run',
   'rum.write',
   'streams.create',
   'streams.configure',
@@ -431,6 +438,10 @@ const MOCK_MODULE_PAGES: ReadonlyArray<readonly [string, string, readonly string
   ['synthetics.locations', '/synthetics/locations', ['synthetics.locations.read']],
   ['synthetics.agents', '/synthetics/agents', ['synthetics.locations.read']],
   ['synthetics.variables', '/synthetics/variables', ['synthetics.secrets.read']],
+  ['node.agents', '/node-agents', ['node_agents.read', 'node_agents.tasks.read', 'node_agents.enroll']],
+  ['node.agents.nodes', '/node-agents/nodes', ['node_agents.read']],
+  ['node.agents.tasks', '/node-agents/tasks', ['node_agents.tasks.read']],
+  ['node.agents.enrollment', '/node-agents/enrollment', ['node_agents.enroll']],
 ];
 
 function mockCapabilityRoutes(
@@ -893,6 +904,7 @@ export function registerRoutes(app: Express): void {
   registerReliabilityRoutes(app, FROZEN_NOW_ISO);
   registerSearchJobRoutes(app, FROZEN_NOW_ISO);
   registerIntakeUsageRoutes(app, FROZEN_NOW_ISO);
+  registerNodeAgentRoutes(app, FROZEN_NOW_ISO);
   registerRumRoutes(app, FROZEN_NOW_ISO);
   registerLogInspectionRoutes(app, FROZEN_NOW_ISO);
   const dashboards = (DASHBOARDS as { items: Array<Record<string, unknown>> }).items.map((item) => ({ ...item }));

@@ -3,6 +3,7 @@
 
 //! PostgreSQL repositories, migrations, encrypted persistence, and Probe CA storage.
 
+pub mod certificate_authority;
 pub mod cipher;
 pub mod persistence;
 pub mod synthetics;

@@ -9,6 +9,7 @@ const PROTO_FILES: &[&str] = &[
     "alerting/v1/realtime.proto",
     "cluster/v1/cluster.proto",
     "intake/v1/intake.proto",
+    "molesignal/node/control/v1/node_control.proto",
     "pprof/v1/profile.proto",
     "probe/v1/probe.proto",
     "query/v1/query.proto",

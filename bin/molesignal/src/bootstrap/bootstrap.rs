@@ -767,6 +767,22 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         system_org.id.clone(),
     ));
 
+    let node_agents = Arc::new(crate::app::node_agent::NodeAgentService::new(
+        Arc::new(postgres::repositories::node_agent::PgNodeAgentRepository::new(core.pool.clone())),
+        Arc::new(
+            crate::app::node_agent::NodeAgentAuthority::load_or_create(
+                &core.pool,
+                &core.cipher_root_key,
+                &settings.node_agent.server_names,
+                settings.node_agent.certificate_days,
+            )
+            .await?,
+        ),
+        audit_events.clone(),
+        crate::app::node_agent::Timings::from_settings(&settings.node_agent),
+        settings.node_agent.resolved_endpoint(),
+    ));
+
     Ok(AppState {
         intake,
         query,
@@ -775,6 +791,7 @@ pub async fn build_state(settings: &Settings) -> Result<AppState> {
         status_pages,
         synthetics,
         probe_control,
+        node_agents,
         alerting: AlertingState {
             service: alerting,
             notify,

@@ -93,6 +93,7 @@ import { LogInspectionDetail } from './logs/inspections/Detail';
 import { LogsInspector } from './logs/Inspector';
 import { Metrics } from './Metrics';
 import { Noc } from './Noc';
+import { NODE_AGENTS_ROUTES } from './node-agents/routes';
 import { NotFound } from './NotFound';
 import { NotifyActionPage } from './notify/action';
 import { NotifyConnectorsPage } from './notify/connector';
@@ -445,6 +446,7 @@ export const router = createBrowserRouter(aboveShell([
       { path: 'profiles/:id', element: <ProfileDetail /> },
       { path: 'infrastructure', element: <Infrastructure /> },
       { path: 'infrastructure/:kind', element: <EntityPage /> },
+      ...NODE_AGENTS_ROUTES,
 
       /* ADMIN */
       {

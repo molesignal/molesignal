@@ -1,4 +1,5 @@
 import {
+  Cpu,
   createLucideIcon,
   FileBarChart,
   FunctionSquare,
@@ -49,6 +50,10 @@ export const DATA_COLLABORATION_PRODUCT_ROUTES = [
       crumb('breadcrumbs.datasource_source'),
     ],
     backTo: '/datasource',
+  }),
+  route({
+    id: 'node.agents', path: '/node-agents', labelKey: 'node_agents', group: 'data',
+    icon: Cpu, owner: 'infrastructure', emptyStateStrategy: 'create-first', nav: true,
   }),
   route({
     id: 'streams', path: '/streams', labelKey: 'streams', group: 'data',

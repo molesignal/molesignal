@@ -472,7 +472,8 @@
     "synthetics": "Synthetics",
     "service_levels": "Service levels",
     "postmortems": "Postmortems",
-    "agent": "Agent"
+    "agent": "Agent",
+    "node_agents": "Node agents"
   },
   "permission_picker": {
     "search_aria": "Search permissions",
@@ -783,7 +784,13 @@
     "agent_im_manage": "Manage chat bots",
     "rum_replay_comments_write": "Comment on session replays",
     "rum_replay_comments_manage": "Manage replay comments",
-    "rum_replay_summaries_generate": "Generate replay summaries"
+    "rum_replay_summaries_generate": "Generate replay summaries",
+    "node_agents_enroll": "Enroll node agents",
+    "node_agents_manage": "Manage node agents",
+    "node_agents_read": "View node agents",
+    "node_agents_revoke": "Revoke node agents",
+    "node_agents_tasks_read": "View node tasks",
+    "node_agents_tasks_run": "Run node tasks"
   },
   "permissions_hint": {
     "sys_organizations_read": "List the organizations of the platform.",
@@ -1080,7 +1087,13 @@
     "agent_im_manage": "Connect and remove the IM bots of Mole Agent.",
     "rum_replay_comments_write": "Write comments at moments of a replay, and change or delete your own.",
     "rum_replay_comments_manage": "Change and delete the replay comments of others.",
-    "rum_replay_summaries_generate": "Have Mole Agent's model write a session's summary and chapters, against the daily budget."
+    "rum_replay_summaries_generate": "Have Mole Agent's model write a session's summary and chapters, against the daily budget.",
+    "node_agents_enroll": "Issue and revoke enrollment tokens that let Node Agents join the organization.",
+    "node_agents_manage": "Drain and resume Node Agents, push their configuration, and set the node task quota.",
+    "node_agents_read": "View enrolled Node Agents, their versions, capabilities, health, and heartbeats.",
+    "node_agents_revoke": "Revoke a Node Agent: its certificate stops working and its running tasks are cancelled.",
+    "node_agents_tasks_read": "View diagnostic tasks sent to Node Agents and their results.",
+    "node_agents_tasks_run": "Send diagnostic tasks (AutoTracing runs, profiling, tools) to Node Agents and cancel them."
   },
   "roles": {
     "title": "Roles",

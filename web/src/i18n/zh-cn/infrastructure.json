@@ -56,5 +56,312 @@
     "logs": "日志",
     "metrics": "指标",
     "open_page": "打开页面"
+  },
+  "node_agents": {
+    "title": "节点 Agent",
+    "subtitle": "从 MoleSignal 获取配置和诊断任务的 Node Agent：每个节点的状态、能跑的任务，以及新节点如何加入。",
+    "navigation_label": "节点 Agent 页面",
+    "tabs": {
+      "nodes": "节点",
+      "tasks": "任务",
+      "enrollment": "注册"
+    },
+    "load_error": "无法加载节点 Agent",
+    "search_placeholder": "按主机、版本或标签搜索",
+    "all_statuses": "全部状态",
+    "all_nodes": "全部节点",
+    "all_states": "全部状态",
+    "never": "从未",
+    "none": "无",
+    "empty_title": "还没有注册的节点",
+    "empty_description": "签发一个 enrollment token 交给主机上的 Node Agent，节点连上后会出现在这里。",
+    "tasks_empty": "还没有任务",
+    "resume_done": "节点重连后会重新接收任务",
+    "duration": {
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天"
+    },
+    "status": {
+      "online": "在线",
+      "offline": "离线",
+      "enrolled": "已注册",
+      "draining": "排空中",
+      "drained": "已排空",
+      "revoked": "已吊销"
+    },
+    "health": {
+      "unknown": "未上报",
+      "healthy": "健康",
+      "degraded": "降级"
+    },
+    "kind": {
+      "autotracing_run": "AutoTracing 诊断",
+      "profile": "Profiling",
+      "tool": "工具"
+    },
+    "task_state": {
+      "queued": "排队中",
+      "offered": "已下发",
+      "running": "运行中",
+      "succeeded": "成功",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "lease_expired": "租约过期",
+      "expired": "已过期",
+      "rejected": "被拒绝"
+    },
+    "config_state": {
+      "applied": "已应用第 {{revision}} 版",
+      "rejected": "拒绝了第 {{revision}} 版",
+      "rolled_back": "第 {{revision}} 版已回滚"
+    },
+    "columns": {
+      "name": "节点",
+      "status": "状态",
+      "version": "版本",
+      "task_kinds": "可运行的任务",
+      "config": "配置",
+      "heartbeat": "最近心跳",
+      "task": "任务"
+    },
+    "actions": {
+      "enroll": "注册节点",
+      "drain": "排空",
+      "resume": "恢复",
+      "revoke": "吊销",
+      "edit_config": "编辑配置",
+      "run_task": "下发任务",
+      "cancel_task": "取消任务"
+    },
+    "node": {
+      "state": "状态",
+      "health": "健康",
+      "drain_deadline": "排空截止",
+      "revoked": "吊销",
+      "agent": "Agent",
+      "max_running": "同时运行任务数",
+      "node_id": "节点 ID",
+      "certificate": "证书",
+      "enrolled": "注册时间",
+      "collectors": "采集器",
+      "config": "配置",
+      "config_revision": "版本",
+      "config_revisions": "已应用 r{{applied}} · 期望 r{{desired}}",
+      "config_status": "最近上报",
+      "labels": "标签",
+      "show_tasks": "查看这个节点的任务"
+    },
+    "drain": {
+      "title": "排空 {{name}}",
+      "subtitle": "节点不再接收新任务；运行中的任务可以在截止时间前跑完，到点后由节点取消。采集不受影响。",
+      "deadline": "截止时间",
+      "deadline_hint": "运行中的任务还能运行多久。",
+      "done": "节点正在排空"
+    },
+    "revoke": {
+      "title": "吊销 {{name}}",
+      "subtitle": "证书立即失效，任务被取消，在线的 Agent 会删除自己的身份。只有重新注册这台主机才能恢复。",
+      "reason": "原因",
+      "reason_placeholder": "下线、密钥泄露……",
+      "done": "节点已吊销"
+    },
+    "config": {
+      "title": "{{name}} 的配置",
+      "subtitle": "保存为第 {{revision}} 版；在线的节点会立即收到，如果健康状态变差会自动回滚。",
+      "save": "保存新版本",
+      "saved": "已保存第 {{revision}} 版",
+      "collectors": "采集器",
+      "collectors_hint": "agent 自带的采集器默认全部运行，取消勾选的会被关闭。",
+      "collectors_running": "运行 {{on}} / {{total}} 个",
+      "groups": {
+        "metrics": "指标",
+        "events": "事件",
+        "autotracing": "AutoTracing",
+        "reported": "节点上报的其他采集器"
+      },
+      "enable_all": "运行全部采集器",
+      "profiling": "持续 profiling",
+      "profiling_hint": "按窗口持续采集主机和容器的原生 profile，上传到 Profiles。",
+      "oncpu": "On-CPU 采样",
+      "offcpu": "Off-CPU 追踪",
+      "interval_secs": "窗口（秒）",
+      "max_workloads": "每窗口容器 profile 数",
+      "offcpu_min_duration_us": "Off-CPU 最短间隔（微秒）",
+      "options": "其他选项",
+      "dropwatch_filter": "Dropwatch 过滤条件",
+      "dropwatch_filter_hint": "tcpdump 风格的过滤表达式；留空沿用 agent 自己的。",
+      "reclaim_threshold_ms": "内存回收阈值（毫秒）",
+      "range": "{{range}}；留空沿用 agent 自己的值。",
+      "out_of_range": "需要在 {{range}} 之间。",
+      "denied": "已关闭的采集器",
+      "allowed": "只运行的采集器",
+      "agent_defaults": "沿用 agent 自己的设置"
+    },
+    "run": {
+      "title": "下发任务",
+      "subtitle": "节点有空闲时运行；能否接收取决于组织的任务配额。",
+      "node": "节点",
+      "no_nodes": "没有可接收任务的节点",
+      "kind": "类型",
+      "kind_hint": "只能选节点声明支持的类型。",
+      "spec": "参数",
+      "timeout": "截止时间",
+      "timeout_hint": "无论发生什么，任务都不会运行超过这个时间。",
+      "attempts": "尝试次数",
+      "attempts_hint": "节点没有接收时最多重新下发几次。",
+      "created": "任务已排队",
+      "limits": "限制"
+    },
+    "cancel": {
+      "done": "任务已取消",
+      "requested": "已通知节点停止任务"
+    },
+    "task": {
+      "state": "状态",
+      "cancel_requested": "已请求取消",
+      "node": "节点",
+      "kind": "类型",
+      "attempt": "尝试",
+      "attempt_of": "第 {{attempt}} 次，共 {{max}} 次",
+      "created": "创建时间",
+      "deadline": "截止时间",
+      "lease": "租约到期",
+      "finished": "结束时间",
+      "failure": "结束原因",
+      "result": "结果",
+      "result_status": "状态",
+      "result_id": "结果 ID",
+      "received": "收到时间",
+      "summary": "摘要",
+      "artifact": "产物",
+      "spec": "参数"
+    },
+    "quota": {
+      "title": "任务配额",
+      "subtitle": "组织最多能有多少节点任务。",
+      "description": "排队、已下发和运行中的任务算作进行中；任务结束后立即释放名额。每小时上限按最近一小时内创建的任务计。",
+      "maxActivePerOrg": "组织内同时进行",
+      "maxActivePerNode": "每节点同时进行",
+      "maxCreatedPerHourPerOrg": "每小时创建",
+      "maxCreatedPerHourPerNode": "每节点每小时创建",
+      "edit": "编辑配额",
+      "save": "保存配额",
+      "saved": "配额已保存"
+    },
+    "enrollment": {
+      "create": "签发 token",
+      "create_title": "签发 enrollment token",
+      "create_subtitle": "Node Agent 用 token 换取自己的证书，之后 token 不再离开主机。",
+      "description": "描述",
+      "description_placeholder": "生产 Web 主机",
+      "untitled": "未命名 token",
+      "ttl": "有效期",
+      "max_uses": "可注册节点数",
+      "max_uses_hint": "每次注册用掉一次，重新注册同一台主机也算。",
+      "labels": "标签",
+      "labels_hint": "每行一个 key=value；用这个 token 注册的节点都会带上。",
+      "labels_invalid": "不是 key=value：{{line}}",
+      "issued": "token 已签发",
+      "issued_title": "Enrollment token",
+      "issued_subtitle": "现在复制 token，之后不会再显示。",
+      "token": "Token",
+      "endpoint": "控制面地址",
+      "endpoint_hint": "Agent 连接的地址（gRPC over TLS）。",
+      "ca": "CA 证书",
+      "ca_hint": "Agent 用这个 CA 校验控制面地址。",
+      "copy": "复制",
+      "copied": "已复制",
+      "uses": "已使用",
+      "expires": "到期时间",
+      "created": "签发时间",
+      "state": {
+        "active": "可用",
+        "used_up": "已用完",
+        "expired": "已过期",
+        "revoked": "已吊销"
+      },
+      "revoke": "吊销",
+      "revoke_title": "吊销这个 token？",
+      "revoke_description": "之后不能再用它注册新节点，已注册的节点不受影响。",
+      "revoked": "token 已吊销",
+      "empty_title": "还没有 enrollment token",
+      "empty_description": "签发一个 token 来注册第一个 Node Agent。"
+    },
+    "spec": {
+      "tool": "工具",
+      "tool_hint": {
+        "dropwatch": "内核丢弃的数据包及丢包位置。",
+        "tcpshark": "实时记录 TCP 重传。",
+        "iotracing": "谁在等块设备 I/O、等的是哪些文件：窗口结束时出一份快照。",
+        "perf": "CPU 或内存 profile，上传到 Profiles。"
+      },
+      "duration": "窗口（秒）",
+      "duration_hint": "1 到 3600 秒。",
+      "filter": "过滤条件",
+      "filter_hint": "pcap 过滤表达式；留空表示所有数据包。",
+      "max_events_per_second": "每秒最多事件数",
+      "node_default": "节点默认值",
+      "device_scope": "网卡",
+      "device_scopes": {
+        "all": "全部网卡",
+        "only": "只看这些",
+        "except": "排除这些"
+      },
+      "interfaces": "网卡名",
+      "list_hint": "用逗号或空格分隔。",
+      "enable_tlp": "统计尾部丢包探测",
+      "enable_tlp_hint": "同时记录 TCP 在超时重传前发出的探测包。",
+      "block_devices": "块设备",
+      "block_devices_hint": "major:minor，用逗号分隔；留空表示所有设备。",
+      "max_stack": "保留栈数",
+      "max_process": "保留进程数",
+      "max_files_per_process": "每进程文件数",
+      "schedule_threshold_ms": "等待阈值（毫秒）",
+      "target": "目标",
+      "targets": {
+        "host": "整台主机",
+        "pid": "单个进程",
+        "container": "单个容器"
+      },
+      "pid": "进程 ID",
+      "container_id": "容器 ID",
+      "mode": "模式",
+      "modes": {
+        "oncpu": "On-CPU",
+        "offcpu": "Off-CPU",
+        "virtual_alloc": "虚拟内存分配",
+        "physical_alloc": "物理内存分配",
+        "physical_usage": "物理内存占用"
+      },
+      "frequency": "采样频率（Hz）",
+      "rule": "场景",
+      "rules": {
+        "cpusys": "内核态 CPU 高（cpusys）",
+        "cpuidle": "CPU 使用率突增（cpuidle）",
+        "dload": "D 状态进程（dload）",
+        "memburst": "内存突增（memburst）",
+        "iotracing": "I/O 等待（iotracing）"
+      },
+      "rule_hint": {
+        "cpusys": "采样内核在忙什么，连同火焰图一起记录。",
+        "cpuidle": "采样 CPU 使用率突增的容器或主机。",
+        "dload": "收集卡在 D 状态的进程调用栈。",
+        "memburst": "记录占用内存最多的进程。",
+        "iotracing": "记录谁在等块设备 I/O、等的是哪些文件。"
+      },
+      "problem": {
+        "duration": "1 到 3600 秒。",
+        "number": "需要整数。",
+        "pid": "需要大于 0 的进程 ID。",
+        "container": "需要容器 ID。",
+        "devices": "至少一个网卡。",
+        "block_devices": "每个设备写成 major:minor，例如 259:3。"
+      },
+      "rule_container_hint": "可选；留空时由节点挑选最忙的容器。"
+    }
   }
 }

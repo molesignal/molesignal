@@ -14,8 +14,14 @@ lint:
     # rather than acting as one-shot RPC request/response wrappers.
     RPC_REQUEST_STANDARD_NAME:
       - proto/probe/v1/probe.proto
+      - proto/molesignal/node/control/v1/node_control.proto
     RPC_RESPONSE_STANDARD_NAME:
       - proto/probe/v1/probe.proto
+      - proto/molesignal/node/control/v1/node_control.proto
+    # The Node Agent control protocol names its service NodeControl (molesignal-node-agent
+    # docs/control-protocol.md); agents already speak that name.
+    SERVICE_SUFFIX:
+      - proto/molesignal/node/control/v1/node_control.proto
 breaking:
   use:
     - FILE
