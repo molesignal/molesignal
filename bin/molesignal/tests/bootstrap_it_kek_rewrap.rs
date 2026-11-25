@@ -20,7 +20,7 @@ use postgres::{
 };
 use settings::MetaDatabaseSettings;
 use sqlx::{PgPool, Row};
-use testcontainers::{ContainerAsync, runners::AsyncRunner};
+use testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres as PgImage;
 
 const ORG: &str = "org-a";
@@ -208,7 +208,9 @@ async fn database() -> Option<(PgPool, Option<ContainerAsync<PgImage>>)> {
     let (dsn, container) = match std::env::var("MS_IT_KEK_REWRAP_DSN") {
         Ok(dsn) => (dsn, None),
         Err(_) if std::env::var("MS_RUN_IT").as_deref() == Ok("1") => {
+            // The module's default is Postgres 11; the migrations need 13 or newer.
             let container = PgImage::default()
+                .with_tag("17-alpine")
                 .start()
                 .await
                 .expect("start postgres container");

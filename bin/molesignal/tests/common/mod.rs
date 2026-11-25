@@ -27,7 +27,7 @@ use settings::{
     AuthSettings, MetaDatabaseSettings, NotifySettings, ObjectStoreSettings, ProbeGrpcSettings,
     Settings,
 };
-use testcontainers::{ContainerAsync, runners::AsyncRunner};
+use testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres as PgImage;
 
 /// Registers a WAL writer for `node` and opens its stream of `dataset`, so that `commit_flush`
@@ -63,6 +63,9 @@ pub async fn open_wal_stream(
     epoch
 }
 
+/// The Postgres image the tests start when `MS_IT_POSTGRES_DSN` names none.
+const POSTGRES_TAG: &str = "17-alpine";
+
 /// One test server's database: a new one on the Postgres `MS_IT_POSTGRES_DSN` names, or a container.
 /// The role has to be able to create databases. The new databases stay behind, named `ms_it_*`, for
 /// whoever set the variable to drop after the run.
@@ -96,7 +99,9 @@ pub async fn test_database() -> (String, Option<ContainerAsync<PgImage>>) {
         return (format!("{address}/{name}"), None);
     }
 
+    // The module's own default is Postgres 11; the migrations need 13 or newer (`gen_random_uuid`).
     let pg = PgImage::default()
+        .with_tag(POSTGRES_TAG)
         .start()
         .await
         .expect("start postgres container");
