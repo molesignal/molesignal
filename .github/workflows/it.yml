@@ -29,7 +29,7 @@ jobs:
   it:
     name: Integration Tests
     runs-on: ubuntu-26.04
-    timeout-minutes: 25
+    timeout-minutes: 60
     services:
       docker:
         image: docker:24-dind
@@ -65,7 +65,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ca-certificates curl protobuf-compiler
+            ca-certificates curl protobuf-compiler libcurl4-openssl-dev pkg-config
 
       - name: install Buf CLI
         run: |

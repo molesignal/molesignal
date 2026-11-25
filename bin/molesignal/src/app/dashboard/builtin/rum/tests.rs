@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use super::*;
 use crate::app::dashboard::{
+    builtin::installed_version,
     contract_registry::builtin_dashboard_contract_resolver,
     validation::{DashboardValidationMode, ensure_dashboard_model_with},
 };

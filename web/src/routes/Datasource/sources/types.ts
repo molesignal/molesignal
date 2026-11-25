@@ -39,5 +39,6 @@ export interface Source {
 export const ENDPOINT = '{{ENDPOINT}}'; // full origin, e.g. https://obs.example.com
 export const ENDPOINT_HOST = '{{ENDPOINT_HOST}}'; // bare hostname, no scheme/port
 export const ENDPOINT_PORT = '{{ENDPOINT_PORT}}'; // numeric port
+export const ENDPOINT_SCHEME = '{{ENDPOINT_SCHEME}}'; // http / https
 export const ENDPOINT_TLS = '{{ENDPOINT_TLS}}'; // Fluent Bit tls flag: On / Off
 export const TOKEN = '{{TOKEN}}';

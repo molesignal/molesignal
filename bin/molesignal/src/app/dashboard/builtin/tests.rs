@@ -164,12 +164,12 @@ async fn a_dashboard_is_created_once_and_then_found_current() {
 
     for dashboard in RumDashboard::ALL {
         assert_eq!(
-            service.install_rum(&org, dashboard).await.unwrap(),
+            service.install(&org, dashboard).await.unwrap(),
             Installed::Created
         );
 
         assert_eq!(
-            service.install_rum(&org, dashboard).await.unwrap(),
+            service.install(&org, dashboard).await.unwrap(),
             Installed::Current
         );
     }
@@ -198,11 +198,11 @@ async fn two_organizations_never_share_a_dashboard() {
     let second = Id::from_string("org-2");
 
     service
-        .install_rum(&first, RumDashboard::Browser)
+        .install(&first, RumDashboard::Browser)
         .await
         .unwrap();
     service
-        .install_rum(&second, RumDashboard::Browser)
+        .install(&second, RumDashboard::Browser)
         .await
         .unwrap();
 
@@ -219,10 +219,7 @@ async fn a_dashboard_of_an_older_version_is_written_again_where_it_was_put() {
     let (service, dashboards) = service();
     let org = Id::from_string("org-1");
 
-    service
-        .install_rum(&org, RumDashboard::Mobile)
-        .await
-        .unwrap();
+    service.install(&org, RumDashboard::Mobile).await.unwrap();
 
     let mut stored = dashboards.get_by_uid(&org, "rum-mobile").await.unwrap();
 
@@ -233,10 +230,7 @@ async fn a_dashboard_of_an_older_version_is_written_again_where_it_was_put() {
     dashboards.update(stored.clone()).await.unwrap();
 
     assert_eq!(
-        service
-            .install_rum(&org, RumDashboard::Mobile)
-            .await
-            .unwrap(),
+        service.install(&org, RumDashboard::Mobile).await.unwrap(),
         Installed::Updated
     );
 
@@ -314,10 +308,7 @@ async fn a_dashboard_somebody_else_made_with_the_uid_is_left_alone() {
     dashboards.create(theirs).await.unwrap();
 
     assert_eq!(
-        service
-            .install_rum(&org, RumDashboard::Browser)
-            .await
-            .unwrap(),
+        service.install(&org, RumDashboard::Browser).await.unwrap(),
         Installed::Taken
     );
 
@@ -352,4 +343,66 @@ async fn sample_install_is_valid_idempotent_and_preserves_user_edits() {
         .unwrap();
     assert_ne!(other.id, first.id);
     assert_eq!(other.org_id.0, "other-org");
+}
+
+#[tokio::test]
+async fn the_host_dashboard_is_installed_once_and_its_standing_follows() {
+    let (service, dashboards) = service();
+    let org = Id::from_string("org-1");
+    let host = HostDashboard::Overview;
+
+    assert_eq!(
+        service.standing(&org, host).await.unwrap(),
+        Standing::Missing
+    );
+    assert_eq!(
+        service.install(&org, host).await.unwrap(),
+        Installed::Created
+    );
+    assert_eq!(
+        service.standing(&org, host).await.unwrap(),
+        Standing::Current
+    );
+    assert_eq!(
+        service.install(&org, host).await.unwrap(),
+        Installed::Current
+    );
+
+    let mut stored = dashboards.get_by_uid(&org, "host-overview").await.unwrap();
+
+    assert_eq!(stored.id, host.id(&org));
+    assert_eq!(stored.tags, ["内置", "host", "node-agent"]);
+
+    stored.model["extensions"]["builtin"]["version"] = serde_json::json!(0);
+    dashboards.update(stored).await.unwrap();
+
+    assert_eq!(
+        service.standing(&org, host).await.unwrap(),
+        Standing::Outdated
+    );
+    assert_eq!(
+        service.install(&org, host).await.unwrap(),
+        Installed::Updated
+    );
+    assert_eq!(
+        service.standing(&org, host).await.unwrap(),
+        Standing::Current
+    );
+
+    let other = Id::from_string("org-2");
+    let mut mine = dashboards.get_by_uid(&org, "host-overview").await.unwrap();
+
+    mine.id = Id::from_string("mine");
+    mine.org_id = other.clone();
+    mine.model = serde_json::json!({ "title": "my hosts" });
+    dashboards.create(mine).await.unwrap();
+
+    assert_eq!(
+        service.standing(&other, host).await.unwrap(),
+        Standing::Taken
+    );
+    assert_eq!(
+        service.install(&other, host).await.unwrap(),
+        Installed::Taken
+    );
 }

@@ -41,6 +41,7 @@ use domain::{
 pub use forward::IntakeForwarder;
 use kernel::{Error, Result, drain::DrainController, ids::Id, time::TimestampMicros};
 pub use metrics::MetricRecorder;
+pub(crate) use schema::LOG_DIMENSIONS;
 pub use schema::{apply_index_rules, check_event_types, infer_schema_extension};
 
 use crate::app::alerting::realtime::RealtimeAlerts;

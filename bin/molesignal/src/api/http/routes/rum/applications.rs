@@ -180,7 +180,7 @@ async fn install_dashboard(state: &AppState, ctx: &IamContext, platform: RumPlat
         return;
     };
 
-    if let Err(error) = state.dashboard.install_rum(&ctx.org_id, dashboard).await {
+    if let Err(error) = state.dashboard.install(&ctx.org_id, dashboard).await {
         tracing::warn!(%error, org_id = %ctx.org_id.0, "the RUM dashboard could not be installed");
     }
 }

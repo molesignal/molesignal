@@ -49,7 +49,7 @@ const CLOUD_SOURCE_IDS = new Set(['aws', 'gcp', 'azure', 'cloudflare', 'aliyun-p
   'volcengine-cloudmonitor',
   'volcengine-prometheus',
 ]);
-const INFRASTRUCTURE_SOURCE_IDS = new Set(['kubernetes', 'linux', 'windows']);
+const INFRASTRUCTURE_SOURCE_IDS = new Set(['kubernetes', 'linux', 'node-agent', 'windows']);
 const APPLICATION_SOURCE_IDS = new Set([
   'rum',
   'rum-flutter',

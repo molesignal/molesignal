@@ -2,7 +2,7 @@
 // Copyright (c) 2026 MoleSignal Authors
 
 //! The panels of the dashboards the product installs: one SQL query on one stream, shown as a
-//! number, a trend, a table or bars.
+//! number, a trend, a table or bars; or PromQL on a metrics stream, a line for each series.
 
 use serde_json::{Map, Value, json};
 
@@ -56,6 +56,12 @@ pub(super) const fn line(from: f64, color: &'static str, label: &'static str) ->
     }
 }
 
+/// One PromQL expression of a metric panel, and how its series are named in the legend.
+struct Series {
+    expression: String,
+    legend: &'static str,
+}
+
 pub(super) struct Panel {
     id: &'static str,
     title: &'static str,
@@ -68,6 +74,8 @@ pub(super) struct Panel {
     overrides: Vec<Value>,
     options: Map<String, Value>,
     limit: u32,
+    /// PromQL in place of the statement: the panel draws the series of each expression.
+    series: Vec<Series>,
 }
 
 impl Panel {
@@ -91,6 +99,7 @@ impl Panel {
             overrides: Vec::new(),
             options: Map::new(),
             limit: 1000,
+            series: Vec::new(),
         }
     }
 
@@ -140,6 +149,30 @@ impl Panel {
             .insert("legendPlacement".into(), json!("bottom"));
 
         panel
+    }
+
+    /// Series over time read with PromQL from a metrics stream: a line for each series of
+    /// `expression`, named by `legend` (`{{label}}` takes the value of a label).
+    pub fn metric(
+        id: &'static str,
+        title: &'static str,
+        at: At,
+        stream: &'static str,
+        expression: String,
+        legend: &'static str,
+    ) -> Self {
+        let mut panel = Self::trend(id, title, at, stream, String::new());
+
+        panel.series.push(Series { expression, legend });
+        panel.options.insert("legendMode".into(), json!("list"));
+        panel.options.insert("legendStats".into(), json!([]));
+        panel
+    }
+
+    /// One more expression drawn on a metric panel.
+    pub fn and(mut self, expression: String, legend: &'static str) -> Self {
+        self.series.push(Series { expression, legend });
+        self
     }
 
     pub fn table(
@@ -251,6 +284,36 @@ impl Panel {
             Shape::Bars => "bar_chart",
         };
 
+        let queries = match self.series.is_empty() {
+            true => vec![self.sql_query()],
+            false => self.metric_queries(),
+        };
+
+        let mut field = self.field;
+
+        field.entry("noValue").or_insert_with(|| json!("暂无数据"));
+
+        json!({
+            "kind": "panel",
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "gridPos": { "x": self.at.x, "y": self.at.y, "w": self.at.w, "h": self.at.h },
+            "queryOptions": {},
+            "queries": queries,
+            "transformations": [],
+            "visualization": {
+                "type": visualization,
+                "schemaVersion": 1,
+                "options": self.options,
+            },
+            "fieldConfig": field,
+            "overrides": self.overrides,
+            "links": [],
+        })
+    }
+
+    fn sql_query(&self) -> Value {
         let mut query = json!({
             "refId": "A",
             "enabled": true,
@@ -270,27 +333,28 @@ impl Panel {
             object.insert("format".into(), json!("time_series"));
         }
 
-        let mut field = self.field;
+        query
+    }
 
-        field.entry("noValue").or_insert_with(|| json!("暂无数据"));
-
-        json!({
-            "kind": "panel",
-            "id": self.id,
-            "title": self.title,
-            "description": self.description,
-            "gridPos": { "x": self.at.x, "y": self.at.y, "w": self.at.w, "h": self.at.h },
-            "queryOptions": {},
-            "queries": [query],
-            "transformations": [],
-            "visualization": {
-                "type": visualization,
-                "schemaVersion": 1,
-                "options": self.options,
-            },
-            "fieldConfig": field,
-            "overrides": self.overrides,
-            "links": [],
-        })
+    fn metric_queries(&self) -> Vec<Value> {
+        self.series
+            .iter()
+            .zip(b'A'..=b'Z')
+            .map(|(series, letter)| {
+                json!({
+                    "refId": char::from(letter).to_string(),
+                    "enabled": true,
+                    "dataSourceType": "metrics",
+                    "query": {
+                        "kind": "promql",
+                        "language": "promql",
+                        "streamName": self.stream,
+                        "expression": series.expression,
+                    },
+                    "legend": series.legend,
+                    "format": "time_series",
+                })
+            })
+            .collect()
     }
 }

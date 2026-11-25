@@ -140,6 +140,17 @@ fn widens_int(field_type: FieldType, value: &serde_json::Value) -> bool {
         && matches!(value, serde_json::Value::Number(number) if !number.is_i64())
 }
 
+/// The OpenTelemetry dimensions a log is filtered by: the host and the container it came from, the
+/// event it reports, how severe it is and what part of the system it is about. Node Agent's host
+/// events are asked for by each of them, as OTLP logs of other sources are.
+pub(crate) const LOG_DIMENSIONS: [&str; 5] = [
+    "host.id",
+    "container.id",
+    "event.name",
+    "event.domain",
+    "severity_text",
+];
+
 /// Return the automatic index policy for newly discovered fields.
 fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType {
     match stream_type {
@@ -160,19 +171,20 @@ fn auto_index_type(stream_type: StreamType, field_name: &str) -> StreamIndexType
         // Cursor identities and common RUM dimensions are exact indexed so that Bloom/Tantivy can
         // eliminate unrelated hourly objects before Parquet planning. `level` is too: the
         // explorer histogram counts errors by it, and an exact index answers that count without
-        // reading the files.
+        // reading the files. So are the OpenTelemetry dimensions of `LOG_DIMENSIONS`.
         StreamType::LOGS => {
-            let exact = matches!(
-                field_name,
-                EVENT_ID_FIELD
-                    | "level"
-                    | "session_id"
-                    | "fingerprint"
-                    | "country"
-                    | "browser"
-                    | "application"
-                    | "environment"
-            );
+            let exact = LOG_DIMENSIONS.contains(&field_name)
+                || matches!(
+                    field_name,
+                    EVENT_ID_FIELD
+                        | "level"
+                        | "session_id"
+                        | "fingerprint"
+                        | "country"
+                        | "browser"
+                        | "application"
+                        | "environment"
+                );
 
             // `message` uses a tokenized TEXT index. Exact dimensions use a STRING index and
             // Bloom filter; the two modes intentionally remain mutually exclusive.
@@ -330,6 +342,26 @@ mod tests {
         );
         assert_eq!(
             auto_index_type(StreamType::LOGS, "body_level"),
+            StreamIndexType::None
+        );
+    }
+
+    #[test]
+    fn a_log_is_indexed_by_its_opentelemetry_dimensions() {
+        for field in LOG_DIMENSIONS {
+            assert_eq!(
+                auto_index_type(StreamType::LOGS, field),
+                StreamIndexType::Exact,
+                "{field}"
+            );
+        }
+
+        assert_eq!(
+            auto_index_type(StreamType::LOGS, "body"),
+            StreamIndexType::None
+        );
+        assert_eq!(
+            auto_index_type(StreamType::METRICS, "host.id"),
             StreamIndexType::None
         );
     }

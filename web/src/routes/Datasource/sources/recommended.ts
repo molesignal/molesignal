@@ -1,6 +1,7 @@
 /** The sources most workspaces start from: hosts, clusters, clouds, RUM and profiling. */
 
 import { MOBILE_RUM_SOURCES } from './mobileRum';
+import { NODE_AGENT_SOURCE } from './nodeAgent';
 import { ENDPOINT, TOKEN, type Source } from './types';
 
 export const RECOMMENDED_SOURCES: Source[] = [
@@ -131,6 +132,7 @@ sinks:
       },
     ],
   },
+  NODE_AGENT_SOURCE,
   {
     id: 'windows',
     category: 'recommended',

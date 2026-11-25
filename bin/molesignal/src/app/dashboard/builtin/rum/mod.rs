@@ -14,13 +14,11 @@ use kernel::ids::Id;
 use serde_json::{Value, json};
 
 use self::sql::{EVERY_ENVIRONMENT, platform};
+use super::install::{AUTHOR, Builtin};
 
 /// The version of the content of the dashboards this build ships. Raise it with every change of a
 /// panel, a variable or a title: an organization whose dashboard is older gets the new one.
 pub const VERSION: u32 = 3;
-
-/// The author the dashboards the product installs are written by.
-pub(in crate::app::dashboard) const AUTHOR: &str = "molesignal-system";
 
 /// When the content of the current version was written; the models carry it so that an
 /// installation of the same version is byte for byte the same.
@@ -208,14 +206,30 @@ impl RumDashboard {
     }
 }
 
-/// The version of the content a stored model of a built-in dashboard holds; zero for a model that
-/// is not one.
-pub fn installed_version(model: &Value) -> u32 {
-    model
-        .pointer("/extensions/builtin/version")
-        .and_then(Value::as_u64)
-        .and_then(|version| u32::try_from(version).ok())
-        .unwrap_or(0)
+impl Builtin for RumDashboard {
+    fn uid(self) -> &'static str {
+        RumDashboard::uid(self)
+    }
+
+    fn id(self, org_id: &Id) -> Id {
+        RumDashboard::id(self, org_id)
+    }
+
+    fn title(self) -> &'static str {
+        RumDashboard::title(self)
+    }
+
+    fn tags(self) -> Vec<&'static str> {
+        RumDashboard::tags(self).to_vec()
+    }
+
+    fn version(self) -> u32 {
+        VERSION
+    }
+
+    fn model(self, id: &Id) -> Value {
+        RumDashboard::model(self, id)
+    }
 }
 
 #[cfg(test)]

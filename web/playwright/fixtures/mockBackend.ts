@@ -1348,6 +1348,22 @@ export function registerRoutes(app: Express): void {
       updatedAt: Date.parse(FROZEN_NOW_ISO) * 1000 - 86_400_000_000,
     },
   ];
+  // The Node Agent data source page: nothing has arrived and nothing is installed yet.
+  const nodeAgentAssets = {
+    streams: { metrics: false, events: false },
+    indexes: { state: 'noStream' },
+    dashboard: { id: 'host-overview-default', state: 'missing' },
+    views: ['oom', 'network', 'hardware', 'errors'].map((key) => ({
+      key,
+      id: `node-agent-view-${key}-default`,
+      installed: false,
+    })),
+    alerts: ['oom_kill', 'hungtask', 'softlockup', 'ras_uncorrected', 'netdev_carrier_down', 'netdev_txqueue_timeout'].map(
+      (key) => ({ key, severity: key === 'netdev_txqueue_timeout' ? 'warning' : 'error', ruleId: null, enabled: false }),
+    ),
+  };
+  app.get('/api/v1/node-agent/assets', (_req, res) => res.json(nodeAgentAssets));
+  app.post('/api/v1/node-agent/assets', (_req, res) => res.json(nodeAgentAssets));
   app.get('/api/v1/saved-views', (_req, res) => res.json({ items: savedViews }));
   app.get('/api/v1/saved_views', (_req, res) => res.json(savedViews));
   app.get('/api/v1/saved_views/:id', (req, res) => {

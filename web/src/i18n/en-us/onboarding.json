@@ -310,6 +310,108 @@
     "copy": "Copy",
     "expand_code": "Expand code",
     "collapse_code": "Collapse code",
-    "token_missing": "No intake token is available; create one under token management."
+    "token_missing": "No intake token is available; create one under token management.",
+    "node_agent": {
+      "assets": {
+        "title": "Install the host assets",
+        "description": "Indexes, a dashboard, saved views and real-time alert rules for the hosts the agent watches.",
+        "install": "Install",
+        "up_to_date": "Installed",
+        "install_hint": "Installing again only adds what is missing and never overwrites your changes. Alert rules start disabled.",
+        "installed": "Host assets installed",
+        "skipped": "Not installed for lack of permission: {{items}}",
+        "unreadable": "The host assets could not be read: {{message}}",
+        "open": "Open",
+        "indexes": {
+          "title": "Event indexes",
+          "ready": "host.id, container.id, event.name, event.domain and severity_text have exact indexes",
+          "no_stream": "exact indexes come with the first event",
+          "missing": "no index yet on {{fields}}"
+        },
+        "dashboard": {
+          "title": "Host dashboard",
+          "missing": "not installed",
+          "outdated": "a newer version is available",
+          "current": "installed",
+          "taken": "another dashboard uses the uid host-overview"
+        },
+        "views": {
+          "title": "Saved views",
+          "count": "{{installed}} of {{total}}: OOM, network, RAS and hangs, errors"
+        },
+        "alerts": {
+          "title": "Alert rules",
+          "count": "{{made}} of {{total}} made, {{enabled}} enabled",
+          "unreadable": "you may not read alert rules"
+        }
+      },
+      "alerts": {
+        "title": "Real-time alerts",
+        "description": "Each rule counts the host events as they arrive: one event in five minutes opens an incident on the default escalation policy. The rules are made disabled; enable the ones you want to be paged for.",
+        "on": "On",
+        "enable": "Enable",
+        "disable": "Disable",
+        "edit": "Edit",
+        "not_installed": "Install the assets first",
+        "enabled_toast": "{{name}} enabled",
+        "disabled_toast": "{{name}} disabled",
+        "templates": {
+          "oom_kill": {
+            "name": "OOM kill",
+            "description": "A process was killed for memory, by the kernel or by its container's limit."
+          },
+          "hungtask": {
+            "name": "Hung task",
+            "description": "A task stayed in uninterruptible sleep (D state) past the kernel's hung_task timeout."
+          },
+          "softlockup": {
+            "name": "Soft lockup",
+            "description": "A CPU did not schedule for longer than the watchdog allows."
+          },
+          "ras_uncorrected": {
+            "name": "Uncorrected hardware error",
+            "description": "MCE, EDAC memory or PCIe AER reported an error the hardware could not correct."
+          },
+          "netdev_carrier_down": {
+            "name": "Link carrier down",
+            "description": "A network interface lost its carrier: the cable, the switch port or the NIC."
+          },
+          "netdev_txqueue_timeout": {
+            "name": "Transmit queue timeout",
+            "description": "A NIC transmit queue timed out and the device was reset."
+          }
+        }
+      },
+      "runbook": {
+        "title": "Troubleshooting",
+        "description": "When something does not arrive, run doctor first, then the check of the symptom.",
+        "items": {
+          "no_data": {
+            "title": "No data at all",
+            "description": "doctor names what fails: the configuration, the endpoint, the token or the kernel. A FAIL on the endpoint means the host cannot reach port 4317: check firewalls and MS_ENDPOINT."
+          },
+          "unauthorized": {
+            "title": "401 Unauthorized",
+            "description": "The token is wrong, revoked or unreadable. Use an intake token of this organization, alone in the token file and readable by root only; doctor's auth line shows what the endpoint answered."
+          },
+          "grpc_http": {
+            "title": "Batches pile up with “intake unreachable (…)”",
+            "description": "MS_ENDPOINT must be the gRPC port (4317) and MS_HTTP_ENDPOINT the HTTP API, the address of this page. With MS_ENDPOINT on the HTTP port, gRPC is answered with 404; with both on 4317, every profile upload fails."
+          },
+          "no_profiles": {
+            "title": "Metrics arrive but no profiles",
+            "description": "Profiles are uploaded over HTTP to /api/v1/profiles/intake, and continuous CPU profiling is off by default. Set MS_HTTP_ENDPOINT and MS_PROFILING_CPU_ENABLED=true, then look for the host's workloads under Profiles."
+          },
+          "float_missing": {
+            "title": "Load or CPU percentages are missing",
+            "description": "Before this version, a stream whose value column was first typed as an integer dropped later decimal points without an error. Upgrade MoleSignal: the column widens to float, and every intake answer reports the points it refused. The query shows the points of loadavg and cpu_util."
+          },
+          "no_events": {
+            "title": "Metrics arrive but no events",
+            "description": "Kernel events need BTF, tracefs and the BPF capabilities (in Kubernetes, the DaemonSet's mounts). doctor marks what is missing and capabilities lists the collectors that run. Events are rare by nature: an idle host may send none."
+          }
+        }
+      }
+    }
   }
 }

@@ -218,7 +218,7 @@ impl RealtimeAlerts {
     }
 
     /// 用最新的规则集合替换匹配表。
-    pub(super) fn reload(&self, rules: Vec<AlertRule>) {
+    pub(crate) fn reload(&self, rules: Vec<AlertRule>) {
         let previous = self.entries.read().clone();
         let mut next: HashMap<Key, Vec<Entry>> = HashMap::new();
         let mut invalid = HashSet::new();

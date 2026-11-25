@@ -6,11 +6,19 @@
 //! 支持字段与字面量的比较（`=`、`!=`、`<>`、`<`、`<=`、`>`、`>=`）、`IN`、`LIKE`、`ILIKE`、
 //! `BETWEEN`、`IS [NOT] NULL`，以及 `AND`、`OR`、`NOT` 与括号。求值遵循 SQL 的三值逻辑：
 //! 字段缺失或为 null 的比较结果未知，未知按不匹配处理。
+//!
+//! A JSON field is read one level deep with `json_text(field, 'key')`, as a query reads it: the
+//! value of the key as text, so that a rule on what such a field holds (an OTLP log's `body`)
+//! counts the same records at intake as its statement finds in the stored data.
 
-use std::cmp::Ordering;
+use std::{borrow::Cow, cmp::Ordering};
 
 use serde_json::{Map, Value as Json};
-use sqlparser::ast::{BinaryOperator, Expr, UnaryOperator, Value};
+use sqlparser::ast::{
+    BinaryOperator, Expr, FunctionArg, FunctionArgExpr, FunctionArguments, UnaryOperator, Value,
+};
+
+use crate::infra::query::json_members::member_text;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Literal {
@@ -29,32 +37,67 @@ pub(super) enum Cmp {
     GtEq,
 }
 
+/// What a condition reads: a field of the record, or one key of a JSON field (`json_text`).
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct Field {
+    name: String,
+    key: Option<String>,
+}
+
+impl Field {
+    fn named(name: String) -> Self {
+        Self { name, key: None }
+    }
+
+    /// The value the condition compares, when the record has one that is not null. A key of a
+    /// JSON field is its text, as `json_text` gives it: the field may hold the object itself or
+    /// its JSON as text.
+    fn value<'a>(&self, fields: &'a Map<String, Json>) -> Option<Cow<'a, Json>> {
+        let value = fields.get(&self.name).filter(|value| !value.is_null())?;
+
+        let Some(key) = &self.key else {
+            return Some(Cow::Borrowed(value));
+        };
+
+        let member = match value {
+            Json::Object(object) => object.get(key).cloned(),
+            Json::String(text) => match serde_json::from_str::<Json>(text) {
+                Ok(Json::Object(mut object)) => object.remove(key),
+                _ => None,
+            },
+            _ => None,
+        }?;
+
+        member_text(member).map(|text| Cow::Owned(Json::String(text)))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Predicate {
     Compare {
-        field: String,
+        field: Field,
         op: Cmp,
         value: Literal,
     },
     In {
-        field: String,
+        field: Field,
         values: Vec<Literal>,
         negated: bool,
     },
     Like {
-        field: String,
+        field: Field,
         pattern: Vec<char>,
         case_insensitive: bool,
         negated: bool,
     },
     Between {
-        field: String,
+        field: Field,
         low: Literal,
         high: Literal,
         negated: bool,
     },
     IsNull {
-        field: String,
+        field: Field,
         negated: bool,
     },
     Not(Box<Predicate>),
@@ -128,7 +171,7 @@ impl Predicate {
             | Self::In { field, .. }
             | Self::Like { field, .. }
             | Self::Between { field, .. }
-            | Self::IsNull { field, .. } => out.push(field),
+            | Self::IsNull { field, .. } => out.push(&field.name),
             Self::Not(inner) => inner.fields(out),
             Self::And(left, right) | Self::Or(left, right) => {
                 left.fields(out);
@@ -140,7 +183,7 @@ impl Predicate {
     fn eval(&self, fields: &Map<String, Json>) -> Option<bool> {
         match self {
             Self::Compare { field, op, value } => {
-                let ordering = compare(present(fields, field)?, value)?;
+                let ordering = compare(field.value(fields)?.as_ref(), value)?;
 
                 Some(match op {
                     Cmp::Eq => ordering == Ordering::Equal,
@@ -156,11 +199,11 @@ impl Predicate {
                 values,
                 negated,
             } => {
-                let value = present(fields, field)?;
+                let value = field.value(fields)?;
 
                 let found = values
                     .iter()
-                    .any(|literal| compare(value, literal) == Some(Ordering::Equal));
+                    .any(|literal| compare(&value, literal) == Some(Ordering::Equal));
 
                 Some(found != *negated)
             }
@@ -170,7 +213,9 @@ impl Predicate {
                 case_insensitive,
                 negated,
             } => {
-                let Json::String(text) = present(fields, field)? else {
+                let value = field.value(fields)?;
+
+                let Json::String(text) = value.as_ref() else {
                     return None;
                 };
 
@@ -182,12 +227,12 @@ impl Predicate {
                 high,
                 negated,
             } => {
-                let value = present(fields, field)?;
-                let within = compare(value, low)? != Ordering::Less
-                    && compare(value, high)? != Ordering::Greater;
+                let value = field.value(fields)?;
+                let within = compare(&value, low)? != Ordering::Less
+                    && compare(&value, high)? != Ordering::Greater;
                 Some(within != *negated)
             }
-            Self::IsNull { field, negated } => Some(present(fields, field).is_none() != *negated),
+            Self::IsNull { field, negated } => Some(field.value(fields).is_none() != *negated),
             Self::Not(inner) => inner.eval(fields).map(|value| !value),
             Self::And(left, right) => match (left.eval(fields), right.eval(fields)) {
                 (Some(false), _) | (_, Some(false)) => Some(false),
@@ -280,18 +325,64 @@ fn compile_like(
     })
 }
 
-fn field_name(expr: &Expr) -> Result<String, String> {
+fn field_name(expr: &Expr) -> Result<Field, String> {
     match expr {
-        Expr::Identifier(ident) => Ok(ident.value.clone()),
+        Expr::Identifier(ident) => Ok(Field::named(ident.value.clone())),
         // `service.name` 这类带点的字段名按整体查找。
-        Expr::CompoundIdentifier(parts) => Ok(parts
-            .iter()
-            .map(|part| part.value.as_str())
-            .collect::<Vec<_>>()
-            .join(".")),
+        Expr::CompoundIdentifier(parts) => Ok(Field::named(
+            parts
+                .iter()
+                .map(|part| part.value.as_str())
+                .collect::<Vec<_>>()
+                .join("."),
+        )),
         Expr::Nested(inner) => field_name(inner),
+        Expr::Function(function) => json_member(function),
         other => Err(format!("`{other}` is not a field")),
     }
+}
+
+/// `json_text(<field>, '<key>')`: one key of a JSON field.
+fn json_member(function: &sqlparser::ast::Function) -> Result<Field, String> {
+    let not_member = || format!("`{function}` is not a field; only json_text(field, 'key') is");
+
+    let named = matches!(function.name.0.as_slice(), [part]
+        if part.as_ident().is_some_and(|ident| ident.value.eq_ignore_ascii_case("json_text")));
+
+    let FunctionArguments::List(list) = &function.args else {
+        return Err(not_member());
+    };
+
+    let plain = function.filter.is_none()
+        && function.over.is_none()
+        && function.within_group.is_empty()
+        && list.duplicate_treatment.is_none()
+        && list.clauses.is_empty();
+
+    let [
+        FunctionArg::Unnamed(FunctionArgExpr::Expr(document)),
+        FunctionArg::Unnamed(FunctionArgExpr::Expr(key)),
+    ] = list.args.as_slice()
+    else {
+        return Err(not_member());
+    };
+
+    if !named || !plain {
+        return Err(not_member());
+    }
+
+    let Field { name, key: None } = field_name(document)? else {
+        return Err(not_member());
+    };
+
+    let Literal::Str(key) = literal(key)? else {
+        return Err("the key of json_text must be a string".into());
+    };
+
+    Ok(Field {
+        name,
+        key: Some(key),
+    })
 }
 
 fn literal(expr: &Expr) -> Result<Literal, String> {
@@ -322,11 +413,6 @@ fn literal(expr: &Expr) -> Result<Literal, String> {
         Expr::Nested(inner) => literal(inner),
         other => Err(format!("`{other}` is not a literal")),
     }
-}
-
-/// 字段存在且不为 null 时的值。
-fn present<'a>(fields: &'a Map<String, Json>, field: &str) -> Option<&'a Json> {
-    fields.get(field).filter(|value| !value.is_null())
 }
 
 fn compare(value: &Json, literal: &Literal) -> Option<Ordering> {
@@ -454,6 +540,38 @@ mod tests {
     }
 
     #[test]
+    fn json_text_reads_one_key_of_a_json_field_as_text() {
+        let event = json!({
+            "event.name": "ras",
+            "body": {"type": "UncorrectedFatal", "cpu": 3, "info": null},
+            "text": "{\"linkstatus\": \"linkstatus_carrierdown\"}",
+        });
+        assert!(matches(
+            "json_text(body, 'type') LIKE 'Uncorrected%'",
+            event.clone()
+        ));
+        assert!(matches("JSON_TEXT(body, 'cpu') = '3'", event.clone()));
+        assert!(matches(
+            "json_text(text, 'linkstatus') = 'linkstatus_carrierdown'",
+            event.clone()
+        ));
+        assert!(matches(
+            "\"event.name\" = 'ras' AND json_text(\"body\", 'type') IN ('UncorrectedFatal')",
+            event.clone()
+        ));
+        assert!(matches("json_text(body, 'info') IS NULL", event.clone()));
+        assert!(matches("json_text(body, 'absent') IS NULL", event.clone()));
+        assert!(!matches(
+            "json_text(body, 'type') = 'Corrected'",
+            event.clone()
+        ));
+        assert!(!matches(
+            "json_text(\"event.name\", 'type') IS NOT NULL",
+            event
+        ));
+    }
+
+    #[test]
     fn like_wildcards_backtrack() {
         let pattern = |text: &str| text.chars().collect::<Vec<_>>();
         assert!(like_matches("abcabc", &pattern("%abc"), false));
@@ -473,6 +591,10 @@ mod tests {
             "level LIKE 'a' ESCAPE '!'",
             "level = NULL",
             "level SIMILAR TO 'x'",
+            "json_text(body) = 'x'",
+            "json_text(body, other) = 'x'",
+            "json_text(json_text(body, 'a'), 'b') = 'x'",
+            "json_keys(body) = 'x'",
         ] {
             assert!(compile(condition).is_err(), "must be rejected: {condition}");
         }

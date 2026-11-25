@@ -5,12 +5,14 @@
 //! before they are changed. The models are written here, in code, so that the SQL of a panel is
 //! checked with the rest of the code.
 
+pub mod host;
 mod install;
 mod panel;
 pub mod rum;
 pub mod sample;
 
-pub use install::Installed;
+pub use host::HostDashboard;
+pub use install::{Builtin, Installed, Standing, installed_version};
 pub use rum::RumDashboard;
 
 #[cfg(test)]

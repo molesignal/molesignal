@@ -41,6 +41,7 @@ pub mod metrics;
 pub mod mfa;
 pub mod mutes;
 pub mod node;
+pub mod node_agent;
 pub mod notify;
 pub mod oauth;
 pub mod onboarding;
@@ -87,6 +88,7 @@ pub fn api_v1(state: AppState) -> Router<AppState> {
         .merge(email_domains::routes())
         .merge(intake::routes())
         .merge(onboarding::routes())
+        .merge(node_agent::routes())
         .merge(oauth::routes())
         .merge(query::routes())
         .merge(dashboards::routes())

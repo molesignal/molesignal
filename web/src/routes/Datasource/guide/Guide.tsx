@@ -13,7 +13,9 @@ import { sourceIcon } from '../catalogue/sourceIcon';
 import { shownSignals, summarizeSourceSignals } from '../datasourceModel';
 import { substitute, useIntakeContext } from '../intakeContext';
 import { ApplicationField } from '../mobileRum/ApplicationField';
+import { NodeAgentSections } from '../nodeAgent/Sections';
 import type { Signal, Source } from '../sources';
+import { NODE_AGENT_SOURCE } from '../sources/nodeAgent';
 import { useSourceText } from '../sourceText';
 import { ConnectionDetails, type GuideEndpoint } from './ConnectionDetails';
 import { probeHealth, rumSourceSummary, type ValidationState } from './receipt';
@@ -221,6 +223,8 @@ export function Guide({
             )}
           </Verification>
         </GuideSection>
+
+        {source.id === NODE_AGENT_SOURCE.id && <NodeAgentSections verified={verified} tried={tried} />}
       </ol>
     </article>
   );
