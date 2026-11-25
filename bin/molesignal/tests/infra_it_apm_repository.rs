@@ -5,19 +5,28 @@
 
 mod common;
 
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use domain::apm::{
-    APM_PERSISTENCE_SCHEMA_VERSION, ApmMaintenanceRepository, ApmQueryRepository,
-    ApmWriteRepository, BucketDimension, BucketKind, BucketMeasurements, BucketQuery,
-    HistogramSchema, LatencyHistogram, OwnerSnapshot, QueryResolution, RollupRequest,
-    ServiceIdentity, ServiceObservation,
+use domain::{
+    apm::{
+        APM_PERSISTENCE_SCHEMA_VERSION, ApmMaintenanceRepository, ApmQueryRepository,
+        ApmWriteRepository, BucketDimension, BucketKind, BucketMeasurements, BucketQuery,
+        HistogramSchema, LatencyHistogram, OwnerSnapshot, QueryResolution, RollupRequest,
+        ServiceIdentity, ServiceObservation,
+    },
+    iam::OrganizationRepository,
 };
 use kernel::{
     ids::Id,
     time::{TimeRange, TimestampMicros},
 };
 use molesignal::infra::apm::PgApmRepository;
+use postgres::repositories::organizations::{
+    OrganizationPurgeRepository, PgOrganizationPurge, PgOrganizationRepository,
+};
 
 const MINUTE_MICROS: i64 = 60 * 1_000_000;
 const HOUR_MICROS: i64 = 60 * MINUTE_MICROS;
@@ -187,17 +196,27 @@ async fn apm_snapshots_rollups_retention_and_tenant_isolation_are_idempotent() {
         "expired hourly rollup must be removed"
     );
 
-    sqlx::query("DELETE FROM organizations WHERE id = $1")
-        .bind(other_org.as_str())
-        .execute(&pool)
+    // Deleting an organization only marks it; the purge removes its APM rows, as it does every
+    // table with an organization column (there is no foreign key to `organizations`).
+    PgOrganizationRepository::new(pool.clone())
+        .delete(&other_org)
         .await
         .expect("delete other organization");
+    purge_organization(&pool, &other_org).await;
+
     let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM apm_services WHERE org_id = $1")
         .bind(other_org.as_str())
         .fetch_one(&pool)
         .await
         .unwrap();
     assert_eq!(remaining, 0);
+
+    let kept: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM apm_services WHERE org_id = $1")
+        .bind(server.root_org_id.as_str())
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(kept > 0, "the purge leaves the other organizations alone");
     assert!(
         repository
             .query_buckets(&query(&other_org, hour, hour + HOUR_MICROS - 1))
@@ -205,6 +224,26 @@ async fn apm_snapshots_rollups_retention_and_tenant_isolation_are_idempotent() {
             .unwrap()
             .is_empty()
     );
+}
+
+/// Runs the purge of a deleted organization to the end, then removes its row.
+async fn purge_organization(pool: &sqlx::PgPool, org_id: &Id) {
+    let purge = PgOrganizationPurge::new(pool.clone());
+
+    for _ in 0..10 {
+        let deadline = Instant::now() + Duration::from_secs(60);
+        let progress = purge
+            .purge_rows(org_id, 1_000, deadline)
+            .await
+            .expect("purge pass");
+
+        if progress.finished {
+            purge.remove(org_id).await.expect("remove organization");
+            return;
+        }
+    }
+
+    panic!("the purge of {} did not finish", org_id.as_str());
 }
 
 async fn upsert_service(repository: &PgApmRepository, org_id: &Id, service: &ServiceIdentity) {
