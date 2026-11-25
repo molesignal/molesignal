@@ -78,11 +78,7 @@ fn resources() -> Vec<Panel> {
         )
         .and(total("molesignal_host_loadavg_load5"), "5 分钟")
         .and(total("molesignal_host_loadavg_load15"), "15 分钟")
-        .and(
-            total("molesignal_host_loadavg_nr_uninterruptible"),
-            "D 状态任务",
-        )
-        .about("/proc/loadavg 的 1、5、15 分钟平均负载，以及不可中断（D 状态）的任务数。")
+        .about("/proc/loadavg 的 1、5、15 分钟平均负载。")
         .unit("short", 2),
         Panel::metric(
             "memory",

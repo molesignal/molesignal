@@ -20,9 +20,10 @@ use crate::{
     infra::query::{analyzer::session_context, arrow_json::batches_to_json},
 };
 
-/// The metrics Node Agent sends that the panels read: the names of its capability manifest
-/// (`crates/core/host-observe/data/capability-manifest-v1.toml` in the agent's repository), and the
-/// `/proc/vmstat` keys it reports for a host by default (`MS_VMSTAT_INCLUDED_ON_HOST`).
+/// The metrics Node Agent sends for a host that the panels read, as a test machine reported them
+/// on 2026-11-25: its capability manifest's names and the `/proc/vmstat` keys it reports for a
+/// host by default (`MS_VMSTAT_INCLUDED_ON_HOST`). The load's task counts are sent per container
+/// only, so they are not among them.
 const AGENT_METRICS: &[&str] = &[
     "molesignal_host_cpu_util_total",
     "molesignal_host_cpu_util_usr",
@@ -30,7 +31,6 @@ const AGENT_METRICS: &[&str] = &[
     "molesignal_host_loadavg_load1",
     "molesignal_host_loadavg_load5",
     "molesignal_host_loadavg_load15",
-    "molesignal_host_loadavg_nr_uninterruptible",
     "molesignal_host_memory_vmstat_nr_free_pages",
     "molesignal_host_memory_vmstat_nr_active_anon",
     "molesignal_host_memory_vmstat_nr_inactive_anon",
