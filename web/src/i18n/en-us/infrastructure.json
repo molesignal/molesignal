@@ -56,5 +56,220 @@
     "logs": "Logs",
     "metrics": "Metrics",
     "open_page": "Open page"
+  },
+  "node_agents": {
+    "title": "Node agents",
+    "subtitle": "The Node Agents that take their configuration and diagnostic tasks from MoleSignal: where each stands, what it runs, and how new ones join.",
+    "navigation_label": "Node agent pages",
+    "tabs": {
+      "nodes": "Nodes",
+      "tasks": "Tasks",
+      "enrollment": "Enrollment"
+    },
+    "load_error": "Cannot load node agents",
+    "search_placeholder": "Search by host, version or label",
+    "all_statuses": "All statuses",
+    "all_nodes": "All nodes",
+    "all_states": "All states",
+    "never": "Never",
+    "none": "None",
+    "empty_title": "No node enrolled yet",
+    "empty_description": "Issue an enrollment token and give it to the Node Agent on a host; the node shows up here once it connects.",
+    "tasks_empty": "No task yet",
+    "resume_done": "The node takes tasks again once it reconnects",
+    "duration": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
+    "status": {
+      "online": "Online",
+      "offline": "Offline",
+      "enrolled": "Enrolled",
+      "draining": "Draining",
+      "drained": "Drained",
+      "revoked": "Revoked"
+    },
+    "health": {
+      "unknown": "Not reported",
+      "healthy": "Healthy",
+      "degraded": "Degraded"
+    },
+    "kind": {
+      "autotracing_run": "AutoTracing run",
+      "profile": "Profiling",
+      "tool": "Tool"
+    },
+    "task_state": {
+      "queued": "Queued",
+      "offered": "Offered",
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "lease_expired": "Lease expired",
+      "expired": "Expired",
+      "rejected": "Rejected"
+    },
+    "config_state": {
+      "applied": "Revision {{revision}} applied",
+      "rejected": "Revision {{revision}} rejected",
+      "rolled_back": "Revision {{revision}} rolled back"
+    },
+    "columns": {
+      "name": "Node",
+      "status": "Status",
+      "version": "Version",
+      "task_kinds": "Tasks it runs",
+      "config": "Configuration",
+      "heartbeat": "Last heartbeat",
+      "task": "Task"
+    },
+    "actions": {
+      "enroll": "Enroll a node",
+      "drain": "Drain",
+      "resume": "Resume",
+      "revoke": "Revoke",
+      "edit_config": "Edit configuration",
+      "run_task": "Run a task",
+      "cancel_task": "Cancel task"
+    },
+    "node": {
+      "state": "Status",
+      "health": "Health",
+      "drain_deadline": "Drain deadline",
+      "revoked": "Revoked",
+      "agent": "Agent",
+      "max_running": "Tasks at once",
+      "node_id": "Node ID",
+      "certificate": "Certificate",
+      "enrolled": "Enrolled",
+      "collectors": "Collectors",
+      "config": "Configuration",
+      "config_revision": "Revision",
+      "config_revisions": "Applied r{{applied}} · desired r{{desired}}",
+      "config_status": "Last report",
+      "labels": "Labels",
+      "show_tasks": "Show this node's tasks"
+    },
+    "drain": {
+      "title": "Drain {{name}}",
+      "subtitle": "The node takes no new task; running ones may finish until the deadline, then the node cancels them. Collection is not affected.",
+      "deadline": "Deadline",
+      "deadline_hint": "How long running tasks may still take.",
+      "done": "The node is draining"
+    },
+    "revoke": {
+      "title": "Revoke {{name}}",
+      "subtitle": "Its certificate stops working at once, its tasks are cancelled, and a connected agent deletes its identity. Only enrolling the host again brings it back.",
+      "reason": "Reason",
+      "reason_placeholder": "Decommissioned, key leaked, …",
+      "done": "The node is revoked"
+    },
+    "config": {
+      "title": "Configuration of {{name}}",
+      "subtitle": "Saved as revision {{revision}}; a connected node gets it at once.",
+      "description": "The node checks the document, switches to it, and rolls back to its last good configuration if its health degrades.",
+      "document": "Configuration",
+      "save": "Save revision",
+      "saved": "Revision {{revision}} saved",
+      "invalid_json": "This is not valid JSON.",
+      "invalid_object": "The configuration must be a JSON object."
+    },
+    "run": {
+      "title": "Run a task",
+      "subtitle": "The node runs it when it has room; the organization's quota decides whether it is taken.",
+      "node": "Node",
+      "no_nodes": "No node can take a task",
+      "kind": "Kind",
+      "kind_hint": "Only the kinds the node said it runs.",
+      "spec": "Spec",
+      "spec_hint_tool": "One of dropwatch, tcpshark, iotracing and perf, with duration_secs from 1 to 3600.",
+      "spec_hint_profile": "How long to profile and at what frequency.",
+      "spec_hint_autotracing_run": "The AutoTracing rule to run once.",
+      "timeout": "Deadline",
+      "timeout_hint": "The task never runs past this, whatever happens.",
+      "attempts": "Attempts",
+      "attempts_hint": "How often it is offered again when the node does not take it.",
+      "created": "Task queued"
+    },
+    "cancel": {
+      "done": "Task cancelled",
+      "requested": "The node was asked to stop the task"
+    },
+    "task": {
+      "state": "Status",
+      "cancel_requested": "cancel requested",
+      "node": "Node",
+      "kind": "Kind",
+      "attempt": "Attempt",
+      "attempt_of": "{{attempt}} of {{max}}",
+      "created": "Created",
+      "deadline": "Deadline",
+      "lease": "Lease until",
+      "finished": "Finished",
+      "failure": "Why it ended",
+      "result": "Result",
+      "result_status": "Status",
+      "result_id": "Result ID",
+      "received": "Received",
+      "summary": "Summary",
+      "artifact": "Artifact",
+      "spec": "Spec"
+    },
+    "quota": {
+      "title": "Task quota",
+      "subtitle": "How many node tasks the organization may have.",
+      "description": "Active tasks are queued, offered or running; a task that ends frees its place at once. The hourly limits count the tasks created in the last hour.",
+      "maxActivePerOrg": "Active in the organization",
+      "maxActivePerNode": "Active per node",
+      "maxCreatedPerHourPerOrg": "Created per hour",
+      "maxCreatedPerHourPerNode": "Created per hour per node",
+      "edit": "Edit quota",
+      "save": "Save quota",
+      "saved": "Quota saved"
+    },
+    "enrollment": {
+      "create": "Issue token",
+      "create_title": "Issue an enrollment token",
+      "create_subtitle": "A Node Agent trades the token for its own certificate; the token never leaves the host after that.",
+      "description": "Description",
+      "description_placeholder": "Production web hosts",
+      "untitled": "Untitled token",
+      "ttl": "Valid for",
+      "max_uses": "Nodes it enrolls",
+      "max_uses_hint": "Each enrollment uses it once; enrolling the same host again counts too.",
+      "labels": "Labels",
+      "labels_hint": "One key=value to a line; every node enrolled with the token gets them.",
+      "labels_invalid": "Not key=value: {{line}}",
+      "issued": "Token issued",
+      "issued_title": "Enrollment token",
+      "issued_subtitle": "Copy the token now: it is not shown again.",
+      "token": "Token",
+      "endpoint": "Control endpoint",
+      "endpoint_hint": "Where agents connect (gRPC over TLS).",
+      "ca": "CA certificate",
+      "ca_hint": "Agents trust this CA for the control endpoint.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "uses": "Used",
+      "expires": "Expires",
+      "created": "Issued",
+      "state": {
+        "active": "Active",
+        "used_up": "Used up",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "revoke": "Revoke",
+      "revoke_title": "Revoke this token?",
+      "revoke_description": "No new node can enroll with it. Nodes already enrolled keep working.",
+      "revoked": "Token revoked",
+      "empty_title": "No enrollment token yet",
+      "empty_description": "Issue a token to enroll the first Node Agent."
+    }
   }
 }

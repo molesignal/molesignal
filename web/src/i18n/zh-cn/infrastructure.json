@@ -56,5 +56,220 @@
     "logs": "日志",
     "metrics": "指标",
     "open_page": "打开页面"
+  },
+  "node_agents": {
+    "title": "节点 Agent",
+    "subtitle": "从 MoleSignal 获取配置和诊断任务的 Node Agent：每个节点的状态、能跑的任务，以及新节点如何加入。",
+    "navigation_label": "节点 Agent 页面",
+    "tabs": {
+      "nodes": "节点",
+      "tasks": "任务",
+      "enrollment": "注册"
+    },
+    "load_error": "无法加载节点 Agent",
+    "search_placeholder": "按主机、版本或标签搜索",
+    "all_statuses": "全部状态",
+    "all_nodes": "全部节点",
+    "all_states": "全部状态",
+    "never": "从未",
+    "none": "无",
+    "empty_title": "还没有注册的节点",
+    "empty_description": "签发一个 enrollment token 交给主机上的 Node Agent，节点连上后会出现在这里。",
+    "tasks_empty": "还没有任务",
+    "resume_done": "节点重连后会重新接收任务",
+    "duration": {
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时",
+      "days_one": "{{count}} 天",
+      "days_other": "{{count}} 天"
+    },
+    "status": {
+      "online": "在线",
+      "offline": "离线",
+      "enrolled": "已注册",
+      "draining": "排空中",
+      "drained": "已排空",
+      "revoked": "已吊销"
+    },
+    "health": {
+      "unknown": "未上报",
+      "healthy": "健康",
+      "degraded": "降级"
+    },
+    "kind": {
+      "autotracing_run": "AutoTracing 诊断",
+      "profile": "Profiling",
+      "tool": "工具"
+    },
+    "task_state": {
+      "queued": "排队中",
+      "offered": "已下发",
+      "running": "运行中",
+      "succeeded": "成功",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "lease_expired": "租约过期",
+      "expired": "已过期",
+      "rejected": "被拒绝"
+    },
+    "config_state": {
+      "applied": "已应用第 {{revision}} 版",
+      "rejected": "拒绝了第 {{revision}} 版",
+      "rolled_back": "第 {{revision}} 版已回滚"
+    },
+    "columns": {
+      "name": "节点",
+      "status": "状态",
+      "version": "版本",
+      "task_kinds": "可运行的任务",
+      "config": "配置",
+      "heartbeat": "最近心跳",
+      "task": "任务"
+    },
+    "actions": {
+      "enroll": "注册节点",
+      "drain": "排空",
+      "resume": "恢复",
+      "revoke": "吊销",
+      "edit_config": "编辑配置",
+      "run_task": "下发任务",
+      "cancel_task": "取消任务"
+    },
+    "node": {
+      "state": "状态",
+      "health": "健康",
+      "drain_deadline": "排空截止",
+      "revoked": "吊销",
+      "agent": "Agent",
+      "max_running": "同时运行任务数",
+      "node_id": "节点 ID",
+      "certificate": "证书",
+      "enrolled": "注册时间",
+      "collectors": "采集器",
+      "config": "配置",
+      "config_revision": "版本",
+      "config_revisions": "已应用 r{{applied}} · 期望 r{{desired}}",
+      "config_status": "最近上报",
+      "labels": "标签",
+      "show_tasks": "查看这个节点的任务"
+    },
+    "drain": {
+      "title": "排空 {{name}}",
+      "subtitle": "节点不再接收新任务；运行中的任务可以在截止时间前跑完，到点后由节点取消。采集不受影响。",
+      "deadline": "截止时间",
+      "deadline_hint": "运行中的任务还能运行多久。",
+      "done": "节点正在排空"
+    },
+    "revoke": {
+      "title": "吊销 {{name}}",
+      "subtitle": "证书立即失效，任务被取消，在线的 Agent 会删除自己的身份。只有重新注册这台主机才能恢复。",
+      "reason": "原因",
+      "reason_placeholder": "下线、密钥泄露……",
+      "done": "节点已吊销"
+    },
+    "config": {
+      "title": "{{name}} 的配置",
+      "subtitle": "保存为第 {{revision}} 版；在线的节点会立即收到。",
+      "description": "节点会校验文档并切换过去；如果健康状态变差，会回滚到上一份正常的配置。",
+      "document": "配置",
+      "save": "保存新版本",
+      "saved": "已保存第 {{revision}} 版",
+      "invalid_json": "不是合法的 JSON。",
+      "invalid_object": "配置必须是一个 JSON 对象。"
+    },
+    "run": {
+      "title": "下发任务",
+      "subtitle": "节点有空闲时运行；能否接收取决于组织的任务配额。",
+      "node": "节点",
+      "no_nodes": "没有可接收任务的节点",
+      "kind": "类型",
+      "kind_hint": "只能选节点声明支持的类型。",
+      "spec": "参数",
+      "spec_hint_tool": "dropwatch、tcpshark、iotracing、perf 之一，duration_secs 为 1 到 3600。",
+      "spec_hint_profile": "采样时长和频率。",
+      "spec_hint_autotracing_run": "要运行一次的 AutoTracing 规则。",
+      "timeout": "截止时间",
+      "timeout_hint": "无论发生什么，任务都不会运行超过这个时间。",
+      "attempts": "尝试次数",
+      "attempts_hint": "节点没有接收时最多重新下发几次。",
+      "created": "任务已排队"
+    },
+    "cancel": {
+      "done": "任务已取消",
+      "requested": "已通知节点停止任务"
+    },
+    "task": {
+      "state": "状态",
+      "cancel_requested": "已请求取消",
+      "node": "节点",
+      "kind": "类型",
+      "attempt": "尝试",
+      "attempt_of": "第 {{attempt}} 次，共 {{max}} 次",
+      "created": "创建时间",
+      "deadline": "截止时间",
+      "lease": "租约到期",
+      "finished": "结束时间",
+      "failure": "结束原因",
+      "result": "结果",
+      "result_status": "状态",
+      "result_id": "结果 ID",
+      "received": "收到时间",
+      "summary": "摘要",
+      "artifact": "产物",
+      "spec": "参数"
+    },
+    "quota": {
+      "title": "任务配额",
+      "subtitle": "组织最多能有多少节点任务。",
+      "description": "排队、已下发和运行中的任务算作进行中；任务结束后立即释放名额。每小时上限按最近一小时内创建的任务计。",
+      "maxActivePerOrg": "组织内同时进行",
+      "maxActivePerNode": "每节点同时进行",
+      "maxCreatedPerHourPerOrg": "每小时创建",
+      "maxCreatedPerHourPerNode": "每节点每小时创建",
+      "edit": "编辑配额",
+      "save": "保存配额",
+      "saved": "配额已保存"
+    },
+    "enrollment": {
+      "create": "签发 token",
+      "create_title": "签发 enrollment token",
+      "create_subtitle": "Node Agent 用 token 换取自己的证书，之后 token 不再离开主机。",
+      "description": "描述",
+      "description_placeholder": "生产 Web 主机",
+      "untitled": "未命名 token",
+      "ttl": "有效期",
+      "max_uses": "可注册节点数",
+      "max_uses_hint": "每次注册用掉一次，重新注册同一台主机也算。",
+      "labels": "标签",
+      "labels_hint": "每行一个 key=value；用这个 token 注册的节点都会带上。",
+      "labels_invalid": "不是 key=value：{{line}}",
+      "issued": "token 已签发",
+      "issued_title": "Enrollment token",
+      "issued_subtitle": "现在复制 token，之后不会再显示。",
+      "token": "Token",
+      "endpoint": "控制面地址",
+      "endpoint_hint": "Agent 连接的地址（gRPC over TLS）。",
+      "ca": "CA 证书",
+      "ca_hint": "Agent 用这个 CA 校验控制面地址。",
+      "copy": "复制",
+      "copied": "已复制",
+      "uses": "已使用",
+      "expires": "到期时间",
+      "created": "签发时间",
+      "state": {
+        "active": "可用",
+        "used_up": "已用完",
+        "expired": "已过期",
+        "revoked": "已吊销"
+      },
+      "revoke": "吊销",
+      "revoke_title": "吊销这个 token？",
+      "revoke_description": "之后不能再用它注册新节点，已注册的节点不受影响。",
+      "revoked": "token 已吊销",
+      "empty_title": "还没有 enrollment token",
+      "empty_description": "签发一个 token 来注册第一个 Node Agent。"
+    }
   }
 }
