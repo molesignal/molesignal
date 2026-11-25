@@ -462,24 +462,3 @@ fn result_ids_round_trip() {
     assert_eq!(LeaseKey::parse_result_id("task"), None);
     assert_eq!(LeaseKey::parse_result_id("/1"), None);
 }
-
-#[test]
-fn tool_specs_are_checked() {
-    assert!(
-        NodeTask::validate_spec(
-            TaskKind::Tool,
-            &json!({"tool": "perf", "duration_secs": 10})
-        )
-        .is_ok()
-    );
-    assert!(
-        NodeTask::validate_spec(TaskKind::Tool, &json!({"tool": "sh", "duration_secs": 10}))
-            .is_err()
-    );
-    assert!(
-        NodeTask::validate_spec(TaskKind::Tool, &json!({"tool": "perf", "duration_secs": 0}))
-            .is_err()
-    );
-    assert!(NodeTask::validate_spec(TaskKind::Profile, &json!([])).is_err());
-    assert!(NodeTask::validate_spec(TaskKind::AutotracingRun, &json!({"rule": "cpu_sys"})).is_ok());
-}

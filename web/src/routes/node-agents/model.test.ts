@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { NodeAgent } from '@/api/nodeAgents';
 
-import { countByStatus, filterNodes, parseLabels, parseSpec, taskSubject } from './model';
+import { countByStatus, filterNodes, parseLabels, taskSubject } from './model';
 
 function node(overrides: Partial<NodeAgent>): NodeAgent {
   return {
@@ -64,12 +64,6 @@ describe('node agents model', () => {
     expect(parseLabels('rack = r1\n\nzone=eu-1\n')).toEqual({ labels: { rack: 'r1', zone: 'eu-1' } });
     expect(parseLabels('rack=r1\n=oops')).toEqual({ invalidLine: '=oops' });
     expect(parseLabels('no separator')).toEqual({ invalidLine: 'no separator' });
-  });
-
-  it('takes a spec only when it is a JSON object', () => {
-    expect(parseSpec('{"tool":"perf"}')).toEqual({ spec: { tool: 'perf' } });
-    expect(parseSpec('[1]')).toEqual({ error: 'object' });
-    expect(parseSpec('{')).toEqual({ error: 'json' });
   });
 
   it('names a task by its tool, else its kind', () => {

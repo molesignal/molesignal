@@ -8,17 +8,15 @@ import { toApiError } from '@/lib/http';
 import {
   FormDrawer,
   FormField,
-  FormGroup,
   FormSection,
   FormSelect,
   FormSubmitFooter,
   FormTextarea,
 } from '@/shell/FormDrawer';
-import { JsonEditor } from '@/shell/JsonEditor';
 import { toast } from '@/shell/ui/sonner';
 
 import { durationLabel } from '../Frame';
-import { nodeName, parseSpec } from '../model';
+import { nodeName } from '../model';
 
 const DRAIN_MINUTES = [5, 10, 30, 60, 360] as const;
 
@@ -143,80 +141,6 @@ export function RevokeDrawer({
               placeholder={t('node_agents.revoke.reason_placeholder')}
             />
           </FormField>
-        </FormSection>
-      </form>
-    </FormDrawer>
-  );
-}
-
-/** The configuration the node is told to run, as the next revision. */
-export function ConfigDrawer({
-  node,
-  onClose,
-  onDone,
-}: {
-  node: NodeAgent | undefined;
-  onClose: () => void;
-  onDone: (node: NodeAgent) => void;
-}) {
-  const { t } = useTranslation('infrastructure');
-  const initial = React.useMemo(
-    () => JSON.stringify(node?.desiredConfig?.config ?? {}, null, 2),
-    [node],
-  );
-  const [text, setText] = React.useState(initial);
-  React.useEffect(() => setText(initial), [initial]);
-  const parsed = parseSpec(text);
-  const problem = 'error' in parsed ? t(`node_agents.config.invalid_${parsed.error}`) : undefined;
-
-  const save = useMutation({
-    mutationFn: (config: Record<string, unknown>) => nodeAgentsApi.setNodeConfig(node?.id ?? '', config),
-    onSuccess: (updated) => {
-      toast.success(
-        t('node_agents.config.saved', { revision: updated.desiredConfig?.revision ?? 0 }),
-      );
-      onDone(updated);
-    },
-    onError: (error) => toast.error(toApiError(error).message),
-  });
-
-  return (
-    <FormDrawer
-      open={Boolean(node)}
-      onOpenChange={(open) => !open && onClose()}
-      title={t('node_agents.config.title', { name: node ? nodeName(node) : '' })}
-      subtitle={t('node_agents.config.subtitle', {
-        revision: (node?.desiredConfig?.revision ?? 0) + 1,
-      })}
-      dirty={text !== initial}
-      footer={
-        <FormSubmitFooter
-          busy={save.isPending}
-          invalid={Boolean(problem) || text === initial}
-          onCancel={onClose}
-          formId="node-config"
-          submitLabel={t('node_agents.config.save')}
-        />
-      }
-    >
-      <form
-        id="node-config"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if ('spec' in parsed) save.mutate(parsed.spec);
-        }}
-      >
-        <FormSection description={t('node_agents.config.description')}>
-          <FormGroup label={t('node_agents.config.document')}>
-            <JsonEditor
-              value={text}
-              onChange={setText}
-              ariaLabel={t('node_agents.config.document')}
-              minHeight={240}
-              maxHeight={480}
-            />
-            {problem && <span className="text-xs text-red">{problem}</span>}
-          </FormGroup>
         </FormSection>
       </form>
     </FormDrawer>

@@ -5,7 +5,9 @@
 
 use std::collections::BTreeMap;
 
-use domain::node_agent::{EnrollmentToken, NewEnrollmentToken, NodeAgent, NodeStatus, TaskQuota};
+use domain::node_agent::{
+    EnrollmentToken, NewEnrollmentToken, NodeAgent, NodeConfig, NodeStatus, TaskQuota,
+};
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -300,10 +302,8 @@ impl NodeAgentService {
         node_id: &Id,
         config: Value,
     ) -> Result<NodeView> {
-        if !config.is_object() {
-            return Err(Error::invalid("a node configuration must be a JSON object"));
-        }
-
+        // Schema v1 (`domain::node_agent::NodeConfig`): stored and sent with only the keys set.
+        let config = NodeConfig::parse(config)?.to_value();
         let size = serde_json::to_vec(&config).map_or(usize::MAX, |bytes| bytes.len());
 
         if size > MAX_CONFIG_BYTES {

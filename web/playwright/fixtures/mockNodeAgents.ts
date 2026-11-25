@@ -28,13 +28,13 @@ function node(nowMicros: number, overrides: Partial<NodeAgent>): NodeAgent {
     enrollmentTokenId: 'tok-prod',
     health: { state: 'healthy', messages: [] },
     collectorStates: [
-      { name: 'cpu_sys', state: 'running', message: '' },
+      { name: 'cpu_util', state: 'running', message: '' },
       { name: 'softirq', state: 'running', message: '' },
     ],
     appliedConfigRevision: 2,
     desiredConfig: {
       revision: 2,
-      config: { autotracing: { cpu_sys: { enabled: true } } },
+      config: { collectors: { deny: ['ras'] }, profiling: { oncpu: true } },
       updatedBy: 'user-1',
       updatedAt: nowMicros - 90 * MINUTE_MICROS,
     },

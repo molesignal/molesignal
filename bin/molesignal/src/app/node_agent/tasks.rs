@@ -3,7 +3,9 @@
 
 //! Node tasks: creation under the quota, cancellation, reading, and the expiry sweep.
 
-use domain::node_agent::{NodeTask, TaskEvent, TaskFilter, TaskKind, TaskState, Transition};
+use domain::node_agent::{
+    NodeTask, TaskEvent, TaskFilter, TaskKind, TaskState, Transition, spec::validate_spec,
+};
 use kernel::{Error, Result, ids::Id, time::TimestampMicros};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -51,7 +53,7 @@ impl NodeAgentService {
             return Err(Error::invalid("`maxAttempts` must be between 1 and 10"));
         }
 
-        NodeTask::validate_spec(input.kind, &input.spec)?;
+        validate_spec(input.kind, &input.spec)?;
         let node = self.repository.get_node(org_id, &input.node_id).await?;
 
         if !node.capabilities.supports(input.kind) {

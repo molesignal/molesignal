@@ -56,6 +56,33 @@ test.describe('node agents', () => {
     await expect(page.locator('[data-node-status="revoked"]').first()).toBeVisible();
   });
 
+  test('edits a node configuration as a form', async ({ page }) => {
+    await page.goto('/node-agents/nodes/node-web-1');
+    const drawer = page.getByRole('dialog');
+    await expect(drawer).toContainText('Collectors off');
+    await expect(drawer).toContainText('ras');
+
+    await drawer.getByRole('button', { name: 'Edit configuration' }).click();
+    const form = page.getByRole('dialog').filter({ hasText: 'Configuration of web-1.prod' });
+    await expect(form.getByRole('checkbox', { name: 'ras', exact: true })).not.toBeChecked();
+    await form.getByRole('checkbox', { name: 'oom', exact: true }).click();
+    await form.getByRole('switch', { name: 'Off-CPU tracing' }).click();
+    await form.getByLabel('Container profiles per window').fill('2000');
+    await expect(form.getByRole('button', { name: 'Save revision' })).toBeDisabled();
+    await form.getByLabel('Container profiles per window').fill('16');
+
+    const saved = page.waitForRequest(
+      (request) => request.method() === 'PUT' && request.url().endsWith('/node-agents/nodes/node-web-1/config'),
+    );
+    await form.getByRole('button', { name: 'Save revision' }).click();
+    expect((await saved).postDataJSON()).toEqual({
+      config: {
+        collectors: { deny: ['oom', 'ras'] },
+        profiling: { oncpu: true, offcpu: true, max_workloads: 16 },
+      },
+    });
+  });
+
   test('runs a task on a node and cancels a running one', async ({ page }) => {
     await page.goto('/node-agents/tasks');
     await expect(page.getByRole('row')).toHaveCount(3);

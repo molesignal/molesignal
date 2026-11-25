@@ -8,17 +8,24 @@
 //! Task transitions are pure ([`task`]), so the Postgres repository and the tests apply the same
 //! rules.
 
+mod config;
 mod enrollment;
 mod node;
 mod quota;
 mod repository;
+pub mod spec;
 pub mod task;
 
 #[cfg(test)]
+mod config_tests;
+#[cfg(test)]
 mod quota_tests;
+#[cfg(test)]
+mod spec_tests;
 #[cfg(test)]
 mod task_tests;
 
+pub use config::{CollectorSelection, ContinuousProfiling, NodeConfig};
 pub use enrollment::{EnrollmentGrant, EnrollmentToken, NewEnrollmentToken};
 pub use node::{
     Capabilities, CollectorState, ConfigState, ConfigStatus, DesiredConfig, Health, HealthState,

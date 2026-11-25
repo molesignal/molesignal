@@ -6,11 +6,11 @@ import type { NodeAgent } from '@/api/nodeAgents';
 import { useTimeFormatter } from '@/lib/time';
 import { ChromeButton } from '@/shell/chrome';
 import { FormDrawer, FormSection } from '@/shell/FormDrawer';
-import { JsonView } from '@/shell/JsonEditor';
 import { formatRelativeMicros } from '@/time/relative';
 
 import { DetailRow, DetailRows, NodeStatusMark } from '../Frame';
 import { nodeName } from '../model';
+import type { NodeConfigDocument } from './config';
 
 export interface NodeActions {
   canManage: boolean;
@@ -151,7 +151,7 @@ export function NodeDrawer({
                 </DetailRow>
               )}
             </DetailRows>
-            {node.desiredConfig && <JsonView value={node.desiredConfig.config} maxHeight={240} className="mt-2" />}
+            {node.desiredConfig && <ConfigSummary config={node.desiredConfig.config as NodeConfigDocument} />}
           </FormSection>
 
           {Object.keys(node.labels).length > 0 && (
@@ -175,5 +175,38 @@ export function NodeDrawer({
         </>
       )}
     </FormDrawer>
+  );
+}
+
+/** The configuration the node is told to run, a row for each part that is set. */
+function ConfigSummary({ config }: { config: NodeConfigDocument }) {
+  const { t } = useTranslation('infrastructure');
+  const profiling = config.profiling ?? {};
+  const modes = [profiling.oncpu && 'On-CPU', profiling.offcpu && 'Off-CPU'].filter(Boolean).join(' · ');
+  const rows: [string, string][] = [];
+
+  if (config.collectors?.deny?.length) rows.push([t('node_agents.config.denied'), config.collectors.deny.join(', ')]);
+  if (config.collectors?.allow?.length) rows.push([t('node_agents.config.allowed'), config.collectors.allow.join(', ')]);
+  if (modes) rows.push([t('node_agents.config.profiling'), modes]);
+  if (config.dropwatch_filter) rows.push([t('node_agents.config.dropwatch_filter'), config.dropwatch_filter]);
+
+  if (config.memory_reclaim_blocked_threshold_ns !== undefined) {
+    rows.push([t('node_agents.config.reclaim_threshold_ms'), String(config.memory_reclaim_blocked_threshold_ns / 1_000_000)]);
+  }
+
+  return (
+    <div className="mt-2">
+      <DetailRows>
+        {rows.length === 0 ? (
+          <DetailRow label={t('node_agents.node.config')}>{t('node_agents.config.agent_defaults')}</DetailRow>
+        ) : (
+          rows.map(([label, value]) => (
+            <DetailRow key={label} label={label} code>
+              {value}
+            </DetailRow>
+          ))
+        )}
+      </DetailRows>
+    </div>
   );
 }

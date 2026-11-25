@@ -19,7 +19,8 @@ import { formatRelativeMicros } from '@/time/relative';
 
 import { NODE_AGENTS_REFRESH_MILLIS, NodeAgentsPage, NodeStatusMark, useLoadState } from '../Frame';
 import { countByStatus, filterNodes, NODE_STATUSES, nodeName, statusOrder } from '../model';
-import { ConfigDrawer, DrainDrawer, RevokeDrawer } from './NodeActionDrawers';
+import { ConfigDrawer } from './ConfigDrawer';
+import { DrainDrawer, RevokeDrawer } from './NodeActionDrawers';
 import { NodeDrawer } from './NodeDrawer';
 import { RunTaskDrawer } from '../tasks/RunTaskDrawer';
 

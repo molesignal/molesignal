@@ -163,12 +163,26 @@ async fn a_configuration_goes_out_once_signed_by_the_ca_and_its_status_is_kept()
             &org_a,
             &member(),
             node.id(),
-            json!({"autotracing": {"cpu_sys": true}}),
+            json!({"collectors": {"deny": ["oom"]}, "profiling": {"oncpu": true}}),
         )
         .await
         .unwrap();
 
     assert_eq!(view.node.desired_config_revision(), 1);
+
+    // A document outside schema v1 is refused and takes no revision.
+    let error = fixture
+        .service
+        .set_config(
+            &org_a,
+            &member(),
+            node.id(),
+            json!({"autotracing": {"cpu_sys": true}}),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::InvalidArgument(_)), "{error:?}");
 
     let out = fixture.service.poll(&mut session).await.unwrap();
 
@@ -281,7 +295,7 @@ async fn tasks_need_a_kind_the_node_declares_and_a_sound_spec() {
             crate::app::node_agent::CreateTaskInput {
                 node_id: outcome.node.id.clone(),
                 kind: domain::node_agent::TaskKind::Profile,
-                spec: json!({"duration_secs": 30, "type": "cpu"}),
+                spec: json!({"duration_secs": 30, "mode": "oncpu"}),
                 timeout_seconds: 600,
                 max_attempts: 1,
             },

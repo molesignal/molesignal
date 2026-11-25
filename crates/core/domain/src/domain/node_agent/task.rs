@@ -10,7 +10,7 @@
 //! next attempt until the attempts or the deadline run out. Cancelling a task that is on a node asks
 //! the node to stop; the task ends with the node's result or when its lease runs out.
 
-use kernel::{Error, Result, ids::Id, time::TimestampMicros};
+use kernel::{ids::Id, time::TimestampMicros};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -483,35 +483,5 @@ impl NodeTask {
 
     fn lease_until(&self, lease_ttl_micros: i64, now: TimestampMicros) -> TimestampMicros {
         TimestampMicros(now.0.saturating_add(lease_ttl_micros)).min(self.deadline)
-    }
-
-    /// Checks the spec of a new task. The node checks it again, strictly; this catches what is
-    /// plainly wrong before it takes a slot of the quota.
-    pub fn validate_spec(kind: TaskKind, spec: &Value) -> Result<()> {
-        let Some(object) = spec.as_object() else {
-            return Err(Error::invalid("a task spec must be a JSON object"));
-        };
-
-        if serde_json::to_vec(spec).map_or(usize::MAX, |bytes| bytes.len()) > 64 * 1024 {
-            return Err(Error::invalid("a task spec must stay within 64 KiB"));
-        }
-
-        if kind != TaskKind::Tool {
-            return Ok(());
-        }
-
-        match object.get("tool").and_then(Value::as_str) {
-            Some("dropwatch" | "tcpshark" | "iotracing" | "perf") => {}
-            _ => {
-                return Err(Error::invalid(
-                    "`tool` must be one of dropwatch, tcpshark, iotracing and perf",
-                ));
-            }
-        }
-
-        match object.get("duration_secs").and_then(Value::as_u64) {
-            Some(1..=3600) => Ok(()),
-            _ => Err(Error::invalid("`duration_secs` must be between 1 and 3600")),
-        }
     }
 }

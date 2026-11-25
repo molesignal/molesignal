@@ -81,20 +81,6 @@ export function parseLabels(
   return { labels };
 }
 
-/** A spec typed as JSON: the object, or why it is not one. */
-export function parseSpec(text: string): { spec: Record<string, unknown> } | { error: 'json' | 'object' } {
-  let value: unknown;
-
-  try {
-    value = JSON.parse(text);
-  } catch {
-    return { error: 'json' };
-  }
-
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { error: 'object' };
-  return { spec: value as Record<string, unknown> };
-}
-
 /** What a task is in a few words: the tool it runs, else its kind. */
 export function taskSubject(task: Pick<NodeTask, 'kind' | 'spec'>): string {
   const tool = task.spec.tool;

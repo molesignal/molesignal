@@ -42,8 +42,9 @@ impl fmt::Display for ProtocolVersion {
 }
 
 /// What an agent declared it can run. Task kinds it names that this side does not know are dropped.
+/// A stored `{}` (the column default) reads as no capabilities.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Capabilities {
     pub task_kinds: Vec<TaskKind>,
     pub features: Vec<String>,
@@ -81,8 +82,9 @@ pub enum HealthState {
     Degraded,
 }
 
+/// A stored `{}` (the column default, before the first heartbeat) reads as unknown health.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Health {
     pub state: HealthState,
     pub messages: Vec<String>,
