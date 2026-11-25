@@ -313,6 +313,108 @@
     "copy": "Copiar",
     "expand_code": "Expandir código",
     "collapse_code": "Recolher código",
-    "token_missing": "Nenhum token de ingestão disponível. Crie um no gerenciamento de tokens."
+    "token_missing": "Nenhum token de ingestão disponível. Crie um no gerenciamento de tokens.",
+    "node_agent": {
+      "assets": {
+        "title": "Instalar os recursos do host",
+        "description": "Índices, um dashboard, visualizações salvas e regras de alerta em tempo real para os hosts que o agente monitora.",
+        "install": "Instalar",
+        "up_to_date": "Instalado",
+        "install_hint": "Instalar novamente só adiciona o que está faltando e nunca sobrescreve suas alterações. As regras de alerta começam desabilitadas.",
+        "installed": "Recursos do host instalados",
+        "skipped": "Não instalados por falta de permissão: {{items}}",
+        "unreadable": "Não foi possível ler os ativos do host: {{message}}",
+        "open": "Abrir",
+        "indexes": {
+          "title": "Índices de eventos",
+          "ready": "host.id, container.id, event.name, event.domain e severity_text têm índices exatos",
+          "no_stream": "índices exatos chegam com o primeiro evento",
+          "missing": "ainda não há índice em {{fields}}"
+        },
+        "dashboard": {
+          "title": "Dashboard do host",
+          "missing": "não instalado",
+          "outdated": "uma versão mais recente está disponível",
+          "current": "instalado",
+          "taken": "outro dashboard usa o uid host-overview"
+        },
+        "views": {
+          "title": "Visualizações salvas",
+          "count": "{{installed}} de {{total}}: OOM, rede, RAS e travamentos, erros"
+        },
+        "alerts": {
+          "title": "Regras de alerta",
+          "count": "{{made}} de {{total}} criadas, {{enabled}} habilitadas",
+          "unreadable": "você não tem permissão para ler regras de alerta"
+        }
+      },
+      "alerts": {
+        "title": "Alertas em tempo real",
+        "description": "Cada regra conta os eventos do host conforme chegam: um evento em cinco minutos abre um incidente na política de escalonamento padrão. As regras são criadas desabilitadas; habilite as que você quer que gerem acionamento.",
+        "on": "Ativado",
+        "enable": "Ativar",
+        "disable": "Desativar",
+        "edit": "Editar",
+        "not_installed": "Instale os recursos primeiro",
+        "enabled_toast": "{{name}} ativada",
+        "disabled_toast": "{{name}} desativada",
+        "templates": {
+          "oom_kill": {
+            "name": "Processo encerrado por OOM",
+            "description": "Um processo foi morto por falta de memória, pelo kernel ou pelo limite do seu contêiner."
+          },
+          "hungtask": {
+            "name": "Tarefa travada",
+            "description": "Uma tarefa permaneceu em sono ininterruptível (estado D) além do tempo limite de hung_task do kernel."
+          },
+          "softlockup": {
+            "name": "Soft lockup",
+            "description": "Uma CPU não realizou agendamento por mais tempo do que o watchdog permite."
+          },
+          "ras_uncorrected": {
+            "name": "Erro de hardware não corrigido",
+            "description": "MCE, memória EDAC ou PCIe AER relataram um erro que o hardware não conseguiu corrigir."
+          },
+          "netdev_carrier_down": {
+            "name": "Portadora do link inativa",
+            "description": "Uma interface de rede perdeu sua portadora: o cabo, a porta do switch ou a NIC."
+          },
+          "netdev_txqueue_timeout": {
+            "name": "Tempo limite da fila de transmissão",
+            "description": "Uma fila de transmissão da NIC expirou e o dispositivo foi reiniciado."
+          }
+        }
+      },
+      "runbook": {
+        "title": "Solução de problemas",
+        "description": "Quando algo não chega, execute o doctor primeiro e depois a verificação do sintoma.",
+        "items": {
+          "no_data": {
+            "title": "Nenhum dado",
+            "description": "O doctor indica o que falha: a configuração, o endpoint, o token ou o kernel. Um FAIL no endpoint significa que o host não consegue alcançar a porta 4317: verifique firewalls e MS_ENDPOINT."
+          },
+          "unauthorized": {
+            "title": "401 Não autorizado",
+            "description": "O token está incorreto, foi revogado ou está ilegível. Use um token de intake desta organização, sozinho no arquivo de token e legível apenas pelo root; a linha de autenticação do doctor mostra o que o endpoint respondeu."
+          },
+          "grpc_http": {
+            "title": "Lotes se acumulam com “intake unreachable (…)”",
+            "description": "MS_ENDPOINT deve ser a porta gRPC (4317) e MS_HTTP_ENDPOINT, a API HTTP, o endereço desta página. Com MS_ENDPOINT na porta HTTP, o gRPC responde com 404; com ambos em 4317, todo upload de perfil falha."
+          },
+          "no_profiles": {
+            "title": "Métricas chegam, mas sem perfis",
+            "description": "Os perfis são enviados por HTTP para /api/v1/profiles/intake, e a criação contínua de perfis de CPU está desativada por padrão. Defina MS_HTTP_ENDPOINT e MS_PROFILING_CPU_ENABLED=true e depois procure as cargas de trabalho do host em Perfis."
+          },
+          "float_missing": {
+            "title": "Porcentagens de carga ou CPU ausentes",
+            "description": "Antes desta versão, um stream cuja coluna de valor foi inicialmente definida como inteiro descartava pontos decimais posteriores sem erro. Atualize o MoleSignal: a coluna é ampliada para float, e cada resposta de intake informa os pontos que recusou. A consulta mostra os pontos de loadavg e cpu_util."
+          },
+          "no_events": {
+            "title": "Métricas chegam, mas sem eventos",
+            "description": "Os eventos de kernel precisam de BTF, tracefs e das capabilities de BPF (no Kubernetes, as montagens do DaemonSet). O doctor marca o que está faltando e capabilities lista os coletores em execução. Eventos são raros por natureza: um host ocioso pode não enviar nenhum."
+          }
+        }
+      }
+    }
   }
 }

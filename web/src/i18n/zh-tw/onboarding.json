@@ -310,6 +310,108 @@
     "copy": "複製",
     "expand_code": "展開程式碼",
     "collapse_code": "收合程式碼",
-    "token_missing": "沒有可用於資料接收的 Token，可在 Token 管理中建立。"
+    "token_missing": "沒有可用於資料接收的 Token，可在 Token 管理中建立。",
+    "node_agent": {
+      "assets": {
+        "title": "安裝主機資產",
+        "description": "為 agent 監控的主機準備索引、儀表板、儲存的檢視和即時告警規則。",
+        "install": "安裝",
+        "up_to_date": "已安裝",
+        "install_hint": "重複安裝只會補上缺少的部分，不會覆蓋你的修改；告警規則預設關閉。",
+        "installed": "主機資產已安裝",
+        "skipped": "沒有權限，未安裝：{{items}}",
+        "unreadable": "讀取主機資產失敗：{{message}}",
+        "open": "開啟",
+        "indexes": {
+          "title": "事件索引",
+          "ready": "host.id、container.id、event.name、event.domain、severity_text 已有精確索引",
+          "no_stream": "第一個事件到達時自動帶上精確索引",
+          "missing": "{{fields}} 還沒有索引"
+        },
+        "dashboard": {
+          "title": "主機概覽儀表板",
+          "missing": "尚未安裝",
+          "outdated": "有新版本",
+          "current": "已安裝",
+          "taken": "已有其他儀表板佔用 uid host-overview"
+        },
+        "views": {
+          "title": "已儲存的檢視",
+          "count": "已安裝 {{installed}}/{{total}}：OOM、網路、RAS 與核心卡頓、錯誤事件"
+        },
+        "alerts": {
+          "title": "告警規則",
+          "count": "已建立 {{made}}/{{total}}，啟用 {{enabled}}",
+          "unreadable": "你沒有讀取告警規則的權限"
+        }
+      },
+      "alerts": {
+        "title": "即時告警",
+        "description": "每條規則會在事件寫入時即時計數：5 分鐘內出現一筆就開事件，走預設升級策略。規則建立後預設關閉，需要時再啟用。",
+        "on": "已啟用",
+        "enable": "啟用",
+        "disable": "停用",
+        "edit": "編輯",
+        "not_installed": "先安裝資產",
+        "enabled_toast": "已啟用 {{name}}",
+        "disabled_toast": "已停用 {{name}}",
+        "templates": {
+          "oom_kill": {
+            "name": "OOM kill",
+            "description": "行程因記憶體不足被終止：整台機器記憶體耗盡或容器超出記憶體上限。"
+          },
+          "hungtask": {
+            "name": "Hung task",
+            "description": "工作處於不可中斷睡眠（D 狀態）超過核心 hung_task 閾值。"
+          },
+          "softlockup": {
+            "name": "Soft lockup",
+            "description": "某顆 CPU 長時間未排程，超過 watchdog 閾值。"
+          },
+          "ras_uncorrected": {
+            "name": "無法修正的硬體錯誤",
+            "description": "MCE、EDAC 記憶體或 PCIe AER 回報了硬體無法修正的錯誤。"
+          },
+          "netdev_carrier_down": {
+            "name": "網路卡連線中斷",
+            "description": "網路卡遺失載波：網路線、交換器連接埠或網路卡本身。"
+          },
+          "netdev_txqueue_timeout": {
+            "name": "網路卡傳送佇列逾時",
+            "description": "網路卡傳送佇列逾時，裝置被重設。"
+          }
+        }
+      },
+      "runbook": {
+        "title": "排障手冊",
+        "description": "資料沒進來時先跑 doctor，再依症狀排查。",
+        "items": {
+          "no_data": {
+            "title": "完全沒有資料",
+            "description": "doctor 會指出失敗的那一項：設定、endpoint、token 或核心。endpoint 一項顯示 FAIL 表示主機連不上 4317 連接埠，請檢查防火牆與 MS_ENDPOINT。"
+          },
+          "unauthorized": {
+            "title": "401 未授權",
+            "description": "token 錯誤、已撤銷或讀取不到。請使用本組織的 intake token，單獨存放在 token 檔案裡且只有 root 可讀；doctor 的 auth 一行會顯示 endpoint 的回應。"
+          },
+          "grpc_http": {
+            "title": "批次積壓，日誌回報 “intake unreachable (…)”",
+            "description": "MS_ENDPOINT 必須是 gRPC 連接埠（4317），MS_HTTP_ENDPOINT 則是 HTTP API，也就是本頁面的位址。MS_ENDPOINT 指向 HTTP 連接埠時，gRPC 會收到 404；兩者都指向 4317 時，所有 profile 上傳都會失敗。"
+          },
+          "no_profiles": {
+            "title": "只有 metrics，沒有 profile",
+            "description": "profile 經由 HTTP 上傳到 /api/v1/profiles/intake，持續性 CPU profiling 預設為關閉。請設定 MS_HTTP_ENDPOINT 與 MS_PROFILING_CPU_ENABLED=true，然後在 Profiles 頁面查看這台主機上的負載。"
+          },
+          "float_missing": {
+            "title": "loadavg、CPU 百分比等浮點指標缺失",
+            "description": "先前的版本中，value 欄位會先因整數點而被推斷為整數型別，之後的小數點就會被無聲丟棄。升級 MoleSignal 後，該欄位會擴寬為浮點數，各 intake 端點也會回報被拒絕的筆數。下方的查詢會列出 loadavg 與 cpu_util 的點數。"
+          },
+          "no_events": {
+            "title": "有 metrics 卻沒有事件",
+            "description": "核心事件依賴 BTF、tracefs 與 BPF 相關 capability（Kubernetes 下即 DaemonSet 的掛載）。doctor 會標出缺失項目，capabilities 會列出這台主機上執行的採集器。事件本身就不多，閒置主機可能一筆也沒有。"
+          }
+        }
+      }
+    }
   }
 }

@@ -310,6 +310,108 @@
     "copy": "복사",
     "expand_code": "코드 펼치기",
     "collapse_code": "코드 접기",
-    "token_missing": "사용할 수 있는 수집 토큰이 없습니다. 토큰 관리에서 새 토큰을 만드세요."
+    "token_missing": "사용할 수 있는 수집 토큰이 없습니다. 토큰 관리에서 새 토큰을 만드세요.",
+    "node_agent": {
+      "assets": {
+        "title": "호스트 자산 설치",
+        "description": "에이전트가 모니터링하는 호스트를 위한 인덱스, 대시보드, 저장된 뷰, 실시간 알림 규칙입니다.",
+        "install": "설치",
+        "up_to_date": "설치됨",
+        "install_hint": "다시 설치하면 누락된 항목만 추가되며 변경 사항은 절대 덮어쓰지 않습니다. 알림 규칙은 비활성화된 상태로 시작합니다.",
+        "installed": "호스트 자산 설치됨",
+        "skipped": "권한이 없어 설치되지 않음: {{items}}",
+        "unreadable": "호스트 자산을 읽을 수 없습니다: {{message}}",
+        "open": "열기",
+        "indexes": {
+          "title": "이벤트 인덱스",
+          "ready": "host.id, container.id, event.name, event.domain 및 severity_text에 정확한 인덱스가 있습니다",
+          "no_stream": "정확한 인덱스는 첫 이벤트가 들어오면 생성됩니다",
+          "missing": "{{fields}}에 아직 인덱스가 없습니다"
+        },
+        "dashboard": {
+          "title": "호스트 대시보드",
+          "missing": "설치되지 않음",
+          "outdated": "새 버전을 사용할 수 있습니다",
+          "current": "설치됨",
+          "taken": "다른 대시보드가 uid host-overview를 사용 중입니다"
+        },
+        "views": {
+          "title": "저장된 뷰",
+          "count": "{{total}}개 중 {{installed}}개: OOM, 네트워크, RAS, 멈춤, 오류"
+        },
+        "alerts": {
+          "title": "알림 규칙",
+          "count": "{{total}}개 중 {{made}}개 생성, {{enabled}}개 활성화",
+          "unreadable": "알림 규칙을 읽을 권한이 없습니다"
+        }
+      },
+      "alerts": {
+        "title": "실시간 알림",
+        "description": "각 규칙은 호스트 이벤트가 도착하는 대로 계산합니다. 5분 내 이벤트 하나가 기본 에스컬레이션 정책에서 인시던트를 엽니다. 규칙은 비활성화된 상태로 생성되며, 알림을 받을 규칙을 활성화하세요.",
+        "on": "켜짐",
+        "enable": "활성화",
+        "disable": "비활성화",
+        "edit": "편집",
+        "not_installed": "먼저 자산을 설치하세요",
+        "enabled_toast": "{{name}} 활성화됨",
+        "disabled_toast": "{{name}} 비활성화됨",
+        "templates": {
+          "oom_kill": {
+            "name": "OOM 종료",
+            "description": "메모리 부족으로 프로세스가 커널 또는 컨테이너 한도에 의해 종료되었습니다."
+          },
+          "hungtask": {
+            "name": "멈춘 작업",
+            "description": "작업이 커널의 hung_task 제한 시간을 초과하여 중단 불가능한 슬립(D 상태)에 머물렀습니다."
+          },
+          "softlockup": {
+            "name": "소프트 록업",
+            "description": "CPU가 워치독이 허용하는 시간보다 오래 스케줄링되지 않았습니다."
+          },
+          "ras_uncorrected": {
+            "name": "수정 불가 하드웨어 오류",
+            "description": "MCE, EDAC 메모리 또는 PCIe AER에서 하드웨어가 수정할 수 없는 오류를 보고했습니다."
+          },
+          "netdev_carrier_down": {
+            "name": "링크 캐리어 다운",
+            "description": "네트워크 인터페이스가 캐리어를 잃었습니다. 케이블, 스위치 포트 또는 NIC 문제입니다."
+          },
+          "netdev_txqueue_timeout": {
+            "name": "전송 큐 시간 초과",
+            "description": "NIC 전송 큐 시간이 초과되어 장치가 재설정되었습니다."
+          }
+        }
+      },
+      "runbook": {
+        "title": "문제 해결",
+        "description": "무언가 도착하지 않으면 먼저 doctor를 실행한 다음, 증상별 점검을 수행하세요.",
+        "items": {
+          "no_data": {
+            "title": "데이터가 전혀 없음",
+            "description": "doctor는 구성, 엔드포인트, 토큰 또는 커널 중 무엇이 실패했는지 알려 줍니다. 엔드포인트에서 FAIL이 나오면 호스트가 4317 포트에 연결할 수 없다는 뜻이므로 방화벽과 MS_ENDPOINT를 확인하세요."
+          },
+          "unauthorized": {
+            "title": "401 권한 없음",
+            "description": "토큰이 잘못되었거나, 취소되었거나, 읽을 수 없습니다. 이 조직의 인테이크 토큰을 사용하세요. 토큰 파일에는 해당 토큰만 있어야 하며 root만 읽을 수 있어야 합니다. doctor의 auth 줄은 엔드포인트가 응답한 내용을 표시합니다."
+          },
+          "grpc_http": {
+            "title": "배치가 “인테이크에 연결할 수 없음 (…)” 메시지와 함께 쌓임",
+            "description": "MS_ENDPOINT는 gRPC 포트(4317)여야 하고, MS_HTTP_ENDPOINT는 HTTP API인 이 페이지의 주소여야 합니다. MS_ENDPOINT를 HTTP 포트로 설정하면 gRPC 요청에 404가 반환되고, 둘 다 4317로 설정하면 모든 프로필 업로드가 실패합니다."
+          },
+          "no_profiles": {
+            "title": "메트릭은 도착하지만 프로필은 없음",
+            "description": "프로필은 HTTP를 통해 /api/v1/profiles/intake로 업로드되며, 지속적인 CPU 프로파일링은 기본적으로 비활성화되어 있습니다. MS_HTTP_ENDPOINT와 MS_PROFILING_CPU_ENABLED=true를 설정한 다음, 프로필에서 호스트의 워크로드를 찾아보세요."
+          },
+          "float_missing": {
+            "title": "로드 또는 CPU 백분율 누락",
+            "description": "이 버전 이전에는 값 열의 타입이 처음에 정수로 지정된 스트림에서 이후 소수점이 오류 없이 누락되었습니다. MoleSignal을 업그레이드하면 열이 float로 확장되고, 모든 인테이크 응답이 거부한 데이터 포인트를 보고합니다. 쿼리는 loadavg 및 cpu_util의 데이터 포인트를 표시합니다."
+          },
+          "no_events": {
+            "title": "메트릭은 도착하지만 이벤트는 없음",
+            "description": "커널 이벤트에는 BTF, tracefs 및 BPF 권한이 필요합니다(Kubernetes에서는 DaemonSet의 마운트). doctor는 누락된 항목을 표시하고, capabilities는 실행 중인 수집기를 나열합니다. 이벤트는 본질적으로 드물기 때문에 유휴 호스트는 아무 이벤트도 보내지 않을 수 있습니다."
+          }
+        }
+      }
+    }
   }
 }

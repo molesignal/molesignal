@@ -310,6 +310,108 @@
     "copy": "コピー",
     "expand_code": "コードを展開",
     "collapse_code": "コードを折りたたむ",
-    "token_missing": "取り込み用トークンがありません。トークン管理で作成してください。"
+    "token_missing": "取り込み用トークンがありません。トークン管理で作成してください。",
+    "node_agent": {
+      "assets": {
+        "title": "ホストアセットをインストール",
+        "description": "エージェントが監視するホスト用のインデックス、ダッシュボード、保存済みビュー、リアルタイムアラートルールです。",
+        "install": "インストール",
+        "up_to_date": "インストール済み",
+        "install_hint": "再インストールでは不足分のみが追加され、変更内容が上書きされることはありません。アラートルールは無効の状態で開始されます。",
+        "installed": "ホストアセットをインストールしました",
+        "skipped": "権限不足のためインストールされませんでした: {{items}}",
+        "unreadable": "ホストのアセットを読み取れませんでした: {{message}}",
+        "open": "開く",
+        "indexes": {
+          "title": "イベントインデックス",
+          "ready": "host.id、container.id、event.name、event.domain、severity_text に正確なインデックスがあります",
+          "no_stream": "正確なインデックスは最初のイベントで作成されます",
+          "missing": "{{fields}} にまだインデックスがありません"
+        },
+        "dashboard": {
+          "title": "ホストダッシュボード",
+          "missing": "未インストール",
+          "outdated": "新しいバージョンが利用可能です",
+          "current": "インストール済み",
+          "taken": "別のダッシュボードが uid host-overview を使用しています"
+        },
+        "views": {
+          "title": "保存済みビュー",
+          "count": "{{installed}} / {{total}}：OOM、ネットワーク、RAS、ハング、エラー"
+        },
+        "alerts": {
+          "title": "アラートルール",
+          "count": "{{total}} 件中 {{made}} 件を作成済み、{{enabled}} 件が有効",
+          "unreadable": "アラートルールを読み取る権限がありません"
+        }
+      },
+      "alerts": {
+        "title": "リアルタイムアラート",
+        "description": "各ルールはホストイベントの受信時にカウントします。5分間に1件のイベントで、デフォルトのエスカレーションポリシーに基づいてインシデントが作成されます。ルールは無効の状態で作成されます。ページ通知を受け取りたいルールを有効にしてください。",
+        "on": "オン",
+        "enable": "有効にする",
+        "disable": "無効にする",
+        "edit": "編集",
+        "not_installed": "先にアセットをインストールしてください",
+        "enabled_toast": "{{name}} を有効にしました",
+        "disabled_toast": "{{name}} を無効にしました",
+        "templates": {
+          "oom_kill": {
+            "name": "OOM キル",
+            "description": "メモリ不足により、カーネルまたはコンテナの制限によってプロセスが強制終了されました。"
+          },
+          "hungtask": {
+            "name": "タスクのハング",
+            "description": "タスクがカーネルの hung_task タイムアウトを超えて、中断不可能なスリープ（D 状態）のままになっています。"
+          },
+          "softlockup": {
+            "name": "ソフトロックアップ",
+            "description": "CPU がウォッチドッグの許容時間を超えてスケジューリングされませんでした。"
+          },
+          "ras_uncorrected": {
+            "name": "修正不能なハードウェアエラー",
+            "description": "MCE、EDAC メモリ、または PCIe AER が、ハードウェアで修正できないエラーを報告しました。"
+          },
+          "netdev_carrier_down": {
+            "name": "リンクキャリアダウン",
+            "description": "ネットワークインターフェースがキャリアを失いました。原因はケーブル、スイッチポート、または NIC です。"
+          },
+          "netdev_txqueue_timeout": {
+            "name": "送信キューのタイムアウト",
+            "description": "NIC の送信キューがタイムアウトし、デバイスがリセットされました。"
+          }
+        }
+      },
+      "runbook": {
+        "title": "トラブルシューティング",
+        "description": "何かが届かないときは、まず doctor を実行してから、症状のチェックを行ってください。",
+        "items": {
+          "no_data": {
+            "title": "データがまったくない",
+            "description": "doctor は失敗している対象を特定します: 設定、エンドポイント、トークン、カーネルです。エンドポイントの FAIL は、ホストがポート 4317 に到達できないことを意味します。ファイアウォールと MS_ENDPOINT を確認してください。"
+          },
+          "unauthorized": {
+            "title": "401 Unauthorized",
+            "description": "トークンが間違っているか、失効しているか、読み取れません。この組織の取り込みトークンを使用し、トークンファイルにはそれだけを記述して root のみが読み取れるようにしてください。doctor の auth 行に、エンドポイントが返した内容が表示されます。"
+          },
+          "grpc_http": {
+            "title": "「intake unreachable (…)」でバッチが滞留する",
+            "description": "MS_ENDPOINT は gRPC ポート（4317）に、MS_HTTP_ENDPOINT は HTTP API（このページのアドレス）にする必要があります。MS_ENDPOINT を HTTP ポートにすると gRPC への応答は 404 になり、両方を 4317 にするとすべてのプロファイルのアップロードが失敗します。"
+          },
+          "no_profiles": {
+            "title": "メトリクスは届くがプロファイルがない",
+            "description": "プロファイルは HTTP 経由で /api/v1/profiles/intake にアップロードされ、継続的な CPU プロファイリングはデフォルトで無効です。MS_HTTP_ENDPOINT と MS_PROFILING_CPU_ENABLED=true を設定し、プロファイルでホストのワークロードを探してください。"
+          },
+          "float_missing": {
+            "title": "負荷または CPU 使用率が欠落しています",
+            "description": "このバージョンより前は、値カラムが最初に整数として型付けられたストリームでは、後から来る小数点以下がエラーなしで切り捨てられていました。MoleSignal をアップグレードしてください。カラムは float に拡張され、各取り込み応答は拒否したポイントを報告します。クエリは loadavg と cpu_util のポイントを表示します。"
+          },
+          "no_events": {
+            "title": "メトリクスは届くがイベントがない",
+            "description": "カーネルイベントには BTF、tracefs、および BPF ケイパビリティが必要です（Kubernetes では DaemonSet のマウント）。doctor は不足しているものを示し、capabilities は実行中のコレクターを一覧表示します。イベントは本質的にまれです。アイドル状態のホストでは何も送信されないことがあります。"
+          }
+        }
+      }
+    }
   }
 }

@@ -313,6 +313,108 @@
     "copy": "Copier",
     "expand_code": "Développer le code",
     "collapse_code": "Réduire le code",
-    "token_missing": "Aucun jeton d’ingestion n’est disponible ; créez-en un dans la section de gestion des jetons."
+    "token_missing": "Aucun jeton d’ingestion n’est disponible ; créez-en un dans la section de gestion des jetons.",
+    "node_agent": {
+      "assets": {
+        "title": "Installer les ressources de l'hôte",
+        "description": "Index, tableau de bord, vues enregistrées et règles d'alerte en temps réel pour les hôtes surveillés par l'agent.",
+        "install": "Installer",
+        "up_to_date": "Installé",
+        "install_hint": "Une nouvelle installation n'ajoute que ce qui manque et n'écrase jamais vos modifications. Les règles d'alerte sont créées désactivées.",
+        "installed": "Ressources de l'hôte installées",
+        "skipped": "Non installé par manque de permissions : {{items}}",
+        "unreadable": "Impossible de lire les ressources de l’hôte : {{message}}",
+        "open": "Ouvrir",
+        "indexes": {
+          "title": "Index des événements",
+          "ready": "host.id, container.id, event.name, event.domain et severity_text disposent d'index exacts",
+          "no_stream": "les index exacts arrivent avec le premier événement",
+          "missing": "aucun index pour l'instant sur {{fields}}"
+        },
+        "dashboard": {
+          "title": "Tableau de bord de l'hôte",
+          "missing": "non installé",
+          "outdated": "une version plus récente est disponible",
+          "current": "installé",
+          "taken": "un autre tableau de bord utilise l'uid host-overview"
+        },
+        "views": {
+          "title": "Vues enregistrées",
+          "count": "{{installed}} sur {{total}} : OOM, réseau, RAS et blocages, erreurs"
+        },
+        "alerts": {
+          "title": "Règles d'alerte",
+          "count": "{{made}} sur {{total}} créées, {{enabled}} activées",
+          "unreadable": "vous n'avez peut-être pas le droit de lire les règles d'alerte"
+        }
+      },
+      "alerts": {
+        "title": "Alertes en temps réel",
+        "description": "Chaque règle compte les événements de l'hôte à leur arrivée : un événement en cinq minutes ouvre un incident sur la politique d'escalade par défaut. Les règles sont créées désactivées ; activez celles pour lesquelles vous souhaitez être alerté.",
+        "on": "Activé",
+        "enable": "Activer",
+        "disable": "Désactiver",
+        "edit": "Modifier",
+        "not_installed": "Installez d'abord les ressources",
+        "enabled_toast": "{{name}} activée",
+        "disabled_toast": "{{name}} désactivée",
+        "templates": {
+          "oom_kill": {
+            "name": "Tué par OOM",
+            "description": "Un processus a été tué faute de mémoire, par le noyau ou par la limite de son conteneur."
+          },
+          "hungtask": {
+            "name": "Tâche bloquée",
+            "description": "Une tâche est restée en sommeil ininterruptible (état D) au-delà du délai hung_task du noyau."
+          },
+          "softlockup": {
+            "name": "Blocage logiciel",
+            "description": "Un CPU n'a pas ordonnancé pendant plus longtemps que ne le permet le watchdog."
+          },
+          "ras_uncorrected": {
+            "name": "Erreur matérielle non corrigée",
+            "description": "MCE, EDAC (mémoire) ou PCIe AER a signalé une erreur que le matériel n'a pas pu corriger."
+          },
+          "netdev_carrier_down": {
+            "name": "Porteuse du lien perdue",
+            "description": "Une interface réseau a perdu sa porteuse : le câble, le port du switch ou la carte réseau."
+          },
+          "netdev_txqueue_timeout": {
+            "name": "Expiration de la file de transmission",
+            "description": "Une file de transmission de la carte réseau a expiré et le périphérique a été réinitialisé."
+          }
+        }
+      },
+      "runbook": {
+        "title": "Dépannage",
+        "description": "Lorsque quelque chose n’arrive pas, lancez d’abord doctor, puis la vérification du symptôme.",
+        "items": {
+          "no_data": {
+            "title": "Aucune donnée du tout",
+            "description": "doctor identifie ce qui échoue : la configuration, le point de terminaison, le jeton ou le noyau. Un FAIL sur le point de terminaison signifie que l’hôte ne peut pas atteindre le port 4317 : vérifiez les pare-feu et MS_ENDPOINT."
+          },
+          "unauthorized": {
+            "title": "401 Non autorisé",
+            "description": "Le jeton est incorrect, révoqué ou illisible. Utilisez un jeton d’ingestion de cette organisation, seul dans le fichier de jetons et lisible uniquement par root ; la ligne auth de doctor indique ce que le point de terminaison a répondu."
+          },
+          "grpc_http": {
+            "title": "Les lots s’accumulent avec « intake unreachable (…) »",
+            "description": "MS_ENDPOINT doit être le port gRPC (4317) et MS_HTTP_ENDPOINT l’API HTTP, l’adresse de cette page. Si MS_ENDPOINT utilise le port HTTP, gRPC renvoie 404 ; si les deux sont sur 4317, chaque envoi de profil échoue."
+          },
+          "no_profiles": {
+            "title": "Les métriques arrivent, mais aucun profil",
+            "description": "Les profils sont envoyés via HTTP vers /api/v1/profiles/intake, et le profilage CPU continu est désactivé par défaut. Définissez MS_HTTP_ENDPOINT et MS_PROFILING_CPU_ENABLED=true, puis recherchez les charges de travail de l’hôte dans Profils."
+          },
+          "float_missing": {
+            "title": "Les pourcentages de charge ou de CPU manquent",
+            "description": "Avant cette version, un flux dont la colonne de valeurs était initialement typée comme entier perdait les décimales suivantes sans erreur. Mettez MoleSignal à niveau : la colonne est élargie en float, et chaque réponse d’ingestion indique les points qu’elle a refusés. La requête affiche les points de loadavg et cpu_util."
+          },
+          "no_events": {
+            "title": "Les métriques arrivent, mais aucun événement",
+            "description": "Les événements du noyau nécessitent BTF, tracefs et les capacités BPF (dans Kubernetes, les montages du DaemonSet). doctor signale ce qui manque et capabilities liste les collecteurs qui s’exécutent. Les événements sont rares par nature : un hôte inactif peut n’en envoyer aucun."
+          }
+        }
+      }
+    }
   }
 }

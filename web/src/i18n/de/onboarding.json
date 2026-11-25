@@ -310,6 +310,108 @@
     "copy": "Kopieren",
     "expand_code": "Code ausklappen",
     "collapse_code": "Code einklappen",
-    "token_missing": "Kein Token für die Datenaufnahme verfügbar. Erstellen Sie eines in der Token-Verwaltung."
+    "token_missing": "Kein Token für die Datenaufnahme verfügbar. Erstellen Sie eines in der Token-Verwaltung.",
+    "node_agent": {
+      "assets": {
+        "title": "Host-Assets installieren",
+        "description": "Indizes, ein Dashboard, gespeicherte Ansichten und Echtzeit-Alert-Regeln für die Hosts, die der Agent überwacht.",
+        "install": "Installieren",
+        "up_to_date": "Installiert",
+        "install_hint": "Eine erneute Installation ergänzt nur Fehlendes und überschreibt niemals Ihre Änderungen. Alert-Regeln starten deaktiviert.",
+        "installed": "Host-Assets installiert",
+        "skipped": "Wegen fehlender Berechtigung nicht installiert: {{items}}",
+        "unreadable": "Die Assets des Hosts konnten nicht gelesen werden: {{message}}",
+        "open": "Öffnen",
+        "indexes": {
+          "title": "Ereignisindizes",
+          "ready": "host.id, container.id, event.name, event.domain und severity_text haben exakte Indizes",
+          "no_stream": "Exakte Indizes entstehen mit dem ersten Ereignis",
+          "missing": "Noch kein Index für {{fields}}"
+        },
+        "dashboard": {
+          "title": "Host-Dashboard",
+          "missing": "nicht installiert",
+          "outdated": "Eine neuere Version ist verfügbar",
+          "current": "installiert",
+          "taken": "Ein anderes Dashboard verwendet die UID host-overview"
+        },
+        "views": {
+          "title": "Gespeicherte Ansichten",
+          "count": "{{installed}} von {{total}}: OOM, Netzwerk, RAS und Hänger, Fehler"
+        },
+        "alerts": {
+          "title": "Alert-Regeln",
+          "count": "{{made}} von {{total}} erstellt, {{enabled}} aktiviert",
+          "unreadable": "Sie dürfen Alert-Regeln nicht lesen"
+        }
+      },
+      "alerts": {
+        "title": "Echtzeit-Alerts",
+        "description": "Jede Regel zählt die Host-Ereignisse beim Eintreffen: Ein Ereignis in fünf Minuten eröffnet einen Incident gemäß der Standard-Eskalationsrichtlinie. Die Regeln werden deaktiviert angelegt; aktivieren Sie die Regeln, für die Sie alarmiert werden möchten.",
+        "on": "An",
+        "enable": "Aktivieren",
+        "disable": "Deaktivieren",
+        "edit": "Bearbeiten",
+        "not_installed": "Installieren Sie zuerst die Assets",
+        "enabled_toast": "{{name}} aktiviert",
+        "disabled_toast": "{{name}} deaktiviert",
+        "templates": {
+          "oom_kill": {
+            "name": "OOM-Kill",
+            "description": "Ein Prozess wurde wegen Speichermangels beendet – durch den Kernel oder durch das Limit seines Containers."
+          },
+          "hungtask": {
+            "name": "Hängende Aufgabe",
+            "description": "Eine Aufgabe blieb über das hung_task-Timeout des Kernels hinaus im unterbrechungsfreien Schlaf (D-Zustand)."
+          },
+          "softlockup": {
+            "name": "Soft Lockup",
+            "description": "Eine CPU hat länger als vom Watchdog erlaubt nicht mehr gescheduled."
+          },
+          "ras_uncorrected": {
+            "name": "Nicht korrigierter Hardwarefehler",
+            "description": "MCE, EDAC-Speicher oder PCIe-AER haben einen Fehler gemeldet, den die Hardware nicht korrigieren konnte."
+          },
+          "netdev_carrier_down": {
+            "name": "Link-Carrier ausgefallen",
+            "description": "Eine Netzwerkschnittstelle hat ihren Carrier verloren: Kabel, Switch-Port oder NIC."
+          },
+          "netdev_txqueue_timeout": {
+            "name": "Sende-Queue-Timeout",
+            "description": "Eine Sendewarteschlange der NIC hat das Zeitlimit überschritten und das Gerät wurde zurückgesetzt."
+          }
+        }
+      },
+      "runbook": {
+        "title": "Fehlerbehebung",
+        "description": "Wenn etwas nicht ankommt, führen Sie zuerst doctor aus, dann die Prüfung des Symptoms.",
+        "items": {
+          "no_data": {
+            "title": "Überhaupt keine Daten",
+            "description": "doctor benennt, was fehlschlägt: die Konfiguration, den Endpunkt, das Token oder den Kernel. Ein FAIL beim Endpunkt bedeutet, dass der Host Port 4317 nicht erreichen kann: Prüfen Sie Firewalls und MS_ENDPOINT."
+          },
+          "unauthorized": {
+            "title": "401 Unauthorized",
+            "description": "Das Token ist falsch, widerrufen oder nicht lesbar. Verwenden Sie ein Intake-Token dieser Organisation, allein in der Token-Datei und nur von root lesbar; die auth-Zeile von doctor zeigt, was der Endpunkt geantwortet hat."
+          },
+          "grpc_http": {
+            "title": "Batches stauen sich mit „intake unreachable (…)“",
+            "description": "MS_ENDPOINT muss der gRPC-Port (4317) sein und MS_HTTP_ENDPOINT die HTTP-API, die Adresse dieser Seite. Steht MS_ENDPOINT auf dem HTTP-Port, wird gRPC mit 404 beantwortet; stehen beide auf 4317, schlägt jeder Profil-Upload fehl."
+          },
+          "no_profiles": {
+            "title": "Metriken kommen an, aber keine Profile",
+            "description": "Profile werden per HTTP an /api/v1/profiles/intake hochgeladen, und kontinuierliches CPU-Profiling ist standardmäßig deaktiviert. Setzen Sie MS_HTTP_ENDPOINT und MS_PROFILING_CPU_ENABLED=true und suchen Sie dann unter Profile nach den Workloads des Hosts."
+          },
+          "float_missing": {
+            "title": "Last- oder CPU-Prozentwerte fehlen",
+            "description": "Vor dieser Version verwarf ein Stream, dessen Wertspalte zunächst als Integer typisiert wurde, spätere Dezimalstellen ohne Fehler. Aktualisieren Sie MoleSignal: Die Spalte wird auf Float erweitert, und jede Intake-Antwort meldet die Datenpunkte, die sie abgelehnt hat. Die Abfrage zeigt die Datenpunkte von loadavg und cpu_util."
+          },
+          "no_events": {
+            "title": "Metriken kommen an, aber keine Ereignisse",
+            "description": "Kernel-Ereignisse benötigen BTF, tracefs und die BPF-Capabilities (in Kubernetes die Mounts des DaemonSet). doctor markiert, was fehlt, und capabilities listet die Collectors auf, die laufen. Ereignisse sind von Natur aus selten: Ein Host im Leerlauf sendet möglicherweise keine."
+          }
+        }
+      }
+    }
   }
 }

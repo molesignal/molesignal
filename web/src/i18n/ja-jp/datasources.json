@@ -36,6 +36,28 @@
       }
     }
   },
+  "node-agent": {
+    "name": "MoleSignal Node Agent",
+    "description": "Linux ホストごとに 1 つのエージェントを配置し、メトリクス、カーネルおよびハードウェアイベント（OOM、パケットドロップ、再送、リンク変更、RAS、タスクのハング）、CPU プロファイルを収集します。",
+    "steps": {
+      "1": {
+        "title": "systemd サービスとしてエージェントをインストール",
+        "description": "各ホストでエージェントリリースのインストーラーを実行します。バイナリ、ユニット、/etc/molesignal-node-agent が配置されますが、エージェントは起動しません。"
+      },
+      "2": {
+        "title": "MoleSignal を指定して起動",
+        "description": "MS_ENDPOINT はポート 4317 の OTLP gRPC で、メトリクスとイベントに使用します。MS_HTTP_ENDPOINT は HTTP API で、フォールバックとプロファイルのアップロードに使用します。トークンファイルを読み取れるのは root のみです。"
+      },
+      "3": {
+        "title": "または各 Kubernetes ノードで実行",
+        "description": "DaemonSet は、ホストの名前空間を使って、同じエージェントをスタンドアロンのトークンモードで実行します。トークンは Secret に、アドレスは ConfigMap に格納します。"
+      },
+      "4": {
+        "title": "エージェントを確認",
+        "description": "doctor は、カーネル、BTF、権限、マウント、cgroups、コンテナランタイム、エンドポイント、トークンを確認します。すべての行が PASS である必要があります。WARN は、縮退状態で動作しているコレクターを示します。"
+      }
+    }
+  },
   "windows": {
     "name": "Windows ホスト",
     "description": "Windows イベント転送と winlogbeat を使用して、イベントログを転送します。",

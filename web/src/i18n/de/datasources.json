@@ -36,6 +36,28 @@
       }
     }
   },
+  "node-agent": {
+    "name": "MoleSignal Node Agent",
+    "description": "Ein Agent auf jedem Linux-Host: Metriken, Kernel- und Hardware-Ereignisse (OOM, Paketverluste, Neuübertragungen, Link-Änderungen, RAS, hängende Tasks) und CPU-Profile.",
+    "steps": {
+      "1": {
+        "title": "Agent als systemd-Dienst installieren",
+        "description": "Führen Sie den Installer der Agent-Version auf jedem Host aus. Er legt die Binärdatei, die Unit und /etc/molesignal-node-agent ab, ohne den Agenten zu starten."
+      },
+      "2": {
+        "title": "Auf MoleSignal ausrichten und starten",
+        "description": "MS_ENDPOINT ist OTLP gRPC auf Port 4317 für Metriken und Ereignisse. MS_HTTP_ENDPOINT ist die HTTP-API für den Fallback und Profil-Uploads. Die Token-Datei wird nur von root gelesen."
+      },
+      "3": {
+        "title": "Oder auf jedem Kubernetes-Node ausführen",
+        "description": "Das DaemonSet führt denselben Agenten im Standalone-Token-Modus mit den Namespaces des Hosts aus. Das Token kommt in ein Secret, die Adressen in die ConfigMap."
+      },
+      "4": {
+        "title": "Agent prüfen",
+        "description": "doctor prüft den Kernel, BTF, Berechtigungen, Mounts, cgroups, die Container-Runtime, den Endpoint und das Token. Jede Zeile sollte PASS anzeigen; eine WARN-Zeile benennt einen Collector, der degradiert läuft."
+      }
+    }
+  },
   "windows": {
     "name": "Windows-Hosts",
     "description": "Leiten Sie Ereignisprotokolle mit Windows Event Forwarding und winlogbeat weiter.",

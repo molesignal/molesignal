@@ -36,6 +36,28 @@
       }
     }
   },
+  "node-agent": {
+    "name": "MoleSignal Node Agent",
+    "description": "모든 Linux 호스트에 하나의 에이전트: 메트릭, 커널 및 하드웨어 이벤트(OOM, 패킷 드롭, 재전송, 링크 변경, RAS, 행된 작업) 및 CPU 프로파일.",
+    "steps": {
+      "1": {
+        "title": "에이전트를 systemd 서비스로 설치",
+        "description": "각 호스트에서 에이전트 릴리스의 설치 프로그램을 실행합니다. 에이전트를 시작하지 않은 상태로 바이너리, 유닛 및 /etc/molesignal-node-agent를 배치합니다."
+      },
+      "2": {
+        "title": "MoleSignal 대상 설정 및 시작",
+        "description": "MS_ENDPOINT는 메트릭과 이벤트용 OTLP gRPC(포트 4317)입니다. MS_HTTP_ENDPOINT는 폴백 및 프로파일 업로드용 HTTP API입니다. 토큰 파일은 root만 읽을 수 있습니다."
+      },
+      "3": {
+        "title": "또는 모든 Kubernetes 노드에서 실행",
+        "description": "DaemonSet는 동일한 에이전트를 호스트의 네임스페이스와 함께 독립 실행형 토큰 모드로 실행합니다. 토큰은 Secret에, 주소는 ConfigMap에 넣습니다."
+      },
+      "4": {
+        "title": "에이전트 확인",
+        "description": "doctor는 커널, BTF, 권한, 마운트, cgroups, 컨테이너 런타임, 엔드포인트 및 토큰을 확인합니다. 모든 줄이 PASS여야 하며, WARN은 저하된 상태로 실행되는 수집기를 나타냅니다."
+      }
+    }
+  },
   "windows": {
     "name": "Windows 호스트",
     "description": "Windows Event Forwarding과 winlogbeat를 사용해 이벤트 로그를 전송합니다.",

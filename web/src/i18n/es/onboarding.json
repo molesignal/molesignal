@@ -313,6 +313,108 @@
     "copy": "Copiar",
     "expand_code": "Expandir código",
     "collapse_code": "Contraer código",
-    "token_missing": "No hay ningún token de ingesta disponible. Crea uno en la sección de gestión de tokens."
+    "token_missing": "No hay ningún token de ingesta disponible. Crea uno en la sección de gestión de tokens.",
+    "node_agent": {
+      "assets": {
+        "title": "Instala los recursos del host",
+        "description": "Índices, un dashboard, vistas guardadas y reglas de alerta en tiempo real para los hosts que vigila el agente.",
+        "install": "Instalar",
+        "up_to_date": "Instalado",
+        "install_hint": "Volver a instalar solo agrega lo que falta y nunca sobrescribe tus cambios. Las reglas de alerta se inician deshabilitadas.",
+        "installed": "Recursos del host instalados",
+        "skipped": "No instalados por falta de permisos: {{items}}",
+        "unreadable": "No se pudieron leer los activos del host: {{message}}",
+        "open": "Abrir",
+        "indexes": {
+          "title": "Índices de eventos",
+          "ready": "host.id, container.id, event.name, event.domain y severity_text tienen índices exactos",
+          "no_stream": "los índices exactos aparecen con el primer evento",
+          "missing": "aún no hay índice en {{fields}}"
+        },
+        "dashboard": {
+          "title": "Dashboard del host",
+          "missing": "no instalado",
+          "outdated": "hay una versión más reciente disponible",
+          "current": "instalado",
+          "taken": "otro dashboard usa el uid host-overview"
+        },
+        "views": {
+          "title": "Vistas guardadas",
+          "count": "{{installed}} de {{total}}: OOM, red, RAS, cuelgues y errores"
+        },
+        "alerts": {
+          "title": "Reglas de alerta",
+          "count": "{{made}} de {{total}} creadas, {{enabled}} habilitadas",
+          "unreadable": "es posible que no puedas leer las reglas de alerta"
+        }
+      },
+      "alerts": {
+        "title": "Alertas en tiempo real",
+        "description": "Cada regla cuenta los eventos del host a medida que llegan: un evento en cinco minutos abre un incidente con la política de escalado predeterminada. Las reglas se crean deshabilitadas; habilita aquellas por las que quieres recibir avisos.",
+        "on": "Activa",
+        "enable": "Habilitar",
+        "disable": "Deshabilitar",
+        "edit": "Editar",
+        "not_installed": "Primero instala los recursos",
+        "enabled_toast": "{{name}} habilitada",
+        "disabled_toast": "{{name}} deshabilitada",
+        "templates": {
+          "oom_kill": {
+            "name": "Proceso terminado por OOM",
+            "description": "El kernel o el límite de su contenedor terminó un proceso por falta de memoria."
+          },
+          "hungtask": {
+            "name": "Tarea colgada",
+            "description": "Una tarea permaneció en suspensión ininterrumpible (estado D) más allá del tiempo de espera de hung_task del kernel."
+          },
+          "softlockup": {
+            "name": "Bloqueo suave",
+            "description": "Una CPU no programó durante más tiempo del que permite el watchdog."
+          },
+          "ras_uncorrected": {
+            "name": "Error de hardware no corregido",
+            "description": "MCE, la memoria EDAC o PCIe AER notificaron un error que el hardware no pudo corregir."
+          },
+          "netdev_carrier_down": {
+            "name": "Portadora del enlace caída",
+            "description": "Una interfaz de red perdió la señal de portadora: el cable, el puerto del switch o la NIC."
+          },
+          "netdev_txqueue_timeout": {
+            "name": "Tiempo de espera de la cola de transmisión agotado",
+            "description": "Se agotó el tiempo de espera de una cola de transmisión de la NIC y el dispositivo se reinició."
+          }
+        }
+      },
+      "runbook": {
+        "title": "Solución de problemas",
+        "description": "Cuando algo no llegue, ejecuta primero doctor y luego la comprobación del síntoma.",
+        "items": {
+          "no_data": {
+            "title": "No hay ningún dato",
+            "description": "doctor indica qué falla: la configuración, el endpoint, el token o el kernel. Un FAIL en el endpoint significa que el host no puede alcanzar el puerto 4317: revisa los cortafuegos y MS_ENDPOINT."
+          },
+          "unauthorized": {
+            "title": "401 No autorizado",
+            "description": "El token es incorrecto, está revocado o no se puede leer. Usa un token de ingesta de esta organización, solo en el archivo de token y legible únicamente por root; la línea de autenticación de doctor muestra lo que respondió el endpoint."
+          },
+          "grpc_http": {
+            "title": "Los lotes se acumulan con “ingesta inaccesible (…)”",
+            "description": "MS_ENDPOINT debe ser el puerto gRPC (4317) y MS_HTTP_ENDPOINT, la API HTTP, la dirección de esta página. Con MS_ENDPOINT en el puerto HTTP, gRPC responde con 404; con ambos en 4317, toda carga de perfiles falla."
+          },
+          "no_profiles": {
+            "title": "Llegan las métricas, pero no los perfiles",
+            "description": "Los perfiles se suben por HTTP a /api/v1/profiles/intake, y el perfilado continuo de CPU está desactivado de forma predeterminada. Configura MS_HTTP_ENDPOINT y MS_PROFILING_CPU_ENABLED=true, y luego busca las cargas de trabajo del host en Perfiles."
+          },
+          "float_missing": {
+            "title": "Faltan los porcentajes de carga o de CPU",
+            "description": "Antes de esta versión, un flujo cuya columna de valores se definió inicialmente como entero descartaba los decimales posteriores sin dar error. Actualiza MoleSignal: la columna se amplía a float y cada respuesta de ingesta informa los puntos que rechazó. La consulta muestra los puntos de loadavg y cpu_util."
+          },
+          "no_events": {
+            "title": "Llegan las métricas, pero no los eventos",
+            "description": "Los eventos del kernel necesitan BTF, tracefs y las capacidades de BPF (en Kubernetes, los montajes del DaemonSet). doctor marca lo que falta y capabilities enumera los colectores que se ejecutan. Los eventos son raros por naturaleza: un host inactivo puede no enviar ninguno."
+          }
+        }
+      }
+    }
   }
 }

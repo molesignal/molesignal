@@ -36,6 +36,28 @@
       }
     }
   },
+  "node-agent": {
+    "name": "MoleSignal Node Agent",
+    "description": "Un agent sur chaque hôte Linux : métriques, événements du noyau et du matériel (OOM, pertes de paquets, retransmissions, changements de lien, RAS, tâches bloquées) et profils CPU.",
+    "steps": {
+      "1": {
+        "title": "Installez l'agent comme service systemd",
+        "description": "Exécutez l'installateur de la version de l'agent sur chaque hôte. Il installe le binaire, l'unité et /etc/molesignal-node-agent sans démarrer l'agent."
+      },
+      "2": {
+        "title": "Faites-le pointer vers MoleSignal et démarrez-le",
+        "description": "MS_ENDPOINT désigne OTLP gRPC sur le port 4317, pour les métriques et les événements. MS_HTTP_ENDPOINT désigne l'API HTTP, pour le repli et l'envoi des profils. Le fichier de jeton n'est lisible que par root."
+      },
+      "3": {
+        "title": "Ou exécutez-le sur chaque nœud Kubernetes",
+        "description": "Le DaemonSet exécute le même agent en mode jeton autonome avec les espaces de noms de l'hôte. Le jeton est placé dans un Secret, les adresses dans le ConfigMap."
+      },
+      "4": {
+        "title": "Vérifiez l'agent",
+        "description": "doctor vérifie le noyau, BTF, les privilèges, les montages, les cgroups, le runtime de conteneurs, l'endpoint et le jeton. Chaque ligne doit indiquer PASS ; un WARN nomme un collecteur qui fonctionne en mode dégradé."
+      }
+    }
+  },
   "windows": {
     "name": "Hôtes Windows",
     "description": "Transférez les logs du journal d’événements à l’aide de Windows Event Forwarding et de winlogbeat.",
