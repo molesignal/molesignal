@@ -601,7 +601,8 @@ async fn counts_scan_the_files_the_window_cuts() {
     assert_eq!(res.scanned_rows, 2, "only file A is scanned");
 }
 
-/// 其它形态的计数（这里是 `OR`）照常扫描，结果不变。
+/// 索引答不了的计数（这里条件包在函数里）照常扫描，结果不变。`OR` 的每个分支都能由索引排除
+/// 文件，已不再是扫描的形态。
 #[tokio::test]
 async fn other_counts_scan_as_before() {
     let (_tmp, engine, stream) = traces_engine().await;
@@ -610,7 +611,7 @@ async fn other_counts_scan_as_before() {
         .execute(traces_request(
             &stream,
             &format!(
-                "SELECT count(*) AS n FROM traces WHERE trace_id = '{TRACE_A}' OR trace_id = '{TRACE_B}'"
+                "SELECT count(*) AS n FROM traces WHERE concat(trace_id, '') = '{TRACE_A}' OR concat(trace_id, '') = '{TRACE_B}'"
             ),
             whole_range(),
         ))
@@ -719,7 +720,7 @@ fn trace_rows(result: &domain::query::QueryResult) -> Vec<(String, i64)> {
 }
 
 /// 大文件里按整值等值找出的少数几行只读它们自己：80 000 行的文件每列有四页，两个命中的行
-/// 只在其中两页里，扫描行数就是命中的行数，结果与读整个文件相同（`OR` 让条件不再能从索引
+/// 只在其中两页里，扫描行数就是命中的行数，结果与读整个文件相同（条件包在函数里时不能从索引
 /// 定位行）。命中多到可能落在每一页里时照常读整个文件。
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn an_exact_lookup_in_a_large_file_reads_only_the_matching_rows() {
@@ -754,7 +755,7 @@ async fn an_exact_lookup_in_a_large_file_reads_only_the_matching_rows() {
     let scanned = engine
         .execute(traces_request(
             &stream,
-            &lookup(format!("trace_id = '{TRACE_A}' OR trace_id = '{TRACE_A}'")),
+            &lookup(format!("concat(trace_id, '') = '{TRACE_A}'")),
             whole_range(),
         ))
         .await
