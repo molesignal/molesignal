@@ -142,6 +142,34 @@ test.describe('Datasource page', () => {
     expect(Math.round(panel!.x - (rail!.x + rail!.width))).toBe(12);
   });
 
+  test('adds the host assets and the runbook to the Node Agent guide', async ({ page }) => {
+    await useLanguage(page, 'en-us');
+    await page.goto('/datasource/recommended/node-agent');
+    await expect(guide(page).getByRole('heading', { level: 2 })).toHaveText('MoleSignal Node Agent');
+
+    await expect(guide(page).locator('[data-guide-section] h3')).toHaveText([
+      'Endpoint and token',
+      'Set up the source',
+      'Verify data is arriving',
+      'Install the host assets',
+      'Troubleshooting',
+    ]);
+    await expect(guide(page)).toContainText('MS_ENDPOINT=');
+    await expect(guide(page)).toContainText(':4317');
+    await expect(page.locator('[data-node-agent-asset]')).toHaveCount(4);
+    await expect(page.locator('[data-node-agent-asset="indexes"]')).toHaveAttribute('data-state', 'waiting');
+    await expect(page.locator('[data-node-agent-alert]')).toHaveCount(6);
+    await expect(page.getByRole('button', { name: 'Install' })).toBeEnabled();
+    await expect(page.locator('[data-node-agent-runbook] [data-guide-step]')).toHaveCount(6);
+
+    // The titles the guide adds stand on the edge of the others.
+    const lefts = await guide(page)
+      .locator('h2, [data-guide-section] h3, [data-guide-step] h4, [data-node-agent-alerts] h4')
+      .evaluateAll((titles) => titles.map((title) => Math.round(title.getBoundingClientRect().left)));
+    expect(new Set(lefts).size).toBe(1);
+    expect(await page.locator('#main').innerText()).not.toMatch(/[一-鿿]/);
+  });
+
   test('finds a source in any category and goes to it', async ({ page }) => {
     await page.goto('/datasource/recommended/kubernetes');
     await expect(guide(page)).toBeVisible();
@@ -175,7 +203,7 @@ test.describe('Datasource page', () => {
 
     // Kubernetes sends logs only: the first source that sends metrics takes its place.
     await expect(page).toHaveURL(/\/datasource\/recommended\/linux\?signal=metrics$/);
-    await expect(rows(page)).toHaveCount(2);
+    await expect(rows(page)).toHaveCount(3);
 
     await page.reload();
     await expect(signals(page).getByRole('button', { name: 'Metrics' })).toHaveAttribute(

@@ -36,6 +36,28 @@
       }
     }
   },
+  "node-agent": {
+    "name": "MoleSignal Node Agent",
+    "description": "每台 Linux 主机一个 agent：指标、内核与硬件事件（OOM、丢包、重传、网卡状态、RAS、hung task）和 CPU profile。",
+    "steps": {
+      "1": {
+        "title": "以 systemd 服务安装 agent",
+        "description": "在每台主机上运行 agent 发行包里的安装脚本：装好二进制、unit 和 /etc/molesignal-node-agent，先不启动。"
+      },
+      "2": {
+        "title": "配置 MoleSignal 地址并启动",
+        "description": "MS_ENDPOINT 是 4317 端口的 OTLP gRPC，传指标和事件；MS_HTTP_ENDPOINT 是 HTTP API，用于回落和上传 profile。token 文件只允许 root 读取。"
+      },
+      "3": {
+        "title": "或在每个 Kubernetes 节点上运行",
+        "description": "DaemonSet 以 standalone token 模式运行同一个 agent，使用宿主机的命名空间；token 放进 Secret，地址写进 ConfigMap。"
+      },
+      "4": {
+        "title": "检查 agent",
+        "description": "doctor 检查内核、BTF、权限、挂载、cgroup、容器运行时、endpoint 与 token。每一行都应为 PASS；WARN 表示某个采集器降级运行。"
+      }
+    }
+  },
   "windows": {
     "name": "Windows 主机",
     "description": "使用 Windows Event Forwarding + winlogbeat 推送 Event Log。",

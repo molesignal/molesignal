@@ -108,7 +108,7 @@ describe('Datasource page', () => {
     renderAt('/datasource');
 
     await waitFor(() => expect(address()).toBe('/datasource/recommended/kubernetes'));
-    expect(rows().slice(0, 3)).toEqual(['kubernetes', 'linux', 'windows']);
+    expect(rows().slice(0, 3)).toEqual(['kubernetes', 'linux', 'node-agent']);
     expect(
       screen.getByRole('link', { name: /^Kubernetes/ }).getAttribute('aria-current'),
     ).toBe('page');
@@ -212,7 +212,7 @@ describe('Datasource page', () => {
     fireEvent.click(signal('Metrics'));
 
     await waitFor(() => expect(address()).toBe('/datasource/recommended/linux?signal=metrics'));
-    expect(rows()).toEqual(['linux', 'aws']);
+    expect(rows()).toEqual(['linux', 'node-agent', 'aws']);
 
     fireEvent.click(signal('All'));
 

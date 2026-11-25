@@ -310,6 +310,108 @@
     "copy": "复制",
     "expand_code": "展开代码",
     "collapse_code": "收起代码",
-    "token_missing": "没有可用的接入 Token，可在 Token 管理中创建。"
+    "token_missing": "没有可用的接入 Token，可在 Token 管理中创建。",
+    "node_agent": {
+      "assets": {
+        "title": "安装主机资产",
+        "description": "为 agent 监控的主机准备索引、仪表盘、保存的查询和实时告警规则。",
+        "install": "安装",
+        "up_to_date": "已安装",
+        "install_hint": "重复安装只补缺失的部分，不会覆盖你的修改；告警规则默认关闭。",
+        "installed": "主机资产已安装",
+        "skipped": "没有权限，未安装：{{items}}",
+        "unreadable": "读取主机资产失败：{{message}}",
+        "open": "打开",
+        "indexes": {
+          "title": "事件索引",
+          "ready": "host.id、container.id、event.name、event.domain、severity_text 已有精确索引",
+          "no_stream": "首个事件到达时自动带上精确索引",
+          "missing": "{{fields}} 还没有索引"
+        },
+        "dashboard": {
+          "title": "主机概览仪表盘",
+          "missing": "尚未安装",
+          "outdated": "有新版本",
+          "current": "已安装",
+          "taken": "已有其他仪表盘占用 uid host-overview"
+        },
+        "views": {
+          "title": "保存的查询",
+          "count": "已安装 {{installed}}/{{total}}：OOM、网络、RAS 与内核卡顿、错误事件"
+        },
+        "alerts": {
+          "title": "告警规则",
+          "count": "已创建 {{made}}/{{total}}，启用 {{enabled}}",
+          "unreadable": "你没有读取告警规则的权限"
+        }
+      },
+      "alerts": {
+        "title": "实时告警",
+        "description": "每条规则在事件写入时实时计数：5 分钟内出现一条就开事件，走默认升级策略。规则创建后默认关闭，按需启用。",
+        "on": "已启用",
+        "enable": "启用",
+        "disable": "停用",
+        "edit": "编辑",
+        "not_installed": "先安装资产",
+        "enabled_toast": "已启用 {{name}}",
+        "disabled_toast": "已停用 {{name}}",
+        "templates": {
+          "oom_kill": {
+            "name": "OOM kill",
+            "description": "进程因内存不足被杀：整机内存耗尽或容器超出内存上限。"
+          },
+          "hungtask": {
+            "name": "Hung task",
+            "description": "任务处于不可中断睡眠（D 状态）超过内核 hung_task 阈值。"
+          },
+          "softlockup": {
+            "name": "Soft lockup",
+            "description": "某颗 CPU 长时间不调度，超过 watchdog 阈值。"
+          },
+          "ras_uncorrected": {
+            "name": "不可纠正的硬件错误",
+            "description": "MCE、EDAC 内存或 PCIe AER 报告了硬件无法纠正的错误。"
+          },
+          "netdev_carrier_down": {
+            "name": "网卡链路断开",
+            "description": "网卡丢失载波：网线、交换机端口或网卡本身。"
+          },
+          "netdev_txqueue_timeout": {
+            "name": "网卡发送队列超时",
+            "description": "网卡发送队列超时，设备被复位。"
+          }
+        }
+      },
+      "runbook": {
+        "title": "排障手册",
+        "description": "数据没到时先跑 doctor，再按症状排查。",
+        "items": {
+          "no_data": {
+            "title": "完全没有数据",
+            "description": "doctor 会指出失败的一项：配置、endpoint、token 或内核。endpoint 一项 FAIL 说明主机连不上 4317 端口，检查防火墙与 MS_ENDPOINT。"
+          },
+          "unauthorized": {
+            "title": "401 未授权",
+            "description": "token 错误、已吊销或读不到。使用本组织的 intake token，单独存放在 token 文件里且只有 root 可读；doctor 的 auth 一行显示 endpoint 的应答。"
+          },
+          "grpc_http": {
+            "title": "批次积压，日志报 “intake unreachable (…)”",
+            "description": "MS_ENDPOINT 必须是 gRPC 端口（4317），MS_HTTP_ENDPOINT 是 HTTP API，也就是本页面的地址。MS_ENDPOINT 指向 HTTP 端口时 gRPC 收到 404；两者都指向 4317 时所有 profile 上传失败。"
+          },
+          "no_profiles": {
+            "title": "只有 metrics，没有 profile",
+            "description": "profile 经 HTTP 上传到 /api/v1/profiles/intake，持续 CPU profiling 默认关闭。设置 MS_HTTP_ENDPOINT 与 MS_PROFILING_CPU_ENABLED=true，然后在 Profiles 页面查看这台主机上的负载。"
+          },
+          "float_missing": {
+            "title": "loadavg、CPU 百分比等浮点指标缺失",
+            "description": "此前的版本里，value 列先被整数点推断为整型后，之后的小数点会被静默丢弃。升级 MoleSignal 后该列会拓宽为浮点，各 intake 端点也会回报被拒绝的条数。下面的查询列出 loadavg 与 cpu_util 的点数。"
+          },
+          "no_events": {
+            "title": "有 metrics 没有事件",
+            "description": "内核事件依赖 BTF、tracefs 与 BPF 相关 capability（Kubernetes 下即 DaemonSet 的挂载）。doctor 会标出缺失项，capabilities 列出这台主机运行的采集器。事件本身就少，空闲主机可能一条也没有。"
+          }
+        }
+      }
+    }
   }
 }

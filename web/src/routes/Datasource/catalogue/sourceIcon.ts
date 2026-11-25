@@ -4,6 +4,7 @@ import {
   Braces,
   Cloud,
   Code2,
+  Cpu,
   Database,
   FileJson,
   Flag,
@@ -32,6 +33,7 @@ import type { Category, Source } from '../sources';
 const SOURCE_ICONS: Record<string, LucideIcon> = {
   kubernetes: ShipWheel,
   linux: Server,
+  'node-agent': Cpu,
   windows: Monitor,
   aws: Cloud,
   gcp: Cloud,
