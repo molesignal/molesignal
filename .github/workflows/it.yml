@@ -93,4 +93,4 @@ jobs:
         env:
           MS_RUN_IT: '1'
         run: |
-          cargo test -p molesignal --tests -- --test-threads=1
+          cargo test -p molesignal --tests --no-fail-fast -- --test-threads=1

@@ -76,7 +76,16 @@ async fn custom_migration_table_and_repository_roundtrip() {
         .await
         .expect("create org");
     assert_eq!(orgs.get(&org.id).await.expect("get org").name, "Acme");
-    assert_eq!(orgs.list().await.expect("list orgs").len(), 1);
+    // The baseline seeds the platform organization `_sys`; Acme is the only tenant.
+    let tenants = orgs
+        .list()
+        .await
+        .expect("list orgs")
+        .into_iter()
+        .filter(|organization| !organization.system)
+        .map(|organization| organization.id)
+        .collect::<Vec<_>>();
+    assert_eq!(tenants, std::slice::from_ref(&org_id));
     assert_eq!(
         orgs.get_by_slug("acme").await.expect("get by slug").id,
         org_id
